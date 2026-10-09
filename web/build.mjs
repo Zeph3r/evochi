@@ -11,7 +11,7 @@ fs.mkdirSync(dist, { recursive: true });
 
 await build({
   entryPoints: [path.join(root, 'src/main.js')],
-  bundle: true, minify: false, format: 'iife', target: ['es2020'], outfile: path.join(dist, 'app.js'),
+  bundle: true, minify: true, format: 'iife', target: ['es2020'], outfile: path.join(dist, 'app.js'),
   loader: { '.woff2': 'empty' }, external: ['assets/*'], logLevel: 'warning', legalComments: 'none',
 });
 let css = fs.readFileSync(path.join(dist, 'app.css'), 'utf8');

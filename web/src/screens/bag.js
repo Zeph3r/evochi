@@ -25,7 +25,7 @@ export const bag = {
   id: 'bag',
   scene(ctx) {
     const u = ctx.ui('bag');
-    const sc = petScene(ctx, { platform: true, decor: null, focus: { x: 0.5, y: u.groundY || 0.33 } });
+    const sc = petScene(ctx, { platform: true, decor: null, focus: { x: 0.45, y: u.groundY || 0.33 } });
     const eq = { ...(ctx.state.pet.equipped || {}) };
     const sel = u.sel && ITEMS[u.sel];
     if (sel && sel.category === 'wearable') eq[sel.slot] = u.sel; // temporary try-on preview
@@ -45,8 +45,8 @@ export const bag = {
     const W = ctx.app.root.clientWidth;
     const cx = pr.left + pr.w / 2;
     const midY = pr.top + pr.h * 0.62;
-    const bw = 64;
-    const vis = pr.w * 0.32;
+    const bw = 60;
+    const vis = pr.w * 0.24;
     const place = (sel, x) => {
       const b = el.querySelector(sel);
       if (b) Object.assign(b.style, { left: Math.max(6, Math.min(W - bw - 6, x)) + 'px', top: midY - 38 + 'px' });

@@ -1,0 +1,2883 @@
+{
+ "chars": {
+  "s01": {
+   "scale": 10.5,
+   "w": 330,
+   "h": 375,
+   "anchors": {
+    "head_top": [
+     163.8,
+     13.4
+    ],
+    "neck": [
+     145.9,
+     296.9
+    ],
+    "back": [
+     199.5,
+     178.1
+    ],
+    "ground": [
+     165.4,
+     334.6
+    ],
+    "face": [
+     127.8,
+     246.1
+    ],
+    "hand": [
+     262.3,
+     280.0
+    ]
+   },
+   "expressions": [
+    "default",
+    "blink",
+    "happy",
+    "curious",
+    "surprised",
+    "determined",
+    "sad",
+    "sleepy",
+    "excited",
+    "neutral",
+    "sick",
+    "memorial"
+   ],
+   "atlas": {
+    "amber": {
+     "file": "chars/s01_amber_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       330,
+       375
+      ],
+      [
+       330,
+       0,
+       330,
+       375
+      ],
+      [
+       660,
+       0,
+       330,
+       375
+      ],
+      [
+       990,
+       0,
+       330,
+       375
+      ],
+      [
+       0,
+       375,
+       330,
+       375
+      ],
+      [
+       330,
+       375,
+       330,
+       375
+      ],
+      [
+       660,
+       375,
+       330,
+       375
+      ],
+      [
+       990,
+       375,
+       330,
+       375
+      ],
+      [
+       0,
+       750,
+       330,
+       375
+      ],
+      [
+       330,
+       750,
+       330,
+       375
+      ],
+      [
+       660,
+       750,
+       330,
+       375
+      ],
+      [
+       990,
+       750,
+       330,
+       375
+      ]
+     ]
+    },
+    "forest": {
+     "file": "chars/s01_forest_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       330,
+       375
+      ],
+      [
+       330,
+       0,
+       330,
+       375
+      ],
+      [
+       660,
+       0,
+       330,
+       375
+      ],
+      [
+       990,
+       0,
+       330,
+       375
+      ],
+      [
+       0,
+       375,
+       330,
+       375
+      ],
+      [
+       330,
+       375,
+       330,
+       375
+      ],
+      [
+       660,
+       375,
+       330,
+       375
+      ],
+      [
+       990,
+       375,
+       330,
+       375
+      ],
+      [
+       0,
+       750,
+       330,
+       375
+      ],
+      [
+       330,
+       750,
+       330,
+       375
+      ],
+      [
+       660,
+       750,
+       330,
+       375
+      ],
+      [
+       990,
+       750,
+       330,
+       375
+      ]
+     ]
+    },
+    "coral": {
+     "file": "chars/s01_coral_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       330,
+       375
+      ],
+      [
+       330,
+       0,
+       330,
+       375
+      ],
+      [
+       660,
+       0,
+       330,
+       375
+      ],
+      [
+       990,
+       0,
+       330,
+       375
+      ],
+      [
+       0,
+       375,
+       330,
+       375
+      ],
+      [
+       330,
+       375,
+       330,
+       375
+      ],
+      [
+       660,
+       375,
+       330,
+       375
+      ],
+      [
+       990,
+       375,
+       330,
+       375
+      ],
+      [
+       0,
+       750,
+       330,
+       375
+      ],
+      [
+       330,
+       750,
+       330,
+       375
+      ],
+      [
+       660,
+       750,
+       330,
+       375
+      ],
+      [
+       990,
+       750,
+       330,
+       375
+      ]
+     ]
+    },
+    "ocean": {
+     "file": "chars/s01_ocean_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       330,
+       375
+      ],
+      [
+       330,
+       0,
+       330,
+       375
+      ],
+      [
+       660,
+       0,
+       330,
+       375
+      ],
+      [
+       990,
+       0,
+       330,
+       375
+      ],
+      [
+       0,
+       375,
+       330,
+       375
+      ],
+      [
+       330,
+       375,
+       330,
+       375
+      ],
+      [
+       660,
+       375,
+       330,
+       375
+      ],
+      [
+       990,
+       375,
+       330,
+       375
+      ],
+      [
+       0,
+       750,
+       330,
+       375
+      ],
+      [
+       330,
+       750,
+       330,
+       375
+      ],
+      [
+       660,
+       750,
+       330,
+       375
+      ],
+      [
+       990,
+       750,
+       330,
+       375
+      ]
+     ]
+    },
+    "amethyst": {
+     "file": "chars/s01_amethyst_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       330,
+       375
+      ],
+      [
+       330,
+       0,
+       330,
+       375
+      ],
+      [
+       660,
+       0,
+       330,
+       375
+      ],
+      [
+       990,
+       0,
+       330,
+       375
+      ],
+      [
+       0,
+       375,
+       330,
+       375
+      ],
+      [
+       330,
+       375,
+       330,
+       375
+      ],
+      [
+       660,
+       375,
+       330,
+       375
+      ],
+      [
+       990,
+       375,
+       330,
+       375
+      ],
+      [
+       0,
+       750,
+       330,
+       375
+      ],
+      [
+       330,
+       750,
+       330,
+       375
+      ],
+      [
+       660,
+       750,
+       330,
+       375
+      ],
+      [
+       990,
+       750,
+       330,
+       375
+      ]
+     ]
+    },
+    "obsidian": {
+     "file": "chars/s01_obsidian_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       330,
+       375
+      ],
+      [
+       330,
+       0,
+       330,
+       375
+      ],
+      [
+       660,
+       0,
+       330,
+       375
+      ],
+      [
+       990,
+       0,
+       330,
+       375
+      ],
+      [
+       0,
+       375,
+       330,
+       375
+      ],
+      [
+       330,
+       375,
+       330,
+       375
+      ],
+      [
+       660,
+       375,
+       330,
+       375
+      ],
+      [
+       990,
+       375,
+       330,
+       375
+      ],
+      [
+       0,
+       750,
+       330,
+       375
+      ],
+      [
+       330,
+       750,
+       330,
+       375
+      ],
+      [
+       660,
+       750,
+       330,
+       375
+      ],
+      [
+       990,
+       750,
+       330,
+       375
+      ]
+     ]
+    }
+   },
+   "overlays": {
+    "file": "chars/s01_overlays.webp",
+    "rects": {
+     "leaf_scarf": [
+      0,
+      0,
+      330,
+      375
+     ],
+     "blue_scarf": [
+      330,
+      0,
+      330,
+      375
+     ],
+     "tiny_crown": [
+      660,
+      0,
+      330,
+      375
+     ],
+     "golden_crest_crown": [
+      990,
+      0,
+      330,
+      375
+     ],
+     "explorer_hat": [
+      0,
+      375,
+      330,
+      375
+     ],
+     "butterfly_clip": [
+      330,
+      375,
+      330,
+      375
+     ],
+     "red_backpack": [
+      660,
+      375,
+      330,
+      375
+     ],
+     "explorer_pack": [
+      990,
+      375,
+      330,
+      375
+     ]
+    }
+   },
+   "turn": {
+    "amber": {
+     "file": "chars/s01_amber_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       230,
+       254
+      ],
+      "left": [
+       230,
+       0,
+       188,
+       252
+      ],
+      "back": [
+       460,
+       0,
+       230,
+       254
+      ],
+      "right": [
+       690,
+       0,
+       188,
+       252
+      ],
+      "top": [
+       920,
+       0,
+       230,
+       190
+      ]
+     }
+    },
+    "forest": {
+     "file": "chars/s01_forest_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       230,
+       254
+      ],
+      "left": [
+       230,
+       0,
+       188,
+       252
+      ],
+      "back": [
+       460,
+       0,
+       230,
+       254
+      ],
+      "right": [
+       690,
+       0,
+       188,
+       252
+      ],
+      "top": [
+       920,
+       0,
+       230,
+       190
+      ]
+     }
+    },
+    "coral": {
+     "file": "chars/s01_coral_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       230,
+       254
+      ],
+      "left": [
+       230,
+       0,
+       188,
+       252
+      ],
+      "back": [
+       460,
+       0,
+       230,
+       254
+      ],
+      "right": [
+       690,
+       0,
+       188,
+       252
+      ],
+      "top": [
+       920,
+       0,
+       230,
+       190
+      ]
+     }
+    },
+    "ocean": {
+     "file": "chars/s01_ocean_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       230,
+       254
+      ],
+      "left": [
+       230,
+       0,
+       188,
+       252
+      ],
+      "back": [
+       460,
+       0,
+       230,
+       254
+      ],
+      "right": [
+       690,
+       0,
+       188,
+       252
+      ],
+      "top": [
+       920,
+       0,
+       230,
+       190
+      ]
+     }
+    },
+    "amethyst": {
+     "file": "chars/s01_amethyst_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       230,
+       254
+      ],
+      "left": [
+       230,
+       0,
+       188,
+       252
+      ],
+      "back": [
+       460,
+       0,
+       230,
+       254
+      ],
+      "right": [
+       690,
+       0,
+       188,
+       252
+      ],
+      "top": [
+       920,
+       0,
+       230,
+       190
+      ]
+     }
+    },
+    "obsidian": {
+     "file": "chars/s01_obsidian_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       230,
+       254
+      ],
+      "left": [
+       230,
+       0,
+       188,
+       252
+      ],
+      "back": [
+       460,
+       0,
+       230,
+       254
+      ],
+      "right": [
+       690,
+       0,
+       188,
+       252
+      ],
+      "top": [
+       920,
+       0,
+       230,
+       190
+      ]
+     }
+    }
+   },
+   "turnGround": {
+    "front": [
+     115.0,
+     229.0
+    ],
+    "left": [
+     97.5,
+     230.3
+    ],
+    "back": [
+     115.0,
+     230.8
+    ],
+    "right": [
+     90.5,
+     230.3
+    ],
+    "top": [
+     115.0,
+     92.3
+    ]
+   }
+  },
+  "s02": {
+   "scale": 10.5,
+   "w": 398,
+   "h": 375,
+   "anchors": {
+    "head_top": [
+     155.3,
+     56.3
+    ],
+    "neck": [
+     142.9,
+     269.9
+    ],
+    "back": [
+     229.4,
+     176.6
+    ],
+    "ground": [
+     217.0,
+     339.0
+    ],
+    "face": [
+     96.1,
+     202.6
+    ],
+    "tail": [
+     340.5,
+     91.1
+    ]
+   },
+   "expressions": [
+    "default",
+    "blink",
+    "happy",
+    "curious",
+    "surprised",
+    "determined",
+    "sad",
+    "sleepy",
+    "excited",
+    "neutral",
+    "sick",
+    "memorial"
+   ],
+   "atlas": {
+    "amber": {
+     "file": "chars/s02_amber_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       398,
+       375
+      ],
+      [
+       398,
+       0,
+       398,
+       375
+      ],
+      [
+       796,
+       0,
+       398,
+       375
+      ],
+      [
+       1194,
+       0,
+       398,
+       375
+      ],
+      [
+       0,
+       375,
+       398,
+       375
+      ],
+      [
+       398,
+       375,
+       398,
+       375
+      ],
+      [
+       796,
+       375,
+       398,
+       375
+      ],
+      [
+       1194,
+       375,
+       398,
+       375
+      ],
+      [
+       0,
+       750,
+       398,
+       375
+      ],
+      [
+       398,
+       750,
+       398,
+       375
+      ],
+      [
+       796,
+       750,
+       398,
+       375
+      ],
+      [
+       1194,
+       750,
+       398,
+       375
+      ]
+     ]
+    },
+    "forest": {
+     "file": "chars/s02_forest_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       398,
+       375
+      ],
+      [
+       398,
+       0,
+       398,
+       375
+      ],
+      [
+       796,
+       0,
+       398,
+       375
+      ],
+      [
+       1194,
+       0,
+       398,
+       375
+      ],
+      [
+       0,
+       375,
+       398,
+       375
+      ],
+      [
+       398,
+       375,
+       398,
+       375
+      ],
+      [
+       796,
+       375,
+       398,
+       375
+      ],
+      [
+       1194,
+       375,
+       398,
+       375
+      ],
+      [
+       0,
+       750,
+       398,
+       375
+      ],
+      [
+       398,
+       750,
+       398,
+       375
+      ],
+      [
+       796,
+       750,
+       398,
+       375
+      ],
+      [
+       1194,
+       750,
+       398,
+       375
+      ]
+     ]
+    },
+    "coral": {
+     "file": "chars/s02_coral_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       398,
+       375
+      ],
+      [
+       398,
+       0,
+       398,
+       375
+      ],
+      [
+       796,
+       0,
+       398,
+       375
+      ],
+      [
+       1194,
+       0,
+       398,
+       375
+      ],
+      [
+       0,
+       375,
+       398,
+       375
+      ],
+      [
+       398,
+       375,
+       398,
+       375
+      ],
+      [
+       796,
+       375,
+       398,
+       375
+      ],
+      [
+       1194,
+       375,
+       398,
+       375
+      ],
+      [
+       0,
+       750,
+       398,
+       375
+      ],
+      [
+       398,
+       750,
+       398,
+       375
+      ],
+      [
+       796,
+       750,
+       398,
+       375
+      ],
+      [
+       1194,
+       750,
+       398,
+       375
+      ]
+     ]
+    },
+    "ocean": {
+     "file": "chars/s02_ocean_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       398,
+       375
+      ],
+      [
+       398,
+       0,
+       398,
+       375
+      ],
+      [
+       796,
+       0,
+       398,
+       375
+      ],
+      [
+       1194,
+       0,
+       398,
+       375
+      ],
+      [
+       0,
+       375,
+       398,
+       375
+      ],
+      [
+       398,
+       375,
+       398,
+       375
+      ],
+      [
+       796,
+       375,
+       398,
+       375
+      ],
+      [
+       1194,
+       375,
+       398,
+       375
+      ],
+      [
+       0,
+       750,
+       398,
+       375
+      ],
+      [
+       398,
+       750,
+       398,
+       375
+      ],
+      [
+       796,
+       750,
+       398,
+       375
+      ],
+      [
+       1194,
+       750,
+       398,
+       375
+      ]
+     ]
+    },
+    "amethyst": {
+     "file": "chars/s02_amethyst_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       398,
+       375
+      ],
+      [
+       398,
+       0,
+       398,
+       375
+      ],
+      [
+       796,
+       0,
+       398,
+       375
+      ],
+      [
+       1194,
+       0,
+       398,
+       375
+      ],
+      [
+       0,
+       375,
+       398,
+       375
+      ],
+      [
+       398,
+       375,
+       398,
+       375
+      ],
+      [
+       796,
+       375,
+       398,
+       375
+      ],
+      [
+       1194,
+       375,
+       398,
+       375
+      ],
+      [
+       0,
+       750,
+       398,
+       375
+      ],
+      [
+       398,
+       750,
+       398,
+       375
+      ],
+      [
+       796,
+       750,
+       398,
+       375
+      ],
+      [
+       1194,
+       750,
+       398,
+       375
+      ]
+     ]
+    },
+    "obsidian": {
+     "file": "chars/s02_obsidian_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       398,
+       375
+      ],
+      [
+       398,
+       0,
+       398,
+       375
+      ],
+      [
+       796,
+       0,
+       398,
+       375
+      ],
+      [
+       1194,
+       0,
+       398,
+       375
+      ],
+      [
+       0,
+       375,
+       398,
+       375
+      ],
+      [
+       398,
+       375,
+       398,
+       375
+      ],
+      [
+       796,
+       375,
+       398,
+       375
+      ],
+      [
+       1194,
+       375,
+       398,
+       375
+      ],
+      [
+       0,
+       750,
+       398,
+       375
+      ],
+      [
+       398,
+       750,
+       398,
+       375
+      ],
+      [
+       796,
+       750,
+       398,
+       375
+      ],
+      [
+       1194,
+       750,
+       398,
+       375
+      ]
+     ]
+    }
+   },
+   "overlays": {
+    "file": "chars/s02_overlays.webp",
+    "rects": {
+     "leaf_scarf": [
+      0,
+      0,
+      398,
+      375
+     ],
+     "blue_scarf": [
+      398,
+      0,
+      398,
+      375
+     ],
+     "tiny_crown": [
+      796,
+      0,
+      398,
+      375
+     ],
+     "golden_crest_crown": [
+      1194,
+      0,
+      398,
+      375
+     ],
+     "explorer_hat": [
+      0,
+      375,
+      398,
+      375
+     ],
+     "butterfly_clip": [
+      398,
+      375,
+      398,
+      375
+     ],
+     "red_backpack": [
+      796,
+      375,
+      398,
+      375
+     ],
+     "explorer_pack": [
+      1194,
+      375,
+      398,
+      375
+     ]
+    }
+   },
+   "turn": {
+    "amber": {
+     "file": "chars/s02_amber_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       200,
+       246
+      ],
+      "left": [
+       322,
+       0,
+       322,
+       256
+      ],
+      "back": [
+       644,
+       0,
+       200,
+       268
+      ],
+      "right": [
+       966,
+       0,
+       322,
+       260
+      ],
+      "top": [
+       1288,
+       0,
+       200,
+       322
+      ]
+     }
+    },
+    "forest": {
+     "file": "chars/s02_forest_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       200,
+       246
+      ],
+      "left": [
+       322,
+       0,
+       322,
+       256
+      ],
+      "back": [
+       644,
+       0,
+       200,
+       268
+      ],
+      "right": [
+       966,
+       0,
+       322,
+       260
+      ],
+      "top": [
+       1288,
+       0,
+       200,
+       322
+      ]
+     }
+    },
+    "coral": {
+     "file": "chars/s02_coral_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       200,
+       246
+      ],
+      "left": [
+       322,
+       0,
+       322,
+       256
+      ],
+      "back": [
+       644,
+       0,
+       200,
+       268
+      ],
+      "right": [
+       966,
+       0,
+       322,
+       260
+      ],
+      "top": [
+       1288,
+       0,
+       200,
+       322
+      ]
+     }
+    },
+    "ocean": {
+     "file": "chars/s02_ocean_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       200,
+       246
+      ],
+      "left": [
+       322,
+       0,
+       322,
+       256
+      ],
+      "back": [
+       644,
+       0,
+       200,
+       268
+      ],
+      "right": [
+       966,
+       0,
+       322,
+       260
+      ],
+      "top": [
+       1288,
+       0,
+       200,
+       322
+      ]
+     }
+    },
+    "amethyst": {
+     "file": "chars/s02_amethyst_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       200,
+       246
+      ],
+      "left": [
+       322,
+       0,
+       322,
+       256
+      ],
+      "back": [
+       644,
+       0,
+       200,
+       268
+      ],
+      "right": [
+       966,
+       0,
+       322,
+       260
+      ],
+      "top": [
+       1288,
+       0,
+       200,
+       322
+      ]
+     }
+    },
+    "obsidian": {
+     "file": "chars/s02_obsidian_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       200,
+       246
+      ],
+      "left": [
+       322,
+       0,
+       322,
+       256
+      ],
+      "back": [
+       644,
+       0,
+       200,
+       268
+      ],
+      "right": [
+       966,
+       0,
+       322,
+       260
+      ],
+      "top": [
+       1288,
+       0,
+       200,
+       322
+      ]
+     }
+    }
+   },
+   "turnGround": {
+    "front": [
+     101.0,
+     224.3
+    ],
+    "left": [
+     146.5,
+     235.8
+    ],
+    "back": [
+     97.5,
+     248.6
+    ],
+    "right": [
+     174.5,
+     238.7
+    ],
+    "top": [
+     101.0,
+     177.0
+    ]
+   }
+  },
+  "s03": {
+   "scale": 10.5,
+   "w": 580,
+   "h": 466,
+   "anchors": {
+    "head_top": [
+     153.0,
+     187.3
+    ],
+    "neck": [
+     187.0,
+     325.1
+    ],
+    "back": [
+     282.6,
+     208.5
+    ],
+    "ground": [
+     282.6,
+     402.9
+    ],
+    "face": [
+     74.0,
+     314.0
+    ],
+    "tail": [
+     461.6,
+     71.2
+    ]
+   },
+   "expressions": [
+    "default",
+    "blink",
+    "happy",
+    "curious",
+    "surprised",
+    "determined",
+    "sad",
+    "sleepy",
+    "excited",
+    "neutral",
+    "sick",
+    "memorial"
+   ],
+   "atlas": {
+    "amber": {
+     "file": "chars/s03_amber_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       580,
+       466
+      ],
+      [
+       580,
+       0,
+       580,
+       466
+      ],
+      [
+       1160,
+       0,
+       580,
+       466
+      ],
+      [
+       1740,
+       0,
+       580,
+       466
+      ],
+      [
+       0,
+       466,
+       580,
+       466
+      ],
+      [
+       580,
+       466,
+       580,
+       466
+      ],
+      [
+       1160,
+       466,
+       580,
+       466
+      ],
+      [
+       1740,
+       466,
+       580,
+       466
+      ],
+      [
+       0,
+       932,
+       580,
+       466
+      ],
+      [
+       580,
+       932,
+       580,
+       466
+      ],
+      [
+       1160,
+       932,
+       580,
+       466
+      ],
+      [
+       1740,
+       932,
+       580,
+       466
+      ]
+     ]
+    },
+    "forest": {
+     "file": "chars/s03_forest_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       580,
+       466
+      ],
+      [
+       580,
+       0,
+       580,
+       466
+      ],
+      [
+       1160,
+       0,
+       580,
+       466
+      ],
+      [
+       1740,
+       0,
+       580,
+       466
+      ],
+      [
+       0,
+       466,
+       580,
+       466
+      ],
+      [
+       580,
+       466,
+       580,
+       466
+      ],
+      [
+       1160,
+       466,
+       580,
+       466
+      ],
+      [
+       1740,
+       466,
+       580,
+       466
+      ],
+      [
+       0,
+       932,
+       580,
+       466
+      ],
+      [
+       580,
+       932,
+       580,
+       466
+      ],
+      [
+       1160,
+       932,
+       580,
+       466
+      ],
+      [
+       1740,
+       932,
+       580,
+       466
+      ]
+     ]
+    },
+    "coral": {
+     "file": "chars/s03_coral_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       580,
+       466
+      ],
+      [
+       580,
+       0,
+       580,
+       466
+      ],
+      [
+       1160,
+       0,
+       580,
+       466
+      ],
+      [
+       1740,
+       0,
+       580,
+       466
+      ],
+      [
+       0,
+       466,
+       580,
+       466
+      ],
+      [
+       580,
+       466,
+       580,
+       466
+      ],
+      [
+       1160,
+       466,
+       580,
+       466
+      ],
+      [
+       1740,
+       466,
+       580,
+       466
+      ],
+      [
+       0,
+       932,
+       580,
+       466
+      ],
+      [
+       580,
+       932,
+       580,
+       466
+      ],
+      [
+       1160,
+       932,
+       580,
+       466
+      ],
+      [
+       1740,
+       932,
+       580,
+       466
+      ]
+     ]
+    },
+    "ocean": {
+     "file": "chars/s03_ocean_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       580,
+       466
+      ],
+      [
+       580,
+       0,
+       580,
+       466
+      ],
+      [
+       1160,
+       0,
+       580,
+       466
+      ],
+      [
+       1740,
+       0,
+       580,
+       466
+      ],
+      [
+       0,
+       466,
+       580,
+       466
+      ],
+      [
+       580,
+       466,
+       580,
+       466
+      ],
+      [
+       1160,
+       466,
+       580,
+       466
+      ],
+      [
+       1740,
+       466,
+       580,
+       466
+      ],
+      [
+       0,
+       932,
+       580,
+       466
+      ],
+      [
+       580,
+       932,
+       580,
+       466
+      ],
+      [
+       1160,
+       932,
+       580,
+       466
+      ],
+      [
+       1740,
+       932,
+       580,
+       466
+      ]
+     ]
+    },
+    "amethyst": {
+     "file": "chars/s03_amethyst_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       580,
+       466
+      ],
+      [
+       580,
+       0,
+       580,
+       466
+      ],
+      [
+       1160,
+       0,
+       580,
+       466
+      ],
+      [
+       1740,
+       0,
+       580,
+       466
+      ],
+      [
+       0,
+       466,
+       580,
+       466
+      ],
+      [
+       580,
+       466,
+       580,
+       466
+      ],
+      [
+       1160,
+       466,
+       580,
+       466
+      ],
+      [
+       1740,
+       466,
+       580,
+       466
+      ],
+      [
+       0,
+       932,
+       580,
+       466
+      ],
+      [
+       580,
+       932,
+       580,
+       466
+      ],
+      [
+       1160,
+       932,
+       580,
+       466
+      ],
+      [
+       1740,
+       932,
+       580,
+       466
+      ]
+     ]
+    },
+    "obsidian": {
+     "file": "chars/s03_obsidian_hero.webp",
+     "rects": [
+      [
+       0,
+       0,
+       580,
+       466
+      ],
+      [
+       580,
+       0,
+       580,
+       466
+      ],
+      [
+       1160,
+       0,
+       580,
+       466
+      ],
+      [
+       1740,
+       0,
+       580,
+       466
+      ],
+      [
+       0,
+       466,
+       580,
+       466
+      ],
+      [
+       580,
+       466,
+       580,
+       466
+      ],
+      [
+       1160,
+       466,
+       580,
+       466
+      ],
+      [
+       1740,
+       466,
+       580,
+       466
+      ],
+      [
+       0,
+       932,
+       580,
+       466
+      ],
+      [
+       580,
+       932,
+       580,
+       466
+      ],
+      [
+       1160,
+       932,
+       580,
+       466
+      ],
+      [
+       1740,
+       932,
+       580,
+       466
+      ]
+     ]
+    }
+   },
+   "overlays": {
+    "file": "chars/s03_overlays.webp",
+    "rects": {
+     "leaf_scarf": [
+      0,
+      0,
+      580,
+      466
+     ],
+     "blue_scarf": [
+      580,
+      0,
+      580,
+      466
+     ],
+     "tiny_crown": [
+      1160,
+      0,
+      580,
+      466
+     ],
+     "golden_crest_crown": [
+      1740,
+      0,
+      580,
+      466
+     ],
+     "explorer_hat": [
+      0,
+      466,
+      580,
+      466
+     ],
+     "butterfly_clip": [
+      580,
+      466,
+      580,
+      466
+     ],
+     "red_backpack": [
+      1160,
+      466,
+      580,
+      466
+     ],
+     "explorer_pack": [
+      1740,
+      466,
+      580,
+      466
+     ]
+    }
+   },
+   "turn": {
+    "amber": {
+     "file": "chars/s03_amber_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       244,
+       306
+      ],
+      "left": [
+       538,
+       0,
+       538,
+       288
+      ],
+      "back": [
+       1076,
+       0,
+       244,
+       306
+      ],
+      "right": [
+       1614,
+       0,
+       538,
+       288
+      ],
+      "top": [
+       2152,
+       0,
+       244,
+       540
+      ]
+     }
+    },
+    "forest": {
+     "file": "chars/s03_forest_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       244,
+       306
+      ],
+      "left": [
+       538,
+       0,
+       538,
+       288
+      ],
+      "back": [
+       1076,
+       0,
+       244,
+       306
+      ],
+      "right": [
+       1614,
+       0,
+       538,
+       288
+      ],
+      "top": [
+       2152,
+       0,
+       244,
+       540
+      ]
+     }
+    },
+    "coral": {
+     "file": "chars/s03_coral_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       244,
+       306
+      ],
+      "left": [
+       538,
+       0,
+       538,
+       288
+      ],
+      "back": [
+       1076,
+       0,
+       244,
+       306
+      ],
+      "right": [
+       1614,
+       0,
+       538,
+       288
+      ],
+      "top": [
+       2152,
+       0,
+       244,
+       540
+      ]
+     }
+    },
+    "ocean": {
+     "file": "chars/s03_ocean_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       244,
+       306
+      ],
+      "left": [
+       538,
+       0,
+       538,
+       288
+      ],
+      "back": [
+       1076,
+       0,
+       244,
+       306
+      ],
+      "right": [
+       1614,
+       0,
+       538,
+       288
+      ],
+      "top": [
+       2152,
+       0,
+       244,
+       540
+      ]
+     }
+    },
+    "amethyst": {
+     "file": "chars/s03_amethyst_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       244,
+       306
+      ],
+      "left": [
+       538,
+       0,
+       538,
+       288
+      ],
+      "back": [
+       1076,
+       0,
+       244,
+       306
+      ],
+      "right": [
+       1614,
+       0,
+       538,
+       288
+      ],
+      "top": [
+       2152,
+       0,
+       244,
+       540
+      ]
+     }
+    },
+    "obsidian": {
+     "file": "chars/s03_obsidian_turn.webp",
+     "rects": {
+      "front": [
+       0,
+       0,
+       244,
+       306
+      ],
+      "left": [
+       538,
+       0,
+       538,
+       288
+      ],
+      "back": [
+       1076,
+       0,
+       244,
+       306
+      ],
+      "right": [
+       1614,
+       0,
+       538,
+       288
+      ],
+      "top": [
+       2152,
+       0,
+       244,
+       540
+      ]
+     }
+    }
+   },
+   "turnGround": {
+    "front": [
+     122.0,
+     269.7
+    ],
+    "left": [
+     248.0,
+     257.4
+    ],
+    "back": [
+     122.0,
+     278.4
+    ],
+    "right": [
+     290.0,
+     257.4
+    ],
+    "top": [
+     122.0,
+     292.0
+    ]
+   }
+  }
+ },
+ "habitats": {
+  "meadow": {
+   "w": 780,
+   "h": 1688,
+   "layers": {
+    "sky": "habitats/meadow_sky.webp",
+    "far": "habitats/meadow_far.webp",
+    "mid": "habitats/meadow_mid.webp",
+    "near": "habitats/meadow_near.webp"
+   },
+   "pet": [
+    390.0,
+    658.1
+   ],
+   "petPxPerUnit": 38.45733333333333,
+   "slots": {
+    "nest": {
+     "px": [
+      390.0,
+      658.1
+     ],
+     "pxPerUnit": 38.45733333333333
+    },
+    "left": {
+     "px": [
+      159.3,
+      694.3
+     ],
+     "pxPerUnit": 41.20333333333333
+    },
+    "right": {
+     "px": [
+      623.9,
+      682.6
+     ],
+     "pxPerUnit": 40.31733333333333
+    },
+    "back": {
+     "px": [
+      291.1,
+      585.9
+     ],
+     "pxPerUnit": 32.964666666666666
+    }
+   },
+   "decor": {
+    "nest_bed@nest": {
+     "file": "habitats/decor_nest_bed_nest.webp",
+     "x": 238.0,
+     "y": 550.0,
+     "w": 305,
+     "h": 165
+    },
+    "meadow_nest@nest": {
+     "file": "habitats/decor_meadow_nest_nest.webp",
+     "x": 238.0,
+     "y": 545.3,
+     "w": 305,
+     "h": 170
+    },
+    "platform@nest": {
+     "file": "habitats/decor_platform_nest.webp",
+     "x": 214.7,
+     "y": 566.7,
+     "w": 351,
+     "h": 158
+    },
+    "sunlit_flower@left": {
+     "file": "habitats/decor_sunlit_flower_left.webp",
+     "x": 103.3,
+     "y": 568.7,
+     "w": 115,
+     "h": 138
+    },
+    "sunlit_flower@right": {
+     "file": "habitats/decor_sunlit_flower_right.webp",
+     "x": 573.3,
+     "y": 559.3,
+     "w": 116,
+     "h": 136
+    },
+    "sunlit_flower@back": {
+     "file": "habitats/decor_sunlit_flower_back.webp",
+     "x": 247.3,
+     "y": 484.0,
+     "w": 93,
+     "h": 112
+    },
+    "explorer_lantern@left": {
+     "file": "habitats/decor_explorer_lantern_left.webp",
+     "x": 109.3,
+     "y": 547.3,
+     "w": 97,
+     "h": 159
+    },
+    "explorer_lantern@right": {
+     "file": "habitats/decor_explorer_lantern_right.webp",
+     "x": 578.0,
+     "y": 538.7,
+     "w": 95,
+     "h": 156
+    },
+    "explorer_lantern@back": {
+     "file": "habitats/decor_explorer_lantern_back.webp",
+     "x": 254.0,
+     "y": 466.7,
+     "w": 73,
+     "h": 127
+    }
+   }
+  },
+  "market": {
+   "w": 780,
+   "h": 1688,
+   "layers": {
+    "sky": "habitats/market_sky.webp",
+    "far": "habitats/market_far.webp",
+    "mid": "habitats/market_mid.webp"
+   },
+   "pet": [
+    390.0,
+    597.1
+   ],
+   "petPxPerUnit": 38.99733333333333,
+   "slots": {
+    "stage": {
+     "px": [
+      390.0,
+      597.1
+     ],
+     "pxPerUnit": 38.99733333333333
+    }
+   }
+  },
+  "welcome": {
+   "w": 780,
+   "h": 1688,
+   "layers": {
+    "sky": "habitats/welcome_sky.webp",
+    "far": "habitats/welcome_far.webp",
+    "mid": "habitats/welcome_mid.webp",
+    "near": "habitats/welcome_near.webp"
+   },
+   "pet": [
+    390.0,
+    781.1
+   ],
+   "petPxPerUnit": 36.324666666666666,
+   "slots": {
+    "pedestal": {
+     "px": [
+      390.0,
+      781.1
+     ],
+     "pxPerUnit": 36.324666666666666
+    }
+   }
+  },
+  "thumbs": {
+   "meadow": "habitats/thumb_meadow.webp",
+   "forest": "habitats/thumb_forest.webp",
+   "cliffs": "habitats/thumb_cliffs.webp"
+  }
+ },
+ "items": {
+  "berry_snack": "items/berry_snack.webp",
+  "blue_scarf": "items/blue_scarf.webp",
+  "butterfly_clip": "items/butterfly_clip.webp",
+  "explorer_hat": "items/explorer_hat.webp",
+  "explorer_lantern": "items/explorer_lantern.webp",
+  "explorer_pack": "items/explorer_pack.webp",
+  "golden_crest_crown": "items/golden_crest_crown.webp",
+  "healing_herb": "items/healing_herb.webp",
+  "leaf_scarf": "items/leaf_scarf.webp",
+  "meadow_nest": "items/meadow_nest.webp",
+  "nest_bed": "items/nest_bed.webp",
+  "platform": "items/platform.webp",
+  "red_backpack": "items/red_backpack.webp",
+  "sunlit_flower": "items/sunlit_flower.webp",
+  "tiny_crown": "items/tiny_crown.webp"
+ },
+ "icons": {
+  "bag": "icons/bag.webp",
+  "bell": "icons/bell.webp",
+  "care": "icons/care.webp",
+  "chest": "icons/chest.webp",
+  "coin": "icons/coin.webp",
+  "consumables": "icons/consumables.webp",
+  "crown": "icons/crown.webp",
+  "decorations": "icons/decorations.webp",
+  "evodex": "icons/evodex.webp",
+  "evolve": "icons/evolve.webp",
+  "gem": "icons/gem.webp",
+  "habitats": "icons/habitats.webp",
+  "heart": "icons/heart.webp",
+  "heart_empty": "icons/heart_empty.webp",
+  "home": "icons/home.webp",
+  "inspect": "icons/inspect.webp",
+  "journey": "icons/journey.webp",
+  "lock": "icons/lock.webp",
+  "mail": "icons/mail.webp",
+  "palette": "icons/palette.webp",
+  "paw": "icons/paw.webp",
+  "pin": "icons/pin.webp",
+  "play": "icons/play.webp",
+  "potion": "icons/potion.webp",
+  "settings": "icons/settings.webp",
+  "shop": "icons/shop.webp",
+  "star": "icons/star.webp",
+  "steps": "icons/steps.webp",
+  "trophy": "icons/trophy.webp",
+  "warning": "icons/warning.webp",
+  "wearables": "icons/wearables.webp",
+  "xp": "icons/xp.webp"
+ },
+ "titles": {
+  "title_bag": {
+   "file": "titles/title_bag.webp",
+   "w": 193,
+   "h": 103
+  },
+  "title_create_your": {
+   "file": "titles/title_create_your.webp",
+   "w": 548,
+   "h": 76
+  },
+  "title_evodex": {
+   "file": "titles/title_evodex.webp",
+   "w": 334,
+   "h": 91
+  },
+  "title_journey": {
+   "file": "titles/title_journey.webp",
+   "w": 381,
+   "h": 90
+  },
+  "title_market": {
+   "file": "titles/title_market.webp",
+   "w": 340,
+   "h": 84
+  },
+  "title_memorial": {
+   "file": "titles/title_memorial.webp",
+   "w": 414,
+   "h": 79
+  },
+  "title_profile": {
+   "file": "titles/title_profile.webp",
+   "w": 354,
+   "h": 80
+  },
+  "wordmark_evochi": {
+   "file": "titles/wordmark_evochi.webp",
+   "w": 307,
+   "h": 93
+  }
+ },
+ "audio": {
+  "ambient_meadow_loop": "ambient/ambient_meadow_loop.mp3",
+  "coin": "sfx/coin.mp3",
+  "error_bonk": "sfx/error_bonk.mp3",
+  "evolve_fanfare": "sfx/evolve_fanfare.mp3",
+  "level_up": "sfx/level_up.mp3",
+  "memorial": "sfx/memorial.mp3",
+  "pet_chirp": "sfx/pet_chirp.mp3",
+  "play_boing": "sfx/play_boing.mp3",
+  "purchase": "sfx/purchase.mp3",
+  "reward_chime": "sfx/reward_chime.mp3",
+  "ui_tap": "sfx/ui_tap.mp3"
+ },
+ "thumbs": {
+  "file": "chars/thumbs.webp",
+  "rects": {
+   "1|amber|default": [
+    0,
+    0,
+    131,
+    150
+   ],
+   "1|amber|determined": [
+    133,
+    0,
+    131,
+    150
+   ],
+   "1|forest|default": [
+    266,
+    0,
+    131,
+    150
+   ],
+   "1|forest|determined": [
+    399,
+    0,
+    131,
+    150
+   ],
+   "1|coral|default": [
+    532,
+    0,
+    131,
+    150
+   ],
+   "1|coral|determined": [
+    665,
+    0,
+    131,
+    150
+   ],
+   "1|ocean|default": [
+    798,
+    0,
+    131,
+    150
+   ],
+   "1|ocean|determined": [
+    931,
+    0,
+    131,
+    150
+   ],
+   "1|amethyst|default": [
+    1064,
+    0,
+    131,
+    150
+   ],
+   "1|amethyst|determined": [
+    1197,
+    0,
+    131,
+    150
+   ],
+   "1|obsidian|default": [
+    1330,
+    0,
+    131,
+    150
+   ],
+   "1|obsidian|determined": [
+    1463,
+    0,
+    131,
+    150
+   ],
+   "2|amber|default": [
+    0,
+    152,
+    157,
+    150
+   ],
+   "2|amber|determined": [
+    159,
+    152,
+    157,
+    150
+   ],
+   "2|forest|default": [
+    318,
+    152,
+    157,
+    150
+   ],
+   "2|forest|determined": [
+    477,
+    152,
+    157,
+    150
+   ],
+   "2|coral|default": [
+    636,
+    152,
+    157,
+    150
+   ],
+   "2|coral|determined": [
+    795,
+    152,
+    157,
+    150
+   ],
+   "2|ocean|default": [
+    954,
+    152,
+    157,
+    150
+   ],
+   "2|ocean|determined": [
+    1113,
+    152,
+    157,
+    150
+   ],
+   "2|amethyst|default": [
+    1272,
+    152,
+    157,
+    150
+   ],
+   "2|amethyst|determined": [
+    1431,
+    152,
+    157,
+    150
+   ],
+   "2|obsidian|default": [
+    0,
+    304,
+    157,
+    150
+   ],
+   "2|obsidian|determined": [
+    159,
+    304,
+    157,
+    150
+   ],
+   "3|amber|default": [
+    318,
+    304,
+    180,
+    150
+   ],
+   "3|amber|determined": [
+    500,
+    304,
+    180,
+    150
+   ],
+   "3|forest|default": [
+    682,
+    304,
+    180,
+    150
+   ],
+   "3|forest|determined": [
+    864,
+    304,
+    180,
+    150
+   ],
+   "3|coral|default": [
+    1046,
+    304,
+    180,
+    150
+   ],
+   "3|coral|determined": [
+    1228,
+    304,
+    180,
+    150
+   ],
+   "3|ocean|default": [
+    1410,
+    304,
+    180,
+    150
+   ],
+   "3|ocean|determined": [
+    0,
+    456,
+    180,
+    150
+   ],
+   "3|amethyst|default": [
+    182,
+    456,
+    180,
+    150
+   ],
+   "3|amethyst|determined": [
+    364,
+    456,
+    180,
+    150
+   ],
+   "3|obsidian|default": [
+    546,
+    456,
+    180,
+    150
+   ],
+   "3|obsidian|determined": [
+    728,
+    456,
+    180,
+    150
+   ]
+  }
+ }
+}

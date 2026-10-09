@@ -1,0 +1,186 @@
+{
+  "version": "1.0.0",
+  "goal": {
+    "default": 7000,
+    "presets": [
+      {
+        "id": "beginner",
+        "label": "Beginner",
+        "steps": 5000,
+        "blurb": "Gentle start"
+      },
+      {
+        "id": "standard",
+        "label": "Standard",
+        "steps": 7000,
+        "blurb": "Recommended"
+      },
+      {
+        "id": "active",
+        "label": "Active",
+        "steps": 10000,
+        "blurb": "For regular walkers"
+      }
+    ],
+    "min": 1000,
+    "max": 30000
+  },
+  "xp": {
+    "base": 100,
+    "milestones": [
+      {
+        "id": "m25",
+        "ratio": 0.25,
+        "xp": 10
+      },
+      {
+        "id": "m50",
+        "ratio": 0.5,
+        "xp": 15
+      },
+      {
+        "id": "m100",
+        "ratio": 1,
+        "xp": 25
+      }
+    ],
+    "stretchMax": 20,
+    "stretchSpan": 0.5
+  },
+  "level": {
+    "a": 120,
+    "b": 40,
+    "c": 4,
+    "max": 99
+  },
+  "evolution": {
+    "2": {
+      "level": 10,
+      "activeDays": 7
+    },
+    "3": {
+      "level": 25,
+      "activeDays": 21
+    }
+  },
+  "activeDayRatio": 0.5,
+  "vitality": {
+    "start": 100,
+    "restoreHalf": 8,
+    "restoreFull": 14,
+    "lowRatio": 0.25,
+    "lowPenalty": 8,
+    "graceHours": 48,
+    "restDaysPerWindow": 2,
+    "restWindowDays": 7,
+    "bands": {
+      "healthy": 70,
+      "neutral": 35,
+      "sick": 1
+    }
+  },
+  "bond": {
+    "max": 100,
+    "firstPet": 2,
+    "firstPlay": 3,
+    "goalCelebration": 1,
+    "directDailyCap": 5
+  },
+  "care": {
+    "recoveryCooldownHours": 12,
+    "revive": {
+      "vitality": 40,
+      "herbCost": 3
+    }
+  },
+  "quests": [
+    {
+      "id": "first_steps",
+      "period": "day",
+      "title": "First Steps",
+      "desc": "Reach 25% of your step goal",
+      "ratio": 0.25,
+      "coins": 15,
+      "icon": "steps"
+    },
+    {
+      "id": "daily_walker",
+      "period": "day",
+      "title": "Daily Walker",
+      "desc": "Reach 50% of your step goal",
+      "ratio": 0.5,
+      "coins": 25,
+      "icon": "steps"
+    },
+    {
+      "id": "daily_goal",
+      "period": "day",
+      "title": "Daily Goal",
+      "desc": "Reach 100% of your step goal",
+      "ratio": 1,
+      "coins": 40,
+      "chest": true,
+      "icon": "chest"
+    },
+    {
+      "id": "bond_time",
+      "period": "day",
+      "title": "Bond Time",
+      "desc": "Pet or play with your Evochi",
+      "interaction": true,
+      "coins": 5,
+      "icon": "heart"
+    },
+    {
+      "id": "weekly_explorer",
+      "period": "week",
+      "title": "Weekly Explorer",
+      "desc": "Meet your goal on 4 days this week",
+      "goalDays": 4,
+      "coins": 100,
+      "cosmeticChance": 0.35,
+      "icon": "trophy"
+    }
+  ],
+  "chest": {
+    "coins": [
+      10,
+      15,
+      20,
+      30
+    ],
+    "itemChance": 0.4,
+    "items": [
+      "berry_snack",
+      "berry_snack",
+      "healing_herb",
+      "sunlit_flower"
+    ]
+  },
+  "starter": {
+    "coins": 0,
+    "items": [
+      {
+        "itemId": "berry_snack",
+        "quantity": 2
+      },
+      {
+        "itemId": "nest_bed",
+        "quantity": 1
+      }
+    ],
+    "placements": [
+      {
+        "slotId": "nest",
+        "itemId": "nest_bed"
+      }
+    ]
+  },
+  "manualSteps": {
+    "allowChests": false
+  },
+  "name": {
+    "min": 1,
+    "max": 12
+  }
+}

@@ -1,0 +1,6 @@
+<!-- Add inside the top-level <dict> of ios/Runner/Info.plist -->
+<key>NSHealthShareUsageDescription</key>
+<string>Evochi reads your daily step count to grow your pet, award XP and complete quests. It never reads other health data.</string>
+<key>NSHealthUpdateUsageDescription</key>
+<string>Evochi does not write health data.</string>
+<!-- Also enable the HealthKit capability for the Runner target in Xcode (Signing & Capabilities). -->

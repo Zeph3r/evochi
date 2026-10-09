@@ -72,7 +72,7 @@ export const shop = {
           <img src="${url(t1.file)}" alt="" style="height:36px;width:auto"><img src="${url(t2.file)}" alt="" style="height:30px;width:auto;margin-top:-4px"></div>
         ${coinPill(ctx)}
       </header>
-      <div class="tabs" role="tablist" aria-label="Market sections" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:8px;position:relative;z-index:4">
+      <div class="tabs four" role="tablist" aria-label="Market sections" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:8px;position:relative;z-index:4">
         ${CATS.map((c) => html`<button class="tab" role="tab" aria-selected="${c.id === cat}" data-act="cat" data-arg="${c.id}" data-k="sc-${c.id}" style="font-size:12.5px;gap:2px;padding:0 3px"><img src="${icon(c.icon)}" alt="" style="width:21px;height:21px"><span>${c.label}</span></button>`)}
       </div>
       <div class="shop-stage">
