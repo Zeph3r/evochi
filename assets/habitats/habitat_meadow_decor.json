@@ -1,0 +1,65 @@
+{
+ "nest_bed@nest": {
+  "file": "decor_nest_bed_nest.png",
+  "x": 357,
+  "y": 825,
+  "w": 457,
+  "h": 248
+ },
+ "meadow_nest@nest": {
+  "file": "decor_meadow_nest_nest.png",
+  "x": 357,
+  "y": 818,
+  "w": 457,
+  "h": 255
+ },
+ "platform@nest": {
+  "file": "decor_platform_nest.png",
+  "x": 322,
+  "y": 850,
+  "w": 527,
+  "h": 237
+ },
+ "sunlit_flower@left": {
+  "file": "decor_sunlit_flower_left.png",
+  "x": 155,
+  "y": 853,
+  "w": 172,
+  "h": 207
+ },
+ "sunlit_flower@right": {
+  "file": "decor_sunlit_flower_right.png",
+  "x": 860,
+  "y": 839,
+  "w": 174,
+  "h": 204
+ },
+ "sunlit_flower@back": {
+  "file": "decor_sunlit_flower_back.png",
+  "x": 371,
+  "y": 726,
+  "w": 139,
+  "h": 168
+ },
+ "explorer_lantern@left": {
+  "file": "decor_explorer_lantern_left.png",
+  "x": 164,
+  "y": 821,
+  "w": 145,
+  "h": 239
+ },
+ "explorer_lantern@right": {
+  "file": "decor_explorer_lantern_right.png",
+  "x": 867,
+  "y": 808,
+  "w": 143,
+  "h": 234
+ },
+ "explorer_lantern@back": {
+  "file": "decor_explorer_lantern_back.png",
+  "x": 381,
+  "y": 700,
+  "w": 109,
+  "h": 191
+ }
+}
