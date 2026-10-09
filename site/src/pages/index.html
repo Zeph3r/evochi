@@ -1,0 +1,287 @@
+<main id="main">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="hero-stage">
+      <div class="hero-art">
+        <img class="scene" src="assets/img/hero/hero-1920.webp"
+          srcset="assets/img/hero/hero-1200.webp 1200w, assets/img/hero/hero-1920.webp 1920w, assets/img/hero/hero-2880.webp 2880w"
+          sizes="(max-width: 899px) 190vw, 100vw" width="2880" height="1440" fetchpriority="high"
+          alt="A sunny voxel meadow where an Eggling, a Juvenile and an Elder Evochi stand on three grassy steps.">
+        <button class="pet s01" type="button" aria-label="Say hi to the Eggling"><img data-stage="s01" src="assets/img/pets/s01-amber.webp" width="440" height="500" alt=""></button>
+        <button class="pet s02" type="button" aria-label="Say hi to the Juvenile"><img data-stage="s02" src="assets/img/pets/s02-amber.webp" width="530" height="500" alt=""></button>
+        <button class="pet s03" type="button" aria-label="Say hi to the Elder"><img data-stage="s03" src="assets/img/pets/s03-amber.webp" width="774" height="622" alt=""></button>
+      </div>
+      <div class="swatch-pill" role="group" aria-label="Colourway">
+        <b>Colourway</b>
+        {{> swatches}}
+      </div>
+    </div>
+    <div class="hero-copy">
+      <div class="wrap">
+        <div class="hero-card">
+          <span class="tag green">A walking pet game</span>
+          <h1 id="hero-title">
+            <img src="assets/img/wordmark.webp" width="558" height="169" alt="Evochi">
+            <span>Every step brings your Evochi to life.</span>
+          </h1>
+          <p class="lede">Hatch a little voxel lizard, walk to help it grow, and raise it from Eggling to Elder. Evochi turns the steps your phone already counts into XP, coins and evolutions.</p>
+          {{> stores}}
+          <p class="fine">Want a look first? <a href="{{raw:previewUrl}}" rel="noopener">Play the browser preview</a>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="how" aria-labelledby="how-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="tag">How it works</span>
+        <h2 id="how-title">Walk. Grow. Evolve.</h2>
+        <p>Your Evochi grows from the steps your phone records anyway. There's nothing to log and no workout to plan.</p>
+      </div>
+      <ol class="steps">
+        <li class="card">
+          <div class="badge"><img src="assets/img/icons/paw.webp" width="128" height="128" alt=""></div>
+          <h3>Hatch your egg</h3>
+          <p>Pick one of six colourways, name your Eggling and choose a daily goal of <strong>5,000</strong>, <strong>7,000</strong> or <strong>10,000</strong> steps.</p>
+        </li>
+        <li class="card">
+          <div class="badge"><img src="assets/img/icons/steps.webp" width="128" height="128" alt=""></div>
+          <h3>Walk, and it grows</h3>
+          <p>Steps become XP. A full goal earns <strong>150 XP</strong>, with bonuses at 25%, 50% and 100% along the way and up to 20 more for going past it.</p>
+        </li>
+        <li class="card">
+          <div class="badge"><img src="assets/img/icons/evolve.webp" width="128" height="128" alt=""></div>
+          <h3>Evolve together</h3>
+          <p>At <strong>level 10</strong> with 7 active days your Eggling can become a Juvenile, and at <strong>level 25</strong> with 21 active days, an Elder. You choose the moment.</p>
+        </li>
+      </ol>
+
+      <div class="card xpcalc">
+        <div class="controls">
+          <div>
+            <h3>Try a day of walking</h3>
+            <p>Move the slider to see what a day is worth. It uses the same numbers as the game.</p>
+          </div>
+          <fieldset class="goal-pick">
+            <legend>Daily goal</legend>
+            <input type="radio" name="goal" id="goal-5000" value="5000"><label for="goal-5000">5,000<small>Beginner</small></label>
+            <input type="radio" name="goal" id="goal-7000" value="7000" checked><label for="goal-7000">7,000<small>Standard</small></label>
+            <input type="radio" name="goal" id="goal-10000" value="10000"><label for="goal-10000">10,000<small>Active</small></label>
+          </fieldset>
+          <div>
+            <label for="steps-today">Steps today <output id="steps-out" for="steps-today">4,850</output></label>
+            <input type="range" id="steps-today" min="0" max="15000" step="50" value="4850" aria-valuetext="4,850 steps, 94 XP">
+          </div>
+        </div>
+        <div class="xp-result">
+          <div class="xp-big"><span id="xp-total">94</span><small>XP today</small></div>
+          <div class="bar"><i id="xp-bar" style="width:69%"></i></div>
+          <div class="chips">
+            <span class="chip on" data-chip="m25">25% · +10</span>
+            <span class="chip on" data-chip="m50">50% · +15</span>
+            <span class="chip" data-chip="m100">100% · +25</span>
+            <span class="chip" data-chip="stretch">Extra · +0</span>
+          </div>
+          <p class="xp-note" id="xp-note">69 XP for the walk plus 25 milestone XP. That's an active day. At this pace an Eggling reaches level 10 in about 36 days.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt" id="family" aria-labelledby="family-title">
+    <div class="wrap">
+      <div class="section-head center">
+        <span class="tag">The lizard family</span>
+        <h2 id="family-title">One friend, three forms</h2>
+        <p>Every Evochi starts as an egg and grows as you walk together. Same personality, same name, a little bigger and bolder each time.</p>
+      </div>
+      <div class="family">
+        <article class="card form-card">
+          <div class="stagebox s01"><img data-stage="s01" data-name="Eggling" src="assets/img/pets/s01-amber.webp" width="440" height="500" loading="lazy" alt="The Eggling in the Amber colourway"></div>
+          <div class="title"><h3>Eggling</h3><span class="dex">#001</span></div>
+          <p>A small, scaly egg creature with the spirit of a lizard. Curious, cheerful and already full of adventurous energy.</p>
+          <p class="req"><img src="assets/img/icons/paw.webp" width="128" height="128" alt="">Hatches on day one</p>
+        </article>
+        <article class="card form-card">
+          <div class="stagebox s02"><img data-stage="s02" data-name="Juvenile" src="assets/img/pets/s02-amber.webp" width="530" height="500" loading="lazy" alt="The Juvenile in the Amber colourway"></div>
+          <div class="title"><h3>Juvenile</h3><span class="dex">#002</span></div>
+          <p>More agile and alert, with a developing crest and tail. More personality, and the same voxel charm.</p>
+          <p class="req"><img src="assets/img/icons/evolve.webp" width="128" height="128" alt="">Level 10 and 7 active days</p>
+        </article>
+        <article class="card form-card">
+          <div class="stagebox s03"><img data-stage="s03" data-name="Elder" src="assets/img/pets/s03-amber.webp" width="774" height="622" loading="lazy" alt="The Elder in the Amber colourway"></div>
+          <div class="title"><h3>Elder</h3><span class="dex">#003</span></div>
+          <p>Strong, agile and full of life. Its crystalline crest and plated tail show a long road of walks together.</p>
+          <p class="req"><img src="assets/img/icons/trophy.webp" width="128" height="128" alt="">Level 25 and 21 active days</p>
+        </article>
+      </div>
+      <div class="family-swatches" role="group" aria-label="Colourway">
+        <b>Try a colourway</b>
+        {{> swatches}}
+        <output id="pal-name">Amber</output>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="market" aria-labelledby="market-title">
+    <div class="wrap">
+      <div class="split">
+        <div class="copy">
+          <span class="tag">Quests and the Evochi Market</span>
+          <h2 id="market-title">Earn coins on your walks. Spend them on your Evochi.</h2>
+          <p>Daily quests pay out EvoCoins. Spend them in the Evochi Market on wearables, nest décor and snacks. Every wearable fits all three forms, so a favourite scarf still fits after your Evochi evolves.</p>
+          <div class="quests">
+            <div class="card quest"><img src="assets/img/icons/steps.webp" width="128" height="128" alt=""><div><b>First Steps</b><small>Reach 25% of your step goal</small></div><span class="reward"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="">15</span></div>
+            <div class="card quest"><img src="assets/img/icons/steps.webp" width="128" height="128" alt=""><div><b>Daily Walker</b><small>Reach 50% of your step goal</small></div><span class="reward"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="">25</span></div>
+            <div class="card quest"><img src="assets/img/icons/chest.webp" width="128" height="128" alt=""><div><b>Daily Goal</b><small>Reach your full goal for coins and a chest</small></div><span class="reward"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="">40</span></div>
+            <div class="card quest"><img src="assets/img/icons/heart.webp" width="128" height="128" alt=""><div><b>Bond Time</b><small>Pet or play with your Evochi</small></div><span class="reward"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="">5</span></div>
+            <div class="card quest"><img src="assets/img/icons/trophy.webp" width="128" height="128" alt=""><div><b>Weekly Explorer</b><small>Meet your goal on 4 days in a week, with a chance at a cosmetic</small></div><span class="reward"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="">100</span></div>
+          </div>
+        </div>
+        <div class="looks">
+          <figure class="card look" style="margin:0">
+            <div class="lookbox"><img src="assets/img/looks/look-leaf.webp" loading="lazy" alt="A Forest Juvenile wearing a Leaf Scarf"></div>
+            <figcaption><b>Forest Juvenile</b>
+              <ul><li>Leaf Scarf <span class="price"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="">120</span></li></ul>
+            </figcaption>
+          </figure>
+          <figure class="card look" style="margin:0">
+            <div class="lookbox"><img src="assets/img/looks/look-explorer.webp" loading="lazy" alt="An Ocean Juvenile in an Explorer Hat and Explorer Pack"></div>
+            <figcaption><b>Ocean Juvenile</b>
+              <ul><li>Explorer Hat <span class="price"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="">180</span></li><li>Explorer Pack <span class="price"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="">220</span></li></ul>
+            </figcaption>
+          </figure>
+          <figure class="card look" style="margin:0">
+            <div class="lookbox"><img src="assets/img/looks/look-crown.webp" loading="lazy" alt="An Amethyst Elder in a Golden Crest Crown and Blue Scarf"></div>
+            <figcaption><b>Amethyst Elder</b>
+              <ul><li>Golden Crest Crown <span class="price"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="">150</span></li><li>Blue Scarf <span class="price"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="">100</span></li></ul>
+            </figcaption>
+          </figure>
+          <figure class="card look" style="margin:0">
+            <div class="lookbox"><img src="assets/img/looks/look-clip.webp" loading="lazy" alt="A Coral Eggling with a Butterfly Clip and Red Backpack"></div>
+            <figcaption><b>Coral Eggling</b>
+              <ul><li>Butterfly Clip <span class="price"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="">70</span></li><li>Red Backpack <span class="price"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="">140</span></li></ul>
+            </figcaption>
+          </figure>
+        </div>
+      </div>
+      <div style="margin-top:clamp(32px,4vw,48px);display:grid;gap:14px">
+        <h3>For the nest and for care</h3>
+        <ul class="shelf" style="list-style:none;margin:0;padding:0">
+          <li class="item"><img src="assets/img/items/meadow-nest.webp" width="192" height="192" loading="lazy" alt=""><span>Meadow Nest</span><span class="price"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="EvoCoins">200</span></li>
+          <li class="item"><img src="assets/img/items/nest-bed.webp" width="192" height="192" loading="lazy" alt=""><span>Nest Bed</span><span class="price"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="EvoCoins">80</span></li>
+          <li class="item"><img src="assets/img/items/explorer-lantern.webp" width="192" height="192" loading="lazy" alt=""><span>Explorer Lantern</span><span class="price"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="EvoCoins">120</span></li>
+          <li class="item"><img src="assets/img/items/sunlit-flower.webp" width="192" height="192" loading="lazy" alt=""><span>Sunlit Flower</span><span class="price"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="EvoCoins">45</span></li>
+          <li class="item"><img src="assets/img/items/berry-snack.webp" width="192" height="192" loading="lazy" alt=""><span>Berry Snack</span><span class="price"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="EvoCoins">20</span></li>
+          <li class="item"><img src="assets/img/items/healing-herb.webp" width="192" height="192" loading="lazy" alt=""><span>Healing Herb</span><span class="price"><img src="assets/img/icons/coin.webp" width="128" height="128" alt="EvoCoins">80</span></li>
+        </ul>
+        <p class="fine" style="font-size:var(--step--1);color:var(--ink-500)">Prices are in EvoCoins, the coins you earn in the game.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt" id="screens" aria-labelledby="screens-title">
+    <div class="wrap">
+      <div class="section-head">
+        <span class="tag">Inside the app</span>
+        <h2 id="screens-title">A meadow in your pocket</h2>
+        <p>Screens from the current build. Details may change before release.</p>
+      </div>
+    </div>
+    <div class="shots-wrap" style="max-width:var(--wrap);margin-inline:auto">
+      <div class="shots" id="shots" tabindex="0" aria-label="App screenshots, scrolls sideways">
+        <figure class="shot"><div class="phone"><img src="assets/img/shots/home.webp" width="780" height="1688" loading="lazy" alt="Home screen: Pip the Juvenile in its meadow nest, 5,500 of 7,000 steps today, level 11"></div><figcaption><b>Home</b><span>Pet and play with your Evochi, check today's steps and see what it'll become next.</span></figcaption></figure>
+        <figure class="shot"><div class="phone"><img src="assets/img/shots/journey.webp" width="780" height="1688" loading="lazy" alt="Journey screen: step ring at 5,500 of 7,000, XP earned today and daily quests"></div><figcaption><b>Journey</b><span>Today's steps, XP and milestones, plus daily and weekly quests to claim.</span></figcaption></figure>
+        <figure class="shot"><div class="phone"><img src="assets/img/shots/market.webp" width="780" height="1688" loading="lazy" alt="Evochi Market: the Golden Crest Crown featured for 150 EvoCoins"></div><figcaption><b>Evochi Market</b><span>Try wearables on before you spend your EvoCoins.</span></figcaption></figure>
+        <figure class="shot"><div class="phone"><img src="assets/img/shots/bag.webp" width="780" height="1688" loading="lazy" alt="Bag screen: wearables with the Leaf Scarf equipped"></div><figcaption><b>Bag</b><span>Equip wearables, place nest décor, and use snacks and herbs.</span></figcaption></figure>
+        <figure class="shot"><div class="phone"><img src="assets/img/shots/evodex.webp" width="780" height="1688" loading="lazy" alt="EvoDex: the lizard family with two of three forms discovered"></div><figcaption><b>EvoDex</b><span>Every form and colourway you've raised, with a turnaround view.</span></figcaption></figure>
+        <figure class="shot"><div class="phone"><img src="assets/img/shots/evolve-reveal.webp" width="780" height="1688" loading="lazy" alt="Evolution screen: Bubbles became a Juvenile"></div><figcaption><b>Evolution</b><span>When your Evochi is ready, you pick the moment it evolves.</span></figcaption></figure>
+      </div>
+      <div class="shots-nav" style="padding-inline:var(--gutter)">
+        <button class="btn cream sm" type="button" data-scroll="-1" aria-label="Previous screenshots" aria-controls="shots"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 5l-7 7 7 7"/></svg></button>
+        <button class="btn cream sm" type="button" data-scroll="1" aria-label="Next screenshots" aria-controls="shots"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5l7 7-7 7"/></svg></button>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="gentle" aria-labelledby="gentle-title">
+    <div class="wrap gentle">
+      <div class="portrait"><img src="assets/img/pets/s02-amber-sleepy.webp" width="530" height="500" loading="lazy" alt="A sleepy Juvenile Evochi taking a rest day"></div>
+      <div>
+        <div class="section-head" style="margin-bottom:24px">
+          <span class="tag green">Gentle by design</span>
+          <h2 id="gentle-title">Rewards for walking. No punishment for resting.</h2>
+          <p>These rules are built into the game, not left to chance.</p>
+        </div>
+        <ul class="promises">
+          <li class="card"><b><img src="assets/img/icons/care.webp" width="128" height="128" alt="">Two rest days every week</b><p>The first two low-step days in any seven days never cost your Evochi vitality.</p></li>
+          <li class="card"><b><img src="assets/img/icons/steps.webp" width="128" height="128" alt="">48 hours to sync</b><p>Watch data can arrive late, so a low day only counts after 48 hours.</p></li>
+          <li class="card"><b><img src="assets/img/icons/pin.webp" width="128" height="128" alt="">No data isn't a lazy day</b><p>If your phone didn't record steps, the day shows as pending, never as inactive.</p></li>
+          <li class="card"><b><img src="assets/img/icons/journey.webp" width="128" height="128" alt="">Late steps put things right</b><p>If steps for a past day turn up later, Evochi recalculates and gives back any vitality it took.</p></li>
+          <li class="card"><b><img src="assets/img/icons/heart.webp" width="128" height="128" alt="">A pet, not a doctor</b><p>Your Evochi's mood is a game state. It never judges your health, and Evochi never reads heart rate.</p></li>
+          <li class="card"><b><img src="assets/img/icons/bell.webp" width="128" height="128" alt="">One quiet reminder, at most</b><p>Reminders are off until you turn them on: one nudge a day, outside your quiet hours.</p></li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="section alt" id="privacy" aria-labelledby="privacy-title">
+    <div class="wrap">
+      <div class="card privacy-card">
+        <img src="assets/img/icons/lock.webp" width="128" height="128" alt="">
+        <div class="body">
+          <span class="tag green" style="justify-self:start">Privacy</span>
+          <h2 id="privacy-title">Your steps, and nothing else</h2>
+          <p>Evochi asks Apple Health or Health Connect for one thing: your step count. In practice that means:</p>
+          <ul class="facts">
+            <li><span><strong>Read-only.</strong> Evochi never writes anything to Apple Health or Health Connect.</span></li>
+            <li><span><strong>Steps only.</strong> No heart rate, sleep, location, contacts or photos.</span></li>
+            <li><span><strong>Daily totals.</strong> Detailed step samples are folded into daily totals after 14 days.</span></li>
+            <li><span><strong>Never sold, never for ads.</strong> Your step data isn't sold or used for advertising.</span></li>
+            <li><span><strong>Opt-in usage stats.</strong> Anonymous product events are sent only if you switch them on, and never include health data.</span></li>
+            <li><span><strong>Yours to take or delete.</strong> Export or delete everything from <span class="path">Settings → Privacy &amp; data</span>.</span></li>
+          </ul>
+          <p><a href="privacy.html">Read the privacy policy</a></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="faq" aria-labelledby="faq-title">
+    <div class="wrap">
+      <div class="section-head center">
+        <span class="tag">FAQ</span>
+        <h2 id="faq-title">Questions, answered</h2>
+      </div>
+      <div class="faq">
+        <details class="card"><summary>Is Evochi free?</summary><div class="answer"><p>Evochi is free to download. Everything in the Evochi Market is bought with EvoCoins, which you earn by walking and completing quests.</p></div></details>
+        <details class="card"><summary>Do I need a smartwatch or fitness tracker?</summary><div class="answer"><p>No. Your phone already counts steps, and Evochi reads that count from Apple Health on iPhone or Health Connect on Android. If a watch records steps too, Evochi merges the overlapping time so nothing is counted twice.</p></div></details>
+        <details class="card"><summary>Which phones does it work on?</summary><div class="answer"><p>iPhone, using the Health app, and Android phones with Health Connect. Health Connect is built into Android 14 and later, and earlier versions can install it from Google Play.</p></div></details>
+        <details class="card"><summary>What if I can't walk for a while?</summary><div class="answer"><p>Your Evochi gets two protected rest days in every seven, and a low day only counts after a 48-hour grace period. Over a longer break its vitality drops slowly and it may get sleepy or sick. A good walk or a Healing Herb helps it recover.</p><p>If you walk somewhere your phone can't see, like a treadmill, you can add steps by hand.</p></div></details>
+        <details class="card"><summary>Can my Evochi die?</summary><div class="answer"><p>Only after a long run of low days, and never by surprise: it gets sleepy and then sick first, and the app shows its vitality all along. If vitality does reach zero, your Evochi rests in the Hall of Memories. You can revive it with three Healing Herbs or by reaching your step goal for a day, or hatch a new egg. You keep every item you own either way.</p></div></details>
+        <details class="card"><summary>Will it drain my battery or track my location?</summary><div class="answer"><p>No. Evochi reads step totals your phone already records. It doesn't use GPS or your location.</p></div></details>
+        <details class="card"><summary>Can I enter steps by hand?</summary><div class="answer"><p>Yes. Manual steps earn XP and help vitality. They don't unlock chests or cosmetic rewards, which keeps quest rewards fair.</p></div></details>
+        <details class="card"><summary>I travel a lot. When does my day start?</summary><div class="answer"><p>Your day follows your account time zone, which you set in Settings. Travelling doesn't move it unless you change it, so a long flight won't cost you a day.</p></div></details>
+        <details class="card"><summary>How do I delete my data?</summary><div class="answer"><p>In the app, go to <span class="path">Settings → Privacy &amp; data → Delete all data</span>. You can also ask us to delete your account without the app: see <a href="delete-account.html">Delete your account</a>.</p></div></details>
+        <details class="card"><summary>Is Evochi a fitness or medical app?</summary><div class="answer"><p>No, it's a game. It doesn't diagnose or measure anything about your health, and an Evochi getting sick is a pet state based on game rules. If you're starting a new exercise routine, check with your doctor first.</p></div></details>
+      </div>
+      <p style="text-align:center;margin-top:28px">Still stuck? <a href="support.html">Visit Support</a>.</p>
+    </div>
+  </section>
+
+  <section class="wrap" id="get" aria-labelledby="get-title">
+    <div class="cta-final">
+      <div class="copy">
+        <h2 id="get-title">Your Eggling is waiting.</h2>
+        <p>Download Evochi, hatch your egg and take it on its first walk today.</p>
+        {{> stores}}
+        <p class="fine" style="font-size:var(--step--1);color:var(--ink-500)">Not on your phone yet? <a href="{{raw:previewUrl}}" rel="noopener">Play the browser preview</a>.</p>
+      </div>
+      <div class="trio" aria-hidden="true">
+        <img src="assets/img/pets/s01-amber-excited.webp" width="440" height="500" loading="lazy" alt="">
+        <img src="assets/img/pets/s02-coral-happy.webp" width="530" height="500" loading="lazy" alt="">
+        <img src="assets/img/pets/s03-forest-happy.webp" width="774" height="622" loading="lazy" alt="">
+      </div>
+    </div>
+  </section>
+</main>

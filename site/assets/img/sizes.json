@@ -1,0 +1,291 @@
+{
+ "hero-2880": [
+  2880,
+  1440
+ ],
+ "hero-1920": [
+  1920,
+  960
+ ],
+ "hero-1200": [
+  1200,
+  600
+ ],
+ "s01-amber": [
+  440,
+  500
+ ],
+ "s01-forest": [
+  440,
+  500
+ ],
+ "s01-coral": [
+  440,
+  500
+ ],
+ "s01-ocean": [
+  440,
+  500
+ ],
+ "s01-amethyst": [
+  440,
+  500
+ ],
+ "s01-obsidian": [
+  440,
+  500
+ ],
+ "s02-amber": [
+  530,
+  500
+ ],
+ "s02-forest": [
+  530,
+  500
+ ],
+ "s02-coral": [
+  530,
+  500
+ ],
+ "s02-ocean": [
+  530,
+  500
+ ],
+ "s02-amethyst": [
+  530,
+  500
+ ],
+ "s02-obsidian": [
+  530,
+  500
+ ],
+ "s03-amber": [
+  774,
+  622
+ ],
+ "s03-forest": [
+  774,
+  622
+ ],
+ "s03-coral": [
+  774,
+  622
+ ],
+ "s03-ocean": [
+  774,
+  622
+ ],
+ "s03-amethyst": [
+  774,
+  622
+ ],
+ "s03-obsidian": [
+  774,
+  622
+ ],
+ "s02-amber-sleepy": [
+  530,
+  500
+ ],
+ "s01-ocean-curious": [
+  440,
+  500
+ ],
+ "s02-coral-happy": [
+  530,
+  500
+ ],
+ "s03-forest-happy": [
+  774,
+  622
+ ],
+ "s01-amber-excited": [
+  440,
+  500
+ ],
+ "look-leaf": [
+  489,
+  468
+ ],
+ "look-explorer": [
+  489,
+  486
+ ],
+ "look-crown": [
+  520,
+  434
+ ],
+ "look-clip": [
+  426,
+  486
+ ],
+ "item-leaf_scarf": [
+  192,
+  192
+ ],
+ "item-explorer_hat": [
+  192,
+  192
+ ],
+ "item-golden_crest_crown": [
+  192,
+  192
+ ],
+ "item-blue_scarf": [
+  192,
+  192
+ ],
+ "item-tiny_crown": [
+  192,
+  192
+ ],
+ "item-butterfly_clip": [
+  192,
+  192
+ ],
+ "item-red_backpack": [
+  192,
+  192
+ ],
+ "item-explorer_pack": [
+  192,
+  192
+ ],
+ "item-meadow_nest": [
+  192,
+  192
+ ],
+ "item-explorer_lantern": [
+  192,
+  192
+ ],
+ "item-sunlit_flower": [
+  192,
+  192
+ ],
+ "item-berry_snack": [
+  192,
+  192
+ ],
+ "item-healing_herb": [
+  192,
+  192
+ ],
+ "item-nest_bed": [
+  192,
+  192
+ ],
+ "icon-steps": [
+  128,
+  128
+ ],
+ "icon-xp": [
+  128,
+  128
+ ],
+ "icon-evolve": [
+  128,
+  128
+ ],
+ "icon-coin": [
+  128,
+  128
+ ],
+ "icon-heart": [
+  128,
+  128
+ ],
+ "icon-star": [
+  128,
+  128
+ ],
+ "icon-chest": [
+  128,
+  128
+ ],
+ "icon-lock": [
+  128,
+  128
+ ],
+ "icon-paw": [
+  128,
+  128
+ ],
+ "icon-play": [
+  128,
+  128
+ ],
+ "icon-care": [
+  128,
+  128
+ ],
+ "icon-trophy": [
+  128,
+  128
+ ],
+ "icon-potion": [
+  128,
+  128
+ ],
+ "icon-bell": [
+  128,
+  128
+ ],
+ "icon-journey": [
+  128,
+  128
+ ],
+ "icon-wearables": [
+  128,
+  128
+ ],
+ "icon-decorations": [
+  128,
+  128
+ ],
+ "icon-palette": [
+  128,
+  128
+ ],
+ "icon-home": [
+  128,
+  128
+ ],
+ "icon-evodex": [
+  128,
+  128
+ ],
+ "icon-shop": [
+  128,
+  128
+ ],
+ "icon-pin": [
+  128,
+  128
+ ],
+ "wordmark": [
+  558,
+  169
+ ],
+ "hero_meta": {
+  "w": 2880,
+  "h": 1440,
+  "pets": {
+   "s01": {
+    "x": 0.50716,
+    "y": 0.71892,
+    "k": 0.000412
+   },
+   "s02": {
+    "x": 0.62807,
+    "y": 0.63675,
+    "k": 0.000456
+   },
+   "s03": {
+    "x": 0.76546,
+    "y": 0.56385,
+    "k": 0.000463
+   }
+  }
+ }
+}
