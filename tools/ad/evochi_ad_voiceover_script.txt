@@ -1,30 +1,47 @@
-EVOCHI — TikTok / Reels / Shorts ad (27 s, 1080x1920)
-Voice-over script with timestamps
+EVOCHI AD v2 — voice-over scripts with timestamps
+Both cuts already have music and the game's sounds. VO is optional; the captions carry the message.
+Read it like you're telling a friend: casual, warm, a little amused. ~2.4 words per second.
+Duck the music about 6 dB under the voice. Keep the reveal (riser → sparkle chord) clear of speech.
 
-Read it like you're telling a friend, not announcing. Casual, a little amused, warm.
-Leave the gaps where marked: the game's own sounds (chirp, coins, fanfare) sit there.
-Target pace: ~2.4 words per second. Total spoken: about 60 words.
-
+====================================================================
+A) 27-second cut  (evochi_ad_v2_27s_1080x1920.mp4)
+====================================================================
 00:00.0 – 00:02.6   "My step counter has a face now."
-                     (pet chirps at 0.9 s: leave that clear)
+                     (chirp at 0.9 s)
 00:02.9 – 00:05.0   "And he only grows if I actually walk."
 00:05.2 – 00:07.9   "Every walk feeds him XP..."
 00:08.2 – 00:10.4   "...hit the goal and you get coins and a chest."
 00:10.7 – 00:14.2   "I spent all of mine on a crown. Zero regrets."
 00:14.5 – 00:15.3   "Day seven."
-                     (pause: the evolution plays 15.5–16.8, fanfare at 16.8)
-00:17.2 – 00:18.9   "He evolved."
+00:15.3 – 00:17.2   (no voice: the music rises and the reveal lands at 16.8)
+00:17.3 – 00:18.9   "He evolved."
 00:19.4 – 00:21.0   "Same Mochi. Same crown. Just bigger."
 00:21.3 – 00:23.6   "Rest days are protected, so he never guilt-trips you."
-00:23.9 – 00:26.5   "Evochi. Free on the App Store and Google Play. Hatch yours."
+00:23.9 – 00:26.6   "Your steps. Your Evochi. Hatch yours, free, on the App Store and Google Play."
 
-Alternative hook lines to A/B test (swap the first line and the first caption):
+====================================================================
+B) 19-second cut  (evochi_ad_v2_19s_1080x1920.mp4)
+====================================================================
+00:00.0 – 00:02.2   "My step counter has a face now."
+00:02.4 – 00:04.1   "And he only grows if I actually walk."
+00:04.4 – 00:06.3   "Every walk feeds him XP..."
+00:06.6 – 00:08.1   "...hit the goal, coins and a chest."
+00:08.4 – 00:11.0   "Spent all of mine on a crown. Zero regrets."
+00:11.3 – 00:12.0   "Day seven."
+00:12.0 – 00:13.7   (no voice: riser, reveal at 13.4)
+00:13.8 – 00:15.2   "He evolved."
+00:15.4 – 00:16.4   "Same Mochi. Same crown."
+00:16.7 – 00:18.8   "Your steps. Your Evochi. Hatch yours. Free."
+
+====================================================================
+Alternative hook lines to A/B test (swap line one and the first caption)
+====================================================================
   A  "I started walking because of a lizard egg."
   B  "POV: your 7,000 steps are keeping someone alive now."
   C  "My Tamagotchi grew up because I went outside."
 
-Mixing notes
-- Duck the music bed under the voice by about 6 dB; the bed is already quiet (-17 dB).
-- Keep the SFX. Taps, coins and the fanfare are the "gameplay feel"; don't bury them.
-- Add auto-captions on TikTok as well (most people watch muted); the burned-in captions
-  already carry the message, so the VO is a bonus, not a requirement.
+Testing plan
+- Run the 19 s cut as the primary on TikTok (reach the reveal by 13 s), the 27 s cut on Reels/Shorts
+  and as the retargeting creative. Compare 3-second hold rate and completion rate, not just CTR.
+- If the 27 s cut wins on installs but loses on hold rate, try a 22 s cut: drop the "rest days" line
+  and keep the end card's "Rest days protected" subline.

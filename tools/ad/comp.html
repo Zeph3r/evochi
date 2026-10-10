@@ -30,11 +30,16 @@ html, body { margin: 0; background: #000; }
   font: 800 40px/1 'Nunito', sans-serif; color: #3B2923; white-space: nowrap; }
 .pill img { width: 54px; height: 54px; }
 #endcard { left: 0; top: 0; width: 1080px; height: 1920px; display: none; }
-#endcard .card { position: absolute; left: 90px; right: 90px; top: 300px; padding: 64px 54px 58px; border-radius: 48px; background: rgba(255,249,240,0.97); border: 5px solid #C9A78C; box-shadow: 0 10px 0 #D8BD9F, 0 40px 80px rgba(40,60,30,0.35); text-align: center; transform-origin: 50% 50%; }
-#endcard .wm { width: 620px; height: auto; display: block; margin: 0 auto 26px; filter: drop-shadow(0 6px 0 rgba(60,35,20,0.22)); }
-#endcard h1 { margin: 0; font: 900 98px/1.02 'Nunito', sans-serif; color: #3B2923; letter-spacing: -0.02em; }
-#endcard p { margin: 22px 0 0; font: 700 40px/1.3 'Lato', sans-serif; color: #684C3C; }
-#endcard .stores { display: flex; justify-content: center; gap: 22px; margin-top: 42px; }
+#endcard .card { position: absolute; left: 90px; right: 90px; top: 250px; padding: 60px 54px 54px; border-radius: 48px; background: rgba(255,249,240,0.97); border: 5px solid #C9A78C; box-shadow: 0 10px 0 #D8BD9F, 0 40px 80px rgba(40,60,30,0.35); text-align: center; transform-origin: 50% 50%; }
+#endcard .wm { width: 560px; height: auto; display: block; margin: 0 auto 22px; filter: drop-shadow(0 6px 0 rgba(60,35,20,0.22)); }
+#endcard h1 { margin: 0; font: 900 92px/1.04 'Nunito', sans-serif; color: #3B2923; letter-spacing: -0.02em; }
+#endcard .cta { display: inline-block; margin-top: 30px; padding: 26px 64px; border-radius: 28px; border: 5px solid #C8832C; font: 900 70px/1 'Nunito', sans-serif; color: #3B2923;
+  background: linear-gradient(180deg, #FFE5A2 0%, #F9CA70 38%, #F4B84E 70%, #E9A541 100%); box-shadow: inset 0 4px 0 rgba(255,255,255,0.55), inset 0 -6px 0 rgba(200,131,44,0.55), 0 10px 0 #C8832C, 0 18px 30px rgba(120,70,20,0.25); text-shadow: 0 2px 0 rgba(255,255,255,0.35); transform-origin: 50% 50%; }
+#sparks { left: 0; top: 0; width: 1080px; height: 1920px; pointer-events: none; }
+#sparks .star { position: absolute; width: 60px; height: 60px; background: #FFE5A2; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); transform-origin: 50% 50%; filter: drop-shadow(0 0 12px rgba(255,229,162,0.9)); }
+#sparks .glow { position: absolute; width: 20px; height: 20px; border-radius: 50%; background: #FFF9F0; box-shadow: 0 0 18px 8px rgba(255,249,240,0.8); }
+#endcard p { margin: 26px 0 0; font: 700 36px/1.3 'Lato', sans-serif; color: #684C3C; }
+#endcard .stores { display: flex; justify-content: center; gap: 22px; margin-top: 30px; }
 #endcard .store { display: inline-flex; align-items: center; gap: 16px; padding: 18px 30px 18px 24px; border-radius: 26px; background: linear-gradient(180deg, #4A352D, #3B2923); border: 4px solid #23170F; box-shadow: inset 0 3px 0 rgba(255,255,255,0.12), 0 8px 0 #23170F; color: #FFF9F0; text-align: left; }
 #endcard .store svg { width: 52px; height: 52px; color: #F9CA70; }
 #endcard .store small { display: block; font: 700 22px/1.2 'Lato', sans-serif; color: #E9D8C6; }
@@ -61,14 +66,16 @@ html, body { margin: 0; background: #000; }
     <div class="card">
       <span class="free">FREE</span>
       <img class="wm" src="site/img/wordmark.webp" alt="Evochi">
-      <h1>Hatch yours.</h1>
-      <p>Every step brings your Evochi to life.</p>
+      <h1>Your steps.<br>Your Evochi.</h1>
+      <div class="cta">Hatch yours</div>
+      <p>Rest days protected. No guilt. Free.</p>
       <div class="stores">
         <span class="store"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.6"/><path d="M10.5 18.5h3"/><path d="M12 6.5v7m-3-3 3 3 3-3"/></svg><span><small>Download on the</small><b>App Store</b></span></span>
         <span class="store"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="6" y="2.5" width="12" height="19" rx="2.6"/><path d="M10.5 18.5h3"/><path d="M12 6.5v7m-3-3 3 3 3-3"/></svg><span><small>Get it on</small><b>Google Play</b></span></span>
       </div>
     </div>
   </div>
+  <div id="sparks"></div>
   <div id="flash"></div>
 </div>
 <script>
@@ -77,7 +84,8 @@ html, body { margin: 0; background: #000; }
 const FPS = 30;
 const CLIPS = { tap: 186, walk: 273, shop: 222, evolve: 282, grown: 132 };
 // focus: point in clip px that lands at `at` (frame px) with scale s. Keyframes interpolate.
-const SEG = [
+const CUTS = {
+  long: { TOTAL: 27.0, reveal: 15.5 + (3.05 - 1.4) / 1.25, SEG: [
   { t0: 0.0,  t1: 2.9,  clip: 'tap',    c0: 0.0, speed: 1.0,
     cam: [{ t: 0.0, s: 1.75, fx: 390, fy: 560, ax: 540, ay: 1000 }, { t: 2.9, s: 1.62, fx: 390, fy: 600, ax: 540, ay: 1010 }] },
   { t0: 2.9,  t1: 5.1,  clip: 'tap',    c0: 2.9, speed: 1.0,
@@ -98,16 +106,7 @@ const SEG = [
     cam: [{ t: 19.3, s: 1.6, fx: 390, fy: 560, ax: 540, ay: 980 }, { t: 21.2, s: 1.68, fx: 390, fy: 560, ax: 540, ay: 980 }] },
   { t0: 21.2, t1: 23.8, vista: true },
   { t0: 23.8, t1: 27.0, vista: true, end: true },
-];
-const TOTAL = 27.0;
-// taps in clip time (from clip.json), mapped to composition time by the segment that shows them
-const TAPS = {
-  tap: [{ t: 0.9, x: 390, y: 560 }, { t: 2.6, x: 390, y: 1215 }, { t: 4.8, x: 390, y: 560 }],
-  walk: [{ t: 5.07, x: 660, y: 1050 }, { t: 6.23, x: 660, y: 1050 }, { t: 7.40, x: 660, y: 1050 }],
-  shop: [{ t: 0.6, x: 300, y: 850 }, { t: 2.2, x: 620, y: 850 }, { t: 3.1, x: 390, y: 1230 }, { t: 4.6, x: 390, y: 1230 }],
-  evolve: [{ t: 0.9, x: 390, y: 290 }, { t: 6.1, x: 390, y: 1500 }, { t: 7.9, x: 390, y: 560 }],
-};
-const CAPS = [
+], CAPS: [
   { t0: -0.12, t1: 2.9, cls: 'big',   y: 330,  html: 'my step counter<br>has a <span class="b">face</span> now' },
   { t0: 2.9,  t1: 5.1,  cls: 'big',   y: 1400, html: 'and he only grows<br>if I <span class="g">actually walk</span>' },
   { t0: 5.1,  t1: 8.1,  cls: 'big',   y: 1340, html: 'every walk<br>feeds him <span class="g">XP</span>' },
@@ -117,7 +116,48 @@ const CAPS = [
   { t0: 17.2, t1: 19.3, cls: 'big',   y: 300,  html: '<span class="g">HE EVOLVED</span>' },
   { t0: 19.3, t1: 21.2, cls: 'small', y: 330,  html: 'same Mochi. same name.<br>same crown.' },
   { t0: 21.2, t1: 23.8, cls: 'big',   y: 280,  html: 'rest days are <span class="g">protected</span>.<br>he never guilt-trips you.' },
-];
+] },
+  short: { TOTAL: 19.0, reveal: 12.1 + (3.05 - 1.4) / 1.3, SEG: [
+  { t0: 0.0,  t1: 2.4,  clip: 'tap',    c0: 0.0, speed: 1.0,
+    cam: [{ t: 0.0, s: 1.75, fx: 390, fy: 560, ax: 540, ay: 1000 }, { t: 2.4, s: 1.62, fx: 390, fy: 600, ax: 540, ay: 1010 }] },
+  { t0: 2.4,  t1: 4.3,  clip: 'tap',    c0: 2.4, speed: 1.0,
+    cam: [{ t: 2.4, s: 1.5, fx: 390, fy: 700, ax: 540, ay: 960 }, { t: 4.3, s: 1.42, fx: 390, fy: 740, ax: 540, ay: 960 }] },
+  { t0: 4.3,  t1: 6.5,  clip: 'walk',   c0: 0.3, speed: 2.0,
+    cam: [{ t: 4.3, s: 1.9, fx: 390, fy: 300, ax: 540, ay: 860 }, { t: 6.5, s: 1.75, fx: 390, fy: 330, ax: 540, ay: 860 }] },
+  { t0: 6.5,  t1: 8.3,  clip: 'walk',   c0: 4.9, speed: 2.0,
+    cam: [{ t: 6.5, s: 1.6, fx: 390, fy: 700, ax: 540, ay: 960 }, { t: 7.5, s: 1.6, fx: 390, fy: 700, ax: 540, ay: 960 }, { t: 7.8, s: 1.55, fx: 390, fy: 620, ax: 540, ay: 1000 }, { t: 8.3, s: 1.5, fx: 390, fy: 620, ax: 540, ay: 1000 }] },
+  { t0: 8.3,  t1: 10.3, clip: 'shop',   c0: 0.2, speed: 1.8,
+    cam: [{ t: 8.3, s: 1.7, fx: 390, fy: 470, ax: 540, ay: 1040 }, { t: 10.3, s: 1.58, fx: 390, fy: 520, ax: 540, ay: 1040 }] },
+  { t0: 10.3, t1: 11.2, clip: 'shop',   c0: 5.9, speed: 1.0,
+    cam: [{ t: 10.3, s: 1.7, fx: 390, fy: 560, ax: 540, ay: 1000 }, { t: 11.2, s: 1.62, fx: 390, fy: 590, ax: 540, ay: 1000 }] },
+  { t0: 11.2, t1: 12.1, clip: 'evolve', c0: 0.3, speed: 1.0,
+    cam: [{ t: 11.2, s: 1.55, fx: 390, fy: 520, ax: 540, ay: 960 }, { t: 12.1, s: 1.6, fx: 390, fy: 520, ax: 540, ay: 960 }] },
+  { t0: 12.1, t1: 15.3, clip: 'evolve', c0: 1.4, speed: 1.3,
+    cam: [{ t: 12.1, s: 1.45, fx: 390, fy: 820, ax: 540, ay: 940 }, { t: 13.6, s: 1.5, fx: 390, fy: 820, ax: 540, ay: 940 }, { t: 13.9, s: 1.62, fx: 390, fy: 820, ax: 540, ay: 900 }, { t: 15.3, s: 1.55, fx: 390, fy: 880, ax: 540, ay: 920 }] },
+  { t0: 15.3, t1: 16.6, clip: 'evolve', c0: 6.4, speed: 1.2,
+    cam: [{ t: 15.3, s: 1.6, fx: 390, fy: 560, ax: 540, ay: 980 }, { t: 16.6, s: 1.68, fx: 390, fy: 560, ax: 540, ay: 980 }] },
+  { t0: 16.6, t1: 19.0, vista: true, end: true },
+], CAPS: [
+  { t0: -0.12, t1: 2.4, cls: 'big',   y: 330,  html: 'my step counter<br>has a <span class="b">face</span> now' },
+  { t0: 2.4,  t1: 4.3,  cls: 'big',   y: 1400, html: 'and he only grows<br>if I <span class="g">actually walk</span>' },
+  { t0: 4.3,  t1: 6.5,  cls: 'big',   y: 1340, html: 'every walk<br>feeds him <span class="g">XP</span>' },
+  { t0: 6.5,  t1: 8.3,  cls: 'big',   y: 250,  html: 'hit the goal:<br><span class="g">coins + a chest</span>' },
+  { t0: 8.3,  t1: 11.2, cls: 'big',   y: 300,  html: 'spent all of it<br>on a <span class="g">crown</span>. no regrets.' },
+  { t0: 11.2, t1: 12.1, cls: 'big',   y: 1380, html: 'day 7.' },
+  { t0: 13.75, t1: 15.3, cls: 'big',  y: 300,  html: '<span class="g">HE EVOLVED</span>' },
+  { t0: 15.3, t1: 16.6, cls: 'small', y: 330,  html: 'same Mochi.<br>same crown.' },
+] },
+};
+const CUT = CUTS[new URLSearchParams(location.search).get('cut') || 'long'];
+const SEG = CUT.SEG, TOTAL = CUT.TOTAL, CAPS = CUT.CAPS;
+window.__T = { reveal: CUT.reveal };
+// taps in clip time (from clip.json), mapped to composition time by the segment that shows them
+const TAPS = {
+  tap: [{ t: 0.9, x: 390, y: 560 }, { t: 2.6, x: 390, y: 1215 }, { t: 4.8, x: 390, y: 560 }],
+  walk: [{ t: 5.07, x: 660, y: 1050 }, { t: 6.23, x: 660, y: 1050 }, { t: 7.40, x: 660, y: 1050 }],
+  shop: [{ t: 0.6, x: 300, y: 850 }, { t: 2.2, x: 620, y: 850 }, { t: 3.1, x: 390, y: 1230 }, { t: 4.6, x: 390, y: 1230 }],
+  evolve: [{ t: 0.9, x: 390, y: 290 }, { t: 6.1, x: 390, y: 1500 }, { t: 7.9, x: 390, y: 560 }],
+};
 // ------------------------------------------------------------------ helpers
 const $ = (s) => document.querySelector(s);
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
@@ -233,11 +273,41 @@ function endcard(t, seg) {
   const p = pop(t - seg.t0, 0.4);
   e.querySelector('.card').style.transform = `scale(${0.5 + 0.5 * p}) translateY(${(1 - p) * 60}px)`;
   e.querySelector('.card').style.opacity = String(clamp((t - seg.t0) / 0.15, 0, 1));
+  const c = t - seg.t0;
+  const pulse = c > 0.6 ? 1 + 0.035 * Math.max(0, Math.sin((c - 0.6) * 4.2)) : 1;
+  e.querySelector('.cta').style.transform = `scale(${pulse}) rotate(-1.5deg)`;
+}
+// deterministic sparkle burst: gold stars fly out from the pet, slow glints drift up
+function sparks(t) {
+  const host = $('#sparks');
+  host.innerHTML = '';
+  const T = window.__T;
+  const age = t - T.reveal;
+  if (age < 0 || age > 1.6) return;
+  const rnd = (i, k) => { const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x); };
+  const cx = 540, cy = 980;
+  for (let i = 0; i < 26; i++) {
+    const a = rnd(i, 1) * Math.PI * 2, sp = 420 + rnd(i, 2) * 520, sz = 28 + rnd(i, 3) * 44;
+    const d = Math.min(age, 1.2);
+    const x = cx + Math.cos(a) * sp * (1 - Math.pow(1 - d / 1.2, 3)), y = cy + Math.sin(a) * sp * (1 - Math.pow(1 - d / 1.2, 3)) + 140 * d * d;
+    const o = age < 0.1 ? age / 0.1 : clamp(1 - (age - 0.6) / 0.9, 0, 1);
+    const st = document.createElement('div'); st.className = 'star';
+    st.style.left = (x - sz / 2) + 'px'; st.style.top = (y - sz / 2) + 'px'; st.style.width = sz + 'px'; st.style.height = sz + 'px';
+    st.style.opacity = String(o); st.style.transform = `rotate(${age * 240 * (rnd(i, 4) - 0.5)}deg) scale(${0.6 + 0.4 * Math.sin(age * 9 + i)})`;
+    host.appendChild(st);
+  }
+  for (let i = 0; i < 18; i++) {
+    const x0 = 120 + rnd(i, 5) * 840, y0 = 500 + rnd(i, 6) * 900, ph = rnd(i, 7);
+    const o = clamp(Math.sin((age * 1.8 + ph) * Math.PI) , 0, 1) * clamp(1 - (age - 1.0) / 0.6, 0, 1);
+    const g = document.createElement('div'); g.className = 'glow';
+    g.style.left = x0 + 'px'; g.style.top = (y0 - age * 90) + 'px'; g.style.opacity = String(o * 0.9); g.style.transform = `scale(${0.5 + o})`;
+    host.appendChild(g);
+  }
 }
 function flash(t) {
   // white hit on the evolution reveal and a short one on each hard cut
   let o = 0;
-  const rev = 15.5 + (3.05 - 1.4) / 1.25; // white burst in the evolve clip at ~3.05 s
+  const rev = window.__T.reveal; // white burst in the evolve clip at ~3.05 s
   if (t >= rev && t < rev + 0.35) o = Math.max(o, 0.85 * (1 - (t - rev) / 0.35));
   const cut = SEG.find((s) => Math.abs(t - s.t0) < 0.001 || (t > s.t0 && t < s.t0 + 0.08));
   if (cut && cut.t0 > 0 && cut.vista) o = Math.max(o, 0.5 * (1 - (t - cut.t0) / 0.08));
@@ -262,6 +332,7 @@ window.seek = async function (t) {
   }
   captions(t);
   endcard(t, seg);
+  sparks(t);
   flash(t);
   return true;
 };

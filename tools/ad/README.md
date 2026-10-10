@@ -16,13 +16,23 @@ Makes the 27-second vertical ad (1080x1920, 30 fps) from real gameplay in the we
    python3 -m http.server 8766 &          # from a folder that contains ad/ (comp.html + clips/, site/, audio/ symlinks)
    node ad_render.mjs ../../ad_frames
    ```
-4. **Mix and encode.** `ad_audio.py` lays the game's own SFX on the ambient loop at the cue
-   times and encodes H.264 + AAC.
+4. **Music.** `ad_music.py` composes the soft marimba-and-ukulele bed in code (D major, 108 BPM),
+   with the riser, sparkle chord and final chord placed at the times you pass in.
    ```bash
-   python3 ad_audio.py ../../ad_frames ../../web/public/assets/audio evochi_ad.mp4
+   python3 ad_music.py music_long.wav 27 14.44 16.82 17.78 23.89     # total, riser start, reveal, groove back, end card
+   python3 ad_music.py music_short.wav 19 11.11 13.37 14.44 16.67
+   ```
+5. **Mix and encode.** `ad_audio.py` lays the music and the game's own SFX at the cue times for
+   the chosen cut and encodes H.264 + AAC.
+   ```bash
+   python3 ad_audio.py long  ../../ad_frames       ../../web/public/assets/audio music_long.wav  evochi_ad_27s.mp4
+   python3 ad_audio.py short ../../ad_frames_short ../../web/public/assets/audio music_short.wav evochi_ad_19s.mp4
    ```
 
-`evochi_ad_voiceover_script.txt` has the VO lines with timestamps, and
-`evochi_ad_captions.srt` the burned-in caption text as a subtitle file.
+Two cuts live in `comp.html` (`?cut=long` and `?cut=short`); `ad_render.mjs --cut short` renders
+the 19-second one.
+
+`evochi_ad_voiceover_script.txt` has the VO lines with timestamps for both cuts, and the
+`evochi_ad_captions_*.srt` files carry the burned-in caption text as subtitles.
 
 Needs Node 18+, `puppeteer-core`, `@sparticuz/chromium` (or any Chromium), ffmpeg and Python 3.
