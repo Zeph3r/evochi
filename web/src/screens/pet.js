@@ -161,7 +161,15 @@ export const evolveScreen = {
 
 function attachCanvas(ctx, el, u) {
   const cv = el.querySelector('canvas');
-  if (!cv) return;
+  if (!cv || cv === u.canvas) return;
+  // The screen re-renders when the reveal card appears. Copy the last drawn frame onto the new
+  // canvas right away so the pet never blinks out while the atlases are (re)fetched.
+  if (u.canvas && u.canvas.width) {
+    cv.width = u.canvas.width;
+    cv.height = u.canvas.height;
+    cv.getContext('2d').drawImage(u.canvas, 0, 0);
+  }
+  u.canvas = cv;
   const p = ctx.state.pet;
   const eFrom = charEntry(u.from);
   const eTo = charEntry(u.to);
@@ -173,7 +181,8 @@ function attachCanvas(ctx, el, u) {
     cv.height = H * dpr;
     const g = cv.getContext('2d');
     const reduce = ctx.app.reducedMotion;
-    const parts = Array.from({ length: 40 }, () => ({ a: Math.random() * Math.PI * 2, r: 0.6 + Math.random() * 0.6, s: 2 + Math.random() * 4 }));
+    u.parts = u.parts || Array.from({ length: 40 }, () => ({ a: Math.random() * Math.PI * 2, r: 0.6 + Math.random() * 0.6, s: 2 + Math.random() * 4 }));
+    const parts = u.parts;
     const drawSprite = (img, e, expr, alpha, white, scaleMul) => {
       const r = frameRect(u.to === e ? u.to : u.from, p.paletteId, expr);
       const rr = e === eTo ? frameRect(u.to, p.paletteId, expr) : frameRect(u.from, p.paletteId, expr);
@@ -199,6 +208,7 @@ function attachCanvas(ctx, el, u) {
       g.restore();
     };
     const loop = (t) => {
+      if (u.canvas !== cv) return; // a newer canvas took over after a re-render
       if (!u.running || !cv.isConnected) return;
       const T = (t - u.start) / 1000;
       g.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -241,7 +251,7 @@ function attachCanvas(ctx, el, u) {
       }
       requestAnimationFrame(loop);
     };
-    requestAnimationFrame(loop);
+    loop(); // draw now: sizing the canvas above cleared it, and the next frame may be a screen later
   });
 }
 
