@@ -1,5 +1,5 @@
 {
-  "siteUrl": "",
+  "siteUrl": "https://evochigame.com",
   "appStoreUrl": "",
   "appStoreId": "",
   "playStoreUrl": "",
@@ -12,5 +12,9 @@
   "governingLaw": "",
   "minimumAge": "13",
   "effectiveDate": "",
-  "legalDraft": true
+  "legalDraft": true,
+  "siteMode": "beta",
+  "waitlistGoal": 5000,
+  "founderSpots": 1000,
+  "turnstileSiteKey": ""
 }

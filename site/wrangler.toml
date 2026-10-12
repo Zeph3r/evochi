@@ -1,0 +1,16 @@
+# Cloudflare Pages project settings for the Evochi site.
+# Pages reads this when the project's root directory is `site/`.
+name = "evochigame"
+compatibility_date = "2025-06-01"
+pages_build_output_dir = "dist/host"
+
+[vars]
+SITE_URL = "https://evochigame.com"
+WAITLIST_GOAL = "5000"
+FOUNDER_SPOTS = "1000"
+# Secrets (set in the dashboard, never here): ADMIN_KEY, TURNSTILE_SECRET, RESEND_API_KEY, FROM_EMAIL
+
+[[d1_databases]]
+binding = "DB"
+database_name = "evochi-waitlist"
+database_id = "REPLACE_WITH_THE_ID_FROM_wrangler_d1_create"

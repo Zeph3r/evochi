@@ -14,6 +14,14 @@ art rendered from the same voxel pipeline as the game.
 | `delete-account.html` | Google Play requires a web page where people can ask for account deletion without the app. |
 | `404.html` | Set it as your host's error page. |
 
+## Beta mode and the waitlist
+
+`config.json` has `"siteMode": "beta"`. In this mode the hero and the closing section carry the beta
+waitlist (pick an egg, email, live count toward the goal, Founder's Crown spots left), and the
+store buttons are hidden. The sign-up API is in `functions/api/` (Cloudflare Pages Functions +
+D1); `DEPLOY.md` walks through hosting it on Cloudflare for free, including the domain.
+Set `"siteMode": "launch"` when the store listings go live.
+
 ## Build
 
 ```bash

@@ -1,0 +1,48 @@
+<div class="wl" id="beta" data-api="{{apiBase}}" data-goal="{{waitlistGoal}}" data-spots="{{founderSpots}}" data-site="{{raw:siteUrl}}">
+  <div class="wl-count" id="wl-count" hidden>
+    <div class="wl-count-row"><span class="num" data-count>0</span><span class="wl-of">of <span class="num" data-goal>{{waitlistGoal}}</span> signed up</span></div>
+    <div class="bar" aria-hidden="true"><i data-bar style="width:0%"></i></div>
+    <div class="wl-count-foot"><span data-hatch>The nest warms with every sign-up. At {{waitlistGoal}}, Mochi hatches and beta opens.</span><span class="tag rose" data-founders hidden><img src="assets/img/crown/founders-crown.webp" width="18" height="18" alt=""><span data-founders-text></span></span></div>
+  </div>
+
+  <form class="wl-form" id="wl-form" novalidate>
+    <fieldset class="wl-eggs">
+      <legend>Pick your egg</legend>
+      <div class="wl-egg-row">
+        <input type="radio" name="colour" id="egg-amber" value="amber"><label for="egg-amber"><img src="assets/img/pets/s01-amber.webp" width="440" height="500" alt="">Amber</label>
+        <input type="radio" name="colour" id="egg-forest" value="forest"><label for="egg-forest"><img src="assets/img/pets/s01-forest.webp" width="440" height="500" alt="">Forest</label>
+        <input type="radio" name="colour" id="egg-coral" value="coral"><label for="egg-coral"><img src="assets/img/pets/s01-coral.webp" width="440" height="500" alt="">Coral</label>
+        <input type="radio" name="colour" id="egg-ocean" value="ocean" checked><label for="egg-ocean"><img src="assets/img/pets/s01-ocean.webp" width="440" height="500" alt="">Ocean</label>
+        <input type="radio" name="colour" id="egg-amethyst" value="amethyst"><label for="egg-amethyst"><img src="assets/img/pets/s01-amethyst.webp" width="440" height="500" alt="">Amethyst</label>
+        <input type="radio" name="colour" id="egg-obsidian" value="obsidian"><label for="egg-obsidian"><img src="assets/img/pets/s01-obsidian.webp" width="440" height="500" alt="">Obsidian</label>
+      </div>
+    </fieldset>
+    <div class="wl-row">
+      <label class="sr-only" for="wl-email">Email address</label>
+      <input class="wl-input" type="email" id="wl-email" name="email" placeholder="you@example.com" autocomplete="email" inputmode="email" required>
+      <button class="btn" type="submit" id="wl-submit">Join the beta waitlist</button>
+    </div>
+    {{turnstile}}
+    <p class="wl-fine">First 1,000 get the Founder's Crown. One email when it's your turn, nothing else. Unsubscribe or delete any time.</p>
+    <p class="wl-status" id="wl-status" role="alert"></p>
+  </form>
+
+  <div class="wl-done" id="wl-done" hidden>
+    <div class="wl-done-head">
+      <img class="wl-done-egg" src="assets/img/pets/s01-ocean.webp" width="440" height="500" alt="">
+      <div>
+        <p class="wl-done-kicker">You're in.</p>
+        <p class="wl-done-pos">#<span class="num" data-position>—</span> in line</p>
+        <p class="wl-done-sub"><span data-colour-name>Ocean</span> egg reserved.<span data-founder-line hidden> Founder's Crown: yours.</span></p>
+      </div>
+    </div>
+    <p class="wl-done-share">Bring a friend and you both move up the line. Your link:</p>
+    <div class="copybox"><code data-ref-link>…</code><button class="btn cream sm" type="button" data-copy-ref>Copy link</button><span class="copied" aria-live="polite"></span></div>
+    <div class="wl-share">
+      <a class="btn cream sm" data-share="x" href="#" rel="noopener" target="_blank">Share on X</a>
+      <a class="btn cream sm" data-share="wa" href="#" rel="noopener" target="_blank">WhatsApp</a>
+      <a class="btn cream sm" data-share="tg" href="#" rel="noopener" target="_blank">Telegram</a>
+    </div>
+    <p class="wl-fine"><span data-referrals-line>Friends joined with your link: <b class="num" data-referrals>0</b>.</span> Come back to this page any time to check your place.</p>
+  </div>
+</div>

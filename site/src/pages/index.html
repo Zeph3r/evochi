@@ -1,5 +1,5 @@
 <main id="main">
-  <section class="hero" aria-labelledby="hero-title">
+  <section class="hero{{heroClass}}" aria-labelledby="hero-title">
     <div class="hero-stage">
       <div class="hero-art">
         <img class="scene" src="assets/img/hero/hero-1920.webp"
@@ -18,13 +18,13 @@
     <div class="hero-copy">
       <div class="wrap">
         <div class="hero-card">
-          <span class="tag green">A walking pet game</span>
+          <span class="tag green">{{heroTag}}</span>
           <h1 id="hero-title">
             <img src="assets/img/wordmark.webp" width="558" height="169" alt="Evochi">
-            <span>Every step brings your Evochi to life.</span>
+            <span>{{heroHeadline}}</span>
           </h1>
-          <p class="lede">Hatch a little voxel lizard, walk to help it grow, and raise it from Eggling to Elder. Evochi turns the steps your phone already counts into XP, coins and evolutions.</p>
-          {{> stores}}
+          <p class="lede">{{heroLede}}</p>
+          {{heroCta}}
           <p class="fine">Want a look first? <a href="{{raw:previewUrl}}" rel="noopener">Play the browser preview</a>.</p>
         </div>
       </div>
@@ -254,6 +254,7 @@
         <h2 id="faq-title">Questions, answered</h2>
       </div>
       <div class="faq">
+        {{faqBeta}}
         <details class="card"><summary>Is Evochi free?</summary><div class="answer"><p>Evochi is free to download. Everything in the Evochi Market is bought with EvoCoins, which you earn by walking and completing quests.</p></div></details>
         <details class="card"><summary>Do I need a smartwatch or fitness tracker?</summary><div class="answer"><p>No. Your phone already counts steps, and Evochi reads that count from Apple Health on iPhone or Health Connect on Android. If a watch records steps too, Evochi merges the overlapping time so nothing is counted twice.</p></div></details>
         <details class="card"><summary>Which phones does it work on?</summary><div class="answer"><p>iPhone, using the Health app, and Android phones with Health Connect. Health Connect is built into Android 14 and later, and earlier versions can install it from Google Play.</p></div></details>
@@ -272,9 +273,9 @@
   <section class="wrap" id="get" aria-labelledby="get-title">
     <div class="cta-final">
       <div class="copy">
-        <h2 id="get-title">Your Eggling is waiting.</h2>
-        <p>Download Evochi, hatch your egg and take it on its first walk today.</p>
-        {{> stores}}
+        <h2 id="get-title">{{finalHeadline}}</h2>
+        <p>{{finalLede}}</p>
+        {{finalCta}}
         <p class="fine" style="font-size:var(--step--1);color:var(--ink-500)">Not on your phone yet? <a href="{{raw:previewUrl}}" rel="noopener">Play the browser preview</a>.</p>
       </div>
       <div class="trio" aria-hidden="true">

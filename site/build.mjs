@@ -32,10 +32,14 @@ const copybox = (k, id) => `<div class="copybox"><code id="${id}">${cfg[k] ? esc
 
 const launched = Boolean(cfg.appStoreUrl || cfg.playStoreUrl);
 const storeRel = (u) => (u ? ' rel="noopener"' : '');
+const BETA = cfg.siteMode === 'beta';
+const goal = Number(cfg.waitlistGoal) || 5000;
+const spots = Number(cfg.founderSpots) || 1000;
 
 const PAGES = [
-  { src: 'index.html', title: 'Evochi · A walking pet that grows with every step', artifactTitle: 'Evochi Website',
-    desc: 'Hatch a voxel lizard, walk to help it grow, and raise it from Eggling to Elder. A cozy walking pet game for iPhone and Android.' },
+  { src: 'index.html', title: BETA ? 'Evochi · Join the beta waitlist' : 'Evochi · A walking pet that grows with every step', artifactTitle: 'Evochi Website',
+    desc: BETA ? 'Hatch a voxel lizard, walk to help it grow, and raise it from Eggling to Elder. Join the beta waitlist: pick your egg, and the first 1,000 get the Founder\'s Crown.'
+               : 'Hatch a voxel lizard, walk to help it grow, and raise it from Eggling to Elder. A cozy walking pet game for iPhone and Android.' },
   { src: 'privacy.html', title: 'Privacy policy · Evochi', legal: true,
     desc: 'What Evochi collects, why, and the controls you have. Evochi reads only your step count, never sells data and never uses it for ads.' },
   { src: 'terms.html', title: 'Terms of use · Evochi', legal: true, desc: 'The terms for playing Evochi and using this website.' },
@@ -64,12 +68,34 @@ function render(tpl, page) {
     playStoreSmall: cfg.playStoreUrl ? 'Get it on' : 'Coming soon to',
     supportCopybox: copybox('supportEmail', 'support-email'),
     privacyCopybox: copybox('privacyEmail', 'privacy-email'),
+    // beta mode: the waitlist replaces the store buttons
+    heroClass: BETA ? ' beta' : '',
+    ctaAnchor: BETA ? 'beta' : 'get',
+    ctaLabel: BETA ? 'Join the beta' : 'Get Evochi',
+    heroTag: BETA ? 'Beta waitlist open' : 'A walking pet game',
+    heroHeadline: BETA ? 'Your steps. Your Evochi. Hatch it first.' : 'Every step brings your Evochi to life.',
+    heroLede: BETA ? 'A cozy voxel lizard that grows from the steps your phone already counts. Pick your egg, join the waitlist, and help hatch Mochi: at ' + goal.toLocaleString('en-US') + ' sign-ups, beta opens.'
+                   : 'Hatch a little voxel lizard, walk to help it grow, and raise it from Eggling to Elder. Evochi turns the steps your phone already counts into XP, coins and evolutions.',
+    heroCta: BETA ? read('partials/waitlist.html') : read('partials/stores.html'),
+    finalHeadline: BETA ? 'Help hatch Mochi.' : 'Your Eggling is waiting.',
+    finalLede: BETA ? 'Every sign-up warms the nest. Bring a friend and you both move up the line.' : 'Download Evochi, hatch your egg and take it on its first walk today.',
+    finalCta: BETA ? '<div class="wl-mini" data-wl-mini><span class="num" data-count-mini>—</span><span>of ' + goal.toLocaleString('en-US') + ' signed up</span></div><a class="btn lg" href="#beta">Join the beta waitlist</a>' : read('partials/stores.html'),
+    faqBeta: BETA ? '<details class="card" open><summary>When does the beta start, and how do I get in?</summary><div class="answer"><p>Beta opens when the waitlist reaches ' + goal.toLocaleString('en-US') + ' sign-ups. Invites go out in waitlist order, in waves, by email. Bringing a friend with your link moves you both up the line.</p><p>The first ' + spots.toLocaleString('en-US') + ' people on the list get the Founder\'s Crown: a wearable that fits every form, kept forever, and never sold in the Market.</p></div></details>'
+                  + '<details class="card"><summary>What do you do with my email?</summary><div class="answer"><p>One message when it\'s your turn, and nothing else. We store your email, the colour you picked and your referral code, nothing more. Unsubscribe from any email, or ask us to delete you from the list, and it\'s gone.</p></div></details>' : '',
+    footerBeta: BETA ? ' Beta coming first; stores after.' : '',
+    footerBetaLink: BETA ? '<li><a href="' + (isIndex ? '' : './') + '#beta">Join the beta waitlist</a></li>' : '',
+    apiBase: TARGET === 'host' ? '/api' : '',
+    waitlistGoal: goal.toLocaleString('en-US'),
+    founderSpots: spots.toLocaleString('en-US'),
+    turnstile: TARGET === 'host' && cfg.turnstileSiteKey ? '<div class="cf-turnstile" data-sitekey="' + esc(cfg.turnstileSiteKey) + '" data-theme="light" data-size="flexible"></div>' : '',
   };
   let out = tpl;
   for (let i = 0; i < 3; i++) out = out.replace(/\{\{>\s*([\w-]+)\s*\}\}/g, (_, n) => read(`partials/${n}.html`));
-  out = out.replace(/\{\{raw:(\w+)\}\}/g, (_, k) => esc(cfg[k] || ''));
-  out = out.replace(/\{\{email:(\w+)\}\}/g, (_, k) => email(k));
-  out = out.replace(/\{\{(\w+)\}\}/g, (_, k) => (k in ctx ? ctx[k] : val(k)));
+  for (let i = 0; i < 3; i++) { // a token's value may itself carry tokens (the hero's waitlist partial)
+    out = out.replace(/\{\{raw:(\w+)\}\}/g, (_, k) => esc(cfg[k] || ''));
+    out = out.replace(/\{\{email:(\w+)\}\}/g, (_, k) => email(k));
+    out = out.replace(/\{\{(\w+)\}\}/g, (_, k) => (k in ctx ? ctx[k] : val(k)));
+  }
   const left = out.match(/\{\{[^}]*\}\}/);
   if (left) throw new Error(`${page.src}: unresolved token ${left[0]}`);
   return out;
@@ -114,6 +140,7 @@ function head(page) {
   } else {
     h.push(GOOGLE_FONTS);
   }
+  if (TARGET === 'host' && BETA && cfg.turnstileSiteKey && isIndex) h.push('<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>');
   h.push('<link rel="stylesheet" href="assets/site.css">');
   return h.join('\n');
 }

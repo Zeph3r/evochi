@@ -32,6 +32,7 @@ html { scroll-behavior: smooth; scroll-padding-top: calc(var(--head-h) + 12px); 
 body { margin: 0; background: var(--cream-50); color: var(--ink-700); font: 400 var(--step-0)/1.6 var(--font-body);
   overflow-x: hidden; overflow-x: clip; }
 img { max-width: 100%; height: auto; display: block; }
+[hidden] { display: none !important; }
 a { color: var(--meadow-700); text-decoration-thickness: 1.5px; text-underline-offset: 3px; }
 a:hover { color: var(--ink-900); }
 :focus-visible { outline: 3px solid var(--water-600); outline-offset: 3px; border-radius: 6px; }
@@ -99,7 +100,7 @@ html.is-android .stores .store.ios { order: 2; }
 
 /* --------------------------------------------------------------- hero */
 .hero { position: relative; background: var(--sky-top); }
-.hero-stage { position: relative; height: clamp(640px, 52vw, 860px); overflow: hidden; container-type: size;
+.hero-stage { position: relative; height: clamp(640px, 52vw, 900px); overflow: hidden; container-type: size;
   --ax: 0.3; --ay: 0.62; }
 .hero-art { position: absolute; --w: max(100cqw, 200cqh); --h: max(100cqh, 50cqw); width: var(--w); height: var(--h);
   left: calc((100cqw - var(--w)) * var(--ax)); top: calc((100cqh - var(--h)) * var(--ay)); }
@@ -129,7 +130,7 @@ html.is-android .stores .store.ios { order: 2; }
 
 .hero-copy { position: absolute; inset: 0; z-index: 4; display: flex; align-items: center; pointer-events: none; }
 .hero-copy .wrap { width: 100%; }
-.hero-card { pointer-events: auto; width: min(530px, 48%); padding: clamp(22px, 2.6vw, 34px); display: grid; gap: 18px; border-radius: 24px;
+.hero-card { pointer-events: auto; width: min(560px, 48%); padding: clamp(22px, 2.6vw, 34px); display: grid; gap: 18px; border-radius: 24px;
   background: rgba(255, 249, 240, 0.95); border: 2px solid var(--outline-400);
   box-shadow: 0 4px 0 var(--card-bevel), 0 18px 40px rgba(40, 60, 30, 0.22); }
 .hero-card h1 { display: grid; gap: 14px; }
@@ -396,3 +397,58 @@ pre.template { margin: 0; padding: 14px 16px; border-radius: 14px; background: #
   .pet img, .pet.hop img { animation: none; }
   .btn, .store, .swatch, .bar i { transition: none; }
 }
+
+/* --------------------------------------------------------------- beta waitlist */
+.wl { display: grid; gap: 16px; }
+.wl-count { display: grid; gap: 8px; padding: 14px 16px; border-radius: 16px; background: #FBF1E4; border: 1.5px solid #EADAC6; box-shadow: inset 0 2px 0 rgba(255,255,255,0.7), 0 2px 0 var(--card-bevel); }
+.wl-count-row { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.wl-count-row > .num { font-size: clamp(1.75rem, 1.4rem + 1.4vw, 2.25rem); font-weight: 900; color: var(--ink-900); line-height: 1; }
+.wl-of { font: 700 0.9375rem/1.3 var(--font-body); color: var(--ink-700); }
+.wl-count-foot { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; font-size: var(--step--1); color: var(--ink-700); }
+.wl-count .tag.rose { text-transform: none; letter-spacing: 0; font-size: 0.8125rem; min-height: 26px; }
+.wl-eggs { border: 0; padding: 0; margin: 0; display: grid; gap: 8px; }
+.wl-eggs legend { font: 800 0.9375rem/1.2 var(--font-game); color: var(--ink-900); padding: 0; margin-bottom: 2px; }
+.wl-egg-row { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; }
+.wl-egg-row input { position: absolute; opacity: 0; pointer-events: none; }
+.wl-egg-row label { display: grid; justify-items: center; gap: 2px; padding: 6px 2px 6px; border-radius: 12px; background: #FBF1E4; border: 2px solid #EADAC6; cursor: pointer; font: 800 0.6875rem/1.2 var(--font-game); color: var(--ink-700); transition: transform 0.08s ease; min-width: 0; }
+.wl-egg-row label img { width: 100%; max-width: 64px; height: auto; }
+.wl-egg-row label:hover { transform: translateY(-2px); }
+.wl-egg-row input:checked + label { border-color: var(--gold-500); background: #FFF4D6; color: var(--ink-900); box-shadow: 0 2px 0 var(--gold-700); }
+.wl-egg-row input:focus-visible + label { outline: 3px solid var(--water-600); outline-offset: 2px; }
+.wl-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.wl-input { flex: 1 1 220px; min-width: 0; min-height: 48px; padding: 0 16px; border-radius: 12px; border: 2px solid #D6BFA4; background: var(--cream-100); font: 700 1.0625rem/1 var(--font-body); color: var(--ink-900); }
+.wl-input::placeholder { color: var(--ink-500); font-weight: 400; }
+.wl-input:focus { outline: 3px solid var(--water-600); outline-offset: 2px; border-color: var(--gold-500); }
+.wl-row .btn { flex: 1 1 auto; }
+.wl-fine { font-size: var(--step--1); color: var(--ink-500); margin: 0; }
+.wl-status { margin: 0; min-height: 1.4em; font: 700 0.9375rem/1.4 var(--font-body); color: var(--red-500); }
+.wl-status.ok { color: var(--meadow-700); }
+.wl-form.busy .btn { opacity: 0.7; pointer-events: none; }
+.cf-turnstile { min-height: 65px; }
+.wl-done { display: grid; gap: 14px; padding: 16px; border-radius: 16px; background: #FBF1E4; border: 1.5px solid #EADAC6; box-shadow: inset 0 2px 0 rgba(255,255,255,0.7), 0 2px 0 var(--card-bevel); }
+.wl-done-head { display: flex; gap: 14px; align-items: center; }
+.wl-done-egg { width: 96px; height: auto; flex: none; }
+.wl-done-kicker { margin: 0; font: 800 0.875rem/1.2 var(--font-game); color: var(--meadow-700); text-transform: uppercase; letter-spacing: 0.06em; }
+.wl-done-pos { margin: 2px 0 0; font: 900 clamp(2rem, 1.6rem + 1.6vw, 2.75rem)/1 var(--font-game); color: var(--ink-900); }
+.wl-done-sub { margin: 6px 0 0; font-size: 0.9375rem; color: var(--ink-700); }
+.wl-done-share { margin: 0; font: 800 0.9375rem/1.3 var(--font-game); color: var(--ink-900); }
+.wl-share { display: flex; gap: 8px; flex-wrap: wrap; }
+.wl-mini { display: inline-flex; align-items: baseline; gap: 8px; padding: 10px 14px; border-radius: 12px; background: rgba(255,249,240,0.9); border: 1.5px solid var(--card-edge); font: 700 0.9375rem/1.2 var(--font-body); color: var(--ink-700); justify-self: start; }
+.wl-mini .num { font-size: 1.5rem; font-weight: 900; color: var(--ink-900); }
+.wl-mini[hidden] { display: none; }
+/* beta hero: the card carries the form, so the stage grows and the card tightens */
+.hero.beta { position: relative; }
+@media (min-width: 900px) {
+  /* the card sets the height; the vista sits behind it as a full-bleed background layer */
+  .hero.beta .hero-stage { position: absolute; inset: 0; height: auto; }
+  .hero.beta .hero-copy { position: relative; inset: auto; padding-block: 44px 72px; min-height: 700px; }
+}
+.hero.beta .hero-card { gap: 14px; padding: clamp(20px, 2.2vw, 28px); }
+@media (min-width: 900px) { .hero.beta .hero-card { width: min(580px, 50%); } }
+.hero.beta .hero-card h1 { gap: 10px; }
+.hero.beta .hero-card h1 img { width: min(260px, 60%); }
+.hero.beta .hero-card h1 span { font-size: clamp(1.5rem, 1.1rem + 1.3vw, 2.1rem); }
+.hero.beta .hero-card .lede { font-size: 1rem; }
+.hero.beta .hero-card > .fine { margin-top: -4px; }
+@media (max-width: 899px) { .hero.beta .hero-stage { height: clamp(330px, 92vw, 520px); } }
+@media (max-width: 420px) { .wl-egg-row { grid-template-columns: repeat(3, minmax(0, 1fr)); } .wl-egg-row label { font-size: 0.8125rem; } .wl-egg-row label img { max-width: 80px; } }
