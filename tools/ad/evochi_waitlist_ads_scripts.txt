@@ -1,0 +1,79 @@
+EVOCHI — BETA WAITLIST CAMPAIGN (4 videos, 1080x1920, 30 fps)
+Voice-over scripts with timestamps, captions, and posting notes.
+All four end on the same call to action so the campaign reads as one: "Join the waitlist · link in bio".
+VO is optional on every cut; the burned-in captions carry the message. Duck the music ~6 dB under the voice.
+
+====================================================================
+1) "I'm making a game" — dev diary          evochi_wl1_dev_diary_20s.mp4
+Lever: being early + behind-the-scenes honesty. The "I'm making a game where..." format is the most
+reliable way an indie game gets its first thousand followers on TikTok.
+====================================================================
+00:00.0 – 00:02.6  "I'm making a game where your step count raises a little lizard."
+00:03.0 – 00:04.6  "He has ten moods."
+00:06.0 – 00:07.8  "Yes, I modelled the back."
+00:09.4 – 00:12.0  "Walk every day and he grows up. Three forms."
+00:13.0 – 00:15.6  "It's playable. It's just not in the store yet."
+00:16.2 – 00:19.0  "Beta opens soon. Join the waitlist, link in bio. The first thousand get the Founder's Crown."
+Post copy: "day 1 of showing you the game I've been building for a year. it's a walking pet. you're
+going to love him. waitlist in bio 🥚"   Pin a comment answering "when?" with "beta first, store after."
+
+====================================================================
+2) "Pick your egg"                           evochi_wl2_pick_your_egg_18s.mp4
+Lever: micro-commitment + identity. Asking people to pick a colour and comment it makes the game
+"theirs" before it exists, and comments are the signal TikTok uses to push a video further.
+====================================================================
+00:00.0 – 00:02.0  "Which egg would you pick?"
+00:03.6 – 00:04.6  "Name it."
+00:07.0 – 00:08.4  "Then it hatches."
+00:09.6 – 00:12.0  "Comment your colour. Waitlist members pick first."
+00:12.6 – 00:14.2  "It keeps your colour through every form."
+00:14.8 – 00:17.4  "Pick your egg and hatch it first. Join the waitlist, link in bio."
+Post copy: "amber, forest, coral, ocean, amethyst or obsidian? comment yours. waitlist in bio picks
+first." Reply to the first 50 comments with their colour's Eggling (the six sprites are in the pack).
+
+====================================================================
+3) "The Founder's Crown"                     evochi_wl3_founders_crown_17s.mp4
+Lever: scarcity + status. A reward that exists only for early sign-ups, never sold later.
+Note: this is a promise. Ship the crown as a real item, cap it at 1,000, and never put it in the Market.
+====================================================================
+00:00.0 – 00:02.4  "The first thousand beta testers get something nobody else will."
+00:02.9 – 00:04.2  "The Founder's Crown."
+00:05.0 – 00:07.0  "It fits every form, forever."
+00:09.0 – 00:11.6  "It's never sold in the Market. A thousand spots, then it's gone."
+00:12.2 – 00:15.0  "Claim your crown. Join the waitlist, link in bio."
+Post copy: "1,000 crowns. that's it. founders only. link in bio." Update the pinned comment with how many
+spots are left once a week (real numbers only).
+
+====================================================================
+4) "Help hatch Mochi"                        evochi_wl4_help_hatch_18s.mp4
+Lever: a shared goal + referral. The egg hatches when the community hits 5,000 sign-ups, and bringing a
+friend moves both of you up the line, so people have a reason to share, not just sign up.
+Note: the landing page must show the real count. Don't run this one until the counter is live.
+====================================================================
+00:00.0 – 00:03.0  "This egg hatches when five thousand people sign up."
+00:03.6 – 00:06.8  "Every sign-up warms the nest."
+00:08.1 – 00:10.4  "At five thousand it hatches, and beta opens."
+00:11.0 – 00:13.6  "Bring a friend and you both move up the line."
+00:14.2 – 00:17.2  "Help hatch Mochi. Join the waitlist, link in bio."
+Post copy: "we're at [real number] / 5,000. when it hatches, beta opens. link in bio." Post a follow-up
+video the day it hatches: the night-to-dawn scene with the real final number.
+
+====================================================================
+How to run it
+====================================================================
+Week 1: video 1 (dev diary) + video 2 (pick your egg). These build the audience and the comments.
+Week 2: video 3 (crown). Scarcity works once people already want the thing.
+Week 3+: video 4 (hatch goal), once the counter is live and past ~1,000, so it looks reachable.
+Re-post video 1 with the alternative hooks below as new "days" of the diary.
+
+Alternative first lines to test on video 1:
+  "I quit my job to make a walking pet game." (only if true)
+  "POV: a lizard egg is the reason you walked today."
+  "day 1 of building the cosiest walking game on your phone."
+
+Waitlist page checklist (the videos promise these, so the page has to deliver them):
+  - Email + "pick your egg" colour at sign-up (reserve the colour; show it on the thank-you screen).
+  - Position in line after signing up, and a share link that moves both people up (referral).
+  - A live counter toward 5,000 with the egg getting brighter as it fills.
+  - "Founder's Crown: first 1,000" with the real count of spots left.
+  - Privacy line: email only, used for the beta invite, delete on request.

@@ -36,3 +36,22 @@ the 19-second one.
 `evochi_ad_captions_*.srt` files carry the burned-in caption text as subtitles.
 
 Needs Node 18+, `puppeteer-core`, `@sparticuz/chromium` (or any Chromium), ffmpeg and Python 3.
+
+## Waitlist campaign (four videos)
+
+`comp_wl.html` holds four more cuts for the beta waitlist: `dev` (dev diary), `pick` (pick your egg),
+`crown` (Founder's Crown) and `hatch` (community hatch goal). They use `waitlist_assets.py` output
+(voxel build-up, expressions, turnaround, the rose-gold Founder's Crown, the night vista) and two
+extra gameplay clips from `ad_record_pick.mjs` (the Create screen and the hatching).
+
+```bash
+python3 waitlist_assets.py ../../ad/wl
+node ad_record_pick.mjs ../../ad_clips_pick            # web/dist on :8765
+node ad_render.mjs ../../wl_frames/dev --cut dev --comp comp_wl.html
+python3 ad_music.py music_dev.wav 20 7.78 9.0 10.0 16.0
+python3 ad_audio.py dev ../../wl_frames/dev ../../web/public/assets/audio music_dev.wav evochi_wl1.mp4
+```
+
+Music cue times per cut (total, riser, reveal, groove back, end card):
+dev 20 7.78 9.0 10.0 16.0 · pick 18 5.56 6.5 7.78 14.6 · crown 17 1.2 2.6 3.9 12.0 · hatch 18 5.56 7.8 8.9 14.0.
+`evochi_waitlist_ads_scripts.txt` has the VO lines, post copy and the landing-page checklist.

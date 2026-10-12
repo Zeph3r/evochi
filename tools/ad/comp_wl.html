@@ -1,0 +1,396 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Evochi waitlist ads</title>
+<style>
+@font-face { font-family: 'Nunito'; font-weight: 900; src: url('site/fonts/nunito-latin-900-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Nunito'; font-weight: 800; src: url('site/fonts/nunito-latin-800-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Lato'; font-weight: 700; src: url('site/fonts/lato-latin-700-normal.woff2') format('woff2'); }
+html, body { margin: 0; background: #000; }
+#stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #FFF9F0; font-family: 'Nunito', sans-serif; }
+#stage > * { position: absolute; left: 0; top: 0; }
+#bg { width: 1080px; height: 1920px; }
+#bg.parchment { background: radial-gradient(circle at 50% 38%, #FFF9F0 0%, #F4E2CD 70%, #EED9C2 100%); }
+#bg .grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(201,167,140,0.28) 2px, transparent 2px), linear-gradient(90deg, rgba(201,167,140,0.28) 2px, transparent 2px); background-size: 72px 72px; }
+#bg .shadow { position: absolute; width: 520px; height: 90px; left: 280px; border-radius: 50%; background: radial-gradient(closest-side, rgba(90,62,40,0.32), rgba(90,62,40,0)); }
+#clip { transform-origin: 0 0; width: 780px; height: 1688px; display: none; }
+#vista { width: 1080px; height: 1920px; display: none; overflow: hidden; }
+#vista img.bg { position: absolute; transform-origin: 0 0; }
+#vista img.bg.night { opacity: 0; }
+#vista .pet { position: absolute; transform-origin: 50% 100%; }
+#vista .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(32,27,23,0) 40%, rgba(32,27,23,0.55) 100%); }
+#layers { width: 1080px; height: 1920px; }
+#layers .sprite { position: absolute; transform-origin: 50% 100%; }
+#layers .label { position: absolute; transform: translateX(-50%); font: 800 38px/1 'Nunito', sans-serif; color: #3B2923; background: rgba(255,249,240,0.95); border: 3px solid #E3CBB1; border-radius: 14px; padding: 12px 20px; box-shadow: 0 4px 0 #D8BD9F; white-space: nowrap; }
+#layers .label.gold { background: linear-gradient(#FFE5A2, #F9CA70); border-color: #E3A64A; color: #80531F; }
+#layers .zz { position: absolute; font: 900 54px/1 'Nunito', sans-serif; color: #FFF9F0; -webkit-text-stroke: 8px #3B2923; paint-order: stroke fill; }
+#layers .ring { position: absolute; width: 700px; height: 700px; left: 190px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,229,162,0.9), rgba(255,229,162,0)); }
+#layers .arrow { position: absolute; font: 900 70px/1 'Nunito', sans-serif; color: #C8832C; transform: translate(-50%, -50%); }
+#ripples { width: 1080px; height: 1920px; pointer-events: none; }
+.ripple { position: absolute; border-radius: 50%; border: 10px solid rgba(255,255,255,0.95); box-shadow: 0 0 0 4px rgba(59,41,35,0.35), inset 0 0 0 4px rgba(59,41,35,0.25); transform: translate(-50%, -50%); }
+.dot { position: absolute; width: 54px; height: 54px; border-radius: 50%; background: rgba(255,255,255,0.75); box-shadow: 0 0 0 5px rgba(59,41,35,0.3); transform: translate(-50%, -50%); }
+#caps { width: 1080px; height: 1920px; pointer-events: none; }
+.cap { position: absolute; left: 70px; width: 940px; text-align: center; font-weight: 900; color: #FFF9F0; line-height: 1.08; letter-spacing: -0.01em;
+  paint-order: stroke fill; -webkit-text-stroke: 14px #3B2923; text-shadow: 0 8px 0 rgba(59,41,35,0.55), 0 14px 30px rgba(0,0,0,0.35); transform-origin: 50% 50%; text-wrap: balance; }
+.cap .g { color: #FFE5A2; }
+.cap .b { color: #BFE4FA; }
+.cap .p { color: #FFC4D6; }
+.cap.small { font-size: 54px; font-weight: 800; }
+.cap.big { font-size: 92px; letter-spacing: -0.02em; }
+.cap.huge { font-size: 118px; letter-spacing: -0.025em; }
+#sparks { width: 1080px; height: 1920px; pointer-events: none; }
+#sparks .star { position: absolute; width: 60px; height: 60px; background: #FFE5A2; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); transform-origin: 50% 50%; filter: drop-shadow(0 0 12px rgba(255,229,162,0.9)); }
+#sparks .glow { position: absolute; width: 20px; height: 20px; border-radius: 50%; background: #FFF9F0; box-shadow: 0 0 18px 8px rgba(255,249,240,0.8); }
+#endcard { width: 1080px; height: 1920px; display: none; }
+#endcard .card { position: absolute; left: 90px; right: 90px; top: 250px; padding: 60px 54px 54px; border-radius: 48px; background: rgba(255,249,240,0.97); border: 5px solid #C9A78C; box-shadow: 0 10px 0 #D8BD9F, 0 40px 80px rgba(40,60,30,0.35); text-align: center; transform-origin: 50% 50%; }
+#endcard .wm { width: 520px; height: auto; display: block; margin: 0 auto 22px; filter: drop-shadow(0 6px 0 rgba(60,35,20,0.22)); }
+#endcard h1 { margin: 0; font: 900 86px/1.06 'Nunito', sans-serif; color: #3B2923; letter-spacing: -0.02em; }
+#endcard .cta { display: inline-block; margin-top: 30px; padding: 26px 56px; border-radius: 28px; border: 5px solid #C8832C; font: 900 62px/1 'Nunito', sans-serif; color: #3B2923;
+  background: linear-gradient(180deg, #FFE5A2 0%, #F9CA70 38%, #F4B84E 70%, #E9A541 100%); box-shadow: inset 0 4px 0 rgba(255,255,255,0.55), inset 0 -6px 0 rgba(200,131,44,0.55), 0 10px 0 #C8832C, 0 18px 30px rgba(120,70,20,0.25); text-shadow: 0 2px 0 rgba(255,255,255,0.35); transform-origin: 50% 50%; }
+#endcard .bio { margin: 26px 0 0; font: 900 46px/1.2 'Nunito', sans-serif; color: #477B3A; }
+#endcard p { margin: 18px 0 0; font: 700 34px/1.3 'Lato', sans-serif; color: #684C3C; }
+#endcard .founder { display: inline-flex; align-items: center; gap: 14px; margin-top: 24px; padding: 12px 24px 12px 14px; border-radius: 999px; background: #FFF0F4; border: 3px solid #E7A8BC; font: 800 32px/1 'Nunito', sans-serif; color: #8C3A55; }
+#endcard .founder img { width: 56px; height: 56px; }
+#endcard .beta { position: absolute; top: -34px; right: 40px; padding: 14px 30px; border-radius: 999px; background: linear-gradient(#FFE5A2, #F4B84E); border: 4px solid #C8832C; font: 900 38px/1 'Nunito', sans-serif; color: #3B2923; box-shadow: 0 6px 0 #C8832C; transform: rotate(6deg); }
+#flash { width: 1080px; height: 1920px; background: #FFF; opacity: 0; pointer-events: none; }
+#vignette { width: 1080px; height: 1920px; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 62%, rgba(32,27,23,0.28) 100%); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg" class="parchment"><div class="grid"></div><div class="shadow"></div></div>
+  <div id="vista">
+    <img class="bg day" src="wl/vista/day.webp" alt="">
+    <img class="bg night" src="wl/vista/night.webp" alt="">
+    <div class="shade"></div>
+    <img class="pet" data-s="s01" src="site/img/pets/s01-ocean.webp" alt="">
+    <img class="pet" data-s="s02" src="site/img/pets/s02-ocean.webp" alt="">
+    <img class="pet" data-s="s03" src="site/img/pets/s03-ocean.webp" alt="">
+  </div>
+  <img id="clip" alt="">
+  <div id="layers"></div>
+  <div id="vignette"></div>
+  <div id="ripples"></div>
+  <div id="caps"></div>
+  <div id="endcard">
+    <div class="card">
+      <span class="beta">BETA</span>
+      <img class="wm" src="site/img/wordmark.webp" alt="Evochi">
+      <h1 id="end-h1">Your steps.<br>Your Evochi.</h1>
+      <div class="cta" id="end-cta">Join the waitlist</div>
+      <div class="bio">link in bio</div>
+      <div class="founder"><img src="wl/crown/icon.webp" alt="">First 1,000 get the Founder's Crown</div>
+    </div>
+  </div>
+  <div id="sparks"></div>
+  <div id="flash"></div>
+</div>
+<script>
+const FPS = 30;
+const $ = (s) => document.querySelector(s);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = (k) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
+const pop = (p, dur = 0.26) => { const k = clamp(p / dur, 0, 1); const c4 = (2 * Math.PI) / 3; return k === 0 ? 0 : k === 1 ? 1 : Math.pow(2, -10 * k) * Math.sin((k * 10 - 0.75) * c4) + 1; };
+const rnd = (i, k) => { const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x); };
+const CLIPS = { tap: { dir: 'clips/tap', n: 186 }, evolve: { dir: 'clips/evolve', n: 282 }, pick: { dir: 'clips2/pick', n: 228 }, hatch: { dir: 'clips2/hatch', n: 216 } };
+const SPR = { s01: { w: 440, h: 500, gx: 165.4 * 14 / 10.5, gy: 334.6 * 14 / 10.5 }, s02: { w: 530, h: 500, gx: 217.0 * 14 / 10.5, gy: 339.0 * 14 / 10.5 }, s03: { w: 774, h: 622, gx: 282.6 * 14 / 10.5, gy: 402.9 * 14 / 10.5 } };
+const HERO = { w: 2880, h: 1440, pets: { s01: { x: 0.50716, y: 0.71892, k: 0.000412 }, s02: { x: 0.62807, y: 0.63675, k: 0.000456 }, s03: { x: 0.76546, y: 0.56385, k: 0.000463 } } };
+const EXPR = ['default', 'happy', 'curious', 'surprised', 'excited', 'determined', 'sad', 'sleepy', 'blink', 'neutral'];
+const PALS = [['amber', 'Amber'], ['forest', 'Forest'], ['coral', 'Coral'], ['ocean', 'Ocean'], ['amethyst', 'Amethyst'], ['obsidian', 'Obsidian']];
+
+// ------------------------------------------------------------------ persistent layers
+const L = {};
+function layer(id, html, parent = '#layers') {
+  if (!L[id]) { const d = document.createElement('div'); d.id = 'L-' + id; d.innerHTML = html; d.style.cssText = 'position:absolute;left:0;top:0;width:1080px;height:1920px'; $(parent).appendChild(d); L[id] = d; }
+  return L[id];
+}
+function showOnly(ids) { for (const k in L) L[k].style.display = ids.includes(k) ? 'block' : 'none'; }
+const bob = (t, ph = 0, amp = 0.016) => amp * Math.sin((t + ph) * 2.4 * Math.PI / 1.0);
+// place a sprite so its ground anchor sits at (x, y) with height h, squash factor sq
+function placeSprite(img, id, x, y, h, sq = 1, dy = 0) {
+  const sp = SPR[id]; const k = h / sp.h;
+  img.style.width = sp.w * k + 'px'; img.style.height = sp.h * k + 'px';
+  img.style.left = (x - sp.gx * k) + 'px'; img.style.top = (y - sp.gy * k) + 'px';
+  img.style.transformOrigin = `${sp.gx * k}px ${sp.gy * k}px`;
+  img.style.transform = `translateY(${dy}px) scale(${1 / sq}, ${sq})`;
+}
+const hopAt = (t, t0, dur = 0.5) => { const k = (t - t0) / dur; if (k < 0 || k > 1) return { dy: 0, sq: 1 }; return { dy: -Math.sin(k * Math.PI) * 90, sq: 1 - 0.1 * Math.sin(k * Math.PI) }; };
+
+// ------------------------------------------------------------------ clips (recorded gameplay)
+let clipSrc = '';
+async function clipFrame(name, ct, cam, t, segT0) {
+  const c = CLIPS[name];
+  const f = clamp(Math.round(ct * FPS), 0, c.n - 1);
+  const src = `${c.dir}/f${String(f).padStart(5, '0')}.jpg`;
+  const el = $('#clip');
+  if (clipSrc !== src) { el.src = src; clipSrc = src; await el.decode().catch(() => {}); }
+  el.style.display = 'block';
+  let s = Math.max(cam.s, 1080 / 780);
+  const since = t - segT0;
+  if (since < 0.18) s *= 1 + 0.045 * (1 - since / 0.18);
+  const d = { x: 6 * Math.sin(t * 1.3) + 3 * Math.sin(t * 2.9 + 1), y: 5 * Math.sin(t * 1.1 + 2) + 3 * Math.sin(t * 2.3), r: 0.35 * Math.sin(t * 0.7) };
+  let left = clamp(cam.ax - cam.fx * s + d.x, 1080 - 780 * s, 0), top = clamp(cam.ay - cam.fy * s + d.y, 1920 - 1688 * s, 0);
+  el.style.transform = `translate(${left}px, ${top}px) rotate(${d.r}deg) scale(${s})`;
+  return { s, left, top };
+}
+function camLerp(a, b, k) { k = ease(clamp(k, 0, 1)); return { s: lerp(a.s, b.s, k), fx: lerp(a.fx, b.fx, k), fy: lerp(a.fy, b.fy, k), ax: lerp(a.ax, b.ax, k), ay: lerp(a.ay, b.ay, k) }; }
+function ripples(t, taps, place, segT0, c0, speed) {
+  const host = $('#ripples'); host.innerHTML = '';
+  for (const tp of taps) {
+    const ct = segT0 + (tp.t - c0) / speed; const age = t - ct;
+    if (age < -0.12 || age > 0.55) continue;
+    const x = place.left + tp.x * place.s, y = place.top + tp.y * place.s;
+    if (age < 0) { const d = document.createElement('div'); d.className = 'dot'; d.style.left = x + 'px'; d.style.top = y + 'px'; host.appendChild(d); continue; }
+    const k = age / 0.55; const r = document.createElement('div'); r.className = 'ripple';
+    const size = 60 + 220 * ease(k); r.style.left = x + 'px'; r.style.top = y + 'px'; r.style.width = size + 'px'; r.style.height = size + 'px'; r.style.opacity = String(1 - k); host.appendChild(r);
+    if (age < 0.18) { const d = document.createElement('div'); d.className = 'dot'; d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.opacity = String(1 - age / 0.18); host.appendChild(d); }
+  }
+}
+
+// ------------------------------------------------------------------ vista + end card
+function placeVista(t, { night = 0, pets = true, end = false, since = 0, s01Expr = 'happy', hop = true, focus = null } = {}) {
+  const v = $('#vista'); v.style.display = 'block';
+  const sc = end ? 1.333 : 1.2 + 0.05 * clamp(since / 2.6, 0, 1);
+  const W = HERO.w * sc, H = HERO.h * sc;
+  const cx = (focus ? HERO.pets[focus].x : end ? 0.635 : 0.62) * W; const left = clamp(540 - cx, 1080 - W, 0); const top = 1920 - H;
+  v.style.background = night > 0.5 ? '#141B33' : '#5FB1E6';
+  for (const im of v.querySelectorAll('img.bg')) { im.style.transform = `translate(${left}px, ${top}px) scale(${sc})`; im.style.width = HERO.w + 'px'; im.style.height = HERO.h + 'px'; }
+  v.querySelector('img.bg.night').style.opacity = String(night);
+  v.querySelectorAll('.pet').forEach((img, i) => {
+    const id = img.dataset.s, p = HERO.pets[id], sp = SPR[id];
+    img.style.display = pets ? 'block' : (id === 's01' ? 'block' : 'none');
+    const k = p.k * HERO.h * sc; const w = sp.w * k, h = sp.h * k;
+    const gx = p.x * W + left, gy = p.y * HERO.h * sc + top;
+    const ph = (since * 1.6 + i * 0.33) % 1; const hp = hop ? Math.max(0, Math.sin(ph * Math.PI)) : 0;
+    img.style.width = w + 'px'; img.style.height = h + 'px'; img.style.left = (gx - sp.gx * k) + 'px'; img.style.top = (gy - sp.gy * k) + 'px';
+    img.style.transform = `translateY(${-hp * h * 0.16}px) scale(${1 / (1 - hp * 0.06)}, ${1 - hp * 0.06})`;
+    img.style.filter = night > 0 ? `brightness(${1 - 0.42 * night})` : '';
+    if (id === 's01') { const want = s01Expr === 'happy' ? 'site/img/pets/s01-ocean.webp' : `wl/expr/${s01Expr}.webp`; if (img.getAttribute('src') !== want) img.src = want; }
+  });
+}
+function endcard(t, t0, h1) {
+  const e = $('#endcard'); e.style.display = 'block';
+  $('#end-h1').innerHTML = h1;
+  const p = pop(t - t0, 0.4);
+  e.querySelector('.card').style.transform = `scale(${0.5 + 0.5 * p}) translateY(${(1 - p) * 60}px)`;
+  e.querySelector('.card').style.opacity = String(clamp((t - t0) / 0.15, 0, 1));
+  const c = t - t0; const pulse = c > 0.6 ? 1 + 0.035 * Math.max(0, Math.sin((c - 0.6) * 4.2)) : 1;
+  e.querySelector('.cta').style.transform = `scale(${pulse}) rotate(-1.5deg)`;
+}
+function captions(t, CAPS) {
+  const host = $('#caps'); host.innerHTML = '';
+  for (const c of CAPS) {
+    if (t < c.t0 || t >= c.t1 + 0.12) continue;
+    const el = document.createElement('div'); el.className = 'cap ' + c.cls; el.innerHTML = c.html; el.style.top = c.y + 'px';
+    const pin = pop(t - c.t0); const out = t > c.t1 ? 1 - (t - c.t1) / 0.12 : 1; const wob = 1 + 0.012 * Math.sin((t - c.t0) * 5);
+    el.style.transform = `scale(${pin * wob}) rotate(${(c.t0 * 7 % 3) - 1.5 + 0.6 * Math.sin((t - c.t0) * 2)}deg)`; el.style.opacity = String(clamp(out, 0, 1));
+    host.appendChild(el);
+  }
+}
+function sparks(t, at, cx = 540, cy = 980) {
+  const host = $('#sparks'); host.innerHTML = '';
+  const age = t - at; if (age < 0 || age > 1.6) return;
+  for (let i = 0; i < 26; i++) {
+    const a = rnd(i, 1) * Math.PI * 2, sp = 420 + rnd(i, 2) * 520, sz = 28 + rnd(i, 3) * 44; const d = Math.min(age, 1.2);
+    const x = cx + Math.cos(a) * sp * (1 - Math.pow(1 - d / 1.2, 3)), y = cy + Math.sin(a) * sp * (1 - Math.pow(1 - d / 1.2, 3)) + 140 * d * d;
+    const o = age < 0.1 ? age / 0.1 : clamp(1 - (age - 0.6) / 0.9, 0, 1);
+    const st = document.createElement('div'); st.className = 'star'; st.style.left = (x - sz / 2) + 'px'; st.style.top = (y - sz / 2) + 'px'; st.style.width = sz + 'px'; st.style.height = sz + 'px';
+    st.style.opacity = String(o); st.style.transform = `rotate(${age * 240 * (rnd(i, 4) - 0.5)}deg) scale(${0.6 + 0.4 * Math.sin(age * 9 + i)})`; host.appendChild(st);
+  }
+  for (let i = 0; i < 18; i++) {
+    const x0 = 120 + rnd(i, 5) * 840, y0 = cy - 480 + rnd(i, 6) * 900, ph = rnd(i, 7);
+    const o = clamp(Math.sin((age * 1.8 + ph) * Math.PI), 0, 1) * clamp(1 - (age - 1.0) / 0.6, 0, 1);
+    const g = document.createElement('div'); g.className = 'glow'; g.style.left = x0 + 'px'; g.style.top = (y0 - age * 90) + 'px'; g.style.opacity = String(o * 0.9); g.style.transform = `scale(${0.5 + o})`; host.appendChild(g);
+  }
+}
+function flash(t, at, amt = 0.85) { const o = t >= at && t < at + 0.35 ? amt * (1 - (t - at) / 0.35) : 0; $('#flash').style.opacity = String(o); }
+
+// ================================================================== the four cuts
+const CUTS = {};
+
+// ---- 1. dev diary: "I'm making a game where..."
+CUTS.dev = {
+  TOTAL: 20.0, reveal: 9.0, end: 16.0,
+  CAPS: [
+    { t0: -0.12, t1: 3.0, cls: 'big', y: 300, html: "I'm making a game where<br>your <span class=\"g\">step count</span><br>raises a little lizard" },
+    { t0: 3.0, t1: 6.0, cls: 'big', y: 300, html: 'he has <span class="g">ten moods</span>' },
+    { t0: 6.0, t1: 9.0, cls: 'big', y: 300, html: '(yes, I modelled<br>the back)' },
+    { t0: 9.4, t1: 13.0, cls: 'big', y: 300, html: 'walk every day<br>and he <span class="g">grows up</span>' },
+    { t0: 13.0, t1: 16.0, cls: 'big', y: 300, html: "it's playable.<br>it's just <span class=\"b\">not in the store yet</span>." },
+  ],
+  async draw(t) {
+    const bg = $('#bg'); bg.style.display = 'block'; bg.querySelector('.shadow').style.top = '1335px';
+    $('#clip').style.display = 'none'; $('#vista').style.display = 'none'; $('#endcard').style.display = 'none'; $('#ripples').innerHTML = '';
+    if (t < 8.9) {
+      const el = layer('build', '<img class="sprite" alt=""><div class="label" style="left:540px;top:1430px"></div>');
+      showOnly(['build']);
+      const img = el.querySelector('img'); const lab = el.querySelector('.label');
+      let src, name = '';
+      if (t < 3.0) { const k = clamp(Math.floor((t / 2.4) * 40), 0, 39); src = `wl/build/b${String(k).padStart(3, '0')}.webp`; name = t < 2.5 ? `${Math.round(74856 * clamp(t / 2.4, 0, 1)).toLocaleString('en-US')} of 74,856 voxels` : 'Mochi, Eggling'; }
+      else if (t < 6.0) { const k = clamp(Math.floor((t - 3.0) / 0.3), 0, EXPR.length - 1); src = `wl/expr/${EXPR[k]}.webp`; name = EXPR[k]; }
+      else { const views = ['front', 'left', 'back', 'right', 'front', 'top']; const k = clamp(Math.floor((t - 6.0) / 0.5), 0, views.length - 1); src = `wl/turn/${views[k]}.webp`; name = views[k] + ' view'; }
+      if (img.getAttribute('src') !== src) { img.src = src; await img.decode().catch(() => {}); }
+      const hop = t >= 2.5 && t < 3.0 ? hopAt(t, 2.5) : { dy: 0, sq: 1 };
+      const sq = hop.sq * (1 + bob(t, 0, 0.012));
+      if (t < 6.0) placeSprite(img, 's01', 540, 1340, 700, sq, hop.dy);
+      else { // turnaround views are square-ish; centre them on the same baseline
+        img.style.width = '640px'; img.style.height = 'auto'; img.style.left = '220px'; img.style.top = '640px'; img.style.transformOrigin = '50% 100%'; img.style.transform = `scale(${1 + bob(t, 0, 0.012)})`;
+      }
+      lab.textContent = name;
+      lab.className = 'label' + (t >= 2.5 && t < 3.0 ? ' gold' : '');
+    } else if (t < 13.0) {
+      const el = layer('forms', '<img class="sprite" data-s="s01" src="site/img/pets/s01-ocean.webp" alt=""><img class="sprite" data-s="s02" src="wl/forms/s02.webp" alt=""><img class="sprite" data-s="s03" src="wl/forms/s03.webp" alt=""><div class="arrow" style="left:400px;top:1250px">›</div><div class="arrow" style="left:700px;top:1210px">›</div><div class="label" style="left:200px;top:1420px">day 1</div><div class="label" style="left:540px;top:1420px">level 10</div><div class="label gold" style="left:880px;top:1420px">level 25</div>');
+      showOnly(['forms']);
+      const xs = { s01: 200, s02: 520, s03: 860 }, hs = { s01: 330, s02: 400, s03: 440 }, at = { s01: 8.9, s02: 9.5, s03: 10.1 };
+      el.querySelectorAll('.sprite').forEach((img, i) => { const id = img.dataset.s; const p = pop(t - at[id], 0.35); const hop = hopAt(t, at[id] + 0.35, 0.45); placeSprite(img, id, xs[id], 1340, hs[id] * Math.max(0.001, p), hop.sq * (1 + bob(t, i * 0.3, 0.012)), hop.dy); });
+      el.querySelectorAll('.arrow').forEach((a, i) => { a.style.opacity = String(clamp((t - (9.5 + i * 0.6)) / 0.2, 0, 1)); });
+      el.querySelectorAll('.label').forEach((a, i) => { a.style.opacity = String(clamp((t - (9.2 + i * 0.6)) / 0.2, 0, 1)); });
+      sparks(t, 10.2, 860, 1200);
+    } else if (t < 16.0) {
+      showOnly([]); bg.style.display = 'none';
+      // real gameplay: the tap clip then the evolve reveal
+      if (t < 14.6) { const place = await clipFrame('tap', 0.5 + (t - 13.0), { s: 1.62, fx: 390, fy: 600, ax: 540, ay: 1010 }, t, 13.0); ripples(t, [{ t: 0.9, x: 390, y: 560 }], place, 13.0, 0.5, 1); }
+      else { await clipFrame('evolve', 2.6 + (t - 14.6) * 1.3, { s: 1.5, fx: 390, fy: 820, ax: 540, ay: 940 }, t, 14.6); $('#ripples').innerHTML = ''; flash(t, 14.6 + (3.05 - 2.6) / 1.3, 0.7); }
+    } else {
+      showOnly([]); bg.style.display = 'none'; $('#clip').style.display = 'none';
+      placeVista(t, { end: true, since: t - 16.0 });
+      endcard(t, 16.0, 'Beta opens soon.');
+    }
+    if (t >= 16.0) flash(t, -1);
+  },
+};
+
+// ---- 2. pick your egg
+CUTS.pick = {
+  TOTAL: 18.0, reveal: 5.6 + 0.9, end: 14.6,
+  CAPS: [
+    { t0: -0.12, t1: 3.6, cls: 'big', y: 960, html: 'which egg<br>would <span class="g">you</span> pick?' },
+    { t0: 3.6, t1: 5.6, cls: 'big', y: 1230, html: 'name it.' },
+    { t0: 7.0, t1: 9.6, cls: 'big', y: 300, html: 'then it <span class="g">hatches</span>.' },
+    { t0: 9.6, t1: 12.6, cls: 'big', y: 300, html: 'comment your colour.<br><span class="b">waitlist picks first.</span>' },
+    { t0: 12.6, t1: 14.6, cls: 'big', y: 300, html: 'it keeps your colour<br>through every form' },
+  ],
+  async draw(t) {
+    const bg = $('#bg'); $('#endcard').style.display = 'none';
+    if (t < 5.6) {
+      showOnly([]); bg.style.display = 'none'; $('#vista').style.display = 'none';
+      if (t < 3.6) { const place = await clipFrame('pick', 2.0 + t, { s: 1.385, fx: 390, fy: 800, ax: 540, ay: 1000 }, t, 0); ripples(t, [2.4, 2.97, 3.53, 4.1, 4.67, 5.23].map((tt, i) => ({ t: tt, x: [215, 340, 465, 590, 715, 740][i], y: 1130 })), place, 0, 2.0, 1); }
+      else { const place = await clipFrame('pick', Math.min(5.6 + (t - 3.6), 7.26), { s: 1.65, fx: 390, fy: 905, ax: 540, ay: 980 }, t, 3.6); ripples(t, [{ t: 5.8, x: 390, y: 905 }, { t: 7.3, x: 390, y: 1500 }], place, 3.6, 5.6, 1); }
+    } else if (t < 9.6) {
+      showOnly([]); bg.style.display = 'none'; $('#vista').style.display = 'none';
+      const place = await clipFrame('hatch', (t - 5.6), { s: 1.55, fx: 390, fy: 620, ax: 540, ay: 960 }, t, 5.6);
+      ripples(t, [{ t: 2.2, x: 390, y: 600 }], place, 5.6, 0, 1);
+      flash(t, 6.5, 0.7); sparks(t, 6.55, 540, 900);
+    } else if (t < 12.6) {
+      $('#clip').style.display = 'none'; $('#ripples').innerHTML = ''; $('#vista').style.display = 'none'; bg.style.display = 'block'; bg.querySelector('.shadow').style.display = 'none';
+      const el = layer('six', PALS.map(([id, name], i) => `<img class="sprite" data-i="${i}" src="site/img/pets/s01-${id}.webp" alt=""><div class="label" data-i="${i}">${name}</div>`).join(''));
+      showOnly(['six']);
+      const pos = [[270, 760], [540, 760], [810, 760], [270, 1300], [540, 1300], [810, 1300]];
+      el.querySelectorAll('.sprite').forEach((img) => { const i = +img.dataset.i; const p = pop(t - 9.6 - i * 0.12, 0.3); const hop = hopAt(t, 10.6 + i * 0.35, 0.45); placeSprite(img, 's01', pos[i][0], pos[i][1], 300 * Math.max(0.001, p), hop.sq * (1 + bob(t, i * 0.2, 0.012)), hop.dy); });
+      el.querySelectorAll('.label').forEach((lb) => { const i = +lb.dataset.i; lb.style.left = pos[i][0] + 'px'; lb.style.top = (pos[i][1] + 30) + 'px'; lb.style.opacity = String(clamp((t - 9.9 - i * 0.12) / 0.2, 0, 1)); });
+    } else if (t < 14.6) {
+      showOnly([]); bg.style.display = 'none';
+      placeVista(t, { since: t - 12.6 });
+    } else {
+      showOnly([]); bg.style.display = 'none';
+      placeVista(t, { end: true, since: t - 14.6 });
+      endcard(t, 14.6, 'Pick your egg.<br>Hatch it first.');
+    }
+    if (t >= 9.6) { flash(t, -1); $('#sparks').innerHTML = ''; }
+  },
+};
+
+// ---- 3. the Founder's Crown
+CUTS.crown = {
+  TOTAL: 17.0, reveal: 2.6, end: 12.0,
+  CAPS: [
+    { t0: -0.12, t1: 2.6, cls: 'big', y: 300, html: 'the first <span class="g">1,000</span> beta testers<br>get something<br>nobody else will' },
+    { t0: 2.9, t1: 5.0, cls: 'huge', y: 300, html: "the <span class=\"p\">Founder's<br>Crown</span>" },
+    { t0: 5.0, t1: 9.0, cls: 'big', y: 300, html: 'fits every form.<br><span class="g">forever</span>.' },
+    { t0: 9.0, t1: 12.0, cls: 'big', y: 300, html: 'never sold in the Market.<br><span class="p">1,000 spots</span>, then it\'s gone.' },
+  ],
+  async draw(t) {
+    const bg = $('#bg'); bg.style.display = 'block'; bg.querySelector('.shadow').style.display = 'block'; bg.querySelector('.shadow').style.top = '1335px';
+    $('#clip').style.display = 'none'; $('#vista').style.display = 'none'; $('#endcard').style.display = 'none'; $('#ripples').innerHTML = '';
+    if (t < 4.9) {
+      const el = layer('crown1', '<div class="ring" style="top:560px"></div><img class="sprite plain" src="wl/crown/s01_plain.webp" alt=""><img class="sprite crowned" src="wl/crown/s01_crowned.webp" alt=""><img class="sprite icon" src="wl/crown/icon.webp" alt="" style="width:420px;height:420px;left:330px">');
+      showOnly(['crown1']);
+      const plain = el.querySelector('.plain'), crowned = el.querySelector('.crowned'), icon = el.querySelector('.icon'), ring = el.querySelector('.ring');
+      const on = t >= 2.6;
+      plain.style.display = on ? 'none' : 'block'; crowned.style.display = on ? 'block' : 'none';
+      const hop = on ? hopAt(t, 2.6, 0.5) : { dy: 0, sq: 1 };
+      placeSprite(on ? crowned : plain, 's01', 540, 1340, 700, hop.sq * (1 + bob(t, 0, 0.012)), hop.dy);
+      // the crown drops in from above and lands on the head at 2.6 s
+      const k = clamp((t - 1.2) / 1.4, 0, 1);
+      const y = lerp(-500, 300, ease(k));
+      icon.style.display = on ? 'none' : (t >= 1.2 ? 'block' : 'none');
+      icon.style.top = y + 'px'; icon.style.transform = `rotate(${(1 - k) * -25}deg) scale(${0.6 + 0.4 * k})`;
+      ring.style.opacity = String(on ? clamp(1 - (t - 2.6) / 1.2, 0, 1) * 0.9 : 0);
+      ring.style.transform = `scale(${on ? 0.6 + (t - 2.6) * 0.9 : 0.6})`;
+      flash(t, 2.6, 0.75); sparks(t, 2.62, 540, 900);
+    } else if (t < 12.0) {
+      const el = layer('crown3', '<img class="sprite" data-s="s01" src="wl/crown/s01_crowned.webp" alt=""><img class="sprite" data-s="s02" src="wl/crown/s02_crowned.webp" alt=""><img class="sprite" data-s="s03" src="wl/crown/s03_crowned.webp" alt=""><div class="label" style="left:200px;top:1420px">Eggling</div><div class="label" style="left:540px;top:1420px">Juvenile</div><div class="label" style="left:880px;top:1420px">Elder</div>');
+      showOnly(['crown3']);
+      const xs = { s01: 200, s02: 520, s03: 860 }, hs = { s01: 330, s02: 400, s03: 440 }, at = { s01: 4.9, s02: 5.3, s03: 5.7 };
+      el.querySelectorAll('.sprite').forEach((img, i) => { const id = img.dataset.s; const p = pop(t - at[id], 0.35); const hop = hopAt(t, 9.0 + i * 0.3, 0.45); placeSprite(img, id, xs[id], 1340, hs[id] * Math.max(0.001, p), hop.sq * (1 + bob(t, i * 0.3, 0.012)), hop.dy); });
+      el.querySelectorAll('.label').forEach((a, i) => { a.style.opacity = String(clamp((t - (5.2 + i * 0.4)) / 0.2, 0, 1)); });
+      flash(t, -1); $('#sparks').innerHTML = '';
+    } else {
+      showOnly([]); bg.style.display = 'none';
+      placeVista(t, { end: true, since: t - 12.0 });
+      endcard(t, 12.0, 'Claim your crown.');
+      flash(t, -1);
+    }
+  },
+};
+
+// ---- 4. help hatch Mochi (community goal)
+CUTS.hatch = {
+  TOTAL: 18.0, reveal: 7.8, end: 14.0,
+  CAPS: [
+    { t0: -0.12, t1: 3.5, cls: 'big', y: 300, html: 'this egg hatches when<br><span class="g">5,000 people</span> sign up' },
+    { t0: 3.5, t1: 7.6, cls: 'big', y: 300, html: 'every sign-up<br><span class="g">warms the nest</span>' },
+    { t0: 8.1, t1: 11.0, cls: 'big', y: 300, html: 'at 5,000 it hatches.<br><span class="b">beta opens.</span>' },
+    { t0: 11.0, t1: 14.0, cls: 'big', y: 300, html: 'bring a friend:<br>you <span class="g">both</span> move up the line' },
+  ],
+  async draw(t) {
+    $('#bg').style.display = 'none'; $('#clip').style.display = 'none'; $('#endcard').style.display = 'none'; $('#ripples').innerHTML = '';
+    if (t < 11.0) {
+      // night -> dawn as the nest "warms"; the egg sleeps, then wakes at 7.8
+      const night = t < 3.5 ? 1 : t < 7.8 ? 1 - ease((t - 3.5) / 4.3) * 0.85 : Math.max(0, 0.15 - (t - 7.8) * 0.3);
+      const awake = t >= 7.8;
+      placeVista(t, { night, pets: false, since: awake ? t - 7.8 : 0, s01Expr: awake ? 'happy' : 'sleepy', hop: awake, focus: 's01' });
+      const el = layer('zz', '<div class="zz" style="left:640px;top:1010px">z</div><div class="zz" style="left:700px;top:930px">z</div><div class="zz" style="left:770px;top:840px">Z</div>');
+      showOnly(['zz']);
+      el.querySelectorAll('.zz').forEach((z, i) => { const ph = (t * 0.6 + i * 0.33) % 1; z.style.opacity = String(awake ? 0 : Math.sin(ph * Math.PI) * 0.95); z.style.transform = `translateY(${-ph * 60}px) rotate(${Math.sin(t * 2 + i) * 10}deg)`; });
+      flash(t, 7.8, 0.8); sparks(t, 7.82, 540, 1250);
+    } else if (t < 14.0) {
+      showOnly([]);
+      // two eggs hopping together: the ocean one and a coral friend
+      placeVista(t, { night: 0, pets: false, since: t - 11.0, focus: 's01' });
+      const el = layer('friend', '<img class="sprite" src="site/img/pets/s01-coral.webp" alt="">');
+      showOnly(['friend']);
+      const img = el.querySelector('img'); const k = ease(clamp((t - 11.0) / 0.8, 0, 1)); const hop = hopAt(t, 11.9 + Math.floor((t - 11.9) / 0.9) * 0.9, 0.45);
+      placeSprite(img, 's01', lerp(1300, 860, k), 1434, 356, hop.sq, t > 11.9 ? hop.dy : 0);
+      $('#sparks').innerHTML = ''; flash(t, -1);
+    } else {
+      showOnly([]);
+      placeVista(t, { end: true, since: t - 14.0 });
+      endcard(t, 14.0, 'Help hatch Mochi.');
+    }
+  },
+};
+
+const CUT = CUTS[new URLSearchParams(location.search).get('cut') || 'dev'];
+window.__total = CUT.TOTAL;
+window.seek = async function (t) {
+  t = Math.min(t, CUT.TOTAL - 0.001);
+  await CUT.draw(t);
+  captions(t, CUT.CAPS);
+  return true;
+};
+</script>
+</body>
+</html>

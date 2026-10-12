@@ -41,6 +41,46 @@ CUES = {
             ('reward_chime', 16.6, -6),
         ],
     },
+    'dev': {
+        'total': 20.0,
+        'cues': [
+            ('ui_tap', 0.0, -9), ('ui_tap', 3.0, -9), ('ui_tap', 6.0, -9), ('ui_tap', 9.4, -9), ('ui_tap', 13.0, -9),
+            ('pet_chirp', 2.5, -3), ('ui_tap', 3.3, -14), ('ui_tap', 3.6, -14), ('ui_tap', 3.9, -14), ('ui_tap', 4.2, -14), ('ui_tap', 4.5, -14), ('ui_tap', 4.8, -14), ('ui_tap', 5.1, -14), ('ui_tap', 5.4, -14), ('ui_tap', 5.7, -14),
+            ('play_boing', 9.25, -6), ('play_boing', 9.85, -6), ('level_up', 10.45, -6),
+            ('pet_chirp', 13.4, -3), ('evolve_fanfare', 14.9, -4),
+            ('reward_chime', 16.0, -6),
+        ],
+    },
+    'pick': {
+        'total': 18.0,
+        'cues': [
+            ('ui_tap', 0.0, -9), ('ui_tap', 3.6, -9), ('ui_tap', 7.0, -9), ('ui_tap', 9.6, -9), ('ui_tap', 12.6, -9),
+            ('ui_tap', 0.4, -12), ('ui_tap', 0.97, -12), ('ui_tap', 1.53, -12), ('ui_tap', 2.1, -12), ('ui_tap', 2.67, -12), ('ui_tap', 3.23, -12),
+            ('ui_tap', 3.8, -12), ('ui_tap', 5.3, -10),
+            ('evolve_fanfare', 6.45, -3), ('pet_chirp', 7.8, -3),
+            ('play_boing', 10.6, -8), ('play_boing', 10.95, -8), ('play_boing', 11.3, -8), ('play_boing', 11.65, -8), ('play_boing', 12.0, -8), ('play_boing', 12.35, -8),
+            ('reward_chime', 14.6, -6),
+        ],
+    },
+    'crown': {
+        'total': 17.0,
+        'cues': [
+            ('ui_tap', 0.0, -9), ('ui_tap', 2.9, -9), ('ui_tap', 5.0, -9), ('ui_tap', 9.0, -9),
+            ('reward_chime', 2.6, -1), ('pet_chirp', 2.75, -3),
+            ('play_boing', 4.95, -8), ('play_boing', 5.35, -8), ('play_boing', 5.75, -8),
+            ('pet_chirp', 9.05, -6), ('pet_chirp', 9.35, -7), ('pet_chirp', 9.65, -8),
+            ('reward_chime', 12.0, -6),
+        ],
+    },
+    'hatch': {
+        'total': 18.0,
+        'cues': [
+            ('ui_tap', 0.0, -9), ('ui_tap', 3.5, -9), ('ui_tap', 8.1, -9), ('ui_tap', 11.0, -9),
+            ('evolve_fanfare', 7.75, -5), ('pet_chirp', 7.95, -2),
+            ('pet_chirp', 11.95, -7), ('pet_chirp', 12.85, -8), ('pet_chirp', 13.75, -8),
+            ('reward_chime', 14.0, -6),
+        ],
+    },
 }[cut]
 TOTAL = CUES['total']
 
