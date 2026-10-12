@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Evochi social pack</title>
+<style>
+@font-face { font-family: 'Nunito'; font-weight: 900; src: url('site/fonts/nunito-latin-900-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Nunito'; font-weight: 800; src: url('site/fonts/nunito-latin-800-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Lato'; font-weight: 400; src: url('site/fonts/lato-latin-400-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Lato'; font-weight: 700; src: url('site/fonts/lato-latin-700-normal.woff2') format('woff2'); }
+:root { --ink: #3B2923; --ink2: #684C3C; --ink3: #8E7462; --cream: #FFF9F0; --parch: #F8EBDD; --parch2: #EED9C2; --outline: #C9A78C; --edge: #E3CBB1; --bevel: #D8BD9F;
+  --gold1: #FFE5A2; --gold3: #F9CA70; --gold5: #F4B84E; --gold7: #C8832C; --gold9: #80531F; --meadow1: #E5F2CF; --meadow3: #B7D98B; --meadow5: #82B75E; --meadow7: #477B3A; --sky1: #D6EDFB; --sky4: #84C4E8; --skytop: #5FB1E6; --rose: #E7A8BC; --rose9: #8C3A55; }
+html, body { margin: 0; background: #222; font-family: 'Nunito', sans-serif; color: var(--ink); }
+body { display: flex; flex-direction: column; gap: 40px; padding: 40px; align-items: flex-start; }
+.card { position: relative; overflow: hidden; background: var(--cream); flex: none; }
+.card > * { position: absolute; }
+.vista { left: 0; top: 0; width: 100%; height: 100%; background-image: url('wl/vista/day.webp'); background-size: cover; background-position: 62% 60%; }
+.vista.night { background-image: url('wl/vista/night.webp'); }
+.shade { left: 0; top: 0; width: 100%; height: 100%; background: linear-gradient(180deg, rgba(32,27,23,0) 45%, rgba(32,27,23,0.55) 100%); }
+.parch { left: 0; top: 0; width: 100%; height: 100%; background: radial-gradient(circle at 50% 40%, #FFF9F0 0%, #F4E2CD 70%, #EED9C2 100%); }
+.grid { left: 0; top: 0; width: 100%; height: 100%; background-image: linear-gradient(rgba(201,167,140,0.25) 2px, transparent 2px), linear-gradient(90deg, rgba(201,167,140,0.25) 2px, transparent 2px); background-size: 72px 72px; }
+.sky { left: 0; top: 0; width: 100%; height: 100%; background: linear-gradient(180deg, #5FB1E6 0%, #9ED2EF 55%, #D6EDFB 100%); }
+.goldtile { left: 0; top: 0; width: 100%; height: 100%; background: linear-gradient(180deg, #FFE5A2 0%, #F9CA70 35%, #F4B84E 70%, #E9A541 100%); }
+.greentile { left: 0; top: 0; width: 100%; height: 100%; background: linear-gradient(180deg, #CDE7A9 0%, #B7D98B 50%, #9ACB70 100%); }
+.wm { filter: drop-shadow(0 6px 0 rgba(60,35,20,0.22)); }
+.h { font-weight: 900; color: var(--ink); line-height: 1.04; letter-spacing: -0.02em; text-wrap: balance; }
+.h .g { color: var(--gold7); }
+.h .p { color: var(--rose9); }
+.h .m { color: var(--meadow7); }
+.sub { font-family: 'Lato', sans-serif; font-weight: 700; color: var(--ink2); line-height: 1.35; }
+.capx { font-weight: 900; color: var(--cream); line-height: 1.08; letter-spacing: -0.01em; paint-order: stroke fill; -webkit-text-stroke: 14px var(--ink); text-shadow: 0 8px 0 rgba(59,41,35,0.55), 0 14px 30px rgba(0,0,0,0.35); text-wrap: balance; text-align: center; }
+.capx .g { color: var(--gold1); }
+.capx .b { color: #BFE4FA; }
+.capx .p { color: #FFC4D6; }
+.pill { display: inline-flex; align-items: center; gap: 14px; padding: 16px 30px; border-radius: 999px; background: rgba(255,249,240,0.96); border: 4px solid var(--outline); box-shadow: 0 6px 0 var(--bevel); font-weight: 800; color: var(--ink); white-space: nowrap; }
+.pill img { width: 1.4em; height: 1.4em; }
+.btn { display: inline-block; padding: 22px 48px; border-radius: 24px; border: 5px solid var(--gold7); font-weight: 900; color: var(--ink); background: linear-gradient(180deg, #FFE5A2 0%, #F9CA70 38%, #F4B84E 70%, #E9A541 100%); box-shadow: inset 0 4px 0 rgba(255,255,255,0.55), inset 0 -6px 0 rgba(200,131,44,0.55), 0 10px 0 var(--gold7), 0 18px 30px rgba(120,70,20,0.25); text-shadow: 0 2px 0 rgba(255,255,255,0.35); white-space: nowrap; }
+.tag { display: inline-block; padding: 10px 22px; border-radius: 12px; background: linear-gradient(#FFE5A2, #F9CA70); border: 3px solid #E3A64A; color: var(--gold9); font-weight: 800; letter-spacing: 0.06em; text-transform: uppercase; }
+.tag.green { background: var(--meadow1); border-color: #CDE5B0; color: var(--meadow7); }
+.tag.rose { background: #FFF0F4; border-color: var(--rose); color: var(--rose9); }
+.panel { background: rgba(255,249,240,0.96); border: 5px solid var(--outline); border-radius: 44px; box-shadow: 0 10px 0 var(--bevel), 0 30px 60px rgba(40,60,30,0.3); }
+.label { font-weight: 800; color: var(--ink); background: rgba(255,249,240,0.95); border: 3px solid var(--edge); border-radius: 14px; padding: 10px 20px; box-shadow: 0 4px 0 var(--bevel); white-space: nowrap; text-align: center; }
+.phone { border-radius: 44px; padding: 12px; background: linear-gradient(160deg, #4A3A33, #2E2420); box-shadow: 0 3px 0 #1E1612, 0 24px 40px rgba(40,24,10,0.3); }
+.phone img { display: block; border-radius: 34px; width: 100%; }
+.shadow { border-radius: 50%; background: radial-gradient(closest-side, rgba(90,62,40,0.3), rgba(90,62,40,0)); }
+.ring { border-radius: 50%; border: 22px solid var(--gold5); box-shadow: 0 0 0 10px var(--gold7) inset; }
+.story-safe { }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ profile pictures 1024x1024 -->
+<div class="card" id="pfp_main" style="width:1024px;height:1024px">
+  <div class="goldtile"></div>
+  <div style="left:62px;top:52px;width:900px;height:460px;border-radius:120px;background:linear-gradient(#FFEFC0,rgba(255,229,162,0));opacity:0.9"></div>
+  <img src="site/img/pets/s01-amber.webp" style="left:-30px;top:-40px;width:1100px" alt="">
+</div>
+<div class="card" id="pfp_mochi" style="width:1024px;height:1024px">
+  <div class="greentile"></div>
+  <img src="site/img/pets/s01-ocean.webp" style="left:-30px;top:-40px;width:1100px" alt="">
+</div>
+<div class="card" id="pfp_wordmark" style="width:1024px;height:1024px">
+  <div class="parch"></div>
+  <img class="wm" src="site/img/wordmark.webp" style="left:92px;top:300px;width:840px" alt="">
+  <img src="site/img/pets/s01-amber.webp" style="left:372px;top:520px;width:280px" alt="">
+</div>
+<div class="card" id="pfp_crown" style="width:1024px;height:1024px">
+  <div class="goldtile"></div>
+  <img src="wl/crown/s01_crowned.webp" style="left:-30px;top:-10px;width:1100px" alt="">
+</div>
+
+<!-- ============================================================ YouTube banner 2560x1440 (safe 1546x423 centred) -->
+<div class="card" id="yt_banner" style="width:2560px;height:1440px">
+  <div class="vista" style="background-position:60% 55%;background-size:3400px auto"></div>
+  <div class="shade" style="background:linear-gradient(180deg, rgba(32,27,23,0.0) 50%, rgba(32,27,23,0.35) 100%)"></div>
+  <div class="panel" style="left:560px;top:548px;width:720px;height:344px;border-radius:40px"></div>
+  <img class="wm" src="site/img/wordmark.webp" style="left:620px;top:590px;width:600px" alt="">
+  <div class="h" style="left:620px;top:790px;width:620px;font-size:44px;line-height:1.1">Every step brings your Evochi to life.</div>
+  <div class="pill" style="left:1360px;top:600px;font-size:40px;padding:22px 40px"><img src="site/img/icons/steps.webp" alt="">Walking pet game</div>
+  <div class="pill" style="left:1360px;top:710px;font-size:40px;padding:22px 40px"><img src="site/img/icons/evolve.webp" alt="">Beta waitlist in the links</div>
+  <div class="pill" style="left:1360px;top:820px;font-size:40px;padding:22px 40px;background:#FFF0F4;border-color:var(--rose)"><img src="wl/crown/icon.webp" alt="">First 1,000 get the crown</div>
+</div>
+
+<!-- ============================================================ X header 1500x500 -->
+<div class="card" id="x_header" style="width:1500px;height:500px">
+  <div class="vista" style="background-position:68% 62%;background-size:2000px auto"></div>
+  <div class="shade" style="background:linear-gradient(90deg, rgba(32,27,23,0.0) 40%, rgba(32,27,23,0.0) 100%)"></div>
+  <div class="panel" style="left:470px;top:70px;width:560px;height:360px;border-radius:36px"></div>
+  <img class="wm" src="site/img/wordmark.webp" style="left:520px;top:100px;width:460px" alt="">
+  <div class="h" style="left:520px;top:258px;width:470px;font-size:36px;line-height:1.1">Every step brings your Evochi to life.</div>
+  <div class="tag green" style="left:520px;top:352px;font-size:22px">Beta waitlist open</div>
+</div>
+
+<!-- ============================================================ Instagram highlight covers 1080x1080 -->
+<div class="card" id="hl_beta" style="width:1080px;height:1080px"><div class="parch"></div><div class="ring" style="left:60px;top:60px;width:916px;height:916px"></div><img src="site/img/icons/steps.webp" style="left:300px;top:300px;width:480px" alt=""></div>
+<div class="card" id="hl_mochi" style="width:1080px;height:1080px"><div class="parch"></div><div class="ring" style="left:60px;top:60px;width:916px;height:916px"></div><img src="site/img/pets/s01-ocean.webp" style="left:250px;top:260px;width:580px" alt=""></div>
+<div class="card" id="hl_forms" style="width:1080px;height:1080px"><div class="parch"></div><div class="ring" style="left:60px;top:60px;width:916px;height:916px"></div><img src="site/img/icons/evolve.webp" style="left:300px;top:300px;width:480px" alt=""></div>
+<div class="card" id="hl_market" style="width:1080px;height:1080px"><div class="parch"></div><div class="ring" style="left:60px;top:60px;width:916px;height:916px"></div><img src="site/img/icons/shop.webp" style="left:300px;top:300px;width:480px" alt=""></div>
+<div class="card" id="hl_faq" style="width:1080px;height:1080px"><div class="parch"></div><div class="ring" style="left:60px;top:60px;width:916px;height:916px"></div><img src="site/img/icons/care.webp" style="left:300px;top:300px;width:480px" alt=""></div>
+<div class="card" id="hl_crown" style="width:1080px;height:1080px"><div class="parch"></div><div class="ring" style="left:60px;top:60px;width:916px;height:916px;border-color:var(--rose);box-shadow:0 0 0 10px var(--rose9) inset"></div><img src="wl/crown/icon.webp" style="left:300px;top:300px;width:480px" alt=""></div>
+
+<!-- ============================================================ Instagram feed posts 1080x1350 -->
+<div class="card ig" id="ig_meet" style="width:1080px;height:1350px">
+  <div class="vista" style="background-position:50% 70%;background-size:2600px auto"></div>
+  <div class="shade"></div>
+  <img src="site/img/pets/s01-ocean.webp" style="left:200px;top:330px;width:680px;filter:drop-shadow(0 30px 30px rgba(40,60,30,0.35))" alt="">
+  <div class="pill" style="left:80px;top:120px;font-size:44px;transform:rotate(-4deg)"><img src="site/img/icons/paw.webp" alt="">Mochi · Ocean Eggling</div>
+  <div class="capx" style="left:60px;top:1030px;width:960px;font-size:84px">this is Mochi.<br>he grows when <span class="g">you walk</span>.</div>
+</div>
+
+<div class="card ig" id="ig_forms" style="width:1080px;height:1350px">
+  <div class="parch"></div><div class="grid"></div>
+  <div class="tag" style="left:60px;top:70px;font-size:26px">The lizard family</div>
+  <div class="h" style="left:60px;top:140px;width:960px;font-size:84px">One friend,<br>three forms.</div>
+  <div class="shadow" style="left:140px;top:960px;width:800px;height:90px"></div>
+  <img src="site/img/pets/s01-ocean.webp" style="left:20px;top:720px;width:300px" alt="">
+  <img src="wl/forms/s02.webp" style="left:300px;top:640px;width:400px" alt="">
+  <img src="wl/forms/s03.webp" style="left:620px;top:600px;width:480px" alt="">
+  <div class="label" style="left:70px;top:1060px;font-size:30px">Eggling · day 1</div>
+  <div class="label" style="left:380px;top:1060px;font-size:30px">Juvenile · lv 10</div>
+  <div class="label" style="left:730px;top:1060px;font-size:30px;background:linear-gradient(#FFE5A2,#F9CA70);border-color:#E3A64A;color:var(--gold9)">Elder · lv 25</div>
+  <div class="sub" style="left:60px;top:1180px;width:960px;font-size:34px;text-align:center">Same name, same colour, same crown. Just bigger.</div>
+</div>
+
+<div class="card ig" id="ig_pick" style="width:1080px;height:1350px">
+  <div class="parch"></div><div class="grid"></div>
+  <div class="h" style="left:60px;top:70px;width:960px;font-size:84px;text-align:center">Which egg<br>is <span class="g">yours</span>?</div>
+  <img src="site/img/pets/s01-amber.webp" style="left:60px;top:330px;width:300px" alt=""><div class="label" style="left:95px;top:640px;font-size:28px">Amber</div>
+  <img src="site/img/pets/s01-forest.webp" style="left:390px;top:330px;width:300px" alt=""><div class="label" style="left:425px;top:640px;font-size:28px">Forest</div>
+  <img src="site/img/pets/s01-coral.webp" style="left:720px;top:330px;width:300px" alt=""><div class="label" style="left:762px;top:640px;font-size:28px">Coral</div>
+  <img src="site/img/pets/s01-ocean.webp" style="left:60px;top:760px;width:300px" alt=""><div class="label" style="left:98px;top:1070px;font-size:28px">Ocean</div>
+  <img src="site/img/pets/s01-amethyst.webp" style="left:390px;top:760px;width:300px" alt=""><div class="label" style="left:408px;top:1070px;font-size:28px">Amethyst</div>
+  <img src="site/img/pets/s01-obsidian.webp" style="left:720px;top:760px;width:300px" alt=""><div class="label" style="left:745px;top:1070px;font-size:28px">Obsidian</div>
+  <div class="sub" style="left:60px;top:1200px;width:960px;font-size:34px;text-align:center">Comment your colour. Waitlist members pick first.</div>
+</div>
+
+<div class="card ig" id="ig_rest" style="width:1080px;height:1350px">
+  <div class="sky"></div>
+  <div class="shadow" style="left:290px;top:720px;width:500px;height:70px;background:radial-gradient(closest-side, rgba(40,70,100,0.3), rgba(40,70,100,0))"></div>
+  <img src="site/img/pets/s02-amber-sleepy.webp" style="left:230px;top:200px;width:620px" alt="">
+  <div class="panel" style="left:60px;top:820px;width:960px;height:450px;border-radius:40px"></div>
+  <div class="h" style="left:110px;top:860px;width:860px;font-size:62px">Rest days are <span class="m">protected</span>.</div>
+  <div class="sub" style="left:110px;top:1010px;width:860px;font-size:32px;line-height:1.5">Two low-step days a week never cost vitality.<br>Late watch data gets 48 hours to arrive.<br>No data means pending, never lazy.<br>He never guilt-trips you.</div>
+</div>
+
+<div class="card ig" id="ig_crown" style="width:1080px;height:1350px">
+  <div class="parch"></div><div class="grid"></div>
+  <div class="tag rose" style="left:60px;top:70px;font-size:26px">Beta founders only</div>
+  <div class="h" style="left:60px;top:140px;width:960px;font-size:84px">The <span class="p">Founder's<br>Crown</span>.</div>
+  <div style="left:180px;top:420px;width:720px;height:720px;border-radius:50%;background:radial-gradient(closest-side, rgba(255,229,162,0.9), rgba(255,229,162,0))"></div>
+  <img src="wl/crown/s01_crowned.webp" style="left:200px;top:380px;width:680px" alt="">
+  <div class="sub" style="left:60px;top:1120px;width:960px;font-size:34px;text-align:center;line-height:1.4">First 1,000 on the waitlist. Fits every form, forever.<br>Never sold in the Market.</div>
+</div>
+
+<div class="card ig" id="ig_wardrobe" style="width:1080px;height:1350px">
+  <div class="parch"></div><div class="grid"></div>
+  <div class="h" style="left:60px;top:70px;width:960px;font-size:84px;text-align:center">Dress him up.</div>
+  <div class="panel" style="left:60px;top:260px;width:460px;height:460px;border-radius:36px;box-shadow:0 6px 0 var(--bevel)"></div>
+  <img src="site/img/looks/look-leaf.webp" style="left:100px;top:290px;width:380px;height:380px;object-fit:contain" alt="">
+  <div class="panel" style="left:560px;top:260px;width:460px;height:460px;border-radius:36px;box-shadow:0 6px 0 var(--bevel)"></div>
+  <img src="site/img/looks/look-explorer.webp" style="left:600px;top:290px;width:380px;height:380px;object-fit:contain" alt="">
+  <div class="panel" style="left:60px;top:760px;width:460px;height:460px;border-radius:36px;box-shadow:0 6px 0 var(--bevel)"></div>
+  <img src="site/img/looks/look-crown.webp" style="left:100px;top:790px;width:380px;height:380px;object-fit:contain" alt="">
+  <div class="panel" style="left:560px;top:760px;width:460px;height:460px;border-radius:36px;box-shadow:0 6px 0 var(--bevel)"></div>
+  <img src="site/img/looks/look-clip.webp" style="left:600px;top:790px;width:380px;height:380px;object-fit:contain" alt="">
+  <div class="sub" style="left:60px;top:1250px;width:960px;font-size:32px;text-align:center">Every wearable fits all three forms. Bought with coins you earn by walking.</div>
+</div>
+
+<div class="card ig" id="ig_voxels" style="width:1080px;height:1350px">
+  <div class="parch"></div><div class="grid"></div>
+  <div class="tag" style="left:60px;top:70px;font-size:26px">From the workshop</div>
+  <div class="h" style="left:60px;top:140px;width:960px;font-size:84px"><span class="g">74,856</span> voxels.<br>One Eggling.</div>
+  <div class="shadow" style="left:240px;top:1090px;width:600px;height:80px"></div>
+  <img src="wl/build/b024.webp" style="left:200px;top:470px;width:680px" alt="">
+  <div class="sub" style="left:60px;top:1200px;width:960px;font-size:34px;text-align:center">Hand-built, then grown one step at a time.</div>
+</div>
+
+<div class="card ig" id="ig_waitlist" style="width:1080px;height:1350px">
+  <div class="vista" style="background-position:62% 75%;background-size:2600px auto"></div>
+  <div class="shade"></div>
+  <div class="panel" style="left:80px;top:150px;width:920px;height:720px;border-radius:48px"></div>
+  <span class="tag" style="left:760px;top:120px;font-size:30px;transform:rotate(6deg);padding:14px 30px;border-radius:999px">BETA</span>
+  <img class="wm" src="site/img/wordmark.webp" style="left:260px;top:210px;width:560px" alt="">
+  <div class="h" style="left:130px;top:410px;width:820px;font-size:72px;text-align:center">Your steps.<br>Your Evochi.</div>
+  <div class="btn" style="left:300px;top:610px;font-size:52px">Join the waitlist</div>
+  <div class="sub" style="left:130px;top:760px;width:820px;font-size:34px;text-align:center;color:var(--meadow7);font-weight:700">link in bio</div>
+</div>
+
+<!-- ============================================================ Instagram carousel (5 slides) 1080x1350 -->
+<div class="card ig" id="car_1" style="width:1080px;height:1350px">
+  <div class="vista" style="background-position:55% 70%;background-size:2600px auto"></div>
+  <div class="shade"></div>
+  <div class="capx" style="left:60px;top:120px;width:960px;font-size:96px">how Evochi<br>works</div>
+  <div class="capx" style="left:60px;top:1140px;width:960px;font-size:48px;-webkit-text-stroke:10px var(--ink)">swipe →</div>
+</div>
+<div class="card ig" id="car_2" style="width:1080px;height:1350px">
+  <div class="parch"></div><div class="grid"></div>
+  <div class="tag" style="left:60px;top:70px;font-size:26px">1 of 4</div>
+  <div class="h" style="left:60px;top:140px;width:520px;font-size:70px">Hatch your egg.</div>
+  <div class="sub" style="left:60px;top:450px;width:480px;font-size:32px;line-height:1.45">Pick one of six colours, name it, and choose a daily goal: 5,000, 7,000 or 10,000 steps.</div>
+  <div class="phone" style="left:600px;top:120px;width:420px"><img src="clips2/pick/f00205.jpg" alt=""></div>
+</div>
+<div class="card ig" id="car_3" style="width:1080px;height:1350px">
+  <div class="parch"></div><div class="grid"></div>
+  <div class="tag" style="left:60px;top:70px;font-size:26px">2 of 4</div>
+  <div class="h" style="left:60px;top:140px;width:520px;font-size:70px">Walk, and he grows.</div>
+  <div class="sub" style="left:60px;top:450px;width:480px;font-size:32px;line-height:1.45">Your phone already counts steps. Evochi turns them into XP: a full goal is worth 150, with bonuses at 25%, 50% and 100%.</div>
+  <div class="phone" style="left:600px;top:120px;width:420px"><img src="site/img/shots/journey.webp" alt=""></div>
+</div>
+<div class="card ig" id="car_4" style="width:1080px;height:1350px">
+  <div class="parch"></div><div class="grid"></div>
+  <div class="tag" style="left:60px;top:70px;font-size:26px">3 of 4</div>
+  <div class="h" style="left:60px;top:140px;width:520px;font-size:70px">Earn coins. Dress him up.</div>
+  <div class="sub" style="left:60px;top:450px;width:480px;font-size:32px;line-height:1.45">Daily quests pay EvoCoins. Spend them on scarves, hats, crowns and nest décor in the Evochi Market.</div>
+  <div class="phone" style="left:600px;top:120px;width:420px"><img src="site/img/shots/market.webp" alt=""></div>
+</div>
+<div class="card ig" id="car_5" style="width:1080px;height:1350px">
+  <div class="parch"></div><div class="grid"></div>
+  <div class="tag" style="left:60px;top:70px;font-size:26px">4 of 4</div>
+  <div class="h" style="left:60px;top:140px;width:520px;font-size:70px">Evolve<br>together.</div>
+  <div class="sub" style="left:60px;top:450px;width:480px;font-size:32px;line-height:1.45">Level 10 and seven active days: Juvenile. Level 25 and twenty-one: Elder. You pick the moment.</div>
+  <div class="phone" style="left:600px;top:120px;width:420px"><img src="site/img/shots/evolve-reveal.webp" alt=""></div>
+  <div class="btn" style="left:60px;top:1130px;font-size:40px;padding:18px 36px">Join the beta waitlist</div>
+</div>
+
+<!-- ============================================================ X / Twitter images 1600x900 -->
+<div class="card" id="x_announce" style="width:1600px;height:900px">
+  <div class="vista" style="background-position:62% 70%;background-size:2600px auto"></div>
+  <div class="shade" style="background:linear-gradient(90deg, rgba(32,27,23,0.0) 50%, rgba(32,27,23,0.25) 100%)"></div>
+  <div class="panel" style="left:80px;top:110px;width:720px;height:680px;border-radius:44px"></div>
+  <img class="wm" src="site/img/wordmark.webp" style="left:140px;top:160px;width:600px" alt="">
+  <div class="h" style="left:140px;top:360px;width:600px;font-size:56px">Every step brings your Evochi to life.</div>
+  <div class="sub" style="left:140px;top:530px;width:600px;font-size:30px;line-height:1.45">A cozy walking pet for iPhone and Android. Beta waitlist open now.</div>
+  <div class="btn" style="left:140px;top:650px;font-size:38px;padding:18px 36px">Join the waitlist</div>
+</div>
+<div class="card" id="x_pick" style="width:1600px;height:900px">
+  <div class="parch"></div><div class="grid"></div>
+  <div class="h" style="left:60px;top:60px;width:1480px;font-size:84px;text-align:center">Which egg is <span class="g">yours</span>?</div>
+  <img src="site/img/pets/s01-amber.webp" style="left:40px;top:270px;width:250px" alt=""><div class="label" style="left:75px;top:540px;font-size:26px">Amber</div>
+  <img src="site/img/pets/s01-forest.webp" style="left:300px;top:270px;width:250px" alt=""><div class="label" style="left:335px;top:540px;font-size:26px">Forest</div>
+  <img src="site/img/pets/s01-coral.webp" style="left:560px;top:270px;width:250px" alt=""><div class="label" style="left:600px;top:540px;font-size:26px">Coral</div>
+  <img src="site/img/pets/s01-ocean.webp" style="left:820px;top:270px;width:250px" alt=""><div class="label" style="left:858px;top:540px;font-size:26px">Ocean</div>
+  <img src="site/img/pets/s01-amethyst.webp" style="left:1080px;top:270px;width:250px" alt=""><div class="label" style="left:1100px;top:540px;font-size:26px">Amethyst</div>
+  <img src="site/img/pets/s01-obsidian.webp" style="left:1340px;top:270px;width:250px" alt=""><div class="label" style="left:1365px;top:540px;font-size:26px">Obsidian</div>
+  <div class="sub" style="left:60px;top:700px;width:1480px;font-size:36px;text-align:center">Reply with your colour. Waitlist members pick first.</div>
+</div>
+<div class="card" id="x_crown" style="width:1600px;height:900px">
+  <div class="parch"></div><div class="grid"></div>
+  <div class="tag rose" style="left:80px;top:90px;font-size:26px">Beta founders only</div>
+  <div class="h" style="left:80px;top:170px;width:700px;font-size:88px">The <span class="p">Founder's Crown</span>.</div>
+  <div class="sub" style="left:80px;top:470px;width:640px;font-size:32px;line-height:1.5">First 1,000 on the waitlist. Fits every form, forever. Never sold in the Market.</div>
+  <div style="left:880px;top:90px;width:720px;height:720px;border-radius:50%;background:radial-gradient(closest-side, rgba(255,229,162,0.9), rgba(255,229,162,0))"></div>
+  <img src="wl/crown/s01_crowned.webp" style="left:900px;top:120px;width:620px" alt="">
+</div>
+<div class="card" id="x_forms" style="width:1600px;height:900px">
+  <div class="parch"></div><div class="grid"></div>
+  <div class="h" style="left:60px;top:60px;width:1480px;font-size:84px;text-align:center">One friend, three forms.</div>
+  <div class="shadow" style="left:300px;top:720px;width:1000px;height:80px"></div>
+  <img src="site/img/pets/s01-ocean.webp" style="left:150px;top:420px;width:320px" alt="">
+  <img src="wl/forms/s02.webp" style="left:520px;top:340px;width:420px" alt="">
+  <img src="wl/forms/s03.webp" style="left:920px;top:280px;width:560px" alt="">
+  <div class="label" style="left:170px;top:790px;font-size:28px">Eggling · day 1</div>
+  <div class="label" style="left:570px;top:790px;font-size:28px">Juvenile · lv 10</div>
+  <div class="label" style="left:1050px;top:790px;font-size:28px;background:linear-gradient(#FFE5A2,#F9CA70);border-color:#E3A64A;color:var(--gold9)">Elder · lv 25</div>
+</div>
+<div class="card" id="x_rest" style="width:1600px;height:900px">
+  <div class="sky"></div>
+  <img src="site/img/pets/s02-amber-sleepy.webp" style="left:60px;top:120px;width:620px" alt="">
+  <div class="panel" style="left:720px;top:120px;width:800px;height:660px;border-radius:40px"></div>
+  <div class="h" style="left:770px;top:170px;width:700px;font-size:60px">Rest days are <span class="m">protected</span>.</div>
+  <div class="sub" style="left:770px;top:330px;width:700px;font-size:30px;line-height:1.55">Two low-step days a week never cost vitality.<br>Late watch data gets 48 hours to arrive.<br>No data means pending, never lazy.<br>He never guilt-trips you.<br>He never reads heart rate.</div>
+</div>
+
+<!-- ============================================================ YouTube thumbnails 1280x720 -->
+<div class="card" id="yt_making" style="width:1280px;height:720px">
+  <div class="parch"></div><div class="grid"></div>
+  <img src="wl/build/b024.webp" style="left:760px;top:60px;width:520px" alt="">
+  <div class="capx" style="left:40px;top:120px;width:720px;font-size:92px;text-align:left;-webkit-text-stroke:16px var(--ink)">I'm making a<br><span class="g">walking pet</span><br>game</div>
+  <div class="tag green" style="left:50px;top:560px;font-size:30px">day 1</div>
+</div>
+<div class="card" id="yt_trailer" style="width:1280px;height:720px">
+  <div class="vista" style="background-position:62% 70%;background-size:2200px auto"></div>
+  <div class="shade"></div>
+  <img class="wm" src="site/img/wordmark.webp" style="left:60px;top:60px;width:440px" alt="">
+  <div class="capx" style="left:40px;top:250px;width:700px;font-size:76px;text-align:left;-webkit-text-stroke:16px var(--ink)">every step<br>brings him<br><span class="g">to life</span></div>
+</div>
+<div class="card" id="yt_crown" style="width:1280px;height:720px">
+  <div class="parch"></div><div class="grid"></div>
+  <div style="left:700px;top:40px;width:640px;height:640px;border-radius:50%;background:radial-gradient(closest-side, rgba(255,229,162,0.9), rgba(255,229,162,0))"></div>
+  <img src="wl/crown/s01_crowned.webp" style="left:720px;top:60px;width:560px" alt="">
+  <div class="capx" style="left:40px;top:140px;width:680px;font-size:84px;text-align:left;-webkit-text-stroke:16px var(--ink)">only <span class="p">1,000</span><br>will ever<br>get this</div>
+</div>
+<div class="card" id="yt_pick" style="width:1280px;height:720px">
+  <div class="parch"></div><div class="grid"></div>
+  <div class="capx" style="left:40px;top:40px;width:1200px;font-size:84px;-webkit-text-stroke:16px var(--ink)">pick your egg</div>
+  <img src="site/img/pets/s01-amber.webp" style="left:20px;top:260px;width:230px" alt="">
+  <img src="site/img/pets/s01-forest.webp" style="left:230px;top:260px;width:230px" alt="">
+  <img src="site/img/pets/s01-coral.webp" style="left:440px;top:260px;width:230px" alt="">
+  <img src="site/img/pets/s01-ocean.webp" style="left:650px;top:260px;width:230px" alt="">
+  <img src="site/img/pets/s01-amethyst.webp" style="left:860px;top:260px;width:230px" alt="">
+  <img src="site/img/pets/s01-obsidian.webp" style="left:1060px;top:260px;width:230px" alt="">
+</div>
+
+<!-- ============================================================ TikTok photo posts 1080x1920 (content inside the middle safe zone) -->
+<div class="card" id="tt_pick" style="width:1080px;height:1920px">
+  <div class="parch"></div><div class="grid"></div>
+  <div class="capx" style="left:60px;top:300px;width:960px;font-size:96px">which egg<br>is <span class="g">yours</span>?</div>
+  <img src="site/img/pets/s01-amber.webp" style="left:60px;top:600px;width:300px" alt=""><div class="label" style="left:95px;top:910px;font-size:28px">Amber</div>
+  <img src="site/img/pets/s01-forest.webp" style="left:390px;top:600px;width:300px" alt=""><div class="label" style="left:425px;top:910px;font-size:28px">Forest</div>
+  <img src="site/img/pets/s01-coral.webp" style="left:720px;top:600px;width:300px" alt=""><div class="label" style="left:762px;top:910px;font-size:28px">Coral</div>
+  <img src="site/img/pets/s01-ocean.webp" style="left:60px;top:1010px;width:300px" alt=""><div class="label" style="left:98px;top:1320px;font-size:28px">Ocean</div>
+  <img src="site/img/pets/s01-amethyst.webp" style="left:390px;top:1010px;width:300px" alt=""><div class="label" style="left:408px;top:1320px;font-size:28px">Amethyst</div>
+  <img src="site/img/pets/s01-obsidian.webp" style="left:720px;top:1010px;width:300px" alt=""><div class="label" style="left:745px;top:1320px;font-size:28px">Obsidian</div>
+  <div class="capx" style="left:60px;top:1420px;width:960px;font-size:52px;-webkit-text-stroke:10px var(--ink)">comment your colour</div>
+</div>
+<div class="card" id="tt_forms" style="width:1080px;height:1920px">
+  <div class="parch"></div><div class="grid"></div>
+  <div class="capx" style="left:60px;top:300px;width:960px;font-size:96px">one friend.<br><span class="g">three forms</span>.</div>
+  <div class="shadow" style="left:140px;top:1230px;width:800px;height:90px"></div>
+  <img src="site/img/pets/s01-ocean.webp" style="left:20px;top:990px;width:300px" alt="">
+  <img src="wl/forms/s02.webp" style="left:300px;top:910px;width:400px" alt="">
+  <img src="wl/forms/s03.webp" style="left:620px;top:870px;width:480px" alt="">
+  <div class="label" style="left:70px;top:1330px;font-size:30px">day 1</div>
+  <div class="label" style="left:420px;top:1330px;font-size:30px">level 10</div>
+  <div class="label" style="left:770px;top:1330px;font-size:30px;background:linear-gradient(#FFE5A2,#F9CA70);border-color:#E3A64A;color:var(--gold9)">level 25</div>
+</div>
+<div class="card" id="tt_crown" style="width:1080px;height:1920px">
+  <div class="parch"></div><div class="grid"></div>
+  <div class="capx" style="left:60px;top:280px;width:960px;font-size:84px">the first <span class="g">1,000</span><br>get the<br><span class="p">Founder's Crown</span></div>
+  <div style="left:180px;top:720px;width:720px;height:720px;border-radius:50%;background:radial-gradient(closest-side, rgba(255,229,162,0.9), rgba(255,229,162,0))"></div>
+  <img src="wl/crown/s01_crowned.webp" style="left:200px;top:700px;width:680px" alt="">
+  <div class="capx" style="left:60px;top:1420px;width:960px;font-size:52px;-webkit-text-stroke:10px var(--ink)">never sold. link in bio.</div>
+</div>
+
+</body>
+</html>
