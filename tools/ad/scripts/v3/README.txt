@@ -18,12 +18,12 @@ What changed from the first two packs
 
 The videos
 ----------
-01_elder_first_18s            Elder first. Conversion version (ends on the waitlist). Boost this one.
-02_i_miss_the_games_18s       Nostalgia hook 1. Ends on "what was yours called?"
-03_grew_up_with_you_16s       Nostalgia hook 2. Ends on "would you walk for him?"
-04_reveal_ep01_amethyst_12s   Evolution Reveal 01. Ends on "which colour next?"
-05_reveal_ep02_aurora_12s     Evolution Reveal 02. The secret seventh colour. Ends on "should it be in the game? yes / no"
-06_reveal_ep03_autumn_fit_12s Evolution Reveal 03. Seasonal outfit. Ends on "what should the winter one be?"
+01_elder_first_22s            Elder first. Conversion version (ends on the waitlist). Boost this one.
+02_i_miss_the_games_22s       Nostalgia hook 1. Ends on "what was yours called?"
+03_grew_up_with_you_20s       Nostalgia hook 2. Ends on "would you walk for him?"
+04_reveal_ep01_amethyst_15s   Evolution Reveal 01. Ends on "which colour next?"
+05_reveal_ep02_aurora_15s     Evolution Reveal 02. The secret seventh colour. Ends on "should it be in the game? yes / no"
+06_reveal_ep03_autumn_fit_15s Evolution Reveal 03. Seasonal outfit. Ends on "what should the winter one be?"
 
 Each folder has: the MP4 (1080x1920, 30 fps, music and game sound effects mixed in), voiceover.txt
 (the lines with timestamps, if you want to record a voice over the captions), captions.srt (the
@@ -65,6 +65,6 @@ number in the comments when it moves ("1,200 of 5,000, Mochi's egg is warming up
 Series rules (keep the brand consistent)
 ----------------------------------------
 - Stamp always reads "EVOLUTION REVEAL · NN" in the same corner.
-- Structure: charge (3 s) > flash > reveal with the name (2.5 s) > full turn or "fits every form" (4 s) > question (2 s).
+- Structure: charge (4 s) > flash > reveal with the name (3 s) > full turn or "fits every form" (5 s) > question (3 s).
 - Always end on a question the audience can answer with one word.
 - One reveal per episode. If you have two ideas, that's two episodes.

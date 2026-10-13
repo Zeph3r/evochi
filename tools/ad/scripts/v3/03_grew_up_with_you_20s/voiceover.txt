@@ -1,5 +1,5 @@
 What if your childhood virtual pet grew up with you? (nostalgia hook, ends on a question)
-Length: 16 s. Ending: question (comment bait), no CTA on screen.
+Length: 20 s. Ending: question (comment bait), no CTA on screen.
 
 Why this video exists:
 Recommendations 1, 2 and 3: opens big on the Elder, cuts to the tiny day-one egg, then a scrolling walk log shows weeks passing while Mochi grows. Ends on Mochi looking at the camera and "would you walk for him?" instead of a waitlist screen.
@@ -7,9 +7,9 @@ Recommendations 1, 2 and 3: opens big on the Elder, cuts to the tiny day-one egg
 VOICE-OVER (optional; the captions carry the lines, so the video works muted)
 Record in a plain, slightly amused dev-diary voice. No announcer energy. Pause where the dots are.
 
-  0.0s -   2.6s   What if your childhood virtual pet...
-  2.6s -   5.0s   ...grew up with you?
-  5.0s -   8.0s   Every walk is XP.
-  8.0s -  11.0s   Level ten, level twenty-five... and he changes.
- 11.0s -  13.5s   Same colour. Same name. All grown up.
- 13.7s -  16.0s   Would you walk for him?
+  0.0s -   3.2s   What if your childhood virtual pet...
+  3.2s -   6.0s   ...grew up with you?
+  6.0s -   9.6s   Every walk is XP.
+  9.6s -  13.6s   Level ten, level twenty-five... and he changes.
+ 13.6s -  16.8s   Same colour. Same name. All grown up.
+ 16.8s -  20.0s   Would you walk for him?

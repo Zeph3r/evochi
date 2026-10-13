@@ -33,7 +33,7 @@ Everything is in tools/ad/ of the Evochi repo (the pipeline that made these vide
 
 4. Render, mix, encode (about ten minutes):
       node ad_render.mjs ../../v3_frames/rv4 --cut rv4 --comp comp_v3.html       # web server on :8766 serving the ad/ folder
-      python3 ad_audio.py rv1 ../../v3_frames/rv4 ../../web/public/assets/audio ../../ad_music/music_rv.wav evochi_v3_reveal_ep04.mp4
+      python3 ad_audio.py rv1 ../../v3_frames/rv4 ../../web/public/assets/audio ../../ad_music/music_rv.wav evochi_v3_reveal_ep04_15s.mp4
    (rv1's sound cues fit every colour episode; copy the rv3 cues for outfit episodes.)
 
 5. Post with the same caption shape: "Evolution Reveal 04: Obsidian. which colour next?" and

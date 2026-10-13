@@ -23,22 +23,22 @@ def write(path, text):
 
 VIDEOS = [
     {
-        'slug': '01_elder_first_18s', 'file': 'evochi_v3_01_elder_first_18s.mp4', 'cut': 'elder', 'len': 18,
+        'slug': '01_elder_first_22s', 'file': 'evochi_v3_01_elder_first_22s.mp4', 'cut': 'elder', 'len': 22,
         'title': 'Elder first (the evolved-first opener)',
         'answers': 'Recommendation 1: show the most exciting visual first. Opens on the fully evolved Mochi doing a full turn, hard-cuts to day one, then explains how steps did it. This is the conversion version: it still ends on the waitlist card, so use it as the paid/boosted ad and as the pinned video.',
         'vo': [
-            (0.0, 2.4, 'This is Mochi.'),
-            (2.4, 5.0, 'This was Mochi on day one.'),
-            (5.0, 7.2, 'The only thing I did was walk.'),
-            (7.2, 9.3, 'Steps are XP. At level ten and level twenty-five, he changes.'),
-            (9.9, 13.0, 'And you pick the moment.'),
-            (13.0, 15.5, 'Your steps. Your Evochi.'),
-            (15.5, 18.0, 'Hatch it first. Beta waitlist, link in bio.'),
+            (0.0, 3.0, 'This is Mochi.'),
+            (3.0, 6.0, 'This was Mochi on day one.'),
+            (6.0, 8.5, 'The only thing I did was walk.'),
+            (8.5, 11.0, 'Steps are XP. At level ten and level twenty-five, he changes.'),
+            (12.0, 15.5, 'And you pick the moment.'),
+            (15.5, 18.5, 'Your steps. Your Evochi.'),
+            (18.5, 22.0, 'Hatch it first. Beta waitlist, link in bio.'),
         ],
         'caps': [
-            (0.0, 2.4, 'this is Mochi.'), (2.4, 5.0, 'this was Mochi on day one'), (5.0, 7.2, 'the only thing I did was walk'),
-            (7.2, 9.3, 'steps are XP. level 10, level 25: he changes'), (9.9, 13.0, 'and you pick the moment'), (13.0, 15.5, 'your steps. your Evochi.'),
-            (15.5, 18.0, 'Evochi (beta). Hatch it first. Join the beta waitlist. Link in bio. First 1,000 get the Founder\'s Crown.'),
+            (0.0, 3.0, 'this is Mochi.'), (3.0, 6.0, 'this was Mochi on day one'), (6.0, 8.5, 'the only thing I did was walk'),
+            (8.5, 11.0, 'steps are XP. level 10, level 25: he changes'), (12.0, 15.5, 'and you pick the moment'), (15.5, 18.5, 'your steps. your Evochi.'),
+            (18.5, 22.0, 'Evochi (beta). Hatch it first. Join the beta waitlist. Link in bio. First 1,000 get the Founder\'s Crown.'),
         ],
         'ending': 'waitlist card',
         'tiktok': 'this is Mochi. this was Mochi on day one. the only thing I did was walk 🚶\n\nbeta waitlist in bio. first 1,000 get the Founder\'s Crown 👑\n\n#evochi #virtualpet #steps #walking #indiegame #cozygame #tamagotchi #gamedev',
@@ -49,22 +49,22 @@ VIDEOS = [
         'pin': 'Beta waitlist: evochigame.com. Pick your egg colour, first 1,000 get the Founder\'s Crown 👑',
     },
     {
-        'slug': '02_i_miss_the_games_18s', 'file': 'evochi_v3_02_i_miss_the_games_18s.mp4', 'cut': 'miss', 'len': 18,
+        'slug': '02_i_miss_the_games_22s', 'file': 'evochi_v3_02_i_miss_the_games_22s.mp4', 'cut': 'miss', 'len': 22,
         'title': 'I miss the games where you actually cared (nostalgia hook, ends on a question)',
         'answers': 'Recommendations 2 and 3: the nostalgia hook, dev-diary voice, no waitlist screen. Ends on Mochi looking at the camera and the question "what was yours called?", which asks people to comment their Tamagotchi / Neopet / Nintendog names. The waitlist goes in the pinned comment and the bio, not in the video.',
         'vo': [
-            (0.0, 3.4, 'I miss the games where you actually cared about your little creature.'),
-            (3.4, 5.6, "So I'm making one."),
-            (5.6, 8.4, 'It hatches from an egg you pick.'),
-            (8.4, 11.0, 'It grows when you walk.'),
-            (11.0, 13.2, 'It gets sleepy when you stop...'),
-            (13.2, 15.6, "...and so happy when you're back."),
-            (15.6, 18.0, 'What was yours called?'),
+            (0.0, 4.2, 'I miss the games where you actually cared about your little creature.'),
+            (4.2, 7.0, "So I'm making one."),
+            (7.0, 10.2, 'It hatches from an egg you pick.'),
+            (10.2, 13.4, 'It grows when you walk.'),
+            (13.4, 16.0, 'It gets sleepy when you stop...'),
+            (16.0, 18.8, "...and so happy when you're back."),
+            (18.8, 22.0, 'What was yours called?'),
         ],
         'caps': [
-            (0.0, 3.4, 'I miss the games where you actually cared about your little creature'), (3.4, 5.6, "so I'm making one."),
-            (5.6, 8.4, 'it hatches from an egg you pick'), (8.4, 11.0, 'it grows when you walk'), (11.0, 13.2, 'it gets sleepy when you stop…'),
-            (13.2, 15.6, "…and so happy when you're back"), (15.6, 18.0, 'what was yours called?'),
+            (0.0, 4.2, 'I miss the games where you actually cared about your little creature'), (4.2, 7.0, "so I'm making one."),
+            (7.0, 10.2, 'it hatches from an egg you pick'), (10.2, 13.4, 'it grows when you walk'), (13.4, 16.0, 'it gets sleepy when you stop…'),
+            (16.0, 18.8, "…and so happy when you're back"), (18.8, 22.0, 'what was yours called?'),
         ],
         'ending': 'question (comment bait), no CTA on screen',
         'tiktok': 'what was yours called? mine was a Tamagotchi named Pip 🥚\n\n#evochi #tamagotchi #virtualpet #nostalgia #90skids #2000skids #indiegame #gamedev #cozygame',
@@ -75,20 +75,20 @@ VIDEOS = [
         'pin': 'mine was a Tamagotchi called Pip. he died on a school trip 🪦 (Evochi is gentler, I promise: evochigame.com)',
     },
     {
-        'slug': '03_grew_up_with_you_16s', 'file': 'evochi_v3_03_grew_up_with_you_16s.mp4', 'cut': 'grow', 'len': 16,
+        'slug': '03_grew_up_with_you_20s', 'file': 'evochi_v3_03_grew_up_with_you_20s.mp4', 'cut': 'grow', 'len': 20,
         'title': 'What if your childhood virtual pet grew up with you? (nostalgia hook, ends on a question)',
         'answers': 'Recommendations 1, 2 and 3: opens big on the Elder, cuts to the tiny day-one egg, then a scrolling walk log shows weeks passing while Mochi grows. Ends on Mochi looking at the camera and "would you walk for him?" instead of a waitlist screen.',
         'vo': [
-            (0.0, 2.6, 'What if your childhood virtual pet...'),
-            (2.6, 5.0, '...grew up with you?'),
-            (5.0, 8.0, 'Every walk is XP.'),
-            (8.0, 11.0, 'Level ten, level twenty-five... and he changes.'),
-            (11.0, 13.5, 'Same colour. Same name. All grown up.'),
-            (13.7, 16.0, 'Would you walk for him?'),
+            (0.0, 3.2, 'What if your childhood virtual pet...'),
+            (3.2, 6.0, '...grew up with you?'),
+            (6.0, 9.6, 'Every walk is XP.'),
+            (9.6, 13.6, 'Level ten, level twenty-five... and he changes.'),
+            (13.6, 16.8, 'Same colour. Same name. All grown up.'),
+            (16.8, 20.0, 'Would you walk for him?'),
         ],
         'caps': [
-            (0.0, 2.6, 'what if your childhood virtual pet'), (2.6, 5.0, '…grew up with you?'), (5.0, 8.0, 'every walk is XP'),
-            (8.0, 11.0, 'level 10… level 25… and he changes'), (11.0, 13.5, 'same colour. same name. all grown up.'), (13.7, 16.0, 'would you walk for him?'),
+            (0.0, 3.2, 'what if your childhood virtual pet'), (3.2, 6.0, '…grew up with you?'), (6.0, 9.6, 'every walk is XP'),
+            (9.6, 13.6, 'level 10… level 25… and he changes'), (13.6, 16.8, 'same colour. same name. all grown up.'), (16.8, 20.0, 'would you walk for him?'),
         ],
         'ending': 'question (comment bait), no CTA on screen',
         'tiktok': 'what if your childhood virtual pet grew up with you? 🥚➡️🦎\n\nwould you walk for him?\n\n#evochi #virtualpet #tamagotchi #walking #steps #cozygame #indiegame #gamedev #nostalgia',
@@ -99,17 +99,17 @@ VIDEOS = [
         'pin': 'if yes: evochigame.com (pick your egg colour, the first 1,000 get the Founder\'s Crown)',
     },
     {
-        'slug': '04_reveal_ep01_amethyst_12s', 'file': 'evochi_v3_04_reveal_ep01_amethyst_12s.mp4', 'cut': 'rv1', 'len': 12,
+        'slug': '04_reveal_ep01_amethyst_15s', 'file': 'evochi_v3_04_reveal_ep01_amethyst_15s.mp4', 'cut': 'rv1', 'len': 15,
         'title': 'Evolution Reveal 01: the Amethyst Elder',
         'answers': 'Recommendation 4: the first episode of a recurring series. Charging egg, flash, reveal, a full 360-degree turn, then "which colour next?" so the comments pick episode 04. Same stamp, same structure every time, so people recognise it in the feed.',
         'vo': [
-            (0.0, 3.3, "Nobody's seen the Amethyst Elder yet."),
-            (3.5, 6.0, 'Amethyst Elder.'),
-            (6.0, 9.7, 'Full turn, because someone will ask.'),
-            (9.9, 12.0, 'Which colour next?'),
+            (0.0, 4.1, "Nobody's seen the Amethyst Elder yet."),
+            (4.3, 7.4, 'Amethyst Elder.'),
+            (7.4, 12.1, 'Full turn, because someone will ask.'),
+            (12.3, 15.0, 'Which colour next?'),
         ],
         'caps': [
-            (0.0, 3.3, "nobody's seen the Amethyst Elder yet"), (3.5, 6.0, 'Amethyst Elder'), (6.0, 9.7, 'full turn, because someone will ask'), (9.9, 12.0, 'which colour next?'),
+            (0.0, 4.1, "nobody's seen the Amethyst Elder yet"), (4.3, 7.4, 'Amethyst Elder'), (7.4, 12.1, 'full turn, because someone will ask'), (12.3, 15.0, 'which colour next?'),
         ],
         'ending': 'question (comment bait), no CTA on screen',
         'tiktok': 'Evolution Reveal 01: Amethyst 💜 which colour next?\n\n#evochi #evolutionreveal #virtualpet #voxel #indiegame #gamedev #cozygame #amethyst',
@@ -120,17 +120,17 @@ VIDEOS = [
         'pin': 'the colour with the most comments gets episode 04 💜 (Amber / Forest / Coral / Ocean / Obsidian)',
     },
     {
-        'slug': '05_reveal_ep02_aurora_secret_12s', 'file': 'evochi_v3_05_reveal_ep02_aurora_secret_12s.mp4', 'cut': 'rv2', 'len': 12,
+        'slug': '05_reveal_ep02_aurora_secret_15s', 'file': 'evochi_v3_05_reveal_ep02_aurora_secret_15s.mp4', 'cut': 'rv2', 'len': 15,
         'title': 'Evolution Reveal 02: Aurora, the secret seventh colour',
         'answers': 'Recommendations 2 and 4: an "unexpected evolution". Aurora is a seventh colour that is NOT in the game yet (mint shell, lavender spots, teal crest). The video says so on screen and ends on "should it be in the game? yes / no", which is the kind of question people answer. If the answer is yes, the palette is one line in tools/art/palettes.py (see the series guide).',
         'vo': [
-            (0.0, 3.3, "There's a seventh colour I haven't shown anyone."),
-            (3.5, 6.0, 'Aurora.'),
-            (6.0, 9.7, 'Mint shell, teal crest. Not in the game... yet.'),
-            (9.9, 12.0, 'Should it be in the game? Yes or no.'),
+            (0.0, 4.1, "There's a seventh colour I haven't shown anyone."),
+            (4.3, 7.4, 'Aurora.'),
+            (7.4, 12.1, 'Mint shell, teal crest. Not in the game... yet.'),
+            (12.3, 15.0, 'Should it be in the game? Yes or no.'),
         ],
         'caps': [
-            (0.0, 3.3, "there's a 7th colour I haven't shown anyone"), (3.5, 6.0, 'Aurora'), (6.0, 9.7, 'mint shell. teal crest. not in the game… yet'), (9.9, 12.0, 'should it be in the game? yes / no'),
+            (0.0, 4.1, "there's a 7th colour I haven't shown anyone"), (4.3, 7.4, 'Aurora'), (7.4, 12.1, 'mint shell. teal crest. not in the game… yet'), (12.3, 15.0, 'should it be in the game? yes / no'),
         ],
         'ending': 'yes/no question (comment bait), no CTA on screen',
         'tiktok': 'Evolution Reveal 02: Aurora. a 7th colour that isn\'t in the game yet. should it be? yes / no\n\n#evochi #evolutionreveal #virtualpet #voxel #indiegame #gamedev #cozygame #secret',
@@ -141,17 +141,17 @@ VIDEOS = [
         'pin': 'if Aurora gets in, beta testers hatch it first 🥚 evochigame.com',
     },
     {
-        'slug': '06_reveal_ep03_autumn_fit_12s', 'file': 'evochi_v3_06_reveal_ep03_autumn_fit_12s.mp4', 'cut': 'rv3', 'len': 12,
+        'slug': '06_reveal_ep03_autumn_fit_15s', 'file': 'evochi_v3_06_reveal_ep03_autumn_fit_15s.mp4', 'cut': 'rv3', 'len': 15,
         'title': 'Evolution Reveal 03: the autumn fit (seasonal outfit)',
         'answers': 'Recommendation 4: a seasonal-costume episode. The Forest Elder gets the leaf scarf and explorer hat (both real Market wearables), shown on all three forms because every wearable fits every form. Ends on "what should the winter one be?".',
         'vo': [
-            (0.0, 3.3, 'I made him an autumn outfit.'),
-            (3.5, 6.0, 'Leaf scarf, plus explorer hat.'),
-            (6.0, 9.7, 'Fits every form. Every wearable does.'),
-            (9.9, 12.0, 'What should the winter one be?'),
+            (0.0, 4.1, 'I made him an autumn outfit.'),
+            (4.3, 7.4, 'Leaf scarf, plus explorer hat.'),
+            (7.4, 12.1, 'Fits every form. Every wearable does.'),
+            (12.3, 15.0, 'What should the winter one be?'),
         ],
         'caps': [
-            (0.0, 3.3, 'I made him an autumn outfit'), (3.5, 6.0, 'leaf scarf + explorer hat'), (6.0, 9.7, 'fits every form. (every wearable does)'), (9.9, 12.0, 'what should the winter one be?'),
+            (0.0, 4.1, 'I made him an autumn outfit'), (4.3, 7.4, 'leaf scarf + explorer hat'), (7.4, 12.1, 'fits every form. (every wearable does)'), (12.3, 15.0, 'what should the winter one be?'),
         ],
         'ending': 'question (comment bait), no CTA on screen',
         'tiktok': 'Evolution Reveal 03: autumn fit 🍂 what should the winter one be?\n\n#evochi #evolutionreveal #virtualpet #cozygame #indiegame #gamedev #autumn #fallfits',
@@ -184,12 +184,12 @@ What changed from the first two packs
 
 The videos
 ----------
-01_elder_first_18s            Elder first. Conversion version (ends on the waitlist). Boost this one.
-02_i_miss_the_games_18s       Nostalgia hook 1. Ends on "what was yours called?"
-03_grew_up_with_you_16s       Nostalgia hook 2. Ends on "would you walk for him?"
-04_reveal_ep01_amethyst_12s   Evolution Reveal 01. Ends on "which colour next?"
-05_reveal_ep02_aurora_12s     Evolution Reveal 02. The secret seventh colour. Ends on "should it be in the game? yes / no"
-06_reveal_ep03_autumn_fit_12s Evolution Reveal 03. Seasonal outfit. Ends on "what should the winter one be?"
+01_elder_first_22s            Elder first. Conversion version (ends on the waitlist). Boost this one.
+02_i_miss_the_games_22s       Nostalgia hook 1. Ends on "what was yours called?"
+03_grew_up_with_you_20s       Nostalgia hook 2. Ends on "would you walk for him?"
+04_reveal_ep01_amethyst_15s   Evolution Reveal 01. Ends on "which colour next?"
+05_reveal_ep02_aurora_15s     Evolution Reveal 02. The secret seventh colour. Ends on "should it be in the game? yes / no"
+06_reveal_ep03_autumn_fit_15s Evolution Reveal 03. Seasonal outfit. Ends on "what should the winter one be?"
 
 Each folder has: the MP4 (1080x1920, 30 fps, music and game sound effects mixed in), voiceover.txt
 (the lines with timestamps, if you want to record a voice over the captions), captions.srt (the
@@ -231,7 +231,7 @@ number in the comments when it moves ("1,200 of 5,000, Mochi's egg is warming up
 Series rules (keep the brand consistent)
 ----------------------------------------
 - Stamp always reads "EVOLUTION REVEAL · NN" in the same corner.
-- Structure: charge (3 s) > flash > reveal with the name (2.5 s) > full turn or "fits every form" (4 s) > question (2 s).
+- Structure: charge (4 s) > flash > reveal with the name (3 s) > full turn or "fits every form" (5 s) > question (3 s).
 - Always end on a question the audience can answer with one word.
 - One reveal per episode. If you have two ideas, that's two episodes.
 """
@@ -272,7 +272,7 @@ Everything is in tools/ad/ of the Evochi repo (the pipeline that made these vide
 
 4. Render, mix, encode (about ten minutes):
       node ad_render.mjs ../../v3_frames/rv4 --cut rv4 --comp comp_v3.html       # web server on :8766 serving the ad/ folder
-      python3 ad_audio.py rv1 ../../v3_frames/rv4 ../../web/public/assets/audio ../../ad_music/music_rv.wav evochi_v3_reveal_ep04.mp4
+      python3 ad_audio.py rv1 ../../v3_frames/rv4 ../../web/public/assets/audio ../../ad_music/music_rv.wav evochi_v3_reveal_ep04_15s.mp4
    (rv1's sound cues fit every colour episode; copy the rv3 cues for outfit episodes.)
 
 5. Post with the same caption shape: "Evolution Reveal 04: Obsidian. which colour next?" and

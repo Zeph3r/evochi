@@ -214,8 +214,8 @@ function captions(t, CAPS) {
   for (const c of CAPS) {
     if (t < c.t0 || t >= c.t1 + 0.12) continue;
     const el = document.createElement('div'); el.className = 'cap ' + c.cls; el.innerHTML = c.html; el.style.top = c.y + 'px';
-    const pin = pop(t - c.t0); const out = t > c.t1 ? 1 - (t - c.t1) / 0.12 : 1; const wob = 1 + 0.012 * Math.sin((t - c.t0) * 5);
-    el.style.transform = `scale(${pin * wob}) rotate(${(c.t0 * 7 % 3) - 1.5 + 0.6 * Math.sin((t - c.t0) * 2)}deg)`; el.style.opacity = String(clamp(out, 0, 1));
+    const pin = pop(t - c.t0, 0.34); const out = t > c.t1 ? 1 - (t - c.t1) / 0.12 : 1; const wob = 1 + 0.005 * Math.sin((t - c.t0) * 3);
+    el.style.transform = `scale(${pin * wob}) rotate(${(c.t0 * 7 % 3) - 1.5 + 0.25 * Math.sin((t - c.t0) * 1.5)}deg)`; el.style.opacity = String(clamp(out, 0, 1));
     host.appendChild(el);
   }
 }
@@ -260,197 +260,201 @@ function parchment(shadowTop = 1335) { const bg = $('#bg'); bg.style.display = '
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 // ================================================================== the cuts
+// Turntable frames are a union canvas (side views are ~1.6x wider than the 3/4 view), so the turn
+// runs at a scale where the widest view still fits inside the frame with a margin.
+const TURN_H = () => Math.floor(TURN.h * (1000 / TURN.w));
 const CUTS = {};
 
 // ---- 1. "elder": open on the fully evolved Mochi, cut to day one, then how steps did it (ad version, ends on the waitlist)
 CUTS.elder = {
-  TOTAL: 18.0, reveal: 9.65, end: 15.5, handle: false,
+  TOTAL: 22.0, reveal: 11.74, end: 18.5, handle: false,
   CAPS: [
-    { t0: -0.12, t1: 2.4, cls: 'big', y: 300, html: 'this is <span class="g">Mochi</span>.' },
-    { t0: 2.4, t1: 5.0, cls: 'big', y: 300, html: 'this was Mochi<br>on <span class="g">day one</span>' },
-    { t0: 5.0, t1: 7.2, cls: 'big', y: 300, html: 'the only thing I did<br>was <span class="g">walk</span>' },
-    { t0: 7.2, t1: 9.3, cls: 'big', y: 300, html: 'steps are XP.<br>level 10, level 25:<br>he <span class="g">changes</span>' },
-    { t0: 9.9, t1: 13.0, cls: 'big', y: 300, html: 'and <span class="g">you</span> pick<br>the moment' },
-    { t0: 13.0, t1: 15.5, cls: 'big', y: 300, html: 'your steps.<br>your <span class="g">Evochi</span>.' },
+    { t0: -0.12, t1: 3.0, cls: 'big', y: 300, html: 'this is <span class="g">Mochi</span>.' },
+    { t0: 3.0, t1: 6.0, cls: 'big', y: 300, html: 'this was Mochi<br>on <span class="g">day one</span>' },
+    { t0: 6.0, t1: 8.5, cls: 'big', y: 300, html: 'the only thing I did<br>was <span class="g">walk</span>' },
+    { t0: 8.5, t1: 11.0, cls: 'big', y: 300, html: 'steps are XP.<br>level 10, level 25:<br>he <span class="g">changes</span>' },
+    { t0: 12.0, t1: 15.5, cls: 'big', y: 300, html: 'and <span class="g">you</span> pick<br>the moment' },
+    { t0: 15.5, t1: 18.5, cls: 'big', y: 300, html: 'your steps.<br>your <span class="g">Evochi</span>.' },
   ],
   async draw(t) {
     resetStage();
-    if (t < 2.4) {
+    if (t < 3.0) {
       parchment(1335);
       const el = layer('spin', '<img class="sprite" alt=""><div class="label gold" style="left:540px;top:1430px">Mochi · Elder · level 25</div>');
       showOnly(['spin']);
       const img = el.querySelector('img');
-      const k = t < 2.0 ? Math.floor((t / 2.0) * TURN.n) % TURN.n : 0;
-      await setSrc(img, t < 2.0 ? `wl3/turn3/ocean/y${String(k).padStart(2, '0')}.webp` : 'wl3/elder/ocean/happy.webp');
-      const hop = hopAt(t, 2.0, 0.4, 70);
-      if (t < 2.0) placeTurn(img, k, 540, 1340, 600 * (0.001 + 0.999 * pop(t + 0.12, 0.3)), 1 + bob(t, 0, 0.01), 0);
-      else placeSprite(img, 's03', 540, 1340, 620, hop.sq * (1 + bob(t, 0, 0.01)), hop.dy);
-      el.querySelector('.label').style.opacity = String(clamp((t - 0.5) / 0.2, 0, 1));
-      sparks(t, 0.08, 540, 1000);
-    } else if (t < 5.0) {
+      const spinning = t < 2.5;
+      const k = spinning ? Math.floor((t / 2.5) * TURN.n) % TURN.n : 0;
+      await setSrc(img, spinning ? `wl3/turn3/ocean/y${String(k).padStart(2, '0')}.webp` : 'wl3/elder/ocean/happy.webp');
+      const hop = hopAt(t, 2.5, 0.45, 70);
+      if (spinning) placeTurn(img, k, 540, 1340, TURN_H() * (0.001 + 0.999 * pop(t + 0.12, 0.35)), 1 + bob(t, 0, 0.01), 0);
+      else placeSprite(img, 's03', 540, 1340, lerp(TURN_H() * 622 / TURN.h, 620, easeOut((t - 2.5) / 0.4)), hop.sq * (1 + bob(t, 0, 0.01)), hop.dy);
+      el.querySelector('.label').style.opacity = String(clamp((t - 0.6) / 0.25, 0, 1));
+      sparks(t, 0.1, 540, 1000);
+    } else if (t < 6.0) {
       parchment(1335);
       const el = layer('baby', '<img class="sprite" src="site/img/pets/s01-ocean.webp" alt=""><div class="label" style="left:540px;top:1400px">Mochi · Eggling · level 1</div>');
       showOnly(['baby']);
       const img = el.querySelector('img'); await setSrc(img, blink(t, 0.4) ? 'wl3/s01/ocean/blink.webp' : 'wl3/s01/ocean/happy.webp');
-      const hop = hops(t, [3.2, 4.2], 0.45, 60);
+      const hop = hops(t, [3.9, 5.1], 0.5, 60);
       placeSprite(img, 's01', 540, 1340, 380, hop.sq * (1 + bob(t, 0, 0.014)), hop.dy);
-    } else if (t < 9.0) {
+    } else if (t < 11.0) {
       parchment(1335);
       const el = layer('walk', '<div class="lvl" style="top:620px"><span class="n">1</span><small>LEVEL</small></div><div class="xpbar" style="top:900px"><i></i></div><img class="sprite" alt=""><div class="label" style="left:540px;top:1430px"></div>');
       showOnly(['walk']);
-      const k = clamp((t - 5.0) / 3.4, 0, 1); const lvl = Math.round(lerp(1, 25, easeOut(k)));
+      const k = clamp((t - 6.0) / 4.2, 0, 1); const lvl = Math.round(lerp(1, 25, easeOut(k)));
       el.querySelector('.lvl .n').textContent = lvl;
-      el.querySelector('.xpbar i').style.width = (((t - 5.0) * 1.7) % 1) * 100 + '%';
-      const st = t < 6.6 ? 's01' : t < 8.0 ? 's02' : 's03'; const at = { s01: 5.0, s02: 6.6, s03: 8.0 }[st]; const hs = { s01: 360, s02: 420, s03: 470 }[st];
+      el.querySelector('.xpbar i').style.width = (((t - 6.0) * 1.2) % 1) * 100 + '%';
+      const st = t < 8.0 ? 's01' : t < 9.8 ? 's02' : 's03'; const at = { s01: 6.0, s02: 8.0, s03: 9.8 }[st]; const hs = { s01: 360, s02: 420, s03: 470 }[st];
       const img = el.querySelector('img'); await setSrc(img, st === 's01' ? 'site/img/pets/s01-ocean.webp' : st === 's02' ? 'wl/forms/s02.webp' : 'wl3/elder/ocean/happy.webp');
-      const p = st === 's01' ? 1 : pop(t - at, 0.35); const hop = hopAt(t, at + 0.35, 0.45, 70);
+      const p = st === 's01' ? 1 : pop(t - at, 0.4); const hop = st === 's01' ? hops(t, [6.9, 7.5], 0.45, 50) : hopAt(t, at + 0.4, 0.5, 70);
       placeSprite(img, st, 540, 1340, hs * Math.max(0.001, p), hop.sq * (1 + bob(t, 0, 0.012)), hop.dy);
       const lab = el.querySelector('.label'); lab.textContent = st === 's01' ? 'Eggling' : st === 's02' ? 'Juvenile · level 10' : 'Elder · level 25'; lab.className = 'label' + (st === 's03' ? ' gold' : '');
-      if (t >= 6.6) { flash(t, 6.6, 0.45); sparks(t, 6.62, 540, 1150, 14); }
-      if (t >= 8.0) { flash(t, 8.0, 0.6); sparks(t, 8.02, 540, 1100); }
-    } else if (t < 13.0) {
-      showOnly([]);
-      await clipFrame('evolve', 2.2 + (t - 9.0) * 1.3, { s: 1.5, fx: 390, fy: 820, ax: 540, ay: 940 }, t, 9.0);
-      flash(t, 9.0 + (3.05 - 2.2) / 1.3, 0.75);
+      if (t >= 8.0) { flash(t, 8.0, 0.45); sparks(t, 8.02, 540, 1150, 14); }
+      if (t >= 9.8) { flash(t, 9.8, 0.6); sparks(t, 9.82, 540, 1100); }
     } else if (t < 15.5) {
       showOnly([]);
-      placeVista(t, { since: t - 13.0, focus: 's03', zoom: 1.45, groundY: 1300, show: ['s02', 's03'] });
+      await clipFrame('evolve', 2.2 + (t - 11.0) * 1.15, { s: 1.5, fx: 390, fy: 820, ax: 540, ay: 940 }, t, 11.0);
+      flash(t, 11.0 + (3.05 - 2.2) / 1.15, 0.75);
+    } else if (t < 18.5) {
+      showOnly([]);
+      placeVista(t, { since: t - 15.5, focus: 's03', zoom: 1.3, groundY: 1300, show: ['s03'] });
     } else {
       showOnly([]);
-      placeVista(t, { end: true, since: t - 15.5 });
-      endcard(t, 15.5, 'Hatch it first.');
+      placeVista(t, { end: true, since: t - 18.5 });
+      endcard(t, 18.5, 'Hatch it first.');
     }
   },
 };
 
 // ---- 2. "miss": "I miss the games where you actually cared about your little creature, so I'm making one." Ends on a question.
 CUTS.miss = {
-  TOTAL: 18.0, reveal: 13.2, end: 15.6, handle: true,
+  TOTAL: 22.0, reveal: 16.0, end: 18.8, handle: true,
   CAPS: [
-    { t0: -0.12, t1: 3.4, cls: 'mid', y: 300, html: 'I miss the games where<br>you <span class="g">actually cared</span><br>about your little creature' },
-    { t0: 3.4, t1: 5.6, cls: 'big', y: 300, html: "so I'm <span class=\"g\">making one</span>." },
-    { t0: 5.6, t1: 8.4, cls: 'big', y: 300, html: 'it hatches from an egg<br><span class="g">you</span> pick' },
-    { t0: 8.4, t1: 11.0, cls: 'big', y: 300, html: 'it <span class="g">grows</span> when you walk' },
-    { t0: 11.0, t1: 13.2, cls: 'big', y: 300, html: 'it gets <span class="b">sleepy</span><br>when you stop…' },
-    { t0: 13.2, t1: 15.6, cls: 'big', y: 300, html: '…and <span class="g">so happy</span><br>when you\'re back' },
-    { t0: 15.6, t1: 18.0, cls: 'big', y: 300, html: 'what was <span class="g">yours</span> called?' },
+    { t0: -0.12, t1: 4.2, cls: 'mid', y: 300, html: 'I miss the games where<br>you <span class="g">actually cared</span><br>about your little creature' },
+    { t0: 4.2, t1: 7.0, cls: 'big', y: 300, html: "so I'm <span class=\"g\">making one</span>." },
+    { t0: 7.0, t1: 10.2, cls: 'big', y: 300, html: 'it hatches from an egg<br><span class="g">you</span> pick' },
+    { t0: 10.2, t1: 13.4, cls: 'big', y: 300, html: 'it <span class="g">grows</span> when you walk' },
+    { t0: 13.4, t1: 16.0, cls: 'big', y: 300, html: 'it gets <span class="b">sleepy</span><br>when you stop…' },
+    { t0: 16.0, t1: 18.8, cls: 'big', y: 300, html: '…and <span class="g">so happy</span><br>when you\'re back' },
+    { t0: 18.8, t1: 22.0, cls: 'big', y: 300, html: 'what was <span class="g">yours</span> called?' },
   ],
   async draw(t) {
     resetStage();
-    if (t < 3.4) {
+    if (t < 4.2) {
       parchment(1335);
       const el = layer('care', '<img class="sprite" alt=""><div class="zz" style="left:640px;top:900px">z</div><div class="zz" style="left:700px;top:820px">z</div><div class="zz" style="left:770px;top:730px">Z</div>');
       showOnly(['care']);
       const img = el.querySelector('img');
-      const ex = t < 1.1 ? (blink(t, 0.5) ? 'blink' : 'curious') : t < 2.3 ? 'happy' : 'sleepy';
+      const ex = t < 1.4 ? (blink(t, 0.5) ? 'blink' : 'curious') : t < 2.9 ? 'happy' : 'sleepy';
       await setSrc(img, `wl3/s01/ocean/${ex}.webp`);
-      const hop = hops(t, [1.15, 1.7], 0.42, 80);
-      placeSprite(img, 's01', 540, 1340, 640, hop.sq * (1 + bob(t, 0, 0.012)), hop.dy, t < 1.1 ? tilt(t) : 0);
-      rippleAt(t, 1.1, 600, 1000);
-      el.querySelectorAll('.zz').forEach((z, i) => { const ph = (t * 0.7 + i * 0.33) % 1; z.style.opacity = String(t >= 2.4 ? Math.sin(ph * Math.PI) * 0.95 : 0); z.style.transform = `translateY(${-ph * 60}px) rotate(${Math.sin(t * 2 + i) * 10}deg)`; });
-    } else if (t < 5.6) {
+      const hop = hops(t, [1.45, 2.15], 0.48, 80);
+      placeSprite(img, 's01', 540, 1340, 640, hop.sq * (1 + bob(t, 0, 0.012)), hop.dy, t < 1.4 ? tilt(t) : 0);
+      rippleAt(t, 1.4, 600, 1000);
+      el.querySelectorAll('.zz').forEach((z, i) => { const ph = (t * 0.55 + i * 0.33) % 1; z.style.opacity = String(t >= 3.0 ? Math.sin(ph * Math.PI) * 0.95 : 0); z.style.transform = `translateY(${-ph * 60}px) rotate(${Math.sin(t * 2 + i) * 10}deg)`; });
+    } else if (t < 7.0) {
       parchment(1335);
       const el = layer('build', '<img class="sprite" alt=""><div class="label" style="left:540px;top:1430px"></div>');
       showOnly(['build']);
       const img = el.querySelector('img'); const lab = el.querySelector('.label');
-      const kk = clamp(Math.floor(((t - 3.4) / 1.5) * 40), 0, 39);
-      await setSrc(img, t < 4.95 ? `wl/build/b${String(kk).padStart(3, '0')}.webp` : 'wl/expr/happy.webp');
-      const hop = hopAt(t, 4.95, 0.45, 80);
+      const kk = clamp(Math.floor(((t - 4.2) / 2.0) * 40), 0, 39);
+      await setSrc(img, t < 6.25 ? `wl/build/b${String(kk).padStart(3, '0')}.webp` : 'wl/expr/happy.webp');
+      const hop = hopAt(t, 6.3, 0.5, 80);
       placeSprite(img, 's01', 540, 1340, 700, hop.sq * (1 + bob(t, 0, 0.012)), hop.dy);
-      lab.textContent = t < 4.9 ? `${Math.round(74856 * clamp((t - 3.4) / 1.5, 0, 1)).toLocaleString('en-US')} of 74,856 voxels` : 'Mochi';
-      lab.className = 'label' + (t >= 4.9 ? ' gold' : '');
-    } else if (t < 8.4) {
+      lab.textContent = t < 6.2 ? `${Math.round(74856 * clamp((t - 4.2) / 2.0, 0, 1)).toLocaleString('en-US')} of 74,856 voxels` : 'Mochi';
+      lab.className = 'label' + (t >= 6.2 ? ' gold' : '');
+    } else if (t < 10.2) {
       showOnly([]);
-      await clipFrame('hatch', t - 5.6, { s: 1.55, fx: 390, fy: 620, ax: 540, ay: 960 }, t, 5.6);
-      flash(t, 6.5, 0.7); sparks(t, 6.55, 540, 900);
-    } else if (t < 11.0) {
+      await clipFrame('hatch', t - 7.0, { s: 1.55, fx: 390, fy: 620, ax: 540, ay: 960 }, t, 7.0);
+      flash(t, 7.9, 0.7); sparks(t, 7.95, 540, 900);
+    } else if (t < 13.4) {
       parchment(1335);
       const el = layer('forms', '<img class="sprite" data-s="s01" src="site/img/pets/s01-ocean.webp" alt=""><img class="sprite" data-s="s02" src="wl/forms/s02.webp" alt=""><img class="sprite" data-s="s03" src="wl/forms/s03.webp" alt=""><div class="arrow" style="left:400px;top:1250px">›</div><div class="arrow" style="left:700px;top:1210px">›</div><div class="label" style="left:200px;top:1420px">day 1</div><div class="label" style="left:540px;top:1420px">level 10</div><div class="label gold" style="left:880px;top:1420px">level 25</div>');
       showOnly(['forms']);
-      const xs = { s01: 200, s02: 520, s03: 860 }, hs = { s01: 330, s02: 400, s03: 440 }, at = { s01: 8.4, s02: 9.0, s03: 9.6 };
-      el.querySelectorAll('.sprite').forEach((img, i) => { const id = img.dataset.s; const p = pop(t - at[id], 0.35); const hop = hopAt(t, at[id] + 0.35, 0.45); placeSprite(img, id, xs[id], 1340, hs[id] * Math.max(0.001, p), hop.sq * (1 + bob(t, i * 0.3, 0.012)), hop.dy); });
-      el.querySelectorAll('.arrow').forEach((a, i) => { a.style.opacity = String(clamp((t - (9.0 + i * 0.6)) / 0.2, 0, 1)); });
-      el.querySelectorAll('.label').forEach((a, i) => { a.style.opacity = String(clamp((t - (8.7 + i * 0.6)) / 0.2, 0, 1)); });
-      sparks(t, 9.7, 860, 1200);
-    } else if (t < 15.6) {
+      const xs = { s01: 200, s02: 520, s03: 860 }, hs = { s01: 330, s02: 400, s03: 440 }, at = { s01: 10.2, s02: 10.9, s03: 11.6 };
+      el.querySelectorAll('.sprite').forEach((img, i) => { const id = img.dataset.s; const p = pop(t - at[id], 0.4); const hop = hopAt(t, at[id] + 0.4, 0.5); placeSprite(img, id, xs[id], 1340, hs[id] * Math.max(0.001, p), hop.sq * (1 + bob(t, i * 0.3, 0.012)), hop.dy); });
+      el.querySelectorAll('.arrow').forEach((a, i) => { a.style.opacity = String(clamp((t - (10.9 + i * 0.7)) / 0.25, 0, 1)); });
+      el.querySelectorAll('.label').forEach((a, i) => { a.style.opacity = String(clamp((t - (10.5 + i * 0.7)) / 0.25, 0, 1)); });
+      sparks(t, 11.75, 860, 1200);
+    } else if (t < 18.8) {
       showOnly([]);
-      const awake = t >= 13.2;
-      const night = t < 13.2 ? 1 : Math.max(0, 1 - (t - 13.2) / 0.9);
-      placeVista(t, { night, pets: false, since: awake ? t - 13.2 : 0, s01Expr: awake ? 'happy' : 'sleepy', hop: awake, focus: 's01' });
+      const awake = t >= 16.0;
+      const night = t < 16.0 ? 1 : Math.max(0, 1 - (t - 16.0) / 1.0);
+      placeVista(t, { night, pets: false, since: awake ? t - 16.0 : 0, s01Expr: awake ? 'happy' : 'sleepy', hop: awake, focus: 's01' });
       const el = layer('zz', '<div class="zz" style="left:640px;top:1010px">z</div><div class="zz" style="left:700px;top:930px">z</div><div class="zz" style="left:770px;top:840px">Z</div>');
       showOnly(['zz']);
-      el.querySelectorAll('.zz').forEach((z, i) => { const ph = (t * 0.6 + i * 0.33) % 1; z.style.opacity = String(awake ? 0 : Math.sin(ph * Math.PI) * 0.95); z.style.transform = `translateY(${-ph * 60}px) rotate(${Math.sin(t * 2 + i) * 10}deg)`; });
-      flash(t, 13.2, 0.8); sparks(t, 13.22, 540, 1250);
+      el.querySelectorAll('.zz').forEach((z, i) => { const ph = (t * 0.5 + i * 0.33) % 1; z.style.opacity = String(awake ? 0 : Math.sin(ph * Math.PI) * 0.95); z.style.transform = `translateY(${-ph * 60}px) rotate(${Math.sin(t * 2 + i) * 10}deg)`; });
+      flash(t, 16.0, 0.8); sparks(t, 16.02, 540, 1250);
     } else {
       parchment(1335);
       const el = layer('ask', '<img class="sprite" alt="">');
       showOnly(['ask']);
       const img = el.querySelector('img');
-      await setSrc(img, blink(t, 1.3, 2.4) ? 'wl3/s01/ocean/blink.webp' : t < 16.4 ? 'wl3/s01/ocean/happy.webp' : 'wl3/s01/ocean/curious.webp');
-      const hop = hops(t, [15.65, 16.05], 0.4, 70);
-      placeSprite(img, 's01', 540, 1340, 760, hop.sq * (1 + bob(t, 0, 0.012)), hop.dy, t >= 16.4 ? tilt(t, 2) : 0);
+      await setSrc(img, blink(t, 1.3, 2.6) ? 'wl3/s01/ocean/blink.webp' : t < 19.7 ? 'wl3/s01/ocean/happy.webp' : 'wl3/s01/ocean/curious.webp');
+      const hop = hops(t, [18.85, 19.35], 0.45, 70);
+      placeSprite(img, 's01', 540, 1340, 760, hop.sq * (1 + bob(t, 0, 0.012)), hop.dy, t >= 19.7 ? tilt(t, 2) : 0);
     }
   },
 };
 
 // ---- 3. "grow": "What if your childhood virtual pet grew up with you?" Ends on a question.
 CUTS.grow = {
-  TOTAL: 16.0, reveal: 9.4, end: 13.7, handle: true,
+  TOTAL: 20.0, reveal: 11.6, end: 16.8, handle: true,
   CAPS: [
-    { t0: -0.12, t1: 2.6, cls: 'big', y: 300, html: 'what if your<br><span class="g">childhood virtual pet</span>' },
-    { t0: 2.6, t1: 5.0, cls: 'big', y: 300, html: '…grew up<br><span class="g">with you</span>?' },
-    { t0: 5.0, t1: 8.0, cls: 'big', y: 300, html: 'every walk<br>is <span class="g">XP</span>' },
-    { t0: 8.0, t1: 11.0, cls: 'big', y: 300, html: 'level 10… level 25…<br>and he <span class="g">changes</span>' },
-    { t0: 11.0, t1: 13.5, cls: 'big', y: 300, html: 'same colour. same name.<br><span class="g">all grown up</span>.' },
-    { t0: 13.7, t1: 16.0, cls: 'big', y: 300, html: 'would you walk<br>for <span class="g">him</span>?' },
+    { t0: -0.12, t1: 3.2, cls: 'big', y: 300, html: 'what if your<br><span class="g">childhood virtual pet</span>' },
+    { t0: 3.2, t1: 6.0, cls: 'big', y: 300, html: '…grew up<br><span class="g">with you</span>?' },
+    { t0: 6.0, t1: 9.6, cls: 'big', y: 300, html: 'every walk<br>is <span class="g">XP</span>' },
+    { t0: 9.6, t1: 13.6, cls: 'big', y: 300, html: 'level 10… level 25…<br>and he <span class="g">changes</span>' },
+    { t0: 13.6, t1: 16.8, cls: 'big', y: 300, html: 'same colour. same name.<br><span class="g">all grown up</span>.' },
+    { t0: 16.8, t1: 20.0, cls: 'big', y: 300, html: 'would you walk<br>for <span class="g">him</span>?' },
   ],
   async draw(t) {
     resetStage();
-    if (t < 2.6) {
+    if (t < 3.2) {
       showOnly([]);
-      placeVista(t, { since: t, focus: 's03', zoom: 1.7, groundY: 1300, show: ['s03'] });
-    } else if (t < 5.0) {
+      placeVista(t, { since: t, focus: 's03', zoom: 1.4, groundY: 1300, show: ['s03'] });
+    } else if (t < 6.0) {
       parchment(1335);
       const el = layer('tiny', '<img class="sprite" alt=""><div class="label" style="left:540px;top:1400px">day 1</div>');
       showOnly(['tiny']);
       const img = el.querySelector('img'); await setSrc(img, blink(t, 0.9) ? 'wl3/s01/ocean/blink.webp' : 'wl3/s01/ocean/happy.webp');
-      const hop = hops(t, [3.1, 4.1], 0.42, 50);
-      placeSprite(img, 's01', 540, 1340, 300 * Math.max(0.001, pop(t - 2.6, 0.3)), hop.sq * (1 + bob(t, 0, 0.014)), hop.dy);
-    } else if (t < 11.0) {
+      const hop = hops(t, [3.9, 5.0], 0.48, 50);
+      placeSprite(img, 's01', 540, 1340, 300 * Math.max(0.001, pop(t - 3.2, 0.35)), hop.sq * (1 + bob(t, 0, 0.014)), hop.dy);
+    } else if (t < 13.6) {
       parchment(0);
       const rows = []; for (let i = 0; i < 30; i++) { const rest = i % 9 === 6; const steps = Math.round(4200 + rnd(i, 21) * 6800); rows.push(`<div class="row${rest ? ' rest' : ''}"><b>${DAYS[i % 7]}</b>${rest ? 'rest day' : steps.toLocaleString('en-US') + ' steps'}<span class="st">${rest ? '☁' : '<span class="ok">✓</span>'}</span></div>`); }
       const el = layer('log', `<div class="log"><div class="head">walk log</div><div class="rows">${rows.join('')}</div></div><div class="lvl" style="top:1480px;left:60px;width:430px;font-size:120px"><span class="n">1</span><small>LEVEL</small></div><img class="sprite" alt=""><div class="label" style="left:770px;top:1430px"></div>`);
       showOnly(['log']);
-      const n = clamp(Math.floor((t - 5.0) / 0.2) + 1, 1, 30);
-      el.querySelectorAll('.row').forEach((r, i) => { const a = t - (5.0 + i * 0.2); r.style.opacity = String(clamp(a / 0.1, 0, 1)); r.style.transform = `translateX(${(1 - clamp(a / 0.15, 0, 1)) * 60}px)`; });
+      const n = clamp(Math.floor((t - 6.0) / 0.28) + 1, 1, 30);
+      el.querySelectorAll('.row').forEach((r, i) => { const a = t - (6.0 + i * 0.28); r.style.opacity = String(clamp(a / 0.15, 0, 1)); r.style.transform = `translateX(${(1 - clamp(a / 0.2, 0, 1)) * 60}px)`; });
       el.querySelector('.rows').style.top = (70 - Math.max(0, n - 10) * 64) + 'px';
-      const k = clamp((t - 5.0) / 4.4, 0, 1); el.querySelector('.lvl .n').textContent = Math.round(lerp(1, 25, easeOut(k)));
-      const st = t < 7.2 ? 's01' : t < 9.4 ? 's02' : 's03'; const at = { s01: 5.0, s02: 7.2, s03: 9.4 }[st]; const hs = { s01: 340, s02: 400, s03: 440 }[st];
+      const k = clamp((t - 6.0) / 5.6, 0, 1); el.querySelector('.lvl .n').textContent = Math.round(lerp(1, 25, easeOut(k)));
+      const st = t < 8.8 ? 's01' : t < 11.6 ? 's02' : 's03'; const at = { s01: 6.0, s02: 8.8, s03: 11.6 }[st]; const hs = { s01: 340, s02: 400, s03: 440 }[st];
       const img = el.querySelector('img'); await setSrc(img, st === 's01' ? 'site/img/pets/s01-ocean.webp' : st === 's02' ? 'wl/forms/s02.webp' : 'wl3/elder/ocean/happy.webp');
-      const p = st === 's01' ? 1 : pop(t - at, 0.35); const hop = st === 's01' ? hops(t, [5.6, 6.4], 0.4, 50) : hopAt(t, at + 0.35, 0.45, 70);
+      const p = st === 's01' ? 1 : pop(t - at, 0.4); const hop = st === 's01' ? hops(t, [6.8, 7.9], 0.45, 50) : hopAt(t, at + 0.4, 0.5, 70);
       placeSprite(img, st, 770, 1340, hs * Math.max(0.001, p), hop.sq * (1 + bob(t, 0, 0.012)), hop.dy);
       const lab = el.querySelector('.label'); lab.textContent = st === 's01' ? 'Eggling' : st === 's02' ? 'Juvenile' : 'Elder'; lab.className = 'label' + (st === 's03' ? ' gold' : '');
-      if (t >= 7.2) { flash(t, 7.2, 0.45); sparks(t, 7.22, 770, 1150, 14); }
-      if (t >= 9.4) { flash(t, 9.4, 0.7); sparks(t, 9.42, 770, 1100); }
-    } else if (t < 13.7) {
+      if (t >= 8.8) { flash(t, 8.8, 0.45); sparks(t, 8.82, 770, 1150, 14); }
+      if (t >= 11.6) { flash(t, 11.6, 0.7); sparks(t, 11.62, 770, 1100); }
+    } else if (t < 16.8) {
       parchment(0);
       const el = layer('pair', '<img class="sprite a" alt=""><img class="sprite b" alt=""><div class="label" style="left:250px;top:1420px">Mochi · day 1</div><div class="label gold" style="left:720px;top:1420px">Mochi · today</div>');
       showOnly(['pair']);
       const a = el.querySelector('.a'), b = el.querySelector('.b');
       await setSrc(a, blink(t, 0.2) ? 'wl3/s01/ocean/blink.webp' : 'wl3/s01/ocean/happy.webp');
       await setSrc(b, blink(t, 1.5) ? 'wl3/elder/ocean/blink.webp' : 'wl3/elder/ocean/happy.webp');
-      const ha = hops(t, [11.6, 12.6], 0.42, 60), hb = hops(t, [11.9, 12.9], 0.45, 70);
-      placeSprite(a, 's01', 250, 1340, 300 * Math.max(0.001, pop(t - 11.0, 0.3)), ha.sq * (1 + bob(t, 0, 0.014)), ha.dy);
-      placeSprite(b, 's03', 740, 1340, 470 * Math.max(0.001, pop(t - 11.2, 0.3)), hb.sq * (1 + bob(t, 0.3, 0.012)), hb.dy);
-      el.querySelectorAll('.label').forEach((l, i) => { l.style.opacity = String(clamp((t - 11.3 - i * 0.2) / 0.2, 0, 1)); });
+      const ha = hops(t, [14.3, 15.6], 0.48, 60), hb = hops(t, [14.6, 15.9], 0.5, 70);
+      placeSprite(a, 's01', 250, 1340, 300 * Math.max(0.001, pop(t - 13.6, 0.35)), ha.sq * (1 + bob(t, 0, 0.014)), ha.dy);
+      placeSprite(b, 's03', 740, 1340, 470 * Math.max(0.001, pop(t - 13.8, 0.35)), hb.sq * (1 + bob(t, 0.3, 0.012)), hb.dy);
+      el.querySelectorAll('.label').forEach((l, i) => { l.style.opacity = String(clamp((t - 14.0 - i * 0.25) / 0.25, 0, 1)); });
     } else {
       parchment(1335);
       const el = layer('ask3', '<img class="sprite" alt="">');
       showOnly(['ask3']);
       const img = el.querySelector('img');
-      await setSrc(img, blink(t, 0.7, 2.4) ? 'wl3/elder/ocean/blink.webp' : 'wl3/elder/ocean/curious.webp');
-      const hop = hops(t, [13.75], 0.45, 70);
-      placeSprite(img, 's03', 540, 1340, 600 * Math.max(0.001, pop(t - 13.7, 0.3)), hop.sq * (1 + bob(t, 0, 0.012)), hop.dy, t > 14.3 ? tilt(t, 1) : 0);
+      await setSrc(img, blink(t, 0.7, 2.6) ? 'wl3/elder/ocean/blink.webp' : 'wl3/elder/ocean/curious.webp');
+      const hop = hops(t, [16.9], 0.5, 70);
+      placeSprite(img, 's03', 540, 1340, 600 * Math.max(0.001, pop(t - 16.8, 0.35)), hop.sq * (1 + bob(t, 0, 0.012)), hop.dy, t > 17.5 ? tilt(t, 1) : 0);
     }
   },
 };
@@ -460,73 +464,76 @@ function revealCut(o) {
   const name = NAMES[o.pal];
   const eggSrc = (ex) => o.pal === 'ocean' && ex === 'happy' ? 'site/img/pets/s01-ocean.webp' : `wl3/s01/${o.pal}/${ex}.webp`;
   const elderSrc = (ex) => `wl3/elder/${o.pal}/${ex}.webp`;
+  // beats: charge 0-4.2, reveal 4.2-7.4, turn / trio 7.4-12.2, question 12.2-15
   return {
-    TOTAL: 12.0, reveal: 3.4, end: 9.8, handle: true, stamp: `EVOLUTION REVEAL · ${o.ep}`,
+    TOTAL: 15.0, reveal: 4.2, end: 12.3, handle: true, stamp: `EVOLUTION REVEAL · ${o.ep}`,
     CAPS: [
-      { t0: -0.12, t1: 3.3, cls: 'big', y: 300, html: o.intro },
-      { t0: 3.5, t1: 6.0, cls: 'huge', y: 300, html: o.revealCap },
-      { t0: 6.0, t1: 9.7, cls: 'big', y: 300, html: o.midCap },
-      { t0: 9.9, t1: 12.0, cls: 'big', y: 300, html: o.question },
+      { t0: -0.12, t1: 4.1, cls: 'big', y: 300, html: o.intro },
+      { t0: 4.3, t1: 7.4, cls: 'huge', y: 300, html: o.revealCap },
+      { t0: 7.4, t1: 12.1, cls: 'big', y: 300, html: o.midCap },
+      { t0: 12.3, t1: 15.0, cls: 'big', y: 300, html: o.question },
     ],
     async draw(t) {
       resetStage();
       pills(t, { handle: true, stamp: `EVOLUTION REVEAL · ${o.ep}` });
-      if (t < 3.4) {
+      if (t < 4.2) {
         parchment(1335);
         const el = layer('charge', '<div class="ring" style="top:560px"></div><div class="pring" style="top:960px"></div><img class="sprite" alt=""><div class="label" style="left:540px;top:1430px"></div><img class="item a" alt=""><img class="item b" alt="">');
         showOnly(['charge']);
         const img = el.querySelector('.sprite'), lab = el.querySelector('.label'), ring = el.querySelector('.ring'), pr = el.querySelector('.pring');
-        const k = clamp(t / 3.3, 0, 1);
+        const k = clamp(t / 4.1, 0, 1);
         if (o.outfit) {
           await setSrc(img, blink(t, 0.6) ? elderSrc('blink') : elderSrc('happy'));
-          const hop = hops(t, [0.9, 1.5, 2.0, 2.4, 2.75, 3.05], 0.36, 60);
-          placeSprite(img, 's03', 540, 1340, 600 * Math.max(0.001, pop(t + 0.12, 0.3)), hop.sq * (1 + bob(t, 0, 0.01)), hop.dy);
+          const hop = hops(t, [1.0, 1.8, 2.5, 3.1, 3.6, 4.0], 0.42, 60);
+          placeSprite(img, 's03', 540, 1340, 600 * Math.max(0.001, pop(t + 0.12, 0.35)), hop.sq * (1 + bob(t, 0, 0.01)), hop.dy);
           lab.textContent = `${name} · Elder`;
           ring.style.opacity = '0'; pr.style.display = 'none';
           // the scarf and the hat drop in from above
-          const items = [['site/img/items/leaf-scarf.webp', 1.2, 300], ['site/img/items/explorer-hat.webp', 1.9, 700]];
+          const items = [['site/img/items/leaf-scarf.webp', 1.5, 300], ['site/img/items/explorer-hat.webp', 2.4, 700]];
           for (const [sel, [src, at, x]] of [['.a', items[0]], ['.b', items[1]]]) {
             const it = el.querySelector(sel); await setSrc(it, src);
-            const kk = clamp((t - at) / 1.2, 0, 1); it.style.display = t >= at ? 'block' : 'none';
-            it.style.left = x + 'px'; it.style.top = lerp(-300, 760, ease(kk)) + 'px'; it.style.transform = `rotate(${(1 - kk) * -30 + Math.sin(t * 6) * 6}deg) scale(${0.7 + 0.3 * kk})`;
+            const kk = clamp((t - at) / 1.3, 0, 1); it.style.display = t >= at ? 'block' : 'none';
+            it.style.left = x + 'px'; it.style.top = lerp(-300, 760, ease(kk)) + 'px'; it.style.transform = `rotate(${(1 - kk) * -30 + Math.sin(t * 5) * 6}deg) scale(${0.7 + 0.3 * kk})`;
           }
         } else {
-          await setSrc(img, t < 2.6 ? (blink(t, 0.6) ? eggSrc('blink') : eggSrc('happy')) : eggSrc('excited'));
-          const hop = hops(t, [0.6, 1.3, 1.85, 2.3, 2.65, 2.95, 3.2], 0.36, 70);
-          placeSprite(img, 's01', 540, 1340, 520 * Math.max(0.001, pop(t + 0.12, 0.3)), hop.sq * (1 + bob(t, 0, 0.012 + 0.02 * k)), hop.dy);
-          lab.textContent = t < 1.6 ? `${name} · Eggling` : 'level 25 · ready to evolve'; lab.className = 'label' + (t >= 1.6 ? ' gold' : '');
-          ring.style.opacity = String(0.9 * k * (0.6 + 0.4 * Math.sin(t * 9))); ring.style.transform = `scale(${0.7 + 0.5 * k})`;
+          await setSrc(img, t < 3.3 ? (blink(t, 0.6) ? eggSrc('blink') : eggSrc('happy')) : eggSrc('excited'));
+          const hop = hops(t, [0.8, 1.6, 2.3, 2.9, 3.4, 3.8, 4.1], 0.42, 70);
+          placeSprite(img, 's01', 540, 1340, 520 * Math.max(0.001, pop(t + 0.12, 0.35)), hop.sq * (1 + bob(t, 0, 0.012 + 0.02 * k)), hop.dy);
+          lab.textContent = t < 2.0 ? `${name} · Eggling` : 'level 25 · ready to evolve'; lab.className = 'label' + (t >= 2.0 ? ' gold' : '');
+          ring.style.opacity = String(0.9 * k * (0.6 + 0.4 * Math.sin(t * 7))); ring.style.transform = `scale(${0.7 + 0.5 * k})`;
           pr.style.display = 'block'; pr.style.background = `conic-gradient(#F4B84E ${k * 360}deg, rgba(59,41,35,0.12) 0)`; pr.style.transform = `rotate(${-90}deg)`;
           el.querySelectorAll('.item').forEach((i) => { i.style.display = 'none'; });
         }
         if (o.outfit) leaves(t, el);
-      } else if (t < 6.0) {
+      } else if (t < 7.4) {
         parchment(1335);
         const el = layer('reveal', '<img class="sprite" alt=""><div class="label gold" style="left:540px;top:1430px"></div>');
         showOnly(['reveal']);
         const img = el.querySelector('img');
         await setSrc(img, o.outfit ? (blink(t, 0.6) ? 'wl3/outfit/s03_blink.webp' : 'wl3/outfit/s03_happy.webp') : (blink(t, 1.1) ? elderSrc('blink') : elderSrc('happy')));
-        const hop = hops(t, [3.85, 4.7], 0.45, 80);
-        placeSprite(img, 's03', 540, 1340, 700 * Math.max(0.001, pop(t - 3.4, 0.35)), hop.sq * (1 + bob(t, 0, 0.012)), hop.dy);
-        el.querySelector('.label').textContent = o.label; el.querySelector('.label').style.opacity = String(clamp((t - 3.9) / 0.2, 0, 1));
-        flash(t, 3.4, 0.9); sparks(t, 3.42, 540, 1000);
+        const hop = hops(t, [4.75, 5.9], 0.5, 80);
+        placeSprite(img, 's03', 540, 1340, 700 * Math.max(0.001, pop(t - 4.2, 0.4)), hop.sq * (1 + bob(t, 0, 0.012)), hop.dy);
+        el.querySelector('.label').textContent = o.label; el.querySelector('.label').style.opacity = String(clamp((t - 4.8) / 0.25, 0, 1));
+        flash(t, 4.2, 0.9); sparks(t, 4.22, 540, 1000);
         if (o.outfit) leaves(t, el);
-      } else if (t < 9.8) {
+      } else if (t < 12.2) {
         parchment(1335);
         if (o.outfit) {
           const el = layer('trio', '<img class="sprite" data-s="s01" src="wl3/outfit/s01_happy.webp" alt=""><img class="sprite" data-s="s02" src="wl3/outfit/s02_happy.webp" alt=""><img class="sprite" data-s="s03" src="wl3/outfit/s03_happy.webp" alt=""><div class="label" style="left:200px;top:1420px">Eggling</div><div class="label" style="left:540px;top:1420px">Juvenile</div><div class="label" style="left:880px;top:1420px">Elder</div>');
           showOnly(['trio']);
-          const xs = { s01: 200, s02: 520, s03: 860 }, hs = { s01: 330, s02: 400, s03: 440 }, at = { s01: 6.0, s02: 6.4, s03: 6.8 };
-          el.querySelectorAll('.sprite').forEach((img, i) => { const id = img.dataset.s; const p = pop(t - at[id], 0.35); const hop = hops(t, [7.6 + i * 0.3, 8.8 + i * 0.3], 0.45); placeSprite(img, id, xs[id], 1340, hs[id] * Math.max(0.001, p), hop.sq * (1 + bob(t, i * 0.3, 0.012)), hop.dy); });
-          el.querySelectorAll('.label').forEach((a, i) => { a.style.opacity = String(clamp((t - (6.3 + i * 0.4)) / 0.2, 0, 1)); });
+          const xs = { s01: 200, s02: 520, s03: 860 }, hs = { s01: 330, s02: 400, s03: 440 }, at = { s01: 7.4, s02: 7.9, s03: 8.4 };
+          el.querySelectorAll('.sprite').forEach((img, i) => { const id = img.dataset.s; const p = pop(t - at[id], 0.4); const hop = hops(t, [9.4 + i * 0.3, 10.8 + i * 0.3], 0.5); placeSprite(img, id, xs[id], 1340, hs[id] * Math.max(0.001, p), hop.sq * (1 + bob(t, i * 0.3, 0.012)), hop.dy); });
+          el.querySelectorAll('.label').forEach((a, i) => { a.style.opacity = String(clamp((t - (7.8 + i * 0.5)) / 0.25, 0, 1)); });
           leaves(t, el);
         } else {
           const el = layer('turn', '<img class="sprite" alt=""><div class="label gold" style="left:540px;top:1430px"></div>');
           showOnly(['turn']);
           const img = el.querySelector('img');
-          const k = Math.floor(((t - 6.0) / 3.6) * TURN.n) % TURN.n;
+          const k = t < 11.8 ? Math.floor(((t - 7.4) / 4.4) * TURN.n) % TURN.n : 0;
           await setSrc(img, `wl3/turn3/${o.pal}/y${String(k).padStart(2, '0')}.webp`);
-          placeTurn(img, k, 540, 1340, 650, 1 + bob(t, 0, 0.008));
+          // pull the camera back as the turn starts so the side views fit the frame
+          const h = lerp(700 * TURN.h / 622, TURN_H(), easeOut((t - 7.4) / 0.6));
+          placeTurn(img, k, 540, 1340, h, 1 + bob(t, 0, 0.008));
           el.querySelector('.label').textContent = o.label;
         }
       } else {
@@ -534,9 +541,10 @@ function revealCut(o) {
         const el = layer('ask', '<img class="sprite" alt="">');
         showOnly(['ask']);
         const img = el.querySelector('img');
-        await setSrc(img, o.outfit ? (blink(t, 0.4, 2.3) ? 'wl3/outfit/s03_blink.webp' : 'wl3/outfit/s03_default.webp') : (blink(t, 0.4, 2.3) ? elderSrc('blink') : elderSrc(t < 10.6 ? 'happy' : 'curious')));
-        const hop = hops(t, [9.85, 10.3], 0.42, 70);
-        placeSprite(img, 's03', 540, 1340, 680, hop.sq * (1 + bob(t, 0, 0.012)), hop.dy, t > 10.6 ? tilt(t, 2) : 0);
+        await setSrc(img, o.outfit ? (blink(t, 0.4, 2.5) ? 'wl3/outfit/s03_blink.webp' : 'wl3/outfit/s03_default.webp') : (blink(t, 0.4, 2.5) ? elderSrc('blink') : elderSrc(t < 13.3 ? 'happy' : 'curious')));
+        const hop = hops(t, [12.3, 12.95], 0.48, 70);
+        const h0 = o.outfit ? 440 : TURN_H() * 622 / TURN.h;
+        placeSprite(img, 's03', 540, 1340, lerp(h0, 680, easeOut((t - 12.2) / 0.45)), hop.sq * (1 + bob(t, 0, 0.012)), hop.dy, t > 13.3 ? tilt(t, 2) : 0);
         if (o.outfit) leaves(t, el);
       }
     },

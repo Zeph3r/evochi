@@ -68,11 +68,11 @@ autumn outfit) made from one `revealCut()` template. `series_assets.py` renders 
 ```bash
 python3 series_assets.py ../../ad/wl3                      # ~6 min, needs tools/art
 node ad_render.mjs ../../v3_frames/rv1 --cut rv1 --comp comp_v3.html
-python3 ad_music.py music_rv.wav 12 2.2 3.4 4.3 9.9
-python3 ad_audio.py rv1 ../../v3_frames/rv1 ../../web/public/assets/audio music_rv.wav evochi_v3_04_reveal_ep01_amethyst_12s.mp4
+python3 ad_music.py music_rv.wav 15 2.8 4.2 5.2 12.3
+python3 ad_audio.py rv1 ../../v3_frames/rv1 ../../web/public/assets/audio music_rv.wav evochi_v3_04_reveal_ep01_amethyst_15s.mp4
 python3 v3_pack.py VIDEO_DIR OUT_DIR                        # per-video folders with scripts, captions and post copy
 ```
 
-Music cue times (total, riser, reveal, groove back, end): elder 18 8.6 9.65 10.6 15.5 · miss 18 12.3 13.2 14.0 15.6 ·
-grow 16 8.5 9.4 10.2 13.7 · rv1/rv2/rv3 12 2.2 3.4 4.3 9.9. `rv2` reuses `rv1`'s sound cues; `CRF=22` on
+Music cue times (total, riser, reveal, groove back, end): elder 22 10.6 11.74 12.7 18.5 · miss 22 15.1 16.0 16.8 18.8 ·
+grow 20 10.7 11.6 12.5 16.8 · rv1/rv2/rv3 15 2.8 4.2 5.2 12.3. `rv2` reuses `rv1`'s sound cues; `CRF=22` on
 `ad_audio.py` makes smaller delivery files. `v3_pack.py` also writes `HOW_TO_MAKE_MORE_EPISODES.txt`.
