@@ -1,0 +1,564 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Evochi v3: evolved-first, nostalgia and the Evolution Reveal series</title>
+<style>
+@font-face { font-family: 'Nunito'; font-weight: 900; src: url('site/fonts/nunito-latin-900-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Nunito'; font-weight: 800; src: url('site/fonts/nunito-latin-800-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Lato'; font-weight: 700; src: url('site/fonts/lato-latin-700-normal.woff2') format('woff2'); }
+html, body { margin: 0; background: #000; }
+#stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #FFF9F0; font-family: 'Nunito', sans-serif; }
+#stage > * { position: absolute; left: 0; top: 0; }
+#bg { width: 1080px; height: 1920px; }
+#bg.parchment { background: radial-gradient(circle at 50% 38%, #FFF9F0 0%, #F4E2CD 70%, #EED9C2 100%); }
+#bg .grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(201,167,140,0.28) 2px, transparent 2px), linear-gradient(90deg, rgba(201,167,140,0.28) 2px, transparent 2px); background-size: 72px 72px; }
+#bg .shadow { position: absolute; width: 520px; height: 90px; left: 280px; border-radius: 50%; background: radial-gradient(closest-side, rgba(90,62,40,0.32), rgba(90,62,40,0)); }
+#clip { transform-origin: 0 0; width: 780px; height: 1688px; display: none; }
+#vista { width: 1080px; height: 1920px; display: none; overflow: hidden; }
+#vista img.bg { position: absolute; transform-origin: 0 0; }
+#vista img.bg.night { opacity: 0; }
+#vista .pet { position: absolute; transform-origin: 50% 100%; }
+#vista .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(32,27,23,0) 40%, rgba(32,27,23,0.55) 100%); }
+#layers { width: 1080px; height: 1920px; }
+#layers .sprite { position: absolute; transform-origin: 50% 100%; }
+#layers .label { position: absolute; transform: translateX(-50%); font: 800 38px/1 'Nunito', sans-serif; color: #3B2923; background: rgba(255,249,240,0.95); border: 3px solid #E3CBB1; border-radius: 14px; padding: 12px 20px; box-shadow: 0 4px 0 #D8BD9F; white-space: nowrap; }
+#layers .label.gold { background: linear-gradient(#FFE5A2, #F9CA70); border-color: #E3A64A; color: #80531F; }
+#layers .label.pink { background: #FFF0F4; border-color: #E7A8BC; color: #8C3A55; }
+#layers .zz { position: absolute; font: 900 54px/1 'Nunito', sans-serif; color: #FFF9F0; -webkit-text-stroke: 8px #3B2923; paint-order: stroke fill; }
+#layers .ring { position: absolute; width: 700px; height: 700px; left: 190px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,229,162,0.9), rgba(255,229,162,0)); }
+#layers .arrow { position: absolute; font: 900 70px/1 'Nunito', sans-serif; color: #C8832C; transform: translate(-50%, -50%); }
+#layers .lvl { position: absolute; left: 0; width: 1080px; text-align: center; font: 900 190px/1 'Nunito', sans-serif; color: #FFE5A2; paint-order: stroke fill; -webkit-text-stroke: 16px #3B2923; text-shadow: 0 10px 0 rgba(59,41,35,0.5); letter-spacing: -0.03em; }
+#layers .lvl small { display: block; font-size: 46px; -webkit-text-stroke: 9px #3B2923; letter-spacing: 0.08em; margin-top: 10px; color: #FFF9F0; }
+#layers .xpbar { position: absolute; left: 240px; width: 600px; height: 34px; border-radius: 999px; background: rgba(59,41,35,0.18); border: 4px solid #3B2923; overflow: hidden; }
+#layers .xpbar i { display: block; height: 100%; background: linear-gradient(90deg, #B7D98B, #82B75E); border-radius: 999px; }
+#layers .pring { position: absolute; width: 760px; height: 760px; left: 160px; border-radius: 50%; -webkit-mask: radial-gradient(circle, transparent 60%, #000 61%); }
+#layers .log { position: absolute; left: 60px; top: 700px; width: 430px; height: 720px; overflow: hidden; border-radius: 28px; background: rgba(255,249,240,0.92); border: 4px solid #E3CBB1; box-shadow: 0 6px 0 #D8BD9F; }
+#layers .log .rows { position: absolute; left: 0; right: 0; }
+#layers .log .row { height: 64px; display: flex; align-items: center; gap: 14px; padding: 0 22px; font: 700 30px/1 'Lato', sans-serif; color: #684C3C; border-bottom: 2px solid rgba(201,167,140,0.3); white-space: nowrap; }
+#layers .log .row b { font-family: 'Nunito', sans-serif; font-weight: 900; color: #3B2923; width: 72px; }
+#layers .log .row .st { margin-left: auto; color: #3B2923; }
+#layers .log .row .ok { color: #477B3A; font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 34px; }
+#layers .log .row.rest { color: #8E7462; }
+#layers .log .head { position: absolute; left: 0; right: 0; top: 0; height: 70px; display: flex; align-items: center; padding: 0 22px; font: 900 32px/1 'Nunito', sans-serif; color: #3B2923; background: linear-gradient(#FFE5A2, #F9CA70); border-bottom: 4px solid #E3A64A; z-index: 2; }
+#layers .leaf { position: absolute; width: 46px; height: 46px; border-radius: 0 70% 0 70%; opacity: 0.95; box-shadow: inset 0 0 0 3px rgba(59,41,35,0.35); }
+#layers .item { position: absolute; width: 230px; height: 230px; transform-origin: 50% 50%; filter: drop-shadow(0 10px 0 rgba(59,41,35,0.25)); }
+#pills { width: 1080px; height: 1920px; pointer-events: none; }
+#pills .handle { position: absolute; left: 60px; top: 150px; font: 800 34px/1 'Nunito', sans-serif; color: #3B2923; background: rgba(255,249,240,0.95); border: 3px solid #E3CBB1; border-radius: 999px; padding: 14px 26px; box-shadow: 0 4px 0 #D8BD9F; transform-origin: 0 50%; }
+#pills .stamp { position: absolute; right: 60px; top: 146px; font: 900 32px/1 'Nunito', sans-serif; letter-spacing: 0.06em; color: #3B2923; background: linear-gradient(#FFE5A2, #F4B84E); border: 4px solid #C8832C; border-radius: 999px; padding: 16px 28px; box-shadow: 0 6px 0 #C8832C; transform-origin: 100% 50%; }
+#ripples { width: 1080px; height: 1920px; pointer-events: none; }
+.ripple { position: absolute; border-radius: 50%; border: 10px solid rgba(255,255,255,0.95); box-shadow: 0 0 0 4px rgba(59,41,35,0.35), inset 0 0 0 4px rgba(59,41,35,0.25); transform: translate(-50%, -50%); }
+.dot { position: absolute; width: 54px; height: 54px; border-radius: 50%; background: rgba(255,255,255,0.75); box-shadow: 0 0 0 5px rgba(59,41,35,0.3); transform: translate(-50%, -50%); }
+#caps { width: 1080px; height: 1920px; pointer-events: none; }
+.cap { position: absolute; left: 70px; width: 940px; text-align: center; font-weight: 900; color: #FFF9F0; line-height: 1.08; letter-spacing: -0.01em;
+  paint-order: stroke fill; -webkit-text-stroke: 14px #3B2923; text-shadow: 0 8px 0 rgba(59,41,35,0.55), 0 14px 30px rgba(0,0,0,0.35); transform-origin: 50% 50%; text-wrap: balance; }
+.cap .g { color: #FFE5A2; }
+.cap .b { color: #BFE4FA; }
+.cap .p { color: #FFC4D6; }
+.cap .m { color: #C9F0E8; }
+.cap.small { font-size: 54px; font-weight: 800; }
+.cap.mid { font-size: 74px; letter-spacing: -0.015em; }
+.cap.big { font-size: 92px; letter-spacing: -0.02em; }
+.cap.huge { font-size: 118px; letter-spacing: -0.025em; }
+#sparks { width: 1080px; height: 1920px; pointer-events: none; }
+#sparks .star { position: absolute; width: 60px; height: 60px; background: #FFE5A2; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); transform-origin: 50% 50%; filter: drop-shadow(0 0 12px rgba(255,229,162,0.9)); }
+#sparks .glow { position: absolute; width: 20px; height: 20px; border-radius: 50%; background: #FFF9F0; box-shadow: 0 0 18px 8px rgba(255,249,240,0.8); }
+#endcard { width: 1080px; height: 1920px; display: none; }
+#endcard .card { position: absolute; left: 90px; right: 90px; top: 250px; padding: 60px 54px 54px; border-radius: 48px; background: rgba(255,249,240,0.97); border: 5px solid #C9A78C; box-shadow: 0 10px 0 #D8BD9F, 0 40px 80px rgba(40,60,30,0.35); text-align: center; transform-origin: 50% 50%; }
+#endcard .wm { width: 520px; height: auto; display: block; margin: 0 auto 22px; filter: drop-shadow(0 6px 0 rgba(60,35,20,0.22)); }
+#endcard h1 { margin: 0; font: 900 86px/1.06 'Nunito', sans-serif; color: #3B2923; letter-spacing: -0.02em; }
+#endcard .cta { display: inline-block; margin-top: 30px; padding: 26px 56px; border-radius: 28px; border: 5px solid #C8832C; font: 900 62px/1 'Nunito', sans-serif; color: #3B2923;
+  background: linear-gradient(180deg, #FFE5A2 0%, #F9CA70 38%, #F4B84E 70%, #E9A541 100%); box-shadow: inset 0 4px 0 rgba(255,255,255,0.55), inset 0 -6px 0 rgba(200,131,44,0.55), 0 10px 0 #C8832C, 0 18px 30px rgba(120,70,20,0.25); text-shadow: 0 2px 0 rgba(255,255,255,0.35); transform-origin: 50% 50%; }
+#endcard .bio { margin: 26px 0 0; font: 900 46px/1.2 'Nunito', sans-serif; color: #477B3A; }
+#endcard .founder { display: inline-flex; align-items: center; gap: 14px; margin-top: 24px; padding: 12px 24px 12px 14px; border-radius: 999px; background: #FFF0F4; border: 3px solid #E7A8BC; font: 800 32px/1 'Nunito', sans-serif; color: #8C3A55; }
+#endcard .founder img { width: 56px; height: 56px; }
+#endcard .beta { position: absolute; top: -34px; right: 40px; padding: 14px 30px; border-radius: 999px; background: linear-gradient(#FFE5A2, #F4B84E); border: 4px solid #C8832C; font: 900 38px/1 'Nunito', sans-serif; color: #3B2923; box-shadow: 0 6px 0 #C8832C; transform: rotate(6deg); }
+#flash { width: 1080px; height: 1920px; background: #FFF; opacity: 0; pointer-events: none; }
+#vignette { width: 1080px; height: 1920px; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 62%, rgba(32,27,23,0.28) 100%); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg" class="parchment"><div class="grid"></div><div class="shadow"></div></div>
+  <div id="vista">
+    <img class="bg day" src="wl/vista/day.webp" alt="">
+    <img class="bg night" src="wl/vista/night.webp" alt="">
+    <div class="shade"></div>
+    <img class="pet" data-s="s01" src="site/img/pets/s01-ocean.webp" alt="">
+    <img class="pet" data-s="s02" src="site/img/pets/s02-ocean.webp" alt="">
+    <img class="pet" data-s="s03" src="site/img/pets/s03-ocean.webp" alt="">
+  </div>
+  <img id="clip" alt="">
+  <div id="layers"></div>
+  <div id="vignette"></div>
+  <div id="ripples"></div>
+  <div id="pills"><div class="handle">@evochigame</div><div class="stamp">EVOLUTION REVEAL · 01</div></div>
+  <div id="caps"></div>
+  <div id="endcard">
+    <div class="card">
+      <span class="beta">BETA</span>
+      <img class="wm" src="site/img/wordmark.webp" alt="Evochi">
+      <h1 id="end-h1">Your steps.<br>Your Evochi.</h1>
+      <div class="cta" id="end-cta">Join the beta waitlist</div>
+      <div class="bio">link in bio</div>
+      <div class="founder"><img src="wl/crown/icon.webp" alt="">First 1,000 get the Founder's Crown</div>
+    </div>
+  </div>
+  <div id="sparks"></div>
+  <div id="flash"></div>
+</div>
+<script>
+const FPS = 30;
+const $ = (s) => document.querySelector(s);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = (k) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
+const easeOut = (k) => 1 - Math.pow(1 - clamp(k, 0, 1), 3);
+const pop = (p, dur = 0.26) => { const k = clamp(p / dur, 0, 1); const c4 = (2 * Math.PI) / 3; return k === 0 ? 0 : k === 1 ? 1 : Math.pow(2, -10 * k) * Math.sin((k * 10 - 0.75) * c4) + 1; };
+const rnd = (i, k) => { const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x); };
+const CLIPS = { tap: { dir: 'clips/tap', n: 186 }, evolve: { dir: 'clips/evolve', n: 282 }, pick: { dir: 'clips2/pick', n: 228 }, hatch: { dir: 'clips2/hatch', n: 216 } };
+const SPR = { s01: { w: 440, h: 500, gx: 165.4 * 14 / 10.5, gy: 334.6 * 14 / 10.5 }, s02: { w: 530, h: 500, gx: 217.0 * 14 / 10.5, gy: 339.0 * 14 / 10.5 }, s03: { w: 774, h: 622, gx: 282.6 * 14 / 10.5, gy: 402.9 * 14 / 10.5 } };
+const HERO = { w: 2880, h: 1440, pets: { s01: { x: 0.50716, y: 0.71892, k: 0.000412 }, s02: { x: 0.62807, y: 0.63675, k: 0.000456 }, s03: { x: 0.76546, y: 0.56385, k: 0.000463 } } };
+const NAMES = { amber: 'Amber', forest: 'Forest', coral: 'Coral', ocean: 'Ocean', amethyst: 'Amethyst', obsidian: 'Obsidian', aurora: 'Aurora' };
+let TURN = null; // turn3/meta.json
+
+// ------------------------------------------------------------------ persistent layers
+const L = {};
+function layer(id, html, parent = '#layers') {
+  if (!L[id]) { const d = document.createElement('div'); d.id = 'L-' + id; d.innerHTML = html; d.style.cssText = 'position:absolute;left:0;top:0;width:1080px;height:1920px'; $(parent).appendChild(d); L[id] = d; }
+  return L[id];
+}
+function showOnly(ids) { for (const k in L) L[k].style.display = ids.includes(k) ? 'block' : 'none'; }
+const bob = (t, ph = 0, amp = 0.016) => amp * Math.sin((t + ph) * 2.4 * Math.PI / 1.0);
+function placeSprite(img, id, x, y, h, sq = 1, dy = 0, rot = 0) {
+  const sp = SPR[id]; const k = h / sp.h;
+  img.style.width = sp.w * k + 'px'; img.style.height = sp.h * k + 'px';
+  img.style.left = (x - sp.gx * k) + 'px'; img.style.top = (y - sp.gy * k) + 'px';
+  img.style.transformOrigin = `${sp.gx * k}px ${sp.gy * k}px`;
+  img.style.transform = `translateY(${dy}px) rotate(${rot}deg) scale(${1 / sq}, ${sq})`;
+}
+const hopAt = (t, t0, dur = 0.5, amp = 90) => { const k = (t - t0) / dur; if (k < 0 || k > 1) return { dy: 0, sq: 1 }; return { dy: -Math.sin(k * Math.PI) * amp, sq: 1 - 0.1 * Math.sin(k * Math.PI) }; };
+// pick the active hop out of a list of hop start times
+function hops(t, times, dur = 0.45, amp = 80) { for (const t0 of times) { const h = hopAt(t, t0, dur, amp); if (h.dy !== 0) return h; } return { dy: 0, sq: 1 }; }
+const blink = (t, ph = 0, every = 2.7) => ((t + ph) % every) < 0.13;
+const tilt = (t, ph = 0) => 2.5 * Math.sin((t + ph) * 1.1);
+async function setSrc(img, src) { if (img.getAttribute('src') !== src) { img.src = src; await img.decode().catch(() => {}); } }
+// place a turntable frame so its ground anchor sits at (x, y)
+function placeTurn(img, k, x, y, h, sq = 1, dy = 0) {
+  const s = h / TURN.h; const [gx, gy] = TURN.frames[k];
+  img.style.width = TURN.w * s + 'px'; img.style.height = TURN.h * s + 'px';
+  img.style.left = (x - gx * s) + 'px'; img.style.top = (y - gy * s) + 'px';
+  img.style.transformOrigin = `${gx * s}px ${gy * s}px`;
+  img.style.transform = `translateY(${dy}px) scale(${1 / sq}, ${sq})`;
+}
+
+// ------------------------------------------------------------------ clips (recorded gameplay)
+let clipSrc = '';
+async function clipFrame(name, ct, cam, t, segT0) {
+  const c = CLIPS[name];
+  const f = clamp(Math.round(ct * FPS), 0, c.n - 1);
+  const src = `${c.dir}/f${String(f).padStart(5, '0')}.jpg`;
+  const el = $('#clip');
+  if (clipSrc !== src) { el.src = src; clipSrc = src; await el.decode().catch(() => {}); }
+  el.style.display = 'block';
+  let s = Math.max(cam.s, 1080 / 780);
+  const since = t - segT0;
+  if (since < 0.18) s *= 1 + 0.045 * (1 - since / 0.18);
+  const d = { x: 6 * Math.sin(t * 1.3) + 3 * Math.sin(t * 2.9 + 1), y: 5 * Math.sin(t * 1.1 + 2) + 3 * Math.sin(t * 2.3), r: 0.35 * Math.sin(t * 0.7) };
+  let left = clamp(cam.ax - cam.fx * s + d.x, 1080 - 780 * s, 0), top = clamp(cam.ay - cam.fy * s + d.y, 1920 - 1688 * s, 0);
+  el.style.transform = `translate(${left}px, ${top}px) rotate(${d.r}deg) scale(${s})`;
+  return { s, left, top };
+}
+function rippleAt(t, at, x, y) {
+  const host = $('#ripples');
+  const age = t - at; if (age < -0.12 || age > 0.55) return;
+  if (age < 0) { const d = document.createElement('div'); d.className = 'dot'; d.style.left = x + 'px'; d.style.top = y + 'px'; host.appendChild(d); return; }
+  const k = age / 0.55; const r = document.createElement('div'); r.className = 'ripple';
+  const size = 60 + 220 * ease(k); r.style.left = x + 'px'; r.style.top = y + 'px'; r.style.width = size + 'px'; r.style.height = size + 'px'; r.style.opacity = String(1 - k); host.appendChild(r);
+  if (age < 0.18) { const d = document.createElement('div'); d.className = 'dot'; d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.opacity = String(1 - age / 0.18); host.appendChild(d); }
+}
+
+// ------------------------------------------------------------------ vista, end card, captions, fx
+function placeVista(t, { night = 0, pets = true, end = false, since = 0, s01Expr = 'happy', hop = true, focus = null, zoom = 1, groundY = null, show = null } = {}) {
+  const v = $('#vista'); v.style.display = 'block';
+  const sc = (end ? 1.333 : 1.2 + 0.05 * clamp(since / 2.6, 0, 1)) * zoom;
+  const W = HERO.w * sc, H = HERO.h * sc;
+  const cx = (focus ? HERO.pets[focus].x : end ? 0.635 : 0.62) * W; const left = clamp(540 - cx, 1080 - W, 0);
+  const top = groundY && focus ? clamp(groundY - HERO.pets[focus].y * H, 1920 - H, 0) : 1920 - H;
+  v.style.background = night > 0.5 ? '#141B33' : '#5FB1E6';
+  for (const im of v.querySelectorAll('img.bg')) { im.style.transform = `translate(${left}px, ${top}px) scale(${sc})`; im.style.width = HERO.w + 'px'; im.style.height = HERO.h + 'px'; }
+  v.querySelector('img.bg.night').style.opacity = String(night);
+  v.querySelectorAll('.pet').forEach((img, i) => {
+    const id = img.dataset.s, p = HERO.pets[id], sp = SPR[id];
+    img.style.display = show ? (show.includes(id) ? 'block' : 'none') : pets ? 'block' : (id === 's01' ? 'block' : 'none');
+    const k = p.k * HERO.h * sc; const w = sp.w * k, h = sp.h * k;
+    const gx = p.x * W + left, gy = p.y * HERO.h * sc + top;
+    const ph = (since * 1.6 + i * 0.33) % 1; const hp = hop ? Math.max(0, Math.sin(ph * Math.PI)) : 0;
+    img.style.width = w + 'px'; img.style.height = h + 'px'; img.style.left = (gx - sp.gx * k) + 'px'; img.style.top = (gy - sp.gy * k) + 'px';
+    img.style.transform = `translateY(${-hp * h * 0.16}px) scale(${1 / (1 - hp * 0.06)}, ${1 - hp * 0.06})`;
+    img.style.filter = night > 0 ? `brightness(${1 - 0.42 * night})` : '';
+    if (id === 's01') { const want = s01Expr === 'happy' ? 'site/img/pets/s01-ocean.webp' : `wl/expr/${s01Expr}.webp`; if (img.getAttribute('src') !== want) img.src = want; }
+  });
+}
+function endcard(t, t0, h1, cta = 'Join the beta waitlist') {
+  const e = $('#endcard'); e.style.display = 'block';
+  $('#end-h1').innerHTML = h1; $('#end-cta').textContent = cta;
+  const p = pop(t - t0, 0.4);
+  e.querySelector('.card').style.transform = `scale(${0.5 + 0.5 * p}) translateY(${(1 - p) * 60}px)`;
+  e.querySelector('.card').style.opacity = String(clamp((t - t0) / 0.15, 0, 1));
+  const c = t - t0; const pulse = c > 0.6 ? 1 + 0.035 * Math.max(0, Math.sin((c - 0.6) * 4.2)) : 1;
+  e.querySelector('.cta').style.transform = `scale(${pulse}) rotate(-1.5deg)`;
+}
+function captions(t, CAPS) {
+  const host = $('#caps'); host.innerHTML = '';
+  for (const c of CAPS) {
+    if (t < c.t0 || t >= c.t1 + 0.12) continue;
+    const el = document.createElement('div'); el.className = 'cap ' + c.cls; el.innerHTML = c.html; el.style.top = c.y + 'px';
+    const pin = pop(t - c.t0); const out = t > c.t1 ? 1 - (t - c.t1) / 0.12 : 1; const wob = 1 + 0.012 * Math.sin((t - c.t0) * 5);
+    el.style.transform = `scale(${pin * wob}) rotate(${(c.t0 * 7 % 3) - 1.5 + 0.6 * Math.sin((t - c.t0) * 2)}deg)`; el.style.opacity = String(clamp(out, 0, 1));
+    host.appendChild(el);
+  }
+}
+function pills(t, { handle = true, stamp = null, from = 0.2 }) {
+  const h = $('#pills .handle'), s = $('#pills .stamp');
+  const p = pop(t - from, 0.35);
+  h.style.display = handle ? 'block' : 'none'; h.style.transform = `scale(${p}) rotate(-2deg)`;
+  s.style.display = stamp ? 'block' : 'none'; if (stamp) { s.textContent = stamp; s.style.transform = `scale(${pop(t - from - 0.1, 0.35)}) rotate(3deg)`; }
+}
+function sparks(t, at, cx = 540, cy = 980, n = 26) {
+  const host = $('#sparks'); host.innerHTML = '';
+  const age = t - at; if (age < 0 || age > 1.6) return;
+  for (let i = 0; i < n; i++) {
+    const a = rnd(i, 1) * Math.PI * 2, sp = 420 + rnd(i, 2) * 520, sz = 28 + rnd(i, 3) * 44; const d = Math.min(age, 1.2);
+    const x = cx + Math.cos(a) * sp * (1 - Math.pow(1 - d / 1.2, 3)), y = cy + Math.sin(a) * sp * (1 - Math.pow(1 - d / 1.2, 3)) + 140 * d * d;
+    const o = age < 0.1 ? age / 0.1 : clamp(1 - (age - 0.6) / 0.9, 0, 1);
+    const st = document.createElement('div'); st.className = 'star'; st.style.left = (x - sz / 2) + 'px'; st.style.top = (y - sz / 2) + 'px'; st.style.width = sz + 'px'; st.style.height = sz + 'px';
+    st.style.opacity = String(o); st.style.transform = `rotate(${age * 240 * (rnd(i, 4) - 0.5)}deg) scale(${0.6 + 0.4 * Math.sin(age * 9 + i)})`; host.appendChild(st);
+  }
+  for (let i = 0; i < 18; i++) {
+    const x0 = 120 + rnd(i, 5) * 840, y0 = cy - 480 + rnd(i, 6) * 900, ph = rnd(i, 7);
+    const o = clamp(Math.sin((age * 1.8 + ph) * Math.PI), 0, 1) * clamp(1 - (age - 1.0) / 0.6, 0, 1);
+    const g = document.createElement('div'); g.className = 'glow'; g.style.left = x0 + 'px'; g.style.top = (y0 - age * 90) + 'px'; g.style.opacity = String(o * 0.9); g.style.transform = `scale(${0.5 + o})`; host.appendChild(g);
+  }
+}
+function flash(t, at, amt = 0.85) { const o = t >= at && t < at + 0.35 ? amt * (1 - (t - at) / 0.35) : 0; $('#flash').style.opacity = String(o); }
+function leaves(t, el, n = 16) {
+  let host = el.querySelector('.leaves');
+  if (!host) { host = document.createElement('div'); host.className = 'leaves'; host.style.cssText = 'position:absolute;inset:0;pointer-events:none'; el.appendChild(host); for (let i = 0; i < n; i++) { const d = document.createElement('div'); d.className = 'leaf'; d.style.background = ['#DB9942', '#D85F51', '#F4B84E', '#82B75E', '#EC947C'][i % 5]; host.appendChild(d); } }
+  host.querySelectorAll('.leaf').forEach((d, i) => {
+    const sp = 150 + rnd(i, 11) * 120, ph = rnd(i, 12) * 2100, x0 = 40 + rnd(i, 13) * 1000, sz = 34 + rnd(i, 14) * 30;
+    const y = ((t * sp + ph) % 2100) - 120; const x = x0 + 70 * Math.sin(t * 1.3 + i);
+    d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.width = sz + 'px'; d.style.height = sz + 'px';
+    d.style.transform = `rotate(${t * 120 * (rnd(i, 15) - 0.5) * 2 + i * 40}deg) scaleX(${0.6 + 0.4 * Math.sin(t * 3 + i)})`;
+  });
+}
+function resetStage() {
+  $('#bg').style.display = 'none'; $('#clip').style.display = 'none'; $('#vista').style.display = 'none'; $('#endcard').style.display = 'none';
+  $('#ripples').innerHTML = ''; $('#sparks').innerHTML = ''; $('#flash').style.opacity = '0';
+}
+function parchment(shadowTop = 1335) { const bg = $('#bg'); bg.style.display = 'block'; bg.querySelector('.shadow').style.display = shadowTop ? 'block' : 'none'; if (shadowTop) bg.querySelector('.shadow').style.top = shadowTop + 'px'; }
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+// ================================================================== the cuts
+const CUTS = {};
+
+// ---- 1. "elder": open on the fully evolved Mochi, cut to day one, then how steps did it (ad version, ends on the waitlist)
+CUTS.elder = {
+  TOTAL: 18.0, reveal: 9.65, end: 15.5, handle: false,
+  CAPS: [
+    { t0: -0.12, t1: 2.4, cls: 'big', y: 300, html: 'this is <span class="g">Mochi</span>.' },
+    { t0: 2.4, t1: 5.0, cls: 'big', y: 300, html: 'this was Mochi<br>on <span class="g">day one</span>' },
+    { t0: 5.0, t1: 7.2, cls: 'big', y: 300, html: 'the only thing I did<br>was <span class="g">walk</span>' },
+    { t0: 7.2, t1: 9.3, cls: 'big', y: 300, html: 'steps are XP.<br>level 10, level 25:<br>he <span class="g">changes</span>' },
+    { t0: 9.9, t1: 13.0, cls: 'big', y: 300, html: 'and <span class="g">you</span> pick<br>the moment' },
+    { t0: 13.0, t1: 15.5, cls: 'big', y: 300, html: 'your steps.<br>your <span class="g">Evochi</span>.' },
+  ],
+  async draw(t) {
+    resetStage();
+    if (t < 2.4) {
+      parchment(1335);
+      const el = layer('spin', '<img class="sprite" alt=""><div class="label gold" style="left:540px;top:1430px">Mochi · Elder · level 25</div>');
+      showOnly(['spin']);
+      const img = el.querySelector('img');
+      const k = t < 2.0 ? Math.floor((t / 2.0) * TURN.n) % TURN.n : 0;
+      await setSrc(img, t < 2.0 ? `wl3/turn3/ocean/y${String(k).padStart(2, '0')}.webp` : 'wl3/elder/ocean/happy.webp');
+      const hop = hopAt(t, 2.0, 0.4, 70);
+      if (t < 2.0) placeTurn(img, k, 540, 1340, 600 * (0.001 + 0.999 * pop(t + 0.12, 0.3)), 1 + bob(t, 0, 0.01), 0);
+      else placeSprite(img, 's03', 540, 1340, 620, hop.sq * (1 + bob(t, 0, 0.01)), hop.dy);
+      el.querySelector('.label').style.opacity = String(clamp((t - 0.5) / 0.2, 0, 1));
+      sparks(t, 0.08, 540, 1000);
+    } else if (t < 5.0) {
+      parchment(1335);
+      const el = layer('baby', '<img class="sprite" src="site/img/pets/s01-ocean.webp" alt=""><div class="label" style="left:540px;top:1400px">Mochi · Eggling · level 1</div>');
+      showOnly(['baby']);
+      const img = el.querySelector('img'); await setSrc(img, blink(t, 0.4) ? 'wl3/s01/ocean/blink.webp' : 'wl3/s01/ocean/happy.webp');
+      const hop = hops(t, [3.2, 4.2], 0.45, 60);
+      placeSprite(img, 's01', 540, 1340, 380, hop.sq * (1 + bob(t, 0, 0.014)), hop.dy);
+    } else if (t < 9.0) {
+      parchment(1335);
+      const el = layer('walk', '<div class="lvl" style="top:620px"><span class="n">1</span><small>LEVEL</small></div><div class="xpbar" style="top:900px"><i></i></div><img class="sprite" alt=""><div class="label" style="left:540px;top:1430px"></div>');
+      showOnly(['walk']);
+      const k = clamp((t - 5.0) / 3.4, 0, 1); const lvl = Math.round(lerp(1, 25, easeOut(k)));
+      el.querySelector('.lvl .n').textContent = lvl;
+      el.querySelector('.xpbar i').style.width = (((t - 5.0) * 1.7) % 1) * 100 + '%';
+      const st = t < 6.6 ? 's01' : t < 8.0 ? 's02' : 's03'; const at = { s01: 5.0, s02: 6.6, s03: 8.0 }[st]; const hs = { s01: 360, s02: 420, s03: 470 }[st];
+      const img = el.querySelector('img'); await setSrc(img, st === 's01' ? 'site/img/pets/s01-ocean.webp' : st === 's02' ? 'wl/forms/s02.webp' : 'wl3/elder/ocean/happy.webp');
+      const p = st === 's01' ? 1 : pop(t - at, 0.35); const hop = hopAt(t, at + 0.35, 0.45, 70);
+      placeSprite(img, st, 540, 1340, hs * Math.max(0.001, p), hop.sq * (1 + bob(t, 0, 0.012)), hop.dy);
+      const lab = el.querySelector('.label'); lab.textContent = st === 's01' ? 'Eggling' : st === 's02' ? 'Juvenile · level 10' : 'Elder · level 25'; lab.className = 'label' + (st === 's03' ? ' gold' : '');
+      if (t >= 6.6) { flash(t, 6.6, 0.45); sparks(t, 6.62, 540, 1150, 14); }
+      if (t >= 8.0) { flash(t, 8.0, 0.6); sparks(t, 8.02, 540, 1100); }
+    } else if (t < 13.0) {
+      showOnly([]);
+      await clipFrame('evolve', 2.2 + (t - 9.0) * 1.3, { s: 1.5, fx: 390, fy: 820, ax: 540, ay: 940 }, t, 9.0);
+      flash(t, 9.0 + (3.05 - 2.2) / 1.3, 0.75);
+    } else if (t < 15.5) {
+      showOnly([]);
+      placeVista(t, { since: t - 13.0, focus: 's03', zoom: 1.45, groundY: 1300, show: ['s02', 's03'] });
+    } else {
+      showOnly([]);
+      placeVista(t, { end: true, since: t - 15.5 });
+      endcard(t, 15.5, 'Hatch it first.');
+    }
+  },
+};
+
+// ---- 2. "miss": "I miss the games where you actually cared about your little creature, so I'm making one." Ends on a question.
+CUTS.miss = {
+  TOTAL: 18.0, reveal: 13.2, end: 15.6, handle: true,
+  CAPS: [
+    { t0: -0.12, t1: 3.4, cls: 'mid', y: 300, html: 'I miss the games where<br>you <span class="g">actually cared</span><br>about your little creature' },
+    { t0: 3.4, t1: 5.6, cls: 'big', y: 300, html: "so I'm <span class=\"g\">making one</span>." },
+    { t0: 5.6, t1: 8.4, cls: 'big', y: 300, html: 'it hatches from an egg<br><span class="g">you</span> pick' },
+    { t0: 8.4, t1: 11.0, cls: 'big', y: 300, html: 'it <span class="g">grows</span> when you walk' },
+    { t0: 11.0, t1: 13.2, cls: 'big', y: 300, html: 'it gets <span class="b">sleepy</span><br>when you stop…' },
+    { t0: 13.2, t1: 15.6, cls: 'big', y: 300, html: '…and <span class="g">so happy</span><br>when you\'re back' },
+    { t0: 15.6, t1: 18.0, cls: 'big', y: 300, html: 'what was <span class="g">yours</span> called?' },
+  ],
+  async draw(t) {
+    resetStage();
+    if (t < 3.4) {
+      parchment(1335);
+      const el = layer('care', '<img class="sprite" alt=""><div class="zz" style="left:640px;top:900px">z</div><div class="zz" style="left:700px;top:820px">z</div><div class="zz" style="left:770px;top:730px">Z</div>');
+      showOnly(['care']);
+      const img = el.querySelector('img');
+      const ex = t < 1.1 ? (blink(t, 0.5) ? 'blink' : 'curious') : t < 2.3 ? 'happy' : 'sleepy';
+      await setSrc(img, `wl3/s01/ocean/${ex}.webp`);
+      const hop = hops(t, [1.15, 1.7], 0.42, 80);
+      placeSprite(img, 's01', 540, 1340, 640, hop.sq * (1 + bob(t, 0, 0.012)), hop.dy, t < 1.1 ? tilt(t) : 0);
+      rippleAt(t, 1.1, 600, 1000);
+      el.querySelectorAll('.zz').forEach((z, i) => { const ph = (t * 0.7 + i * 0.33) % 1; z.style.opacity = String(t >= 2.4 ? Math.sin(ph * Math.PI) * 0.95 : 0); z.style.transform = `translateY(${-ph * 60}px) rotate(${Math.sin(t * 2 + i) * 10}deg)`; });
+    } else if (t < 5.6) {
+      parchment(1335);
+      const el = layer('build', '<img class="sprite" alt=""><div class="label" style="left:540px;top:1430px"></div>');
+      showOnly(['build']);
+      const img = el.querySelector('img'); const lab = el.querySelector('.label');
+      const kk = clamp(Math.floor(((t - 3.4) / 1.5) * 40), 0, 39);
+      await setSrc(img, t < 4.95 ? `wl/build/b${String(kk).padStart(3, '0')}.webp` : 'wl/expr/happy.webp');
+      const hop = hopAt(t, 4.95, 0.45, 80);
+      placeSprite(img, 's01', 540, 1340, 700, hop.sq * (1 + bob(t, 0, 0.012)), hop.dy);
+      lab.textContent = t < 4.9 ? `${Math.round(74856 * clamp((t - 3.4) / 1.5, 0, 1)).toLocaleString('en-US')} of 74,856 voxels` : 'Mochi';
+      lab.className = 'label' + (t >= 4.9 ? ' gold' : '');
+    } else if (t < 8.4) {
+      showOnly([]);
+      await clipFrame('hatch', t - 5.6, { s: 1.55, fx: 390, fy: 620, ax: 540, ay: 960 }, t, 5.6);
+      flash(t, 6.5, 0.7); sparks(t, 6.55, 540, 900);
+    } else if (t < 11.0) {
+      parchment(1335);
+      const el = layer('forms', '<img class="sprite" data-s="s01" src="site/img/pets/s01-ocean.webp" alt=""><img class="sprite" data-s="s02" src="wl/forms/s02.webp" alt=""><img class="sprite" data-s="s03" src="wl/forms/s03.webp" alt=""><div class="arrow" style="left:400px;top:1250px">›</div><div class="arrow" style="left:700px;top:1210px">›</div><div class="label" style="left:200px;top:1420px">day 1</div><div class="label" style="left:540px;top:1420px">level 10</div><div class="label gold" style="left:880px;top:1420px">level 25</div>');
+      showOnly(['forms']);
+      const xs = { s01: 200, s02: 520, s03: 860 }, hs = { s01: 330, s02: 400, s03: 440 }, at = { s01: 8.4, s02: 9.0, s03: 9.6 };
+      el.querySelectorAll('.sprite').forEach((img, i) => { const id = img.dataset.s; const p = pop(t - at[id], 0.35); const hop = hopAt(t, at[id] + 0.35, 0.45); placeSprite(img, id, xs[id], 1340, hs[id] * Math.max(0.001, p), hop.sq * (1 + bob(t, i * 0.3, 0.012)), hop.dy); });
+      el.querySelectorAll('.arrow').forEach((a, i) => { a.style.opacity = String(clamp((t - (9.0 + i * 0.6)) / 0.2, 0, 1)); });
+      el.querySelectorAll('.label').forEach((a, i) => { a.style.opacity = String(clamp((t - (8.7 + i * 0.6)) / 0.2, 0, 1)); });
+      sparks(t, 9.7, 860, 1200);
+    } else if (t < 15.6) {
+      showOnly([]);
+      const awake = t >= 13.2;
+      const night = t < 13.2 ? 1 : Math.max(0, 1 - (t - 13.2) / 0.9);
+      placeVista(t, { night, pets: false, since: awake ? t - 13.2 : 0, s01Expr: awake ? 'happy' : 'sleepy', hop: awake, focus: 's01' });
+      const el = layer('zz', '<div class="zz" style="left:640px;top:1010px">z</div><div class="zz" style="left:700px;top:930px">z</div><div class="zz" style="left:770px;top:840px">Z</div>');
+      showOnly(['zz']);
+      el.querySelectorAll('.zz').forEach((z, i) => { const ph = (t * 0.6 + i * 0.33) % 1; z.style.opacity = String(awake ? 0 : Math.sin(ph * Math.PI) * 0.95); z.style.transform = `translateY(${-ph * 60}px) rotate(${Math.sin(t * 2 + i) * 10}deg)`; });
+      flash(t, 13.2, 0.8); sparks(t, 13.22, 540, 1250);
+    } else {
+      parchment(1335);
+      const el = layer('ask', '<img class="sprite" alt="">');
+      showOnly(['ask']);
+      const img = el.querySelector('img');
+      await setSrc(img, blink(t, 1.3, 2.4) ? 'wl3/s01/ocean/blink.webp' : t < 16.4 ? 'wl3/s01/ocean/happy.webp' : 'wl3/s01/ocean/curious.webp');
+      const hop = hops(t, [15.65, 16.05], 0.4, 70);
+      placeSprite(img, 's01', 540, 1340, 760, hop.sq * (1 + bob(t, 0, 0.012)), hop.dy, t >= 16.4 ? tilt(t, 2) : 0);
+    }
+  },
+};
+
+// ---- 3. "grow": "What if your childhood virtual pet grew up with you?" Ends on a question.
+CUTS.grow = {
+  TOTAL: 16.0, reveal: 9.4, end: 13.7, handle: true,
+  CAPS: [
+    { t0: -0.12, t1: 2.6, cls: 'big', y: 300, html: 'what if your<br><span class="g">childhood virtual pet</span>' },
+    { t0: 2.6, t1: 5.0, cls: 'big', y: 300, html: '…grew up<br><span class="g">with you</span>?' },
+    { t0: 5.0, t1: 8.0, cls: 'big', y: 300, html: 'every walk<br>is <span class="g">XP</span>' },
+    { t0: 8.0, t1: 11.0, cls: 'big', y: 300, html: 'level 10… level 25…<br>and he <span class="g">changes</span>' },
+    { t0: 11.0, t1: 13.5, cls: 'big', y: 300, html: 'same colour. same name.<br><span class="g">all grown up</span>.' },
+    { t0: 13.7, t1: 16.0, cls: 'big', y: 300, html: 'would you walk<br>for <span class="g">him</span>?' },
+  ],
+  async draw(t) {
+    resetStage();
+    if (t < 2.6) {
+      showOnly([]);
+      placeVista(t, { since: t, focus: 's03', zoom: 1.7, groundY: 1300, show: ['s03'] });
+    } else if (t < 5.0) {
+      parchment(1335);
+      const el = layer('tiny', '<img class="sprite" alt=""><div class="label" style="left:540px;top:1400px">day 1</div>');
+      showOnly(['tiny']);
+      const img = el.querySelector('img'); await setSrc(img, blink(t, 0.9) ? 'wl3/s01/ocean/blink.webp' : 'wl3/s01/ocean/happy.webp');
+      const hop = hops(t, [3.1, 4.1], 0.42, 50);
+      placeSprite(img, 's01', 540, 1340, 300 * Math.max(0.001, pop(t - 2.6, 0.3)), hop.sq * (1 + bob(t, 0, 0.014)), hop.dy);
+    } else if (t < 11.0) {
+      parchment(0);
+      const rows = []; for (let i = 0; i < 30; i++) { const rest = i % 9 === 6; const steps = Math.round(4200 + rnd(i, 21) * 6800); rows.push(`<div class="row${rest ? ' rest' : ''}"><b>${DAYS[i % 7]}</b>${rest ? 'rest day' : steps.toLocaleString('en-US') + ' steps'}<span class="st">${rest ? '☁' : '<span class="ok">✓</span>'}</span></div>`); }
+      const el = layer('log', `<div class="log"><div class="head">walk log</div><div class="rows">${rows.join('')}</div></div><div class="lvl" style="top:1480px;left:60px;width:430px;font-size:120px"><span class="n">1</span><small>LEVEL</small></div><img class="sprite" alt=""><div class="label" style="left:770px;top:1430px"></div>`);
+      showOnly(['log']);
+      const n = clamp(Math.floor((t - 5.0) / 0.2) + 1, 1, 30);
+      el.querySelectorAll('.row').forEach((r, i) => { const a = t - (5.0 + i * 0.2); r.style.opacity = String(clamp(a / 0.1, 0, 1)); r.style.transform = `translateX(${(1 - clamp(a / 0.15, 0, 1)) * 60}px)`; });
+      el.querySelector('.rows').style.top = (70 - Math.max(0, n - 10) * 64) + 'px';
+      const k = clamp((t - 5.0) / 4.4, 0, 1); el.querySelector('.lvl .n').textContent = Math.round(lerp(1, 25, easeOut(k)));
+      const st = t < 7.2 ? 's01' : t < 9.4 ? 's02' : 's03'; const at = { s01: 5.0, s02: 7.2, s03: 9.4 }[st]; const hs = { s01: 340, s02: 400, s03: 440 }[st];
+      const img = el.querySelector('img'); await setSrc(img, st === 's01' ? 'site/img/pets/s01-ocean.webp' : st === 's02' ? 'wl/forms/s02.webp' : 'wl3/elder/ocean/happy.webp');
+      const p = st === 's01' ? 1 : pop(t - at, 0.35); const hop = st === 's01' ? hops(t, [5.6, 6.4], 0.4, 50) : hopAt(t, at + 0.35, 0.45, 70);
+      placeSprite(img, st, 770, 1340, hs * Math.max(0.001, p), hop.sq * (1 + bob(t, 0, 0.012)), hop.dy);
+      const lab = el.querySelector('.label'); lab.textContent = st === 's01' ? 'Eggling' : st === 's02' ? 'Juvenile' : 'Elder'; lab.className = 'label' + (st === 's03' ? ' gold' : '');
+      if (t >= 7.2) { flash(t, 7.2, 0.45); sparks(t, 7.22, 770, 1150, 14); }
+      if (t >= 9.4) { flash(t, 9.4, 0.7); sparks(t, 9.42, 770, 1100); }
+    } else if (t < 13.7) {
+      parchment(0);
+      const el = layer('pair', '<img class="sprite a" alt=""><img class="sprite b" alt=""><div class="label" style="left:250px;top:1420px">Mochi · day 1</div><div class="label gold" style="left:720px;top:1420px">Mochi · today</div>');
+      showOnly(['pair']);
+      const a = el.querySelector('.a'), b = el.querySelector('.b');
+      await setSrc(a, blink(t, 0.2) ? 'wl3/s01/ocean/blink.webp' : 'wl3/s01/ocean/happy.webp');
+      await setSrc(b, blink(t, 1.5) ? 'wl3/elder/ocean/blink.webp' : 'wl3/elder/ocean/happy.webp');
+      const ha = hops(t, [11.6, 12.6], 0.42, 60), hb = hops(t, [11.9, 12.9], 0.45, 70);
+      placeSprite(a, 's01', 250, 1340, 300 * Math.max(0.001, pop(t - 11.0, 0.3)), ha.sq * (1 + bob(t, 0, 0.014)), ha.dy);
+      placeSprite(b, 's03', 740, 1340, 470 * Math.max(0.001, pop(t - 11.2, 0.3)), hb.sq * (1 + bob(t, 0.3, 0.012)), hb.dy);
+      el.querySelectorAll('.label').forEach((l, i) => { l.style.opacity = String(clamp((t - 11.3 - i * 0.2) / 0.2, 0, 1)); });
+    } else {
+      parchment(1335);
+      const el = layer('ask3', '<img class="sprite" alt="">');
+      showOnly(['ask3']);
+      const img = el.querySelector('img');
+      await setSrc(img, blink(t, 0.7, 2.4) ? 'wl3/elder/ocean/blink.webp' : 'wl3/elder/ocean/curious.webp');
+      const hop = hops(t, [13.75], 0.45, 70);
+      placeSprite(img, 's03', 540, 1340, 600 * Math.max(0.001, pop(t - 13.7, 0.3)), hop.sq * (1 + bob(t, 0, 0.012)), hop.dy, t > 14.3 ? tilt(t, 1) : 0);
+    }
+  },
+};
+
+// ---- 4-6. Evolution Reveal series (one template, episode options)
+function revealCut(o) {
+  const name = NAMES[o.pal];
+  const eggSrc = (ex) => o.pal === 'ocean' && ex === 'happy' ? 'site/img/pets/s01-ocean.webp' : `wl3/s01/${o.pal}/${ex}.webp`;
+  const elderSrc = (ex) => `wl3/elder/${o.pal}/${ex}.webp`;
+  return {
+    TOTAL: 12.0, reveal: 3.4, end: 9.8, handle: true, stamp: `EVOLUTION REVEAL · ${o.ep}`,
+    CAPS: [
+      { t0: -0.12, t1: 3.3, cls: 'big', y: 300, html: o.intro },
+      { t0: 3.5, t1: 6.0, cls: 'huge', y: 300, html: o.revealCap },
+      { t0: 6.0, t1: 9.7, cls: 'big', y: 300, html: o.midCap },
+      { t0: 9.9, t1: 12.0, cls: 'big', y: 300, html: o.question },
+    ],
+    async draw(t) {
+      resetStage();
+      pills(t, { handle: true, stamp: `EVOLUTION REVEAL · ${o.ep}` });
+      if (t < 3.4) {
+        parchment(1335);
+        const el = layer('charge', '<div class="ring" style="top:560px"></div><div class="pring" style="top:960px"></div><img class="sprite" alt=""><div class="label" style="left:540px;top:1430px"></div><img class="item a" alt=""><img class="item b" alt="">');
+        showOnly(['charge']);
+        const img = el.querySelector('.sprite'), lab = el.querySelector('.label'), ring = el.querySelector('.ring'), pr = el.querySelector('.pring');
+        const k = clamp(t / 3.3, 0, 1);
+        if (o.outfit) {
+          await setSrc(img, blink(t, 0.6) ? elderSrc('blink') : elderSrc('happy'));
+          const hop = hops(t, [0.9, 1.5, 2.0, 2.4, 2.75, 3.05], 0.36, 60);
+          placeSprite(img, 's03', 540, 1340, 600 * Math.max(0.001, pop(t + 0.12, 0.3)), hop.sq * (1 + bob(t, 0, 0.01)), hop.dy);
+          lab.textContent = `${name} · Elder`;
+          ring.style.opacity = '0'; pr.style.display = 'none';
+          // the scarf and the hat drop in from above
+          const items = [['site/img/items/leaf-scarf.webp', 1.2, 300], ['site/img/items/explorer-hat.webp', 1.9, 700]];
+          for (const [sel, [src, at, x]] of [['.a', items[0]], ['.b', items[1]]]) {
+            const it = el.querySelector(sel); await setSrc(it, src);
+            const kk = clamp((t - at) / 1.2, 0, 1); it.style.display = t >= at ? 'block' : 'none';
+            it.style.left = x + 'px'; it.style.top = lerp(-300, 760, ease(kk)) + 'px'; it.style.transform = `rotate(${(1 - kk) * -30 + Math.sin(t * 6) * 6}deg) scale(${0.7 + 0.3 * kk})`;
+          }
+        } else {
+          await setSrc(img, t < 2.6 ? (blink(t, 0.6) ? eggSrc('blink') : eggSrc('happy')) : eggSrc('excited'));
+          const hop = hops(t, [0.6, 1.3, 1.85, 2.3, 2.65, 2.95, 3.2], 0.36, 70);
+          placeSprite(img, 's01', 540, 1340, 520 * Math.max(0.001, pop(t + 0.12, 0.3)), hop.sq * (1 + bob(t, 0, 0.012 + 0.02 * k)), hop.dy);
+          lab.textContent = t < 1.6 ? `${name} · Eggling` : 'level 25 · ready to evolve'; lab.className = 'label' + (t >= 1.6 ? ' gold' : '');
+          ring.style.opacity = String(0.9 * k * (0.6 + 0.4 * Math.sin(t * 9))); ring.style.transform = `scale(${0.7 + 0.5 * k})`;
+          pr.style.display = 'block'; pr.style.background = `conic-gradient(#F4B84E ${k * 360}deg, rgba(59,41,35,0.12) 0)`; pr.style.transform = `rotate(${-90}deg)`;
+          el.querySelectorAll('.item').forEach((i) => { i.style.display = 'none'; });
+        }
+        if (o.outfit) leaves(t, el);
+      } else if (t < 6.0) {
+        parchment(1335);
+        const el = layer('reveal', '<img class="sprite" alt=""><div class="label gold" style="left:540px;top:1430px"></div>');
+        showOnly(['reveal']);
+        const img = el.querySelector('img');
+        await setSrc(img, o.outfit ? (blink(t, 0.6) ? 'wl3/outfit/s03_blink.webp' : 'wl3/outfit/s03_happy.webp') : (blink(t, 1.1) ? elderSrc('blink') : elderSrc('happy')));
+        const hop = hops(t, [3.85, 4.7], 0.45, 80);
+        placeSprite(img, 's03', 540, 1340, 700 * Math.max(0.001, pop(t - 3.4, 0.35)), hop.sq * (1 + bob(t, 0, 0.012)), hop.dy);
+        el.querySelector('.label').textContent = o.label; el.querySelector('.label').style.opacity = String(clamp((t - 3.9) / 0.2, 0, 1));
+        flash(t, 3.4, 0.9); sparks(t, 3.42, 540, 1000);
+        if (o.outfit) leaves(t, el);
+      } else if (t < 9.8) {
+        parchment(1335);
+        if (o.outfit) {
+          const el = layer('trio', '<img class="sprite" data-s="s01" src="wl3/outfit/s01_happy.webp" alt=""><img class="sprite" data-s="s02" src="wl3/outfit/s02_happy.webp" alt=""><img class="sprite" data-s="s03" src="wl3/outfit/s03_happy.webp" alt=""><div class="label" style="left:200px;top:1420px">Eggling</div><div class="label" style="left:540px;top:1420px">Juvenile</div><div class="label" style="left:880px;top:1420px">Elder</div>');
+          showOnly(['trio']);
+          const xs = { s01: 200, s02: 520, s03: 860 }, hs = { s01: 330, s02: 400, s03: 440 }, at = { s01: 6.0, s02: 6.4, s03: 6.8 };
+          el.querySelectorAll('.sprite').forEach((img, i) => { const id = img.dataset.s; const p = pop(t - at[id], 0.35); const hop = hops(t, [7.6 + i * 0.3, 8.8 + i * 0.3], 0.45); placeSprite(img, id, xs[id], 1340, hs[id] * Math.max(0.001, p), hop.sq * (1 + bob(t, i * 0.3, 0.012)), hop.dy); });
+          el.querySelectorAll('.label').forEach((a, i) => { a.style.opacity = String(clamp((t - (6.3 + i * 0.4)) / 0.2, 0, 1)); });
+          leaves(t, el);
+        } else {
+          const el = layer('turn', '<img class="sprite" alt=""><div class="label gold" style="left:540px;top:1430px"></div>');
+          showOnly(['turn']);
+          const img = el.querySelector('img');
+          const k = Math.floor(((t - 6.0) / 3.6) * TURN.n) % TURN.n;
+          await setSrc(img, `wl3/turn3/${o.pal}/y${String(k).padStart(2, '0')}.webp`);
+          placeTurn(img, k, 540, 1340, 650, 1 + bob(t, 0, 0.008));
+          el.querySelector('.label').textContent = o.label;
+        }
+      } else {
+        parchment(1335);
+        const el = layer('ask', '<img class="sprite" alt="">');
+        showOnly(['ask']);
+        const img = el.querySelector('img');
+        await setSrc(img, o.outfit ? (blink(t, 0.4, 2.3) ? 'wl3/outfit/s03_blink.webp' : 'wl3/outfit/s03_default.webp') : (blink(t, 0.4, 2.3) ? elderSrc('blink') : elderSrc(t < 10.6 ? 'happy' : 'curious')));
+        const hop = hops(t, [9.85, 10.3], 0.42, 70);
+        placeSprite(img, 's03', 540, 1340, 680, hop.sq * (1 + bob(t, 0, 0.012)), hop.dy, t > 10.6 ? tilt(t, 2) : 0);
+        if (o.outfit) leaves(t, el);
+      }
+    },
+  };
+}
+CUTS.rv1 = revealCut({ ep: '01', pal: 'amethyst', label: 'Amethyst · Elder',
+  intro: "nobody's seen the<br><span class=\"p\">Amethyst</span> Elder yet", revealCap: '<span class="p">Amethyst</span><br>Elder', midCap: 'full turn, because<br>someone will ask', question: 'which colour <span class="g">next</span>?' });
+CUTS.rv2 = revealCut({ ep: '02', pal: 'aurora', label: 'Aurora · Elder (secret)',
+  intro: "there's a <span class=\"m\">7th colour</span><br>I haven't shown anyone", revealCap: '<span class="m">Aurora</span>', midCap: 'mint shell. teal crest.<br>not in the game… <span class="g">yet</span>', question: 'should it be<br>in the game? <span class="g">yes / no</span>' });
+CUTS.rv3 = revealCut({ ep: '03', pal: 'forest', label: 'autumn fit · v1', outfit: true,
+  intro: 'I made him an<br><span class="g">autumn outfit</span>', revealCap: '<span class="g">leaf scarf</span><br>+ explorer hat', midCap: 'fits every form.<br>(every wearable does)', question: 'what should the<br><span class="b">winter</span> one be?' });
+
+const CUT = CUTS[new URLSearchParams(location.search).get('cut') || 'elder'];
+window.__total = CUT.TOTAL;
+window.seek = async function (t) {
+  if (!TURN) TURN = await (await fetch('wl3/turn3/meta.json')).json();
+  t = Math.min(t, CUT.TOTAL - 0.001);
+  await CUT.draw(t);
+  if (!CUT.stamp) pills(t, { handle: CUT.handle, stamp: null });
+  captions(t, CUT.CAPS);
+  return true;
+};
+</script>
+</body>
+</html>

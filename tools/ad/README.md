@@ -55,3 +55,24 @@ python3 ad_audio.py dev ../../wl_frames/dev ../../web/public/assets/audio music_
 Music cue times per cut (total, riser, reveal, groove back, end card):
 dev 20 7.78 9.0 10.0 16.0 · pick 18 5.56 6.5 7.78 14.6 · crown 17 1.2 2.6 3.9 12.0 · hatch 18 5.56 7.8 8.9 14.0.
 `evochi_waitlist_ads_scripts.txt` has the VO lines, post copy and the landing-page checklist.
+
+## v3: evolved-first, nostalgia hooks and the Evolution Reveal series
+
+`comp_v3.html` holds six more cuts built on the "how to go viral" notes: `elder` (open on the fully
+evolved Mochi, cut to day one), `miss` ("I miss the games where you actually cared…", ends on a
+question), `grow` ("What if your childhood virtual pet grew up with you?", ends on a question) and
+`rv1`..`rv3`, the first three Evolution Reveal episodes (Amethyst, the secret Aurora colour, the
+autumn outfit) made from one `revealCut()` template. `series_assets.py` renders the Elder turntables
+(36 views), the Elder expression sheets, the Aurora forms and the outfit composites into `ad/wl3`.
+
+```bash
+python3 series_assets.py ../../ad/wl3                      # ~6 min, needs tools/art
+node ad_render.mjs ../../v3_frames/rv1 --cut rv1 --comp comp_v3.html
+python3 ad_music.py music_rv.wav 12 2.2 3.4 4.3 9.9
+python3 ad_audio.py rv1 ../../v3_frames/rv1 ../../web/public/assets/audio music_rv.wav evochi_v3_04_reveal_ep01_amethyst_12s.mp4
+python3 v3_pack.py VIDEO_DIR OUT_DIR                        # per-video folders with scripts, captions and post copy
+```
+
+Music cue times (total, riser, reveal, groove back, end): elder 18 8.6 9.65 10.6 15.5 · miss 18 12.3 13.2 14.0 15.6 ·
+grow 16 8.5 9.4 10.2 13.7 · rv1/rv2/rv3 12 2.2 3.4 4.3 9.9. `rv2` reuses `rv1`'s sound cues; `CRF=22` on
+`ad_audio.py` makes smaller delivery files. `v3_pack.py` also writes `HOW_TO_MAKE_MORE_EPISODES.txt`.

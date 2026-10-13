@@ -7,6 +7,9 @@ import subprocess
 import sys
 
 cut, frames, audio, music, out = sys.argv[1:6]
+CRF = os.environ.get('CRF', '18')
+if cut == 'rv2':
+    cut = 'rv1'
 FPS = 30
 
 # (sfx file, time in seconds, gain dB) for each cut. Times come from the composition timeline.
@@ -81,6 +84,59 @@ CUES = {
             ('reward_chime', 14.0, -6),
         ],
     },
+    'elder': {
+        'total': 18.0,
+        'cues': [
+            ('ui_tap', 0.0, -9), ('ui_tap', 2.4, -9), ('ui_tap', 5.0, -9), ('ui_tap', 7.2, -9), ('ui_tap', 9.9, -9), ('ui_tap', 13.0, -9),
+            ('pet_chirp', 2.05, -3), ('play_boing', 3.2, -8), ('play_boing', 4.2, -8),
+            ('level_up', 6.6, -6), ('level_up', 8.0, -4),
+            ('evolve_fanfare', 9.6, 0), ('pet_chirp', 13.3, -4),
+            ('reward_chime', 15.5, -6),
+        ],
+    },
+    'miss': {
+        'total': 18.0,
+        'cues': [
+            ('ui_tap', 0.0, -9), ('ui_tap', 3.4, -9), ('ui_tap', 5.6, -9), ('ui_tap', 8.4, -9), ('ui_tap', 11.0, -9), ('ui_tap', 13.2, -9), ('ui_tap', 15.6, -9),
+            ('pet_chirp', 1.15, -3), ('play_boing', 1.7, -8),
+            ('ui_tap', 3.6, -14), ('ui_tap', 3.9, -14), ('ui_tap', 4.2, -14), ('ui_tap', 4.5, -14), ('ui_tap', 4.8, -14), ('pet_chirp', 4.95, -3),
+            ('evolve_fanfare', 6.45, -3), ('pet_chirp', 7.3, -5),
+            ('play_boing', 8.75, -6), ('play_boing', 9.35, -6), ('level_up', 9.95, -6),
+            ('reward_chime', 13.2, -1), ('pet_chirp', 13.35, -2),
+            ('play_boing', 15.65, -7), ('play_boing', 16.05, -7), ('pet_chirp', 16.4, -4),
+        ],
+    },
+    'grow': {
+        'total': 16.0,
+        'cues': [
+            ('ui_tap', 0.0, -9), ('ui_tap', 2.6, -9), ('ui_tap', 5.0, -9), ('ui_tap', 8.0, -9), ('ui_tap', 11.0, -9), ('ui_tap', 13.7, -9),
+            ('pet_chirp', 0.5, -4), ('play_boing', 3.1, -8), ('play_boing', 4.1, -8),
+        ] + [('ui_tap', round(5.0 + i * 0.4, 2), -16) for i in range(15)] + [
+            ('level_up', 7.2, -6), ('evolve_fanfare', 9.4, -2),
+            ('play_boing', 11.6, -8), ('play_boing', 11.9, -8), ('play_boing', 12.6, -8), ('play_boing', 12.9, -8),
+            ('pet_chirp', 13.75, -3),
+        ],
+    },
+    'rv1': {
+        'total': 12.0,
+        'cues': [
+            ('ui_tap', 0.0, -9), ('ui_tap', 3.5, -9), ('ui_tap', 6.0, -9), ('ui_tap', 9.9, -9),
+            ('play_boing', 0.6, -12), ('play_boing', 1.3, -11), ('play_boing', 1.85, -10), ('play_boing', 2.3, -9), ('play_boing', 2.65, -8), ('play_boing', 2.95, -7), ('play_boing', 3.2, -6),
+            ('evolve_fanfare', 3.35, 0), ('pet_chirp', 3.9, -3),
+            ('play_boing', 9.85, -8), ('play_boing', 10.3, -8), ('pet_chirp', 10.6, -4),
+        ],
+    },
+    'rv3': {
+        'total': 12.0,
+        'cues': [
+            ('ui_tap', 0.0, -9), ('ui_tap', 3.5, -9), ('ui_tap', 6.0, -9), ('ui_tap', 9.9, -9),
+            ('play_boing', 0.9, -10), ('play_boing', 1.5, -10), ('play_boing', 2.0, -9), ('play_boing', 2.4, -9), ('play_boing', 2.75, -8), ('play_boing', 3.05, -8),
+            ('ui_tap', 1.2, -6), ('ui_tap', 1.9, -6),
+            ('reward_chime', 3.4, 0), ('purchase', 3.4, -4), ('pet_chirp', 3.9, -3),
+            ('play_boing', 6.0, -8), ('play_boing', 6.4, -8), ('play_boing', 6.8, -8),
+            ('play_boing', 9.85, -8), ('play_boing', 10.3, -8), ('pet_chirp', 10.6, -4),
+        ],
+    },
 }[cut]
 TOTAL = CUES['total']
 
@@ -99,7 +155,7 @@ filters.append(''.join(mix) + f'amix=inputs={len(mix)}:normalize=0:duration=long
 cmd = ['ffmpeg', '-y', '-hide_banner', '-loglevel', 'error',
        '-framerate', str(FPS), '-i', os.path.join(frames, 'f%05d.png')] + inputs + [
        '-filter_complex', ';'.join(filters), '-map', '0:v', '-map', '[mix]',
-       '-c:v', 'libx264', '-preset', 'slow', '-crf', '18', '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-level', '4.1',
+       '-c:v', 'libx264', '-preset', 'slow', '-crf', CRF, '-pix_fmt', 'yuv420p', '-profile:v', 'high', '-level', '4.1',
        '-movflags', '+faststart', '-r', str(FPS), '-t', str(TOTAL),
        '-c:a', 'aac', '-b:a', '192k', '-ar', '48000', out]
 subprocess.run(cmd, check=True)

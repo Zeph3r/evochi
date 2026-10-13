@@ -4,7 +4,8 @@ import puppeteer from 'puppeteer-core';
 import fs from 'node:fs';
 import path from 'node:path';
 const OUT = process.argv[2];
-const nums = process.argv.slice(3).filter((a) => /^[\d.]+$/.test(a)).map(Number);
+const rest = process.argv.slice(3);
+const nums = rest.filter((a, i) => /^[\d.]+$/.test(a) && !(i > 0 && rest[i - 1].startsWith('--'))).map(Number);
 const t0 = nums[0] ?? 0;
 const t1 = nums[1] ?? null;
 const stepArg = process.argv.indexOf('--preview');
@@ -28,7 +29,7 @@ const first = Math.round(t0 * FPS), last = Math.round(end * FPS);
 const started = Date.now();
 for (let f = first; f < last; f += step) {
   await p.evaluate((t) => window.seek(t), f / FPS);
-  await p.screenshot({ path: path.join(OUT, `f${String(f).padStart(5, '0')}.png`), type: 'png', clip: { x: 0, y: 0, width: 1080, height: 1920 } });
+  await p.screenshot({ path: path.join(OUT, `f${String(f).padStart(5, '0')}.png`), type: 'png', optimizeForSpeed: true, captureBeyondViewport: false, clip: { x: 0, y: 0, width: 1080, height: 1920 } });
   if ((f - first) % 90 === 0) console.log('frame', f, '/', last, ((Date.now() - started) / 1000).toFixed(0) + 's');
 }
 await b.close();

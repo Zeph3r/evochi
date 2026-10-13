@@ -1,0 +1,13 @@
+Evolution Reveal 02: Aurora, the secret seventh colour
+Length: 12 s. Ending: yes/no question (comment bait), no CTA on screen.
+
+Why this video exists:
+Recommendations 2 and 4: an "unexpected evolution". Aurora is a seventh colour that is NOT in the game yet (mint shell, lavender spots, teal crest). The video says so on screen and ends on "should it be in the game? yes / no", which is the kind of question people answer. If the answer is yes, the palette is one line in tools/art/palettes.py (see the series guide).
+
+VOICE-OVER (optional; the captions carry the lines, so the video works muted)
+Record in a plain, slightly amused dev-diary voice. No announcer energy. Pause where the dots are.
+
+  0.0s -   3.3s   There's a seventh colour I haven't shown anyone.
+  3.5s -   6.0s   Aurora.
+  6.0s -   9.7s   Mint shell, teal crest. Not in the game... yet.
+  9.9s -  12.0s   Should it be in the game? Yes or no.

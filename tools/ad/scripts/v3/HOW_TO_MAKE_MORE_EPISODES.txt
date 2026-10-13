@@ -1,0 +1,48 @@
+HOW TO MAKE MORE EVOLUTION REVEAL EPISODES
+==========================================
+
+Everything is in tools/ad/ of the Evochi repo (the pipeline that made these videos).
+
+1. Pick the episode. Ideas, roughly in the order the audience will ask for them:
+   04  Obsidian Elder (the dark one with the light eyes)         colour reveal, full turn
+   05  Coral Elder                                                colour reveal, full turn
+   06  Amber Elder                                                colour reveal, full turn
+   07  Forest Elder                                               colour reveal, full turn
+   08  Ocean Elder's ten moods (happy, curious, sleepy...)        moods, no turn
+   09  Winter fit (whatever the comments chose)                  outfit on all three forms
+   10  The Founder's Crown on the Aurora Elder                    rare + crown, full turn
+   11  "Yes, I modelled the back" (back and top views only)      turn
+   12  All six Elders side by side                                line-up, "pick yours"
+   Also: the Juvenile reveals (same template with the s02 sprites), a night-vista episode,
+   and "level 10 vs level 25" comparisons.
+
+2. Make the art (once per colour). From tools/ad:
+      python3 series_assets.py ../../ad/wl3 --turn
+   edit the `pals=` list in turntables() to add the colour (coral, amber, obsidian, forest).
+   For an outfit episode, edit outfit() to pick the items (any of: leaf_scarf, blue_scarf,
+   explorer_hat, tiny_crown, golden_crest_crown, butterfly_clip, red_backpack, explorer_pack).
+
+3. Add the episode to comp_v3.html, next to rv1..rv3:
+      CUTS.rv4 = revealCut({ ep: '04', pal: 'obsidian', label: 'Obsidian · Elder',
+        intro: 'you asked for the<br><span class="g">dark one</span>',
+        revealCap: 'Obsidian<br>Elder',
+        midCap: 'light eyes. red crest.<br>full turn.',
+        question: 'which colour <span class="g">next</span>?' });
+   Keep the four captions short: they are the only text on screen. Use the colour's own
+   accent class for its name (.g gold, .p pink, .b blue, .m mint).
+
+4. Render, mix, encode (about ten minutes):
+      node ad_render.mjs ../../v3_frames/rv4 --cut rv4 --comp comp_v3.html       # web server on :8766 serving the ad/ folder
+      python3 ad_audio.py rv1 ../../v3_frames/rv4 ../../web/public/assets/audio ../../ad_music/music_rv.wav evochi_v3_reveal_ep04.mp4
+   (rv1's sound cues fit every colour episode; copy the rv3 cues for outfit episodes.)
+
+5. Post with the same caption shape: "Evolution Reveal 04: Obsidian. which colour next?" and
+   pin a comment that tells people the next episode is decided by them.
+
+The Aurora palette (if the comments say yes)
+--------------------------------------------
+tools/art/palettes.py, add to _VARIANTS:
+   'aurora': ('#F2F4FB', '#C3B2F2', '#48C9C4', '#F4A6C6', '#5F6E80', '#44505E', '#282725', '#F6F3FF'),
+(shell, pattern, crest, cheeks, feet, foot shadow, eyes, claws), add it to VARIANT_ORDER and
+VARIANT_NAMES, then rebuild the character sprites and the web assets. The egg picker in the game
+shows six eggs; a seventh means a small layout change on the Create screen.
