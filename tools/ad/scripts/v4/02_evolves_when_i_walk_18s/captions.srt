@@ -1,0 +1,19 @@
+1
+00:00:00,000 --> 00:00:03,000
+I made a virtual pet that evolves when I walk.
+
+2
+00:00:03,000 --> 00:00:06,600
+When I was a kid, I loved raising virtual pets.
+
+3
+00:00:06,600 --> 00:00:10,000
+Now I'm making one that grows alongside you.
+
+4
+00:00:10,000 --> 00:00:14,200
+Every walk helps him become something new.
+
+5
+00:00:14,600 --> 00:00:18,000
+What would you name yours?

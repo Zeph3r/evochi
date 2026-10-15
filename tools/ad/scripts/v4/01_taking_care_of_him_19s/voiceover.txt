@@ -1,0 +1,14 @@
+"I thought I was taking care of him" (your line; the emotional payoff tied to the mechanic)
+Length: 19 s. Ending: question ("how many steps did you get today?"). Post: Fri.
+
+Why this video exists:
+Mochi is walking in the meadow from frame 0 with the step counter ticking, so the first second shows a creature and the mechanic at once. The middle shows care (a poke, a berry), a week of walk days and his first evolution; the turn ("turns out... he's helping me take care of myself too") lands on a dusk walk as the counter passes the daily goal. Ends on a question anyone can answer with a number.
+
+VOICE-OVER (optional; the captions carry the lines, so the video works muted)
+Record in a plain, warm dev-diary voice. No announcer energy. Leave the pauses in.
+
+  0.0s -   3.6s   I made a little creature that grows when I walk.
+  3.6s -   7.4s   I thought I was taking care of him.
+  7.4s -  10.6s   Turns out...
+ 10.6s -  15.0s   he's helping me take care of myself too.
+ 15.0s -  19.0s   How many steps did you get today?

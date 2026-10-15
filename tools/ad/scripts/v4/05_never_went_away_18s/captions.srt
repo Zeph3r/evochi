@@ -1,0 +1,19 @@
+1
+00:00:00,000 --> 00:00:03,600
+You used to take care of little virtual pets.
+
+2
+00:00:03,600 --> 00:00:06,800
+Somewhere along the way, you grew up.
+
+3
+00:00:06,800 --> 00:00:10,600
+But that little part of you never really went away.
+
+4
+00:00:10,600 --> 00:00:14,400
+This is Mochi. He grows when you walk.
+
+5
+00:00:14,400 --> 00:00:18,000
+Tamagotchi, Neopets, or Nintendogs?

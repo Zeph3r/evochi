@@ -1,0 +1,16 @@
+"Mochi has moods" (character personality, fast cuts)
+Length: 15.5 s. Ending: question with a numbered grid ("which one are you today?"). Post: Sat.
+
+Why this video exists:
+Five two-second moods (goal hit, rest day, poked, snack time, you came back), each a real thing the game does, then a numbered 2x2 grid: "which one are you today?" Comments become numbers, and the rewatch to pick one helps average viewed.
+
+VOICE-OVER (optional; the captions carry the lines, so the video works muted)
+Record in a plain, warm dev-diary voice. No announcer energy. Leave the pauses in.
+
+  0.0s -   2.6s   Mochi has moods.
+  2.6s -   4.6s   Goal hit.
+  4.6s -   6.6s   Rest day.
+  6.6s -   8.6s   You poked him.
+  8.6s -  10.6s   Snack time.
+ 10.6s -  12.6s   You came back.
+ 12.6s -  15.5s   Which one are you today?

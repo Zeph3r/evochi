@@ -1,0 +1,14 @@
+"I made a virtual pet that evolves when I walk" (analyst hook + your "when I was a kid" lines)
+Length: 18 s. Ending: evolution, then question ("what would you name yours?"). Post: Fri.
+
+Why this video exists:
+The evolution happens in the first second: Mochi is already glowing at frame 0 and becomes the Elder at 0.95 s. Then your lines over the game's real hatch and real evolution footage, and it ends on one more evolution, as you asked. This is the "show the evolution immediately" test.
+
+VOICE-OVER (optional; the captions carry the lines, so the video works muted)
+Record in a plain, warm dev-diary voice. No announcer energy. Leave the pauses in.
+
+  0.0s -   3.0s   I made a virtual pet that evolves when I walk.
+  3.0s -   6.6s   When I was a kid, I loved raising virtual pets.
+  6.6s -  10.0s   Now I'm making one that grows alongside you.
+ 10.0s -  14.2s   Every walk helps him become something new.
+ 14.6s -  18.0s   What would you name yours?

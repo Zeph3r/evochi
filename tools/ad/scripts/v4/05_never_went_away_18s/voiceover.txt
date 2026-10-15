@@ -1,0 +1,14 @@
+"That little part of you never really went away" (your line; nostalgia, slow reveal)
+Length: 18 s. Ending: question ("Tamagotchi, Neopets or Nintendogs?"). Post: Sat.
+
+Why this video exists:
+Your three lines over a night meadow with Mochi asleep in his nest (so there's a creature on screen from frame 0). On "never really went away" the sun comes up and he wakes. Then your reveal: Mochi walking around the meadow, "this is Mochi, he grows when you walk." Ends on a three-way choice, which is the easiest comment there is.
+
+VOICE-OVER (optional; the captions carry the lines, so the video works muted)
+Record in a plain, warm dev-diary voice. No announcer energy. Leave the pauses in.
+
+  0.0s -   3.6s   You used to take care of little virtual pets.
+  3.6s -   6.8s   Somewhere along the way, you grew up.
+  6.8s -  10.6s   But that little part of you never really went away.
+ 10.6s -  14.4s   This is Mochi. He grows when you walk.
+ 14.4s -  18.0s   Tamagotchi, Neopets, or Nintendogs?

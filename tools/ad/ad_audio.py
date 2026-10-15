@@ -137,7 +137,71 @@ CUES = {
             ('play_boing', 12.3, -8), ('play_boing', 12.95, -8), ('pet_chirp', 13.3, -4),
         ],
     },
-}[cut]
+}
+
+
+# ---- v4 (comp_v4.html): Mochi in the world
+def _taps(times, gain=-9):
+    return [('ui_tap', t, gain) for t in times]
+
+
+CUES['care'] = {
+    'total': 19.0,
+    'cues': _taps([0.0, 3.6, 7.4, 10.6, 15.0]) + [
+        ('coin', 2.5, -8),
+        ('ui_tap', 4.0, -6), ('pet_chirp', 4.12, -3), ('play_boing', 4.1, -8), ('play_boing', 4.65, -8),
+        ('play_boing', 5.65, -7), ('pet_chirp', 5.95, -4), ('play_boing', 6.45, -9), ('reward_chime', 6.7, -8),
+    ] + _taps([round(7.75 + i * 0.3, 2) for i in range(7)], -13) + [
+        ('level_up', 9.1, -10), ('evolve_fanfare', 9.95, -2), ('pet_chirp', 10.15, -4),
+        ('reward_chime', 12.5, -3), ('coin', 12.55, -7),
+        ('play_boing', 15.1, -8), ('play_boing', 15.6, -8), ('pet_chirp', 16.2, -4),
+    ],
+}
+CUES['evolves'] = {
+    'total': 18.0,
+    'cues': _taps([0.0, 3.0, 6.6, 10.0, 14.6]) + [
+        ('evolve_fanfare', 0.95, 0), ('play_boing', 1.03, -6), ('pet_chirp', 1.15, -4),
+        ('reward_chime', 3.85, -4), ('pet_chirp', 4.0, -3),
+    ] + _taps([round(6.6 + i * 0.42, 2) for i in range(8)], -15) + [
+        ('level_up', 10.4, -9), ('evolve_fanfare', 12.5, -2), ('pet_chirp', 13.0, -5),
+        ('evolve_fanfare', 14.6, -1), ('play_boing', 14.7, -7), ('play_boing', 15.5, -8), ('pet_chirp', 16.0, -4),
+    ],
+}
+CUES['week1'] = {
+    'total': 20.0,
+    'cues': _taps([0.0, 3.2, 6.6, 8.5, 10.4, 13.6, 16.6]) + _taps([0.85, 1.95, 2.65, 3.35, 3.65, 4.03], -12) + [
+        ('ui_tap', 1.8, -4), ('reward_chime', 1.82, -12), ('ui_tap', 3.6, -4),
+        ('evolve_fanfare', 4.4, -2), ('pet_chirp', 4.75, -2), ('play_boing', 5.5, -8), ('play_boing', 6.1, -8),
+        ('reward_chime', 7.82, -8), ('coin', 7.6, -7), ('reward_chime', 9.48, -8), ('coin', 9.5, -7),
+        ('reward_chime', 14.5, -6), ('evolve_fanfare', 14.6, 0), ('play_boing', 14.68, -6), ('pet_chirp', 15.0, -3),
+        ('play_boing', 16.7, -8), ('play_boing', 17.2, -8), ('pet_chirp', 17.6, -4),
+    ],
+}
+# the A/B test: the live "miss" mix from 4.2 s on, new sounds only under the new opening
+CUES['missB'] = {
+    'total': 22.0,
+    'cues': [('ui_tap', 0.0, -9), ('evolve_fanfare', 0.9, -1), ('play_boing', 0.98, -6), ('pet_chirp', 1.1, -4),
+             ('pet_chirp', 2.95, -6), ('play_boing', 3.25, -8)]
+    + [c for c in CUES['miss']['cues'] if c[1] >= 4.2],
+}
+CUES['part'] = {
+    'total': 18.0,
+    'cues': _taps([0.0, 3.6, 6.8, 10.6, 14.4]) + [
+        ('pet_chirp', 8.6, -3), ('play_boing', 9.05, -8), ('reward_chime', 9.05, -6), ('play_boing', 9.6, -8), ('play_boing', 10.15, -8),
+        ('coin', 12.6, -7),
+        ('play_boing', 14.5, -8), ('play_boing', 15.0, -8), ('pet_chirp', 15.6, -4),
+    ],
+}
+CUES['moods'] = {
+    'total': 15.5,
+    'cues': _taps([0.0, 2.6, 4.6, 6.6, 8.6, 10.6, 12.6]) + [('play_boing', t, -10) for t in (0.0, 0.55, 1.1, 1.65, 2.2)] + [
+        ('reward_chime', 3.0, -3), ('play_boing', 3.05, -9), ('play_boing', 3.55, -9), ('play_boing', 4.05, -9),
+        ('ui_tap', 6.9, -5), ('pet_chirp', 6.95, -3), ('play_boing', 7.55, -8), ('play_boing', 8.05, -8),
+        ('play_boing', 9.2, -8), ('coin', 9.8, -7), ('pet_chirp', 9.9, -3),
+        ('pet_chirp', 11.2, -2), ('play_boing', 11.25, -8), ('play_boing', 11.7, -8), ('play_boing', 12.15, -8),
+    ] + _taps([12.65, 12.77, 12.89, 13.01], -12) + [('reward_chime', 13.3, -9)],
+}
+CUES = CUES[cut]
 TOTAL = CUES['total']
 
 inputs = ['-stream_loop', '-1', '-i', os.path.join(audio, 'ambient_meadow_loop.mp3'), '-i', music]

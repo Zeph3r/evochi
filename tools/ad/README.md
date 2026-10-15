@@ -76,3 +76,27 @@ python3 v3_pack.py VIDEO_DIR OUT_DIR                        # per-video folders 
 Music cue times (total, riser, reveal, groove back, end): elder 22 10.6 11.74 12.7 18.5 · miss 22 15.1 16.0 16.8 18.8 ·
 grow 20 10.7 11.6 12.5 16.8 · rv1/rv2/rv3 15 2.8 4.2 5.2 12.3. `rv2` reuses `rv1`'s sound cues; `CRF=22` on
 `ad_audio.py` makes smaller delivery files. `v3_pack.py` also writes `HOW_TO_MAKE_MORE_EPISODES.txt`.
+
+## v4: Mochi in the world (character-first hooks)
+
+`comp_v4.html` drops the cream-card openings: every cut starts with Mochi already moving in the meadow
+(the hero vista used as a panning camera, the 3/4 sprites mirrored to walk right with a hop-walk, a
+ground shadow, the step-counter pill, and an in-world evolution with a charge glow). Cuts: `care`
+("I thought I was taking care of him", 19 s), `evolves` (evolution in second one, then the real hatch
+and evolution footage, 18 s), `week1` (series: egg to level 10 in seven days, 20 s), `missB` (the live
+"I miss the games" video with only the first 4.2 s replaced, for an A/B test; the body is copied
+verbatim from `CUTS.miss`), `part` ("that little part of you never went away", 18 s) and `moods`
+(15.5 s).
+
+```bash
+python3 v4_assets.py ../../ad/wl4          # Mochi's egg (whole, cracked once, cracked twice); copy the
+                                           # meadow nest to wl4/nest.webp and its front rim to nest_front.webp
+node ad_render.mjs ../../v4_frames/care --cut care --comp comp_v4.html
+python3 ad_music.py music_v4_care.wav 19 8.6 9.95 10.6 15.0
+python3 ad_audio.py care ../../v4_frames/care ../../web/public/assets/audio music_v4_care.wav evochi_v4_01_taking_care_of_him_19s.mp4
+python3 v4_pack.py VIDEO_DIR OUT_DIR
+```
+
+Music cues (total, riser, reveal, groove back, end): care 19 8.6 9.95 10.6 15.0 · evolves 18 13.0 14.6 15.3
+16.9 · week1 20 13.6 14.6 15.3 16.6 · part 18 7.0 8.6 9.6 14.4 · moods 15.5 11.8 12.6 13.2 14.6. `missB`
+reuses `music_miss.wav` and the live video's sound cues from 4.2 s on, so the opening is the only change.
