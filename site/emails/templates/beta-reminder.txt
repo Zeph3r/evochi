@@ -1,0 +1,14 @@
+Your beta spot is still waiting ({{daysLeft}} days left).
+
+We sent your invite on {{sentDate}} and it hasn't been used yet. It stays yours for {{daysLeft}} more days; after that it goes to the next person in line.
+
+iPhone (TestFlight): {{testflightUrl}}
+Android (Google Play): {{playUrl}}
+
+Not the right time? Reply with the word "skip" and we'll pass your spot on now and keep you on the list for launch.
+
+No pressure. Mochi's patient.
+{{signoff}}
+
+--
+Evochi: {{siteUrl}} · Support: {{siteUrl}}/support.html

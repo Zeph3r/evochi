@@ -1,0 +1,88 @@
+<!-- Dev diary: the reusable newsletter. One topic, one picture, one question. Every 2-3 weeks at most. -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    <td class="pad" align="center" style="padding:36px 40px 0;">
+      <span class="h" style="display:inline-block;padding:7px 16px;border-radius:999px;background:#FFE5A2;border:2px solid #E3A64A;font-family:'Nunito','Trebuchet MS','Segoe UI',Arial,sans-serif;font-size:14px;line-height:18px;font-weight:900;letter-spacing:0.6px;color:#80531F;text-transform:uppercase;">Dev diary #{{issue}}</span>
+    </td>
+  </tr>
+  <tr>
+    <td class="pad" align="center" style="padding:14px 40px 0;">
+      <h1 class="h h1" style="margin:0;font-family:'Nunito','Trebuchet MS','Segoe UI',Arial,sans-serif;font-size:36px;line-height:42px;font-weight:900;color:#3B2923;letter-spacing:-0.5px;">{{title}}</h1>
+    </td>
+  </tr>
+  <tr>
+    <td class="pad" align="center" style="padding:24px 40px 0;">
+      <img class="img-wide" src="{{heroImage}}" width="520" alt="{{heroAlt}}" style="width:520px;max-width:100%;height:auto;">
+    </td>
+  </tr>
+{{#paragraphs}}
+  <tr>
+    <td class="pad t" style="padding:16px 40px 0;font-family:'Lato','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:17px;line-height:27px;color:#684C3C;">{{{.}}}</td>
+  </tr>
+{{/paragraphs}}
+  <tr>
+    <td class="pad" style="padding:30px 40px 0;">
+      <h2 class="h" style="margin:0;font-family:'Nunito','Trebuchet MS','Segoe UI',Arial,sans-serif;font-size:22px;line-height:28px;font-weight:900;color:#3B2923;">This week</h2>
+    </td>
+  </tr>
+  <tr>
+    <td class="pad" style="padding:10px 40px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+{{#thisWeek}}
+        <tr>
+          <td width="28" valign="top" class="h" style="padding:6px 0;font-family:'Nunito','Trebuchet MS','Segoe UI',Arial,sans-serif;font-size:20px;line-height:24px;font-weight:900;color:#82B75E;">&#10003;</td>
+          <td valign="top" class="t" style="padding:6px 0;font-family:'Lato','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;line-height:24px;color:#684C3C;">{{.}}</td>
+        </tr>
+{{/thisWeek}}
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td class="pad" style="padding:26px 40px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#E5F2CF" style="background:#E5F2CF;border:2px solid #B7D98B;border-radius:20px;">
+        <tr>
+          <td class="t" style="padding:18px 22px;font-family:'Lato','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;line-height:24px;color:#2F5A27;">
+            <strong class="h" style="font-family:'Nunito','Trebuchet MS','Segoe UI',Arial,sans-serif;font-size:17px;font-weight:900;">A question for you:</strong> {{question}}<br>
+            <span style="color:#477B3A;">Hit reply. I read every one.</span>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td class="pad" align="center" style="padding:26px 40px 0;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td align="center" bgcolor="#FFF9F0" style="background:#FFF9F0;border:3px solid #C9A78C;border-radius:16px;">
+            <a href="{{ctaUrl}}" class="h" style="display:inline-block;padding:14px 30px;font-family:'Nunito','Trebuchet MS','Segoe UI',Arial,sans-serif;font-size:18px;line-height:22px;font-weight:900;color:#3B2923;text-decoration:none;">{{ctaLabel}}</a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td class="pad" style="padding:26px 40px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td bgcolor="#EED9C2" style="background:#EED9C2;border-radius:999px;padding:4px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td width="{{pct}}%" height="18" bgcolor="#82B75E" style="background:#82B75E;border-radius:999px;font-size:1px;line-height:18px;">&nbsp;</td>
+                <td style="font-size:1px;line-height:18px;">&nbsp;</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td class="t" align="center" style="padding-top:8px;font-family:'Lato','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;color:#8E7462;"><strong style="color:#477B3A;">{{countFmt}}</strong> of {{goalFmt}} sign-ups</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td class="pad t" style="padding:26px 40px 38px;font-family:'Lato','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:26px;color:#684C3C;">
+      See you on the next walk.<br>
+      <strong class="h" style="font-family:'Nunito','Trebuchet MS','Segoe UI',Arial,sans-serif;color:#3B2923;">{{signoff}}</strong>
+    </td>
+  </tr>
+</table>

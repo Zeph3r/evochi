@@ -1,0 +1,21 @@
+Dev diary #{{issue}}: {{title}}
+
+{{#paragraphs}}{{{.}}}
+
+{{/paragraphs}}THIS WEEK
+{{#thisWeek}}- {{.}}
+{{/thisWeek}}
+A QUESTION FOR YOU
+{{question}}
+Hit reply. I read every one.
+
+{{ctaLabel}}: {{ctaUrl}}
+
+{{countFmt}} of {{goalFmt}} on the waitlist.
+
+See you on the next walk.
+{{signoff}}
+
+--
+Evochi: {{siteUrl}} · Support: {{siteUrl}}/support.html
+{{#unsubLink}}Unsubscribe: {{unsubLink}}{{/unsubLink}}

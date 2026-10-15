@@ -1,0 +1,23 @@
+Evochi is out. Hatch yours.
+
+It's on the App Store and Google Play today. Free to download, no ads, and your step data never leaves your phone for anything but the game. Thank you for waiting with us.
+
+App Store: {{appStoreUrl}}
+Google Play: {{playStoreUrl}}
+{{#founder}}
+FOUNDER'S CROWN: STILL YOURS
+Sign in with the email you used for the waitlist and it's waiting in your Bag.
+{{/founder}}
+THREE THINGS THAT HELP A NEW EVOCHI
+1. Set a goal you'll actually hit. A full goal is 150 XP a day.
+2. Tap it when you open the app. Mood is half the game.
+3. Don't rush the evolve button. Level 10 with 7 active days unlocks it; you pick the moment.
+
+Post your first hatch and tag @evochigame. If anything's broken, reply here; a human reads it.
+
+Your steps. Your Evochi.
+{{signoff}}
+
+--
+Evochi: {{siteUrl}} · Support: {{siteUrl}}/support.html
+{{#unsubLink}}Unsubscribe: {{unsubLink}}{{/unsubLink}}

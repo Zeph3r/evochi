@@ -1,0 +1,60 @@
+EVOCHI EMAIL SUBJECTS AND PREHEADERS
+(filled with the sample data; the {{tokens}} version is in emails.json)
+
+## Waitlist welcome  (waitlist-welcome)
+Subject:   You're #1,204 in line for Evochi. Your Ocean egg is reserved.
+Preheader: Bring a friend and you both move up. Your link is inside.
+Alt:       Your Ocean egg is reserved (#1,204 in line)
+Alt:       You're in. Here's how to move up the Evochi waitlist.
+Alt:       #1,204. Mochi's nest just got warmer.
+Sent:      Automatically, by /api/waitlist, the second someone signs up.
+
+## Referral: you moved up  (referral-moved-up)
+Subject:   Someone hatched with your link. You're now #840.
+Preheader: 1 friend on board. Every extra one moves you up again.
+Alt:       +1 friend. You moved up to #840.
+Alt:       Your link worked: #840 in line now
+Sent:      Automatically, by /api/waitlist, to the referrer when a friend joins with their link.
+
+## Hatch progress (milestone)  (hatch-progress)
+Subject:   2,500 of 5,000. Mochi's egg is 50% hatched.
+Preheader: Halfway. At this pace the egg hatches in about three weeks, and the first invites go out the same day.
+Alt:       Halfway to hatching
+Alt:       50%: the nest is warming up
+Alt:       2,500 people are waiting on an egg
+Sent:      By hand, from Resend Broadcasts or your newsletter tool, at 25%, 50%, 75% and 90% of the goal.
+
+## Beta invite  (beta-invite)
+Subject:   Your egg is ready to hatch. Evochi beta, 7-day invite inside.
+Preheader: iPhone (TestFlight) and Android (Google Play) links. Yours for 7 days.
+Alt:       It's your turn: the Evochi beta is open
+Alt:       Hatch day. Your beta invite.
+Alt:       You waited. Your egg is ready.
+Sent:      By hand, in batches of 100-200, earliest in line first. Resend Broadcasts or your ESP with the merge fields below.
+
+## Beta reminder  (beta-reminder)
+Subject:   Your Evochi beta spot is still waiting (3 days left)
+Preheader: After that it goes to the next person in line. Reply 'skip' if now's not the time.
+Alt:       3 days left on your beta invite
+Alt:       Still want your egg?
+Sent:      By hand, 3 days before an unclaimed invite expires.
+
+## Dev diary (newsletter)  (dev-diary)
+Subject:   Dev diary #3: Yes, I modelled the back
+Preheader: Someone asked. So here&#39;s the Elder from every angle, and a question about colours.
+Alt:       Yes, I modelled the back (dev diary #3)
+Alt:       Yes, I modelled the back
+Sent:      By hand, every two or three weeks at most. One topic per issue.
+
+## Launch day  (launch-day)
+Subject:   Evochi is out. Hatch yours.
+Preheader: On the App Store and Google Play today. Free, no ads, your steps stay yours.
+Alt:       It hatched. Evochi is on the App Store and Google Play.
+Alt:       Launch day: your egg is waiting
+Sent:      By hand, to the whole list, the morning the store listings go live.
+
+## Account deletion received  (account-deletion)
+Subject:   Your Evochi account deletion request
+Preheader: Received 15 October 2026. Deleted within 30 days. Reply within 7 days to cancel.
+Alt:       We received your deletion request
+Sent:      By hand (or from your support tool) in reply to a request from evochigame.com/delete-account.html.

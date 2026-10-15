@@ -1,0 +1,25 @@
+Dev diary #3: Yes, I modelled the back
+
+A few of you asked whether the Elder has a back, or whether I'd just been clever with camera angles. It has a back. It has 118,000 voxels and most of them are crest, and I spent a week on a side nobody will see unless they rotate the EvoDex.
+
+That week also fixed something real: the turn-around views are now what the game uses for the Evolution screen, so the reveal spins the whole creature instead of flipping a sprite. It looks like a toy on a turntable. I'm happy with it.
+
+THIS WEEK
+- Elder turnaround in the game, all six colours.
+- Health Connect background sync on Android (overnight walks count).
+- Rest days: two protected days a week, so a cold doesn&#39;t make your Evochi sick.
+
+A QUESTION FOR YOU
+If there were a seventh colour, what would it be? One word is fine.
+Hit reply. I read every one.
+
+Watch the full turn: https://www.tiktok.com/@evochigame
+
+2,500 of 5,000 on the waitlist.
+
+See you on the next walk.
+Mochi &amp; the Evochi team
+
+--
+Evochi: https://evochigame.com · Support: https://evochigame.com/support.html
+

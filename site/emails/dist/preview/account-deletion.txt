@@ -1,0 +1,20 @@
+We got your deletion request.
+
+On 15 October 2026 we received a request to delete the Evochi account for you@example.com. We'll do it within 30 days.
+
+WHAT GETS DELETED
+- Your account and sign-in (Apple, Google or email)
+- Your Evochi: name, colour, level, XP, mood history and the EvoDex
+- Items, EvoCoins and the Hall of Memories
+- Cloud saves and the waitlist entry for this email
+
+Step data read from Apple Health or Health Connect was only ever stored on your phone, so uninstalling the app removes it. Deleting the account doesn't change anything in Apple Health or Health Connect themselves.
+
+DIDN'T ASK FOR THIS?
+Reply to this email within 7 days and we'll cancel it. After that the deletion is permanent and we can't bring your Evochi back.
+
+Thanks for walking with us, however long it was.
+Mochi &amp; the Evochi team
+
+--
+Evochi: https://evochigame.com · Support: https://evochigame.com/support.html · Privacy: https://evochigame.com/privacy.html

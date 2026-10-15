@@ -1,0 +1,14 @@
+Someone hatched with your link.
+
+A friend just joined the Evochi waitlist through your link, so you moved up. You're now #{{positionFmt}} in line with {{referrals}} {{friendWord}} on board. Every extra one moves you up again.
+
+Your link: {{refLink}}
+
+{{countFmt}} of {{goalFmt}} sign-ups so far.
+
+Keep walking. Keep sharing.
+{{signoff}}
+
+--
+Evochi: {{siteUrl}} · Support: {{siteUrl}}/support.html
+{{#unsubLink}}Leave the waitlist: {{unsubLink}}{{/unsubLink}}

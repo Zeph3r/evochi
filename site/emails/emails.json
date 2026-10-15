@@ -1,0 +1,154 @@
+{
+  "defaults": {
+    "assetBase": "https://evochigame.com/assets/email",
+    "siteUrl": "https://evochigame.com",
+    "signoff": "Mochi & the Evochi team",
+    "companyLine": "",
+    "goal": 5000
+  },
+  "templates": {
+    "waitlist-welcome": {
+      "name": "Waitlist welcome",
+      "sent": "Automatically, by /api/waitlist, the second someone signs up.",
+      "when": "Confirms their place, gives them the referral link (the only thing that moves them up), and sets the expectation: one email when it's their turn.",
+      "subject": "You're #{{positionFmt}} in line for Evochi. Your {{colourName}} egg is reserved.",
+      "preheader": "Bring a friend and you both move up. Your link is inside.",
+      "altSubjects": [
+        "Your {{colourName}} egg is reserved (#{{positionFmt}} in line)",
+        "You're in. Here's how to move up the Evochi waitlist.",
+        "#{{positionFmt}}. Mochi's nest just got warmer."
+      ],
+      "tokens": {
+        "position": "number: their place in line",
+        "colour": "amber | forest | coral | ocean | amethyst | obsidian",
+        "founder": "true for the first 1,000 sign-ups (shows the crown block and the crowned egg)",
+        "refLink": "their referral link, https://evochigame.com/?ref=CODE",
+        "count / goal": "live sign-up count and the hatch goal",
+        "unsubLink": "https://evochigame.com/api/unsubscribe?code=CODE"
+      },
+      "sample": { "position": 1204, "colour": "ocean", "founder": true, "code": "k7mz3q9t", "referrals": 0, "count": 1204 }
+    },
+    "referral-moved-up": {
+      "name": "Referral: you moved up",
+      "sent": "Automatically, by /api/waitlist, to the referrer when a friend joins with their link.",
+      "when": "The reward loop. Short, one button, sends them straight back to sharing.",
+      "subject": "Someone hatched with your link. You're now #{{positionFmt}}.",
+      "preheader": "{{referrals}} {{friendWord}} on board. Every extra one moves you up again.",
+      "altSubjects": [
+        "+1 friend. You moved up to #{{positionFmt}}.",
+        "Your link worked: #{{positionFmt}} in line now"
+      ],
+      "tokens": { "position": "new place in line", "referrals": "friends who joined with their link", "refLink": "their link", "colour": "their egg colour" },
+      "sample": { "position": 840, "colour": "coral", "founder": false, "code": "p4wd8n2c", "referrals": 1, "count": 1380 }
+    },
+    "hatch-progress": {
+      "name": "Hatch progress (milestone)",
+      "sent": "By hand, from Resend Broadcasts or your newsletter tool, at 25%, 50%, 75% and 90% of the goal.",
+      "when": "Keeps the list warm without a product to show. Three real updates, the meter, and the share link. Change the updates every time; never send the same three twice.",
+      "subject": "{{countFmt}} of {{goalFmt}}. Mochi's egg is {{pct}}% hatched.",
+      "preheader": "{{milestoneLine}}",
+      "altSubjects": [
+        "Halfway to hatching",
+        "{{pct}}%: the nest is warming up",
+        "{{countFmt}} people are waiting on an egg"
+      ],
+      "tokens": { "count / goal / pct": "numbers for the meter", "milestoneLine": "one sentence for this milestone", "updates": "list of three short updates", "refLink": "the reader's link (merge from your ESP, or link to the site)" },
+      "sample": {
+        "count": 2500, "code": "k7mz3q9t",
+        "milestoneLine": "Halfway. At this pace the egg hatches in about three weeks, and the first invites go out the same day.",
+        "updates": [
+          "The Elder's back view is finished (yes, all of it). Full turn in the latest dev diary.",
+          "Health Connect on Android reads steps in the background now, so overnight walks count.",
+          "Six colours confirmed for beta. A secret seventh is being voted on in the comments."
+        ]
+      }
+    },
+    "beta-invite": {
+      "name": "Beta invite",
+      "sent": "By hand, in batches of 100-200, earliest in line first. Resend Broadcasts or your ESP with the merge fields below.",
+      "when": "The one email you promised. Two buttons, install steps, and a clear ask for feedback. Expiry keeps spots moving.",
+      "subject": "Your egg is ready to hatch. Evochi beta, {{expiresDays}}-day invite inside.",
+      "preheader": "iPhone (TestFlight) and Android (Google Play) links. Yours for {{expiresDays}} days.",
+      "altSubjects": [
+        "It's your turn: the Evochi beta is open",
+        "Hatch day. Your beta invite.",
+        "You waited. Your egg is ready."
+      ],
+      "tokens": { "testflightUrl / playUrl": "the public TestFlight link and the Play Store beta opt-in link", "expiresDays": "how long the invite is held", "founder": "true for Founder's Crown holders", "betaNote": "an optional sentence about progress carrying over to launch (only promise it if the app does it)" },
+      "sample": { "testflightUrl": "https://testflight.apple.com/join/XXXXXXXX", "playUrl": "https://play.google.com/apps/testing/com.evochi.game", "expiresDays": 7, "founder": true, "betaNote": "" }
+    },
+    "beta-reminder": {
+      "name": "Beta reminder",
+      "sent": "By hand, 3 days before an unclaimed invite expires.",
+      "when": "A gentle nudge with an easy out. The 'skip' reply keeps the list honest and the person on it for launch.",
+      "subject": "Your Evochi beta spot is still waiting ({{daysLeft}} days left)",
+      "preheader": "After that it goes to the next person in line. Reply 'skip' if now's not the time.",
+      "altSubjects": [
+        "{{daysLeft}} days left on your beta invite",
+        "Still want your egg?"
+      ],
+      "tokens": { "sentDate": "when the invite went out", "daysLeft": "days until it expires", "testflightUrl / playUrl": "same links as the invite", "colour": "their egg colour" },
+      "sample": { "sentDate": "Tuesday", "daysLeft": 3, "colour": "amethyst", "testflightUrl": "https://testflight.apple.com/join/XXXXXXXX", "playUrl": "https://play.google.com/apps/testing/com.evochi.game" }
+    },
+    "dev-diary": {
+      "name": "Dev diary (newsletter)",
+      "sent": "By hand, every two or three weeks at most. One topic per issue.",
+      "when": "The same voice as the videos: one thing you made, one picture, one question people can answer by replying. Replies are the point; they train the inbox to trust you.",
+      "subject": "Dev diary #{{issue}}: {{title}}",
+      "preheader": "{{preheaderLine}}",
+      "altSubjects": [
+        "{{title}} (dev diary #{{issue}})",
+        "Yes, I modelled the back"
+      ],
+      "tokens": { "issue / title": "number and headline", "heroImage / heroAlt": "one picture: a file name from assets/email (elder-ocean.png, family-ocean.png) or any full https:// image URL, 1040px wide", "paragraphs": "two to four short paragraphs (HTML allowed)", "thisWeek": "three bullet points", "question": "the one question to reply to", "ctaUrl / ctaLabel": "the button, usually the latest video" },
+      "sample": {
+        "issue": 3, "title": "Yes, I modelled the back",
+        "preheaderLine": "Someone asked. So here's the Elder from every angle, and a question about colours.",
+        "heroImage": "elder-ocean.png", "heroAlt": "The Ocean Elder",
+        "paragraphs": [
+          "A few of you asked whether the Elder has a back, or whether I'd just been clever with camera angles. It has a back. It has 118,000 voxels and most of them are crest, and I spent a week on a side nobody will see unless they rotate the EvoDex.",
+          "That week also fixed something real: the turn-around views are now what the game uses for the Evolution screen, so the reveal spins the whole creature instead of flipping a sprite. It looks like a toy on a turntable. I'm happy with it."
+        ],
+        "thisWeek": [
+          "Elder turnaround in the game, all six colours.",
+          "Health Connect background sync on Android (overnight walks count).",
+          "Rest days: two protected days a week, so a cold doesn't make your Evochi sick."
+        ],
+        "question": "If there were a seventh colour, what would it be? One word is fine.",
+        "ctaUrl": "https://www.tiktok.com/@evochigame", "ctaLabel": "Watch the full turn",
+        "count": 2500
+      }
+    },
+    "launch-day": {
+      "name": "Launch day",
+      "sent": "By hand, to the whole list, the morning the store listings go live.",
+      "when": "Two store buttons above the fold, a thank-you, the crown reminder for founders, and three tips that make the first week go well.",
+      "subject": "Evochi is out. Hatch yours.",
+      "preheader": "On the App Store and Google Play today. Free, no ads, your steps stay yours.",
+      "altSubjects": [
+        "It hatched. Evochi is on the App Store and Google Play.",
+        "Launch day: your egg is waiting"
+      ],
+      "tokens": { "appStoreUrl / playStoreUrl": "store links", "founder": "true for Founder's Crown holders" },
+      "sample": { "appStoreUrl": "https://apps.apple.com/app/id0000000000", "playStoreUrl": "https://play.google.com/store/apps/details?id=com.evochi.game", "founder": true }
+    },
+    "account-deletion": {
+      "name": "Account deletion received",
+      "sent": "By hand (or from your support tool) in reply to a request from evochigame.com/delete-account.html.",
+      "when": "Google Play requires a way to delete an account from outside the app; this is the confirmation. Plain, specific, with a cancel window.",
+      "subject": "Your Evochi account deletion request",
+      "preheader": "Received {{requestDate}}. Deleted within {{windowDays}} days. Reply within {{cancelDays}} days to cancel.",
+      "altSubjects": [ "We received your deletion request" ],
+      "tokens": { "email": "the account email", "requestDate": "date received", "windowDays": "your deletion window (the privacy policy says 30)", "cancelDays": "days to cancel", "items": "the list of what gets deleted; match it to the privacy policy" },
+      "sample": {
+        "email": "you@example.com", "requestDate": "15 October 2026", "windowDays": 30, "cancelDays": 7,
+        "items": [
+          "Your account and sign-in (Apple, Google or email)",
+          "Your Evochi: name, colour, level, XP, mood history and the EvoDex",
+          "Items, EvoCoins and the Hall of Memories",
+          "Cloud saves and the waitlist entry for this email"
+        ]
+      }
+    }
+  }
+}

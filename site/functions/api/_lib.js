@@ -1,4 +1,5 @@
 // Shared helpers for the waitlist API (Cloudflare Pages Functions + D1).
+import { renderEmail } from './_emails.js';
 
 export const json = (data, status = 200, extra = {}) =>
   new Response(JSON.stringify(data), { status, headers: { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store', ...extra } });
@@ -79,27 +80,44 @@ export async function verifyTurnstile(env, token, ip) {
   }
 }
 
-/** Optional welcome email through Resend (set RESEND_API_KEY and FROM_EMAIL). Never blocks the sign-up. */
-export async function sendWelcome(env, email, me) {
+/** Shared bits for the transactional emails (Resend). Set RESEND_API_KEY and FROM_EMAIL to turn them on. */
+
+function emailData(env, me) {
+  const { siteUrl, goal } = settings(env);
+  return {
+    siteUrl,
+    assetBase: `${siteUrl}/assets/email`,
+    signoff: env.EMAIL_SIGNOFF || 'Mochi & the Evochi team',
+    companyLine: env.COMPANY_LINE || '',
+    goal,
+    position: me.position, colour: me.colour, founder: me.founder, code: me.code, referrals: me.referrals, count: me.count,
+  };
+}
+
+async function sendEmail(env, to, { subject, html, text }, unsubLink) {
   if (!env.RESEND_API_KEY || !env.FROM_EMAIL) return;
-  const { siteUrl } = settings(env);
-  const link = `${siteUrl}/?ref=${me.code}`;
-  const text = [
-    `You're #${me.position.toLocaleString('en-US')} in line for the Evochi beta.`,
-    '',
-    `Your ${me.colour} egg is reserved${me.founder ? ", and the Founder's Crown is yours" : ''}.`,
-    'Bring a friend and you both move up the line. Your link:',
-    link,
-    '',
-    "We'll email you once, when it's your turn. Reply to this email to be removed from the list.",
-  ].join('\n');
+  const headers = unsubLink ? { 'List-Unsubscribe': `<${unsubLink}>`, 'List-Unsubscribe-Post': 'List-Unsubscribe=One-Click' } : undefined;
   try {
     await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { authorization: `Bearer ${env.RESEND_API_KEY}`, 'content-type': 'application/json' },
-      body: JSON.stringify({ from: env.FROM_EMAIL, to: [email], subject: `You're #${me.position} in line for Evochi`, text }),
+      body: JSON.stringify({ from: env.FROM_EMAIL, to: [to], reply_to: env.REPLY_TO || undefined, subject, html, text, headers }),
     });
   } catch {
     /* email is a courtesy; the sign-up already succeeded */
   }
+}
+
+/** Welcome email with their place, egg, referral link and the hatch meter. Never blocks the sign-up. */
+export async function sendWelcome(env, email, me) {
+  if (!env.RESEND_API_KEY || !env.FROM_EMAIL) return;
+  const data = emailData(env, me);
+  await sendEmail(env, email, renderEmail('waitlist-welcome', data), `${data.siteUrl}/api/unsubscribe?code=${me.code}`);
+}
+
+/** "Someone hatched with your link": to the referrer, with their new place in line. */
+export async function sendReferral(env, email, me) {
+  if (!env.RESEND_API_KEY || !env.FROM_EMAIL) return;
+  const data = emailData(env, me);
+  await sendEmail(env, email, renderEmail('referral-moved-up', data), `${data.siteUrl}/api/unsubscribe?code=${me.code}`);
 }

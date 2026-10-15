@@ -1,0 +1,25 @@
+It's your turn: your egg is ready to hatch.
+
+The Evochi beta is open and you're in this group. Your invite is yours for {{expiresDays}} days; after that the spot moves to the next person in line.
+
+iPhone (TestFlight): {{testflightUrl}}
+Android (Google Play): {{playUrl}}
+{{#founder}}
+FOUNDER'S CROWN: CLAIMED
+It's waiting in your Bag the moment your egg hatches. Wear it on every form.
+{{/founder}}
+HOW TO INSTALL
+1. Open the link for your phone. iPhone opens TestFlight (install it first if you don't have it); Android opens the Play Store beta page.
+2. Allow step access when asked (Apple Health on iPhone, Health Connect on Android). Evochi reads steps only.
+3. Pick your egg, name it, go for a walk.
+
+WHAT WE'D LOVE FROM YOU
+Play for a week the way you normally would, then reply to this email with anything that felt off: a bug, a confusing screen, a moment you wished the game did something it didn't. Screenshots are gold.
+
+Beta builds can be rough around the edges, and the build will update a few times before launch. {{betaNote}}
+
+Welcome in. Mochi's been waiting.
+{{signoff}}
+
+--
+Evochi: {{siteUrl}} · Support: {{siteUrl}}/support.html

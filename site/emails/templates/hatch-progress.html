@@ -1,0 +1,97 @@
+<!-- Hatch progress: send by hand at milestones (25%, 50%, 75%, 90%). Change the three updates each time. -->
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    <td class="pad" align="center" style="padding:38px 40px 0;">
+      <img class="img-hero" src="{{assetBase}}/egg-ocean.png" width="180" alt="Mochi's egg" style="width:180px;max-width:100%;height:auto;">
+    </td>
+  </tr>
+  <tr>
+    <td class="pad" align="center" style="padding:22px 40px 0;">
+      <span class="h" style="display:inline-block;padding:7px 16px;border-radius:999px;background:#FFE5A2;border:2px solid #E3A64A;font-family:'Nunito','Trebuchet MS','Segoe UI',Arial,sans-serif;font-size:14px;line-height:18px;font-weight:900;letter-spacing:0.6px;color:#80531F;text-transform:uppercase;">{{pct}}% hatched</span>
+    </td>
+  </tr>
+  <tr>
+    <td class="pad" align="center" style="padding:16px 40px 0;">
+      <h1 class="h h1" style="margin:0;font-family:'Nunito','Trebuchet MS','Segoe UI',Arial,sans-serif;font-size:36px;line-height:42px;font-weight:900;color:#3B2923;letter-spacing:-0.5px;">{{countFmt}} of {{goalFmt}}.<br>The nest is warming up.</h1>
+    </td>
+  </tr>
+  <tr>
+    <td class="pad t" align="center" style="padding:14px 48px 0;font-family:'Lato','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:17px;line-height:27px;color:#684C3C;">
+      {{milestoneLine}}
+    </td>
+  </tr>
+  <tr>
+    <td class="pad" style="padding:22px 40px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td bgcolor="#EED9C2" style="background:#EED9C2;border-radius:999px;padding:4px;">
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td width="{{pct}}%" height="18" bgcolor="#82B75E" style="background:#82B75E;border-radius:999px;font-size:1px;line-height:18px;">&nbsp;</td>
+                <td style="font-size:1px;line-height:18px;">&nbsp;</td>
+              </tr>
+            </table>
+          </td>
+        </tr>
+        <tr>
+          <td class="t" align="center" style="padding-top:8px;font-family:'Lato','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;color:#8E7462;"><strong style="color:#477B3A;">{{countFmt}}</strong> of {{goalFmt}} sign-ups</td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td class="pad" style="padding:30px 40px 0;">
+      <h2 class="h" style="margin:0;font-family:'Nunito','Trebuchet MS','Segoe UI',Arial,sans-serif;font-size:22px;line-height:28px;font-weight:900;color:#3B2923;">What's new since your sign-up</h2>
+    </td>
+  </tr>
+  <tr>
+    <td class="pad" style="padding:10px 40px 0;">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+{{#updates}}
+        <tr>
+          <td width="28" valign="top" class="h" style="padding:6px 0;font-family:'Nunito','Trebuchet MS','Segoe UI',Arial,sans-serif;font-size:20px;line-height:24px;font-weight:900;color:#82B75E;">&#10003;</td>
+          <td valign="top" class="t" style="padding:6px 0;font-family:'Lato','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;line-height:24px;color:#684C3C;">{{.}}</td>
+        </tr>
+{{/updates}}
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td class="pad" style="padding:30px 40px 0;">
+      <h2 class="h" style="margin:0;font-family:'Nunito','Trebuchet MS','Segoe UI',Arial,sans-serif;font-size:22px;line-height:28px;font-weight:900;color:#3B2923;">Help it hatch sooner</h2>
+    </td>
+  </tr>
+  <tr>
+    <td class="pad t" align="left" style="padding:8px 40px 0;font-family:'Lato','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:15px;line-height:24px;color:#684C3C;">
+      Every friend who joins with your link moves you both up the line, and brings the hatch closer for everyone. Your link still works:
+    </td>
+  </tr>
+  <tr>
+    <td class="pad" align="center" style="padding:18px 40px 0;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+        <tr>
+          <td align="center" bgcolor="#F4B84E" style="background:#F4B84E;border:3px solid #C8832C;border-radius:16px;">
+            <a href="{{refLink}}" class="h" style="display:inline-block;padding:14px 30px;font-family:'Nunito','Trebuchet MS','Segoe UI',Arial,sans-serif;font-size:18px;line-height:22px;font-weight:900;color:#3B2923;text-decoration:none;">Share your link</a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td class="pad" align="center" style="padding:14px 40px 0;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0" width="100%">
+        <tr>
+          <td align="center" bgcolor="#F8EBDD" class="t" style="background:#F8EBDD;border:2px solid #E3CBB1;border-radius:12px;padding:12px 14px;font-family:'Lato','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:14px;line-height:20px;color:#3B2923;word-break:break-all;">
+            <a href="{{refLink}}" style="color:#3B2923;text-decoration:none;">{{refLinkShort}}</a>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+  <tr>
+    <td class="pad t" style="padding:26px 40px 38px;font-family:'Lato','Helvetica Neue',Helvetica,Arial,sans-serif;font-size:16px;line-height:26px;color:#684C3C;">
+      Thanks for waiting with us.<br>
+      <strong class="h" style="font-family:'Nunito','Trebuchet MS','Segoe UI',Arial,sans-serif;color:#3B2923;">{{signoff}}</strong>
+    </td>
+  </tr>
+</table>

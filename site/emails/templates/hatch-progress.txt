@@ -1,0 +1,16 @@
+{{countFmt}} of {{goalFmt}}: the nest is warming up ({{pct}}% hatched).
+
+{{milestoneLine}}
+
+WHAT'S NEW SINCE YOUR SIGN-UP
+{{#updates}}- {{.}}
+{{/updates}}
+HELP IT HATCH SOONER
+Every friend who joins with your link moves you both up the line. Your link: {{refLink}}
+
+Thanks for waiting with us.
+{{signoff}}
+
+--
+Evochi: {{siteUrl}} · Support: {{siteUrl}}/support.html
+{{#unsubLink}}Leave the waitlist: {{unsubLink}}{{/unsubLink}}

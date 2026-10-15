@@ -1,6 +1,6 @@
 // POST /api/waitlist { email, colour, ref, token } -> { position, code, colour, founder, referrals, count, goal, founders_left }
 // 409 with the same body when the email is already on the list, so the page can show their place.
-import { json, COLOURS, settings, normaliseEmail, sha256, makeCode, describe, verifyTurnstile, sendWelcome } from './_lib.js';
+import { json, COLOURS, settings, normaliseEmail, sha256, makeCode, describe, verifyTurnstile, sendWelcome, sendReferral } from './_lib.js';
 
 export async function onRequestPost({ request, env, waitUntil }) {
   if (!env.DB) return json({ error: "Sign-ups aren't live yet. Please try again later." }, 503);
@@ -55,7 +55,11 @@ export async function onRequestPost({ request, env, waitUntil }) {
       return json({ error: 'Something went wrong saving your spot. Please try again.' }, 500);
     }
   }
-  if (referrer) await env.DB.prepare('UPDATE signups SET referrals = referrals + 1 WHERE code = ?1').bind(referrer.code).run();
+  if (referrer) {
+    await env.DB.prepare('UPDATE signups SET referrals = referrals + 1 WHERE code = ?1').bind(referrer.code).run();
+    const them = await env.DB.prepare('SELECT * FROM signups WHERE code = ?1').bind(referrer.code).first();
+    if (them) waitUntil(describe(env, them).then((d) => sendReferral(env, them.email, d)));
+  }
 
   const row = await env.DB.prepare('SELECT * FROM signups WHERE email = ?1').bind(email).first();
   const me = await describe(env, row);

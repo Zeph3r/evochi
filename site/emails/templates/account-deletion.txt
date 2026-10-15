@@ -1,0 +1,17 @@
+We got your deletion request.
+
+On {{requestDate}} we received a request to delete the Evochi account for {{email}}. We'll do it within {{windowDays}} days.
+
+WHAT GETS DELETED
+{{#items}}- {{.}}
+{{/items}}
+Step data read from Apple Health or Health Connect was only ever stored on your phone, so uninstalling the app removes it. Deleting the account doesn't change anything in Apple Health or Health Connect themselves.
+
+DIDN'T ASK FOR THIS?
+Reply to this email within {{cancelDays}} days and we'll cancel it. After that the deletion is permanent and we can't bring your Evochi back.
+
+Thanks for walking with us, however long it was.
+{{signoff}}
+
+--
+Evochi: {{siteUrl}} · Support: {{siteUrl}}/support.html · Privacy: {{siteUrl}}/privacy.html

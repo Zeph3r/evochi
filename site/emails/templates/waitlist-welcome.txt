@@ -1,0 +1,23 @@
+You're in: #{{positionFmt}} in line for the Evochi beta.
+
+Your {{colourName}} egg is reserved. Thanks for joining the waitlist; Mochi's nest just got a little warmer.
+{{#founder}}
+THE FOUNDER'S CROWN IS YOURS
+You're one of the first 1,000. The crown fits every form, it's never sold in the Market, and it stays with your Evochi for good.
+{{/founder}}
+BRING A FRIEND, YOU BOTH MOVE UP
+Every friend who joins with your link moves you up the list, and they start one place ahead of a plain sign-up. Your link:
+{{refLink}}
+
+WHAT HAPPENS NEXT
+1. The nest warms up. Every sign-up counts toward {{goalFmt}}; we're at {{countFmt}} right now.
+2. At {{goalFmt}} the egg hatches and the beta opens, earliest in line first.
+3. You'll get one email when it's your turn, with your install link. Between now and then, the odd dev diary.
+
+Go for a walk. Mochi would.
+{{signoff}}
+
+--
+Evochi: a cozy walking pet for iPhone and Android. {{siteUrl}}
+Support: {{siteUrl}}/support.html · Privacy: {{siteUrl}}/privacy.html
+{{#unsubLink}}Leave the waitlist: {{unsubLink}}{{/unsubLink}}

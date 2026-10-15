@@ -53,8 +53,11 @@ then add `www.evochigame.com`. Cloudflare creates the DNS records and the certif
 | --- | --- | --- |
 | `ADMIN_KEY` | Secret | A long random string. Lets you download the list (step 7). |
 | `TURNSTILE_SECRET` | Secret | From step 6, optional. |
-| `RESEND_API_KEY` | Secret | Optional: sends a welcome email with their referral link. |
-| `FROM_EMAIL` | Text | Optional, with Resend: `Evochi <hello@evochigame.com>`. |
+| `RESEND_API_KEY` | Secret | Turns on the welcome and referral emails (see `emails/README.md` for the 15-minute Resend setup). |
+| `FROM_EMAIL` | Text | With Resend: `Evochi <hello@evochigame.com>`. |
+| `REPLY_TO` | Text | Optional: the inbox you read, so replies to the emails reach you. |
+| `EMAIL_SIGNOFF` | Text | Optional: the sign-off line, default `Mochi & the Evochi team`. |
+| `COMPANY_LINE` | Text | Optional: legal name and postal address for the email footer. |
 
 `SITE_URL`, `WAITLIST_GOAL` and `FOUNDER_SPOTS` already come from `wrangler.toml`. Redeploy after
 changing variables.
@@ -76,6 +79,15 @@ rebuild and deploy. The check appears under the form and costs sign-ups nothing.
   (what the API uses), rebuild, deploy.
 - **Switch to launch mode later:** set `"siteMode": "launch"` in `config.json` and fill in the store
   URLs. The waitlist form disappears and the store buttons come back.
+
+## Emails
+
+Two emails go out by themselves once `RESEND_API_KEY` and `FROM_EMAIL` are set: the welcome (place in
+line, egg, referral link, hatch meter) and the "someone hatched with your link" note to the referrer.
+Six more (milestone update, beta invite, reminder, dev diary, launch day, account deletion) are in
+`emails/dist/html/`, ready to paste into Resend Broadcasts or any newsletter tool. `emails/README.md`
+has the setup, the sending plan and the DNS records. Every email has a one-click unsubscribe
+(`/api/unsubscribe?code=…`), which removes that address from the list.
 
 ## How the waitlist works
 

@@ -20,7 +20,9 @@ art rendered from the same voxel pipeline as the game.
 waitlist (pick an egg, email, live count toward the goal, Founder's Crown spots left), and the
 store buttons are hidden. The sign-up API is in `functions/api/` (Cloudflare Pages Functions +
 D1); `DEPLOY.md` walks through hosting it on Cloudflare for free, including the domain.
-Set `"siteMode": "launch"` when the store listings go live.
+Set `"siteMode": "launch"` when the store listings go live. The branded emails (welcome, referral,
+beta invite, dev diary and so on) live in `emails/`; `node emails/build.mjs` rebuilds them and the
+API's compiled copy, and `emails/README.md` explains how each one is sent.
 
 ## Build
 

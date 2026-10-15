@@ -157,6 +157,7 @@ function copyDir(from, to, filter = () => true) {
 fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(path.join(OUT, 'assets'), { recursive: true });
 copyDir(path.join(ROOT, 'assets', 'img'), path.join(OUT, 'assets', 'img'), (f) => !f.endsWith('sizes.json'));
+if (fs.existsSync(path.join(ROOT, 'assets', 'email'))) copyDir(path.join(ROOT, 'assets', 'email'), path.join(OUT, 'assets', 'email'));
 fs.copyFileSync(path.join(ROOT, 'assets', 'chirp.mp3'), path.join(OUT, 'assets', 'chirp.mp3'));
 let css = read('site.css');
 if (TARGET === 'host') {
