@@ -104,6 +104,13 @@ class VillageArt {
     return artBase + ((e[expr] ?? e['neutral']) as String);
   }
 
+  /// Where the feet touch the floor, as a fraction of the sprite (for the contact shadow).
+  Offset npcGround(String npcId) {
+    final n = _npc(npcId);
+    final g = n['ground'] as List;
+    return Offset((g[0] as num).toDouble() / (n['w'] as num).toDouble(), (g[1] as num).toDouble() / (n['h'] as num).toDouble());
+  }
+
   Size npcSize(String npcId) {
     final n = _npc(npcId);
     return Size((n['w'] as num).toDouble(), (n['h'] as num).toDouble());

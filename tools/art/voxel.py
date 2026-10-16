@@ -149,6 +149,10 @@ class Light:
     jitter: float = 0.015
     smooth: float = 0.90                    # blend of smooth vs face normal
     smooth_sigma: float = 1.6
+    rim: tuple = None                       # optional back light: direction the light comes from
+    rim_col: tuple = (1.0, 0.86, 0.66)
+    rim_amt: float = 0.0
+    rim_pow: float = 1.6
 
 
 FACES = [  # normal, 4 corner offsets (relative to voxel min corner) CCW from outside
@@ -256,6 +260,18 @@ def collect_faces(model: Model, palette: dict, cam: Camera, light: Light,
         shade = (light.ambient * (0.82 + 0.18 * hemi)[:, None] * np.array(light.fill_col)
                  + light.key_amt * diff[:, None] * np.array(light.key_col))
         shade *= ao[:, None]
+        if light.rim is not None and light.rim_amt > 0:
+            Rv = np.array(light.rim, np.float32)
+            Rv /= np.linalg.norm(Rv)
+            if cam.persp:
+                vd = cam_pos - (base + 0.5) / float(model.res)
+                vd /= np.maximum(np.linalg.norm(vd, axis=1, keepdims=True), 1e-6)
+                ndv = np.sum(nrm * vd, 1)
+            else:
+                ndv = nrm @ d.astype(np.float32)
+            fres = (1.0 - np.clip(ndv, 0, 1)) ** light.rim_pow
+            rterm = np.clip(nrm @ Rv + 0.35, 0, 1) * fres
+            shade += light.rim_amt * rterm[:, None] * np.array(light.rim_col) * ao[:, None]
         shade *= (1 + jit[idx[:, 0], idx[:, 1], idx[:, 2]])[:, None]
         g = model.glow[idx[:, 0], idx[:, 1], idx[:, 2]]
         shade = shade * (1 - g[:, None]) + 1.12 * g[:, None]

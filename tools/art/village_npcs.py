@@ -298,6 +298,7 @@ def build_pip(res=2) -> Character:
                    face_extent=(-8, 8, -6, 6), scale_ref=30.0)
     ch.anchors = {'ground': (0, 0, 0), 'head_top': (0, 28, 1), 'face': (0, 19.2, 8.6)}
     ch.palette = face_palette('#E69878', brow='#7A4E2E')
+    ch.no_mouth = True
     return ch
 
 

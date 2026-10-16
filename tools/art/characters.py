@@ -385,6 +385,10 @@ def paint_face(ch: Character, cv: Canvas, pal: dict, expr: str):
         smile(1.9, 0.75)
     else:
         raise ValueError(expr)
+    if getattr(ch, 'no_mouth', False):
+        # beaked villagers (Pip): the beak is the mouth, so no painted mouth below it
+        gone = (np.abs(cv.U) < 2.8) & (cv.V < mv + 1.4) & (cv.V > mv - 3.2)
+        cv.a[gone] = 0.0
     extra = getattr(ch, 'face_extra', None)
     if extra:
         extra(cv, pal, expr)

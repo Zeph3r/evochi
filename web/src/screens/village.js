@@ -353,13 +353,13 @@ export const place = {
     return html`<main class="screen scroll paper village place" aria-label="${P.name}">
       <header class="hud vhud"><button class="back-btn" data-act="leave" aria-label="Back to the Square" data-k="pback">${ICON.back}</button>
         <h1 class="place-title"><span class="full">${P.name}</span><span class="short" aria-hidden="true">${P.short}</span></h1>${coinPill(ctx)}</header>
-      <div class="place-plate ${u.flare ? 'flare' : ''} ${isWay ? 'way' : ''} ${npcs.length > 1 ? 'duo' : ''}" style="aspect-ratio:${pw} / ${ph}">
+      <div class="place-plate pl-${id} ${u.flare ? 'flare' : ''} ${isWay ? 'way' : ''} ${npcs.length > 1 ? 'duo' : ''}" style="aspect-ratio:${pw} / ${ph}">
         <img class="plate" src="${art}" alt="">
         ${npcs.map((n, i) => {
           const m = V().npcs[NPC_KEY(n)];
           const right = npcs.length > 1 && i === 1;
           return html`<button class="npc ${n === npc ? 'active' : ''} ${right ? 'right' : ''} ${speaker === n ? 'talking' : ''}" data-act="npc" data-arg="${n}" data-k="npc-${n}"
-            style="--nw:${m.w};--nh:${m.h}" aria-label="Talk to ${SPEAKER[n].name}" aria-pressed="${n === npc}">
+            style="--nw:${m.w};--nh:${m.h};--gx:${(m.ground[0] / m.w).toFixed(3)};--gy:${(m.ground[1] / m.h).toFixed(3)}" aria-label="Talk to ${SPEAKER[n].name}" aria-pressed="${n === npc}">
             <img src="${npcSprite(n, exprFor(n))}" alt="">${marks[n] && n !== npc ? html`<i class="pin-mark" aria-hidden="true">${marks[n] === 'handin' ? raw(ICON.checkDark) : '!'}</i>` : ''}</button>`;
         })}
         ${isWay && ['VQ03_MIR02', 'VQ03_BRA02', 'VQ03_PIP08', 'VQ03_ALD05'].includes(node.id)

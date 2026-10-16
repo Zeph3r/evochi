@@ -20,7 +20,7 @@ import time
 import numpy as np
 from PIL import Image
 
-from voxel import Camera, render, save_rgba
+from voxel import Camera, Light, render, save_rgba
 from charrender import render_char
 from characters import build
 from accessories import wear, WEARABLES, FRAME_WEARABLES
@@ -31,6 +31,25 @@ from village_items import VILLAGE_ITEMS
 
 NPC_SCALE = 12.0
 NPC_CAM = Camera(yaw=-24, pitch=12)     # villagers turn toward the right of the screen (the player)
+# The villagers stand in Blender-lit rooms, so they get more form than the Evochi's soft studio light:
+# a warmer key, less flat ambient, deeper occlusion and a warm rim from behind (lanterns, sun).
+NPC_LIGHT = Light(key=(-0.55, 0.75, 0.62), key_col=(1.0, 0.95, 0.86), fill_col=(0.94, 0.92, 0.93), ambient=0.62,
+                  key_amt=0.5, ao_amt=0.34, rim=(0.8, 0.35, -0.5), rim_col=(1.0, 0.84, 0.62), rim_amt=0.5,
+                  smooth=0.95, smooth_sigma=2.8, jitter=0.008)
+NPC_OUTLINE = '#4E3529'                 # a softer ink than the Evochi's, closer to the rooms' shadows
+
+
+def ground_falloff(rgba, top=1.03, bottom=0.86):
+    """Slightly darker toward the feet, as if lit from above (the rooms are lit by hanging lanterns)."""
+    a = rgba.astype(np.float32)
+    ys, xs = np.nonzero(a[..., 3] > 0)
+    if not len(ys):
+        return rgba
+    y0, y1 = ys.min(), ys.max()
+    t = np.clip((np.arange(a.shape[0]) - y0) / max(1, y1 - y0), 0, 1)
+    g = top + (bottom - top) * t ** 1.6
+    a[..., :3] *= g[:, None, None]
+    return np.clip(a, 0, 255).astype(np.uint8)
 
 
 def npcs(out):
@@ -45,9 +64,12 @@ def npcs(out):
         g = project_px(NPC_CAM, fit, [ch.anchors['ground']])[0].round(1).tolist()
         f = project_px(NPC_CAM, fit, [ch.anchors['face']])[0].round(1).tolist()
         meta[name] = {'w': fit.w, 'h': fit.h, 'ground': g, 'face': f, 'expressions': list(NPC_EXPRESSIONS)}
+        pal = dict(ch.palette)
+        pal['outline'] = NPC_OUTLINE
         for e, fe in NPC_EXPRESSIONS.items():
-            o = render_char(ch, 'amber', fe, NPC_CAM, fit.w, fit.h, fit=fit, pal=ch.palette, pal_key='npc_' + name)
-            save_rgba(o.rgba, os.path.join(d, f'npc_{name}_{e}.png'))
+            o = render_char(ch, 'amber', fe, NPC_CAM, fit.w, fit.h, fit=fit, pal=pal, pal_key='npc_' + name,
+                            light=NPC_LIGHT, outline_px=fit.scale * 0.15)
+            save_rgba(ground_falloff(o.rgba), os.path.join(d, f'npc_{name}_{e}.png'))
         print('npc', name, '%.1fs' % (time.time() - t), flush=True)
     json.dump(meta, open(os.path.join(d, 'npc.json'), 'w'), indent=1)
 

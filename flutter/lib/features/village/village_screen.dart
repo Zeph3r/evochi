@@ -569,6 +569,7 @@ class _PlaceScreenState extends State<PlaceScreen> with SingleTickerProviderStat
                           mark: npcList[i] != _npc ? marks[npcList[i]] : null,
                           idle: _idle,
                           height: h,
+                          tint: _roomTint[widget.placeId],
                           onTap: () => _switchNpc(c, npcList[i]),
                         ),
                       ),
@@ -682,6 +683,7 @@ class _NpcButton extends StatelessWidget {
     required this.idle,
     required this.height,
     required this.onTap,
+    this.tint,
   });
   final String npcId;
   final String expression;
@@ -691,11 +693,15 @@ class _NpcButton extends StatelessWidget {
   final Animation<double> idle;
   final double height;
   final VoidCallback onTap;
+  final List<double>? tint; // a little of the room's light (sprites are shared between places)
   @override
   Widget build(BuildContext context) {
     final sz = villageArt.npcSize(npcId);
     final w = height * sz.width / sz.height;
+    final g = villageArt.npcGround(npcId);
+    final gx = flip ? 1 - g.dx : g.dx;
     Widget img = NpcImage(npcId, expression: expression, height: height, flip: flip);
+    if (tint != null) img = ColorFiltered(colorFilter: ColorFilter.matrix(tint!), child: img);
     if (!active) img = ColorFiltered(colorFilter: const ColorFilter.matrix(_dim), child: img);
     return Semantics(
       button: true,
@@ -707,6 +713,14 @@ class _NpcButton extends StatelessWidget {
           width: w,
           height: height,
           child: Stack(clipBehavior: Clip.none, children: [
+            // soft contact shadow on the floor, under the feet
+            Positioned(
+              left: w * (gx - 0.25),
+              top: height * g.dy - height * 0.045,
+              width: w * 0.5,
+              height: height * 0.09,
+              child: IgnorePointer(child: CustomPaint(painter: _ContactShadow())),
+            ),
             AnimatedBuilder(
               animation: idle,
               builder: (_, child) => Transform(
@@ -723,6 +737,35 @@ class _NpcButton extends StatelessWidget {
     );
   }
 }
+
+class _ContactShadow extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Paint()
+      ..color = const Color(0x7324160A)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.height * 0.35);
+    canvas.drawOval(Rect.fromLTWH(size.width * 0.1, size.height * 0.15, size.width * 0.8, size.height * 0.7), p);
+  }
+
+  @override
+  bool shouldRepaint(_ContactShadow oldDelegate) => false;
+}
+
+// each room's light on the villagers: warm lanterns in the Workshop and Lodge, daylight in the Glasshouse
+const _roomTint = <String, List<double>>{
+  'workshop': [
+    1.02, 0.04, 0.0, 0, 0, //
+    0.02, 0.95, 0.0, 0, 0, //
+    0.0, 0.02, 0.86, 0, 0, //
+    0, 0, 0, 1, 0,
+  ],
+  'lodge': [
+    1.0, 0.02, 0.0, 0, 0, //
+    0.01, 0.97, 0.0, 0, 0, //
+    0.0, 0.01, 0.92, 0, 0, //
+    0, 0, 0, 1, 0,
+  ],
+};
 
 // a touch darker and less saturated for the villager who isn't talking
 const _dim = <double>[
