@@ -15,7 +15,8 @@ EXPR = ['default', 'blink', 'happy', 'curious', 'surprised', 'determined', 'sad'
         'neutral', 'sick', 'memorial']
 VARIANTS = ['amber', 'forest', 'coral', 'ocean', 'amethyst', 'obsidian']
 WEARABLES = {'leaf_scarf': 'neck', 'blue_scarf': 'neck', 'tiny_crown': 'head', 'golden_crest_crown': 'head',
-             'explorer_hat': 'head', 'butterfly_clip': 'head', 'red_backpack': 'back', 'explorer_pack': 'back'}
+             'explorer_hat': 'head', 'butterfly_clip': 'head', 'red_backpack': 'back', 'explorer_pack': 'back',
+             'reward_windtrail_mantle': 'back'}
 VIEWS = ['front', 'left', 'back', 'right', 'top']
 HERO_SCALE = 0.75
 
@@ -149,6 +150,7 @@ def main(src, out, fonts):
         shutil.copy(os.path.join(fonts, 'lato', 'files', f), os.path.join(out, 'fonts', f))
     json.dump(man, open(os.path.join(out, 'manifest.json'), 'w'), indent=1)
     build_thumbs(src, out)
+    build_village(src, out)
     print('manifest written', flush=True)
 
 
@@ -194,8 +196,89 @@ def build_thumbs(src, out):
     print('thumbs', A.size, os.path.getsize(os.path.join(out, 'chars/thumbs.webp')))
 
 
+def build_village(src, out):
+    """Village Tales, Chapter 1: villagers, scenes, quest-item icons, the Windtrail Mantle overlays and
+    the story decor. Updates the existing manifest in place, so it can run on its own (--village-only)
+    without re-encoding the rest of the pack."""
+    mp = os.path.join(out, 'manifest.json')
+    man = json.load(open(mp))
+    V = os.path.join(src, 'village')
+    os.makedirs(os.path.join(out, 'village'), exist_ok=True)
+    vm = {'npcs': {}, 'square': {}, 'places': {}, 'waystone': {}}
+    # villagers: one file per expression, native size (shown up to ~260 css px tall)
+    nmeta = json.load(open(os.path.join(V, 'npc.json')))
+    for name, m in nmeta.items():
+        e = {'w': m['w'], 'h': m['h'], 'ground': m['ground'], 'face': m['face'], 'expr': {}}
+        for ex in m['expressions']:
+            im = Image.open(os.path.join(V, f'npc_{name}_{ex}.png'))
+            fn = f'village/npc_{name}_{ex}.webp'
+            webp(im, os.path.join(out, fn), 90)
+            e['expr'][ex] = fn
+        vm['npcs'][name] = e
+    smeta = json.load(open(os.path.join(V, 'scenes.json')))
+    k = 2 / 3
+
+    def scene(name, q=84):
+        im = Image.open(os.path.join(V, f'{name}.png')).convert('RGB')
+        im = im.resize((round(im.width * k), round(im.height * k)), Image.LANCZOS)
+        fn = f'village/{name}.webp'
+        im.save(os.path.join(out, fn), 'WEBP', quality=q, method=6)
+        return fn, im.width, im.height
+
+    for st in ('day_dim', 'lamp_lit', 'waystone_restored'):
+        fn, w, h = scene(f'square_{st}')
+        vm['square'][st] = fn
+        vm['square']['w'], vm['square']['h'] = w, h
+    vm['square']['anchors'] = {a: [round(v[0] * k, 1), round(v[1] * k, 1)] for a, v in smeta['square_day_dim']['anchors'].items()}
+    for place in ('glasshouse', 'workshop', 'lodge'):
+        fn, w, h = scene(place)
+        vm['places'][place] = {'file': fn, 'w': w, 'h': h}
+    for st in ('dormant', 'restored'):
+        fn, w, h = scene(f'waystone_{st}')
+        vm['waystone'][st] = fn
+        vm['waystone']['w'], vm['waystone']['h'] = w, h
+    man['village'] = vm
+    # quest-item and story-reward icons (same treatment as the shop items)
+    for f in sorted(glob.glob(os.path.join(src, 'items', 'item_q_*_icon.png')) + glob.glob(os.path.join(src, 'items', 'item_reward_*_icon.png'))):
+        key = os.path.basename(f)[5:-9]
+        im = Image.open(f).resize((168, 168), Image.LANCZOS)
+        fn = f'items/{key}.webp'
+        webp(im, os.path.join(out, fn), 90)
+        man['items'][key] = fn
+    # overlay atlases now include the mantle (same frames, one more cell)
+    C = os.path.join(src, 'characters')
+    for stage in (1, 2, 3):
+        sid = 's%02d' % stage
+        entry = man['chars'][sid]
+        frames = []
+        for key, slot in WEARABLES.items():
+            im = Image.open(os.path.join(C, f'item_{key}_{slot}_{sid}_left3q.png'))
+            frames.append(im.resize((entry['w'], entry['h']), Image.LANCZOS))
+        A, rects = atlas(frames, 4)
+        name = f'chars/{sid}_overlays.webp'
+        webp(A, os.path.join(out, name), 90)
+        entry['overlays'] = {'file': name, 'rects': dict(zip(WEARABLES.keys(), rects))}
+    # story decor in the meadow's perspective
+    H = os.path.join(src, 'habitats')
+    hs = 2 / 3
+    dmeta = json.load(open(os.path.join(H, 'habitat_meadow_decor.json')))
+    for key, d in dmeta.items():
+        if not key.startswith('reward_'):
+            continue
+        im = Image.open(os.path.join(H, d['file']))
+        im = im.resize((max(1, round(d['w'] * hs)), max(1, round(d['h'] * hs))), Image.LANCZOS)
+        fn = 'habitats/' + d['file'].replace('.png', '.webp')
+        webp(im, os.path.join(out, fn), 88)
+        man['habitats']['meadow']['decor'][key] = {'file': fn, 'x': round(d['x'] * hs, 1), 'y': round(d['y'] * hs, 1),
+                                                   'w': im.width, 'h': im.height}
+    json.dump(man, open(mp, 'w'), indent=1)
+    print('village packed', flush=True)
+
+
 if __name__ == '__main__':
     if len(sys.argv) > 2 and sys.argv[-1] == '--thumbs-only':
         build_thumbs(sys.argv[1], sys.argv[2])
+    elif len(sys.argv) > 2 and sys.argv[-1] == '--village-only':
+        build_village(sys.argv[1], sys.argv[2])
     else:
         main(*sys.argv[1:4])

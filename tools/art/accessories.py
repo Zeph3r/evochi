@@ -297,6 +297,48 @@ def butterfly_clip(ch: Character, M: Model):
     M.set(body, ACC_MATS_PREFIX + 'butter_dot')
 
 
+# Village Tales story reward: a short sky-blue travel cape over the back, cream trail embroidery,
+# a collar with two copper clasps. Hugs the body so it never changes the sprite frame.
+CAPE = {
+    1: dict(c=(0, 11.0, -3.0), r=16.5, ymin=3.5, ymax=18.5, zmin=-30.0, zmax=4.5, th=5),
+    2: dict(c=(0, 12.0, -2.0), r=11.0, ymin=8.0, ymax=24.0, zmin=-9.5, zmax=5.0, th=7),
+    3: dict(c=(0, 13.5, -3.0), r=13.0, ymin=9.5, ymax=27.0, zmin=-14.0, zmax=7.5, th=6),
+}
+
+
+def windtrail_mantle(ch: Character, M: Model):
+    p = CAPE[ch.stage]
+    core = core_mask(M)
+    c = np.array(p['c'], float)
+    d = np.sqrt((M.X - c[0]) ** 2 + (M.Y - c[1]) ** 2 + (M.Z - c[2]) ** 2)
+    # draped over the shoulders and back, two units thick; spikes and fluff poke through it
+    cape = shell_region(M, core, p['th']) & ~core & (d < p['r']) & (M.Y > p['ymin']) & (M.Y < p['ymax']) & \
+        (M.Z < p['zmax']) & (M.Z > p['zmin'])
+    # scalloped hem around the lower edge
+    ang = np.arctan2(M.X, M.Z - c[2])
+    cape &= ~((M.Y < p['ymin'] + 1.4 + 0.9 * np.abs(np.sin(ang * 5))) & (d > p['r'] * 0.55))
+    M.set(cape, ACC_MATS_PREFIX + 'sky')
+    M.set(cape & (M.Y < p['ymin'] + 2.6), ACC_MATS_PREFIX + 'sky_lo')
+    M.set(cape & (M.Y > c[1] + p['r'] * 0.35), ACC_MATS_PREFIX + 'sky_hi')
+    # cream trail embroidery: one winding path along each flank, plus stitched dots
+    for sx in (-1, 1):
+        y_mid = (p['ymin'] + min(p['ymax'], c[1] + p['r'])) / 2
+        trail = cape & (sx * M.X > 0) & (np.abs(M.Y - y_mid - 1.6 * np.sin(M.Z * 0.55)) < 0.5)
+        M.set(trail, ACC_MATS_PREFIX + 'cream')
+        dots = cape & (sx * M.X > 0) & (np.abs(M.Y - y_mid + 2.4) < 0.5) & ((np.floor(M.Z / 1.5) % 2) == 0)
+        M.set(dots, ACC_MATS_PREFIX + 'cream')
+    # collar at the neck with two copper clasps
+    n = NECK[ch.stage]
+    collar = shell_region(M, core, 2) & (M.Y >= n['y'][1] - 1.6) & (M.Y < n['y'][1] + 0.4) & \
+        (M.Z >= n['z'][0]) & (M.Z < n['z'][1]) & (M.m == 0)
+    _set(M, collar, 'sky_lo')
+    if collar.any():
+        zf = M.Z[collar].max()
+        for sx in (-1, 1):
+            cl = collar & (np.abs(M.Z - zf) < 1.4) & (np.abs(M.X - sx * 2.2) < 1.0)
+            M.set(cl, ACC_MATS_PREFIX + 'copper')
+
+
 WEARABLES = {
     'leaf_scarf': ('neck', leaf_scarf),
     'blue_scarf': ('neck', blue_scarf),
@@ -306,7 +348,11 @@ WEARABLES = {
     'butterfly_clip': ('head', butterfly_clip),
     'red_backpack': ('back', red_backpack),
     'explorer_pack': ('back', explorer_pack),
+    'reward_windtrail_mantle': ('back', windtrail_mantle),
 }
+# the shop wearables that define each stage's sprite frame (story wearables must fit inside it)
+FRAME_WEARABLES = ['leaf_scarf', 'blue_scarf', 'tiny_crown', 'golden_crest_crown', 'explorer_hat', 'butterfly_clip',
+                   'red_backpack', 'explorer_pack']
 
 
 def wear(ch: Character, item_id: str) -> Model:

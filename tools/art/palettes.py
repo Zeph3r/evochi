@@ -101,4 +101,5 @@ ACCESSORY = {
     'butter': '#F6C24E', 'butter_lo': '#D8962E', 'butter_dot': '#7A4A22',
     'bedroll': '#4E8C4C', 'bedroll_hi': '#78B06A',
     'goggle': '#2E3640', 'goggle_lens': '#5C7FA0', 'feather': '#F2EBD9',
+    'sky': '#7FB8DE', 'sky_hi': '#A8D2EE', 'sky_lo': '#5E9CC8', 'cream': '#FBF5E8', 'copper': '#C69469',
 }

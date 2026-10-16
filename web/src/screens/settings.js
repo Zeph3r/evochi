@@ -32,7 +32,7 @@ export const settings = {
       <h1 class="sr-only">Profile and settings</h1>
       <div class="pad stack" style="gap:10px;margin-top:-18px;position:relative;z-index:3;padding-bottom:calc(24px + var(--safe-bottom))">
         <section class="card" aria-label="Account">
-          <div class="setting"><img src="${icon('paw')}" alt="" width="34" height="34"><div class="grow"><div class="t">${pl.accountType === 'guest' ? 'Guest player' : pl.email}</div>
+          <div class="setting"><img src="${icon('paw')}" alt="" width="34" height="34"><div class="grow"><div class="t">${pl.accountType === 'guest' ? 'Guest player' : pl.email}${(s.story?.titleUnlocks || []).includes('first_lightkeeper') ? html` <span class="tag small stage" style="vertical-align:2px">First Lightkeeper</span>` : ''}</div>
             <div class="d">${pl.accountType === 'guest' ? 'Saved on this device only. Add an email so your Evochi can move to the mobile app.' : 'Local email profile (preview). Cloud linking happens in the mobile app.'}</div></div>
             ${pl.accountType === 'guest' ? html`<button class="btn sm" data-act="add-email" data-k="addem">Add email</button>` : ''}</div>
         </section>

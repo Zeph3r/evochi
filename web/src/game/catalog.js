@@ -91,7 +91,34 @@ export const ITEMS = {
     desc: 'A soothing herb bundle. Restores 10 vitality (12h cooldown).',
     shop: 'care', featured: true,
   },
+
+  // ---- Village Tales, Chapter 1 story rewards (Quest Bible §4) ----
+  // Ordinary inventory items so they equip / place like everything else, but earned only from the
+  // story: acquisition 'story', shop null, price null, never tradable or sellable, never in chests.
+  reward_firefly_hearth: {
+    name: 'Firefly Hearth', category: 'decoration', decor: 'nest', price: null, rarity: 'legendary',
+    desc: 'A tiny hollow stump lit by three golden fireflies. Bram made it from the light you brought back to Sunlit Village.',
+    shop: null, acquisition: 'story', originQuest: 'vq01', tradable: false, sellable: false,
+  },
+  reward_windtrail_mantle: {
+    name: 'Windtrail Mantle', category: 'wearable', slot: 'back', price: null, rarity: 'legendary',
+    desc: 'A short sky-blue travel cape, embroidered with cream trail lines and fastened with two copper clasps. Travelers should look the part.',
+    stages: ALL_STAGES, shop: null, acquisition: 'story', originQuest: 'vq02', tradable: false, sellable: false,
+  },
+  reward_waystone_bloom: {
+    name: 'Waystone Bloom', category: 'decoration', decor: 'side', price: null, rarity: 'legendary',
+    desc: 'A white stone plinth with a floating mint-and-gold crystal blossom. It glows a little brighter when you walk.',
+    shop: null, acquisition: 'story', originQuest: 'vq03', tradable: false, sellable: false,
+  },
 };
+
+/** Items the Market may ever list (story rewards and quest materials never qualify). */
+export function isShopItem(id) {
+  const it = ITEMS[id];
+  return !!it && !!it.shop && it.acquisition !== 'story' && Number.isFinite(it.price);
+}
+
+export const STORY_SOURCE = { vq01: 'Village Tales, Quest 01', vq02: 'Village Tales, Quest 02', vq03: 'Village Tales, Quest 03' };
 
 export const CATEGORY_LABEL = { wearable: 'Wearables', consumable: 'Consumables', decoration: 'Decorations' };
 

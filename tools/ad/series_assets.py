@@ -20,7 +20,7 @@ sys.path.insert(0, os.path.join(ROOT, 'tools', 'art'))
 import palettes  # noqa: E402
 from characters import build  # noqa: E402
 from charrender import render_char  # noqa: E402
-from accessories import wear, WEARABLES  # noqa: E402
+from accessories import wear, WEARABLES, FRAME_WEARABLES  # noqa: E402
 from voxel import Camera, Fit, model_extent_points, project_px  # noqa: E402
 from build_characters import fit_for, HERO_CAM, SCALE_HERO  # noqa: E402
 
@@ -47,7 +47,7 @@ def char(stage):
     if stage not in _chars:
         ch = build(stage)
         worn = {k: wear(ch, k) for k in WEARABLES}
-        fit = fit_for([ch.model] + list(worn.values()), HERO_CAM[stage], SCALE_HERO)
+        fit = fit_for([ch.model] + [worn[k] for k in FRAME_WEARABLES], HERO_CAM[stage], SCALE_HERO)
         _chars[stage] = (ch, fit)
     return _chars[stage]
 

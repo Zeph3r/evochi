@@ -13,7 +13,7 @@ import numpy as np
 
 from characters import build, EXPRESSIONS
 from charrender import render_char
-from accessories import wear, WEARABLES
+from accessories import wear, WEARABLES, FRAME_WEARABLES
 from voxel import Camera, fit_camera, model_extent_points, save_rgba, project_px, Fit
 from palettes import palette, muted, VARIANT_ORDER
 
@@ -41,7 +41,8 @@ def main(out, stages):
         ch = build(stage)
         cam = HERO_CAM[stage]
         worn = {k: wear(ch, k) for k in WEARABLES}
-        fit = fit_for([ch.model] + list(worn.values()), cam, SCALE_HERO)
+        # the frame comes from the shop wearables only, so adding a wearable never moves existing sprites
+        fit = fit_for([ch.model] + [worn[k] for k in FRAME_WEARABLES], cam, SCALE_HERO)
         anchors = {k: project_px(cam, fit, v)[0].round(1).tolist() for k, v in ch.anchors.items()}
         sid = 's%02d' % stage
         manifest[sid] = {'hero': {'w': fit.w, 'h': fit.h, 'scale': fit.scale, 'yaw': cam.yaw,

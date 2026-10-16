@@ -9,6 +9,7 @@ import { html, raw, fmt, timeAgo } from '../ui/dom.js';
 import { icon, url, manifest } from '../ui/assets.js';
 import { ICON } from '../ui/icons.js';
 import { coinPill, nav, titleImg } from '../core/app.js';
+import { storyTab, openStoryQuest } from './village.js';
 
 export const journey = {
   id: 'journey',
@@ -24,13 +25,29 @@ export const journey = {
     const daily = d.quests.filter((q) => q.period === 'day');
     const weekly = d.quests.filter((q) => q.period === 'week');
     const days = weekDays(d.today);
+    const tab = u.tab || 'daily';
     const srcLabel = conn === 'demo' ? 'Simulated step device' : conn === 'manual' ? 'Manual entry' : 'Not connected';
+    const sources = html`        ${conn === 'demo' ? html`<section class="card dev" style="padding:12px" aria-label="Step simulator">
+          <div class="row"><b class="h-card grow">Go for a walk</b><span class="tag small cream">Web preview</span></div>
+          <p class="small muted" style="margin:4px 0 8px">Simulates time-stamped samples from a phone and a watch. Overlapping samples are de-duplicated, so they count once.</p>
+          <div class="row" style="gap:6px;flex-wrap:wrap">
+            ${[500, 1000, 2500].map((n) => html`<button class="btn sm green" data-act="walk" data-arg="${n}" data-k="w${n}">+${fmt(n)}</button>`)}
+            <button class="btn sm" data-act="walk-goal" data-k="wgoal" ${d.todaySteps >= d.goal ? raw('disabled') : ''}>Reach goal</button>
+          </div></section>` : ''}
+        ${conn === 'manual' ? html`<section class="card" style="padding:12px" aria-label="Manual steps">
+          <div class="row"><b class="h-card grow">Add steps manually</b><span class="tag small warn">Unverified</span></div>
+          <div class="row" style="margin-top:8px"><input class="input" type="number" inputmode="numeric" min="0" max="60000" placeholder="e.g. 1500" data-input="manual" value="${u.manual || ''}" aria-label="Steps to add"><button class="btn sm" data-act="add-manual" data-k="addman">Add</button></div>
+          <p class="small muted" style="margin:6px 0 0">Manual steps give XP and keep your Evochi healthy, but never unlock reward chests or cosmetic chances.</p></section>` : ''}`;
     return html`<main class="screen scroll paper" aria-label="Journey">
       <div class="paper-top"><img class="bg" src="${url(manifest().habitats.thumbs.meadow)}" alt="">
         <header class="hud" style="position:absolute;left:0;right:0;top:0">${titleImg('title_journey', 'Journey')}${coinPill(ctx)}</header></div>
       <h1 class="sr-only">Journey</h1>
       <div class="pad stack" style="gap:10px;margin-top:-28px;position:relative;z-index:3">
-        <section class="card" style="padding:14px" aria-label="Today">
+        <div class="tabs jtabs" role="tablist" aria-label="Quests" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:0">
+          ${[['daily', 'Daily', 'steps', daily.some((q) => q.eligible && !q.claimed)], ['weekly', 'Weekly', 'trophy', weekly.some((q) => q.eligible && !q.claimed)],
+            ['story', 'Story', 'habitats', !!d.story?.turnIns.length]].map(([id, label, ic, dot]) => html`<button class="tab" role="tab" aria-selected="${tab === id}" data-act="jtab" data-arg="${id}" data-k="jt-${id}"><img src="${icon(ic)}" alt=""><span>${label}</span>${dot ? raw('<i class="badge-dot" style="top:-4px;right:-4px"></i>') : ''}</button>`)}
+        </div>
+        ${tab !== 'story' ? html`        <section class="card" style="padding:14px" aria-label="Today">
           <div class="row" style="gap:14px">
             <div class="ring" role="img" aria-label="${fmt(d.todaySteps)} of ${fmt(d.goal)} steps">
               <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="54" fill="none" stroke="#E7D9C8" stroke-width="12"/>
@@ -50,21 +67,12 @@ export const journey = {
             <div class="grow"><b class="small" style="font-family:var(--font-game)">${srcLabel}</b><div class="tiny muted" style="font-weight:600">${conn === 'none' ? 'Connect a source to earn from your steps' : `Last sync ${timeAgo(s.steps.lastSync, ctx.now)}`}</div></div>
             ${conn === 'none' ? html`<button class="btn sm green" data-act="connect" data-k="jconn">Connect</button>` : html`<button class="btn sm cream" data-act="sync" data-k="jsync" ${u.syncing ? raw('disabled') : ''}>${u.syncing ? html`<span class="spinner" style="width:16px;height:16px"></span>` : ICON.sync}<span>${u.syncing ? 'Syncing' : 'Sync'}</span></button>`}
           </div>
-        </section>
-        ${conn === 'demo' ? html`<section class="card dev" style="padding:12px" aria-label="Step simulator">
-          <div class="row"><b class="h-card grow">Go for a walk</b><span class="tag small cream">Web preview</span></div>
-          <p class="small muted" style="margin:4px 0 8px">Simulates time-stamped samples from a phone and a watch. Overlapping samples are de-duplicated, so they count once.</p>
-          <div class="row" style="gap:6px;flex-wrap:wrap">
-            ${[500, 1000, 2500].map((n) => html`<button class="btn sm green" data-act="walk" data-arg="${n}" data-k="w${n}">+${fmt(n)}</button>`)}
-            <button class="btn sm" data-act="walk-goal" data-k="wgoal" ${d.todaySteps >= d.goal ? raw('disabled') : ''}>Reach goal</button>
-          </div></section>` : ''}
-        ${conn === 'manual' ? html`<section class="card" style="padding:12px" aria-label="Manual steps">
-          <div class="row"><b class="h-card grow">Add steps manually</b><span class="tag small warn">Unverified</span></div>
-          <div class="row" style="margin-top:8px"><input class="input" type="number" inputmode="numeric" min="0" max="60000" placeholder="e.g. 1500" data-input="manual" value="${u.manual || ''}" aria-label="Steps to add"><button class="btn sm" data-act="add-manual" data-k="addman">Add</button></div>
-          <p class="small muted" style="margin:6px 0 0">Manual steps give XP and keep your Evochi healthy, but never unlock reward chests or cosmetic chances.</p></section>` : ''}
-        <h2 class="h-sec sec-head" style="margin-top:4px">Daily quests</h2>
-        <div class="list">${daily.map((q) => questRow(q))}</div>
-        <h2 class="h-sec sec-head" style="margin-top:4px">This week</h2>
+        </section>` : ''}
+        ${tab !== 'story' ? sources : ''}
+        ${tab === 'daily' ? html`<h2 class="h-sec sec-head" style="margin-top:4px">Daily quests</h2>
+        <div class="list">${daily.map((q) => questRow(q))}</div>` : ''}
+        ${tab === 'story' ? html`${storyTab(ctx)}${sources}` : ''}
+        ${tab === 'weekly' ? html`<h2 class="h-sec sec-head" style="margin-top:4px">This week</h2>
         <div class="list">${weekly.map((q) => questRow(q))}</div>
         <section class="card" style="padding:12px" aria-label="Week overview">
           <div class="week">${days.map((k) => {
@@ -86,7 +94,7 @@ export const journey = {
           <div class="row" style="gap:6px;flex-wrap:wrap;margin-top:8px">
             <span class="tag small ok">✓ Goal</span><span class="tag small stage">½ Active</span><span class="tag small" style="background:#D6EDFB;color:#2D6A8C">z Rest day</span><span class="tag small danger">! Low</span>
           </div>
-        </section>
+        </section>` : ''}
         <div style="height:4px"></div>
       </div>
       <div class="spacer"></div>
@@ -99,6 +107,14 @@ export const journey = {
     },
   },
   actions: {
+    jtab(ctx, id) {
+      ctx.ui('journey').tab = id;
+      ctx.sfx('ui_tap', 0.3);
+      ctx.rerender();
+    },
+    'story-quest'(ctx, id) {
+      openStoryQuest(ctx, id);
+    },
     claim(ctx, id) {
       const r = ctx.act(G.claimQuest, id);
       if (!r.error) {
@@ -141,7 +157,11 @@ export const journey = {
 
 function doWalk(ctx, n) {
   const now = ctx.store.now();
-  const samples = simulateWalk(n, now);
+  // the simulated walk "just happened"; it never reaches back before a story quest was accepted,
+  // so a demo walk right after accepting counts in full (real step data keeps its own timestamps)
+  const st = ctx.state.story;
+  const since = st?.activeQuestId ? st.questStates[st.activeQuestId]?.acceptedAt : null;
+  const samples = simulateWalk(n, now, { notBefore: since || 0 });
   ctx.act((s, t) => G.syncSteps(s, samples, t, { source: 'demo' }));
   ctx.sfx('ui_tap', 0.5);
   ctx.track('step_sync_result', { ok: true, bucket: n >= 2500 ? 'large' : 'small' });

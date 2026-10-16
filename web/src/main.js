@@ -11,10 +11,12 @@ import { bag } from './screens/bag.js';
 import { shop } from './screens/shop.js';
 import { evodex } from './screens/evodex.js';
 import { settings } from './screens/settings.js';
+import { village, place } from './screens/village.js';
 import * as G from './game/state.js';
+import * as Q from './game/story.js';
 import { CloudSave } from './core/cloud.js';
 
-const SCREENS = { welcome, create, connect, goal, awakening, home, inspect, evolve: evolveScreen, journey, bag, shop, evodex, settings };
+const SCREENS = { welcome, create, connect, goal, awakening, home, inspect, evolve: evolveScreen, journey, bag, shop, evodex, settings, village, place };
 
 async function boot(hotData = {}) {
   const root = document.getElementById('app');
@@ -50,7 +52,7 @@ async function boot(hotData = {}) {
     if (s.pet && s.steps.connection === 'demo') store.state = G.syncSteps(s, [], store.now()).state;
     setP(1);
     const app = new App(root, store, SCREENS);
-    window.__evochi = { app, store, G };
+    window.__evochi = { app, store, G, Q };
     app.render(true);
     store.cloud = new CloudSave(store, (remote) => {
       store.replace(remote);
@@ -68,7 +70,8 @@ async function boot(hotData = {}) {
       setTimeout(() => splash.remove(), 400);
     }
     // warm the rest of the art in the background
-    const rest = [...Object.values(M.habitats.meadow.layers), ...Object.values(M.habitats.market.layers), ...Object.values(M.icons)];
+    const rest = [...Object.values(M.habitats.meadow.layers), ...Object.values(M.habitats.market.layers), ...Object.values(M.icons),
+      M.village.square.day_dim, M.village.square.lamp_lit, ...Object.values(M.village.npcs).map((n) => n.expr.neutral)];
     setTimeout(() => rest.forEach((f) => loadImage(f).catch(() => null)), 800);
   } catch (e) {
     console.error(e);

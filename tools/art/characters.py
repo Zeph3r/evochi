@@ -361,8 +361,33 @@ def paint_face(ch: Character, cv: Canvas, pal: dict, expr: str):
         for s in (-1, 1):
             cv.paint(cv.m_arc(s * eu, ev - eh * 0.05, ew * 0.75, 0.6, 195, 345, lw), E, lit=0.0)
         smile(1.0, 0.4)
+    # ---- villager-only expressions (Village Tales NPCs; Evochi sprites never use these)
+    elif expr == 'worried':
+        cheeks(0.6)
+        eyes(h=eh * 0.9, dv=-0.2)
+        for s in (-1, 1):
+            cu = s * eu
+            cv.paint(cv.m_stroke([(cu - s * ew * 0.9, ev + eh * 0.62), (cu + s * ew * 0.7, ev + eh * 0.86)], lw * 1.1),
+                     pal.get('brow', E), lit=0.0)
+        xs = np.linspace(-0.8, 0.8, 5)
+        ys = mv - 0.1 + 0.18 * np.array([0, 1, 0, 1, 0])
+        cv.paint(cv.m_stroke(list(zip(xs, ys)), lw * 0.8), mouth, lit=0.0)
+    elif expr == 'thinking':
+        cheeks(0.8)
+        eyes(h=eh * 0.86, hl=(0.18, 0.18))
+        cu = -eu
+        cv.paint(cv.m_stroke([(cu - ew * 0.7, ev + eh * 0.66), (cu + ew * 0.7, ev + eh * 0.78)], lw), pal.get('brow', E), lit=0.0)
+        cv.paint(cv.m_stroke([(0.1, mv), (0.9, mv + 0.25)], lw * 0.85), mouth, lit=0.0)
+    elif expr == 'proud':
+        cheeks(w=1.1)
+        for s in (-1, 1):
+            cv.paint(cv.m_arc(s * eu, ev - eh * 0.2, ew * 0.8, eh * 0.32, 15, 165, lw * 1.2), E, lit=0.0)
+        smile(1.9, 0.75)
     else:
         raise ValueError(expr)
+    extra = getattr(ch, 'face_extra', None)
+    if extra:
+        extra(cv, pal, expr)
 
 
 # ----------------------------------------------------------------------------

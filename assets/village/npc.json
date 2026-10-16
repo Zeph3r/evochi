@@ -1,0 +1,78 @@
+{
+ "mira": {
+  "w": 398,
+  "h": 446,
+  "ground": [
+   146.4,
+   417.7
+  ],
+  "face": [
+   187.4,
+   206.8
+  ],
+  "expressions": [
+   "neutral",
+   "happy",
+   "worried",
+   "thinking",
+   "proud"
+  ]
+ },
+ "bram": {
+  "w": 364,
+  "h": 388,
+  "ground": [
+   153.7,
+   356.1
+  ],
+  "face": [
+   197.6,
+   144.2
+  ],
+  "expressions": [
+   "neutral",
+   "happy",
+   "worried",
+   "thinking",
+   "proud"
+  ]
+ },
+ "pip": {
+  "w": 320,
+  "h": 372,
+  "ground": [
+   173.9,
+   349.3
+  ],
+  "face": [
+   215.9,
+   143.5
+  ],
+  "expressions": [
+   "neutral",
+   "happy",
+   "worried",
+   "thinking",
+   "proud"
+  ]
+ },
+ "alder": {
+  "w": 338,
+  "h": 366,
+  "ground": [
+   159.9,
+   340.7
+  ],
+  "face": [
+   205.8,
+   106.2
+  ],
+  "expressions": [
+   "neutral",
+   "happy",
+   "worried",
+   "thinking",
+   "proud"
+  ]
+ }
+}

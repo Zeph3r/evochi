@@ -2,6 +2,7 @@
 import * as G from '../game/state.js';
 import { CONFIG } from '../game/config.js';
 import { ITEMS } from '../game/catalog.js';
+import { QUEST_MATERIALS, QUESTS } from '../game/story.js';
 import { html, raw, esc, fmt, $, $$ } from '../ui/dom.js';
 import { icon, itemImg, title, url, hydrateSprites, manifest } from '../ui/assets.js';
 import { ICON } from '../ui/icons.js';
@@ -131,6 +132,10 @@ export class App {
       need_herbs: [`You need ${res.need} Healing Herbs`, 'warn', 'care'],
       walk_needed: ["Reach today's step goal to rekindle", 'warn', 'steps'],
       not_owned: ['You do not own this yet', 'warn', 'bag'],
+      not_for_sale: ['Story rewards are earned, never sold', 'warn', 'star'],
+      story_locked: [res.message || 'Not unlocked yet', 'warn', 'lock'],
+      story_not_ready: ['Not ready yet - keep going!', 'warn', 'journey'],
+      story_missing_items: ['Something is missing from your Quest Pouch', 'warn', 'journey'],
     };
     const [m, k, i] = M[res.error] || ['Something went wrong - please try again', 'err', 'warning'];
     this.toast(m, k, i);
@@ -350,6 +355,25 @@ export class App {
         case 'recovered':
           this.toast('Your Evochi is feeling better!', 'ok', 'heart');
           break;
+        case 'story_item': {
+          const name = QUEST_MATERIALS[ev.itemId].name;
+          const msg = ev.itemId === 'q_dawn_dew_vial' ? `Morning light collected! ${name} added to your Quest Pouch.`
+            : ev.itemId === 'q_windprint_paper' || ev.itemId === 'q_echo_rubbing'
+              ? `${name} ${(this.store.state.story?.questPouch?.[ev.itemId] || 1)}/${ev.itemId === 'q_windprint_paper' ? 2 : 3} added to your Quest Pouch`
+              : `${name} added to your Quest Pouch`;
+          this.toast(esc(msg), 'ok', 'item:' + ev.itemId);
+          this.sfx('reward_chime', 0.7);
+          break;
+        }
+        case 'story_ready':
+          if (ev.npc && ev.npc !== 'waystone') {
+            const who = { npc_mira: 'Mira', npc_bram: 'Bram', npc_pip: 'Pip', npc_alder: 'Alder' }[ev.npc];
+            this.toast(`${who} is ready for you in Sunlit Village`, 'ok', 'pin');
+          } else if (ev.npc === 'waystone') this.toast('The Waystone is ready to wake', 'ok', 'star');
+          break;
+        case 'story_completed':
+          this.store.track('story_quest_completed', { quest: ev.questId });
+          break;
         case 'sync_failed':
           this.toast('Sync failed - your last saved progress is safe', 'err', 'warning');
           break;
@@ -362,7 +386,8 @@ export class App {
   toast(message, kind = '', iconKey = null) {
     const el = document.createElement('div');
     el.className = 'toast ' + (kind || '');
-    el.innerHTML = `${iconKey ? `<img alt="" src="${icon(iconKey)}">` : ''}<span>${message}</span>`;
+    const src = iconKey ? (iconKey.startsWith('item:') ? itemImg(iconKey.slice(5)) : icon(iconKey)) : null;
+    el.innerHTML = `${src ? `<img alt="" src="${src}">` : ''}<span>${message}</span>`;
     this.toastHost.appendChild(el);
     const all = this.toastHost.children;
     while (all.length > 3) all[0].remove();
@@ -452,6 +477,10 @@ const GLOBAL = {
   mail(ctx) {
     ctx.go('journey');
   },
+  'visit-village'(ctx) {
+    ctx.sfx('ui_tap', 0.4);
+    ctx.go('village');
+  },
 };
 
 // ------------------------------------------------------------ shared chrome
@@ -495,6 +524,9 @@ export function statusTag(status) {
 
 export function rarityTag(id) {
   const it = ITEMS[id];
+  if (it.acquisition === 'story') {
+    return html`<span class="tag story-tag-sm"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z" fill="#F4B84E" stroke="#80531F" stroke-width="1.4" stroke-linejoin="round"/></svg>Story reward</span>`;
+  }
   const R = { common: 'ok', uncommon: 'ok', rare: 'cream', epic: 'cream', legendary: 'stage' }[it.rarity];
   const label = it.rarity[0].toUpperCase() + it.rarity.slice(1);
   const col = { common: '#82B75E', uncommon: '#5FA046', rare: '#39BDE3', epic: '#AA8BCF', legendary: '#F4B84E' }[it.rarity];

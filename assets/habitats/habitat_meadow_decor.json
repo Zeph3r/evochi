@@ -61,5 +61,33 @@
   "y": 700,
   "w": 109,
   "h": 191
+ },
+ "reward_firefly_hearth@nest": {
+  "file": "decor_reward_firefly_hearth_nest.png",
+  "x": 457,
+  "y": 700,
+  "w": 264,
+  "h": 341
+ },
+ "reward_waystone_bloom@left": {
+  "file": "decor_reward_waystone_bloom_left.png",
+  "x": 151,
+  "y": 795,
+  "w": 168,
+  "h": 275
+ },
+ "reward_waystone_bloom@right": {
+  "file": "decor_reward_waystone_bloom_right.png",
+  "x": 858,
+  "y": 783,
+  "w": 169,
+  "h": 269
+ },
+ "reward_waystone_bloom@back": {
+  "file": "decor_reward_waystone_bloom_back.png",
+  "x": 369,
+  "y": 682,
+  "w": 130,
+  "h": 217
  }
 }

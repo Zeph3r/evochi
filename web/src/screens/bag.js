@@ -6,12 +6,16 @@ import { icon, itemImg } from '../ui/assets.js';
 import { ICON } from '../ui/icons.js';
 import { coinPill, nav, titleImg, rarityTag } from '../core/app.js';
 import { petScene, openHabitatSheet } from './home.js';
+import { pouchGrid, pouchDetail, storySourceTag } from './village.js';
+import { QUEST_MATERIALS } from '../game/story.js';
 
 const CATS = [
-  { id: 'wearable', label: 'Wearables', icon: 'wearables' },
-  { id: 'consumable', label: 'Consumables', icon: 'consumables' },
-  { id: 'decoration', label: 'Decorations', icon: 'decorations' },
+  { id: 'wearable', label: 'Wear', icon: 'wearables', aria: 'Wearables' },
+  { id: 'consumable', label: 'Care', icon: 'consumables', aria: 'Consumables' },
+  { id: 'decoration', label: 'Decor', icon: 'decorations', aria: 'Decorations' },
+  { id: 'pouch', label: 'Pouch', icon: 'journey', aria: 'Quest Pouch' },
 ];
+const STAR = '<svg class="stag" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z" fill="#F4B84E" stroke="#80531F" stroke-width="1.4" stroke-linejoin="round"/></svg>';
 const SLOT_UI = { head: 'Head', back: 'Back', neck: 'Accessory' };
 
 function owned(state, cat) {
@@ -78,7 +82,12 @@ export const bag = {
     const p = s.pet;
     const u = ctx.ui('bag');
     const cat = u.cat || 'wearable';
-    const list = owned(s, cat);
+    const pouch = cat === 'pouch';
+    const list = pouch ? [] : owned(s, cat);
+    if (pouch) {
+      const have = Object.keys(QUEST_MATERIALS).filter((id) => (ctx.d.story?.pouch[id] || 0) > 0);
+      if (!have.includes(u.selQ)) u.selQ = have[0] || null;
+    }
     if (u.sel && (!ITEMS[u.sel] || ITEMS[u.sel].category !== cat || !G.ownedQty(s, u.sel))) u.sel = null;
     if (!u.sel && list.length && cat !== 'wearable') u.sel = list[0];
     if (!u.sel && cat === 'wearable') u.sel = Object.values(p.equipped || {})[0] || list[0] || null;
@@ -98,21 +107,22 @@ export const bag = {
       })}
       <div class="spacer hero-space bag-hero" aria-hidden="true"></div>
       <section class="bag-sheet">
-        <div class="tabs" role="tablist" aria-label="Categories" style="grid-template-columns:repeat(3,minmax(0,1fr))">
-          ${CATS.map((c) => html`<button class="tab" role="tab" aria-selected="${c.id === cat}" data-act="cat" data-arg="${c.id}" data-k="cat-${c.id}"><img src="${icon(c.icon)}" alt=""><span>${c.label}</span>${c.id === 'wearable' && newWear ? raw('<i class="badge-dot" style="top:-4px;right:-4px"></i>') : ''}</button>`)}
+        <div class="tabs" role="tablist" aria-label="Categories" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+          ${CATS.map((c) => html`<button class="tab" role="tab" aria-selected="${c.id === cat}" data-act="cat" data-arg="${c.id}" data-k="cat-${c.id}" aria-label="${c.aria || c.label}"><img src="${icon(c.icon)}" alt=""><span>${c.label}</span>${c.id === 'wearable' && newWear ? raw('<i class="badge-dot" style="top:-4px;right:-4px"></i>') : ''}</button>`)}
         </div>
         <div class="sheet-bg bag-inner">
           <div class="grid fill-scroll" role="list" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">
-            ${list.length ? list.map((id) => {
+            ${pouch ? pouchGrid(ctx, u.selQ, cols) : list.length ? list.map((id) => {
               const it = ITEMS[id];
               const q = G.ownedQty(s, id);
               const eq = it.category === 'wearable' && p.equipped?.[it.slot] === id;
               const placed = it.category === 'decoration' && Object.values(s.nest.placements).includes(id);
-              return html`<button class="tile" role="listitem" aria-pressed="${sel === id}" data-act="sel" data-arg="${id}" data-k="t-${id}" aria-label="${it.name}${q > 1 ? `, ${q} owned` : ''}${eq ? ', equipped' : ''}${placed ? ', placed' : ''}">
-                <img src="${itemImg(id)}" alt="">${it.category !== 'wearable' && (q > 1 || it.category === 'consumable') ? html`<span class="qty">x${q}</span>` : ''}${eq || placed ? html`<span class="eq" aria-hidden="true">${ICON.check}</span>` : ''}<span class="nm">${it.name}</span></button>`;
+              const story = it.acquisition === 'story';
+              return html`<button class="tile ${story ? 'story-tile' : ''}" role="listitem" aria-pressed="${sel === id}" data-act="sel" data-arg="${id}" data-k="t-${id}" aria-label="${it.name}${q > 1 ? `, ${q} owned` : ''}${eq ? ', equipped' : ''}${placed ? ', placed' : ''}">
+                ${story ? raw(STAR) : ''}<img src="${itemImg(id)}" alt="">${it.category !== 'wearable' && (q > 1 || it.category === 'consumable') ? html`<span class="qty">x${q}</span>` : ''}${eq || placed ? html`<span class="eq" aria-hidden="true">${ICON.check}</span>` : ''}<span class="nm">${it.name}</span></button>`;
             }) : html`<div class="empty" style="grid-column:1/-1"><img src="${icon(CATS.find((c) => c.id === cat).icon)}" alt="" width="54" height="54" style="opacity:.6"><p class="body" style="margin:6px 0 10px"><b>Nothing in this pocket yet.</b></p><button class="btn sm" data-act="shop" data-k="bag-shop">Visit the Market</button></div>`}
           </div>
-          ${sel ? detail(ctx, sel) : ''}
+          ${pouch ? (u.selQ ? pouchDetail(ctx, u.selQ) : '') : sel ? detail(ctx, sel) : ''}
         </div>
       </section>
       <div style="height:6px;flex:none"></div>
@@ -126,6 +136,14 @@ export const bag = {
       u.sel = null;
       if (c === 'wearable') u.seenWear = true;
       ctx.rerender();
+    },
+    'sel-q'(ctx, id) {
+      ctx.ui('bag').selQ = id;
+      ctx.sfx('ui_tap', 0.4);
+      ctx.rerender();
+    },
+    'goto-place'(ctx, id) {
+      ctx.go('place', { id });
     },
     sel(ctx, id) {
       const u = ctx.ui('bag');
@@ -221,6 +239,6 @@ function detail(ctx, id) {
     <div class="pic"><img src="${itemImg(id)}" alt=""></div>
     <div style="min-width:0"><b class="h-card">${it.name}</b>
       <div class="row" style="gap:4px;margin:4px 0;flex-wrap:wrap"><span class="tag small cream"><img src="${icon(it.category === 'wearable' ? 'wearables' : it.category === 'consumable' ? 'consumables' : 'decorations')}" alt="">${tag}</span>${rarityTag(id)}</div>
-      <div class="small" style="color:var(--ink-700)">${it.desc}</div></div>
+      <div class="small" style="color:var(--ink-700)">${it.desc}</div>${storySourceTag(id) ? html`<div style="margin-top:4px">${storySourceTag(id)}</div>` : ''}</div>
     <div class="acts">${acts}</div></div>`;
 }

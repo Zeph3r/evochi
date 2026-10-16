@@ -7,6 +7,8 @@ import { icon, itemImg, spriteAttr, BLANK } from '../ui/assets.js';
 import { ICON } from '../ui/icons.js';
 import { coinPill, nav, titleImg, stageLabel, statusTag } from '../core/app.js';
 import { memorialView, memorialActions } from './pet.js';
+import { openStoryQuest, nextText, npcSprite } from './village.js';
+import { QUESTS } from '../game/story.js';
 
 export function isNight(now, tz) {
   try {
@@ -84,7 +86,9 @@ export const home = {
     const p = s.pet;
     const dp = d.pet;
     const u = ctx.ui('home');
-    const compact = ctx.H < 650;
+    const chip = storyChip(ctx);
+    // the story chip takes the evolution strip's room, so the strip folds into its compact chip
+    const compact = ctx.H < 650 || (chip && ctx.H < 920);
     const conn = s.steps.connection;
     const stepsPct = Math.min(1, d.todaySteps / d.goal);
     const banner = statusBanner(ctx);
@@ -95,6 +99,7 @@ export const home = {
           <h1 class="sr-only">Evochi - ${p.name}'s nest</h1>
           ${titleImg('wordmark_evochi', 'Evochi', 'wordmark')}
           <button class="loc-pill" data-act="habitat" data-k="loc" aria-label="Sunlit Meadow - arrange decorations"><img src="${icon('pin')}" alt="">Sunlit Meadow<span class="chev" aria-hidden="true">&rsaquo;</span></button>
+          <div><button class="village-btn" data-act="visit-village" data-k="village" aria-label="Visit Sunlit Village${d.story?.attention ? ', something new' : ''}"><img src="${icon('habitats')}" alt="">Visit Village${d.story?.attention ? raw('<i class="badge-dot" aria-hidden="true"></i>') : ''}</button></div>
         </div>
         <div class="hud-col">
           ${coinPill(ctx)}
@@ -107,6 +112,7 @@ export const home = {
       <div class="spacer hero-space" aria-hidden="true"></div>
       <div class="home-stack">
         ${banner}
+        ${chip}
         <section class="card id-card" aria-label="${p.name}, level ${dp.level}">
           <div class="stack" style="gap:6px;min-width:0">
             <div class="row" style="gap:8px;min-width:0"><h2 class="pet-name">${p.name}</h2><button class="icon-btn" data-act="rename" aria-label="Rename ${p.name}" data-k="rename">${ICON.edit}</button></div>
@@ -246,12 +252,24 @@ export const home = {
       s.flags.coachDone = true;
       ctx.store.replace(s);
     },
+    'story-chip'(ctx, id) {
+      openStoryQuest(ctx, id);
+    },
     'goto-memorial'(ctx) {
       ctx.go('home');
     },
     ...memorialActions,
   },
 };
+
+// the tracked story quest, one compact row above the pet card (only while a walk or hand-in is pending)
+function storyChip(ctx) {
+  const v = ctx.d.story?.active;
+  if (!v || !v.tracked || ctx.H < 640) return '';
+  return html`<button class="card story-chip" data-act="story-chip" data-arg="${v.id}" data-k="story-chip">
+    <img src="${npcSprite(QUESTS[v.id].giver, v.next.kind === 'handin' ? 'happy' : 'neutral')}" alt="">
+    <div style="min-width:0"><div class="t">${v.title}</div><div class="d">${nextText(v)}</div></div></button>`;
+}
 
 function hearts(n) {
   let out = `<img class="first" src="${icon('heart')}" alt="">`;

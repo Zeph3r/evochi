@@ -13,9 +13,11 @@ const MIN = 60000;
  * With `watch` true, a second wearable reports the same walk (slightly different
  * counts) to exercise cross-source de-duplication.
  */
-export function simulateWalk(steps, now, { watch = true, minutes = null } = {}) {
+export function simulateWalk(steps, now, { watch = true, minutes = null, notBefore = 0 } = {}) {
   const out = [];
-  const dur = minutes ?? Math.max(4, Math.round(steps / 110));
+  let dur = minutes ?? Math.max(4, Math.round(steps / 110));
+  // never start before `notBefore`: compress the walk into the time since then
+  if (notBefore && now - dur * MIN < notBefore) dur = Math.max((now - notBefore) / MIN, 0);
   const n = Math.max(1, Math.round(dur / 2));
   const start = now - dur * MIN;
   let left = steps;

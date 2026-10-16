@@ -4,12 +4,13 @@
 // creation request; one item per equipment slot; evolution only moves forward.
 
 import { CONFIG, PALETTES, STAGES } from './config.js';
-import { ITEMS, item, isStackable, itemCompatible, DECOR_SLOTS } from './catalog.js';
+import { ITEMS, item, isStackable, itemCompatible, DECOR_SLOTS, isShopItem } from './catalog.js';
 import { dayKey, dayStart, addDays, weekKey, weekDays, deviceZone, HOUR } from './time.js';
 import { mergeSamples, aggregateDays } from './steps.js';
 import {
   activityXp, levelInfo, isActiveDay, evolutionStatus, replayVitality, bondValue, bondHearts,
 } from './progression.js';
+import { newStory, ensureStory, applyStoryProgress, storyStatus } from './story.js';
 
 export const SCHEMA_VERSION = 1;
 
@@ -71,6 +72,7 @@ export function newState(now = Date.now(), tz = deviceZone()) {
     flags: { coachDone: false, guestNoticeSeen: false },
     analytics: [],
     debug: { clockOffset: 0 },
+    story: newStory(),
     tzHint: tz,
     createdAt: now,
   };
@@ -139,6 +141,7 @@ export function derive(state, now) {
   }
   out.quests = questStatus(state, out, now);
   out.claimable = out.quests.filter((q) => q.eligible && !q.claimed).length;
+  out.story = state.player ? storyStatus(state, now) : null;
   return out;
 }
 
@@ -350,7 +353,8 @@ export function syncSteps(state, samples, now, { source = 'demo', success = true
   s.steps.lastSync = now;
   s.steps.lastSource = source;
   const events = [];
-  if (!s.pet) return ok(s, [{ type: 'synced', added }]);
+  const storyEvents = applyStoryProgress(s, now);
+  if (!s.pet) return ok(s, [...storyEvents, { type: 'synced', added }]);
   const before = derive(state, now);
   const tz = s.player.timezone;
   const days = aggregateDays(list, tz);
@@ -379,6 +383,7 @@ export function syncSteps(state, samples, now, { source = 'demo', success = true
   const newly = after.quests.filter((q) => q.eligible && !q.claimed && !before.quests.find((b) => b.id === q.id && b.eligible));
   for (const q of newly) events.push({ type: 'quest_ready', questId: q.id, title: q.title });
   if (before.pet.dead && !after.pet.dead) events.push({ type: 'recovered' });
+  events.push(...storyEvents);
   events.push({ type: 'synced', added });
   return ok(s, events);
 }
@@ -402,10 +407,14 @@ export function interact(state, kind, now) {
 }
 
 // --------------------------------------------------------------- wallet ----
-function addTxn(s, txn) {
+export function addTxn(s, txn) {
   if (s.wallet.txns.some((t) => t.id === txn.id)) return false;
   s.wallet.txns.push(txn);
   return true;
+}
+
+export function grantItem(s, itemId, qty, source, now, txnId = null) {
+  return grant(s, itemId, qty, source, now, txnId);
 }
 
 function grant(s, itemId, qty, source, now, txnId = null) {
@@ -440,7 +449,7 @@ export function claimQuest(state, questId, now) {
   if (q.cosmeticChance && verifiedDay) {
     const r = rng(`${s.player.id}:${q.claimId}:cosmetic`);
     if (r() < q.cosmeticChance) {
-      const pool = Object.keys(ITEMS).filter((id) => ITEMS[id].category === 'wearable' && !ownedQty(s, id));
+      const pool = Object.keys(ITEMS).filter((id) => ITEMS[id].category === 'wearable' && isShopItem(id) && !ownedQty(s, id));
       if (pool.length) {
         const pick = pool[Math.floor(r() * pool.length)];
         grant(s, pick, 1, 'quest', now, txnId);
@@ -456,6 +465,7 @@ export function claimQuest(state, questId, now) {
 export function purchase(state, itemId, requestId, now) {
   const it = ITEMS[itemId];
   if (!it) return fail(state, 'unknown_item');
+  if (!isShopItem(itemId)) return fail(state, 'not_for_sale');
   const txnId = `purchase:${requestId}`;
   if (state.wallet.txns.some((t) => t.id === txnId)) return ok(state, [{ type: 'already_purchased', itemId }]);
   if (!isStackable(itemId) && ownedQty(state, itemId) > 0) return fail(state, 'owned');
@@ -597,6 +607,8 @@ export function migrate(obj) {
   if (!obj.schema) return null;
   // future: schema upgrades go here
   if (obj.schema > SCHEMA_VERSION) return null;
+  // Village Tales (story schema 1) arrived after save schema 1: add it to older saves in place
+  ensureStory(obj);
   return obj;
 }
 
