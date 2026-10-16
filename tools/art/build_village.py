@@ -1,13 +1,16 @@
 """Village Tales, Chapter 1 art: villagers, quest items, the Windtrail Mantle overlays, story decor,
 and the Village scenes. Writes PNG masters into the asset pack, named like the rest of it.
 
-python3 build_village.py ASSETS_DIR [npcs] [items] [mantle] [decor] [scenes]   (no parts = all)
+python3 build_village.py ASSETS_DIR [npcs] [items] [mantle] [decor] [scenes]   (no parts = all but scenes)
 
   ASSETS/village/npc_<name>_<expression>.png        hero sprites (5 expressions each) + npc.json anchors
   ASSETS/items/item_<id>_icon.png                   quest materials + story rewards (picked up by the web packer)
   ASSETS/characters/item_reward_windtrail_mantle_back_s0N_left3q.png   overlays in each stage's hero frame
   ASSETS/habitats/decor_<id>_<slot>.png             story decor in the meadow's perspective (+ decor json)
   ASSETS/village/<scene>_*.png                      Square (3 states), interiors, Waystone close-up
+
+The scenes are lit in Blender, so `scenes` needs a Python with the bpy module: set BPY_PYTHON to it
+(or run village_blender.py with that Python directly).
 """
 import json
 import os
@@ -114,13 +117,19 @@ def decor(out):
 
 
 def scenes(out):
-    import village_scenes as VS
-    VS.build_all(os.path.join(out, 'village'))
+    import subprocess
+    import tempfile
+    py = os.environ.get('BPY_PYTHON')
+    if not py:
+        raise SystemExit('scenes: set BPY_PYTHON to a Python with the bpy module (pip install bpy)')
+    here = os.path.dirname(os.path.abspath(__file__))
+    subprocess.run([py, os.path.join(here, 'village_blender.py'), os.path.join(out, 'village'), 'all',
+                    '--meta', 'scenes.json', '--raw', tempfile.mkdtemp(prefix='village_raw_')], check=True)
 
 
 PARTS = {'npcs': npcs, 'items': items, 'mantle': mantle, 'decor': decor, 'scenes': scenes}
 
 if __name__ == '__main__':
     out = sys.argv[1]
-    for p in (sys.argv[2:] or list(PARTS)):
+    for p in (sys.argv[2:] or [k for k in PARTS if k != 'scenes']):
         PARTS[p](out)

@@ -101,12 +101,18 @@ python3 build_scenes.py ../../assets/habitats
 python3 build_decor.py ../../assets/habitats
 python3 wordmark.py ../../assets/ui_titles
 python3 sfx.py ../../assets/audio
-python3 build_village.py ../../assets                    # villagers, quest items, mantle, decor, scenes
+python3 build_village.py ../../assets                    # villagers, quest items, mantle, decor
+# village scenes are lit in Blender: a Python with the bpy module (pip install bpy, Python 3.13)
+<bpy-python> village_blender.py ../../assets/village all --meta scenes.json --raw /tmp/village_raw   # ~70 min on 2 cores
 python3 build_web_assets.py ../../assets ../../web/public/assets <fontsource-dir>
 python3 build_web_assets.py ../../assets ../../web/public/assets --village-only   # just the Village Tales art
 ```
 
 The models live in `characters.py` and `accessories.py`, and the palettes in `palettes.py`. The
 villagers are in `village_npcs.py`, the quest items and rewards in `village_items.py`, and the
-Square and the interiors in `village_scenes.py`.
+Square, the interiors and the Waystone in `village_scenes.py`.
+
+Everything is rendered by the small voxel renderer in `voxel.py` (flat-shaded faces with outlines),
+except the village scenes. Those are built from the same voxel models but rendered in Blender
+(Cycles) by `village_blender.py`, so lanterns, the forge and the sun actually light the rooms.
 Change a model or palette there and every sprite, overlay and turnaround regenerates consistently.

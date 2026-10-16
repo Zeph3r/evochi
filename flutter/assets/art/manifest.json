@@ -3023,28 +3023,28 @@
    "waystone_restored": "village/square_waystone_restored.webp",
    "anchors": {
     "glasshouse": [
-     139.2,
-     416.1
+     116.1,
+     379.9
     ],
     "workshop": [
-     640.8,
-     416.1
+     668.5,
+     377.7
     ],
     "lodge": [
      390.0,
-     195.5
+     169.1
     ],
     "waystone": [
      390.0,
-     471.7
+     398.1
     ],
     "lamp": [
-     533.9,
-     609.7
+     531.7,
+     575.7
     ],
     "market": [
-     16.3,
-     654.1
+     27.7,
+     610.7
     ]
    }
   },
