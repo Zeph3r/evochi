@@ -1,4 +1,5 @@
 // UI core: routing, rendering, HUD/nav chrome, toasts, modals and engine-event fan-out.
+import { setLook } from '../ui/puppet.js';
 import * as G from '../game/state.js';
 import { CONFIG } from '../game/config.js';
 import { ITEMS } from '../game/catalog.js';
@@ -151,6 +152,7 @@ export class App {
     const rm = s?.reducedMotion || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     this.root.classList.toggle('reduced-motion', !!rm);
     this.reducedMotion = !!rm;
+    setLook(s?.classicVillagers ? 'classic' : 'lit');
     audio.configure({ sound: s ? s.sound : true, music: s ? s.music : true });
   }
 

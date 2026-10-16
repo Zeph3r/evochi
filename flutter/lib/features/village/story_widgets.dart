@@ -41,7 +41,8 @@ class NpcImage extends StatelessWidget {
   final bool flip;
   @override
   Widget build(BuildContext context) {
-    final img = Image.asset(villageArt.npc(npcId, expression), height: height, fit: BoxFit.contain, excludeFromSemantics: true, filterQuality: FilterQuality.medium);
+    final classic = context.select<GameController, bool>((c) => c.state.player?.settings.classicVillagers ?? false);
+    final img = Image.asset(villageArt.npc(npcId, expression, classic), height: height, fit: BoxFit.contain, excludeFromSemantics: true, filterQuality: FilterQuality.medium);
     return flip ? Transform.flip(flipX: true, child: img) : img;
   }
 }

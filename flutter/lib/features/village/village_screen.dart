@@ -3,6 +3,7 @@
 // live in Journey > Story and quest items in Bag > Quest Pouch. Mirrors web/src/screens/village.js.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +13,7 @@ import '../../controllers/game_controller.dart';
 import '../../game/story/story.dart' as q;
 import '../nest/sheets.dart';
 import '../shared/widgets.dart';
+import 'npc_puppet.dart';
 import 'story_widgets.dart';
 
 const _villageRoute = 'village';
@@ -360,7 +362,7 @@ class _PlaceCard extends StatelessWidget {
             ),
             child: Stack(children: [
               Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                SizedBox(height: 84, child: Image.asset(thumb, fit: BoxFit.cover)),
+                SizedBox(height: 84, child: Image.asset(thumb, fit: BoxFit.cover, alignment: const Alignment(0, -0.16))),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
                   child: Row(children: [
@@ -392,14 +394,19 @@ class PlaceScreen extends StatefulWidget {
   State<PlaceScreen> createState() => _PlaceScreenState();
 }
 
-class _PlaceScreenState extends State<PlaceScreen> with SingleTickerProviderStateMixin {
+class _PlaceScreenState extends State<PlaceScreen> {
   late String _npc;
   String? _node;
   String? _convNpc;
   Map<String, q.ConvNode> _extraNodes = const {};
   String? _flare; // give | restore
   Timer? _flareTimer;
-  late final AnimationController _idle = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600));
+  // the line types in once (24 ms a character); tap the speech box to finish it or carry on
+  String? _typedKey;
+  int _shown = 0;
+  bool _typedDone = true;
+  Timer? _typer;
+  bool _reduce = false;
 
   q.Place get _place => q.places[widget.placeId]!;
   bool get _isWay => widget.placeId == 'waystone';
@@ -422,18 +429,48 @@ class _PlaceScreenState extends State<PlaceScreen> with SingleTickerProviderStat
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (MediaQuery.of(context).disableAnimations) {
-      _idle.stop();
-    } else if (!_idle.isAnimating) {
-      _idle.repeat(reverse: true);
-    }
+    _reduce = MediaQuery.of(context).disableAnimations;
   }
 
   @override
   void dispose() {
     _flareTimer?.cancel();
-    _idle.dispose();
+    _typer?.cancel();
     super.dispose();
+  }
+
+  /// Start typing a new line (called from build when the line changes).
+  void _typeLine(String key, int length, bool reduce) {
+    if (_typedKey == key) return;
+    _typer?.cancel();
+    _typedKey = key;
+    if (reduce) {
+      _shown = length;
+      _typedDone = true;
+      return;
+    }
+    _shown = 0;
+    _typedDone = false;
+    final start = DateTime.now();
+    _typer = Timer.periodic(const Duration(milliseconds: 24), (t) {
+      if (!mounted) return t.cancel();
+      final n = DateTime.now().difference(start).inMilliseconds ~/ 24;
+      setState(() {
+        _shown = math.min(n, length);
+        if (_shown >= length) {
+          _typedDone = true;
+          t.cancel();
+        }
+      });
+    });
+  }
+
+  void _finishLine(int length) {
+    _typer?.cancel();
+    setState(() {
+      _shown = length;
+      _typedDone = true;
+    });
   }
 
   /// The current line node. The opening graph stays reachable after an action moves the story on,
@@ -532,6 +569,15 @@ class _PlaceScreenState extends State<PlaceScreen> with SingleTickerProviderStat
     final activeQuest = st.quests.where((v) => v.accepted && !v.completed && (v.next.npc == _npc || v.giver == _npc)).firstOrNull ??
         st.quests.where((v) => v.phase == 'available' && v.giver == _npc).firstOrNull;
     const finale = ['VQ03_MIR02', 'VQ03_BRA02', 'VQ03_PIP08', 'VQ03_ALD05'];
+    final classic = c.state.player?.settings.classicVillagers ?? false;
+    final reduce = _reduce || (c.state.player?.settings.reducedMotion ?? false);
+    final key = '${widget.placeId}:$_npc:${node.id}';
+    _typeLine(key, text.length, reduce);
+    final typed = _typedDone;
+    String stateFor(String n) => line.speaker == n ? (typed ? 'idle' : 'talk') : (npcList.contains(line.speaker) ? 'listen' : 'idle');
+    final single = node.choices.length == 1 && node.choices.first.next != null && node.choices.first.act == null;
+    final mq = MediaQuery.of(context);
+    const overlap = 64.0;
     return Scaffold(
       backgroundColor: EvochiColor.panel,
       body: SafeArea(
@@ -539,124 +585,130 @@ class _PlaceScreenState extends State<PlaceScreen> with SingleTickerProviderStat
         child: Column(children: [
           _Header(title: _place.name, short: _place.short, backLabel: 'Back to the Square', onBack: () => Navigator.of(context).maybePop()),
           Expanded(
-            child: ListView(padding: EdgeInsets.only(bottom: 16 + MediaQuery.of(context).padding.bottom), children: [
-              AspectRatio(
-                aspectRatio: plateSize.width / plateSize.height,
-                child: LayoutBuilder(builder: (ctx, b) {
-                  final h = b.maxHeight * (duo ? 0.56 : 0.70);
-                  return Stack(clipBehavior: Clip.hardEdge, children: [
-                    Positioned.fill(child: Image.asset(plate, fit: BoxFit.cover, excludeFromSemantics: true, gaplessPlayback: true)),
-                    const Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: 0,
-                      height: 60,
-                      child: IgnorePointer(
-                        child: DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x00F8EBDD), Color(0xA6F8EBDD)]))),
-                      ),
-                    ),
-                    for (var i = 0; i < npcList.length; i++)
-                      Positioned(
-                        left: duo && i == 1 ? null : b.maxWidth * (duo ? 0.03 : 0.05),
-                        right: duo && i == 1 ? b.maxWidth * 0.03 : null,
-                        bottom: b.maxHeight * 0.04,
-                        height: h,
-                        child: _NpcButton(
-                          npcId: npcList[i],
-                          expression: exprFor(npcList[i]),
-                          active: npcList[i] == _npc,
-                          flip: duo && i == 1,
-                          mark: npcList[i] != _npc ? marks[npcList[i]] : null,
-                          idle: _idle,
-                          height: h,
-                          tint: _roomTint[widget.placeId],
-                          onTap: () => _switchNpc(c, npcList[i]),
-                        ),
-                      ),
-                    if (_isWay && finale.contains(node.id))
-                      Positioned(
-                        left: b.maxWidth * 0.04,
-                        bottom: b.maxHeight * 0.03,
-                        height: b.maxHeight * 0.46,
-                        child: NpcImage(line.speaker, expression: line.expression ?? 'happy', height: b.maxHeight * 0.46),
-                      ),
-                    Positioned.fill(
-                      child: IgnorePointer(
-                        child: AnimatedOpacity(
-                          opacity: _flare == null ? 0 : 1,
-                          duration: Duration(milliseconds: _flare == null ? 900 : 250),
-                          child: DecoratedBox(
-                            decoration: BoxDecoration(
-                              gradient: RadialGradient(
-                                center: _isWay ? Alignment.center : const Alignment(-0.32, 0.28),
-                                radius: 0.6,
-                                colors: _isWay ? const [Color(0xF2BEF5E4), Color(0x009FE3CF)] : const [Color(0xD9FFECAA), Color(0x00FFD66E)],
+            child: LayoutBuilder(builder: (ctx, outer) {
+              final w = outer.maxWidth;
+              final stageH = w * plateSize.height / plateSize.width;
+              final visibleH = math.min(stageH, math.max(340.0, mq.size.height - 300));
+              final speakerX = npcList.contains(line.speaker) ? villageArt.puppet(line.speaker)?.gx : null;
+              final tailX = (speakerX ?? (_isWay ? 0.22 : 0.5)).clamp(0.14, 0.86).toDouble();
+              return ListView(padding: EdgeInsets.only(bottom: 16 + mq.padding.bottom), children: [
+                // the room: taller than its slot by `overlap`, so the speech box sits over its floor
+                SizedBox(
+                  height: visibleH - overlap,
+                  child: OverflowBox(
+                    alignment: Alignment.topCenter,
+                    minHeight: visibleH,
+                    maxHeight: visibleH,
+                    child: ClipRect(
+                      child: OverflowBox(
+                        alignment: Alignment.bottomCenter,
+                        minHeight: stageH,
+                        maxHeight: stageH,
+                        child: SizedBox(
+                          width: w,
+                          height: stageH,
+                          child: Stack(clipBehavior: Clip.hardEdge, children: [
+                            Positioned.fill(
+                              child: ColorFiltered(
+                                colorFilter: const ColorFilter.matrix(_backdrop),
+                                child: Image.asset(plate, fit: BoxFit.cover, excludeFromSemantics: true, gaplessPlayback: true),
                               ),
                             ),
-                          ),
+                            // depth: a soft vignette and a fade into the page keep the eye on the villagers
+                            const Positioned.fill(
+                              child: IgnorePointer(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: RadialGradient(center: Alignment(0, 0.2), radius: 1.05, colors: [Color(0x001E1208), Color(0x001E1208), Color(0x3D1E1208)], stops: [0, 0.55, 1]),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            const Positioned.fill(
+                              child: IgnorePointer(
+                                child: DecoratedBox(
+                                  decoration: BoxDecoration(
+                                    gradient: LinearGradient(
+                                      begin: Alignment.topCenter,
+                                      end: Alignment.bottomCenter,
+                                      colors: [Color(0x00F8EBDD), Color(0x00F8EBDD), Color(0x80F8EBDD), Color(0xFFF8EBDD)],
+                                      stops: [0, 0.8, 0.92, 1],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                            for (final n in npcList)
+                              _StageNpc(
+                                npcId: n,
+                                stageW: w,
+                                stageH: stageH,
+                                expression: exprFor(n),
+                                state: stateFor(n),
+                                active: n == _npc,
+                                talking: line.speaker == n,
+                                duo: duo,
+                                mark: n != _npc ? marks[n] : null,
+                                classic: classic,
+                                animate: !reduce,
+                                onTap: () => _switchNpc(c, n),
+                              ),
+                            if (_isWay && finale.contains(node.id))
+                              Positioned(
+                                left: w * 0.04,
+                                bottom: stageH * 0.14,
+                                height: stageH * 0.46,
+                                child: NpcImage(line.speaker, expression: line.expression ?? 'happy', height: stageH * 0.46),
+                              ),
+                            Positioned.fill(
+                              child: IgnorePointer(
+                                child: AnimatedOpacity(
+                                  opacity: _flare == null ? 0 : 1,
+                                  duration: Duration(milliseconds: _flare == null ? 900 : 250),
+                                  child: DecoratedBox(
+                                    decoration: BoxDecoration(
+                                      gradient: RadialGradient(
+                                        center: _isWay ? Alignment.center : const Alignment(-0.28, 0.24),
+                                        radius: 0.6,
+                                        colors: _isWay ? const [Color(0xF2BEF5E4), Color(0x009FE3CF)] : const [Color(0xD9FFECAA), Color(0x00FFD66E)],
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ]),
                         ),
                       ),
                     ),
-                  ]);
-                }),
-              ),
-              if (duo)
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-                  child: Row(children: [
-                    for (final n in npcList)
-                      Expanded(
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 3),
-                          child: _NpcTab(npcId: n, selected: n == _npc, badge: marks.containsKey(n), onTap: () => _switchNpc(c, n)),
-                        ),
-                      ),
-                  ]),
+                  ),
                 ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-                child: Semantics(
-                  liveRegion: true,
-                  label: speaker.name,
-                  child: GameCard(
-                    color: EvochiColor.canvas,
-                    padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  child: _SpeechBox(
+                    speaker: speaker,
+                    text: text,
+                    shown: typed ? text.length : _shown,
+                    done: typed,
+                    more: single,
+                    tailX: tailX,
+                    quest: activeQuest == null ? null : () => showStoryQuest(context, activeQuest.id),
+                    onTap: () {
+                      if (!typed) {
+                        _finishLine(text.length);
+                      } else if (single) {
+                        _choose(c, node.choices.first, nodes);
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(height: 14),
+                AnimatedOpacity(
+                  opacity: typed ? 1 : 0.55,
+                  duration: const Duration(milliseconds: 250),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14),
                     child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                      Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-                        Flexible(
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: speaker.color,
-                              borderRadius: BorderRadius.circular(10),
-                              boxShadow: const [BoxShadow(color: Color(0x33000000), offset: Offset(0, 2))],
-                            ),
-                            child: Text.rich(
-                              TextSpan(children: [
-                                TextSpan(text: speaker.name, style: EvochiText.cardTitle.copyWith(color: Colors.white, fontWeight: FontWeight.w900)),
-                                if (speaker.role.isNotEmpty)
-                                  TextSpan(text: '  ${speaker.role}', style: EvochiText.tag.copyWith(color: const Color(0xD9FFFFFF), fontSize: 12)),
-                              ]),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                          ),
-                        ),
-                        if (activeQuest != null) ...[
-                          const SizedBox(width: 8),
-                          EvochiButton(
-                            label: 'Quest',
-                            small: true,
-                            expand: false,
-                            tone: ButtonTone.cream,
-                            icon: const VoxelIcon('journey', size: 22),
-                            onPressed: () => showStoryQuest(context, activeQuest.id),
-                          ),
-                        ],
-                      ]),
-                      const SizedBox(height: 10),
-                      Text(text, style: EvochiText.bodyText.copyWith(fontSize: 16, height: 1.45, fontWeight: FontWeight.w600)),
-                      const SizedBox(height: 12),
                       for (final ch in node.choices) ...[
                         _ChoiceButton(choice: ch, onTap: () => _choose(c, ch, nodes)),
                         const SizedBox(height: 10),
@@ -664,8 +716,8 @@ class _PlaceScreenState extends State<PlaceScreen> with SingleTickerProviderStat
                     ]),
                   ),
                 ),
-              ),
-            ]),
+              ]);
+            }),
           ),
         ]),
       ),
@@ -673,99 +725,95 @@ class _PlaceScreenState extends State<PlaceScreen> with SingleTickerProviderStat
   }
 }
 
-class _NpcButton extends StatelessWidget {
-  const _NpcButton({
+// the room plate sits back a touch so the villagers and the dialogue read first
+const _backdrop = <double>[
+  0.92, 0.05, 0.0, 0, 0, //
+  0.02, 0.94, 0.0, 0, 0, //
+  0.01, 0.04, 0.89, 0, 0, //
+  0, 0, 0, 1, 0,
+];
+
+/// A villager standing in the room: the animated puppet, a tap ring at their feet when you can switch
+/// to them, a name chip over their head in shared rooms, and a quest marker.
+class _StageNpc extends StatelessWidget {
+  const _StageNpc({
     required this.npcId,
+    required this.stageW,
+    required this.stageH,
     required this.expression,
+    required this.state,
     required this.active,
-    required this.flip,
+    required this.talking,
+    required this.duo,
     required this.mark,
-    required this.idle,
-    required this.height,
+    required this.classic,
+    required this.animate,
     required this.onTap,
-    this.tint,
   });
   final String npcId;
+  final double stageW;
+  final double stageH;
   final String expression;
+  final String state;
   final bool active;
-  final bool flip;
+  final bool talking;
+  final bool duo;
   final String? mark;
-  final Animation<double> idle;
-  final double height;
+  final bool classic;
+  final bool animate;
   final VoidCallback onTap;
-  final List<double>? tint; // a little of the room's light (sprites are shared between places)
+
   @override
   Widget build(BuildContext context) {
-    final sz = villageArt.npcSize(npcId);
-    final w = height * sz.width / sz.height;
-    final g = villageArt.npcGround(npcId);
-    final gx = flip ? 1 - g.dx : g.dx;
-    Widget img = NpcImage(npcId, expression: expression, height: height, flip: flip);
-    if (tint != null) img = ColorFiltered(colorFilter: ColorFilter.matrix(tint!), child: img);
-    if (!active) img = ColorFiltered(colorFilter: const ColorFilter.matrix(_dim), child: img);
-    return Semantics(
-      button: true,
-      selected: active,
-      label: 'Talk to ${speakers[npcId]!.name}',
-      child: GestureDetector(
-        onTap: onTap,
-        child: SizedBox(
-          width: w,
-          height: height,
+    final art = villageArt.puppet(npcId);
+    final size = villageArt.npcSize(npcId);
+    final h = stageH * (art?.hf ?? 0.5);
+    final w = h * size.width / size.height;
+    final flip = art?.flip ?? false;
+    final g = art?.ground ?? Offset(size.width / 2, size.height * 0.94);
+    final gx = (flip ? size.width - g.dx : g.dx) / size.width;
+    final gy = g.dy / size.height;
+    final top = art?.top ?? Offset(size.width / 2, 0);
+    final tx = (flip ? size.width - top.dx : top.dx) / size.width;
+    final ty = top.dy / size.height;
+    final left = stageW * (art?.gx ?? 0.36) - gx * w;
+    final topPx = stageH * (art?.gy ?? 0.8) - gy * h;
+    Widget fig = art == null
+        ? NpcImage(npcId, expression: expression, height: h)
+        : NpcPuppet(art: art, width: w, height: h, expression: expression, state: state, classic: classic, animate: animate);
+    if (flip) fig = Transform.flip(flipX: true, child: fig);
+    if (!active && !talking) fig = ColorFiltered(colorFilter: const ColorFilter.matrix(_dim), child: fig);
+    return Positioned(
+      left: left,
+      top: topPx,
+      width: w,
+      height: h,
+      child: Semantics(
+        button: true,
+        selected: active,
+        label: 'Talk to ${speakers[npcId]!.name}${mark == 'handin' ? ', something to hand in' : mark != null ? ', new quest' : ''}',
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
           child: Stack(clipBehavior: Clip.none, children: [
-            // soft contact shadow on the floor, under the feet
-            Positioned(
-              left: w * (gx - 0.25),
-              top: height * g.dy - height * 0.045,
-              width: w * 0.5,
-              height: height * 0.09,
-              child: IgnorePointer(child: CustomPaint(painter: _ContactShadow())),
-            ),
-            AnimatedBuilder(
-              animation: idle,
-              builder: (_, child) => Transform(
-                alignment: Alignment.bottomCenter,
-                transform: Matrix4.diagonal3Values(1, 1 + 0.018 * idle.value, 1),
-                child: child,
-              ),
-              child: img,
-            ),
-            if (mark != null) Positioned(top: 0, right: w * 0.12, child: _Mark(mark!)),
+            if (!active) Positioned(left: gx * w - w * 0.31, top: gy * h - w * 0.09, width: w * 0.62, height: w * 0.18, child: _TapRing(animate: animate)),
+            Positioned.fill(child: fig),
+            if (duo)
+              Positioned(
+                left: tx * w - 60,
+                top: ty * h - 34,
+                width: 120,
+                height: 28,
+                child: Center(child: _NameChip(name: speakers[npcId]!.name, active: active, mark: mark)),
+              )
+            else if (mark != null)
+              Positioned(left: tx * w - 18, top: ty * h - 44, child: _Mark(mark!)),
           ]),
         ),
       ),
     );
   }
 }
-
-class _ContactShadow extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final p = Paint()
-      ..color = const Color(0x7324160A)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, size.height * 0.35);
-    canvas.drawOval(Rect.fromLTWH(size.width * 0.1, size.height * 0.15, size.width * 0.8, size.height * 0.7), p);
-  }
-
-  @override
-  bool shouldRepaint(_ContactShadow oldDelegate) => false;
-}
-
-// each room's light on the villagers: warm lanterns in the Workshop and Lodge, daylight in the Glasshouse
-const _roomTint = <String, List<double>>{
-  'workshop': [
-    1.02, 0.04, 0.0, 0, 0, //
-    0.02, 0.95, 0.0, 0, 0, //
-    0.0, 0.02, 0.86, 0, 0, //
-    0, 0, 0, 1, 0,
-  ],
-  'lodge': [
-    1.0, 0.02, 0.0, 0, 0, //
-    0.01, 0.97, 0.0, 0, 0, //
-    0.0, 0.01, 0.92, 0, 0, //
-    0, 0, 0, 1, 0,
-  ],
-};
 
 // a touch darker and less saturated for the villager who isn't talking
 const _dim = <double>[
@@ -775,44 +823,181 @@ const _dim = <double>[
   0, 0, 0, 1, 0,
 ];
 
-class _NpcTab extends StatelessWidget {
-  const _NpcTab({required this.npcId, required this.selected, required this.badge, required this.onTap});
-  final String npcId;
-  final bool selected;
-  final bool badge;
-  final VoidCallback onTap;
+class _TapRing extends StatefulWidget {
+  const _TapRing({required this.animate});
+  final bool animate;
   @override
-  Widget build(BuildContext context) => Semantics(
-        selected: selected,
-        button: true,
-        label: speakers[npcId]!.name,
-        child: GestureDetector(
-          onTap: onTap,
-          child: Stack(clipBehavior: Clip.none, children: [
-            Container(
-              height: 48,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: selected ? const Color(0xFFF0B952) : const Color(0xFFE2CDB4), width: 2),
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: selected ? const [Color(0xFFFFF4D6), Color(0xFFFFE1A1)] : const [Color(0xFFFBF2E7), Color(0xFFEFE0CD)],
-                ),
-              ),
-              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                NpcImage(npcId, height: 30),
-                const SizedBox(width: 4),
-                Text(speakers[npcId]!.name, style: EvochiText.tag.copyWith(color: selected ? EvochiColor.ink : EvochiColor.textSecondary)),
-              ]),
+  State<_TapRing> createState() => _TapRingState();
+}
+
+class _TapRingState extends State<_TapRing> with SingleTickerProviderStateMixin {
+  late final AnimationController _c = AnimationController(vsync: this, duration: const Duration(milliseconds: 900));
+  @override
+  void initState() {
+    super.initState();
+    if (widget.animate) _c.repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _c.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => IgnorePointer(
+        child: AnimatedBuilder(
+          animation: _c,
+          builder: (_, child) => Opacity(opacity: 0.5 + 0.5 * _c.value, child: Transform.scale(scale: 0.9 + 0.14 * _c.value, child: child)),
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              shape: BoxShape.rectangle,
+              borderRadius: const BorderRadius.all(Radius.elliptical(200, 60)),
+              border: Border.all(color: const Color(0xF2FFEEB2), width: 3),
+              boxShadow: const [BoxShadow(color: Color(0xD9FFD26E), blurRadius: 10)],
             ),
-            if (badge) const Positioned(top: -4, right: -4, child: BadgeDot()),
-          ]),
+          ),
         ),
       );
 }
 
-/// A dialogue choice: left-aligned, wraps to two lines, shows the items being handed over.
+class _NameChip extends StatelessWidget {
+  const _NameChip({required this.name, required this.active, this.mark});
+  final String name;
+  final bool active;
+  final String? mark;
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
+        decoration: BoxDecoration(
+          color: active ? EvochiColor.gold100 : const Color(0xF5FFF9F0),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: active ? EvochiColor.primary : const Color(0xFFE2CDB4), width: 2),
+          boxShadow: [BoxShadow(color: active ? EvochiColor.primaryShadow : const Color(0xFFCDB396), offset: const Offset(0, 2))],
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, children: [
+          if (mark != null && !active) ...[Transform.scale(scale: 0.8, child: _Mark(mark!)), const SizedBox(width: 2)],
+          Text(name, style: EvochiText.tag.copyWith(color: EvochiColor.ink, fontWeight: FontWeight.w900)),
+        ]),
+      );
+}
+
+/// The storybook speech box: a name tab over its top edge, a tail pointing at the speaker, the line
+/// typing in, and a nudge (▼) when tapping the box carries on.
+class _SpeechBox extends StatelessWidget {
+  const _SpeechBox({
+    required this.speaker,
+    required this.text,
+    required this.shown,
+    required this.done,
+    required this.more,
+    required this.tailX,
+    required this.quest,
+    required this.onTap,
+  });
+  final Speaker speaker;
+  final String text;
+  final int shown;
+  final bool done;
+  final bool more;
+  final double tailX;
+  final VoidCallback? quest;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    const paper = Color(0xFFFFF9F0);
+    const edge = Color(0xFFE2CDB4);
+    return Semantics(
+      liveRegion: true,
+      label: '${speaker.name}: $text',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: LayoutBuilder(builder: (ctx, b) {
+          return Stack(clipBehavior: Clip.none, children: [
+            Container(
+              margin: const EdgeInsets.only(top: 22),
+              padding: const EdgeInsets.fromLTRB(16, 22, 16, 18),
+              decoration: BoxDecoration(
+                color: paper,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: edge, width: 2.5),
+                boxShadow: const [
+                  BoxShadow(color: Color(0xFFCDB396), offset: Offset(0, 4)),
+                  BoxShadow(color: Color(0x3D28190A), blurRadius: 26, offset: Offset(0, 12)),
+                ],
+              ),
+              child: ExcludeSemantics(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(minHeight: 50),
+                  child: Text.rich(
+                    TextSpan(children: [
+                      TextSpan(text: text.substring(0, math.max(0, math.min(shown, text.length)))),
+                      // the untyped rest keeps its space, so the box doesn't grow while typing
+                      TextSpan(text: text.substring(math.max(0, math.min(shown, text.length))), style: const TextStyle(color: Color(0x00000000))),
+                    ]),
+                    style: EvochiText.bodyText.copyWith(fontSize: 17, height: 1.47, fontWeight: FontWeight.w600, color: EvochiColor.ink),
+                  ),
+                ),
+              ),
+            ),
+            // tail toward the speaker
+            Positioned(
+              left: b.maxWidth * tailX - 11,
+              top: 11,
+              child: Transform.rotate(
+                angle: math.pi / 4,
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: const BoxDecoration(
+                    color: paper,
+                    borderRadius: BorderRadius.only(topLeft: Radius.circular(5)),
+                    border: Border(left: BorderSide(color: edge, width: 2.5), top: BorderSide(color: edge, width: 2.5)),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              left: 0,
+              right: 0,
+              top: 0,
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Flexible(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: speaker.color,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white, width: 2),
+                      boxShadow: const [BoxShadow(color: Color(0x38000000), offset: Offset(0, 3)), BoxShadow(color: Color(0x2E28190A), blurRadius: 10, offset: Offset(0, 4))],
+                    ),
+                    child: Text.rich(
+                      TextSpan(children: [
+                        TextSpan(text: speaker.name, style: EvochiText.cardTitle.copyWith(color: Colors.white, fontWeight: FontWeight.w900, fontSize: 17)),
+                        if (speaker.role.isNotEmpty) TextSpan(text: '  ${speaker.role}', style: EvochiText.tag.copyWith(color: const Color(0xD9FFFFFF), fontSize: 12)),
+                      ]),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ),
+                if (quest != null) ...[
+                  const SizedBox(width: 8),
+                  EvochiButton(label: 'Quest', small: true, expand: false, tone: ButtonTone.cream, icon: const VoxelIcon('journey', size: 22), onPressed: quest),
+                ],
+              ]),
+            ),
+            if (more && done)
+              const Positioned(right: 16, bottom: 6, child: Text('▼', style: TextStyle(fontSize: 13, color: EvochiColor.primaryShadow))),
+          ]);
+        }),
+      ),
+    );
+  }
+}
+
 class _ChoiceButton extends StatelessWidget {
   const _ChoiceButton({required this.choice, required this.onTap});
   final q.Choice choice;

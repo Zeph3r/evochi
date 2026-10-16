@@ -228,6 +228,8 @@ def add_light(L):
     d.energy = L['power']
     ob = bpy.data.objects.new('light', d)
     bpy.context.scene.collection.objects.link(ob)
+    if kind in ('area', 'spot'):
+        ob.visible_camera = False     # big fill panels may sit inside a tall frame
     if kind == 'sun':
         # direction the light travels, in voxel space
         dx, dy, dz = L['dir']
@@ -276,11 +278,34 @@ def reset():
     _MATS.clear()
 
 
+def use_gpu(scene):
+    """Render on the GPU if Cycles finds one (OptiX/CUDA for NVIDIA, HIP for AMD, Metal, oneAPI)."""
+    try:
+        prefs = bpy.context.preferences.addons['cycles'].preferences
+    except KeyError:
+        return None
+    for kind in ('OPTIX', 'CUDA', 'HIP', 'METAL', 'ONEAPI'):
+        try:
+            prefs.compute_device_type = kind
+        except TypeError:
+            continue
+        prefs.get_devices()
+        devs = [d for d in prefs.devices if d.type == kind]
+        if devs:
+            for d in prefs.devices:
+                d.use = d.type == kind
+            scene.cycles.device = 'GPU'
+            return kind + ': ' + ', '.join(d.name for d in devs)
+    return None
+
+
 def render(vs, out_path, preview=False):
     reset()
     sc = bpy.context.scene
     sc.render.engine = 'CYCLES'
     sc.cycles.device = 'CPU'
+    if GPU:
+        print('device:', use_gpu(sc) or 'CPU (no GPU found)', flush=True)
     scale = 0.5 if preview else 1.0
     sc.render.resolution_x = int(vs.w * scale)
     sc.render.resolution_y = int(vs.h * scale)
@@ -310,7 +335,7 @@ def render(vs, out_path, preview=False):
     for i, item in enumerate(vs.models):
         M, glass = item[0], item[1]
         opts = item[2] if len(item) > 2 else {}
-        ob, n = model_mesh(M, f'{vs.name}_{i}', glass, water=opts.get('water', ()))
+        ob, n = model_mesh(M, f'{vs.name}_{i}', glass, water=tuple(opts.get('water', ())))
         if opts.get('shadow') is False:
             ob.visible_shadow = False
         nf += n
@@ -330,11 +355,14 @@ def render(vs, out_path, preview=False):
     return anchors
 
 
+GPU = False
+
 if __name__ == '__main__':
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-    import village_scenes as VS2
-    args = sys.argv[1:]
+    args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:]
     preview = '--preview' in args
+    GPU = '--gpu' in args
+    args = [a for a in args if a != '--gpu']
 
     def opt(name, default):
         if name in args:
@@ -348,17 +376,27 @@ if __name__ == '__main__':
     meta_name = opt('--meta', 'scenes_blender.json')
     args = [a for a in args if a != '--preview']
     out, names = args[0], args[1:]
-    if names == ['all']:
-        names = list(VS2.SCENES)
+    packed = all(n.endswith('.npz') for n in names)
+    if not packed:
+        import village_scenes as VS2      # needs scipy/cv2/PIL; packed scenes need only numpy
+        if names == ['all']:
+            names = list(VS2.SCENES)
     raw_dir = raw_dir or out
     os.makedirs(out, exist_ok=True)
     os.makedirs(raw_dir, exist_ok=True)
     meta_path = os.path.join(out, meta_name)
     meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {}
     for n in names:
-        vs = VS2.SCENES[n]()
+        if packed:
+            # pack from scene_pack.py: render the raw frame only (grading happens where PIL lives)
+            import scene_pack
+            vs = scene_pack.unpack(n)
+            n = vs.name
+        else:
+            vs = VS2.SCENES[n]()
         raw = os.path.join(raw_dir, f'{n}_raw.png')
         anchors = render(vs, raw, preview)
-        VS2.finish(vs, raw, os.path.join(out, f'{n}.png'), preview)
+        if not packed:
+            VS2.finish(vs, raw, os.path.join(out, f'{n}.png'), preview)
         meta[n] = {'w': vs.w, 'h': vs.h, 'anchors': anchors}
         json.dump(meta, open(meta_path, 'w'), indent=1)

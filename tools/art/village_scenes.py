@@ -256,29 +256,33 @@ def gear(P, M, cx, cy, z, r, cols=BRASS, teeth=8, th=0.5):
 
 
 # ------------------------------------------------------------------ rooms ----
-ROOM = dict(x0=-18.0, x1=18.0, back=-12.0, front=16.0, h=20.0)
+ROOM = dict(x0=-18.0, x1=18.0, back=-12.0, front=16.0, h=20.0, near=28.0)   # floor/ceiling run on to `near`
+# Interiors are framed tall for phones: the room fills the top of the screen and the villagers stand on
+# the floor in front, where the dialogue box overlaps it.
+INTERIOR_W, INTERIOR_H = 1170, 1500
 
 
 def interior_cam():
-    return {'pos': (0.0, 10.5, 33.0), 'target': (0.0, 7.4, -6.0), 'fov': 44.0}
+    # gentle depth of field, focused where the villagers stand: the busy back wall softens a touch
+    return {'pos': (0.0, 11.0, 40.0), 'target': (0.0, 4.5, -6.0), 'fov': 58.0, 'focus': (0.0, 4.0, 9.0), 'fstop': 1.4}
 
 
 def room_shell(P, M, floor_cols, wall_cols, side_cols=None, floor_cell=(1.5, 1, 7), wall_cell=(1, 1, 1),
                ceiling=WALNUT, beams=True):
     R = ROOM
-    P.fill(box(M, (R['x0'] - 1, -1, R['back'] - 1), (R['x1'] + 1, 0, R['front'])), floor_cols, cell=floor_cell)
+    P.fill(box(M, (R['x0'] - 1, -1, R['back'] - 1), (R['x1'] + 1, 0, R['near'])), floor_cols, cell=floor_cell)
     # plank seams
-    P.fill(box(M, (R['x0'], -0.5, R['back']), (R['x1'], 0, R['front'])) & (((M.X - R['x0']) % floor_cell[0]) < 0.3),
+    P.fill(box(M, (R['x0'], -0.5, R['back']), (R['x1'], 0, R['near'])) & (((M.X - R['x0']) % floor_cell[0]) < 0.3),
            ['#6E4A30'], cell=9)
     # staggered plank ends
-    P.fill(box(M, (R['x0'], -0.5, R['back']), (R['x1'], 0, R['front'])) &
+    P.fill(box(M, (R['x0'], -0.5, R['back']), (R['x1'], 0, R['near'])) &
            (((M.Z + 3.0 * np.floor((M.X - R['x0']) / floor_cell[0])) % floor_cell[2]) < 0.3), ['#6E4A30'], cell=9)
     P.fill(box(M, (R['x0'] - 1, 0, R['back'] - 1), (R['x1'] + 1, R['h'], R['back'])), wall_cols, cell=wall_cell)
     for sx in (R['x0'] - 1, R['x1']):
         P.fill(box(M, (sx, 0, R['back']), (sx + 1, R['h'], R['front'])), side_cols or wall_cols, cell=wall_cell)
-    P.fill(box(M, (R['x0'] - 1, R['h'], R['back'] - 1), (R['x1'] + 1, R['h'] + 1, R['front'])), ceiling, cell=(9, 1, 2))
+    P.fill(box(M, (R['x0'] - 1, R['h'], R['back'] - 1), (R['x1'] + 1, R['h'] + 1, R['near'])), ceiling, cell=(9, 1, 2))
     if beams:
-        for bz in (-9.0, -2.0, 5.0, 12.0):
+        for bz in (-9.0, -2.0, 5.0, 12.0, 19.0, 26.0):
             P.fill(box(M, (R['x0'], R['h'] - 1.4, bz - 0.7), (R['x1'], R['h'], bz + 0.7)), WALNUT, cell=(9, 9, 9))
         for bx in (R['x0'] + 0.1, R['x1'] - 1.0):
             pass
@@ -286,8 +290,8 @@ def room_shell(P, M, floor_cols, wall_cols, side_cols=None, floor_cell=(1.5, 1, 
 
 def scene_workshop():
     """Bram's Lampwright Workshop: a wall of finished lanterns, the forge, the long workbench."""
-    S = VScene('workshop', 1170, 900, interior_cam(), world=((0.85, 0.82, 0.78), 0.12), samples=192)
-    M = Model((-20, -2, -14), (20, 22, 17), [], res=4)
+    S = VScene('workshop', INTERIOR_W, INTERIOR_H, interior_cam(), world=((0.85, 0.82, 0.78), 0.12), samples=192)
+    M = Model((-20, -2, -14), (20, 22, 29), [], res=4)
     P = CPainter(M, 61)
     rng = np.random.default_rng(61)
     R = ROOM
@@ -508,16 +512,16 @@ def flower_pot(P, M, x, y, z, s, col, rng, kind=None):
 
 def scene_glasshouse():
     """Mira's Glasshouse: sunlight through a glass roof, tiers of pots, vines, the Lumenbud bench."""
-    S = VScene('glasshouse', 1170, 900, interior_cam(), world=((0.75, 0.88, 1.0), 0.45), samples=160)
-    M = Model((-20, -2, -14), (20, 24, 17), [], res=4)
+    S = VScene('glasshouse', INTERIOR_W, INTERIOR_H, interior_cam(), world=((0.75, 0.88, 1.0), 0.45), samples=160)
+    M = Model((-20, -2, -14), (20, 24, 29), [], res=4)
     P = CPainter(M, 51)
     rng = np.random.default_rng(51)
     R = ROOM
     # terracotta tile floor with grout and a pale stone aisle
-    fl = box(M, (R['x0'] - 1, -1, R['back'] - 1), (R['x1'] + 1, 0, R['front']))
+    fl = box(M, (R['x0'] - 1, -1, R['back'] - 1), (R['x1'] + 1, 0, R['near']))
     P.fill(fl, TERRACOTTA, cell=(2.0, 1, 2.0))
     P.fill(fl & ((((M.X - R['x0']) % 2.0) < 0.26) | (((M.Z - R['back']) % 2.0) < 0.26)), ['#E6D5BF'], cell=9)
-    for k, zz in enumerate(np.arange(R['back'] + 3.0, R['front'], 2.6)):
+    for k, zz in enumerate(np.arange(R['back'] + 3.0, R['near'], 2.6)):
         xx = 1.0 + 0.15 * (zz - 2) + 0.6 * math.sin(k * 1.9)
         st_ = ((M.X - xx) ** 2 / 2.4 + (M.Z - zz) ** 2 / 1.0 <= 1.0) & (M.Y >= -0.5) & (M.Y < 0.25)
         P.fill(st_, ['#B5A68C', '#AA9A80', '#BDAF96'], cell=(1.0, 1, 1.0))
@@ -532,10 +536,10 @@ def scene_glasshouse():
     ridge_y, eave_y = 22.0, 17.0
     slope = (ridge_y - eave_y) / R['x1']
     roof_y = ridge_y - np.abs(M.X) * slope
-    roof = (M.Y >= roof_y) & (M.Y < roof_y + 0.8) & (np.abs(M.X) <= R['x1'] + 1) & (M.Z >= R['back'] - 1) & (M.Z < R['front'])
+    roof = (M.Y >= roof_y) & (M.Y < roof_y + 0.8) & (np.abs(M.X) <= R['x1'] + 1) & (M.Z >= R['back'] - 1) & (M.Z < R['near'])
     P.fill(roof, CLEAR_GLASS, cell=50)
     P.fill(roof & ((((M.Z - R['back']) % 4.0) < 0.6) | (((np.abs(M.X)) % 4.5) < 0.6) | (np.abs(M.X) < 0.6)), SAGE, cell=9)
-    P.fill(box(M, (R['x0'] - 1, eave_y - 0.6, R['back'] - 1), (R['x1'] + 1, eave_y, R['front'])) & (np.abs(M.X) > R['x1'] - 0.5), ['#43523D'])
+    P.fill(box(M, (R['x0'] - 1, eave_y - 0.6, R['back'] - 1), (R['x1'] + 1, eave_y, R['near'])) & (np.abs(M.X) > R['x1'] - 0.5), ['#43523D'])
     S.models.append((surround(-26.0, 22.0, 24.0, seed=5), (), {'shadow': False}))
     S.lights.append({'type': 'sun', 'dir': (0.5, -0.8, 0.45), 'power': 2.7, 'color': 5500, 'angle': 2.5})
     S.lights.append({'type': 'area', 'pos': (0.0, 18.0, 22.0), 'aim': (0.0, 4.0, -6.0), 'size': (30.0, 8.0), 'power': 90.0, 'color': 6500})
@@ -658,8 +662,8 @@ def parcel(P, M, x, y, z, sx, sy, sz, col=['#C9A26E', '#BF976A'], string='#8D5D3
 
 def scene_lodge():
     """The Trail Guild Lodge: Pip's courier counter (left), Alder's map desk (right), the trail map."""
-    S = VScene('lodge', 1170, 900, interior_cam(), world=((0.88, 0.84, 0.78), 0.14), samples=160)
-    M = Model((-20, -2, -14), (20, 22, 17), [], res=4)
+    S = VScene('lodge', INTERIOR_W, INTERIOR_H, interior_cam(), world=((0.88, 0.84, 0.78), 0.14), samples=160)
+    M = Model((-20, -2, -14), (20, 22, 29), [], res=4)
     P = CPainter(M, 71)
     rng = np.random.default_rng(71)
     R = ROOM

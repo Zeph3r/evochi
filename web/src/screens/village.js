@@ -8,6 +8,7 @@ import { html, raw, fmt } from '../ui/dom.js';
 import { icon, itemImg, url, manifest } from '../ui/assets.js';
 import { ICON } from '../ui/icons.js';
 import { coinPill } from '../core/app.js';
+import { puppetHTML, startPuppets, setPuppetState, flatSprite } from '../ui/puppet.js';
 
 const NPC_KEY = (id) => id.replace('npc_', '');
 const SPEAKER = {
@@ -23,8 +24,7 @@ function V() {
   return manifest().village;
 }
 export function npcSprite(npcId, expr = 'neutral') {
-  const n = V().npcs[NPC_KEY(npcId)];
-  return url(n.expr[expr] || n.expr.neutral);
+  return flatSprite(V().npcs[NPC_KEY(npcId)], expr);
 }
 function squareArt(flags) {
   const sq = V().square;
@@ -322,12 +322,69 @@ function handinIcons(ctx, ch) {
   return html`<span class="give">${items.map(([id, n]) => html`<img src="${itemImg(id)}" alt="">${n > 1 ? html`<b>x${n}</b>` : ''}`)}</span>`;
 }
 
+const TYPE_MS = 24;          // per character: a line of ~80 characters types in about two seconds
+let typing = null;
+
+/** Where a villager is drawn on the room plate (percent of the stage), from the art's stage layout. */
+function npcBox(m, pw, ph) {
+  const st = m.stage || { gx: 0.36, gy: 0.8, hf: 0.5, flip: false };
+  const h = st.hf * 100;
+  const w = st.hf * (m.w / m.h) * (ph / pw) * 100;
+  const gx = (st.flip ? m.w - m.ground[0] : m.ground[0]) / m.w;
+  const gy = m.ground[1] / m.h;
+  const tx = ((st.flip ? m.w - (m.top || m.ground)[0] : (m.top || m.ground)[0]) / m.w) * 100;
+  const ty = ((m.top || [0, 0])[1] / m.h) * 100;
+  return { left: st.gx * 100 - gx * w, top: st.gy * 100 - gy * h, w, h, gx: gx * 100, gy: gy * 100, tx, ty, flip: st.flip, feet: st.gx * 100 };
+}
+
+function lineKey(ctx, npc, nodeId) {
+  return `${ctx.app.route.params.id}:${npc}:${nodeId}`;
+}
+
 export const place = {
   id: 'place',
   scene: () => null,
-  mount(ctx) {
+  mount(ctx, el) {
     const npc = placeNpc(ctx);
     if (npc !== 'waystone') ctx.store.state.story?.npcsMet?.[npc] || setTimeout(() => ctx.act(Q.markNpcMet, npc), 0);
+    if (!el) return;
+    startPuppets(el, (k) => V().npcs[k], { reduced: ctx.app.reducedMotion });
+    // the line types in (once per line; re-renders pick up where it was)
+    if (typing) clearInterval(typing);
+    const sp = el.querySelector('.speech');
+    const out = sp?.querySelector('.typed');
+    if (!out) return;
+    const u = ctx.ui('place');
+    const full = out.dataset.full;
+    const key = out.dataset.key;
+    const finish = () => {
+      if (typing) clearInterval(typing);
+      typing = null;
+      out.textContent = full;
+      sp.classList.add('done');
+      el.querySelector('.choices')?.classList.remove('wait');
+      const pup = el.querySelector('.npc.talking .pup');
+      if (pup && pup.dataset.state === 'talk') setPuppetState(pup, V().npcs[pup.dataset.npc], 'idle');
+      u.typedKey = key;
+      u.typedDone = true;
+    };
+    if (ctx.app.reducedMotion || (u.typedKey === key && u.typedDone)) {
+      finish();
+      return;
+    }
+    if (u.typedKey !== key) {
+      u.typedKey = key;
+      u.typedDone = false;
+      u.typedStart = performance.now();
+    }
+    u.finishLine = finish;
+    const step = () => {
+      const n = Math.floor((performance.now() - u.typedStart) / TYPE_MS);
+      if (n >= full.length || !out.isConnected) return finish();
+      out.textContent = full.slice(0, n);
+    };
+    step();
+    typing = setInterval(step, TYPE_MS);
   },
   render(ctx) {
     const id = ctx.app.route.params.id;
@@ -345,41 +402,56 @@ export const place = {
     const pw = isWay ? V().waystone.w : V().places[id].w;
     const ph = isWay ? V().waystone.h : V().places[id].h;
     const npcs = isWay ? [] : P.npcs;
+    const key = lineKey(ctx, npc, node.id);
+    const typed = ctx.app.reducedMotion || (u.typedKey === key && u.typedDone);
     // a villager shown during another speaker's line (e.g. the Waystone finale) keeps their own sprite
     const exprFor = (n) => (speaker === n ? L.e || 'neutral' : 'neutral');
+    const stateFor = (n) => (speaker === n ? (typed ? 'idle' : 'talk') : npcs.includes(speaker) ? 'listen' : 'idle');
     const marks = Q.npcMarkers(ctx.state, ctx.now);
     const activeQuest = st.quests.find((v) => v.accepted && !v.completed && (v.next.npc === npc || Q.QUESTS[v.id].giver === npc)) ||
       st.quests.find((v) => v.phase === 'available' && Q.QUESTS[v.id].giver === npc);
-    return html`<main class="screen scroll paper village place" aria-label="${P.name}">
+    const boxes = Object.fromEntries(npcs.map((n) => [n, npcBox(V().npcs[NPC_KEY(n)], pw, ph)]));
+    const tailAt = boxes[speaker] ? Math.max(14, Math.min(86, boxes[speaker].feet)) : isWay ? 22 : 50;
+    const single = node.choices.length === 1 && node.choices[0].next && !node.choices[0].act;
+    const cameo = isWay && ['VQ03_MIR02', 'VQ03_BRA02', 'VQ03_PIP08', 'VQ03_ALD05'].includes(node.id);
+    return html`<main class="screen scroll paper village place story" aria-label="${P.name}">
       <header class="hud vhud"><button class="back-btn" data-act="leave" aria-label="Back to the Square" data-k="pback">${ICON.back}</button>
         <h1 class="place-title"><span class="full">${P.name}</span><span class="short" aria-hidden="true">${P.short}</span></h1>${coinPill(ctx)}</header>
-      <div class="place-plate pl-${id} ${u.flare ? 'flare' : ''} ${isWay ? 'way' : ''} ${npcs.length > 1 ? 'duo' : ''}" style="aspect-ratio:${pw} / ${ph}">
-        <img class="plate" src="${art}" alt="">
-        ${npcs.map((n, i) => {
-          const m = V().npcs[NPC_KEY(n)];
-          const right = npcs.length > 1 && i === 1;
-          return html`<button class="npc ${n === npc ? 'active' : ''} ${right ? 'right' : ''} ${speaker === n ? 'talking' : ''}" data-act="npc" data-arg="${n}" data-k="npc-${n}"
-            style="--nw:${m.w};--nh:${m.h};--gx:${(m.ground[0] / m.w).toFixed(3)};--gy:${(m.ground[1] / m.h).toFixed(3)}" aria-label="Talk to ${SPEAKER[n].name}" aria-pressed="${n === npc}">
-            <img src="${npcSprite(n, exprFor(n))}" alt="">${marks[n] && n !== npc ? html`<i class="pin-mark" aria-hidden="true">${marks[n] === 'handin' ? raw(ICON.checkDark) : '!'}</i>` : ''}</button>`;
-        })}
-        ${isWay && ['VQ03_MIR02', 'VQ03_BRA02', 'VQ03_PIP08', 'VQ03_ALD05'].includes(node.id)
-          ? html`<img class="npc-cameo" src="${npcSprite(speaker, L.e || 'happy')}" alt="">` : ''}
+      <div class="stage-wrap ${isWay ? 'way' : ''}" style="--ar:${pw / ph}">
+        <div class="stage place-plate ${u.flare ? 'flare' : ''} ${isWay ? 'way' : ''}" style="aspect-ratio:${pw} / ${ph}">
+          <img class="plate" src="${art}" alt="">
+          ${npcs.map((n) => {
+            const m = V().npcs[NPC_KEY(n)];
+            const b = boxes[n];
+            const active = n === npc;
+            const mark = marks[n];
+            return html`<button class="npc ${active ? 'active' : ''} ${speaker === n ? 'talking' : ''} ${mark ? 'marked' : ''}" data-act="npc" data-arg="${n}" data-k="npc-${n}"
+              style="left:${b.left.toFixed(2)}%;top:${b.top.toFixed(2)}%;width:${b.w.toFixed(2)}%;height:${b.h.toFixed(2)}%" aria-label="Talk to ${SPEAKER[n].name}${mark === 'handin' ? ', something to hand in' : mark ? ', new quest' : ''}" aria-pressed="${active}">
+              <i class="tap-ring" style="left:${b.gx.toFixed(2)}%;top:${b.gy.toFixed(2)}%" aria-hidden="true"></i>
+              <div class="fig ${b.flip ? 'flip' : ''}">${raw(puppetHTML(m, { key: NPC_KEY(n), expr: exprFor(n), state: stateFor(n) }))}</div>
+              ${npcs.length > 1
+                ? html`<span class="name-chip" style="left:${b.tx.toFixed(2)}%;top:${b.ty.toFixed(2)}%">${mark && !active ? html`<i class="quest-mark mini ${mark}" aria-hidden="true">${mark === 'handin' ? raw(ICON.checkDark) : '!'}</i>` : ''}${SPEAKER[n].name}</span>`
+                : mark && !active ? html`<i class="quest-mark ${mark}" style="left:${b.tx.toFixed(2)}%;top:${b.ty.toFixed(2)}%" aria-hidden="true">${mark === 'handin' ? raw(ICON.checkDark) : '!'}</i>` : ''}
+            </button>`;
+          })}
+          ${cameo ? html`<img class="npc-cameo" src="${npcSprite(speaker, L.e || 'happy')}" alt="">` : ''}
+        </div>
       </div>
-      ${npcs.length > 1 ? html`<div class="tabs npc-tabs" role="tablist" aria-label="Who to talk to" style="grid-template-columns:repeat(${npcs.length},minmax(0,1fr))">
-        ${npcs.map((n) => html`<button class="tab" role="tab" aria-selected="${n === npc}" data-act="npc" data-arg="${n}" data-k="tab-${n}"><img src="${npcSprite(n)}" alt=""><span>${SPEAKER[n].name}</span>${marks[n] ? raw('<i class="badge-dot" style="top:-4px;right:-4px"></i>') : ''}</button>`)}</div>` : ''}
-      <section class="card dialogue" aria-live="polite" aria-label="${sp.name}">
-        <div class="row between" style="gap:8px">
-          <span class="speaker" style="--sc:${sp.col}">${sp.name}${sp.role ? html` <small>${sp.role}</small>` : ''}</span>
+      <section class="speech dialogue ${typed ? 'done' : ''}" aria-label="${sp.name}" data-act="speech" data-k="speech">
+        <i class="tail" style="left:${tailAt}%" aria-hidden="true"></i>
+        <div class="speech-top">
+          <span class="speaker nametag" style="--sc:${sp.col}">${sp.name}${sp.role ? html` <small>${sp.role}</small>` : ''}</span>
           ${activeQuest ? html`<button class="btn sm cream" data-act="quest" data-arg="${activeQuest.id}" data-k="dq"><img src="${icon('journey')}" alt="">Quest</button>` : ''}
         </div>
-        <p class="line">${text}</p>
-        <div class="choices">
-          ${node.choices.map((ch, i) => {
-            const primary = !!(ch.act || ch.reward || ch.goto === 'waystone');
-            return html`<button class="btn ${primary ? '' : 'cream'} block choice-btn" data-act="choose" data-arg="${i}" data-k="ch-${i}">${handinIcons(ctx, ch)}<span>${ch.label}</span></button>`;
-          })}
-        </div>
+        <p class="line" aria-live="polite"><span class="sr-only">${text}</span><span class="typed" aria-hidden="true" data-full="${text}" data-key="${key}">${typed ? text : ''}</span></p>
+        ${single ? html`<span class="more" aria-hidden="true">&#9660;</span>` : ''}
       </section>
+      <div class="choices pad ${typed ? '' : 'wait'}">
+        ${node.choices.map((ch, i) => {
+          const primary = !!(ch.act || ch.reward || ch.goto === 'waystone');
+          return html`<button class="btn ${primary ? '' : 'cream'} block choice-btn" data-act="choose" data-arg="${i}" data-k="ch-${i}">${handinIcons(ctx, ch)}<span>${ch.label}</span></button>`;
+        })}
+      </div>
       <div style="height:calc(16px + var(--safe-bottom));flex:none"></div>
     </main>`;
   },
@@ -387,6 +459,17 @@ export const place = {
     leave(ctx) {
       ctx.ui('place').node = null;
       ctx.back();
+    },
+    speech(ctx) {
+      // tap the speech box: finish the line, or (for a plain "go on" line) carry on
+      const u = ctx.ui('place');
+      const out = document.querySelector('.speech .typed');
+      if (out && !(u.typedKey === out.dataset.key && u.typedDone)) {
+        u.finishLine?.();
+        return;
+      }
+      const { node } = currentNode(ctx, placeNpc(ctx));
+      if (node.choices.length === 1 && node.choices[0].next && !node.choices[0].act) place.actions.choose(ctx, '0');
     },
     npc(ctx, n) {
       const u = ctx.ui('place');

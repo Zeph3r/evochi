@@ -205,15 +205,37 @@ def build_village(src, out):
     V = os.path.join(src, 'village')
     os.makedirs(os.path.join(out, 'village'), exist_ok=True)
     vm = {'npcs': {}, 'square': {}, 'places': {}, 'waystone': {}}
-    # villagers: one file per expression, native size (shown up to ~260 css px tall)
+    # villagers: flattened sprites per expression (cards, tabs, cameo) and, for the rooms, the layered
+    # puppet (shadow, body, head per expression, blink, arm) in two looks: room-lit and classic
+    from village_npcs import NPC_ANIM
     nmeta = json.load(open(os.path.join(V, 'npc.json')))
+
+    def enc(fn, q=90):
+        out_fn = 'village/' + fn.replace('.png', '.webp')
+        webp(Image.open(os.path.join(V, fn)), os.path.join(out, out_fn), q)
+        return out_fn
     for name, m in nmeta.items():
-        e = {'w': m['w'], 'h': m['h'], 'ground': m['ground'], 'face': m['face'], 'expr': {}}
-        for ex in m['expressions']:
-            im = Image.open(os.path.join(V, f'npc_{name}_{ex}.png'))
-            fn = f'village/npc_{name}_{ex}.webp'
-            webp(im, os.path.join(out, fn), 90)
-            e['expr'][ex] = fn
+        e = {k: m[k] for k in ('w', 'h', 'ground', 'face', 'top', 'stage', 'place') if k in m}
+        e['expr'] = {ex: enc(f'npc_{name}_{ex}.png') for ex in m['expressions']}
+        if os.path.exists(os.path.join(V, f'npc_{name}_{m["expressions"][0]}_c.png')):
+            e['exprClassic'] = {ex: enc(f'npc_{name}_{ex}_c.png') for ex in m['expressions']}
+        layers = []
+        for L in m.get('layers', []):
+            o = {k: L[k] for k in ('part', 'box', 'pivot') if k in L}
+            if 'file' in L:
+                o['file'] = enc(L['file'])
+            for look in ('lit', 'classic'):
+                v = L.get(look)
+                if isinstance(v, dict):
+                    o[look] = {ex: enc(fn) for ex, fn in v.items()}
+                elif v:
+                    o[look] = enc(v)
+            if 'blink' in L:
+                o['blink'] = {look: {'file': enc(b['file']), 'box': b['box']} for look, b in L['blink'].items()}
+            layers.append(o)
+        if layers:
+            e['layers'] = layers
+            e['anim'] = NPC_ANIM.get(name, {})
         vm['npcs'][name] = e
     smeta = json.load(open(os.path.join(V, 'scenes.json')))
     k = 2 / 3

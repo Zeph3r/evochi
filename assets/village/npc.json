@@ -1,6 +1,121 @@
 {
+ "bram": {
+  "w": 430,
+  "h": 398,
+  "ground": [
+   239.6,
+   364.8
+  ],
+  "face": [
+   283.5,
+   152.9
+  ],
+  "top": [
+   244.5,
+   26.7
+  ],
+  "expressions": [
+   "neutral",
+   "happy",
+   "worried",
+   "thinking",
+   "proud"
+  ],
+  "layers": [
+   {
+    "part": "shadow",
+    "box": [
+     0,
+     310,
+     430,
+     398
+    ],
+    "file": "npc_bram_shadow.png"
+   },
+   {
+    "part": "body",
+    "box": [
+     93,
+     162,
+     426,
+     393
+    ],
+    "classic": "npc_bram_body_c.png",
+    "lit": "npc_bram_body.png"
+   },
+   {
+    "part": "head",
+    "box": [
+     115,
+     13,
+     375,
+     224
+    ],
+    "pivot": [
+     244.5,
+     195.7
+    ],
+    "classic": {
+     "neutral": "npc_bram_head_neutral_c.png",
+     "happy": "npc_bram_head_happy_c.png",
+     "worried": "npc_bram_head_worried_c.png",
+     "thinking": "npc_bram_head_thinking_c.png",
+     "proud": "npc_bram_head_proud_c.png"
+    },
+    "blink": {
+     "classic": {
+      "file": "npc_bram_blink_c.png",
+      "box": [
+       203,
+       93,
+       351,
+       154
+      ]
+     },
+     "lit": {
+      "file": "npc_bram_blink.png",
+      "box": [
+       203,
+       93,
+       351,
+       154
+      ]
+     }
+    },
+    "lit": {
+     "neutral": "npc_bram_head_neutral.png",
+     "happy": "npc_bram_head_happy.png",
+     "worried": "npc_bram_head_worried.png",
+     "thinking": "npc_bram_head_thinking.png",
+     "proud": "npc_bram_head_proud.png"
+    }
+   },
+   {
+    "part": "arm",
+    "box": [
+     4,
+     4,
+     189,
+     300
+    ],
+    "pivot": [
+     141.2,
+     227.5
+    ],
+    "classic": "npc_bram_arm_c.png",
+    "lit": "npc_bram_arm.png"
+   }
+  ],
+  "place": "workshop",
+  "stage": {
+   "gx": 0.41,
+   "gy": 0.8,
+   "hf": 0.4903,
+   "flip": false
+  }
+ },
  "mira": {
-  "w": 398,
+  "w": 300,
   "h": 446,
   "ground": [
    146.4,
@@ -10,24 +125,9 @@
    187.4,
    206.8
   ],
-  "expressions": [
-   "neutral",
-   "happy",
-   "worried",
-   "thinking",
-   "proud"
-  ]
- },
- "bram": {
-  "w": 364,
-  "h": 388,
-  "ground": [
-   153.7,
-   356.1
-  ],
-  "face": [
-   197.6,
-   144.2
+  "top": [
+   151.3,
+   9.1
   ],
   "expressions": [
    "neutral",
@@ -35,18 +135,114 @@
    "worried",
    "thinking",
    "proud"
-  ]
+  ],
+  "layers": [
+   {
+    "part": "shadow",
+    "box": [
+     0,
+     360,
+     300,
+     446
+    ],
+    "file": "npc_mira_shadow.png"
+   },
+   {
+    "part": "body",
+    "box": [
+     36,
+     218,
+     266,
+     442
+    ],
+    "classic": "npc_mira_body_c.png",
+    "lit": "npc_mira_body.png"
+   },
+   {
+    "part": "head",
+    "box": [
+     4,
+     4,
+     295,
+     285
+    ],
+    "pivot": [
+     150.3,
+     255.2
+    ],
+    "classic": {
+     "neutral": "npc_mira_head_neutral_c.png",
+     "happy": "npc_mira_head_happy_c.png",
+     "worried": "npc_mira_head_worried_c.png",
+     "thinking": "npc_mira_head_thinking_c.png",
+     "proud": "npc_mira_head_proud_c.png"
+    },
+    "blink": {
+     "classic": {
+      "file": "npc_mira_blink_c.png",
+      "box": [
+       115,
+       156,
+       261,
+       219
+      ]
+     },
+     "lit": {
+      "file": "npc_mira_blink.png",
+      "box": [
+       115,
+       156,
+       261,
+       219
+      ]
+     }
+    },
+    "lit": {
+     "neutral": "npc_mira_head_neutral.png",
+     "happy": "npc_mira_head_happy.png",
+     "worried": "npc_mira_head_worried.png",
+     "thinking": "npc_mira_head_thinking.png",
+     "proud": "npc_mira_head_proud.png"
+    }
+   },
+   {
+    "part": "arm",
+    "box": [
+     44,
+     237,
+     286,
+     383
+    ],
+    "pivot": [
+     161.1,
+     290.7
+    ],
+    "classic": "npc_mira_arm_c.png",
+    "lit": "npc_mira_arm.png"
+   }
+  ],
+  "place": "glasshouse",
+  "stage": {
+   "gx": 0.37,
+   "gy": 0.8,
+   "hf": 0.4906,
+   "flip": false
+  }
  },
  "pip": {
-  "w": 320,
+  "w": 322,
   "h": 372,
   "ground": [
-   173.9,
+   174.4,
    349.3
   ],
   "face": [
-   215.9,
+   216.4,
    143.5
+  ],
+  "top": [
+   179.3,
+   22.9
   ],
   "expressions": [
    "neutral",
@@ -54,10 +250,102 @@
    "worried",
    "thinking",
    "proud"
-  ]
+  ],
+  "layers": [
+   {
+    "part": "shadow",
+    "box": [
+     0,
+     298,
+     322,
+     372
+    ],
+    "file": "npc_pip_shadow.png"
+   },
+   {
+    "part": "body",
+    "box": [
+     56,
+     120,
+     317,
+     368
+    ],
+    "classic": "npc_pip_body_c.png",
+    "lit": "npc_pip_body.png"
+   },
+   {
+    "part": "head",
+    "box": [
+     67,
+     4,
+     293,
+     197
+    ],
+    "pivot": [
+     177.3,
+     179.3
+    ],
+    "classic": {
+     "neutral": "npc_pip_head_neutral_c.png",
+     "happy": "npc_pip_head_happy_c.png",
+     "worried": "npc_pip_head_worried_c.png",
+     "thinking": "npc_pip_head_thinking_c.png",
+     "proud": "npc_pip_head_proud_c.png"
+    },
+    "blink": {
+     "classic": {
+      "file": "npc_pip_blink_c.png",
+      "box": [
+       140,
+       89,
+       274,
+       153
+      ]
+     },
+     "lit": {
+      "file": "npc_pip_blink.png",
+      "box": [
+       140,
+       89,
+       274,
+       153
+      ]
+     }
+    },
+    "lit": {
+     "neutral": "npc_pip_head_neutral.png",
+     "happy": "npc_pip_head_happy.png",
+     "worried": "npc_pip_head_worried.png",
+     "thinking": "npc_pip_head_thinking.png",
+     "proud": "npc_pip_head_proud.png"
+    }
+   },
+   {
+    "part": "arm",
+    "box": [
+     4,
+     58,
+     116,
+     208
+    ],
+    "pivot": [
+     100.1,
+     200.3
+    ],
+    "classic": "npc_pip_arm_c.png",
+    "lit": "npc_pip_arm.png"
+   }
+  ],
+  "place": "lodge",
+  "stage": {
+   "gx": 0.27,
+   "gy": 0.8,
+   "hf": 0.3437,
+   "flip": false
+  }
  },
  "alder": {
-  "w": 338,
+  "w": 326,
   "h": 366,
   "ground": [
    159.9,
@@ -67,12 +355,108 @@
    205.8,
    106.2
   ],
+  "top": [
+   169.6,
+   16.6
+  ],
   "expressions": [
    "neutral",
    "happy",
    "worried",
    "thinking",
    "proud"
-  ]
+  ],
+  "layers": [
+   {
+    "part": "shadow",
+    "box": [
+     0,
+     288,
+     326,
+     366
+    ],
+    "file": "npc_alder_shadow.png"
+   },
+   {
+    "part": "body",
+    "box": [
+     4,
+     78,
+     287,
+     362
+    ],
+    "classic": "npc_alder_body_c.png",
+    "lit": "npc_alder_body.png"
+   },
+   {
+    "part": "head",
+    "box": [
+     72,
+     4,
+     272,
+     173
+    ],
+    "pivot": [
+     170.6,
+     148.5
+    ],
+    "classic": {
+     "neutral": "npc_alder_head_neutral_c.png",
+     "happy": "npc_alder_head_happy_c.png",
+     "worried": "npc_alder_head_worried_c.png",
+     "thinking": "npc_alder_head_thinking_c.png",
+     "proud": "npc_alder_head_proud_c.png"
+    },
+    "blink": {
+     "classic": {
+      "file": "npc_alder_blink_c.png",
+      "box": [
+       135,
+       56,
+       259,
+       113
+      ]
+     },
+     "lit": {
+      "file": "npc_alder_blink.png",
+      "box": [
+       135,
+       56,
+       259,
+       113
+      ]
+     }
+    },
+    "lit": {
+     "neutral": "npc_alder_head_neutral.png",
+     "happy": "npc_alder_head_happy.png",
+     "worried": "npc_alder_head_worried.png",
+     "thinking": "npc_alder_head_thinking.png",
+     "proud": "npc_alder_head_proud.png"
+    }
+   },
+   {
+    "part": "arm",
+    "box": [
+     47,
+     163,
+     322,
+     289
+    ],
+    "pivot": [
+     174.5,
+     202.0
+    ],
+    "classic": "npc_alder_arm_c.png",
+    "lit": "npc_alder_arm.png"
+   }
+  ],
+  "place": "lodge",
+  "stage": {
+   "gx": 0.73,
+   "gy": 0.8,
+   "hf": 0.4026,
+   "flip": true
+  }
  }
 }

@@ -103,6 +103,7 @@ class Settings {
     this.quietStart = 21,
     this.quietEnd = 8,
     this.analytics = false,
+    this.classicVillagers = false,
   });
   bool sound;
   bool music;
@@ -112,6 +113,7 @@ class Settings {
   int quietStart;
   int quietEnd;
   bool analytics;
+  bool classicVillagers; // flat, evenly lit villagers instead of room-lit ones
   factory Settings.fromJson(Map<String, dynamic> j) => Settings(
         sound: j['sound'] != false,
         music: j['music'] != false,
@@ -121,6 +123,7 @@ class Settings {
         quietStart: _i(j['quietStart'], 21),
         quietEnd: _i(j['quietEnd'], 8),
         analytics: j['analytics'] == true,
+        classicVillagers: j['classicVillagers'] == true,
       );
   Map<String, dynamic> toJson() => {
         'sound': sound,
@@ -131,6 +134,7 @@ class Settings {
         'quietStart': quietStart,
         'quietEnd': quietEnd,
         'analytics': analytics,
+        'classicVillagers': classicVillagers,
       };
 }
 

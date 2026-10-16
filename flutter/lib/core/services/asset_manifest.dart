@@ -99,16 +99,17 @@ class VillageArt {
 
   Map<String, dynamic> _npc(String npcId) => ((j['npcs'] as Map)[npcId.replaceFirst('npc_', '')] as Map).cast<String, dynamic>();
 
-  String npc(String npcId, [String expr = 'neutral']) {
-    final e = _npc(npcId)['expr'] as Map;
+  /// Flattened sprite for an expression (cards, tabs, the Waystone cameo).
+  String npc(String npcId, [String expr = 'neutral', bool classic = false]) {
+    final n = _npc(npcId);
+    final e = ((classic ? n['exprClassic'] : null) ?? n['expr']) as Map;
     return artBase + ((e[expr] ?? e['neutral']) as String);
   }
 
-  /// Where the feet touch the floor, as a fraction of the sprite (for the contact shadow).
-  Offset npcGround(String npcId) {
+  /// The layered, animatable villager (null if this art pack only has flat sprites).
+  NpcPuppetArt? puppet(String npcId) {
     final n = _npc(npcId);
-    final g = n['ground'] as List;
-    return Offset((g[0] as num).toDouble() / (n['w'] as num).toDouble(), (g[1] as num).toDouble() / (n['h'] as num).toDouble());
+    return n['layers'] == null ? null : NpcPuppetArt(n);
   }
 
   Size npcSize(String npcId) {
@@ -139,6 +140,61 @@ class VillageArt {
     final w = j['waystone'] as Map;
     return Size((w['w'] as num).toDouble(), (w['h'] as num).toDouble());
   }
+}
+
+Offset _off(List a) => Offset((a[0] as num).toDouble(), (a[1] as num).toDouble());
+Rect _ltrb(List b) => Rect.fromLTRB((b[0] as num).toDouble(), (b[1] as num).toDouble(), (b[2] as num).toDouble(), (b[3] as num).toDouble());
+
+/// A villager in parts (shadow, body, head per expression + blink, arm with their prop), where the
+/// game draws them in their room, and their idle / talk / listen loops (tools/art/village_npcs.py).
+class NpcPuppetArt {
+  NpcPuppetArt(this.j);
+  final Map<String, dynamic> j;
+  double get w => (j['w'] as num).toDouble();
+  double get h => (j['h'] as num).toDouble();
+  Offset get ground => _off(j['ground'] as List);
+  Offset get top => _off((j['top'] ?? j['ground']) as List);
+  Map<String, dynamic> get _stage => ((j['stage'] as Map?) ?? const {'gx': 0.36, 'gy': 0.8, 'hf': 0.5, 'flip': false}).cast<String, dynamic>();
+  double get gx => (_stage['gx'] as num).toDouble();
+  double get gy => (_stage['gy'] as num).toDouble();
+  double get hf => (_stage['hf'] as num).toDouble();
+  bool get flip => _stage['flip'] == true;
+  List<PuppetLayer> get layers => [for (final l in j['layers'] as List) PuppetLayer((l as Map).cast<String, dynamic>())];
+  PuppetAnim? anim(String state) {
+    final a = (j['anim'] as Map?)?[state] ?? (j['anim'] as Map?)?['idle'];
+    return a == null ? null : PuppetAnim((a as Map).cast<String, dynamic>());
+  }
+}
+
+class PuppetLayer {
+  PuppetLayer(this.j);
+  final Map<String, dynamic> j;
+  String get part => j['part'] as String;
+  Rect get box => _ltrb(j['box'] as List);
+  Offset? get pivot => j['pivot'] == null ? null : _off(j['pivot'] as List);
+  String file({bool classic = false, String expr = 'neutral'}) {
+    if (part == 'shadow') return artBase + (j['file'] as String);
+    final v = (classic ? j['classic'] : null) ?? j['lit'];
+    if (v is Map) return artBase + ((v[expr] ?? v['neutral']) as String);
+    return artBase + (v as String);
+  }
+
+  (String, Rect)? blink({bool classic = false}) {
+    final b = j['blink'] as Map?;
+    if (b == null) return null;
+    final v = ((classic ? b['classic'] : null) ?? b['lit']) as Map;
+    return (artBase + (v['file'] as String), _ltrb(v['box'] as List));
+  }
+}
+
+class PuppetAnim {
+  PuppetAnim(this.j);
+  final Map<String, dynamic> j;
+  int get dur => (j['dur'] as num).toInt();
+  Map<String, List<List<double>>> get tracks => {
+        for (final e in (j['tracks'] as Map).entries)
+          e.key as String: [for (final k in e.value as List) [for (final v in k as List) (v as num).toDouble()]],
+      };
 }
 
 /// Decoded ui.Image cache for atlases drawn by CustomPainters.

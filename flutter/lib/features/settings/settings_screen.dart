@@ -175,6 +175,8 @@ class SettingsScreen extends StatelessWidget {
                 toggle('Ambient music', null, st.music, (x, v) => x.music = v),
                 toggle('Haptics', null, st.haptics, (x, v) => x.haptics = v),
                 toggle('Reduce motion', 'Crossfades instead of bounces, flashes and particles.', st.reducedMotion, (x, v) => x.reducedMotion = v),
+                toggle('Classic villagers', "Flat, evenly lit villagers instead of ones lit by each room's lanterns and windows.", st.classicVillagers,
+                    (x, v) => x.classicVillagers = v),
               ]),
             ),
             const SizedBox(height: 10),

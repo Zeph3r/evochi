@@ -91,17 +91,17 @@
  },
  "glasshouse": {
   "w": 1170,
-  "h": 900,
+  "h": 1500,
   "anchors": {}
  },
  "workshop": {
   "w": 1170,
-  "h": 900,
+  "h": 1500,
   "anchors": {}
  },
  "lodge": {
   "w": 1170,
-  "h": 900,
+  "h": 1500,
   "anchors": {}
  },
  "waystone_dormant": {
