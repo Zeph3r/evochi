@@ -21,16 +21,19 @@ class DemoStepSource implements StepSource {
   @override
   Future<StepPermission> requestPermission() async => StepPermission.granted;
 
-  /// Queue a walk of [steps] ending at [now] as 2-minute samples.
-  List<StepSample> walk(int steps, int now, {bool watch = true}) {
+  /// Queue a walk of [steps] ending at [now] as 2-minute samples. With [notBefore] the walk is
+  /// squeezed so it never starts before that instant (a story quest's acceptance).
+  List<StepSample> walk(int steps, int now, {bool watch = true, int notBefore = 0}) {
     final minutes = math.max(4, (steps / 110).round());
     final n = math.max(1, (minutes / 2).round());
-    final start = now - minutes * 60000;
+    var start = now - minutes * 60000;
+    if (notBefore > 0 && start < notBefore) start = math.min(notBefore, now);
+    final dur = now - start;
     var left = steps;
     final out = <StepSample>[];
     for (var i = 0; i < n; i++) {
-      final s = start + (i * minutes * 60000) ~/ n;
-      final e = start + ((i + 1) * minutes * 60000) ~/ n;
+      final s = start + (i * dur) ~/ n;
+      final e = start + ((i + 1) * dur) ~/ n;
       final c = i == n - 1 ? left : (steps / n).round();
       left -= c;
       out.add(StepSample(id: newId('ph'), source: 'demo-phone', start: s, end: e, count: c));

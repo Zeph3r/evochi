@@ -33,6 +33,7 @@ flutter:
     - assets/art/items/
     - assets/art/icons/
     - assets/art/titles/
+    - assets/art/village/
     - assets/audio/sfx/
     - assets/audio/ambient/
     - assets/config/

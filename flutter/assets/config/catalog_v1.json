@@ -179,5 +179,49 @@
     "desc": "A soothing herb bundle. Restores 10 vitality (12h cooldown).",
     "shop": "care",
     "featured": true
+  },
+  "reward_firefly_hearth": {
+    "name": "Firefly Hearth",
+    "category": "decoration",
+    "decor": "nest",
+    "price": null,
+    "rarity": "legendary",
+    "desc": "A tiny hollow stump lit by three golden fireflies. Bram made it from the light you brought back to Sunlit Village.",
+    "shop": null,
+    "acquisition": "story",
+    "originQuest": "vq01",
+    "tradable": false,
+    "sellable": false
+  },
+  "reward_windtrail_mantle": {
+    "name": "Windtrail Mantle",
+    "category": "wearable",
+    "slot": "back",
+    "price": null,
+    "rarity": "legendary",
+    "desc": "A short sky-blue travel cape, embroidered with cream trail lines and fastened with two copper clasps. Travelers should look the part.",
+    "stages": [
+      1,
+      2,
+      3
+    ],
+    "shop": null,
+    "acquisition": "story",
+    "originQuest": "vq02",
+    "tradable": false,
+    "sellable": false
+  },
+  "reward_waystone_bloom": {
+    "name": "Waystone Bloom",
+    "category": "decoration",
+    "decor": "side",
+    "price": null,
+    "rarity": "legendary",
+    "desc": "A white stone plinth with a floating mint-and-gold crystal blossom. It glows a little brighter when you walk.",
+    "shop": null,
+    "acquisition": "story",
+    "originQuest": "vq03",
+    "tradable": false,
+    "sellable": false
   }
 }

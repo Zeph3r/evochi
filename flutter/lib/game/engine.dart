@@ -14,6 +14,7 @@ import '../core/utils/day_keys.dart';
 import '../core/utils/ids.dart';
 import 'bond/bond.dart';
 import 'evolution/evolution.dart';
+import 'story/story.dart' as story;
 import 'vitality/vitality.dart';
 import 'xp/step_aggregation.dart';
 import 'xp/xp.dart';
@@ -399,9 +400,11 @@ ActionResult syncSteps(GameState state, List<StepSample> samples, int now, {Stri
   s.steps.lastSync = now;
   s.steps.lastSource = source;
   if (s.audit.length > 200) s.audit = s.audit.sublist(s.audit.length - 200);
+  // story walks advance from the same de-duplicated samples (account-level, so even without a pet)
+  final storyEvents = story.applyStoryProgress(s, now);
   final events = <GameEvent>[];
   final pet = s.pet;
-  if (pet == null) return _ok(s, [GameEvent('synced', {'added': merged.added})]);
+  if (pet == null) return _ok(s, [...storyEvents, GameEvent('synced', {'added': merged.added})]);
   final before = derive(state, now);
   final days = aggregateDays(s.steps.samples, zone);
   var gained = 0;
@@ -432,6 +435,7 @@ ActionResult syncSteps(GameState state, List<StepSample> samples, int now, {Stri
     if (q.eligible && !q.claimed && !was.eligible) events.add(GameEvent('quest_ready', {'questId': q.def.id, 'title': q.def.title}));
   }
   if (before.pet!.dead && !after.pet!.dead) events.add(const GameEvent('recovered'));
+  events.addAll(storyEvents); // last, so the story toasts are the ones left showing
   events.add(GameEvent('synced', {'added': merged.added}));
   return _ok(s, events);
 }
@@ -457,6 +461,12 @@ bool _addTxn(GameState s, WalletTxn t) {
   s.txns.add(t);
   return true;
 }
+
+/// Append a wallet transaction once (ids are unique; a repeat is ignored). Mutates [s].
+bool addTxn(GameState s, WalletTxn t) => _addTxn(s, t);
+
+/// Add an item to the shared inventory. Mutates [s].
+void grantItem(GameState s, String itemId, int qty, String source, int now, [String? txnId]) => _grant(s, itemId, qty, source, now, txnId);
 
 void _grant(GameState s, String itemId, int qty, String source, int now, [String? txnId]) {
   final cur = s.inventory.putIfAbsent(itemId, () => Ownership());
@@ -494,7 +504,8 @@ ActionResult claimQuest(GameState state, String questId, int now) {
   if (q.def.cosmeticChance > 0 && verifiedDay) {
     final r = seededRandom('${s.player!.id}:${q.claimId}:cosmetic');
     if (r.nextDouble() < q.def.cosmeticChance) {
-      final pool = catalog.values.where((it) => it.category == ItemCategory.wearable && ownedQty(s, it.id) == 0).toList();
+      // only Market wearables: story rewards are earned, never rolled
+      final pool = catalog.values.where((it) => it.category == ItemCategory.wearable && isShopItem(it.id) && ownedQty(s, it.id) == 0).toList();
       if (pool.isNotEmpty) {
         final pick = pool[r.nextInt(pool.length)];
         _grant(s, pick.id, 1, 'quest', now, txnId);
@@ -510,6 +521,7 @@ ActionResult claimQuest(GameState state, String questId, int now) {
 ActionResult purchase(GameState state, String itemId, String requestId, int now) {
   final it = catalog[itemId];
   if (it == null) return _fail(state, 'unknown_item');
+  if (!isShopItem(itemId)) return _fail(state, 'not_for_sale');
   final txnId = 'purchase:$requestId';
   if (state.txns.any((t) => t.id == txnId)) return _ok(state, [GameEvent('already_purchased', {'itemId': itemId})]);
   if (!it.isStackable && ownedQty(state, itemId) > 0) return _fail(state, 'owned');

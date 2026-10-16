@@ -71,7 +71,11 @@ class SettingsScreen extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Text(pl.accountType == 'guest' ? 'Guest player' : (pl.email ?? 'Account'), style: EvochiText.cardTitle),
+                    Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
+                      Text(pl.accountType == 'guest' ? 'Guest player' : (pl.email ?? 'Account'), style: EvochiText.cardTitle),
+                      // Village Tales title (Chapter 1 finale)
+                      if (c.state.story.titleUnlocks.contains('first_lightkeeper')) const Tag('First Lightkeeper', tone: TagTone.stage, icon: 'crown'),
+                    ]),
                     Text(
                       pl.accountType == 'guest' ? 'Saved on this device only. Link an account so your Evochi can move to a new phone.' : 'Signed in. Progress syncs when the cloud backend is configured.',
                       style: EvochiText.caption,
@@ -246,6 +250,7 @@ class SettingsScreen extends StatelessWidget {
                 const SizedBox(height: 8),
                 Wrap(spacing: 6, runSpacing: 6, children: [
                   EvochiButton(label: '+500 coins', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.run((x, n) => g.grantCoins(x, 500, n))),
+                  EvochiButton(label: 'Walk 1 goal day', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.advanceDays(1, 1.05)),
                   EvochiButton(label: 'Walk 7 goal days', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.advanceDays(7, 1.05)),
                   EvochiButton(label: 'Fast-track evolution', small: true, expand: false, tone: ButtonTone.cream, onPressed: c.fastTrackEvolution),
                   EvochiButton(label: 'Skip 3 idle days', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.advanceDays(3, 0)),

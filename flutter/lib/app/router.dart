@@ -51,6 +51,28 @@ class MainShell extends StatefulWidget {
 class _MainShellState extends State<MainShell> {
   static const order = ['home', 'journey', 'bag', 'shop', 'evodex'];
   String _tab = 'home';
+  late final GameController _c = context.read<GameController>();
+
+  @override
+  void initState() {
+    super.initState();
+    _c.tabRequest.addListener(_onTabRequest);
+  }
+
+  @override
+  void dispose() {
+    _c.tabRequest.removeListener(_onTabRequest);
+    super.dispose();
+  }
+
+  // the Village screens are pushed above the shell: close them, then switch tab
+  void _onTabRequest() {
+    final t = _c.tabRequest.value;
+    if (t == null || !mounted) return;
+    Navigator.of(context).popUntil((r) => r.isFirst);
+    _c.tabRequest.value = null;
+    if (t != _tab) setState(() => _tab = t);
+  }
 
   void _go(String t) {
     if (t == _tab) return;
@@ -80,7 +102,7 @@ class _MainShellState extends State<MainShell> {
           current: _tab,
           onTab: _go,
           badges: {
-            'journey': v.claimable,
+            'journey': v.claimable + c.storyView.turnIns.length,
             'evodex': (v.pet?.evolution.eligible ?? false) ? 1 : 0,
             'home': (v.pet?.dead ?? false) ? 1 : 0,
           },

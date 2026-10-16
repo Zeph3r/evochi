@@ -87,6 +87,51 @@ class AssetManifest {
   }
 
   String get thumbsFile => artBase + ((j['thumbs'] as Map)['file'] as String);
+
+  VillageArt get village => VillageArt((j['village'] as Map).cast<String, dynamic>());
+}
+
+/// Village Tales art: villager sprites (5 expressions), the Square plate in three states with pin
+/// anchors, the three interiors and the Waystone close-up.
+class VillageArt {
+  VillageArt(this.j);
+  final Map<String, dynamic> j;
+
+  Map<String, dynamic> _npc(String npcId) => ((j['npcs'] as Map)[npcId.replaceFirst('npc_', '')] as Map).cast<String, dynamic>();
+
+  String npc(String npcId, [String expr = 'neutral']) {
+    final e = _npc(npcId)['expr'] as Map;
+    return artBase + ((e[expr] ?? e['neutral']) as String);
+  }
+
+  Size npcSize(String npcId) {
+    final n = _npc(npcId);
+    return Size((n['w'] as num).toDouble(), (n['h'] as num).toDouble());
+  }
+
+  Map<String, dynamic> get _square => (j['square'] as Map).cast<String, dynamic>();
+  Size get squareSize => Size((_square['w'] as num).toDouble(), (_square['h'] as num).toDouble());
+
+  /// The Square in its current story state.
+  String square({required bool lampLit, required bool restored}) =>
+      artBase + (_square[restored ? 'waystone_restored' : (lampLit ? 'lamp_lit' : 'day_dim')] as String);
+
+  Offset anchor(String id) {
+    final a = (_square['anchors'] as Map)[id] as List;
+    return Offset((a[0] as num).toDouble(), (a[1] as num).toDouble());
+  }
+
+  String place(String id) => artBase + ((j['places'] as Map)[id]['file'] as String);
+  Size placeSize(String id) {
+    final p = (j['places'] as Map)[id] as Map;
+    return Size((p['w'] as num).toDouble(), (p['h'] as num).toDouble());
+  }
+
+  String waystone({required bool restored}) => artBase + ((j['waystone'] as Map)[restored ? 'restored' : 'dormant'] as String);
+  Size get waystoneSize {
+    final w = j['waystone'] as Map;
+    return Size((w['w'] as num).toDouble(), (w['h'] as num).toDouble());
+  }
 }
 
 /// Decoded ui.Image cache for atlases drawn by CustomPainters.

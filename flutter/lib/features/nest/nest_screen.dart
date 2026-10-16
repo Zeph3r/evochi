@@ -17,6 +17,8 @@ import '../settings/settings_screen.dart';
 import '../shared/scene_scaffold.dart';
 import '../shared/scene_view.dart';
 import '../shared/widgets.dart';
+import '../village/story_widgets.dart';
+import '../village/village_screen.dart';
 import 'sheets.dart';
 
 class NestScreen extends StatefulWidget {
@@ -98,7 +100,11 @@ class _NestScreenState extends State<NestScreen> {
     final pv = v.pet!;
     if (pv.dead) return MemorialView(scene: scene);
     final reduce = MediaQuery.of(context).disableAnimations;
-    final compact = MediaQuery.of(context).size.height < 680;
+    final screenH = MediaQuery.of(context).size.height;
+    final story = c.storyView.active;
+    final chip = story != null && story.tracked && screenH >= 640;
+    // the story chip takes the evolution strip's room, so the strip folds into its compact row
+    final compact = screenH < 680 || (chip && screenH < 920);
     final sleeping = _sleeping(c);
     return Listener(
       onPointerDown: (_) {
@@ -149,6 +155,7 @@ class _NestScreenState extends State<NestScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               ..._banner(context, c),
+              if (chip) const StoryChip(),
               _IdCard(),
               const SizedBox(height: 8),
               _StepsCard(),
@@ -285,6 +292,8 @@ class _NestHud extends StatelessWidget {
               ),
             ),
           ),
+          const SizedBox(height: 8),
+          _VisitVillageButton(attention: c.storyAttention > 0),
         ]),
         const Spacer(),
         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
@@ -301,6 +310,41 @@ class _NestHud extends StatelessWidget {
       ]),
     );
   }
+}
+
+/// Opens Sunlit Village (Village Tales). The dot means a villager has something for you.
+class _VisitVillageButton extends StatelessWidget {
+  const _VisitVillageButton({required this.attention});
+  final bool attention;
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: 'Visit Sunlit Village${attention ? ', something new' : ''}',
+        child: GestureDetector(
+          onTap: () {
+            context.read<GameController>().audio.play('ui_tap', volume: 0.4);
+            openVillage(context);
+          },
+          child: Stack(clipBehavior: Clip.none, children: [
+            Container(
+              height: 44,
+              padding: const EdgeInsets.fromLTRB(6, 0, 12, 0),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF8D5D3B), width: 2),
+                gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFE3B98B), Color(0xFFC69469)]),
+                boxShadow: const [BoxShadow(color: Color(0xFF6E4529), offset: Offset(0, 3)), BoxShadow(color: Color(0x333C2314), blurRadius: 8, offset: Offset(0, 4))],
+              ),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                VoxelIcon('habitats', size: 28),
+                SizedBox(width: 6),
+                Text('Visit Village', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15, color: EvochiColor.ink)),
+              ]),
+            ),
+            if (attention) const Positioned(top: -6, right: -6, child: BadgeDot()),
+          ]),
+        ),
+      );
 }
 
 class _IdCard extends StatelessWidget {

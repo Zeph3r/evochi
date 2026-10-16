@@ -467,7 +467,10 @@ class _ToastListenerState extends State<ToastListener> {
           duration: const Duration(milliseconds: 2400),
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
           content: Row(children: [
-            if (t.icon != null) ...[VoxelIcon(t.icon!, size: 28), const SizedBox(width: 8)],
+            if (t.icon != null) ...[
+              t.icon!.startsWith('item:') ? ItemImage(t.icon!.substring(5), size: 30) : VoxelIcon(t.icon!, size: 28),
+              const SizedBox(width: 8),
+            ],
             Expanded(child: Text(t.message, style: EvochiText.tag.copyWith(color: Colors.white, fontSize: 14))),
           ]),
         ));

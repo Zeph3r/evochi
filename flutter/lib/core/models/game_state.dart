@@ -3,6 +3,10 @@
 
 import 'dart:convert';
 
+import 'story_state.dart';
+
+export 'story_state.dart';
+
 const int schemaVersion = 1;
 
 int _i(dynamic v, [int d = 0]) => v == null ? d : (v as num).toInt();
@@ -355,6 +359,7 @@ class GameState {
     Map<String, int>? unlocks,
     List<Map<String, dynamic>>? audit,
     Map<String, bool>? flags,
+    StoryState? story,
     this.clockOffset = 0,
     this.configVersion = '1.0.0',
     this.savedAtMs = 0,
@@ -367,7 +372,8 @@ class GameState {
         placements = placements ?? {},
         unlocks = unlocks ?? {},
         audit = audit ?? [],
-        flags = flags ?? {};
+        flags = flags ?? {},
+        story = story ?? StoryState();
 
   Player? player;
   Onboarding onboarding;
@@ -381,6 +387,7 @@ class GameState {
   final Map<String, int> unlocks;
   List<Map<String, dynamic>> audit;
   final Map<String, bool> flags;
+  final StoryState story; // Village Tales: account-level, survives pets (see story_state.dart)
   int clockOffset; // playtest tools only
   final int createdAt;
   String tzHint;
@@ -406,6 +413,7 @@ class GameState {
       unlocks: _m(j['unlocks']).map((k, v) => MapEntry(k, _i(v))),
       audit: _l(j['audit']).map((e) => _m(e)).toList(),
       flags: _m(j['flags']).map((k, v) => MapEntry(k, v == true)),
+      story: StoryState.fromJson(j['story']),
       clockOffset: _i(_m(j['debug'])['clockOffset']),
       configVersion: (j['configVersion'] as String?) ?? '1.0.0',
       savedAtMs: _i(j['savedAtMs']),
@@ -427,6 +435,7 @@ class GameState {
         'unlocks': unlocks,
         'audit': audit,
         'flags': flags,
+        'story': story.toJson(),
         'debug': {'clockOffset': clockOffset},
         'tzHint': tzHint,
         'createdAt': createdAt,

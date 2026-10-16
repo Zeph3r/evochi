@@ -8,8 +8,8 @@ Evochi is a cozy pet that grows from your steps. This folder is the iOS/Android 
 > project-internal import resolves, but `flutter analyze` and `flutter test` have **not** been run.
 > Run them first and expect to fix a few small type or API details. The likeliest spot is
 > `lib/data/health_adapters/health_step_source.dart` if your `health` package major differs from the
-> one pinned. The game rules match the web build, and those rules *are* tested: 23 passing tests in
-> `../web/test`, mirrored in `test/engine_test.dart`.
+> one pinned. The game rules match the web build, and those rules *are* tested: 40 passing tests in
+> `../web/test`, mirrored in `test/engine_test.dart` and `test/story_test.dart`.
 
 ## Getting it running
 
@@ -74,6 +74,33 @@ The rules all live in `lib/game/engine.dart` and its modules. They are pure func
 - **Step sync** de-duplicates samples by id and by 15-minute buckets across sources. Old samples are
   compacted into daily totals so saves stay small.
 
+## Village Tales, Chapter 1
+
+The story chapter from the *Village Tales Quest Bible v1.0*, ported from the web build (where it is
+played and tested end to end).
+
+- **Rules** live in `lib/game/story/`:
+  - `story_data.dart` holds the cast, the places, the quest materials and the three quests.
+  - `story.dart` holds step crediting, acceptance, hand-ins, the once-only payout and the views.
+  - `dialogue.dart` holds the Bible's lines by ID and the conversation graph for each state.
+- **State** is `GameState.story` (`lib/core/models/story_state.dart`). It uses the same JSON as
+  the web save, belongs to the account and survives a memorial or a new pet.
+- **Screens** live in `lib/features/village/`:
+  - `village_screen.dart` holds the Square, the three interiors, the Waystone and dialogue.
+  - `story_widgets.dart` holds quest details, the reward card, the Journey Story tab, the Bag Quest
+    Pouch and the Home story chip.
+- **Entry points:**
+  - **Visit Village** on Home.
+  - **Journey > Story**.
+  - **Bag > Pouch**.
+  - Pushed Village screens switch tabs through `GameController.goTab`.
+- **Story rewards** (`reward_*` in `catalog.dart`) have `acquisition: 'story'`, no shop and no
+  price. `purchase` refuses them with `not_for_sale`, and the weekly cosmetic roll skips them.
+- **Manual steps:** `StoryConfig.countManualSteps` (default `true`) lets manual entries count
+  toward story walks.
+- **Tests:** `test/story_test.dart` mirrors `../web/test/story.test.mjs`, including the Bible's 10
+  acceptance tests.
+
 ## Accounts and cloud
 
 `data/remote/remote_sync.dart` defines the server boundary: pull/push snapshot, server-confirmed
@@ -90,7 +117,7 @@ The welcome screen's Apple/Google buttons explain this and fall back to guest pl
 
 All art comes from the Python voxel pipeline in `../tools/art`:
 
-1. `build_characters.py`, `build_items.py`, `build_scenes.py`, `build_decor.py`, `wordmark.py` and
-   `sfx.py` write the masters to `../assets`.
+1. `build_characters.py`, `build_items.py`, `build_scenes.py`, `build_decor.py`, `build_village.py`,
+   `wordmark.py` and `sfx.py` write the masters to `../assets`.
 2. `build_web_assets.py` packs them into the atlases and `manifest.json`.
 3. Copy that output into `assets/art`.

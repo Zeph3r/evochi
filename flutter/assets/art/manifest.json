@@ -558,6 +558,12 @@
       375,
       330,
       375
+     ],
+     "reward_windtrail_mantle": [
+      0,
+      750,
+      330,
+      375
      ]
     }
    },
@@ -1352,6 +1358,12 @@
      "explorer_pack": [
       1194,
       375,
+      398,
+      375
+     ],
+     "reward_windtrail_mantle": [
+      0,
+      750,
       398,
       375
      ]
@@ -2150,6 +2162,12 @@
       466,
       580,
       466
+     ],
+     "reward_windtrail_mantle": [
+      0,
+      932,
+      580,
+      466
      ]
     }
    },
@@ -2497,6 +2515,34 @@
      "y": 466.7,
      "w": 73,
      "h": 127
+    },
+    "reward_firefly_hearth@nest": {
+     "file": "habitats/decor_reward_firefly_hearth_nest.webp",
+     "x": 304.7,
+     "y": 466.7,
+     "w": 176,
+     "h": 227
+    },
+    "reward_waystone_bloom@left": {
+     "file": "habitats/decor_reward_waystone_bloom_left.webp",
+     "x": 100.7,
+     "y": 530.0,
+     "w": 112,
+     "h": 183
+    },
+    "reward_waystone_bloom@right": {
+     "file": "habitats/decor_reward_waystone_bloom_right.webp",
+     "x": 572.0,
+     "y": 522.0,
+     "w": 113,
+     "h": 179
+    },
+    "reward_waystone_bloom@back": {
+     "file": "habitats/decor_reward_waystone_bloom_back.webp",
+     "x": 246.0,
+     "y": 454.7,
+     "w": 87,
+     "h": 145
     }
    }
   },
@@ -2568,7 +2614,17 @@
   "platform": "items/platform.webp",
   "red_backpack": "items/red_backpack.webp",
   "sunlit_flower": "items/sunlit_flower.webp",
-  "tiny_crown": "items/tiny_crown.webp"
+  "tiny_crown": "items/tiny_crown.webp",
+  "q_dawn_dew_vial": "items/q_dawn_dew_vial.webp",
+  "q_echo_rubbing": "items/q_echo_rubbing.webp",
+  "q_glowbloom_essence": "items/q_glowbloom_essence.webp",
+  "q_lumenbud_sprig": "items/q_lumenbud_sprig.webp",
+  "q_sealed_trail_letter": "items/q_sealed_trail_letter.webp",
+  "q_waystone_core": "items/q_waystone_core.webp",
+  "q_windprint_paper": "items/q_windprint_paper.webp",
+  "reward_firefly_hearth": "items/reward_firefly_hearth.webp",
+  "reward_waystone_bloom": "items/reward_waystone_bloom.webp",
+  "reward_windtrail_mantle": "items/reward_windtrail_mantle.webp"
  },
  "icons": {
   "bag": "icons/bag.webp",
@@ -2878,6 +2934,142 @@
     180,
     150
    ]
+  }
+ },
+ "village": {
+  "npcs": {
+   "mira": {
+    "w": 398,
+    "h": 446,
+    "ground": [
+     146.4,
+     417.7
+    ],
+    "face": [
+     187.4,
+     206.8
+    ],
+    "expr": {
+     "neutral": "village/npc_mira_neutral.webp",
+     "happy": "village/npc_mira_happy.webp",
+     "worried": "village/npc_mira_worried.webp",
+     "thinking": "village/npc_mira_thinking.webp",
+     "proud": "village/npc_mira_proud.webp"
+    }
+   },
+   "bram": {
+    "w": 364,
+    "h": 388,
+    "ground": [
+     153.7,
+     356.1
+    ],
+    "face": [
+     197.6,
+     144.2
+    ],
+    "expr": {
+     "neutral": "village/npc_bram_neutral.webp",
+     "happy": "village/npc_bram_happy.webp",
+     "worried": "village/npc_bram_worried.webp",
+     "thinking": "village/npc_bram_thinking.webp",
+     "proud": "village/npc_bram_proud.webp"
+    }
+   },
+   "pip": {
+    "w": 320,
+    "h": 372,
+    "ground": [
+     173.9,
+     349.3
+    ],
+    "face": [
+     215.9,
+     143.5
+    ],
+    "expr": {
+     "neutral": "village/npc_pip_neutral.webp",
+     "happy": "village/npc_pip_happy.webp",
+     "worried": "village/npc_pip_worried.webp",
+     "thinking": "village/npc_pip_thinking.webp",
+     "proud": "village/npc_pip_proud.webp"
+    }
+   },
+   "alder": {
+    "w": 338,
+    "h": 366,
+    "ground": [
+     159.9,
+     340.7
+    ],
+    "face": [
+     205.8,
+     106.2
+    ],
+    "expr": {
+     "neutral": "village/npc_alder_neutral.webp",
+     "happy": "village/npc_alder_happy.webp",
+     "worried": "village/npc_alder_worried.webp",
+     "thinking": "village/npc_alder_thinking.webp",
+     "proud": "village/npc_alder_proud.webp"
+    }
+   }
+  },
+  "square": {
+   "day_dim": "village/square_day_dim.webp",
+   "w": 780,
+   "h": 867,
+   "lamp_lit": "village/square_lamp_lit.webp",
+   "waystone_restored": "village/square_waystone_restored.webp",
+   "anchors": {
+    "glasshouse": [
+     139.2,
+     416.1
+    ],
+    "workshop": [
+     640.8,
+     416.1
+    ],
+    "lodge": [
+     390.0,
+     195.5
+    ],
+    "waystone": [
+     390.0,
+     471.7
+    ],
+    "lamp": [
+     533.9,
+     609.7
+    ],
+    "market": [
+     16.3,
+     654.1
+    ]
+   }
+  },
+  "places": {
+   "glasshouse": {
+    "file": "village/glasshouse.webp",
+    "w": 780,
+    "h": 600
+   },
+   "workshop": {
+    "file": "village/workshop.webp",
+    "w": 780,
+    "h": 600
+   },
+   "lodge": {
+    "file": "village/lodge.webp",
+    "w": 780,
+    "h": 600
+   }
+  },
+  "waystone": {
+   "dormant": "village/waystone_dormant.webp",
+   "w": 667,
+   "h": 667,
+   "restored": "village/waystone_restored.webp"
   }
  }
 }

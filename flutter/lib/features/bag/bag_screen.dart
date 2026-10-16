@@ -12,11 +12,15 @@ import '../nest/sheets.dart';
 import '../shared/scene_scaffold.dart';
 import '../shared/scene_view.dart';
 import '../shared/widgets.dart';
+import '../village/story_widgets.dart';
 
-const _cats = [
-  (ItemCategory.wearable, 'Wearables', 'wearables'),
-  (ItemCategory.consumable, 'Consumables', 'consumables'),
-  (ItemCategory.decoration, 'Decorations', 'decorations'),
+// (category, short tab label, icon, full name). A null category is the Quest Pouch (Village Tales
+// materials, which are never catalog items).
+const _cats = <(ItemCategory?, String, String, String)>[
+  (ItemCategory.wearable, 'Wear', 'wearables', 'Wearables'),
+  (ItemCategory.consumable, 'Care', 'consumables', 'Consumables'),
+  (ItemCategory.decoration, 'Decor', 'decorations', 'Decorations'),
+  (null, 'Pouch', 'journey', 'Quest Pouch'),
 ];
 const _slotUi = {'head': 'Head', 'back': 'Back', 'neck': 'Accessory'};
 
@@ -30,7 +34,9 @@ class BagScreen extends StatefulWidget {
 class _BagScreenState extends State<BagScreen> {
   final _scene = SceneController();
   ItemCategory _cat = ItemCategory.wearable;
+  bool _pouch = false;
   String? _sel;
+  String? _selQ;
 
   List<String> _owned(GameController c, ItemCategory cat) {
     final list = c.state.inventory.entries.where((e) => e.value.quantity > 0 && catalog[e.key]?.category == cat).map((e) => e.key).toList();
@@ -41,11 +47,18 @@ class _BagScreenState extends State<BagScreen> {
   @override
   Widget build(BuildContext context) {
     final c = context.watch<GameController>();
+    if (c.bagCategoryRequest == 'pouch') {
+      c.bagCategoryRequest = null;
+      _pouch = true;
+    }
     final pet = c.state.pet!;
     final v = c.view;
-    final list = _owned(c, _cat);
+    final list = _pouch ? const <String>[] : _owned(c, _cat);
     if (_sel != null && (!list.contains(_sel))) _sel = null;
-    _sel ??= _cat == ItemCategory.wearable ? (pet.equipped.values.isNotEmpty ? pet.equipped.values.first : (list.isEmpty ? null : list.first)) : (list.isEmpty ? null : list.first);
+    if (!_pouch) {
+      _sel ??= _cat == ItemCategory.wearable ? (pet.equipped.values.isNotEmpty ? pet.equipped.values.first : (list.isEmpty ? null : list.first)) : (list.isEmpty ? null : list.first);
+    }
+    if (_selQ != null && (c.storyView.pouch[_selQ] ?? 0) <= 0) _selQ = null;
     final sel = _sel;
     final equipped = Map<String, String>.of(pet.equipped);
     if (sel != null && item(sel).category == ItemCategory.wearable) equipped[item(sel).slot!] = sel; // try-on preview
@@ -85,6 +98,7 @@ class _BagScreenState extends State<BagScreen> {
               child: GestureDetector(
                 onTap: () => setState(() {
                   _cat = ItemCategory.wearable;
+                  _pouch = false;
                   _sel = id ?? _owned(c, ItemCategory.wearable).where((x) => item(x).slot == slot).firstOrNull;
                   if (_sel == null) c.toast('No ${_slotUi[slot]!.toLowerCase()} items yet - find some in the Market', icon: 'shop', kind: 'warn');
                 }),
@@ -131,11 +145,18 @@ class _BagScreenState extends State<BagScreen> {
                     padding: const EdgeInsets.symmetric(horizontal: 3),
                     child: _TabChip(
                       label: cat.$2,
+                      fullLabel: cat.$4,
                       icon: cat.$3,
-                      selected: _cat == cat.$1,
+                      selected: cat.$1 == null ? _pouch : (!_pouch && _cat == cat.$1),
                       onTap: () => setState(() {
-                        _cat = cat.$1;
+                        if (cat.$1 == null) {
+                          _pouch = true;
+                        } else {
+                          _pouch = false;
+                          _cat = cat.$1!;
+                        }
                         _sel = null;
+                        _selQ = null;
                       }),
                     ),
                   ),
@@ -148,7 +169,10 @@ class _BagScreenState extends State<BagScreen> {
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(color: EvochiColor.panel, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFEFD9C0), width: 2)),
             child: Column(children: [
-              if (list.isEmpty)
+              if (_pouch) ...[
+                PouchGrid(selected: _selQ, cols: cols, onSelect: (id) => setState(() => _selQ = id)),
+                if (_selQ != null) ...[const SizedBox(height: 8), PouchDetail(id: _selQ!)],
+              ] else if (list.isEmpty)
                 Padding(
                   padding: const EdgeInsets.all(18),
                   child: Column(children: [
@@ -184,7 +208,7 @@ class _BagScreenState extends State<BagScreen> {
                       ),
                   ],
                 ),
-              if (sel != null) ...[const SizedBox(height: 8), _Detail(id: sel, scene: _scene)],
+              if (!_pouch && sel != null) ...[const SizedBox(height: 8), _Detail(id: sel, scene: _scene)],
             ]),
           ),
         ]),
@@ -194,8 +218,9 @@ class _BagScreenState extends State<BagScreen> {
 }
 
 class _TabChip extends StatelessWidget {
-  const _TabChip({required this.label, required this.icon, required this.selected, required this.onTap});
+  const _TabChip({required this.label, required this.fullLabel, required this.icon, required this.selected, required this.onTap});
   final String label;
+  final String fullLabel;
   final String icon;
   final bool selected;
   final VoidCallback onTap;
@@ -203,7 +228,8 @@ class _TabChip extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
         selected: selected,
         button: true,
-        label: label,
+        label: fullLabel,
+        excludeSemantics: true,
         child: GestureDetector(
           onTap: onTap,
           child: Container(
@@ -248,8 +274,8 @@ class _ItemTile extends StatelessWidget {
           padding: const EdgeInsets.all(4),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: selected ? const Color(0xFFF2BE55) : const Color(0xFFEADAC6), width: 2),
-            color: selected ? const Color(0xFFFFF7E4) : const Color(0xFFFFFBF6),
+            border: Border.all(color: selected ? const Color(0xFFF2BE55) : (it.isStory ? const Color(0xFFE8B956) : const Color(0xFFEADAC6)), width: 2),
+            color: selected ? const Color(0xFFFFF7E4) : (it.isStory ? const Color(0xFFFFF6DE) : const Color(0xFFFFFBF6)),
           ),
           child: Stack(children: [
             Column(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -267,6 +293,7 @@ class _ItemTile extends StatelessWidget {
                 ),
               ),
             if (marked) const Positioned(left: 0, top: 0, child: Icon(Icons.check_circle, color: EvochiColor.steps, size: 20)),
+            if (it.isStory) const Positioned(right: 0, bottom: 18, child: VoxelIcon('star', size: 20)),
           ]),
         ),
       ),
@@ -373,9 +400,13 @@ class _Detail extends StatelessWidget {
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text(it.name, style: EvochiText.cardTitle),
             const SizedBox(height: 4),
-            Wrap(spacing: 4, runSpacing: 4, children: [Tag(tag), Tag(it.rarity[0].toUpperCase() + it.rarity.substring(1), tone: TagTone.ok, icon: 'care')]),
+            Wrap(spacing: 4, runSpacing: 4, children: [
+              Tag(tag),
+              if (it.isStory) const StoryRewardTag(small: true) else Tag(it.rarity[0].toUpperCase() + it.rarity.substring(1), tone: TagTone.ok, icon: 'care'),
+            ]),
             const SizedBox(height: 4),
             Text(it.desc, style: EvochiText.caption.copyWith(color: EvochiColor.textSecondary)),
+            storySourceLine(id),
           ]),
         ),
         const SizedBox(width: 8),

@@ -17,6 +17,7 @@ import '../data/health_adapters/health_step_source.dart';
 import '../data/health_adapters/step_source.dart';
 import '../data/repositories/game_repository.dart';
 import '../game/engine.dart' as g;
+import '../game/story/story.dart' as story;
 
 class Toast {
   const Toast(this.message, {this.icon, this.kind = 'ok'});
@@ -45,7 +46,13 @@ class GameController extends ChangeNotifier {
   Stream<Toast> get toasts => _toasts.stream;
 
   g.GameView? _view;
+  story.StoryStatus? _story;
   int _viewAt = 0;
+
+  /// Cross-route navigation requests (pushed Village screens can't reach the tab shell directly).
+  final tabRequest = ValueNotifier<String?>(null);
+  String journeyTab = 'daily'; // daily | weekly | story
+  String? bagCategoryRequest; // e.g. 'pouch'
 
   int get now => DateTime.now().millisecondsSinceEpoch + state.clockOffset;
 
@@ -55,9 +62,28 @@ class GameController extends ChangeNotifier {
     final n = now;
     if (_view == null || (n - _viewAt).abs() > 15000) {
       _view = g.derive(state, n);
+      _story = null;
       _viewAt = n;
     }
     return _view!;
+  }
+
+  /// Village Tales: quest views, flags and the Quest Pouch (cached with [view]).
+  story.StoryStatus get storyView {
+    view;
+    return _story ??= story.storyStatus(state, _viewAt);
+  }
+
+  /// Hand-ins waiting plus quest offers not opened yet (badges on Visit Village and Journey > Story).
+  int get storyAttention => story.storyAttention(state, storyView);
+
+  /// Switch the main tab from anywhere (closes pushed screens first; see MainShell).
+  void goTab(String tab, {String? journey, String? bag}) {
+    if (journey != null) journeyTab = journey;
+    if (bag != null) bagCategoryRequest = bag;
+    tabRequest.value = null;
+    tabRequest.value = tab;
+    notifyListeners();
   }
 
   Future<void> init() async {
@@ -72,6 +98,8 @@ class GameController extends ChangeNotifier {
     state.tzHint = zone;
     _applySettings();
     ready = true;
+    // story walks re-check progress on open (e.g. a quest whose target was met by the last sync)
+    if (state.player != null) run((s, n) => story.storyTick(s, n), quiet: true);
     notifyListeners();
     if (state.pet != null && state.steps.connection != 'none') unawaited(sync());
   }
@@ -86,6 +114,7 @@ class GameController extends ChangeNotifier {
     s.savedAtMs = DateTime.now().millisecondsSinceEpoch;
     state = s;
     _view = null;
+    _story = null;
     repo.save(s);
     _applySettings();
     notifyListeners();
@@ -122,6 +151,10 @@ class GameController extends ChangeNotifier {
       'invalid_name': Toast((r.info['message'] as String?) ?? 'Check the name', icon: 'paw', kind: 'warn'),
       'need_herbs': Toast('You need ${r.info['need']} Healing Herbs', icon: 'care', kind: 'warn'),
       'walk_needed': const Toast("Reach today's step goal to rekindle", icon: 'steps', kind: 'warn'),
+      'not_for_sale': const Toast('Story rewards are earned, never sold', icon: 'star', kind: 'warn'),
+      'story_locked': Toast((r.info['message'] as String?) ?? 'Not unlocked yet', icon: 'lock', kind: 'warn'),
+      'story_not_ready': const Toast('Not ready yet - keep going!', icon: 'journey', kind: 'warn'),
+      'story_missing_items': const Toast('Something is missing from your Quest Pouch', icon: 'journey', kind: 'warn'),
     };
     _toasts.add(m[r.error] ?? const Toast('Something went wrong - please try again', icon: 'warning', kind: 'err'));
     audio.play('error_bonk', volume: 0.5);
@@ -154,6 +187,26 @@ class GameController extends ChangeNotifier {
         toast('Bond +${e.data['amount']}', icon: 'heart');
       case 'recovered':
         toast('Your Evochi is feeling better!', icon: 'heart');
+      case 'story_item':
+        final id = e.data['itemId'] as String;
+        final m = story.questMaterials[id]!;
+        final have = state.story.questPouch[id] ?? 1;
+        toast(
+          id == 'q_dawn_dew_vial'
+              ? 'Morning light collected! ${m.name} added to your Quest Pouch.'
+              : (m.max > 1 ? '${m.name} $have/${m.max} added to your Quest Pouch' : '${m.name} added to your Quest Pouch'),
+          icon: 'item:$id',
+        );
+        audio.play('reward_chime', volume: 0.7);
+      case 'story_ready':
+        final npc = e.data['npc'] as String?;
+        if (npc == 'waystone') {
+          toast('The Waystone is ready to wake', icon: 'star');
+        } else if (npc != null) {
+          toast('${story.npcs[npc]!.name} is ready for you in Sunlit Village', icon: 'pin');
+        }
+      case 'story_completed':
+        analytics.track('story_quest_completed', {'quest': e.data['questId']});
       case 'sync_failed':
         toast('Sync failed - your last saved progress is safe', icon: 'warning', kind: 'err');
       default:
@@ -200,7 +253,11 @@ class GameController extends ChangeNotifier {
   }
 
   Future<void> simulateWalk(int steps) async {
-    demo.walk(steps, now);
+    // the simulated walk "just happened"; it never reaches back before a story quest was accepted,
+    // so a demo walk right after accepting counts in full (real step data keeps its own timestamps)
+    final active = state.story.activeQuestId;
+    final since = active == null ? 0 : (state.story.questStates[active]?.acceptedAt ?? 0);
+    demo.walk(steps, now, notBefore: since);
     await sync();
   }
 
@@ -216,7 +273,9 @@ class GameController extends ChangeNotifier {
       final n = DateTime.now().millisecondsSinceEpoch + s.clockOffset;
       if (ratio > 0) {
         final goal = g.goalFor(s, dayKey(n, g.zoneOf(s)));
-        final samples = demo.walk((goal * ratio).round(), n, watch: false);
+        final active = s.story.activeQuestId;
+        final since = active == null ? 0 : (s.story.questStates[active]?.acceptedAt ?? 0);
+        final samples = demo.walk((goal * ratio).round(), n, watch: false, notBefore: since);
         demo.readSamples(0, n + 1);
         s = g.syncSteps(s, samples, n, source: 'demo').state;
       }
@@ -269,6 +328,7 @@ class GameController extends ChangeNotifier {
 
   @override
   void dispose() {
+    tabRequest.dispose();
     _events.close();
     _toasts.close();
     super.dispose();

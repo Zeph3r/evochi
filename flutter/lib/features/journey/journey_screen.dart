@@ -16,6 +16,7 @@ import '../../game/xp/xp.dart';
 import '../nest/sheets.dart';
 import '../settings/settings_screen.dart';
 import '../shared/widgets.dart';
+import '../village/story_widgets.dart';
 
 class JourneyScreen extends StatefulWidget {
   const JourneyScreen({super.key});
@@ -68,6 +69,119 @@ class _JourneyScreenState extends State<JourneyScreen> {
       'manual' => 'Manual entry',
       _ => 'Not connected',
     };
+    final tab = c.journeyTab;
+    final Widget today = GameCard(
+      padding: const EdgeInsets.all(14),
+      child: Column(children: [
+        Row(children: [
+          SizedBox(
+            width: 128,
+            height: 128,
+            child: Semantics(
+              label: '${fmt(v.todaySteps)} of ${fmt(v.goal)} steps',
+              child: CustomPaint(
+                painter: _RingPainter(pct),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                  const VoxelIcon('steps', size: 28),
+                  Text(fmt(v.todaySteps), style: EvochiText.number.copyWith(fontSize: 22)),
+                  Text('of ${fmt(v.goal)}', style: EvochiText.caption),
+                ]),
+              ),
+            ),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Today', style: EvochiText.cardTitle),
+              const SizedBox(height: 4),
+              Text('${xp.total} activity XP (${xp.base} base + ${xp.milestones} milestones${xp.stretch > 0 ? ' + ${xp.stretch} stretch' : ''})', style: EvochiText.bodyText),
+              const SizedBox(height: 6),
+              Wrap(spacing: 4, runSpacing: 4, children: [
+                for (final m in c.config.milestones) Tag('${(m.ratio * 100).round()}% +${m.xp}', tone: xp.reached.contains(m.id) ? TagTone.ok : TagTone.cream),
+              ]),
+              if (v.todayUnverified) const Padding(padding: EdgeInsets.only(top: 6), child: Tag('Includes unverified manual steps', tone: TagTone.warn)),
+            ]),
+          ),
+        ]),
+        const Divider(height: 24, color: Color(0xFFEEDDC9)),
+        Row(children: [
+          VoxelIcon(conn == 'none' ? 'warning' : 'steps', size: 28),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(source, style: EvochiText.cardTitle.copyWith(fontSize: 14)),
+              Text(
+                conn == 'none' ? 'Connect a source to earn from your steps' : 'Last sync ${_ago(c.state.steps.lastSync, c.now)}',
+                style: EvochiText.caption,
+              ),
+            ]),
+          ),
+          if (conn == 'none')
+            EvochiButton(
+              label: 'Connect',
+              tone: ButtonTone.green,
+              small: true,
+              expand: false,
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
+            )
+          else if (conn != 'manual')
+            EvochiButton(label: c.syncing ? 'Syncing' : 'Sync', tone: ButtonTone.cream, small: true, expand: false, onPressed: c.syncing ? null : c.sync),
+        ]),
+      ]),
+    );
+    final sources = <Widget>[
+      if (conn == 'demo')
+        GameCard(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            const Row(children: [Expanded(child: Text('Go for a walk', style: EvochiText.cardTitle)), Tag('Playtest')]),
+            const Text('Simulates time-stamped samples from a phone and a watch. Overlapping samples are de-duplicated.', style: EvochiText.caption),
+            const SizedBox(height: 8),
+            Wrap(spacing: 6, runSpacing: 6, children: [
+              for (final n in const [500, 1000, 2500])
+                EvochiButton(label: '+${fmt(n)}', tone: ButtonTone.green, small: true, expand: false, onPressed: () => c.simulateWalk(n)),
+              EvochiButton(
+                label: 'Reach goal',
+                small: true,
+                expand: false,
+                onPressed: v.todaySteps >= v.goal ? null : () => c.simulateWalk(math.max(100, v.goal - v.todaySteps)),
+              ),
+            ]),
+          ]),
+        ),
+      if (conn == 'manual')
+        GameCard(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            const Row(children: [Expanded(child: Text('Add steps manually', style: EvochiText.cardTitle)), Tag('Unverified', tone: TagTone.warn)]),
+            const SizedBox(height: 8),
+            Row(children: [
+              Expanded(
+                child: TextField(
+                  controller: _manual,
+                  keyboardType: TextInputType.number,
+                  decoration: const InputDecoration(hintText: 'e.g. 1500', filled: true, fillColor: EvochiColor.shell),
+                ),
+              ),
+              const SizedBox(width: 8),
+              EvochiButton(
+                label: 'Add',
+                small: true,
+                expand: false,
+                onPressed: () {
+                  final n = int.tryParse(_manual.text.trim());
+                  if (n == null || n <= 0 || n > 60000) {
+                    c.toast('Enter a number of steps between 1 and 60,000', icon: 'steps', kind: 'warn');
+                    return;
+                  }
+                  _manual.clear();
+                  c.addManualSteps(n);
+                },
+              ),
+            ]),
+            const SizedBox(height: 6),
+            const Text('Manual steps give XP and keep your Evochi healthy, but never unlock reward chests or cosmetic chances.', style: EvochiText.caption),
+          ]),
+        ),
+    ];
     return Scaffold(
       backgroundColor: EvochiColor.panel,
       body: CustomScrollView(slivers: [
@@ -93,125 +207,36 @@ class _JourneyScreenState extends State<JourneyScreen> {
         SliverPadding(
           padding: EdgeInsets.fromLTRB(14, 0, 14, navInset(context) + 12),
           sliver: SliverList.list(children: [
-            GameCard(
-              padding: const EdgeInsets.all(14),
-              child: Column(children: [
-                Row(children: [
-                  SizedBox(
-                    width: 128,
-                    height: 128,
-                    child: Semantics(
-                      label: '${fmt(v.todaySteps)} of ${fmt(v.goal)} steps',
-                      child: CustomPaint(
-                        painter: _RingPainter(pct),
-                        child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                          const VoxelIcon('steps', size: 28),
-                          Text(fmt(v.todaySteps), style: EvochiText.number.copyWith(fontSize: 22)),
-                          Text('of ${fmt(v.goal)}', style: EvochiText.caption),
-                        ]),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 14),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      const Text('Today', style: EvochiText.cardTitle),
-                      const SizedBox(height: 4),
-                      Text('${xp.total} activity XP (${xp.base} base + ${xp.milestones} milestones${xp.stretch > 0 ? ' + ${xp.stretch} stretch' : ''})', style: EvochiText.bodyText),
-                      const SizedBox(height: 6),
-                      Wrap(spacing: 4, runSpacing: 4, children: [
-                        for (final m in c.config.milestones) Tag('${(m.ratio * 100).round()}% +${m.xp}', tone: xp.reached.contains(m.id) ? TagTone.ok : TagTone.cream),
-                      ]),
-                      if (v.todayUnverified) const Padding(padding: EdgeInsets.only(top: 6), child: Tag('Includes unverified manual steps', tone: TagTone.warn)),
-                    ]),
-                  ),
-                ]),
-                const Divider(height: 24, color: Color(0xFFEEDDC9)),
-                Row(children: [
-                  VoxelIcon(conn == 'none' ? 'warning' : 'steps', size: 28),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                      Text(source, style: EvochiText.cardTitle.copyWith(fontSize: 14)),
-                      Text(
-                        conn == 'none' ? 'Connect a source to earn from your steps' : 'Last sync ${_ago(c.state.steps.lastSync, c.now)}',
-                        style: EvochiText.caption,
-                      ),
-                    ]),
-                  ),
-                  if (conn == 'none')
-                    EvochiButton(
-                      label: 'Connect',
-                      tone: ButtonTone.green,
-                      small: true,
-                      expand: false,
-                      onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
-                    )
-                  else if (conn != 'manual')
-                    EvochiButton(label: c.syncing ? 'Syncing' : 'Sync', tone: ButtonTone.cream, small: true, expand: false, onPressed: c.syncing ? null : c.sync),
-                ]),
-              ]),
+            _JourneyTabs(
+              tab: tab,
+              dailyDot: v.quests.any((q) => q.def.period == 'day' && q.eligible && !q.claimed),
+              weeklyDot: v.quests.any((q) => q.def.period == 'week' && q.eligible && !q.claimed),
+              storyDot: c.storyView.turnIns.isNotEmpty,
+              onTab: (t) {
+                c.audio.play('ui_tap', volume: 0.3);
+                setState(() => c.journeyTab = t);
+              },
             ),
             const SizedBox(height: 10),
-            if (conn == 'demo')
-              GameCard(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  const Row(children: [Expanded(child: Text('Go for a walk', style: EvochiText.cardTitle)), Tag('Playtest')]),
-                  const Text('Simulates time-stamped samples from a phone and a watch. Overlapping samples are de-duplicated.', style: EvochiText.caption),
-                  const SizedBox(height: 8),
-                  Wrap(spacing: 6, runSpacing: 6, children: [
-                    for (final n in const [500, 1000, 2500])
-                      EvochiButton(label: '+${fmt(n)}', tone: ButtonTone.green, small: true, expand: false, onPressed: () => c.simulateWalk(n)),
-                    EvochiButton(
-                      label: 'Reach goal',
-                      small: true,
-                      expand: false,
-                      onPressed: v.todaySteps >= v.goal ? null : () => c.simulateWalk(math.max(100, v.goal - v.todaySteps)),
-                    ),
-                  ]),
-                ]),
-              ),
-            if (conn == 'manual')
-              GameCard(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  const Row(children: [Expanded(child: Text('Add steps manually', style: EvochiText.cardTitle)), Tag('Unverified', tone: TagTone.warn)]),
-                  const SizedBox(height: 8),
-                  Row(children: [
-                    Expanded(
-                      child: TextField(
-                        controller: _manual,
-                        keyboardType: TextInputType.number,
-                        decoration: const InputDecoration(hintText: 'e.g. 1500', filled: true, fillColor: EvochiColor.shell),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    EvochiButton(
-                      label: 'Add',
-                      small: true,
-                      expand: false,
-                      onPressed: () {
-                        final n = int.tryParse(_manual.text.trim());
-                        if (n == null || n <= 0 || n > 60000) {
-                          c.toast('Enter a number of steps between 1 and 60,000', icon: 'steps', kind: 'warn');
-                          return;
-                        }
-                        _manual.clear();
-                        c.addManualSteps(n);
-                      },
-                    ),
-                  ]),
-                  const SizedBox(height: 6),
-                  const Text('Manual steps give XP and keep your Evochi healthy, but never unlock reward chests or cosmetic chances.', style: EvochiText.caption),
-                ]),
-              ),
-            const SizedBox(height: 14),
-            const _SectionHead('Daily quests'),
-            for (final q in v.quests.where((q) => q.def.period == 'day')) _QuestRow(q: q, onClaim: () => _claim(c, q.def.id)),
-            const SizedBox(height: 10),
-            const _SectionHead('This week'),
-            for (final q in v.quests.where((q) => q.def.period == 'week')) _QuestRow(q: q, onClaim: () => _claim(c, q.def.id)),
-            const SizedBox(height: 4),
-            _WeekCard(),
+            if (tab == 'story') ...[
+              const StoryTab(),
+              const SizedBox(height: 10),
+              ...sources,
+            ] else ...[
+              today,
+              const SizedBox(height: 10),
+              ...sources,
+              const SizedBox(height: 14),
+              if (tab == 'daily') ...[
+                const _SectionHead('Daily quests'),
+                for (final q in v.quests.where((q) => q.def.period == 'day')) _QuestRow(q: q, onClaim: () => _claim(c, q.def.id)),
+              ] else ...[
+                const _SectionHead('This week'),
+                for (final q in v.quests.where((q) => q.def.period == 'week')) _QuestRow(q: q, onClaim: () => _claim(c, q.def.id)),
+                const SizedBox(height: 4),
+                _WeekCard(),
+              ],
+            ],
           ]),
         ),
       ]),
@@ -228,6 +253,55 @@ String _ago(int? ms, int now) {
   final h = (m / 60).round();
   if (h < 24) return '$h h ago';
   return '${(h / 24).round()} days ago';
+}
+
+class _JourneyTabs extends StatelessWidget {
+  const _JourneyTabs({required this.tab, required this.dailyDot, required this.weeklyDot, required this.storyDot, required this.onTab});
+  final String tab;
+  final bool dailyDot;
+  final bool weeklyDot;
+  final bool storyDot;
+  final ValueChanged<String> onTab;
+  @override
+  Widget build(BuildContext context) {
+    final tabs = [('daily', 'Daily', 'steps', dailyDot), ('weekly', 'Weekly', 'trophy', weeklyDot), ('story', 'Story', 'habitats', storyDot)];
+    return Row(children: [
+      for (final t in tabs)
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: Semantics(
+              selected: tab == t.$1,
+              button: true,
+              label: '${t.$2} quests${t.$4 ? ', something ready' : ''}',
+              child: GestureDetector(
+                onTap: () => onTab(t.$1),
+                child: Stack(clipBehavior: Clip.none, children: [
+                  Container(
+                    height: 48,
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: tab == t.$1 ? const Color(0xFFF0B952) : const Color(0xFFE2CDB4), width: 2),
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: tab == t.$1 ? const [Color(0xFFFFF4D6), Color(0xFFFFE1A1)] : const [Color(0xFFFBF2E7), Color(0xFFEFE0CD)],
+                      ),
+                    ),
+                    child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                      VoxelIcon(t.$3, size: 24),
+                      const SizedBox(width: 4),
+                      Text(t.$2, style: EvochiText.tag.copyWith(color: tab == t.$1 ? EvochiColor.ink : EvochiColor.textSecondary)),
+                    ]),
+                  ),
+                  if (t.$4) const Positioned(top: -4, right: -4, child: BadgeDot()),
+                ]),
+              ),
+            ),
+          ),
+        ),
+    ]);
+  }
 }
 
 class _SectionHead extends StatelessWidget {

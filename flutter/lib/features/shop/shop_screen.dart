@@ -17,7 +17,7 @@ import '../shared/widgets.dart';
 const _cats = [('featured', 'Featured', 'star'), ('wearables', 'Wearables', 'wearables'), ('care', 'Care', 'care'), ('habitats', 'Habitats', 'habitats')];
 
 List<String> _listFor(String cat) =>
-    catalog.values.where((it) => cat == 'featured' ? it.featured : it.shop == cat).map((it) => it.id).toList();
+    catalog.values.where((it) => isShopItem(it.id) && (cat == 'featured' ? it.featured : it.shop == cat)).map((it) => it.id).toList();
 
 (String, String) _tagFor(CatalogItem it) => switch (it.category) {
       ItemCategory.wearable => (it.slot == 'neck' ? 'Neck' : (slotLabels[it.slot] ?? 'Wearable'), 'wearables'),
