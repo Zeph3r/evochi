@@ -76,6 +76,7 @@ export const settings = {
           <div class="setting"><img src="${icon('warning')}" alt="" width="30" height="30"><div class="grow"><div class="t">Playtest tools</div><div class="d">Preview-only shortcuts for testing progression. Clock offset: +${offDays} day${offDays === 1 ? '' : 's'}.</div></div></div>
           <div class="row" style="padding:0 12px 12px;gap:6px;flex-wrap:wrap">
             <button class="btn sm cream" data-act="dev" data-arg="coins" data-k="dv1">+500 coins</button>
+            <button class="btn sm cream" data-act="dev" data-arg="day" data-k="dv6">Walk 1 goal day</button>
             <button class="btn sm cream" data-act="dev" data-arg="days" data-k="dv2">Walk 7 goal days</button>
             <button class="btn sm cream" data-act="dev" data-arg="evolve" data-k="dv3">Fast-track evolution</button>
             <button class="btn sm cream" data-act="dev" data-arg="skip" data-k="dv4">Skip 3 idle days</button>
@@ -221,6 +222,10 @@ export const settings = {
         advance(store, 3, 0);
         ctx.toast('Skipped 3 days without steps', 'warn', 'warning');
       }
+      if (what === 'day') {
+        advance(store, 1, 1.05);
+        ctx.toast('Walked to goal, then moved to the next day', 'ok', 'steps');
+      }
       if (what === 'days') {
         advance(store, 7, 1.05);
         ctx.toast('Walked to goal on 7 days', 'ok', 'steps');
@@ -247,7 +252,10 @@ function advance(store, days, ratio, quiet = false) {
     if (ratio > 0) {
       const now = store.now();
       const goal = G.goalFor(s, G.derive(s, now).today);
-      s = G.syncSteps(s, simulateWalk(Math.round(goal * ratio), now, { watch: false, minutes: 60 }), now).state;
+      // like the Journey simulator, never reach back before an active story quest was accepted
+      const st = s.story;
+      const since = st?.activeQuestId ? st.questStates[st.activeQuestId]?.acceptedAt : 0;
+      s = G.syncSteps(s, simulateWalk(Math.round(goal * ratio), now, { watch: false, minutes: 60, notBefore: since || 0 }), now).state;
     }
     s = structuredClone(s);
     s.debug.clockOffset = (s.debug.clockOffset || 0) + DAY;
