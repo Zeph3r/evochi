@@ -194,6 +194,22 @@ export const ITEMS = {
     acquisition: 'home', effect: { vitality: 20, recovery: true },
     desc: 'A deep-blue draught full of tiny stars. Restores 20 vitality (12h cooldown, like a Healing Herb).',
   },
+
+  // ---- Lumen Trails: found on discoveries, brewed for encounters, earned from the guardians
+  lumen_shard: {
+    name: 'Lumen Shard', category: 'ingredient', price: null, rarity: 'uncommon', stackable: true, shop: null, acquisition: 'trail',
+    desc: 'A sliver of trail-light, cool to the touch. The Trail Guild trades them for nothing: they are for brewing Lantern Tonic.',
+  },
+  lantern_tonic: {
+    name: 'Lantern Tonic', category: 'consumable', kind: 'potion', price: null, rarity: 'rare', stackable: true, shop: null,
+    acquisition: 'home', effect: { vitality: 12, lantern: true },
+    desc: 'Lumen in a bottle. Restores 12 vitality, and in an encounter it steadies the Hollow like nothing else.',
+  },
+  ancient_relic: {
+    name: 'Ancient Relic', category: 'decoration', decor: 'side', price: null, rarity: 'legendary', shop: null, acquisition: 'story',
+    originQuest: 'eq03',
+    desc: 'A stone tablet from the Sentinel\'s gate, its three trail grooves glowing softly. A piece of the Lumen Trails for your nest.',
+  },
 };
 
 /** Items the Market may ever list (story rewards and quest materials never qualify). */
@@ -202,7 +218,7 @@ export function isShopItem(id) {
   return !!it && !!it.shop && it.acquisition !== 'story' && Number.isFinite(it.price);
 }
 
-export const STORY_SOURCE = { vq01: 'Village Tales, Quest 01', vq02: 'Village Tales, Quest 02', vq03: 'Village Tales, Quest 03' };
+export const STORY_SOURCE = { vq01: 'Village Tales, Quest 01', vq02: 'Village Tales, Quest 02', vq03: 'Village Tales, Quest 03', eq03: 'Lumen Trails, Quest 03' };
 
 export const CATEGORY_LABEL = { wearable: 'Wearables', consumable: 'Consumables', decoration: 'Decorations', seed: 'Seeds', ingredient: 'Ingredients' };
 

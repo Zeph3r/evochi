@@ -4,6 +4,7 @@ import { CONFIG, PALETTES } from '../game/config.js';
 import { html, raw, fmt } from '../ui/dom.js';
 import { icon, url, manifest, spriteAttr, BLANK } from '../ui/assets.js';
 import { coinPill, nav, titleImg, stageLabel } from '../core/app.js';
+import { friendsPanel, openCreatureCard } from './trails.js';
 
 const DESC = {
   1: 'A small, scaly egg creature with the spirit of a lizard. Curious, cheerful and already full of adventurous energy.',
@@ -59,6 +60,7 @@ export const evodex = {
           })}</div>
           <p class="small muted" style="margin:6px 0 0">Each new egg you raise in a different colour adds it to your EvoDex.</p>
         </section>
+        ${friendsPanel(ctx)}
         <section class="card" style="padding:12px" aria-label="Hall of Memories">
           <h2 class="h-card">Hall of Memories</h2>
           ${s.pastPets.length ? html`<div class="stack" style="margin-top:8px">${s.pastPets.map((m) => html`<div class="row card inset" style="padding:8px">
@@ -73,6 +75,9 @@ export const evodex = {
     </main>`;
   },
   actions: {
+    friend(ctx, id) {
+      openCreatureCard(ctx, id);
+    },
     stage(ctx, st) {
       ctx.ui('evodex').stage = Number(st);
       ctx.rerender();

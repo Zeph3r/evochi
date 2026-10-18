@@ -5,6 +5,7 @@ import { CONFIG } from '../game/config.js';
 import { ITEMS } from '../game/catalog.js';
 import { QUEST_MATERIALS, QUESTS, NPCS } from '../game/story.js';
 import { SKILLS, CROPS, itemLabel } from '../game/home.js';
+import { CREATURES, PLACE_NAMES } from '../game/trails.js';
 import { html, raw, esc, fmt, $, $$ } from '../ui/dom.js';
 import { icon, itemImg, title, url, hydrateSprites, manifest } from '../ui/assets.js';
 import { ICON } from '../ui/icons.js';
@@ -150,6 +151,13 @@ export class App {
       recipe_locked: [`Reach ${SKILLS[res.skill]?.name || 'your skill'} Lv ${res.need || 2} to learn this recipe`, 'warn', 'lock'],
       missing_ingredients: ['Some ingredients are missing', 'warn', 'skill_farming'],
       use_in_garden: ['Use this on a garden bed', 'warn', 'skill_farming'],
+      discovery_not_ready: [`Walk ${fmt(res.need || 0)} more steps first`, 'warn', 'steps'],
+      not_posted: ['That discovery is not on today\'s board', 'warn', 'discover'],
+      no_energy: [`Not enough Energy (${res.need} needed). Soothe to rest, or use an item`, 'warn', 'energy'],
+      encounter_busy: ['Finish or retreat from the current encounter first', 'warn', 'encounter'],
+      encounter_over: ['This encounter is over', 'ok', 'encounter'],
+      companion_used: ['Petalune already helped this time', 'warn', 'creature_petalune'],
+      no_companion: ['No companion can help here', 'warn', 'encounter'],
     };
     const [m, k, i] = M[res.error] || ['Something went wrong - please try again', 'err', 'warning'];
     this.toast(m, k, i);
@@ -402,6 +410,23 @@ export class App {
           break;
         case 'skill_up':
           this.skillUp(ev);
+          break;
+        case 'discovery_ready':
+          this.toast(`Discovery ready: inspect ${PLACE_NAMES[ev.place]}`, 'ok', 'discover');
+          this.sfx('reward_chime', 0.6);
+          break;
+        case 'discovery_begun':
+          this.toast(`Discovery begun: ${esc(ev.title)}. Your next steps count`, 'ok', 'discover');
+          break;
+        case 'guild_rank':
+          this.toast(`Trail Guild rank up: ${ev.rank.name}!`, 'ok', 'trail_badge');
+          this.sfx('level_up');
+          break;
+        case 'companion_joined':
+          this.toast(`${CREATURES[ev.creature].name} joined you as a companion!`, 'ok', 'creature_' + ev.creature);
+          break;
+        case 'encounter_retreat':
+          this.toast('You slipped away. Items used are back in your Bag', 'ok', 'bag');
           break;
         case 'story_completed':
           this.store.track('story_quest_completed', { quest: ev.questId });

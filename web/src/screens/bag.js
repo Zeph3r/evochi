@@ -149,7 +149,8 @@ export const bag = {
       ctx.rerender();
     },
     'goto-place'(ctx, id) {
-      ctx.go('place', { id });
+      if (id.startsWith('prep:')) ctx.go('prep', { id: id.slice(5) });
+      else ctx.go('place', { id });
     },
     sel(ctx, id) {
       const u = ctx.ui('bag');

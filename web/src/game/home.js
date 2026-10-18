@@ -76,6 +76,7 @@ export const RECIPES = {
   meadow_tea: { id: 'meadow_tea', station: 'apothecary', makes: 'meadow_tea', needs: { glowleaf: 1, meadow_carrot: 1 }, level: 1, xp: 15 },
   sprout_tonic: { id: 'sprout_tonic', station: 'apothecary', makes: 'sprout_tonic', needs: { glowleaf: 1, golden_wheat: 1 }, level: 2, xp: 20 },
   moonlight_draught: { id: 'moonlight_draught', station: 'apothecary', makes: 'moonlight_draught', needs: { moonshroom: 2, glowleaf: 1 }, level: 4, xp: 40 },
+  lantern_tonic: { id: 'lantern_tonic', station: 'apothecary', makes: 'lantern_tonic', needs: { lumen_shard: 1, glowleaf: 1, sunberry: 2 }, level: 3, xp: 30, flag: 'sprout_restored' },
 };
 export const RECIPE_ORDER = Object.keys(RECIPES);
 
@@ -95,7 +96,7 @@ export function milestones(skill) {
     const station = skill === 'cooking' ? 'kitchen' : 'apothecary';
     for (const r of RECIPE_ORDER) {
       const R = RECIPES[r];
-      if (R.station === station) add(R.level, 'recipe', r, ITEMS[R.makes].name, { quest: STATIONS[station].quest });
+      if (R.station === station) add(R.level, 'recipe', r, ITEMS[R.makes].name, { quest: R.flag === 'sprout_restored' ? 'eq02' : STATIONS[station].quest });
     }
     if (skill === 'cooking') add(2, 'quest', 'hq02', "Mira's Mortar (opens the Apothecary)", { story: true });
   }
@@ -227,10 +228,10 @@ export function recipeView(state, rid) {
   const st = STATIONS[R.station];
   const lv = skillLevel(skillXp(state, st.skill)).level;
   const open = stationOpen(state, R.station);
-  const known = lv >= R.level;
+  const known = lv >= R.level && (!R.flag || storyFlag(state, R.flag));
   const have = Object.fromEntries(Object.entries(R.needs).map(([id, n]) => [id, { need: n, have: ownedQty(state, id) }]));
   const ready = open && known && hasIngredients(state, R.needs);
-  return { ...R, name: ITEMS[R.makes].name, open, known, have, ready, skill: st.skill };
+  return { ...R, name: ITEMS[R.makes].name, open, known, have, ready, skill: st.skill, needsStory: !!R.flag && !storyFlag(state, R.flag) };
 }
 
 function addSkillXp(s, skill, amount, events) {
@@ -318,7 +319,7 @@ export function craft(state, recipeId, quality, now) {
   if (!R) return fail(state, 'unknown_recipe');
   const v = recipeView(state, recipeId);
   if (!v.open) return fail(state, 'station_locked', { station: R.station });
-  if (!v.known) return fail(state, 'recipe_locked', { need: R.level, skill: v.skill });
+  if (!v.known) return fail(state, 'recipe_locked', { need: R.level, skill: v.skill, flag: R.flag && !storyFlag(state, R.flag) ? R.flag : null });
   if (!hasIngredients(state, R.needs)) return fail(state, 'missing_ingredients');
   const q = QUALITY[quality] || QUALITY.good;
   const s = clone(state);

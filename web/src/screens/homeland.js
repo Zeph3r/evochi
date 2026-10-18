@@ -11,6 +11,8 @@ import { ICON } from '../ui/icons.js';
 import { coinPill } from '../core/app.js';
 import { openStoryQuest, openStoryReward, nextText, statusTag, walkBar, npcSprite } from './village.js';
 import { skipTime } from './settings.js';
+import { clueGlint, discoveryActions, creatureImg } from './trails.js';
+import * as TR from '../game/trails.js';
 
 const HM = () => manifest().home;
 const DROP = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.8C9 7 5.5 10.6 5.5 14.6a6.5 6.5 0 0 0 13 0C18.5 10.6 15 7 12 2.8z" fill="#5BAFE0" stroke="#24597E" stroke-width="1.6"/><path d="M9 14.6a3 3 0 0 0 2.4 3" stroke="#E4F4FF" stroke-width="1.8" stroke-linecap="round" fill="none"/></svg>';
@@ -89,6 +91,7 @@ function homeQuest(ctx) {
 }
 
 const sharedActions = {
+  ...discoveryActions,
   go(ctx, where) {
     ctx.sfx('ui_tap', 0.4);
     goHome(ctx, where);
@@ -235,6 +238,8 @@ export const homemap = {
       <div class="village-map" style="aspect-ratio:${M.w} / ${M.h}">
         <img class="plate" src="${url(restored ? M.restored : M.ruined)}" alt="Your home: the nest in the meadow, the garden beds on the right, ${restored ? 'your restored cottage' : 'an old cottage with a broken roof'} up the path and the gate to Sunlit Village.">
         ${p && !ctx.d.pet?.dead ? html`<button class="map-pet" data-act="go" data-arg="nest" data-k="pin-nest" style="${pos(A.nest)}" aria-label="Back to ${p.name}'s nest">${petImg(ctx, 'happy', 150)}<span class="name-chip">Nest</span></button>` : ''}
+        ${clueGlint(ctx, 'homemap')}
+        ${ctx.d.trails?.companions.length ? html`<div class="map-friend" style="${pos([A.nest[0] + 150, A.nest[1] - 40])}" aria-label="${ctx.d.trails.companions[0].name} is visiting"><img src="${url(manifest().trails.creatures[ctx.d.trails.companions[0].id].states[TR.CREATURES[ctx.d.trails.companions[0].id].states.done])}" alt=""></div>` : ''}
         ${MAP_PINS.map((pp) => {
           const s = mapPin(ctx, pp.id);
           const where = pp.id === 'gate' ? 'village' : pp.id;
@@ -293,7 +298,7 @@ function bedChip(p) {
   if (!p.unlocked) return html`<span class="bed-chip locked"><img src="${icon('lock')}" alt="">Farming Lv ${p.need}</span>`;
   if (p.empty) return html`<span class="bed-chip plant">${raw(ICON.plus.s.replace('<svg', '<svg width="14" height="14"'))}Plant</span>`;
   if (p.ripe) return html`<span class="bed-chip ripe">${raw(SPARK)}Harvest!</span>`;
-  return html`<span class="bed-chip grow"><i class="ring" style="--p:${p.progress.toFixed(3)}"></i>${Math.floor(p.progress * 100)}%</span>`;
+  return html`<span class="bed-chip grow"><i class="pring" style="--p:${p.progress.toFixed(3)}"></i>${Math.floor(p.progress * 100)}%</span>`;
 }
 
 function growthParts(ctx, p) {
@@ -400,6 +405,7 @@ export const garden = {
             ${pop ? html`<span class="pop-items" aria-hidden="true">${Object.entries(pop.items).map(([id, n]) => html`<span><img src="${itemImg(id)}" alt="">+${n}</span>`)}</span>` : ''}
           </button>`;
         })}
+        ${clueGlint(ctx, 'garden')}
       </div></div>
       <div class="pad stack" style="gap:10px;margin-top:-16px;position:relative;z-index:3;padding-bottom:calc(20px + var(--safe-bottom))">
         ${bedPanel(ctx, sel, plots)}
@@ -482,6 +488,7 @@ function cottageView(ctx, showRestored, anim) {
     <img class="cv ruined" src="${url(C.ruined)}" alt="${showRestored ? '' : 'The old cottage: a broken roof, boarded windows and an empty doorway.'}">
     <img class="cv restored ${showRestored ? 'on' : ''}" src="${url(C.restored)}" alt="${showRestored ? 'Your restored cottage: a new red roof, warm windows and a puffing chimney.' : ''}">
     ${anim ? html`<span class="sparks" aria-hidden="true">${[30, 16, 42, 22, 36, 26].map((t, i) => html`<i style="--i:${i};left:${16 + i * 12}%;top:${t}%">${raw(SPARK)}</i>`)}</span>` : ''}
+    ${showRestored ? clueGlint(ctx, 'cottage') : ''}
   </div>`;
 }
 

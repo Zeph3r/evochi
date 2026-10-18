@@ -5,7 +5,7 @@
 
 | Folder | What it is |
 |---|---|
-| `web/` | The playable build: every screen, all the game rules, 56 engine, QA, story and home tests (`npm test`) and an inline build (`node build.mjs`). |
+| `web/` | The playable build: every screen, all the game rules, 65 engine, QA, story, home and trail tests (`npm test`) and an inline build (`node build.mjs`). |
 | `flutter/` | The iOS/Android client, organised per §21. It has not been compiled yet; see its README. |
 | `assets/` | Master art (PNG) and audio (WAV), named per the §21 convention. |
 | `tools/art/` | The Python voxel pipeline that generated every asset. |
@@ -114,6 +114,55 @@ story.
 (Home Map, Garden, Cottage close-ups, Kitchen, Apothecary; Blender) and `tools/art/home_items.py`
 (seeds, crops, dishes, potions, skill icons, crop growth sprites).
 
+## Lumen Trails: discoveries, the Trail Guild and encounters
+
+The lore that ties everything together, and the game's gentle take on battles.
+
+**The Fading Paths.** Long ago, luminous paths called Lumen Trails connected every corner of the
+Evochi world. Lumen is made by movement, exploration and the bonds between living things, so your
+real steps restore the trails. Evochi were the guardians of those paths. The Trail Guild was formed
+to restore them, and the mysterious Hollow is Lumen gone unstable. At the end of Chapter 1 the woken
+Waystone projects a map of the old trails; Alder tells you the rest.
+
+**Daily discoveries** (`Journey → Daily`, the Home chip, or the Guild Board): the Guild posts three
+small adventures a day from an authored pool, picked deterministically per account and day (never
+random objectives). Each one: *Begin → walk (only steps after you begin count) → inspect the place*,
+where a glinting clue appears. Rewards are coins, seeds, Lumen Shards and Guild XP. Guild ranks:
+Wanderer → Trail Friend → Pathfinder → Lightkeeper → Trailwarden.
+
+**Encounters** are never fights to the finish. Wild Evochi are *calmed and befriended* (fill the Calm
+meter); Hollow-tangled guardians are *restored* (bring Instability to zero). Your Evochi has Energy
+but never faints, and you can retreat at any time with the items you used returned. Each encounter
+runs *prepare → travel → a short animated intro (2–6 s, skippable) → turns → outro → result*. The
+encounter is a seeded, pure state machine, so one attempt always replays the same way.
+
+| Turn action | Effect | Energy |
+|---|---|---|
+| Lumen Glow (Light) | +16 (×1.3 against the Hollow, ×1.25 more once the Sentinel wakes) | 24 |
+| Gentle Nudge (Physical) | +9, and a wild Evochi turns curious (+4 next time) | 10 |
+| Soothe (Restore) | +5 and restores 30 Energy | 0 |
+| Use Item | homemade food calms (×1.5 if the creature loves it); tonics, Glowleaf and herbs steady the Hollow | 0 |
+| Petal Hush (companion) | +12, once per encounter, once Petalune is your friend | 0 |
+
+**Trail jobs** (quests in the story engine, line `trail`; the encounter is the hand-in):
+
+| Job | Needs | Walk | Encounter | Reward |
+|---|---|---|---|---|
+| EQ01 The Forest Guardian (Pip) | Lv 3, VQ01, 2 discoveries | 1,500 steps → Mossy Clue | befriend **Petalune** (Nature) at the Mossy Ruins; a Sunberry Tart helps | companion Petalune, 150 coins, seeds, shard, title *Friend of Petalune* |
+| EQ02 Tangled Lumen (Mira) | Lv 4, EQ01, HQ01 | 2,000 steps → Lumen Trace | restore the **Hollow Sprout**; 2 Glowleaf required | 180 coins, shards, the Lantern Tonic recipe |
+| EQ03 The Forgotten Sentinel (Alder) | Lv 6, VQ03, EQ02 | 3,000 steps → Alder's Old Map | restore the **Sentinel** (story boss, two phases) at the old gate; a Lantern Tonic required | Ancient Relic (nest decor), 300 coins, shards, title *Trailwarden* |
+
+Befriended Evochi are **companions**: an EvoDex entry, a visit to your Home Map, and a helping
+ability in later encounters. Restored guardians stay at their place. Affinities (Nature, Ember,
+Water, Stone, Celestial, and the lizard line's general-purpose Lumen) come from the species, never
+from a colourway.
+
+**Code:** rules in `web/src/game/trails.js` (+ the EQ quests and dialogue in `story.js`), screens in
+`web/src/screens/trails.js` (Guild Board, discoveries, prep, travel, encounter, trail places),
+tests in `web/test/trails.test.mjs`. Art: `tools/art/trail_scenes.py` (Mossy Ruins, its Hollow
+twin and the Sentinel's gate; Blender) and `tools/art/trail_art.py` (the three creatures with their
+encounter states, items, affinity and UI icons).
+
 ## Asset pack contents
 
 - **Characters:**
@@ -164,6 +213,9 @@ python3 build_web_assets.py ../../assets ../../web/public/assets --village-only 
 python3 home_items.py ../../assets                                                   # home items, skill icons, crop sprites
 <bpy-python> village_blender.py ../../assets/home home_map_ruined home_map_restored garden kitchen apothecary cottage_ruined cottage_restored --meta scenes.json --raw /tmp/home_raw   # ~40 min on 2 cores
 python3 build_web_assets.py ../../assets ../../web/public/assets --home-only      # just the Home Tales art
+python3 trail_art.py ../../assets                                                    # creatures, trail items and icons
+<bpy-python> village_blender.py ../../assets/trails mossy_ruins mossy_ruins_hollow sentinel_gate --meta scenes.json --raw /tmp/trail_raw   # ~15 min on 2 cores
+python3 build_web_assets.py ../../assets ../../web/public/assets --trails-only    # just the Lumen Trails art
 ```
 
 The models live in `characters.py` and `accessories.py`, and the palettes in `palettes.py`. The

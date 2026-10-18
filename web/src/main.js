@@ -13,11 +13,12 @@ import { evodex } from './screens/evodex.js';
 import { settings } from './screens/settings.js';
 import { village, place } from './screens/village.js';
 import { homemap, garden, cottage, station, skills } from './screens/homeland.js';
+import { guild, trailplace, prep, travel, encounter } from './screens/trails.js';
 import * as G from './game/state.js';
 import * as Q from './game/story.js';
 import { CloudSave } from './core/cloud.js';
 
-const SCREENS = { welcome, create, connect, goal, awakening, home, inspect, evolve: evolveScreen, journey, bag, shop, evodex, settings, village, place, homemap, garden, cottage, station, skills };
+const SCREENS = { welcome, create, connect, goal, awakening, home, inspect, evolve: evolveScreen, journey, bag, shop, evodex, settings, village, place, homemap, garden, cottage, station, skills, guild, trailplace, prep, travel, encounter };
 
 async function boot(hotData = {}) {
   const root = document.getElementById('app');
@@ -74,6 +75,7 @@ async function boot(hotData = {}) {
     const rest = [...Object.values(M.habitats.meadow.layers), ...Object.values(M.habitats.market.layers), ...Object.values(M.icons),
       M.village.square.day_dim, M.village.square.lamp_lit, ...Object.values(M.village.npcs).map((n) => n.expr.neutral)];
     if (M.home) rest.push(M.home.map.ruined, M.home.map.restored, M.home.garden.file, M.home.rooms.kitchen.file, M.home.rooms.apothecary.file);
+    if (M.trails) rest.push(...Object.values(M.trails.scenes).map((x) => x.file));
     setTimeout(() => rest.forEach((f) => loadImage(f).catch(() => null)), 800);
   } catch (e) {
     console.error(e);

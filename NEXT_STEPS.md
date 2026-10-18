@@ -1,18 +1,20 @@
 # Next steps (handoff)
 
-The latest work is commit "Home Tales: Home Map, Garden, Cottage, Kitchen and Apothecary, Skills".
-README.md covers the project, the art pipeline and how to build.
+The latest work is the Lumen Trails commit (daily discoveries, the Trail Guild, encounters and
+companions). README.md covers the project, the art pipeline and how to build.
 
 ## Not verified yet
 
-- **Flutter build.** Home Tales was ported to Flutter but, like the rest of the Flutter client, only
-  syntax-checked, never compiled. Run `flutter pub get`, `flutter analyze` and `flutter test` in
-  `flutter/`, then play Explore Home → Garden → plant → harvest, and the Cottage restoration, and
-  compare with the web build. See the "Home Tales" section of `flutter/README.md` for the files.
+- **Flutter build.** Home Tales and the Lumen Trails were ported to Flutter but, like the rest of
+  the Flutter client, only syntax-checked, never compiled. Run `flutter pub get`, `flutter analyze`
+  and `flutter test` in `flutter/`, then play Explore Home → Garden, the Cottage restoration, a daily
+  discovery and the first encounter, and compare with the web build. See the "Home Tales" and
+  "Lumen Trails" sections of `flutter/README.md` for the files.
 - The web build is the reference. Run `cd web && node build.mjs`, serve `web/dist`, and play. Web
-  tests: `npm test` (56 pass). A phone-size playthrough of the whole loop (walk → plant → harvest →
-  Bram → restore the cottage → cook with the minigame → give it to the pet → Mira → Apothecary) runs
-  clean with no page errors at 390 and 360 px.
+  tests: `npm test` (65 pass). Phone-size playthroughs (Home Tales: walk → plant → harvest → Bram →
+  cottage → cook → Mira → Apothecary; Lumen Trails: discovery → Guild → Pip → prep → travel →
+  encounter → reward → companion, then the Hollow Sprout and the Sentinel) run clean with no page
+  errors at 390 and 360 px.
 
 ## Balancing to playtest (all starting values)
 
@@ -25,9 +27,19 @@ README.md covers the project, the art pipeline and how to build.
   with reduced motion). Perfect = double batch and +50% skill XP; skipping = a normal batch.
 - Seed prices on the Market's Garden shelf (8-35 EvoCoins).
 - Treats: a meal or tea gives Bond +1 once a day, even at full vitality (`CONFIG.bond.treat`).
+- Encounters: Lumen Glow 16 (×1.3 vs Hollow), Nudge 9, Soothe +30 Energy; item effects and the
+  creatures' favourites in `itemEffect` / `CREATURES.likes`; Petalune's Calm meter 100, the Hollow
+  Sprout 100, the Sentinel 200 with a second phase from 50%. The wild creature's replies (skitter,
+  surge, lash) and their odds are in `wildTurn` (`web/src/game/trails.js`).
+- Discoveries: three a day from the authored pool in `DISCOVERIES`; walk targets are
+  `min(nominal, half your goal)`; Guild ranks at 0 / 40 / 120 / 260 / 480 XP.
 
 ## Open decisions and ideas
 
+- More discoveries in the pool (the same places support dozens), and seasonal ones.
+- Flamara (Ember) and Aquarel (Water) as daily-discovery encounters, with their exploration
+  abilities (light torches, cross water) gating small side areas.
+- Whispering Woods and Coastal Cove as the next two trails on the Waystone's map.
 - More recipes per skill level, and a use for Moonshroom Pie / Moonlight Draught beyond vitality
   (e.g. a later side story).
 - A "species-specific" quest beyond the stage-gated Grove story, once more species exist.

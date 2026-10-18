@@ -2643,7 +2643,13 @@
   "meadow_tea": "items/meadow_tea.webp",
   "sprout_tonic": "items/sprout_tonic.webp",
   "moonlight_draught": "items/moonlight_draught.webp",
-  "q_sturdy_timber": "items/q_sturdy_timber.webp"
+  "q_sturdy_timber": "items/q_sturdy_timber.webp",
+  "lumen_shard": "items/lumen_shard.webp",
+  "lantern_tonic": "items/lantern_tonic.webp",
+  "ancient_relic": "items/ancient_relic.webp",
+  "q_mossy_clue": "items/q_mossy_clue.webp",
+  "q_lumen_trace": "items/q_lumen_trace.webp",
+  "q_old_trail_map": "items/q_old_trail_map.webp"
  },
  "icons": {
   "bag": "icons/bag.webp",
@@ -2681,7 +2687,22 @@
   "skill_farming": "icons/skill_farming.webp",
   "skill_cooking": "icons/skill_cooking.webp",
   "skill_alchemy": "icons/skill_alchemy.webp",
-  "home_map": "icons/home_map.webp"
+  "home_map": "icons/home_map.webp",
+  "creature_petalune": "icons/creature_petalune.webp",
+  "creature_hollow_sprout": "icons/creature_hollow_sprout.webp",
+  "creature_sentinel": "icons/creature_sentinel.webp",
+  "discover": "icons/discover.webp",
+  "encounter": "icons/encounter.webp",
+  "hollow": "icons/hollow.webp",
+  "calm": "icons/calm.webp",
+  "energy": "icons/energy.webp",
+  "trail": "icons/trail.webp",
+  "aff_nature": "icons/aff_nature.webp",
+  "aff_ember": "icons/aff_ember.webp",
+  "aff_water": "icons/aff_water.webp",
+  "aff_stone": "icons/aff_stone.webp",
+  "aff_celestial": "icons/aff_celestial.webp",
+  "trail_badge": "icons/trail_badge.webp"
  },
  "titles": {
   "title_bag": {
@@ -4632,6 +4653,149 @@
    "w": 780,
    "h": 540,
    "restored": "home/cottage_restored.webp"
+  }
+ },
+ "trails": {
+  "scenes": {
+   "mossy_ruins": {
+    "file": "trails/mossy_ruins.webp",
+    "w": 780,
+    "h": 867,
+    "anchors": {
+     "wild": [
+      556.7,
+      628.0
+     ],
+     "pet": [
+      104.6,
+      786.5
+     ],
+     "clue": [
+      -32.1,
+      651.8
+     ],
+     "arch": [
+      390.0,
+      406.0
+     ]
+    }
+   },
+   "mossy_ruins_hollow": {
+    "file": "trails/mossy_ruins_hollow.webp",
+    "w": 780,
+    "h": 867,
+    "anchors": {
+     "wild": [
+      556.7,
+      628.0
+     ],
+     "pet": [
+      104.6,
+      786.5
+     ],
+     "clue": [
+      -32.1,
+      651.8
+     ],
+     "arch": [
+      390.0,
+      406.0
+     ]
+    }
+   },
+   "sentinel_gate": {
+    "file": "trails/sentinel_gate.webp",
+    "w": 780,
+    "h": 867,
+    "anchors": {
+     "wild": [
+      390.0,
+      559.1
+     ],
+     "pet": [
+      89.8,
+      772.3
+     ],
+     "clue": [
+      733.3,
+      669.2
+     ],
+     "arch": [
+      390.0,
+      362.7
+     ]
+    }
+   }
+  },
+  "creatures": {
+   "petalune": {
+    "w": 182,
+    "h": 206,
+    "states": {
+     "neutral": "trails/creature_petalune_neutral.webp",
+     "wary": "trails/creature_petalune_wary.webp",
+     "happy": "trails/creature_petalune_happy.webp"
+    },
+    "anchors": {
+     "ground": [
+      81.2,
+      180.4
+     ],
+     "top": [
+      81.2,
+      27.2
+     ],
+     "face": [
+      61.9,
+      117.0
+     ]
+    }
+   },
+   "hollow_sprout": {
+    "w": 171,
+    "h": 210,
+    "states": {
+     "hollow": "trails/creature_hollow_sprout_hollow.webp",
+     "restored": "trails/creature_hollow_sprout_restored.webp"
+    },
+    "anchors": {
+     "ground": [
+      84.8,
+      187.0
+     ],
+     "top": [
+      84.8,
+      13.5
+     ],
+     "face": [
+      65.7,
+      137.9
+     ]
+    }
+   },
+   "sentinel": {
+    "w": 351,
+    "h": 326,
+    "states": {
+     "hollow": "trails/creature_sentinel_hollow.webp",
+     "waking": "trails/creature_sentinel_waking.webp",
+     "restored": "trails/creature_sentinel_restored.webp"
+    },
+    "anchors": {
+     "ground": [
+      185.2,
+      287.3
+     ],
+     "top": [
+      185.2,
+      17.0
+     ],
+     "face": [
+      166.1,
+      81.7
+     ]
+    }
+   }
   }
  }
 }

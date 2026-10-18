@@ -11,6 +11,7 @@ import { ICON } from '../ui/icons.js';
 import { coinPill, nav, titleImg } from '../core/app.js';
 import { storyTab, openStoryQuest } from './village.js';
 import { skillsPanel, skillsActions } from './homeland.js';
+import { discoveriesPanel, discoveryActions } from './trails.js';
 
 export const journey = {
   id: 'journey',
@@ -45,8 +46,8 @@ export const journey = {
       <h1 class="sr-only">Journey</h1>
       <div class="pad stack" style="gap:10px;margin-top:-28px;position:relative;z-index:3">
         <div class="tabs jtabs" role="tablist" aria-label="Quests" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:0">
-          ${[['daily', 'Daily', 'steps', daily.some((q) => q.eligible && !q.claimed)], ['weekly', 'Weekly', 'trophy', weekly.some((q) => q.eligible && !q.claimed)],
-            ['story', 'Story', 'habitats', !!d.story?.turnIns.length], ['skills', 'Skills', 'skill_farming', false]].map(([id, label, ic, dot]) => html`<button class="tab" role="tab" aria-selected="${tab === id}" data-act="jtab" data-arg="${id}" data-k="jt-${id}"><img src="${icon(ic)}" alt=""><span>${label}</span>${dot ? raw('<i class="badge-dot" style="top:-4px;right:-4px"></i>') : ''}</button>`)}
+          ${[['daily', 'Daily', 'steps', daily.some((q) => q.eligible && !q.claimed) || !!d.trails?.ready.length], ['weekly', 'Weekly', 'trophy', weekly.some((q) => q.eligible && !q.claimed)],
+            ['story', 'Story', 'habitats', !!d.story?.turnIns.length || !!d.story?.encounters.length], ['skills', 'Skills', 'skill_farming', false]].map(([id, label, ic, dot]) => html`<button class="tab" role="tab" aria-selected="${tab === id}" data-act="jtab" data-arg="${id}" data-k="jt-${id}"><img src="${icon(ic)}" alt=""><span>${label}</span>${dot ? raw('<i class="badge-dot" style="top:-4px;right:-4px"></i>') : ''}</button>`)}
         </div>
         ${tab === 'daily' || tab === 'weekly' ? html`        <section class="card" style="padding:14px" aria-label="Today">
           <div class="row" style="gap:14px">
@@ -72,7 +73,8 @@ export const journey = {
         ${tab === 'daily' || tab === 'weekly' ? sources : ''}
         ${tab === 'skills' ? skillsPanel(ctx) : ''}
         ${tab === 'daily' ? html`<h2 class="h-sec sec-head" style="margin-top:4px">Daily quests</h2>
-        <div class="list">${daily.map((q) => questRow(q))}</div>` : ''}
+        <div class="list">${daily.map((q) => questRow(q))}</div>
+        ${discoveriesPanel(ctx)}` : ''}
         ${tab === 'story' ? html`${storyTab(ctx)}${sources}` : ''}
         ${tab === 'weekly' ? html`<h2 class="h-sec sec-head" style="margin-top:4px">This week</h2>
         <div class="list">${weekly.map((q) => questRow(q))}</div>
@@ -110,6 +112,7 @@ export const journey = {
   },
   actions: {
     ...skillsActions,
+    ...discoveryActions,
     jtab(ctx, id) {
       ctx.ui('journey').tab = id;
       ctx.sfx('ui_tap', 0.3);
@@ -166,7 +169,10 @@ function doWalk(ctx, n) {
   const since = st?.activeQuestId ? st.questStates[st.activeQuestId]?.acceptedAt : null;
   // likewise it never reaches back before the latest planting, so a demo walk always helps the garden
   const planted = Math.max(0, ...Object.values(ctx.state.home?.plots || {}).filter(Boolean).map((p) => p.plantedAt || 0));
-  const samples = simulateWalk(n, now, { notBefore: Math.max(since || 0, planted) });
+  // ...nor before a discovery was begun today
+  const day = ctx.state.trails?.days?.[ctx.d.today];
+  const begun = Math.max(0, ...Object.values(day?.states || {}).filter((x) => x.acceptedAt && !x.foundAt).map((x) => x.acceptedAt));
+  const samples = simulateWalk(n, now, { notBefore: Math.max(since || 0, planted, begun) });
   ctx.act((s, t) => G.syncSteps(s, samples, t, { source: 'demo' }));
   ctx.sfx('ui_tap', 0.5);
   ctx.track('step_sync_result', { ok: true, bucket: n >= 2500 ? 'large' : 'small' });

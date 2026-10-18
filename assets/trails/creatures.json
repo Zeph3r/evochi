@@ -1,0 +1,70 @@
+{
+ "petalune": {
+  "w": 242,
+  "h": 274,
+  "states": [
+   "neutral",
+   "wary",
+   "happy"
+  ],
+  "anchors": {
+   "ground": [
+    108.3,
+    240.6
+   ],
+   "top": [
+    108.3,
+    36.2
+   ],
+   "face": [
+    82.5,
+    156.0
+   ]
+  }
+ },
+ "hollow_sprout": {
+  "w": 228,
+  "h": 280,
+  "states": [
+   "hollow",
+   "restored"
+  ],
+  "anchors": {
+   "ground": [
+    113.1,
+    249.3
+   ],
+   "top": [
+    113.1,
+    18.0
+   ],
+   "face": [
+    87.6,
+    183.9
+   ]
+  }
+ },
+ "sentinel": {
+  "w": 468,
+  "h": 434,
+  "states": [
+   "hollow",
+   "waking",
+   "restored"
+  ],
+  "anchors": {
+   "ground": [
+    247.0,
+    383.1
+   ],
+   "top": [
+    247.0,
+    22.6
+   ],
+   "face": [
+    221.5,
+    108.9
+   ]
+  }
+ }
+}

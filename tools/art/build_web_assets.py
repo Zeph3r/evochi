@@ -368,8 +368,74 @@ def build_home(src, out):
     print('home packed', flush=True)
 
 
+TRAIL_ITEMS = ['lumen_shard', 'lantern_tonic', 'ancient_relic', 'q_mossy_clue', 'q_lumen_trace', 'q_old_trail_map']
+TRAIL_ICONS = ['discover', 'encounter', 'hollow', 'calm', 'energy', 'trail', 'aff_nature', 'aff_ember', 'aff_water', 'aff_stone',
+               'aff_celestial']
+
+
+def build_trails(src, out):
+    """Lumen Trails: the encounter places (Mossy Ruins, its Hollow twin, the Sentinel's gate) with their
+    anchors, the creature sprites (one shared fit per creature) and the new item / UI icons."""
+    mp = os.path.join(out, 'manifest.json')
+    man = json.load(open(mp))
+    Ts = os.path.join(src, 'trails')
+    os.makedirs(os.path.join(out, 'trails'), exist_ok=True)
+    smeta = json.load(open(os.path.join(Ts, 'scenes.json')))
+    k = 2 / 3
+    tm = {'scenes': {}, 'creatures': {}}
+    for name in ('mossy_ruins', 'mossy_ruins_hollow', 'sentinel_gate'):
+        im = Image.open(os.path.join(Ts, f'{name}.png')).convert('RGB')
+        im = im.resize((round(im.width * k), round(im.height * k)), Image.LANCZOS)
+        fn = f'trails/{name}.webp'
+        im.save(os.path.join(out, fn), 'WEBP', quality=84, method=6)
+        tm['scenes'][name] = {'file': fn, 'w': im.width, 'h': im.height,
+                              'anchors': {a: [round(v[0] * k, 1), round(v[1] * k, 1)] for a, v in smeta[name]['anchors'].items()}}
+    cm = json.load(open(os.path.join(Ts, 'creatures.json')))
+    cs = 0.75
+    for cid, c in cm.items():
+        files = {}
+        for st in c['states']:
+            im = Image.open(os.path.join(Ts, f'creature_{cid}_{st}.png'))
+            im = im.resize((round(im.width * cs), round(im.height * cs)), Image.LANCZOS)
+            fn = f'trails/creature_{cid}_{st}.webp'
+            webp(im, os.path.join(out, fn), 90)
+            files[st] = fn
+        tm['creatures'][cid] = {'w': round(c['w'] * cs), 'h': round(c['h'] * cs), 'states': files,
+                                'anchors': {a: [round(v[0] * cs, 1), round(v[1] * cs, 1)] for a, v in c['anchors'].items()}}
+        # a small portrait icon (the happiest state) for cards, the EvoDex and the Home Map
+        last = c['states'][-1]
+        im = Image.open(os.path.join(Ts, f'creature_{cid}_{last}.png'))
+        bb = im.getbbox()
+        im = im.crop(bb)
+        side = max(im.width, im.height)
+        sq = Image.new('RGBA', (side, side), (0, 0, 0, 0))
+        sq.paste(im, ((side - im.width) // 2, (side - im.height) // 2))
+        fn = f'icons/creature_{cid}.webp'
+        webp(sq.resize((112, 112), Image.LANCZOS), os.path.join(out, fn), 90)
+        man['icons'][f'creature_{cid}'] = fn
+    man['trails'] = tm
+    for key in TRAIL_ITEMS:
+        im = Image.open(os.path.join(src, 'items', f'item_{key}_icon.png')).resize((168, 168), Image.LANCZOS)
+        fn = f'items/{key}.webp'
+        webp(im, os.path.join(out, fn), 90)
+        man['items'][key] = fn
+    for key in TRAIL_ICONS:
+        im = Image.open(os.path.join(src, 'ui_icons', f'icon_{key}.png')).resize((112, 112), Image.LANCZOS)
+        fn = f'icons/{key}.webp'
+        webp(im, os.path.join(out, fn), 90)
+        man['icons'][key] = fn
+    # the Guild badge icon doubles as the rank mark
+    im = Image.open(os.path.join(src, 'items', 'item_trail_badge_icon.png')).resize((112, 112), Image.LANCZOS)
+    webp(im, os.path.join(out, 'icons/trail_badge.webp'), 90)
+    man['icons']['trail_badge'] = 'icons/trail_badge.webp'
+    json.dump(man, open(mp, 'w'), indent=1)
+    print('trails packed', flush=True)
+
+
 if __name__ == '__main__':
-    if len(sys.argv) > 2 and sys.argv[-1] == '--home-only':
+    if len(sys.argv) > 2 and sys.argv[-1] == '--trails-only':
+        build_trails(sys.argv[1], sys.argv[2])
+    elif len(sys.argv) > 2 and sys.argv[-1] == '--home-only':
         build_home(sys.argv[1], sys.argv[2])
     elif len(sys.argv) > 2 and sys.argv[-1] == '--thumbs-only':
         build_thumbs(sys.argv[1], sys.argv[2])

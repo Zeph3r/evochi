@@ -9,6 +9,7 @@ import { coinPill, nav, titleImg, stageLabel, statusTag } from '../core/app.js';
 import { memorialView, memorialActions } from './pet.js';
 import { openStoryQuest, nextText, npcSprite } from './village.js';
 import { QUESTS } from '../game/story.js';
+import { discoveryChip, discoveryActions } from './trails.js';
 
 export function isNight(now, tz) {
   try {
@@ -93,7 +94,7 @@ export const home = {
     const stepsPct = Math.min(1, d.todaySteps / d.goal);
     const banner = statusBanner(ctx);
     const showCoach = !s.flags.coachDone;
-    const homeNew = !!(d.home && (d.home.ripe || !d.home.starterSeeds || d.story?.cottageReady));
+    const homeNew = !!(d.home && (d.home.ripe || !d.home.starterSeeds || d.story?.cottageReady || d.trails?.ready.some((x) => ['homemap', 'garden', 'cottage'].includes(x.place))));
     return html`<main class="screen" aria-label="Home">
       <header class="hud">
         <div>
@@ -115,6 +116,7 @@ export const home = {
       <div class="home-stack">
         ${banner}
         ${chip}
+        ${chip ? '' : discoveryChip(ctx)}
         <section class="card id-card" aria-label="${p.name}, level ${dp.level}">
           <div class="stack" style="gap:6px;min-width:0">
             <div class="row" style="gap:8px;min-width:0"><h2 class="pet-name">${p.name}</h2><button class="icon-btn" data-act="rename" aria-label="Rename ${p.name}" data-k="rename">${ICON.edit}</button></div>
@@ -254,6 +256,7 @@ export const home = {
       s.flags.coachDone = true;
       ctx.store.replace(s);
     },
+    ...discoveryActions,
     'explore-home'(ctx) {
       ctx.sfx('ui_tap', 0.4);
       ctx.go('homemap');

@@ -80,12 +80,20 @@ export const QUEST_MATERIALS = {
     desc: 'A droplet jar holding one luminous petal. Care, gathered a little every day.' },
   q_sturdy_timber: { name: 'Sturdy Timber', quest: 'hq01', usedBy: 'npc_bram', max: 1,
     desc: 'Straight oak planks, tied with twine. Exactly what an old roof needs.' },
+  q_mossy_clue: { name: 'Mossy Clue', quest: 'eq01', usedBy: 'ruins', max: 1,
+    desc: 'A pressed flower and a tuft of green fur, found on the path to the Mossy Ruins. Something small went this way.' },
+  q_lumen_trace: { name: 'Lumen Trace', quest: 'eq02', usedBy: 'ruins', max: 1,
+    desc: 'A jar of faintly glowing dust swept from the ruin stones. It hums when you walk.' },
+  q_old_trail_map: { name: "Alder's Old Map", quest: 'eq03', usedBy: 'gate', max: 1,
+    desc: 'A brittle map of the north road. Alder has marked the bridge, and a gate beyond it that no one has opened in living memory.' },
 };
 
 export const TITLES = {
   first_lightkeeper: { name: 'First Lightkeeper', quest: 'vq03' },
   friend_of_small_things: { name: 'Friend of Small Things', quest: 'sq01' },
   grove_friend: { name: 'Grove Friend', quest: 'sq02' },
+  friend_of_petalune: { name: 'Friend of Petalune', quest: 'eq01' },
+  trailwarden: { name: 'Trailwarden', quest: 'eq03' },
 };
 
 export const CHAPTER = { id: 'ch1', name: 'Village Tales, Chapter 1', title: 'The Light of Sunlit Village' };
@@ -231,11 +239,66 @@ export const QUESTS = {
     ],
     rewards: { coins: 200, titles: ['grove_friend'] },
   },
+
+  // ---- Lumen Trails: encounter quests from the Trail Guild. The hand-in is the encounter itself,
+  // played at the place (`encounter` names the creature; `optionalItems` are recommended, never required).
+  eq01: {
+    id: 'eq01', n: 1, line: 'trail', title: 'The Forest Guardian', level: 3, dependsOn: ['vq01'], discoveries: 2, giver: 'npc_pip',
+    summary: "The Guild has spotted an unusual Evochi near the Mossy Ruins. Follow the clue, bring something tasty, and see if it will trust you.",
+    phases: ['locked', 'available', 'accepted_walk', 'ruins_ready', 'completed'],
+    walk: { type: 'incremental', nominal: 1500, days: 1, phase: 'accepted_walk', ready: 'ruins_ready', grant: { q_mossy_clue: 1 } },
+    turnIns: [
+      { id: 'calm_petalune', npc: 'ruins', from: 'ruins_ready', to: 'completed', consume: { q_mossy_clue: 1 }, encounter: 'petalune',
+        optionalItems: { sunberry_tart: 1 }, flags: ['petalune_befriended'], label: 'Befriend the Forest Guardian' },
+    ],
+    objectives: [
+      { id: 'talk', text: 'Talk to Pip at the Trail Guild', doneAt: 'accepted_walk' },
+      { id: 'walk', text: 'Walk {resolved_steps} new steps to follow the clue', doneAt: 'ruins_ready' },
+      { id: 'tart', text: 'Optional: bring a Sunberry Tart (better results)', doneAt: 'completed', optional: true, count: { item: 'sunberry_tart', n: 1 } },
+      { id: 'calm', text: 'Travel to the Mossy Ruins and calm the Evochi', doneAt: 'completed' },
+    ],
+    rewards: { coins: 150, gifts: { seed_glowleaf: 2, lumen_shard: 1 }, companion: 'petalune', titles: ['friend_of_petalune'] },
+  },
+  eq02: {
+    id: 'eq02', n: 2, line: 'trail', title: 'Tangled Lumen', level: 4, dependsOn: ['eq01', 'hq01'], giver: 'npc_mira',
+    summary: 'A plant spirit in the ruins is tangled in unstable Lumen. Mira thinks fresh Glowleaf and a steady heart can restore it.',
+    phases: ['locked', 'available', 'accepted_walk', 'ruins_ready', 'completed'],
+    walk: { type: 'incremental', nominal: 2000, days: 1, phase: 'accepted_walk', ready: 'ruins_ready', grant: { q_lumen_trace: 1 } },
+    turnIns: [
+      { id: 'restore_sprout', npc: 'ruins', from: 'ruins_ready', to: 'completed', consume: { q_lumen_trace: 1 }, consumeItems: { glowleaf: 2 },
+        encounter: 'hollow_sprout', optionalItems: { meadow_tea: 1 }, flags: ['sprout_restored'], label: 'Restore the Hollow Sprout' },
+    ],
+    objectives: [
+      { id: 'talk', text: 'Talk to Mira', doneAt: 'accepted_walk' },
+      { id: 'walk', text: 'Walk {resolved_steps} new steps to gather a Lumen Trace', doneAt: 'ruins_ready' },
+      { id: 'glow', text: 'Grow and harvest 2 Glowleaf (Farming Lv 3)', doneAt: 'completed', count: { item: 'glowleaf', n: 2 } },
+      { id: 'restore', text: 'Travel to the Mossy Ruins and restore the sprout', doneAt: 'completed' },
+    ],
+    rewards: { coins: 180, gifts: { lumen_shard: 2, seed_moonshroom: 1 }, unlocks: ['Lantern Tonic recipe'] },
+  },
+  eq03: {
+    id: 'eq03', n: 3, title: 'The Forgotten Sentinel', line: 'trail', level: 6, dependsOn: ['vq03', 'eq02'], giver: 'npc_alder',
+    summary: "The Waystone's map shows a gate beyond the old bridge. A guardian sleeps there, tangled in Hollow. Bring a Lantern Tonic and a steady Evochi.",
+    phases: ['locked', 'available', 'accepted_walk', 'gate_ready', 'completed'],
+    walk: { type: 'incremental', nominal: 3000, days: 1, phase: 'accepted_walk', ready: 'gate_ready', grant: { q_old_trail_map: 1 } },
+    turnIns: [
+      { id: 'restore_sentinel', npc: 'gate', from: 'gate_ready', to: 'completed', consume: { q_old_trail_map: 1 }, consumeItems: { lantern_tonic: 1 },
+        encounter: 'sentinel', optionalItems: { glowleaf_tonic: 1 }, flags: ['sentinel_restored'], label: 'Restore the Forgotten Sentinel' },
+    ],
+    objectives: [
+      { id: 'talk', text: 'Talk to Alder', doneAt: 'accepted_walk' },
+      { id: 'walk', text: 'Walk {resolved_steps} new steps along the north road', doneAt: 'gate_ready' },
+      { id: 'tonic', text: 'Brew a Lantern Tonic in your Apothecary (Alchemy Lv 3)', doneAt: 'completed', count: { item: 'lantern_tonic', n: 1 } },
+      { id: 'restore', text: 'Cross the old bridge and restore the Sentinel', doneAt: 'completed' },
+    ],
+    rewards: { coins: 300, items: ['ancient_relic'], gifts: { lumen_shard: 3 }, titles: ['trailwarden'], unlocks: ['The Fading Paths'] },
+  },
 };
 export const QUEST_ORDER = ['vq01', 'vq02', 'vq03'];
 export const HOME_ORDER = ['hq01', 'hq02'];
 export const SIDE_ORDER = ['sq01', 'sq02'];
-export const ALL_QUESTS = [...QUEST_ORDER, ...HOME_ORDER, ...SIDE_ORDER];
+export const TRAIL_ORDER = ['eq01', 'eq02', 'eq03'];
+export const ALL_QUESTS = [...QUEST_ORDER, ...HOME_ORDER, ...SIDE_ORDER, ...TRAIL_ORDER];
 
 // --------------------------------------------------------------- helpers ----
 function ok(state, events = []) {
@@ -256,7 +319,8 @@ export function newStory() {
     questPouch: {},
     qualifiedDayKeys: {},
     claimedRewards: [],
-    flags: { lamp_lit: false, waystone_revealed: false, waystone_restored: false, cottage_restored: false, apothecary_unlocked: false },
+    flags: { lamp_lit: false, waystone_revealed: false, waystone_restored: false, cottage_restored: false, apothecary_unlocked: false,
+      petalune_befriended: false, sprout_restored: false, sentinel_restored: false },
     titleUnlocks: [],
     npcsMet: {},
     offersSeen: {},
@@ -312,15 +376,17 @@ export function lockReason(state, qid) {
   const lv = accountLevel(state);
   const skills = Object.entries(q.skills || {}).filter(([k, n]) => skillLevel(state.home?.skills?.[k] || 0).level < n);
   const stage = q.stage && (state.pet?.stage || 0) < q.stage;
-  if (missing.length || lv < q.level || skills.length || stage) {
+  const disc = q.discoveries ? Math.max(0, q.discoveries - (state.trails?.stats?.discoveries || 0)) : 0;
+  if (missing.length || lv < q.level || skills.length || stage || disc) {
     const parts = [];
     if (lv < q.level) parts.push(`reach level ${q.level}`);
     if (missing.length) parts.push(`finish "${QUESTS[missing[0]].title}"`);
     for (const [k, n] of skills) parts.push(`reach ${SKILLS[k].name} Lv ${n}`);
+    if (disc) parts.push(`complete ${disc} more Trail Guild discover${disc === 1 ? 'y' : 'ies'}`);
     if (stage) parts.push('your Evochi grows into a Juvenile');
     return {
       level: q.level, needLevel: lv < q.level, needQuest: missing[0] || null, needSkills: Object.fromEntries(skills),
-      needStage: stage ? q.stage : null, text: 'Unlocks when ' + (parts[0].startsWith('your') ? '' : 'you ') + parts.join(' and '),
+      needStage: stage ? q.stage : null, needDiscoveries: disc, text: 'Unlocks when ' + (parts[0].startsWith('your') ? '' : 'you ') + parts.join(' and '),
     };
   }
   return null;
@@ -531,10 +597,11 @@ export function nextStep(state, qid) {
   if (q.walk && phase === q.walk.phase) return { kind: 'walk' };
   const t = q.turnIns.find((x) => x.from === phase);
   if (!t) return { kind: 'done' };
-  const place = t.npc === 'waystone' || t.npc === 'cottage' ? t.npc : NPCS[t.npc].location;
+  const place = t.npc === 'waystone' || t.npc === 'cottage' || t.npc === 'ruins' || t.npc === 'gate' ? t.npc : NPCS[t.npc].location;
   const needs = itemNeeds(state, t);
-  if (needs.some((x) => !x.ok)) return { kind: 'gather', npc: t.npc, place, turnIn: t.id, label: t.label, needs };
+  if (needs.some((x) => !x.ok)) return { kind: 'gather', npc: t.npc, place, turnIn: t.id, label: t.label, needs, encounter: t.encounter || null };
   if (!stageOk(state, t)) return { kind: 'grow', npc: t.npc, place, turnIn: t.id, label: t.label, stage: t.requireStage };
+  if (t.encounter) return { kind: 'encounter', npc: t.npc, place, turnIn: t.id, label: t.label, needs, encounter: t.encounter };
   return { kind: 'handin', npc: t.npc, place, turnIn: t.id, label: t.label, needs };
 }
 
@@ -572,14 +639,14 @@ export function questView(state, qid, now) {
   const pi = phaseIndex(q, phase);
   const objectives = q.objectives.map((o) => {
     const done = pi >= phaseIndex(q, o.doneAt);
-    const v = { id: o.id, text: fill(o.text, { resolved_steps: fmtN(resolved) }), done };
+    const v = { id: o.id, text: fill(o.text, { resolved_steps: fmtN(resolved) }), done, optional: !!o.optional };
     if (o.count) {
       const have = Math.min(o.count.n, ownedQty(state, o.count.item));
       Object.assign(v, { item: o.count.item, need: o.count.n, have: done ? o.count.n : have, ready: done || have >= o.count.n });
     }
     return v;
   });
-  const current = objectives.find((o) => !o.done && !(o.ready && o.item))?.id || objectives.find((o) => !o.done)?.id || null;
+  const current = objectives.find((o) => !o.done && !o.optional && !(o.ready && o.item))?.id || objectives.find((o) => !o.done && !o.optional)?.id || null;
   const paused = !!st && !!q.walk && phase === q.walk.phase && (!state.steps || state.steps.connection === 'none');
   return {
     id: qid, n: q.n, title: q.title, level: q.level, summary: q.summary, phase, accepted: !!st, lock,
@@ -596,9 +663,11 @@ export function storyStatus(state, now) {
   const quests = QUEST_ORDER.map((id) => questView(state, id, now));
   const home = HOME_ORDER.map((id) => questView(state, id, now));
   const side = SIDE_ORDER.map((id) => questView(state, id, now));
-  const all = [...quests, ...home, ...side];
+  const trail = TRAIL_ORDER.map((id) => questView(state, id, now));
+  const all = [...quests, ...home, ...side, ...trail];
   // the Cottage hand-in happens on the Home Map, so it isn't a Village visit
   const turnIns = all.filter((v) => v.next.kind === 'handin' && v.next.npc !== 'cottage');
+  const encounters = all.filter((v) => v.next.kind === 'encounter');
   const offers = all.filter((v) => v.phase === 'available' && !S.offersSeen[v.id]);
   const unseenDone = all.filter((v) => v.completed && !v.seenCompletion);
   const actives = all.filter((v) => v.accepted && !v.completed);
@@ -608,8 +677,8 @@ export function storyStatus(state, now) {
     || (quests.every((v) => v.completed) ? home.find((v) => v.accepted && !v.completed) || home.find((v) => v.phase === 'available') : null)
     || quests.find((v) => v.phase === 'locked') || null;
   return {
-    quests, home, side, all, flags: { ...newStory().flags, ...S.flags }, pouch: { ...S.questPouch }, titles: S.titleUnlocks.slice(),
-    active, actives, nextUp, turnIns, offers, unseenDone, attention: turnIns.length + offers.length,
+    quests, home, side, trail, all, flags: { ...newStory().flags, ...S.flags }, pouch: { ...S.questPouch }, titles: S.titleUnlocks.slice(),
+    active, actives, nextUp, turnIns, encounters, offers, unseenDone, attention: turnIns.length + offers.length,
     chapterDone: quests.every((v) => v.completed), level: accountLevel(state),
     cottageReady: questPhase(state, 'hq01') === 'restoration_ready',
   };
@@ -719,6 +788,40 @@ export const LINES = {
   SQ02_A05: { s: 'npc_alder', e: 'happy', t: 'It remembered {pet}. Few travellers can say that.' },
   SQ02_A06: { s: 'npc_alder', e: 'happy', t: 'The old grove has been greener since your visit.' },
   SQ02_ALOCK: { s: 'npc_alder', e: 'thinking', t: 'Your Evochi is still very young. When it has grown into a Juvenile, ask me about the old grove.', extra: true },
+
+  // ---- The Waystone's map (after Chapter 1): Alder's lore reveal
+  ALD_MAP00: { s: 'npc_alder', e: 'surprised', t: "Something strange happened when the Waystone woke. It doesn't just light the Square. Look: it's projecting a map." },
+  ALD_MAP01: { s: 'npc_alder', e: 'thinking', t: 'Ancient paths, reaching into regions nobody has walked in generations. The old books called them the Lumen Trails.' },
+  ALD_MAP02: { s: 'npc_alder', e: 'neutral', t: 'One trail leads to the Whispering Woods. Another toward a coastal cove. And a third, far older, has nearly vanished.' },
+  ALD_MAP03: { s: 'npc_alder', e: 'proud', t: "Evochi weren't made to fight one another, {pet}. They were guardians of these paths. Every species kept the world connected." },
+  ALD_MAP04: { s: 'npc_alder', e: 'thinking', t: "So here is our mystery: why did the trails fade, and why have some guardians forgotten their purpose? The Guild's discoveries will help us find out." },
+
+  // ---- Trail 1: The Forest Guardian (Pip)
+  EQ01_P00: { s: 'npc_pip', e: 'happy', t: "Guild business! We've spotted an unusual Evochi near the Mossy Ruins. Leafy ears, a flower on its head, FAST." },
+  EQ01_P01: { s: 'npc_pip', e: 'thinking', t: "It's shy, so no chasing. Follow the clues on a walk, bring something it might like to eat, and let it come to you." },
+  EQ01_P02: { s: 'npc_pip', e: 'happy', t: 'Walk {resolved_steps} steps and keep your eyes on the path. A Sunberry Tart wouldn\'t hurt either!' },
+  EQ01_P03: { s: 'npc_pip', e: 'neutral', t: 'Any sign of it? You\'re {progress}/{resolved_steps} steps along the trail.' },
+  EQ01_P04: { s: 'npc_pip', e: 'happy', t: "A clue! Pressed flower, green fur. It's at the ruins, I'd bet my satchel. Go gently." },
+  EQ01_P05: { s: 'npc_pip', e: 'proud', t: 'You made friends with it?! A Petalune! The Guild hasn\'t logged one in forty years. Welcome to the Guild proper, Trail Friend.' },
+  EQ01_P06: { s: 'npc_pip', e: 'happy', t: 'Petalune keeps leaving petals on my mail sacks. I think it likes you.' },
+  EQ01_LOCK: { s: 'npc_pip', e: 'thinking', t: "The Guild only sends members after wild Evochi. Finish a couple of daily discoveries first ({discoveries}/2 so far) and I'll put your name down.", extra: true },
+
+  // ---- Trail 2: Tangled Lumen (Mira)
+  EQ02_M00: { s: 'npc_mira', e: 'worried', t: "Petalune led me to something sad at the ruins. A little plant spirit, all tangled up in purple light. It isn't sick. It's... faded." },
+  EQ02_M01: { s: 'npc_mira', e: 'thinking', t: 'The old books call it the Hollow: Lumen gone unstable. Kindness steadies it. Fresh Glowleaf helps most of all.' },
+  EQ02_M02: { s: 'npc_mira', e: 'happy', t: 'Walk {resolved_steps} steps near the ruins to gather a trace of its Lumen, and bring two Glowleaf from your garden.' },
+  EQ02_M03: { s: 'npc_mira', e: 'neutral', t: 'How is the poor thing? You\'ll need 2 Glowleaf ({glowleaf}/2) and a steady heart.' },
+  EQ02_M04: { s: 'npc_mira', e: 'proud', t: "You restored it! Look at it bloom. Here, I wrote down a recipe: Lantern Tonic. Lumen Shards and Glowleaf. The Guild will want it." },
+  EQ02_M05: { s: 'npc_mira', e: 'happy', t: 'The little sprout waves at everyone now. Whatever the Hollow is, it can be undone.' },
+
+  // ---- Trail 3: The Forgotten Sentinel (Alder)
+  EQ03_A00: { s: 'npc_alder', e: 'thinking', t: "The faded third trail on the map. I've matched it to the north road, past the old bridge. There's a gate there, and something very old sleeping at it." },
+  EQ03_A01: { s: 'npc_alder', e: 'worried', t: "A guardian of the trails, tangled in Hollow for longer than anyone remembers. It won't be gentle. But it isn't our enemy." },
+  EQ03_A02: { s: 'npc_alder', e: 'neutral', t: 'Walk {resolved_steps} steps along the north road while I copy the map. Bring a Lantern Tonic: nothing steadies the Hollow like Lumen in a bottle.' },
+  EQ03_A03: { s: 'npc_alder', e: 'neutral', t: 'The bridge will hold. The question is the guardian. Lantern Tonic, a grown Evochi if you have one, and patience.' },
+  EQ03_A04: { s: 'npc_alder', e: 'proud', t: "You restored a Sentinel. The map changed the moment it woke: the third trail is bright again, and it goes on past the horizon." },
+  EQ03_A05: { s: 'npc_alder', e: 'happy', t: "I'll be honest, {pet}. I don't think the trails faded because the world was dying. I think they faded because people stopped exploring it." },
+  EQ03_A06: { s: 'npc_alder', e: 'happy', t: 'The Sentinel hums at dusk now. Pip says it sounds like the Waystone. More Trails are on the way, Trailwarden.' },
 };
 
 // Choice helpers: next = another line, act = an engine action run before moving on
@@ -767,8 +870,21 @@ export function npcConversation(state, npcId, now) {
         start = node('HQ02_M04', [C('Give 2 Glowleaf', { act: { kind: 'handin', quest: 'hq02', turnIn: 'mira_glowleaf' }, then: 'HQ02_M05' }), LEAVE('Not yet')]).id;
         node('HQ02_M05', [C('Thank you, Mira!', { reward: 'hq02' })]);
       } else start = node('HQ02_M03', [C('Visit your Garden', { goto: 'garden' }), LEAVE('See you soon')]).id;
-    } else if (p3 === 'completed') {
+    } else if (ph('eq02') === 'available') {
+      node('EQ02_M00', [C('Faded?', { next: 'EQ02_M01' })]);
+      node('EQ02_M01', [C("I'll help it.", { act: { kind: 'accept', quest: 'eq02' }, then: 'EQ02_M02' }), LEAVE('Maybe later.')]);
+      node('EQ02_M02', [C('Go for a walk', { goto: 'journey' }), C('Visit your Garden', { goto: 'garden' }), LEAVE('See you soon')]);
+      start = 'EQ02_M00';
+    } else if (ph('eq02') === 'accepted_walk') {
+      start = node('EQ02_M03', [C('Go for a walk', { goto: 'journey' }), C('Visit your Garden', { goto: 'garden' }), LEAVE('See you soon')]).id;
+    } else if (ph('eq02') === 'ruins_ready') {
+      start = node('EQ02_M03', [C('Go to the Mossy Ruins', { goto: 'prep:eq02' }), C('Visit your Garden', { goto: 'garden' }), LEAVE('See you soon')]).id;
+    } else if (ph('eq02') === 'completed' && !S.npcsMet.eq02_thanks) {
+      start = node('EQ02_M04', [C('Thank you, Mira!', { act: { kind: 'met', npc: 'eq02_thanks' }, leave: true })]).id;
+    } else if (p3 === 'completed' && ph('eq02') !== 'completed') {
       start = node('VQ03_MIR02', [LEAVE('Goodbye, Mira')]).id;
+    } else if (ph('eq02') === 'completed') {
+      start = node('EQ02_M05', [LEAVE('Goodbye, Mira')]).id;
     } else if (ph('hq02') === 'completed') {
       start = node('HQ02_M06', [LEAVE('Goodbye, Mira')]).id;
     } else {
@@ -814,7 +930,24 @@ export function npcConversation(state, npcId, now) {
     const p2 = ph('vq02');
     const p3 = ph('vq03');
     const s1 = ph('sq01');
-    if (p2 === 'locked') {
+    if (p2 === 'paper_2_ready') {
+      start = node('VQ02_PIP05', [C('Give 2 Windprint Papers', { act: { kind: 'handin', quest: 'vq02', turnIn: 'pip_papers' }, then: 'VQ02_PIP06' }), LEAVE('Not yet')]).id;
+      node('VQ02_PIP06', [C('Talk to Alder', { npc: 'npc_alder' }), LEAVE()]);
+    } else if (p2 === 'letter_ready') {
+      start = node('VQ02_PIP06', [C('Talk to Alder', { npc: 'npc_alder' }), LEAVE()]).id;
+    } else if (ph('eq01') === 'available') {
+      // the Guild's first trail job: offered as soon as it unlocks, even mid-chapter
+      node('EQ01_P00', [C('Shy how?', { next: 'EQ01_P01' })]);
+      node('EQ01_P01', [C("I'll find it.", { act: { kind: 'accept', quest: 'eq01' }, then: 'EQ01_P02' }), LEAVE('Not now.')]);
+      node('EQ01_P02', [C('Go for a walk', { goto: 'journey' }), C('Go to your Kitchen', { goto: 'kitchen' }), LEAVE('See you soon')]);
+      start = met ? 'EQ01_P00' : node('VQ02_PIP00', [C('Hello, Pip!', { next: 'EQ01_P00' })]).id;
+    } else if (ph('eq01') === 'accepted_walk') {
+      start = node('EQ01_P03', [C('Go for a walk', { goto: 'journey' }), LEAVE('See you soon')]).id;
+    } else if (ph('eq01') === 'ruins_ready') {
+      start = node('EQ01_P04', [C('Go to the Mossy Ruins', { goto: 'prep:eq01' }), LEAVE('Not yet')]).id;
+    } else if (ph('eq01') === 'completed' && !S.npcsMet.eq01_thanks) {
+      start = node('EQ01_P05', [C('Thank you, Pip!', { act: { kind: 'met', npc: 'eq01_thanks' }, leave: true })]).id;
+    } else if (p2 === 'locked') {
       node('PIP_LOCKED', [LEAVE('Okay!')]);
       start = met ? 'PIP_LOCKED' : node('VQ02_PIP00', [C('Hello, Pip!', { next: 'PIP_LOCKED' })]).id;
     } else if (p2 === 'available') {
@@ -823,12 +956,14 @@ export function npcConversation(state, npcId, now) {
       node('VQ02_PIP03', [C('Go for a walk', { goto: 'journey' }), LEAVE('See you soon')]);
       start = met ? 'VQ02_PIP01' : node('VQ02_PIP00', [C('Hello, Pip!', { next: 'VQ02_PIP01' })]).id;
     } else if (p2 === 'accepted_two_days') {
-      start = node('VQ02_PIP04', [C('Go for a walk', { goto: 'journey' }), LEAVE('See you soon')]).id;
-    } else if (p2 === 'paper_2_ready') {
-      start = node('VQ02_PIP05', [C('Give 2 Windprint Papers', { act: { kind: 'handin', quest: 'vq02', turnIn: 'pip_papers' }, then: 'VQ02_PIP06' }), LEAVE('Not yet')]).id;
-      node('VQ02_PIP06', [C('Talk to Alder', { npc: 'npc_alder' }), LEAVE()]);
-    } else if (p2 === 'letter_ready') {
-      start = node('VQ02_PIP06', [C('Talk to Alder', { npc: 'npc_alder' }), LEAVE()]).id;
+      // mid-walk: Pip nudges you on, and mentions the Guild's rule for its first trail job once
+      const lockHint = ph('eq01') === 'locked' && lockReason(state, 'eq01')?.needDiscoveries && !lockReason(state, 'eq01').needQuest && !S.npcsMet.eq01_hint;
+      if (lockHint) {
+        node('EQ01_LOCK', [C("See today's discoveries", { goto: 'discover', act: { kind: 'met', npc: 'eq01_hint' } }), C('Okay!', { act: { kind: 'met', npc: 'eq01_hint' }, leave: true })]);
+        start = 'EQ01_LOCK';
+      } else start = node('VQ02_PIP04', [C('Go for a walk', { goto: 'journey' }), LEAVE('See you soon')]).id;
+    } else if (ph('eq01') === 'locked' && lockReason(state, 'eq01')?.needDiscoveries && p2 !== 'available' && p2 !== 'locked') {
+      start = node('EQ01_LOCK', [C("See today's discoveries", { goto: 'discover' }), LEAVE('Okay!')]).id;
     } else if (s1 === 'available') {
       node('SQ01_P00', [C('Hungry?', { next: 'SQ01_P01' })]);
       node('SQ01_P01', [C("I'll bake one!", { act: { kind: 'accept', quest: 'sq01' }, then: 'SQ01_P02' }), LEAVE('Not now.')]);
@@ -841,6 +976,8 @@ export function npcConversation(state, npcId, now) {
       } else start = node('SQ01_P03', [C('Go to your Kitchen', { goto: 'kitchen' }), LEAVE('See you soon')]).id;
     } else if (p3 === 'completed') {
       start = node('VQ03_PIP08', [LEAVE('Goodbye, Pip')]).id;
+    } else if (ph('eq01') === 'completed' && (s1 === 'completed' || s1 === 'locked')) {
+      start = node('EQ01_P06', [LEAVE('Goodbye, Pip')]).id;
     } else if (s1 === 'completed') {
       start = node('SQ01_P06', [LEAVE('Goodbye, Pip')]).id;
     } else {
@@ -864,6 +1001,28 @@ export function npcConversation(state, npcId, now) {
       start = node('VQ03_ALD04', [C("Go to Bram's Workshop", { goto: 'workshop' }), LEAVE()]).id;
     } else if (p3 === 'core_ready' || p3 === 'restoration_ready') {
       start = node('ALD_WAITING', [C(p3 === 'core_ready' ? "Go to Mira's Glasshouse" : 'Go to the Waystone', { goto: p3 === 'core_ready' ? 'glasshouse' : 'waystone' }), LEAVE()]).id;
+    } else if (p3 === 'completed' && !S.npcsMet.waystone_map) {
+      node('ALD_MAP00', [C('A map?', { next: 'ALD_MAP01' })]);
+      node('ALD_MAP01', [C('Where do they go?', { next: 'ALD_MAP02' })]);
+      node('ALD_MAP02', [C('Continue', { next: 'ALD_MAP03' })]);
+      node('ALD_MAP03', [C('Continue', { next: 'ALD_MAP04' })]);
+      node('ALD_MAP04', [C("Let's find out", { act: { kind: 'met', npc: 'waystone_map' }, leave: true })]);
+      start = 'ALD_MAP00';
+    } else if (ph('eq03') === 'available') {
+      node('EQ03_A00', [C('Something old?', { next: 'EQ03_A01' })]);
+      node('EQ03_A01', [C("Let's wake it.", { act: { kind: 'accept', quest: 'eq03' }, then: 'EQ03_A02' }), LEAVE('I need more time.')]);
+      node('EQ03_A02', [C('Go for a walk', { goto: 'journey' }), C('Go to your Apothecary', { goto: 'apothecary' }), LEAVE('See you soon')]);
+      start = 'EQ03_A00';
+    } else if (ph('eq03') === 'accepted_walk') {
+      start = node('EQ03_A03', [C('Go for a walk', { goto: 'journey' }), C('Go to your Apothecary', { goto: 'apothecary' }), LEAVE('See you soon')]).id;
+    } else if (ph('eq03') === 'gate_ready') {
+      start = node('EQ03_A03', [C('Go to the old gate', { goto: 'prep:eq03' }), C('Go to your Apothecary', { goto: 'apothecary' }), LEAVE('See you soon')]).id;
+    } else if (ph('eq03') === 'completed' && !S.npcsMet.eq03_thanks) {
+      node('EQ03_A04', [C('Continue', { next: 'EQ03_A05' })]);
+      node('EQ03_A05', [C('Thank you, Alder', { act: { kind: 'met', npc: 'eq03_thanks' }, leave: true })]);
+      start = 'EQ03_A04';
+    } else if (ph('eq03') === 'completed' && ph('sq02') !== 'available' && ph('sq02') !== 'need_tonic') {
+      start = node('EQ03_A06', [LEAVE('Goodbye, Alder')]).id;
     } else if (ph('sq02') === 'available') {
       node('SQ02_A00', [C('What does it need?', { next: 'SQ02_A01' })]);
       node('SQ02_A01', [C("Let's wake it.", { act: { kind: 'accept', quest: 'sq02' }, then: 'SQ02_A02' }), LEAVE('Another time.')]);
@@ -920,7 +1079,7 @@ export function npcConversation(state, npcId, now) {
 export function lineText(state, id, now, petName = 'your Evochi') {
   const L = LINES[id];
   if (!L) return '';
-  const P = { VQ01: 'vq01', VQ02: 'vq02', PIP_: 'vq02', HQ01: 'hq01', HQ02: 'hq02', SQ01: 'sq01', SQ02: 'sq02' };
+  const P = { VQ01: 'vq01', VQ02: 'vq02', PIP_: 'vq02', HQ01: 'hq01', HQ02: 'hq02', SQ01: 'sq01', SQ02: 'sq02', EQ01: 'eq01', EQ02: 'eq02', EQ03: 'eq03', ALD_: 'vq03' };
   const qid = P[id.slice(0, 4)] || 'vq03';
   const v = questView(state, qid, now);
   const lock = lockReason(state, 'vq02');
@@ -935,5 +1094,6 @@ export function lineText(state, id, now, petName = 'your Evochi') {
     pet: petName,
     sunberry: String(Math.min(3, ownedQty(state, 'sunberry'))),
     glowleaf: String(Math.min(2, ownedQty(state, 'glowleaf'))),
+    discoveries: String(state.trails?.stats?.discoveries || 0),
   });
 }

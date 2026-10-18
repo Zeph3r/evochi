@@ -384,6 +384,11 @@ if __name__ == '__main__':
             VS2.SCENES.update(home_scenes.SCENES)
         except ImportError as e:
             print('home scenes unavailable:', e, flush=True)
+        try:
+            import trail_scenes               # Lumen Trails encounter places
+            VS2.SCENES.update(trail_scenes.SCENES)
+        except ImportError as e:
+            print('trail scenes unavailable:', e, flush=True)
         if names == ['all']:
             names = list(VS2.SCENES)
     raw_dir = raw_dir or out

@@ -12,6 +12,7 @@ import {
 } from './progression.js';
 import { newStory, ensureStory, applyStoryProgress, storyStatus } from './story.js';
 import { newHome, ensureHome, homeStatus } from './home.js';
+import { newTrails, ensureTrails, trailsStatus, applyTrailProgress } from './trails.js';
 
 export const SCHEMA_VERSION = 1;
 
@@ -75,6 +76,7 @@ export function newState(now = Date.now(), tz = deviceZone()) {
     debug: { clockOffset: 0 },
     story: newStory(),
     home: newHome(),
+    trails: newTrails(),
     tzHint: tz,
     createdAt: now,
   };
@@ -145,6 +147,7 @@ export function derive(state, now) {
   out.claimable = out.quests.filter((q) => q.eligible && !q.claimed).length;
   out.story = state.player ? storyStatus(state, now) : null;
   out.home = state.player ? homeStatus(state, now) : null;
+  out.trails = state.player ? trailsStatus(state, now) : null;
   return out;
 }
 
@@ -356,7 +359,7 @@ export function syncSteps(state, samples, now, { source = 'demo', success = true
   s.steps.lastSync = now;
   s.steps.lastSource = source;
   const events = [];
-  const storyEvents = applyStoryProgress(s, now);
+  const storyEvents = [...applyStoryProgress(s, now), ...applyTrailProgress(s, now)];
   if (!s.pet) return ok(s, [...storyEvents, { type: 'synced', added }]);
   const before = derive(state, now);
   const tz = s.player.timezone;
@@ -625,6 +628,7 @@ export function migrate(obj) {
   ensureStory(obj);
   // Home (garden, cottage, skills) arrived after story schema 1: same in-place upgrade
   ensureHome(obj);
+  ensureTrails(obj);
   return obj;
 }
 

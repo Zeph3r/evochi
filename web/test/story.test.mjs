@@ -330,7 +330,10 @@ test('AT10 relaunch: the save round-trips with phases, pouch, flags, title and a
   assert.deepEqual(back.story, s.story);
   for (const id of ['vq01', 'vq02', 'vq03']) assert.equal(Q.questPhase(back, id), 'completed');
   assert.equal(Q.npcConversation(back, 'npc_mira', T0 + 7 * DAY).start, 'VQ03_MIR02');
-  assert.equal(Q.npcConversation(back, 'npc_alder', T0 + 7 * DAY).start, 'VQ03_ALD06');
+  // after the Waystone wakes, Alder shows the map once (the Lumen Trails lead-in), then his usual goodbye
+  assert.equal(Q.npcConversation(back, 'npc_alder', T0 + 7 * DAY).start, 'ALD_MAP00');
+  const seen = must(Q.markNpcMet(back, 'waystone_map'));
+  assert.equal(Q.npcConversation(seen, 'npc_alder', T0 + 7 * DAY).start, 'VQ03_ALD06');
   assert.equal(Q.npcConversation(back, 'waystone', T0 + 7 * DAY).start, 'WAY_DONE');
   assert.equal(Q.storyStatus(back, T0 + 7 * DAY).chapterDone, true);
 });

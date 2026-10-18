@@ -9,6 +9,7 @@ import { ICON } from '../ui/icons.js';
 import { titleImg } from '../core/app.js';
 import * as H from '../game/home.js';
 import * as Q from '../game/story.js';
+import * as TR from '../game/trails.js';
 
 const ZONES = ['UTC', 'America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York', 'America/Sao_Paulo',
   'Europe/London', 'Europe/Berlin', 'Africa/Lagos', 'Asia/Kolkata', 'Asia/Singapore', 'Asia/Tokyo', 'Australia/Sydney'];
@@ -91,6 +92,12 @@ export const settings = {
             <button class="btn sm cream" data-act="dev" data-arg="hometales" data-k="dv8">Skip to Home Tales</button>
             <button class="btn sm cream" data-act="dev" data-arg="pantry" data-k="dv9">+ Seeds and ingredients</button>
             <button class="btn sm cream" data-act="dev" data-arg="skills" data-k="dv10">+1 level, every skill</button>
+          </div>
+          <div class="setting" style="padding-top:0"><div class="grow"><div class="t">Lumen Trails</div><div class="d">Discoveries, the Trail Guild and encounters.</div></div></div>
+          <div class="row" style="padding:0 12px 12px;gap:6px;flex-wrap:wrap">
+            <button class="btn sm cream" data-act="dev" data-arg="trails" data-k="dv11">Skip to Lumen Trails</button>
+            <button class="btn sm cream" data-act="dev" data-arg="discover" data-k="dv12">Finish today's discoveries</button>
+            <button class="btn sm cream" data-act="dev" data-arg="shards" data-k="dv13">+3 Lumen Shards, +1 Lantern Tonic</button>
           </div>
         </section>
         <p class="small muted center" style="margin:4px 0 0">${ctx.store.cloud?.status === 'on' ? 'Saved to your account and this device.' : 'Saved on this device.'} Evochi web preview - spec v1.0 - config ${CONFIG.version}${ctx.store.storageOk ? '' : ' - storage unavailable, progress kept in memory'}</p>
@@ -236,6 +243,25 @@ export const settings = {
         const r = homeTalesReady(store);
         ctx.toast(r ? 'Chapter 1 quest 1 done and level 2 reached: Bram has a job for you' : 'Home Tales are already open', 'ok', 'home_map');
       }
+      if (what === 'trails') {
+        homeTalesReady(store);
+        let s = structuredClone(store.state);
+        Q.ensureStory(s).peakLevel = Math.max(s.story.peakLevel || 1, 3);
+        store.replace(s);
+        const r = finishDiscoveries(store, 2);
+        ctx.toast(r ? 'Level 3, two discoveries done: Pip has a Guild job for you' : 'Lumen Trails are already open', 'ok', 'trail_badge');
+      }
+      if (what === 'discover') {
+        const n = finishDiscoveries(store, 3);
+        ctx.toast(n ? `${n} discover${n === 1 ? 'y' : 'ies'} found` : 'Nothing left to find today', 'ok', 'discover');
+      }
+      if (what === 'shards') {
+        const s = structuredClone(store.state);
+        G.grantItem(s, 'lumen_shard', 3, 'playtest', store.now(), null);
+        G.grantItem(s, 'lantern_tonic', 1, 'playtest', store.now(), null);
+        store.replace(s);
+        ctx.toast('Shards and a Lantern Tonic added', 'ok', 'item:lumen_shard');
+      }
       if (what === 'pantry') {
         const s = structuredClone(store.state);
         const add = { seed_sunberry: 3, seed_meadow_carrot: 3, seed_golden_wheat: 3, seed_glowleaf: 2, seed_moonshroom: 2, sunberry: 6, meadow_carrot: 4, golden_wheat: 4, glowleaf: 4, moonshroom: 4 };
@@ -308,6 +334,28 @@ function homeTalesReady(store) {
   }
   if (changed) store.replace(s);
   return changed;
+}
+
+/** Playtest: begin, walk and inspect up to `max` of today's discoveries (only those not yet found). */
+function finishDiscoveries(store, max) {
+  let n = 0;
+  for (let i = 0; i < max; i++) {
+    const now = store.now();
+    const t = TR.trailsStatus(store.state, now);
+    const d = t.discoveries.find((x) => x.phase !== 'found' && (t.stats.discoveries + n < 2 || i < max));
+    if (!d) break;
+    if (d.phase === 'offered') store.state = TR.beginDiscovery(store.state, d.id, now).state;
+    const v = TR.discoveryView(store.state, d.id, now);
+    if (v.phase !== 'ready') {
+      store.state = G.syncSteps(store.state, simulateWalk(v.target - v.walked + 50, now + 60000, { watch: false, minutes: 30, notBefore: v.acceptedAt }), now + 60000).state;
+    }
+    const r = TR.inspectDiscovery(store.state, d.id, now + 60000);
+    if (r.error) break;
+    store.state = r.state;
+    n++;
+  }
+  if (n) store.replace(store.state);
+  return n;
 }
 
 /** Walk `ratio` x goal on each of `days` days, advancing the preview clock one day at a time. */

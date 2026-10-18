@@ -4,6 +4,8 @@
 import * as G from '../game/state.js';
 import * as Q from '../game/story.js';
 import * as H from '../game/home.js';
+import * as TR from '../game/trails.js';
+import { clueGlint, discoveryActions } from './trails.js';
 import { ITEMS, STORY_SOURCE, DECOR_SLOTS } from '../game/catalog.js';
 import { html, raw, fmt } from '../ui/dom.js';
 import { icon, itemImg, url, manifest } from '../ui/assets.js';
@@ -22,6 +24,7 @@ const SPEAKER = {
 const UNLOCK_ICON = { Cottage: 'home_map', Kitchen: 'skill_cooking', Apothecary: 'skill_alchemy' };
 export function questLead(v) {
   if (v.line === 'home') return `Home Tales · Quest ${String(v.n).padStart(2, '0')}`;
+  if (v.line === 'trail') return `Lumen Trails · Trail job ${String(v.n).padStart(2, '0')}`;
   if (v.line === 'side') return 'Side story · optional';
   return `${Q.CHAPTER.name} · Quest ${String(v.n).padStart(2, '0')}`;
 }
@@ -41,7 +44,7 @@ export function storyItemImg(id) {
   return itemImg(id);
 }
 function npcName(id) {
-  return id === 'waystone' ? 'the Waystone' : id === 'cottage' ? 'your Cottage' : SPEAKER[id].name;
+  return id === 'waystone' ? 'the Waystone' : id === 'cottage' ? 'your Cottage' : id === 'ruins' || id === 'gate' ? TR.PLACE_NAMES[id] : SPEAKER[id].name;
 }
 
 /** "Grow 3 Sunberries (1/3)" for the items still missing from a hand-in. */
@@ -62,6 +65,7 @@ function questGo(v) {
     if (src) return { act: 'sq-home', arg: src.route === 'station' ? src.station : 'garden', label: `Go to your ${src.place}`, cls: 'green' };
   }
   if (n.kind === 'grow') return { act: 'sq-pet', label: 'Check on your Evochi', cls: 'cream' };
+  if (n.kind === 'encounter' || (n.encounter && n.kind === 'gather')) return { act: 'sq-prep', arg: v.id, label: n.kind === 'encounter' ? 'Prepare & Travel' : 'Encounter prep', cls: n.kind === 'encounter' ? 'green' : '' };
   if (n.place === 'cottage') return { act: 'sq-home', arg: 'cottage', label: 'Go to your Cottage' };
   if (v.phase === 'locked' && v.lock?.needSkills && Object.keys(v.lock.needSkills).length) return { act: 'sq-home', arg: 'skills', label: 'Open Skills', cls: 'cream' };
   if (n.kind === 'talk' || n.kind === 'handin' || n.kind === 'locked' || n.kind === 'gather' || n.kind === 'grow') {
@@ -82,6 +86,7 @@ export function nextText(v) {
     return v.walk.todayDone ? `Day ${v.walk.qualified}/${v.walk.days} done. Walk again tomorrow`
       : `Walk ${fmt(v.resolved)} steps today (day ${v.walk.qualified + 1} of ${v.walk.days})`;
   }
+  if (n.kind === 'encounter') return `Travel to ${TR.PLACE_NAMES[n.place]}: ${n.label.toLowerCase()}`;
   if (n.kind === 'gather') return gatherText(n.needs);
   if (n.kind === 'grow') return `Visit once your Evochi has grown into a ${['', 'Eggling', 'Juvenile', 'Elder'][n.stage]}`;
   if (n.kind === 'handin') {
@@ -97,7 +102,7 @@ export function statusTag(v) {
   if (v.completed) return html`<span class="tag ok">${ICON.checkDark}Complete</span>`;
   if (v.phase === 'locked') return html`<span class="tag neutral"><img src="${icon('lock')}" alt="">Lv ${v.level}</span>`;
   if (v.phase === 'available') return html`<span class="tag stage">New</span>`;
-  if (v.next.kind === 'handin') return html`<span class="tag ok">Ready</span>`;
+  if (v.next.kind === 'handin' || v.next.kind === 'encounter') return html`<span class="tag ok">Ready</span>`;
   if (v.next.kind === 'grow') return html`<span class="tag warn">Needs a Juvenile</span>`;
   if (v.paused) return html`<span class="tag warn">Paused</span>`;
   return html`<span class="tag cream">In progress</span>`;
@@ -128,6 +133,7 @@ function rewardChips(r) {
   return html`${(r.items || []).map((id) => html`<span class="reward-chip story"><img src="${itemImg(id)}" alt=""><span>${ITEMS[id].name}</span></span>`)}
     ${r.coins ? html`<span class="reward-chip"><img src="${icon('coin')}" alt=""><span>${r.coins}</span></span>` : ''}
     ${Object.entries(r.gifts || {}).map(([id, n]) => html`<span class="reward-chip"><img src="${itemImg(id)}" alt=""><span>${n} × ${ITEMS[id].name}</span></span>`)}
+    ${r.companion ? html`<span class="reward-chip story"><img src="${icon('creature_' + r.companion)}" alt=""><span>${TR.CREATURES[r.companion].name} joins you</span></span>` : ''}
     ${(r.unlocks || []).map((u) => html`<span class="reward-chip unlock"><img src="${icon(UNLOCK_ICON[u] || 'star')}" alt=""><span>Unlocks ${u}</span></span>`)}
     ${(r.titles || []).map((t) => html`<span class="reward-chip"><img src="${icon('crown')}" alt=""><span>Title: ${Q.TITLES[t].name}</span></span>`)}`;
 }
@@ -149,7 +155,7 @@ export function openStoryQuest(ctx, qid) {
         <p class="body" style="margin:0">${v.summary}</p>
         ${v.paused ? html`<div class="status-banner sync" role="status"><img src="${icon('steps')}" alt=""><span class="grow">Step sync is off, so this walk is paused. Your progress is saved and nothing expires.</span></div>` : ''}
         ${v.accepted && !v.completed ? html`<div class="card inset" style="padding:10px"><b class="small">Next: ${nextText(v)}</b><div style="margin-top:6px">${walkBar(v)}</div></div>` : ''}
-        <ol class="objectives">${v.objectives.map((o) => html`<li class="${o.done ? 'done' : o.id === v.current && v.accepted ? 'now' : ''}"><span class="ck" aria-hidden="true">${o.done ? ICON.check : ''}</span><span>${o.text}</span>${o.done ? html`<span class="sr-only">(done)</span>` : ''}</li>`)}</ol>
+        <ol class="objectives">${v.objectives.map((o) => html`<li class="${o.done ? 'done' : o.id === v.current && v.accepted ? 'now' : ''} ${o.optional ? 'optional' : ''}"><span class="ck" aria-hidden="true">${o.done || (o.optional && o.ready) ? ICON.check : ''}</span><span>${o.text}</span>${o.done ? html`<span class="sr-only">(done)</span>` : ''}</li>`)}</ol>
         <div><div class="small" style="font-weight:800;margin-bottom:6px">Rewards</div><div class="row" style="flex-wrap:wrap;gap:6px">${rewardChips(v.rewards)}</div>
           <p class="tiny muted" style="margin:6px 0 0">Story rewards are earned, never sold: they can't be bought, traded or sold.</p></div>
         ${v.accepted && !v.completed ? html`<label class="row between track-row"><span class="small" style="font-weight:800">Track on Home</span>
@@ -172,6 +178,10 @@ export function openStoryQuest(ctx, qid) {
       'sq-pet': (c) => {
         c.closeModal();
         c.go('inspect');
+      },
+      'sq-prep': (c, id) => {
+        c.closeModal();
+        c.go('prep', { id });
       },
       'sq-walk': (c) => {
         c.closeModal();
@@ -267,7 +277,9 @@ function homeRewardCard(c, q, then) {
     <div class="story-banner">Quest complete!</div>
     <div class="tiny muted">${questLead(Q.questView(c.state, q.id, c.now))}</div>
     <h2 class="h-sec" style="margin:0">${q.title}</h2>
-    ${(r.unlocks || []).length ? html`<div class="reward-card unlocks"><span class="story-tag">${raw(starSvg())}Unlocked</span>
+    ${r.companion ? html`<div class="reward-card unlocks"><span class="story-tag">${raw(starSvg())}New companion</span>
+      <div class="row" style="justify-content:center;gap:14px;flex-wrap:wrap"><span class="unlock-big"><img src="${icon('creature_' + r.companion)}" alt="" width="96" height="96"><b class="h-card">${TR.CREATURES[r.companion].name}</b></span></div></div>`
+      : (r.unlocks || []).length ? html`<div class="reward-card unlocks"><span class="story-tag">${raw(starSvg())}Unlocked</span>
       <div class="row" style="justify-content:center;gap:14px;flex-wrap:wrap">${r.unlocks.map((u) => html`<span class="unlock-big"><img src="${icon(UNLOCK_ICON[u] || 'star')}" alt="" width="74" height="74"><b class="h-card">${u}</b></span>`)}</div></div>` : ''}
     <div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap">
       ${r.coins ? html`<span class="tag stage" style="height:34px;font-size:16px"><img src="${icon('coin')}" alt="" style="width:24px;height:24px">+${r.coins}</span>` : ''}
@@ -343,23 +355,56 @@ export const village = {
               <span class="ds">${lock || P.blurb}</span>${mark ? html`<i class="badge-dot" aria-hidden="true"></i>` : ''}</button>`;
           })}
         </div>
+        <button class="card row market-row" data-act="guild" data-k="vguild"><img src="${icon('trail_badge')}" alt="" width="40" height="40"><div class="grow" style="text-align:left"><b class="h-card">Trail Guild Board</b><div class="small muted">${guildBlurb(ctx)}</div></div>${guildDot(ctx)}<span class="chev" aria-hidden="true">&rsaquo;</span></button>
+        ${trailPlaces(ctx)}
         <button class="card row market-row" data-act="market" data-k="vmarket"><img src="${icon('shop')}" alt="" width="40" height="40"><div class="grow" style="text-align:left"><b class="h-card">Evochi Market</b><div class="small muted">The village shop. Story rewards are never sold here.</div></div><span class="chev" aria-hidden="true">&rsaquo;</span></button>
       </div>
     </main>`;
   },
   actions: {
+    ...discoveryActions,
     place(ctx, id) {
       ctx.sfx('ui_tap', 0.4);
       ctx.go('place', { id });
     },
-    quest(ctx, id) {
-      openStoryQuest(ctx, id);
-    },
     market(ctx) {
       ctx.app.tab('shop');
     },
+    trailplace(ctx, id) {
+      ctx.sfx('ui_tap', 0.4);
+      ctx.go('trailplace', { id });
+    },
   },
 };
+
+function guildBlurb(ctx) {
+  const t = ctx.d.trails;
+  if (!t) return 'Daily discoveries and trail jobs.';
+  if (t.ready.length) return `${t.ready.length} discover${t.ready.length === 1 ? 'y' : 'ies'} ready to inspect`;
+  const enc = ctx.d.story.encounters.length;
+  if (enc) return 'A trail job is ready: prepare and travel';
+  if (t.foundToday < 3) return `${3 - t.foundToday} discover${3 - t.foundToday === 1 ? 'y' : 'ies'} left today · ${t.rank.name}`;
+  return `All found today · ${t.rank.name}`;
+}
+function guildDot(ctx) {
+  const t = ctx.d.trails;
+  return t && (t.ready.length || ctx.d.story.encounters.length || (t.foundToday === 0 && !t.walking.length)) ? html`<i class="badge-dot" aria-hidden="true" style="position:static;margin-right:4px"></i>` : '';
+}
+function trailPlaces(ctx) {
+  const st = ctx.d.story;
+  const out = [];
+  const ruinsOpen = ['ruins_ready', 'completed'].includes(Q.questPhase(ctx.state, 'eq01'));
+  const gateOpen = ['gate_ready', 'completed'].includes(Q.questPhase(ctx.state, 'eq03'));
+  if (!ruinsOpen && !gateOpen) return '';
+  const TMs = manifest().trails?.scenes;
+  if (!TMs) return '';
+  if (ruinsOpen) out.push(['ruins', 'Mossy Ruins', st.flags.sprout_restored ? 'Peaceful again. Petals on the arch.' : 'A quiet forest ruin on the old trail.', TMs.mossy_ruins.file]);
+  if (gateOpen) out.push(['gate', 'The Old Gate', st.flags.sentinel_restored ? 'Open, and humming at dusk.' : 'Past the bridge. Hollow light in the dusk.', TMs.sentinel_gate.file]);
+  return html`<h2 class="h-sec sec-head">Lumen Trails</h2><div class="place-grid">${out.map(([id, name, blurb, file]) => {
+    const clue = TR.cluesAt(ctx.state, id, ctx.now).length;
+    return html`<button class="place-card" data-act="trailplace" data-arg="${id}" data-k="pc-${id}"><img src="${url(file)}" alt="" style="object-position:50% 60%"><span class="nm"><img src="${icon('trail')}" alt="">${name}</span><span class="ds">${blurb}</span>${clue ? html`<i class="badge-dot" aria-hidden="true"></i>` : ''}</button>`;
+  })}</div>`;
+}
 
 // ------------------------------------------------------------------ places + dialogue
 function convoFor(ctx, npcId) {
@@ -520,6 +565,7 @@ export const place = {
             </button>`;
           })}
           ${cameo ? html`<img class="npc-cameo" src="${npcSprite(speaker, L.e || 'happy')}" alt="">` : ''}
+          ${clueGlint(ctx, id)}
         </div>
       </div>
       <section class="speech dialogue ${typed ? 'done' : ''}" aria-label="${sp.name}" data-act="speech" data-k="speech">
@@ -541,6 +587,7 @@ export const place = {
     </main>`;
   },
   actions: {
+    ...discoveryActions,
     leave(ctx) {
       ctx.ui('place').node = null;
       ctx.back();
@@ -574,6 +621,7 @@ export const place = {
       const ch = node.choices[Number(i)];
       if (!ch) return;
       const u = ctx.ui('place');
+      if (ch.act?.kind === 'met') ctx.act(Q.markNpcMet, ch.act.npc); // a one-time scene was seen
       if (ch.leave) {
         u.node = null;
         ctx.sfx('ui_tap', 0.4);
@@ -585,7 +633,11 @@ export const place = {
         if (ch.goto === 'journey') {
           ctx.app.ui.journey = { ...(ctx.app.ui.journey || {}), tab: 'daily' };
           ctx.app.tab('journey');
-        } else if (ch.goto === 'kitchen' || ch.goto === 'apothecary') ctx.app.go('station', { id: ch.goto });
+        } else if (ch.goto === 'discover') {
+          ctx.app.ui.journey = { ...(ctx.app.ui.journey || {}), tab: 'daily' };
+          ctx.app.tab('journey');
+        } else if (ch.goto.startsWith('prep:')) ctx.app.go('prep', { id: ch.goto.slice(5) });
+        else if (ch.goto === 'kitchen' || ch.goto === 'apothecary') ctx.app.go('station', { id: ch.goto });
         else if (ch.goto === 'garden' || ch.goto === 'cottage') ctx.app.go(ch.goto);
         else ctx.app.go('place', { id: ch.goto }, { replace: true });
         return;
@@ -648,6 +700,8 @@ export function storyTab(ctx) {
       <span class="chev" aria-hidden="true">&rsaquo;</span></button>`)}</div>
     <h2 class="h-sec sec-head" style="margin-top:6px">Home Tales</h2>
     <div class="list">${st.home.map((v) => storyRow(v))}</div>
+    <h2 class="h-sec sec-head" style="margin-top:6px">Lumen Trails <span class="tag small cream" style="margin-left:4px">Encounters</span></h2>
+    <div class="list">${st.trail.map((v) => storyRow(v))}</div>
     <h2 class="h-sec sec-head" style="margin-top:6px">Side stories <span class="tag small cream" style="margin-left:4px">Optional</span></h2>
     <div class="list">${st.side.map((v) => storyRow(v))}</div>
     <p class="small muted" style="margin:2px 4px">Story walks only count steps taken after you accept a quest. Rest days never break them, and nothing expires. Side stories never block the main story.</p>`;
@@ -675,8 +729,9 @@ export function pouchGrid(ctx, sel, cols) {
 
 export function pouchDetail(ctx, id) {
   const m = Q.QUEST_MATERIALS[id];
-  const who = m.usedBy === 'waystone' ? 'the Waystone' : SPEAKER[m.usedBy].name;
-  const placeId = m.usedBy === 'waystone' ? 'waystone' : Q.NPCS[m.usedBy].location;
+  const trail = m.usedBy === 'ruins' || m.usedBy === 'gate';
+  const who = m.usedBy === 'waystone' ? 'the Waystone' : trail ? TR.PLACE_NAMES[m.usedBy] : SPEAKER[m.usedBy].name;
+  const placeId = m.usedBy === 'waystone' ? 'waystone' : trail ? 'prep:' + m.quest : Q.NPCS[m.usedBy].location;
   return html`<div class="card detail quest-detail" aria-live="polite">
     <div class="pic"><img src="${itemImg(id)}" alt=""></div>
     <div style="min-width:0"><b class="h-card">${m.name}</b>
