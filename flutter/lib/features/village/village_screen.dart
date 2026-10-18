@@ -1,6 +1,7 @@
-// Village Tales, Chapter 1: Sunlit Village Square, the three interiors, the Waystone and villager
-// dialogue (Quest Bible §8). No sixth tab: the Village opens from Home (Visit Village), story quests
-// live in Journey > Story and quest items in Bag > Quest Pouch. Mirrors web/src/screens/village.js.
+// Village Tales: Sunlit Village Square, the three interiors, the Waystone and villager dialogue
+// (Quest Bible §8), including the Home Tales and side-story conversations. No sixth tab: the Village
+// opens from Home (Visit Village), story quests live in Journey > Story and quest items in Bag > Quest
+// Pouch. Mirrors web/src/screens/village.js.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -11,6 +12,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../game/story/story.dart' as q;
+import '../home/home_widgets.dart';
 import '../nest/sheets.dart';
 import '../shared/widgets.dart';
 import 'npc_puppet.dart';
@@ -51,8 +53,9 @@ void openPlace(BuildContext context, String id, {String? npc}) {
 /// Back to the Square after a reward.
 void returnToVillage(BuildContext context) => openVillage(context);
 
-class _Header extends StatelessWidget {
-  const _Header({required this.title, required this.short, required this.onBack, required this.backLabel});
+/// The paper title bar used by the Village and Home screens: Back, the place name, EvoCoins.
+class PlaceHeader extends StatelessWidget {
+  const PlaceHeader({super.key, required this.title, required this.short, required this.onBack, required this.backLabel});
   final String title;
   final String short;
   final VoidCallback onBack;
@@ -126,8 +129,9 @@ const _placeIcon = {'glasshouse': 'care', 'workshop': 'bell', 'lodge': 'mail', '
   return (mark, lock);
 }
 
-class _Mark extends StatelessWidget {
-  const _Mark(this.kind);
+/// The round marker on a map pin: a tick for a hand-in, '!' for a new quest.
+class PinMark extends StatelessWidget {
+  const PinMark(this.kind, {super.key});
   final String kind;
   @override
   Widget build(BuildContext context) => Container(
@@ -177,7 +181,7 @@ class _VillageScreenState extends State<VillageScreen> {
       body: SafeArea(
         bottom: false,
         child: Column(children: [
-          _Header(title: 'Sunlit Village', short: 'Village', backLabel: 'Back to your nest', onBack: () => Navigator.of(context).maybePop()),
+          PlaceHeader(title: 'Sunlit Village', short: 'Village', backLabel: 'Back to your nest', onBack: () => Navigator.of(context).maybePop()),
           Expanded(
             child: ListView(padding: EdgeInsets.only(bottom: 20 + MediaQuery.of(context).padding.bottom), children: [
               AspectRatio(
@@ -328,7 +332,7 @@ class _PinButton extends StatelessWidget {
                   ]),
               ]),
             ),
-            if (mark != null) Positioned(top: -12, right: -10, child: _Mark(mark)),
+            if (mark != null) Positioned(top: -12, right: -10, child: PinMark(mark)),
           ]),
         ),
       ),
@@ -504,10 +508,13 @@ class _PlaceScreenState extends State<PlaceScreen> {
       return;
     }
     if (ch.goto != null) {
-      if (ch.goto == 'journey') {
+      final to = ch.goto!;
+      if (to == 'journey') {
         c.goTab('journey', journey: 'daily');
+      } else if (const {'garden', 'cottage', 'kitchen', 'apothecary'}.contains(to)) {
+        goHome(context, to);
       } else {
-        openPlace(context, ch.goto!);
+        openPlace(context, to);
       }
       return;
     }
@@ -517,7 +524,8 @@ class _PlaceScreenState extends State<PlaceScreen> {
     }
     if (ch.reward != null) {
       _node = null;
-      showStoryReward(context, ch.reward!);
+      // Home Tales and side stories stay where they are; Chapter 1 returns to the Square
+      showStoryReward(context, ch.reward!, backToVillage: q.storyQuests[ch.reward!]!.line == 'chapter');
       return;
     }
     final act = ch.act;
@@ -583,7 +591,7 @@ class _PlaceScreenState extends State<PlaceScreen> {
       body: SafeArea(
         bottom: false,
         child: Column(children: [
-          _Header(title: _place.name, short: _place.short, backLabel: 'Back to the Square', onBack: () => Navigator.of(context).maybePop()),
+          PlaceHeader(title: _place.name, short: _place.short, backLabel: 'Back to the Square', onBack: () => Navigator.of(context).maybePop()),
           Expanded(
             child: LayoutBuilder(builder: (ctx, outer) {
               final w = outer.maxWidth;
@@ -807,7 +815,7 @@ class _StageNpc extends StatelessWidget {
                 child: Center(child: _NameChip(name: speakers[npcId]!.name, active: active, mark: mark)),
               )
             else if (mark != null)
-              Positioned(left: tx * w - 18, top: ty * h - 44, child: _Mark(mark!)),
+              Positioned(left: tx * w - 18, top: ty * h - 44, child: PinMark(mark!)),
           ]),
         ),
       ),
@@ -876,7 +884,7 @@ class _NameChip extends StatelessWidget {
           boxShadow: [BoxShadow(color: active ? EvochiColor.primaryShadow : const Color(0xFFCDB396), offset: const Offset(0, 2))],
         ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
-          if (mark != null && !active) ...[Transform.scale(scale: 0.8, child: _Mark(mark!)), const SizedBox(width: 2)],
+          if (mark != null && !active) ...[Transform.scale(scale: 0.8, child: PinMark(mark!)), const SizedBox(width: 2)],
           Text(name, style: EvochiText.tag.copyWith(color: EvochiColor.ink, fontWeight: FontWeight.w900)),
         ]),
       );
@@ -1006,9 +1014,9 @@ class _ChoiceButton extends StatelessWidget {
   Widget build(BuildContext context) {
     final primary = choice.primary;
     final act = choice.act;
-    final give = act != null && act.kind == 'handin'
-        ? q.storyQuests[act.quest]!.turnIns.firstWhere((t) => t.id == act.turnIn).consume
-        : const <String, int>{};
+    final turnIn = act != null && act.kind == 'handin' ? q.storyQuests[act.quest]!.turnIns.firstWhere((t) => t.id == act.turnIn) : null;
+    // quest materials and inventory items (harvests, homemade food) the hand-in takes
+    final give = turnIn == null ? const <String, int>{} : <String, int>{...turnIn.consume, ...turnIn.consumeItems};
     return Semantics(
       button: true,
       label: choice.label,

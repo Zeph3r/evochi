@@ -258,6 +258,52 @@ class SettingsScreen extends StatelessWidget {
                   EvochiButton(label: 'Skip 3 idle days', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.advanceDays(3, 0)),
                   EvochiButton(label: '+3 Healing Herbs', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.grantHerbs(3)),
                 ]),
+                const SizedBox(height: 12),
+                const Text('Home Tales', style: EvochiText.cardTitle),
+                const Text('Garden, Cottage, Kitchen, Apothecary and Skills.', style: EvochiText.caption),
+                const SizedBox(height: 8),
+                Wrap(spacing: 6, runSpacing: 6, children: [
+                  EvochiButton(
+                    label: 'Skip 1 hour',
+                    small: true,
+                    expand: false,
+                    tone: ButtonTone.cream,
+                    onPressed: () {
+                      c.skipTime(hourMs);
+                      c.toast('An hour passed (no steps)', icon: 'skill_farming');
+                    },
+                  ),
+                  EvochiButton(
+                    label: 'Skip to Home Tales',
+                    small: true,
+                    expand: false,
+                    tone: ButtonTone.cream,
+                    onPressed: () {
+                      final changed = c.homeTalesReady();
+                      c.toast(changed ? 'Chapter 1 quest 1 done and level 2 reached: Bram has a job for you' : 'Home Tales are already open', icon: 'home_map');
+                    },
+                  ),
+                  EvochiButton(
+                    label: '+ Seeds and ingredients',
+                    small: true,
+                    expand: false,
+                    tone: ButtonTone.cream,
+                    onPressed: () {
+                      c.grantPantry();
+                      c.toast('Seeds and ingredients added to Bag > Pantry', icon: 'skill_farming');
+                    },
+                  ),
+                  EvochiButton(
+                    label: '+1 level, every skill',
+                    small: true,
+                    expand: false,
+                    tone: ButtonTone.cream,
+                    onPressed: () {
+                      c.skillsUp();
+                      c.toast('Every skill went up a level', icon: 'star');
+                    },
+                  ),
+                ]),
               ]),
             ),
             const SizedBox(height: 8),

@@ -8,7 +8,13 @@ int _i(dynamic v, [int d = 0]) => v == null ? d : (v as num).toInt();
 Map<String, dynamic> _m(dynamic v) => v == null ? <String, dynamic>{} : (v as Map).cast<String, dynamic>();
 List<dynamic> _l(dynamic v) => v == null ? const [] : v as List;
 
-const defaultStoryFlags = {'lamp_lit': false, 'waystone_revealed': false, 'waystone_restored': false};
+const defaultStoryFlags = {
+  'lamp_lit': false,
+  'waystone_revealed': false,
+  'waystone_restored': false,
+  'cottage_restored': false, // Home Tales: opens the Kitchen
+  'apothecary_unlocked': false, // Home Tales: opens the Apothecary
+};
 
 class QuestState {
   QuestState({
@@ -27,7 +33,7 @@ class QuestState {
   String phase;
   final int acceptedAt;
   final String acceptedDay;
-  final int resolvedSteps; // frozen at acceptance: min(nominal, personal goal)
+  final int resolvedSteps; // frozen at acceptance: min(nominal, personal goal); 0 for walk-less quests
   final Map<String, int> dayProgress; // local day -> steps after acceptance (max, never lowered)
   int freshTotal;
   bool tracked;

@@ -101,5 +101,30 @@
   "w": 1170,
   "h": 1500,
   "anchors": {}
+ },
+ "apothecary": {
+  "w": 1170,
+  "h": 1500,
+  "anchors": {}
+ },
+ "cottage_ruined": {
+  "w": 1170,
+  "h": 810,
+  "anchors": {
+   "door": [
+    567.5,
+    509.5
+   ]
+  }
+ },
+ "cottage_restored": {
+  "w": 1170,
+  "h": 810,
+  "anchors": {
+   "door": [
+    567.5,
+    509.5
+   ]
+  }
  }
 }

@@ -14,6 +14,7 @@ int bondValue(List<BondEvent> events, [GameConfig? config]) {
       'pet' => c.bondFirstPet,
       'play' => c.bondFirstPlay,
       'goal' => c.bondGoal,
+      'treat' => c.bondTreat, // a homemade treat, once a day, outside the pet/play cap
       _ => 0,
     };
     if (e.type == 'pet' || e.type == 'play') {

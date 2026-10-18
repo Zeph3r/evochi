@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../controllers/game_controller.dart';
+import '../features/home/home_widgets.dart';
 import '../features/shared/widgets.dart';
 import 'router.dart';
 import 'theme.dart';
@@ -42,6 +43,7 @@ class _EvochiAppState extends State<EvochiApp> with WidgetsBindingObserver {
     final reduce = context.select<GameController, bool>((c) => c.state.player?.settings.reducedMotion ?? false);
     return MaterialApp(
       title: 'Evochi',
+      navigatorKey: rootNavigatorKey,
       debugShowCheckedModeBanner: false,
       theme: evochiTheme(),
       builder: (context, child) {
@@ -49,7 +51,7 @@ class _EvochiAppState extends State<EvochiApp> with WidgetsBindingObserver {
         // honour the OS reduce-motion setting as well as the in-game toggle
         return MediaQuery(
           data: mq.copyWith(disableAnimations: mq.disableAnimations || reduce),
-          child: ToastListener(child: child!),
+          child: ToastListener(child: SkillUpListener(child: child!)),
         );
       },
       home: const RootGate(),

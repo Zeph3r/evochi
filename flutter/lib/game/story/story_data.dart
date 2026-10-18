@@ -1,5 +1,6 @@
 // Village Tales, Chapter 1: The Light of Sunlit Village (Quest Bible v1.0, October 2026).
-// The cast, places, quest materials and the three quests. Mirrors web/src/game/story.js.
+// The cast, places, quest materials and the quests: the three chapter quests, the Home Tales (the
+// Cottage and its rooms) and the optional side stories. Mirrors web/src/game/story.js.
 
 /// Manual (unverified) entries count toward story walks. Chapter 1 rewards are cosmetic and can't be
 /// traded or sold, and manual entry is how players without a step sensor take part. Turn this off
@@ -48,7 +49,7 @@ class QuestMaterial {
   final String id;
   final String name;
   final String quest;
-  final String usedBy; // an npc id or 'waystone'
+  final String usedBy; // an npc id, 'waystone' or 'cottage'
   final int max;
   final String desc;
 }
@@ -68,18 +69,27 @@ const questMaterials = <String, QuestMaterial>{
       'A cream stone cube with three gold channels and a tiny mint centre. No sparks yet.'),
   'q_glowbloom_essence': QuestMaterial('q_glowbloom_essence', 'Glowbloom Essence', 'vq03', 'waystone', 1,
       'A droplet jar holding one luminous petal. Care, gathered a little every day.'),
+  'q_sturdy_timber': QuestMaterial('q_sturdy_timber', 'Sturdy Timber', 'hq01', 'npc_bram', 1,
+      'Straight oak planks, tied with twine. Exactly what an old roof needs.'),
 };
 
-const titles = {'first_lightkeeper': 'First Lightkeeper'};
+/// Story titles by id (display names).
+const titles = {
+  'first_lightkeeper': 'First Lightkeeper',
+  'friend_of_small_things': 'Friend of Small Things',
+  'grove_friend': 'Grove Friend',
+};
 
 const chapterName = 'Village Tales, Chapter 1';
 const chapterTitle = 'The Light of Sunlit Village';
 
 class StoryRewards {
-  const StoryRewards({this.items = const [], this.coins = 0, this.titles = const []});
-  final List<String> items;
+  const StoryRewards({this.items = const [], this.coins = 0, this.titles = const [], this.gifts = const {}, this.unlocks = const []});
+  final List<String> items; // story cosmetics (acquisition 'story'), granted once
   final int coins;
   final List<String> titles;
+  final Map<String, int> gifts; // ordinary inventory items (seeds, harvests)
+  final List<String> unlocks; // display only: what the quest opens (Cottage, Kitchen, Apothecary)
 }
 
 class StoryWalk {
@@ -104,23 +114,35 @@ class TurnIn {
     this.grant = const {},
     this.rewards,
     this.flags = const [],
+    this.consumeItems = const {},
+    this.requireStage = 0,
   });
   final String id;
-  final String npc;
+  final String npc; // an npc id, 'waystone' or 'cottage'
   final String from;
   final String to;
   final String label;
-  final Map<String, int> consume;
+  final Map<String, int> consume; // Quest Pouch materials
   final Map<String, int> grant;
   final StoryRewards? rewards;
   final List<String> flags;
+  final Map<String, int> consumeItems; // ordinary inventory items (harvests, homemade food)
+  final int requireStage; // 0 = any; 2 = a Juvenile (or Elder) Evochi
+}
+
+/// An item an objective counts (e.g. "Grow and harvest 3 Sunberries").
+class ObjectiveCount {
+  const ObjectiveCount(this.itemId, this.n);
+  final String itemId;
+  final int n;
 }
 
 class Objective {
-  const Objective(this.id, this.text, this.doneAt);
+  const Objective(this.id, this.text, this.doneAt, {this.count});
   final String id;
   final String text;
   final String doneAt;
+  final ObjectiveCount? count;
 }
 
 class StoryQuest {
@@ -133,10 +155,14 @@ class StoryQuest {
     required this.giver,
     required this.summary,
     required this.phases,
-    required this.walk,
+    this.walk,
     required this.turnIns,
     required this.objectives,
     required this.rewards,
+    this.line = 'chapter',
+    this.skills = const {},
+    this.stage = 0,
+    this.acceptPhase,
   });
   final String id;
   final int n;
@@ -146,10 +172,14 @@ class StoryQuest {
   final String giver;
   final String summary;
   final List<String> phases;
-  final StoryWalk walk;
+  final StoryWalk? walk; // null: no walking objective (the quest starts at [acceptPhase])
   final List<TurnIn> turnIns;
   final List<Objective> objectives;
   final StoryRewards rewards;
+  final String line; // chapter | home | side
+  final Map<String, int> skills; // Cozy Skill levels needed to accept (e.g. cooking: 2)
+  final int stage; // 0 = any; 2 = needs a Juvenile Evochi to accept
+  final String? acceptPhase; // the phase a walk-less quest starts in
 }
 
 const storyQuests = <String, StoryQuest>{
@@ -248,6 +278,132 @@ const storyQuests = <String, StoryQuest>{
     ],
     rewards: StoryRewards(items: ['reward_waystone_bloom'], coins: 250, titles: ['first_lightkeeper']),
   ),
+
+  // ---- Home Tales: the Cottage and its rooms. Same engine; hand-ins can ask for real inventory
+  // items (`consumeItems`, e.g. harvests and homemade food) as well as Quest Pouch materials.
+  'hq01': StoryQuest(
+    id: 'hq01',
+    n: 1,
+    line: 'home',
+    title: 'A Place to Call Home',
+    level: 2,
+    dependsOn: ['vq01'],
+    giver: 'npc_bram',
+    summary: 'The old cottage past your nest has lost its roof. Gather timber on your walks, grow lunch for the builders and help Bram restore it.',
+    phases: ['locked', 'available', 'accepted_walk', 'timber_ready', 'restoration_ready', 'completed'],
+    walk: StoryWalk(type: 'incremental', nominal: 3000, days: 1, phase: 'accepted_walk', ready: 'timber_ready', grant: {'q_sturdy_timber': 1}),
+    turnIns: [
+      TurnIn(
+          id: 'bram_timber',
+          npc: 'npc_bram',
+          from: 'timber_ready',
+          to: 'restoration_ready',
+          consume: {'q_sturdy_timber': 1},
+          consumeItems: {'sunberry': 3},
+          label: 'Give the timber and 3 Sunberries'),
+      TurnIn(id: 'restore_cottage', npc: 'cottage', from: 'restoration_ready', to: 'completed', flags: ['cottage_restored'], label: 'Restore the Cottage'),
+    ],
+    objectives: [
+      Objective('talk', 'Talk to Bram', 'accepted_walk'),
+      Objective('walk', 'Walk {resolved_steps} new steps to gather timber', 'timber_ready'),
+      Objective('berries', 'Grow and harvest 3 Sunberries', 'restoration_ready', count: ObjectiveCount('sunberry', 3)),
+      Objective('give', 'Bring the timber and Sunberries to Bram', 'restoration_ready'),
+      Objective('restore', 'Restore the Cottage on your Home Map', 'completed'),
+    ],
+    rewards: StoryRewards(coins: 100, gifts: {'seed_golden_wheat': 3, 'golden_wheat': 2}, unlocks: ['Cottage', 'Kitchen']),
+  ),
+  'hq02': StoryQuest(
+    id: 'hq02',
+    n: 2,
+    line: 'home',
+    title: "Mira's Mortar",
+    level: 2,
+    dependsOn: ['hq01'],
+    skills: {'cooking': 2},
+    giver: 'npc_mira',
+    summary: "Mira's grandmother's mortar is gathering dust. Bring her two Glowleaf from your garden and she'll help you set up an Apothecary.",
+    phases: ['locked', 'available', 'need_glowleaf', 'completed'],
+    acceptPhase: 'need_glowleaf',
+    turnIns: [
+      TurnIn(
+          id: 'mira_glowleaf',
+          npc: 'npc_mira',
+          from: 'need_glowleaf',
+          to: 'completed',
+          consumeItems: {'glowleaf': 2},
+          flags: ['apothecary_unlocked'],
+          label: 'Give 2 Glowleaf'),
+    ],
+    objectives: [
+      Objective('talk', 'Talk to Mira', 'need_glowleaf'),
+      Objective('grow', 'Grow and harvest 2 Glowleaf (Farming Lv 3)', 'completed', count: ObjectiveCount('glowleaf', 2)),
+      Objective('give', 'Bring the Glowleaf to Mira', 'completed'),
+    ],
+    rewards: StoryRewards(coins: 80, gifts: {'seed_glowleaf': 2, 'seed_moonshroom': 2}, unlocks: ['Apothecary']),
+  ),
+
+  // ---- Side stories: optional, never on the main path. Special requirements (a grown Evochi, a
+  // homemade dish) live only here.
+  'sq01': StoryQuest(
+    id: 'sq01',
+    n: 1,
+    line: 'side',
+    title: 'The Shy Visitor',
+    level: 3,
+    dependsOn: ['hq01'],
+    giver: 'npc_pip',
+    summary: "Something small and fluffy keeps peeking at Pip's mail sacks. Shy visitors can't resist a fresh Sunberry Tart.",
+    phases: ['locked', 'available', 'need_tart', 'completed'],
+    acceptPhase: 'need_tart',
+    turnIns: [
+      TurnIn(id: 'pip_tart', npc: 'npc_pip', from: 'need_tart', to: 'completed', consumeItems: {'sunberry_tart': 1}, label: 'Give a Sunberry Tart'),
+    ],
+    objectives: [
+      Objective('talk', 'Talk to Pip', 'need_tart'),
+      Objective('bake', 'Bake a Sunberry Tart in your Kitchen', 'completed', count: ObjectiveCount('sunberry_tart', 1)),
+      Objective('give', 'Bring the tart to Pip', 'completed'),
+    ],
+    rewards: StoryRewards(coins: 120, gifts: {'seed_moonshroom': 3}, titles: ['friend_of_small_things']),
+  ),
+  'sq02': StoryQuest(
+    id: 'sq02',
+    n: 2,
+    line: 'side',
+    title: 'Guardian of the Old Grove',
+    level: 4,
+    dependsOn: ['hq02'],
+    stage: 2,
+    giver: 'npc_alder',
+    summary: 'An old guardian sleeps in the grove past the north road. It only wakes for a grown Evochi carrying a Glowleaf Tonic.',
+    phases: ['locked', 'available', 'need_tonic', 'completed'],
+    acceptPhase: 'need_tonic',
+    turnIns: [
+      TurnIn(
+          id: 'alder_tonic',
+          npc: 'npc_alder',
+          from: 'need_tonic',
+          to: 'completed',
+          consumeItems: {'glowleaf_tonic': 1},
+          requireStage: 2,
+          label: 'Bring the Glowleaf Tonic to the grove'),
+    ],
+    objectives: [
+      Objective('talk', 'Talk to Alder', 'need_tonic'),
+      Objective('brew', 'Brew a Glowleaf Tonic in your Apothecary', 'completed', count: ObjectiveCount('glowleaf_tonic', 1)),
+      Objective('give', 'Visit the grove with your Juvenile (or Elder) Evochi', 'completed'),
+    ],
+    rewards: StoryRewards(coins: 200, titles: ['grove_friend']),
+  ),
 };
 
+/// Village Tales, Chapter 1.
 const questOrder = ['vq01', 'vq02', 'vq03'];
+
+/// Home Tales: the Cottage, then the Apothecary.
+const homeOrder = ['hq01', 'hq02'];
+
+/// Side stories: optional, never on the main path.
+const sideOrder = ['sq01', 'sq02'];
+
+/// Every quest, in the order progress is applied and markers are computed.
+const allQuests = [...questOrder, ...homeOrder, ...sideOrder];

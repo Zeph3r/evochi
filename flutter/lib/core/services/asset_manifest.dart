@@ -89,6 +89,57 @@ class AssetManifest {
   String get thumbsFile => artBase + ((j['thumbs'] as Map)['file'] as String);
 
   VillageArt get village => VillageArt((j['village'] as Map).cast<String, dynamic>());
+
+  HomeArt get home => HomeArt(((j['home'] as Map?) ?? const {}).cast<String, dynamic>());
+}
+
+Size _size(Map m) => Size((m['w'] as num).toDouble(), (m['h'] as num).toDouble());
+
+/// Home Tales art: the Home Map plate (ruined / restored, with pin anchors), the Garden plate with
+/// bed anchors, crop sprites per growth stage, the Kitchen and Apothecary rooms and the Cottage
+/// close-up. Paths in the manifest are relative to the art root (e.g. 'home/garden.webp').
+class HomeArt {
+  HomeArt(this.j);
+  final Map<String, dynamic> j;
+
+  Map<String, dynamic> _sub(String k) => ((j[k] as Map?) ?? const {}).cast<String, dynamic>();
+
+  // ---- the Home Map
+  Map<String, dynamic> get _map => _sub('map');
+  Size get mapSize => _size(_map);
+  String map({required bool restored}) => artBase + (_map[restored ? 'restored' : 'ruined'] as String);
+
+  /// nest | garden | cottage | gate (plate pixels).
+  Offset mapAnchor(String id) => _off((_map['anchors'] as Map)[id] as List);
+
+  // ---- the Garden
+  Map<String, dynamic> get _garden => _sub('garden');
+  Size get gardenSize => _size(_garden);
+  String get garden => artBase + (_garden['file'] as String);
+
+  /// p1..p4 (bed centre) and p1l/p1r.. (its left and right edge), plate pixels.
+  Offset gardenAnchor(String id) => _off((_garden['anchors'] as Map)[id] as List);
+
+  // ---- crops: one sprite per crop and stage, all the same size, planted at [cropGround]
+  Map<String, dynamic> get _crops => _sub('crops');
+  Size get cropSize => _size(_crops);
+  Offset get cropGround => _off(_crops['ground'] as List);
+  double get cropBedW => (_crops['bedW'] as num).toDouble();
+  String crop(String cropId, String stage) => artBase + (((_crops['files'] as Map)[cropId] as Map)[stage] as String);
+
+  // ---- rooms: kitchen | apothecary
+  String room(String id) => artBase + (((j['rooms'] as Map)[id] as Map)['file'] as String);
+  Size roomSize(String id) => _size((j['rooms'] as Map)[id] as Map);
+
+  // ---- the Cottage close-up (ruined / restored). Older art packs have none: the Home Map stands in,
+  // framed on the cottage (a 145:100 crop at 12% / 16%, like the web build).
+  bool get hasCottage => j['cottage'] is Map && (j['cottage'] as Map)['ruined'] is String;
+  Size get cottageSize => hasCottage ? _size(j['cottage'] as Map) : const Size(145, 100);
+  Alignment get cottageAlignment => hasCottage ? Alignment.center : const Alignment(-0.76, -0.68);
+  String cottage({required bool restored}) {
+    if (!hasCottage) return map(restored: restored);
+    return artBase + ((j['cottage'] as Map)[restored ? 'restored' : 'ruined'] as String);
+  }
 }
 
 /// Village Tales art: villager sprites (5 expressions), the Square plate in three states with pin

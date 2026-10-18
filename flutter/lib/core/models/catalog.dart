@@ -1,8 +1,18 @@
 // Starter catalog (style guide §18-19). Prices are starting values.
 // Story rewards (Village Tales) are catalog items too, so they equip and place like any other, but
 // they are never sold: acquisition 'story', no price, no shop, not tradable, not sellable.
+// Home Tales adds seeds (the Market's Garden shelf), harvests (ingredients) and homemade meals and
+// brews (consumables with acquisition 'home', never sold), mirroring web/src/game/catalog.js.
 
-enum ItemCategory { wearable, consumable, decoration }
+enum ItemCategory { wearable, consumable, decoration, seed, ingredient }
+
+const categoryLabels = {
+  ItemCategory.wearable: 'Wearables',
+  ItemCategory.consumable: 'Consumables',
+  ItemCategory.decoration: 'Decorations',
+  ItemCategory.seed: 'Seeds',
+  ItemCategory.ingredient: 'Ingredients',
+};
 
 class CatalogItem {
   const CatalogItem({
@@ -23,6 +33,10 @@ class CatalogItem {
     this.stackable = false,
     this.vitality = 0,
     this.recovery = false,
+    this.treat = false,
+    this.growth = 0,
+    this.kind,
+    this.crop,
     this.stages = const [1, 2, 3],
   }) : listPrice = price;
 
@@ -32,8 +46,8 @@ class CatalogItem {
   final int? listPrice; // null for story rewards (never sold)
   final String rarity;
   final String desc;
-  final String? shop; // wearables | care | habitats; null = not in the Market
-  final String acquisition; // shop | story
+  final String? shop; // wearables | care | habitats | garden; null = not in the Market
+  final String acquisition; // shop | story | home
   final String? originQuest; // story rewards: the quest that grants it
   final bool tradable;
   final bool sellable;
@@ -43,10 +57,15 @@ class CatalogItem {
   final bool stackable;
   final int vitality;
   final bool recovery;
+  final bool treat; // a homemade treat: Bond once a day, even at full vitality
+  final double growth; // > 0: a garden item (Sprout Tonic), used on a bed, never given to the pet
+  final String? kind; // consumables: meal | potion | garden
+  final String? crop; // seeds: the crop they grow
   final List<int> stages;
 
   bool get isStackable => category == ItemCategory.consumable || stackable;
   bool get isStory => acquisition == 'story';
+  bool get isHome => acquisition == 'home';
   bool get forSale => shop != null && listPrice != null && !isStory;
   /// Market price. Only meaningful for items that are [forSale].
   int get price => listPrice ?? 0;
@@ -126,6 +145,71 @@ const catalog = <String, CatalogItem>{
       id: 'reward_waystone_bloom', name: 'Waystone Bloom', category: ItemCategory.decoration, decor: 'side', rarity: 'legendary',
       desc: 'A white stone plinth with a floating mint-and-gold crystal blossom. It glows a little brighter when you walk.',
       shop: null, acquisition: 'story', originQuest: 'vq03', tradable: false, sellable: false),
+  // ---- Home: seeds (the Market's Garden shelf), harvests, Kitchen meals and Apothecary brews.
+  // Harvests and homemade food are ordinary stackable inventory items (acquisition 'home'): never sold
+  // in the Market, so walking and the garden stay the way to get them.
+  'seed_sunberry': CatalogItem(
+      id: 'seed_sunberry', name: 'Sunberry Seeds', category: ItemCategory.seed, crop: 'sunberry', price: 8, rarity: 'common',
+      stackable: true, shop: 'garden', desc: 'Plant in a garden bed. Ripe in about 20 minutes, and sooner when you walk. Farming Lv 1.'),
+  'seed_meadow_carrot': CatalogItem(
+      id: 'seed_meadow_carrot', name: 'Carrot Seeds', category: ItemCategory.seed, crop: 'meadow_carrot', price: 10, rarity: 'common',
+      stackable: true, shop: 'garden', desc: 'Crunchy Meadow Carrots in about 45 minutes. Farming Lv 1.'),
+  'seed_golden_wheat': CatalogItem(
+      id: 'seed_golden_wheat', name: 'Wheat Seeds', category: ItemCategory.seed, crop: 'golden_wheat', price: 12, rarity: 'common',
+      stackable: true, shop: 'garden', desc: 'Golden Wheat for tarts and buns, ready in about 1.5 hours. Farming Lv 2.'),
+  'seed_glowleaf': CatalogItem(
+      id: 'seed_glowleaf', name: 'Glowleaf Seeds', category: ItemCategory.seed, crop: 'glowleaf', price: 20, rarity: 'uncommon',
+      stackable: true, shop: 'garden', desc: 'A softly shining herb for tonics. Slow growing: about 3 hours. Farming Lv 3.'),
+  'seed_moonshroom': CatalogItem(
+      id: 'seed_moonshroom', name: 'Moonshroom Spores', category: ItemCategory.seed, crop: 'moonshroom', price: 35, rarity: 'rare',
+      stackable: true, shop: 'garden', desc: 'Speckled mushrooms that glow at dusk. Takes about 6 hours. Farming Lv 5.'),
+  'sunberry': CatalogItem(
+      id: 'sunberry', name: 'Sunberry', category: ItemCategory.ingredient, rarity: 'common', stackable: true, shop: null, acquisition: 'home',
+      desc: 'Sweet, sun-warm berries from your own garden.'),
+  'meadow_carrot': CatalogItem(
+      id: 'meadow_carrot', name: 'Meadow Carrot', category: ItemCategory.ingredient, rarity: 'common', stackable: true, shop: null, acquisition: 'home',
+      desc: 'A crunchy orange carrot with a leafy top.'),
+  'golden_wheat': CatalogItem(
+      id: 'golden_wheat', name: 'Golden Wheat', category: ItemCategory.ingredient, rarity: 'common', stackable: true, shop: null, acquisition: 'home',
+      desc: 'A bundle of golden wheat, ready for the oven.'),
+  'glowleaf': CatalogItem(
+      id: 'glowleaf', name: 'Glowleaf', category: ItemCategory.ingredient, rarity: 'uncommon', stackable: true, shop: null, acquisition: 'home',
+      desc: 'A minty herb that glows faintly. The heart of every tonic.'),
+  'moonshroom': CatalogItem(
+      id: 'moonshroom', name: 'Moonshroom', category: ItemCategory.ingredient, rarity: 'rare', stackable: true, shop: null, acquisition: 'home',
+      desc: 'A speckled violet mushroom with a soft night-time shimmer.'),
+  'sunberry_tart': CatalogItem(
+      id: 'sunberry_tart', name: 'Sunberry Tart', category: ItemCategory.consumable, kind: 'meal', rarity: 'uncommon', stackable: true, shop: null,
+      acquisition: 'home', vitality: 8, treat: true,
+      desc: 'Baked in your Cottage oven. Restores 8 vitality, and a homemade treat adds Bond once a day.'),
+  'carrot_stew': CatalogItem(
+      id: 'carrot_stew', name: 'Carrot Stew', category: ItemCategory.consumable, kind: 'meal', rarity: 'common', stackable: true, shop: null,
+      acquisition: 'home', vitality: 6, treat: true,
+      desc: 'A warm bowl of stew. Restores 6 vitality; a homemade treat adds Bond once a day.'),
+  'golden_bun': CatalogItem(
+      id: 'golden_bun', name: 'Golden Bun', category: ItemCategory.consumable, kind: 'meal', rarity: 'common', stackable: true, shop: null,
+      acquisition: 'home', vitality: 5, treat: true,
+      desc: 'A soft wheat bun, still warm. Restores 5 vitality; a homemade treat adds Bond once a day.'),
+  'moonshroom_pie': CatalogItem(
+      id: 'moonshroom_pie', name: 'Moonshroom Pie', category: ItemCategory.consumable, kind: 'meal', rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'home', vitality: 14, treat: true,
+      desc: 'A savoury pie with a shimmering crust. Restores 14 vitality; a homemade treat adds Bond once a day.'),
+  'glowleaf_tonic': CatalogItem(
+      id: 'glowleaf_tonic', name: 'Glowleaf Tonic', category: ItemCategory.consumable, kind: 'potion', rarity: 'uncommon', stackable: true, shop: null,
+      acquisition: 'home', vitality: 10,
+      desc: 'A gentle mint-green tonic. Restores 10 vitality. Some old friends of the forest love it.'),
+  'meadow_tea': CatalogItem(
+      id: 'meadow_tea', name: 'Meadow Tea', category: ItemCategory.consumable, kind: 'potion', rarity: 'common', stackable: true, shop: null,
+      acquisition: 'home', vitality: 6, treat: true,
+      desc: 'Calming herb tea. Restores 6 vitality; a homemade treat adds Bond once a day.'),
+  'sprout_tonic': CatalogItem(
+      id: 'sprout_tonic', name: 'Sprout Tonic', category: ItemCategory.consumable, kind: 'garden', rarity: 'uncommon', stackable: true, shop: null,
+      acquisition: 'home', growth: 0.5,
+      desc: 'Pour on a growing bed in your Garden: it grows half its time at once (once per planting).'),
+  'moonlight_draught': CatalogItem(
+      id: 'moonlight_draught', name: 'Moonlight Draught', category: ItemCategory.consumable, kind: 'potion', rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'home', vitality: 20, recovery: true,
+      desc: 'A deep-blue draught full of tiny stars. Restores 20 vitality (12h cooldown, like a Healing Herb).'),
 };
 
 /// Can this item be bought in the Market (and rolled as a quest cosmetic)? Story items never can.

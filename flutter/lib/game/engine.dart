@@ -553,19 +553,34 @@ ActionResult unequip(GameState state, String slot) {
   return _ok(s, [GameEvent('unequipped', {'itemId': prev, 'slot': slot})]);
 }
 
+/// Has the pet had its homemade treat today? (A treat adds Bond once a day.)
+bool treatGivenToday(GameState s, String today) => s.pet?.bondEvents.any((e) => e.key == today && e.type == 'treat') ?? false;
+
 ActionResult useConsumable(GameState state, String itemId, int now) {
   final it = catalog[itemId];
   if (it == null || it.category != ItemCategory.consumable) return _fail(state, 'not_consumable');
   if (ownedQty(state, itemId) < 1) return _fail(state, 'not_owned');
+  if (it.growth > 0) return _fail(state, 'use_in_garden'); // Sprout Tonic: poured on a garden bed
   final d = derive(state, now);
   if (d.pet == null) return _fail(state, 'no_pet');
   if (d.pet!.dead) return _fail(state, 'pet_dead');
-  if (d.pet!.vitality.vitality >= 100) return _fail(state, 'full');
+  // a homemade treat still counts for Bond once a day, even when vitality is already full
+  final treat = it.treat && !treatGivenToday(state, d.today);
+  final vit = d.pet!.vitality.vitality;
+  if (vit >= 100 && !treat) return _fail(state, 'full');
   if (it.recovery && d.pet!.recoveryReadyAt > now) return _fail(state, 'cooldown', {'readyAt': d.pet!.recoveryReadyAt});
   final s = state.copy();
   s.inventory[itemId]!.quantity -= 1; // decrement only after the action is accepted
+  final gain = math.min(it.vitality, math.max(0, 100 - vit));
   s.pet!.events.add(PetEvent(t: now, type: 'care', amount: it.vitality, itemId: itemId, recovery: it.recovery));
-  return _ok(s, [GameEvent('used', {'itemId': itemId, 'vitality': it.vitality})]);
+  final events = <GameEvent>[GameEvent('used', {'itemId': itemId, 'vitality': gain})];
+  if (treat) {
+    s.pet!.bondEvents.add(BondEvent(key: d.today, type: 'treat', t: now));
+    final b = derive(s, now).pet!.bond - d.pet!.bond;
+    events.add(GameEvent('treat', {'itemId': itemId, 'bond': b}));
+    if (b > 0) events.add(GameEvent('bond', {'amount': b}));
+  }
+  return _ok(s, events);
 }
 
 ActionResult placeDecoration(GameState state, String itemId, String slotId) {

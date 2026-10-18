@@ -4587,8 +4587,8 @@
    },
    "apothecary": {
     "file": "home/apothecary.webp",
-    "w": 390,
-    "h": 500
+    "w": 780,
+    "h": 1000
    }
   },
   "crops": {
@@ -4627,6 +4627,11 @@
     }
    }
   },
-  "cottage": {}
+  "cottage": {
+   "ruined": "home/cottage_ruined.webp",
+   "w": 780,
+   "h": 540,
+   "restored": "home/cottage_restored.webp"
+  }
  }
 }

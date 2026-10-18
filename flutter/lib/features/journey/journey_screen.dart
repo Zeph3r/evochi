@@ -1,4 +1,5 @@
-// S08 Journey: today's steps, sync status, quests and the week (style guide §14-15, §18).
+// S08 Journey: today's steps, sync status, quests and the week (style guide §14-15, §18), plus
+// Village Tales (Story) and the Home Tales skills chart (Skills).
 
 import 'dart:math' as math;
 
@@ -13,6 +14,7 @@ import '../../core/utils/day_keys.dart';
 import '../../game/engine.dart' as g;
 import '../../game/vitality/vitality.dart';
 import '../../game/xp/xp.dart';
+import '../home/skills_screen.dart';
 import '../nest/sheets.dart';
 import '../settings/settings_screen.dart';
 import '../shared/widgets.dart';
@@ -222,6 +224,8 @@ class _JourneyScreenState extends State<JourneyScreen> {
               const StoryTab(),
               const SizedBox(height: 10),
               ...sources,
+            ] else if (tab == 'skills') ...[
+              const SkillsPanel(),
             ] else ...[
               today,
               const SizedBox(height: 10),
@@ -264,7 +268,12 @@ class _JourneyTabs extends StatelessWidget {
   final ValueChanged<String> onTab;
   @override
   Widget build(BuildContext context) {
-    final tabs = [('daily', 'Daily', 'steps', dailyDot), ('weekly', 'Weekly', 'trophy', weeklyDot), ('story', 'Story', 'habitats', storyDot)];
+    final tabs = [
+      ('daily', 'Daily', 'steps', dailyDot),
+      ('weekly', 'Weekly', 'trophy', weeklyDot),
+      ('story', 'Story', 'habitats', storyDot),
+      ('skills', 'Skills', 'skill_farming', false),
+    ];
     return Row(children: [
       for (final t in tabs)
         Expanded(
@@ -273,7 +282,7 @@ class _JourneyTabs extends StatelessWidget {
             child: Semantics(
               selected: tab == t.$1,
               button: true,
-              label: '${t.$2} quests${t.$4 ? ', something ready' : ''}',
+              label: '${t.$1 == 'skills' ? 'Skills' : '${t.$2} quests'}${t.$4 ? ', something ready' : ''}',
               child: GestureDetector(
                 onTap: () => onTab(t.$1),
                 child: Stack(clipBehavior: Clip.none, children: [
@@ -288,10 +297,16 @@ class _JourneyTabs extends StatelessWidget {
                         colors: tab == t.$1 ? const [Color(0xFFFFF4D6), Color(0xFFFFE1A1)] : const [Color(0xFFFBF2E7), Color(0xFFEFE0CD)],
                       ),
                     ),
+                    padding: const EdgeInsets.symmetric(horizontal: 3),
                     child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                       VoxelIcon(t.$3, size: 24),
                       const SizedBox(width: 4),
-                      Text(t.$2, style: EvochiText.tag.copyWith(color: tab == t.$1 ? EvochiColor.ink : EvochiColor.textSecondary)),
+                      Flexible(
+                        child: FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(t.$2, style: EvochiText.tag.copyWith(color: tab == t.$1 ? EvochiColor.ink : EvochiColor.textSecondary)),
+                        ),
+                      ),
                     ]),
                   ),
                   if (t.$4) const Positioned(top: -4, right: -4, child: BadgeDot()),

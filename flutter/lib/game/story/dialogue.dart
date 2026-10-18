@@ -1,13 +1,17 @@
-// Villager dialogue for Village Tales, Chapter 1. Lines are the Quest Bible's script (IDs kept); a few
-// connective lines the Bible implies but doesn't write out (locked hints, "still waiting") are marked
-// `extra`. Mirrors LINES / npcConversation / lineText in web/src/game/story.js.
+// Villager dialogue for Village Tales: Chapter 1, the Home Tales and the side stories. Lines are the
+// Quest Bible's script (IDs kept); a few connective lines the Bible implies but doesn't write out
+// (locked hints, "still waiting") are marked `extra`. Mirrors LINES / npcConversation / lineText in
+// web/src/game/story.js.
+
+import 'dart:math' as math;
 
 import '../../core/models/game_state.dart';
+import '../engine.dart' as g;
 import 'story.dart';
 
 class Line {
   const Line(this.speaker, this.expression, this.text, {this.extra = false});
-  final String speaker; // npc id or 'waystone'
+  final String speaker; // npc id, 'waystone' or 'cottage'
   final String? expression; // neutral | happy | worried | thinking | proud
   final String text;
   final bool extra;
@@ -59,7 +63,51 @@ const lines = <String, Line>{
   'WAY_LORE': Line('waystone', null, 'An old standing stone in the middle of the Square, cool to the touch. Moss has crept into three faint carved lines.', extra: true),
   'VQ03_WAY00': Line('waystone', null, 'A cool stone with three dark channels. One of its grooves glimmers when your Evochi approaches.'),
   'VQ03_WAY01': Line('waystone', null, 'The Core settles into the stone. Mint light runs through the grooves. Fireflies rise over Sunlit Village.'),
-  'WAY_DONE': Line('waystone', null, 'Mint light hums in the grooves. Fireflies drift over the Square, and every path out of the village has a little glow.', extra: true),};
+  'WAY_DONE': Line('waystone', null, 'Mint light hums in the grooves. Fireflies drift over the Square, and every path out of the village has a little glow.', extra: true),
+
+  // ---- Home Tales 1: A Place to Call Home (Bram)
+  'HQ01_B00': Line('npc_bram', 'thinking', "That old cottage past your nest? Roof's half gone and the door's wandered off. Shame. It's a good little house."),
+  'HQ01_B01': Line('npc_bram', 'neutral', "I'll fix it up if you'll lend a hand. I need sturdy timber, the kind you only spot when you're out walking the hedgerows."),
+  'HQ01_B02': Line('npc_bram', 'happy', "Good! Walk {resolved_steps} steps and keep your eyes open. And grow a few Sunberries for the builders' lunch, eh?"),
+  'HQ01_B03': Line('npc_bram', 'neutral', "Timber turns up for walkers. You're {progress}/{resolved_steps} steps along. No hurry."),
+  'HQ01_B04': Line('npc_bram', 'thinking', "Fine timber, that! Now, about lunch... three Sunberries, if your garden's grown any. You've got {sunberry}/3."),
+  'HQ01_B05': Line('npc_bram', 'happy', "Timber AND Sunberries. That's a builder's breakfast. Hand them over and I'll get the roof up."),
+  'HQ01_B06': Line('npc_bram', 'proud', "Roof's on, shutters are hung. The last bit's yours: go and open the place up. It's on your Home Map."),
+  'HQ01_B07': Line('npc_bram', 'neutral', "It's waiting for you. Go on, open it up."),
+  'HQ01_B08': Line('npc_bram', 'happy', "Good roof, good friends. That's all a cottage needs."),
+  'HQ01_C00': Line('cottage', null, 'The old cottage stands quiet. Bram has stacked the timber by the door, and new roof beams are waiting.'),
+  'HQ01_C01': Line('cottage', null, 'Hammers tap, shutters swing open and a warm glow fills the windows. The chimney gives a happy little puff.'),
+  'HQ01_C02': Line('cottage', null, 'An old cottage with a broken roof and an empty doorway. Someone in the village might know how to fix it.', extra: true),
+  'HQ01_B09': Line('npc_bram', 'proud', 'There. A hearth, a kitchen, and a place to call home. Welcome in.'),
+
+  // ---- Home Tales 2: Mira's Mortar (Mira)
+  'HQ02_M00': Line('npc_mira', 'happy', 'Your kitchen smells lovely, all the way from here! Have you ever tried brewing?'),
+  'HQ02_M01': Line('npc_mira', 'thinking', "My grandmother's mortar is gathering dust. Bring me two Glowleaf from your garden and I'll show you how it's done."),
+  'HQ02_M02': Line('npc_mira', 'happy', "Glowleaf grows slowly, so plant it early. You'll need Farming level 3 to coax it out of the soil."),
+  'HQ02_M03': Line('npc_mira', 'neutral', 'Any Glowleaf yet? You have {glowleaf}/2. The seedlings say hello.'),
+  'HQ02_M04': Line('npc_mira', 'happy', "Oh, they're glowing beautifully! Here, take the mortar. Your cottage has a little back room that would suit it."),
+  'HQ02_M05': Line('npc_mira', 'proud', 'The Apothecary is yours. Start with a Glowleaf Tonic. Stir slowly, smile often.'),
+  'HQ02_M06': Line('npc_mira', 'happy', 'How are the brews going? Your Evochi looks very well looked after.'),
+
+  // ---- Side story: The Shy Visitor (Pip)
+  'SQ01_P00': Line('npc_pip', 'thinking', "Psst! Something small and fluffy keeps peeking at the mail sacks. I think it's hungry, but it's SO shy."),
+  'SQ01_P01': Line('npc_pip', 'happy', "They say shy visitors can't resist a fresh Sunberry Tart. Could you bake one?"),
+  'SQ01_P02': Line('npc_pip', 'happy', "Bake it in your Cottage kitchen and bring it here. I'll leave it on the step!"),
+  'SQ01_P03': Line('npc_pip', 'neutral', 'No tart yet? Sunberries, wheat and a warm oven. You can do it!'),
+  'SQ01_P04': Line('npc_pip', 'happy', 'It smells amazing! Let me put it on the step... shh... look!'),
+  'SQ01_P05': Line('npc_pip', 'proud', 'A little fox-sprite! It took the tart and left some Moonshroom spores behind. I think that means thank you.'),
+  'SQ01_P06': Line('npc_pip', 'happy', 'The fox-sprite waves at me now. Well, it wiggles its tail. Same thing!'),
+
+  // ---- Side story: Guardian of the Old Grove (Alder)
+  'SQ02_A00': Line('npc_alder', 'thinking', 'There is an old guardian in the grove past the north road. It only wakes for an Evochi that has grown a little.'),
+  'SQ02_A01': Line('npc_alder', 'neutral', 'Bring a Glowleaf Tonic. The guardian is very old, and very thirsty.'),
+  'SQ02_A02': Line('npc_alder', 'happy', "Brew one in your Apothecary, then come and find me. We'll walk there together."),
+  'SQ02_A03': Line('npc_alder', 'neutral', 'The grove is patient. A Glowleaf Tonic, whenever you have one.'),
+  'SQ02_A04': Line('npc_alder', 'proud', 'A fine tonic. The guardian opens one mossy eye, drinks, and the whole grove sighs with green light.'),
+  'SQ02_A05': Line('npc_alder', 'happy', 'It remembered {pet}. Few travellers can say that.'),
+  'SQ02_A06': Line('npc_alder', 'happy', 'The old grove has been greener since your visit.'),
+  'SQ02_ALOCK': Line('npc_alder', 'thinking', 'Your Evochi is still very young. When it has grown into a Juvenile, ask me about the old grove.', extra: true),
+};
 
 /// An engine action a dialogue choice runs before moving on.
 class StoryAct {
@@ -78,7 +126,7 @@ class Choice {
   final String? next; // another line in this conversation
   final StoryAct? act;
   final String? then; // the line shown after [act] succeeds
-  final String? goto; // a place id, or 'journey'
+  final String? goto; // a place id, 'journey', or a home destination: garden | cottage | kitchen | apothecary
   final String? npc; // switch to another villager in the same place
   final String? reward; // open the reward card for this quest id
   final bool leave;
@@ -102,7 +150,7 @@ class Conversation {
 
 Choice _leave([String label = 'Leave']) => Choice(label, leave: true);
 
-/// The conversation a villager (or the Waystone) opens with in the current state.
+/// The conversation a villager (or the Waystone, or your Cottage) opens with in the current state.
 Conversation npcConversation(GameState state, String npcId, int now) {
   final story = state.story;
   String ph(String qid) => questPhase(state, qid);
@@ -123,8 +171,6 @@ Conversation npcConversation(GameState state, String npcId, int now) {
         node('VQ03_MIR01', [const Choice('Go to the Waystone', goto: 'waystone'), _leave()]);
       } else if (p3 == 'restoration_ready') {
         start = node('VQ03_MIR01', [const Choice('Go to the Waystone', goto: 'waystone'), _leave()]);
-      } else if (p3 == 'completed') {
-        start = node('VQ03_MIR02', [_leave('Goodbye, Mira')]);
       } else if (p1 == 'available') {
         node('VQ01_M01', [const Choice('What happened to it?', next: 'VQ01_M02'), const Choice('I can help.', act: StoryAct.accept('vq01'), then: 'VQ01_M03'), _leave('Maybe later.')]);
         node('VQ01_M02', [const Choice('I can help.', act: StoryAct.accept('vq01'), then: 'VQ01_M03'), _leave('Maybe later.')]);
@@ -137,23 +183,58 @@ Conversation npcConversation(GameState state, String npcId, int now) {
         node('VQ01_M06', [const Choice("Go to Bram's Workshop", goto: 'workshop'), _leave()]);
       } else if (p1 == 'sprig_ready') {
         start = node('VQ01_M06', [const Choice("Go to Bram's Workshop", goto: 'workshop'), _leave()]);
+      } else if (ph('hq02') == 'available') {
+        node('HQ02_M00', [const Choice('Brewing?', next: 'HQ02_M01')]);
+        node('HQ02_M01', [const Choice("I'd love to learn.", act: StoryAct.accept('hq02'), then: 'HQ02_M02'), _leave('Maybe later.')]);
+        node('HQ02_M02', [const Choice('Visit your Garden', goto: 'garden'), _leave('See you soon')]);
+        start = 'HQ02_M00';
+      } else if (ph('hq02') == 'need_glowleaf') {
+        if (nextStep(state, 'hq02').kind == 'handin') {
+          start = node('HQ02_M04', [const Choice('Give 2 Glowleaf', act: StoryAct.handIn('hq02', 'mira_glowleaf'), then: 'HQ02_M05'), _leave('Not yet')]);
+          node('HQ02_M05', [const Choice('Thank you, Mira!', reward: 'hq02')]);
+        } else {
+          start = node('HQ02_M03', [const Choice('Visit your Garden', goto: 'garden'), _leave('See you soon')]);
+        }
+      } else if (p3 == 'completed') {
+        start = node('VQ03_MIR02', [_leave('Goodbye, Mira')]);
+      } else if (ph('hq02') == 'completed') {
+        start = node('HQ02_M06', [_leave('Goodbye, Mira')]);
       } else {
         start = node('VQ01_M07', [_leave('Goodbye, Mira')]);
       }
     case 'npc_bram':
       final p3 = ph('vq03');
       final p1 = ph('vq01');
+      final h1 = ph('hq01');
       if (p3 == 'rubbings_ready') {
         start = node('VQ03_BRA00', [const Choice('Give 3 Echo Rubbings', act: StoryAct.handIn('vq03', 'bram_rubbings'), then: 'VQ03_BRA01'), _leave('Not yet')]);
         node('VQ03_BRA01', [const Choice("Go to Mira's Glasshouse", goto: 'glasshouse'), _leave()]);
       } else if (p3 == 'core_ready') {
         start = node('VQ03_BRA01', [const Choice("Go to Mira's Glasshouse", goto: 'glasshouse'), _leave()]);
-      } else if (p3 == 'completed') {
-        start = node('VQ03_BRA02', [_leave('Goodbye, Bram')]);
       } else if (p1 == 'sprig_ready') {
         start = node('VQ01_B01', [const Choice('Give Lumenbud Sprig', act: StoryAct.handIn('vq01', 'bram_sprig'), then: 'VQ01_B02'), _leave('Not yet')]);
         node('VQ01_B02', [const Choice('Continue', next: 'VQ01_B03')]);
         node('VQ01_B03', [const Choice('Thank you, Bram!', reward: 'vq01')]);
+      } else if (h1 == 'available') {
+        node('HQ01_B00', [const Choice('What does it need?', next: 'HQ01_B01')]);
+        node('HQ01_B01', [const Choice("I'll help!", act: StoryAct.accept('hq01'), then: 'HQ01_B02'), _leave('Maybe later.')]);
+        node('HQ01_B02', [const Choice('Go for a walk', goto: 'journey'), const Choice('Visit your Garden', goto: 'garden'), _leave('See you soon')]);
+        start = 'HQ01_B00';
+      } else if (h1 == 'accepted_walk') {
+        start = node('HQ01_B03', [const Choice('Go for a walk', goto: 'journey'), const Choice('Visit your Garden', goto: 'garden'), _leave('See you soon')]);
+      } else if (h1 == 'timber_ready') {
+        if (nextStep(state, 'hq01').kind == 'handin') {
+          start = node('HQ01_B05', [const Choice('Give the timber and 3 Sunberries', act: StoryAct.handIn('hq01', 'bram_timber'), then: 'HQ01_B06'), _leave('Not yet')]);
+          node('HQ01_B06', [const Choice('Go to your Cottage', goto: 'cottage'), _leave()]);
+        } else {
+          start = node('HQ01_B04', [const Choice('Visit your Garden', goto: 'garden'), _leave('See you soon')]);
+        }
+      } else if (h1 == 'restoration_ready') {
+        start = node('HQ01_B07', [const Choice('Go to your Cottage', goto: 'cottage'), _leave()]);
+      } else if (p3 == 'completed') {
+        start = node('VQ03_BRA02', [_leave('Goodbye, Bram')]);
+      } else if (h1 == 'completed') {
+        start = node('HQ01_B08', [_leave('Goodbye, Bram')]);
       } else if (p1 == 'completed') {
         start = node('VQ01_B04', [_leave('Goodbye, Bram')]);
       } else {
@@ -162,9 +243,8 @@ Conversation npcConversation(GameState state, String npcId, int now) {
     case 'npc_pip':
       final p2 = ph('vq02');
       final p3 = ph('vq03');
-      if (p3 == 'completed') {
-        start = node('VQ03_PIP08', [_leave('Goodbye, Pip')]);
-      } else if (p2 == 'locked') {
+      final s1 = ph('sq01');
+      if (p2 == 'locked') {
         node('PIP_LOCKED', [_leave('Okay!')]);
         start = met ? 'PIP_LOCKED' : node('VQ02_PIP00', [const Choice('Hello, Pip!', next: 'PIP_LOCKED')]);
       } else if (p2 == 'available') {
@@ -183,6 +263,22 @@ Conversation npcConversation(GameState state, String npcId, int now) {
         node('VQ02_PIP06', [const Choice('Talk to Alder', npc: 'npc_alder'), _leave()]);
       } else if (p2 == 'letter_ready') {
         start = node('VQ02_PIP06', [const Choice('Talk to Alder', npc: 'npc_alder'), _leave()]);
+      } else if (s1 == 'available') {
+        node('SQ01_P00', [const Choice('Hungry?', next: 'SQ01_P01')]);
+        node('SQ01_P01', [const Choice("I'll bake one!", act: StoryAct.accept('sq01'), then: 'SQ01_P02'), _leave('Not now.')]);
+        node('SQ01_P02', [const Choice('Go to your Kitchen', goto: 'kitchen'), _leave('See you soon')]);
+        start = 'SQ01_P00';
+      } else if (s1 == 'need_tart') {
+        if (nextStep(state, 'sq01').kind == 'handin') {
+          start = node('SQ01_P04', [const Choice('Give a Sunberry Tart', act: StoryAct.handIn('sq01', 'pip_tart'), then: 'SQ01_P05'), _leave('Not yet')]);
+          node('SQ01_P05', [const Choice('Thank you, Pip!', reward: 'sq01')]);
+        } else {
+          start = node('SQ01_P03', [const Choice('Go to your Kitchen', goto: 'kitchen'), _leave('See you soon')]);
+        }
+      } else if (p3 == 'completed') {
+        start = node('VQ03_PIP08', [_leave('Goodbye, Pip')]);
+      } else if (s1 == 'completed') {
+        start = node('SQ01_P06', [_leave('Goodbye, Pip')]);
       } else {
         start = node('VQ02_PIP07', [_leave('Goodbye, Pip')]);
       }
@@ -209,12 +305,39 @@ Conversation npcConversation(GameState state, String npcId, int now) {
       } else if (p3 == 'core_ready' || p3 == 'restoration_ready') {
         final core = p3 == 'core_ready';
         start = node('ALD_WAITING', [Choice(core ? "Go to Mira's Glasshouse" : 'Go to the Waystone', goto: core ? 'glasshouse' : 'waystone'), _leave()]);
+      } else if (ph('sq02') == 'available') {
+        node('SQ02_A00', [const Choice('What does it need?', next: 'SQ02_A01')]);
+        node('SQ02_A01', [const Choice("Let's wake it.", act: StoryAct.accept('sq02'), then: 'SQ02_A02'), _leave('Another time.')]);
+        node('SQ02_A02', [const Choice('Go to your Apothecary', goto: 'apothecary'), _leave('See you soon')]);
+        start = 'SQ02_A00';
+      } else if (ph('sq02') == 'need_tonic') {
+        final k = nextStep(state, 'sq02').kind;
+        if (k == 'handin') {
+          start = node('SQ02_A04', [const Choice('Offer the Glowleaf Tonic', act: StoryAct.handIn('sq02', 'alder_tonic'), then: 'SQ02_A05'), _leave('Not yet')]);
+          node('SQ02_A05', [const Choice('Thank you, Alder!', reward: 'sq02')]);
+        } else if (k == 'grow') {
+          start = node('SQ02_ALOCK', [_leave('Okay!')]);
+        } else {
+          start = node('SQ02_A03', [const Choice('Go to your Apothecary', goto: 'apothecary'), _leave('See you soon')]);
+        }
+      } else if (ph('sq02') == 'locked' && ph('hq02') == 'completed' && lockReason(state, 'sq02')?.needStage != null) {
+        start = node('SQ02_ALOCK', [_leave('Okay!')]);
       } else if (p3 == 'completed') {
         start = node('VQ03_ALD06', [_leave('Goodbye, Alder')]);
+      } else if (ph('sq02') == 'completed') {
+        start = node('SQ02_A06', [_leave('Goodbye, Alder')]);
       } else if (p2 == 'completed') {
         start = node('VQ02_ALD04', [_leave()]);
       } else {
         start = node('VQ02_ALD00', [_leave()]);
+      }
+    case 'cottage':
+      if (ph('hq01') == 'restoration_ready') {
+        start = node('HQ01_C00', [const Choice('Restore the Cottage', act: StoryAct.handIn('hq01', 'restore_cottage'), then: 'HQ01_C01'), _leave('Not yet')]);
+        node('HQ01_C01', [const Choice('Continue', next: 'HQ01_B09')]);
+        node('HQ01_B09', [const Choice('Step inside', reward: 'hq01')]);
+      } else {
+        start = node('HQ01_C02', [_leave('Back to the map')]);
       }
     case 'waystone':
       final p3 = ph('vq03');
@@ -242,7 +365,8 @@ Conversation npcConversation(GameState state, String npcId, int now) {
 String lineText(GameState state, String id, int now, {String petName = 'your Evochi'}) {
   final l = lines[id];
   if (l == null) return '';
-  final qid = id.startsWith('VQ01') ? 'vq01' : (id.startsWith('VQ02') || id.startsWith('PIP') ? 'vq02' : 'vq03');
+  const byPrefix = {'VQ01': 'vq01', 'VQ02': 'vq02', 'PIP_': 'vq02', 'HQ01': 'hq01', 'HQ02': 'hq02', 'SQ01': 'sq01', 'SQ02': 'sq02'};
+  final qid = byPrefix[id.length >= 4 ? id.substring(0, 4) : id] ?? 'vq03';
   final v = questView(state, qid, now);
   final lock = lockReason(state, 'vq02');
   final hint = lock == null
@@ -252,11 +376,15 @@ String lineText(GameState state, String id, int now, {String petName = 'your Evo
           : lock.needLevel
               ? 'Reach level ${lock.level}'
               : 'Help Mira and Bram light the lamp first,';
+  final sunberry = math.min(3, g.ownedQty(state, 'sunberry'));
+  final glowleaf = math.min(2, g.ownedQty(state, 'glowleaf'));
   return fill(l.text, {
     'resolved_steps': fmtN(v.resolved),
     'progress': fmtN(v.walk.progress),
     'qualifying_days': '${v.walk.qualified}',
     'lock_hint': hint,
     'pet': petName,
+    'sunberry': '$sunberry',
+    'glowleaf': '$glowleaf',
   });
 }

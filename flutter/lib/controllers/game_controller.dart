@@ -17,6 +17,7 @@ import '../data/health_adapters/health_step_source.dart';
 import '../data/health_adapters/step_source.dart';
 import '../data/repositories/game_repository.dart';
 import '../game/engine.dart' as g;
+import '../game/home/home.dart' as h;
 import '../game/story/story.dart' as story;
 
 class Toast {
@@ -47,11 +48,12 @@ class GameController extends ChangeNotifier {
 
   g.GameView? _view;
   story.StoryStatus? _story;
+  h.HomeStatus? _home;
   int _viewAt = 0;
 
   /// Cross-route navigation requests (pushed Village screens can't reach the tab shell directly).
   final tabRequest = ValueNotifier<String?>(null);
-  String journeyTab = 'daily'; // daily | weekly | story
+  String journeyTab = 'daily'; // daily | weekly | story | skills
   String? bagCategoryRequest; // e.g. 'pouch'
 
   int get now => DateTime.now().millisecondsSinceEpoch + state.clockOffset;
@@ -63,6 +65,7 @@ class GameController extends ChangeNotifier {
     if (_view == null || (n - _viewAt).abs() > 15000) {
       _view = g.derive(state, n);
       _story = null;
+      _home = null;
       _viewAt = n;
     }
     return _view!;
@@ -76,6 +79,19 @@ class GameController extends ChangeNotifier {
 
   /// Hand-ins waiting plus quest offers not opened yet (badges on Visit Village and Journey > Story).
   int get storyAttention => story.storyAttention(state, storyView);
+
+  /// Home Tales: garden beds, skills and rooms (cached with [view]; beds grow on real time, so screens
+  /// that show growth call [h.plotView] with [now] directly).
+  h.HomeStatus get homeView {
+    view;
+    return _home ??= h.homeStatus(state, _viewAt);
+  }
+
+  /// Something new at home (badge on Explore Home): a ripe bed, the starter gift, or the Cottage ready.
+  bool get homeAttention {
+    final hv = h.homeStatus(state, now);
+    return hv.ripe > 0 || !hv.starterSeeds || storyView.cottageReady;
+  }
 
   /// Switch the main tab from anywhere (closes pushed screens first; see MainShell).
   void goTab(String tab, {String? journey, String? bag}) {
@@ -115,6 +131,7 @@ class GameController extends ChangeNotifier {
     state = s;
     _view = null;
     _story = null;
+    _home = null;
     repo.save(s);
     _applySettings();
     notifyListeners();
@@ -154,10 +171,30 @@ class GameController extends ChangeNotifier {
       'not_for_sale': const Toast('Story rewards are earned, never sold', icon: 'star', kind: 'warn'),
       'story_locked': Toast((r.info['message'] as String?) ?? 'Not unlocked yet', icon: 'lock', kind: 'warn'),
       'story_not_ready': const Toast('Not ready yet - keep going!', icon: 'journey', kind: 'warn'),
-      'story_missing_items': const Toast('Something is missing from your Quest Pouch', icon: 'journey', kind: 'warn'),
+      'story_missing_items': Toast(_missingText(r.info['missing']) ?? 'Something is missing from your Quest Pouch', icon: 'journey', kind: 'warn'),
+      'story_needs_stage': const Toast('Your Evochi needs to grow into a Juvenile first', icon: 'evolve', kind: 'warn'),
+      'not_owned': const Toast('You do not own this yet', icon: 'bag', kind: 'warn'),
+      'plot_locked': Toast('This bed opens at Farming Lv ${r.info['need'] ?? 4}', icon: 'lock', kind: 'warn'),
+      'plot_busy': const Toast('Something is already growing here', icon: 'skill_farming', kind: 'warn'),
+      'crop_locked': Toast('Reach Farming Lv ${r.info['need'] ?? 2} to grow this', icon: 'lock', kind: 'warn'),
+      'no_seed': const Toast('No seeds left - get more in the Market', icon: 'shop', kind: 'warn'),
+      'not_ripe': const Toast('Not ripe yet - a walk will speed it up', icon: 'steps', kind: 'warn'),
+      'tonic_used': const Toast('This bed already had a Sprout Tonic', icon: 'potion', kind: 'warn'),
+      'already_ripe': const Toast('Already ripe - harvest it!', icon: 'skill_farming'),
+      'station_locked': const Toast('That room is not open yet', icon: 'lock', kind: 'warn'),
+      'recipe_locked': Toast('Reach ${h.skillDefs[r.info['skill']]?.name ?? 'your skill'} Lv ${r.info['need'] ?? 2} to learn this recipe', icon: 'lock', kind: 'warn'),
+      'missing_ingredients': const Toast('Some ingredients are missing', icon: 'skill_farming', kind: 'warn'),
+      'use_in_garden': const Toast('Use this on a garden bed', icon: 'skill_farming', kind: 'warn'),
     };
     _toasts.add(m[r.error] ?? const Toast('Something went wrong - please try again', icon: 'warning', kind: 'err'));
     audio.play('error_bonk', volume: 0.5);
+  }
+
+  /// "You still need 2 more Sunberries" for a refused hand-in (null when nothing is listed).
+  static String? _missingText(Object? missing) {
+    if (missing is! List || missing.isEmpty) return null;
+    final parts = [for (final x in missing.whereType<story.ItemNeed>()) '${x.need - x.have} more ${h.itemLabel(x.id, x.need - x.have)}'];
+    return parts.isEmpty ? null : 'You still need ${parts.join(' and ')}';
   }
 
   void _handle(g.GameEvent e) {
@@ -200,11 +237,28 @@ class GameController extends ChangeNotifier {
         audio.play('reward_chime', volume: 0.7);
       case 'story_ready':
         final npc = e.data['npc'] as String?;
-        if (npc == 'waystone') {
+        if (npc == 'cottage') {
+          toast('Bram has the roof up! Restore your Cottage on the Home Map', icon: 'home_map');
+        } else if (e.data['kind'] == 'gather') {
+          final title = story.storyQuests[e.data['questId']]?.title ?? 'Your quest';
+          toast('$title: now gather what ${story.npcs[npc]?.name ?? 'they'} asked for', icon: 'skill_farming');
+        } else if (npc == 'waystone') {
           toast('The Waystone is ready to wake', icon: 'star');
-        } else if (npc != null) {
+        } else if (npc != null && story.npcs.containsKey(npc)) {
           toast('${story.npcs[npc]!.name} is ready for you in Sunlit Village', icon: 'pin');
         }
+      case 'harvested':
+        final items = (e.data['items'] as Map).cast<String, int>();
+        toast(items.entries.map((x) => '+${x.value} ${h.itemLabel(x.key, x.value)}').join(', '), icon: items.isEmpty ? 'skill_farming' : 'item:${items.keys.first}');
+      case 'planted':
+        final crop = h.cropDefs[e.data['crop']]!;
+        toast('${crop.name} planted', icon: 'item:${crop.seed}');
+      case 'watered':
+        toast('Watered! +15% growth', icon: 'skill_farming');
+      case 'tonic_used':
+        toast('Sprout Tonic! +50% growth', icon: 'item:sprout_tonic');
+      case 'skill_up':
+        audio.play('level_up'); // the Skill-up card itself is shown by SkillUpListener
       case 'story_completed':
         analytics.track('story_quest_completed', {'quest': e.data['questId']});
       case 'sync_failed':
@@ -253,12 +307,18 @@ class GameController extends ChangeNotifier {
   }
 
   Future<void> simulateWalk(int steps) async {
-    // the simulated walk "just happened"; it never reaches back before a story quest was accepted,
-    // so a demo walk right after accepting counts in full (real step data keeps its own timestamps)
-    final active = state.story.activeQuestId;
-    final since = active == null ? 0 : (state.story.questStates[active]?.acceptedAt ?? 0);
-    demo.walk(steps, now, notBefore: since);
+    // real step data keeps its own timestamps; see _demoNotBefore for the simulated walk
+    demo.walk(steps, now, notBefore: _demoNotBefore(state));
     await sync();
+  }
+
+  /// A simulated walk "just happened": it never reaches back before a story quest was accepted, or
+  /// before the latest planting, so a demo walk right after either always counts in full.
+  static int _demoNotBefore(GameState s) {
+    final active = s.story.activeQuestId;
+    final since = active == null ? 0 : (s.story.questStates[active]?.acceptedAt ?? 0);
+    final planted = s.home.plots.values.fold<int>(0, (a, p) => p != null && p.plantedAt > a ? p.plantedAt : a);
+    return since > planted ? since : planted;
   }
 
   void addManualSteps(int steps) {
@@ -273,9 +333,7 @@ class GameController extends ChangeNotifier {
       final n = DateTime.now().millisecondsSinceEpoch + s.clockOffset;
       if (ratio > 0) {
         final goal = g.goalFor(s, dayKey(n, g.zoneOf(s)));
-        final active = s.story.activeQuestId;
-        final since = active == null ? 0 : (s.story.questStates[active]?.acceptedAt ?? 0);
-        final samples = demo.walk((goal * ratio).round(), n, watch: false, notBefore: since);
+        final samples = demo.walk((goal * ratio).round(), n, watch: false, notBefore: _demoNotBefore(s));
         demo.readSamples(0, n + 1);
         s = g.syncSteps(s, samples, n, source: 'demo').state;
       }
@@ -290,6 +348,46 @@ class GameController extends ChangeNotifier {
     while (!(g.derive(state, now).pet?.evolution.eligible ?? true) && guard++ < 400) {
       advanceDays(1, 1.5);
     }
+  }
+
+  /// Move the preview clock forward without any steps (crops grow, cooldowns tick).
+  void skipTime(int ms) {
+    var s = state.copy()..clockOffset += ms;
+    s = g.syncSteps(s, const [], DateTime.now().millisecondsSinceEpoch + s.clockOffset, source: 'demo').state;
+    _commit(s);
+  }
+
+  /// Finish Chapter 1's first quest (with its reward) and reach level 2. False if already there.
+  bool homeTalesReady() => run((s, n) => story.playtestHomeTalesReady(s, n)).events.isNotEmpty;
+
+  /// A handful of every seed and harvest, into Bag > Pantry.
+  void grantPantry() {
+    const add = {
+      'seed_sunberry': 3,
+      'seed_meadow_carrot': 3,
+      'seed_golden_wheat': 3,
+      'seed_glowleaf': 2,
+      'seed_moonshroom': 2,
+      'sunberry': 6,
+      'meadow_carrot': 4,
+      'golden_wheat': 4,
+      'glowleaf': 4,
+      'moonshroom': 4,
+    };
+    final s = state.copy();
+    add.forEach((id, n) => g.grantItem(s, id, n, 'playtest', now));
+    _commit(s);
+  }
+
+  /// Every Cozy Skill up one level (maxed skills stay put).
+  void skillsUp() {
+    final s = state.copy();
+    for (final k in h.skillOrder) {
+      final xp = s.home.skills[k] ?? 0;
+      final v = h.skillLevel(xp);
+      if (!v.maxed) s.home.skills[k] = xp + v.need - v.into;
+    }
+    _commit(s);
   }
 
   void grantHerbs(int n) {

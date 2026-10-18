@@ -84,7 +84,8 @@
     "firstPet": 2,
     "firstPlay": 3,
     "goalCelebration": 1,
-    "directDailyCap": 5
+    "directDailyCap": 5,
+    "treat": 1
   },
   "care": {
     "recoveryCooldownHours": 12,

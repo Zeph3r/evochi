@@ -1,4 +1,5 @@
-// S10 Shop / Evochi Market (style guide §12, §18 "Purchase/preview UX").
+// S10 Shop / Evochi Market (style guide §12, §18 "Purchase/preview UX"). The Garden shelf sells Home
+// Tales seeds, bought 1, 3 or 5 at a time, with "Plant now" after buying.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -9,12 +10,20 @@ import '../../controllers/game_controller.dart';
 import '../../core/models/catalog.dart';
 import '../../core/utils/ids.dart';
 import '../../game/engine.dart' as g;
+import '../../game/home/home.dart' as h;
+import '../home/home_widgets.dart';
 import '../nest/sheets.dart';
 import '../shared/scene_scaffold.dart';
 import '../shared/scene_view.dart';
 import '../shared/widgets.dart';
 
-const _cats = [('featured', 'Featured', 'star'), ('wearables', 'Wearables', 'wearables'), ('care', 'Care', 'care'), ('habitats', 'Habitats', 'habitats')];
+const _cats = [
+  ('featured', 'Featured', 'star'),
+  ('wearables', 'Wearables', 'wearables'),
+  ('care', 'Care', 'care'),
+  ('habitats', 'Habitats', 'habitats'),
+  ('garden', 'Garden', 'skill_farming'),
+];
 
 List<String> _listFor(String cat) =>
     catalog.values.where((it) => isShopItem(it.id) && (cat == 'featured' ? it.featured : it.shop == cat)).map((it) => it.id).toList();
@@ -23,6 +32,8 @@ List<String> _listFor(String cat) =>
       ItemCategory.wearable => (it.slot == 'neck' ? 'Neck' : (slotLabels[it.slot] ?? 'Wearable'), 'wearables'),
       ItemCategory.consumable => ('Care', 'care'),
       ItemCategory.decoration => ('Habitat', 'habitats'),
+      ItemCategory.seed => ('Seed', 'skill_farming'),
+      ItemCategory.ingredient => ('Ingredient', 'skill_cooking'),
     };
 
 const _tints = [
@@ -48,17 +59,23 @@ class _ShopScreenState extends State<ShopScreen> {
     final it = item(id);
     final requestId = newId('buy');
     var pending = false;
+    var n = 1; // seeds: 1, 3 or 5 at a time
+    final multi = it.category == ItemCategory.seed;
     await showEvochiDialog<void>(context, builder: (d) => StatefulBuilder(builder: (d, set) {
           return Column(mainAxisSize: MainAxisSize.min, children: [
             ItemImage(id, size: 104),
             Text('Buy ${it.name}?', style: EvochiText.section, textAlign: TextAlign.center),
             const SizedBox(height: 10),
+            if (multi) ...[
+              QtyPick(price: it.price, balance: c.balance, value: n, onChanged: (k) => set(() => n = k)),
+              const SizedBox(height: 10),
+            ],
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(color: const Color(0xFFFBF1E4), borderRadius: BorderRadius.circular(12)),
               child: Column(children: [
-                Row(children: [const Expanded(child: Text('Price', style: EvochiText.bodyText)), Text('${fmt(it.price)} EvoCoins', style: EvochiText.cardTitle)]),
-                Row(children: [const Expanded(child: Text('Balance after', style: EvochiText.bodyText)), Text('${fmt(c.balance - it.price)} EvoCoins', style: EvochiText.cardTitle)]),
+                Row(children: [const Expanded(child: Text('Price', style: EvochiText.bodyText)), Text('${fmt(it.price * n)} EvoCoins', style: EvochiText.cardTitle)]),
+                Row(children: [const Expanded(child: Text('Balance after', style: EvochiText.bodyText)), Text('${fmt(c.balance - it.price * n)} EvoCoins', style: EvochiText.cardTitle)]),
               ]),
             ),
             if (it.category == ItemCategory.wearable)
@@ -68,19 +85,20 @@ class _ShopScreenState extends State<ShopScreen> {
               ),
             const SizedBox(height: 12),
             EvochiButton(
-              label: pending ? 'Purchasing...' : 'Purchase for ${fmt(it.price)}',
+              label: pending ? 'Purchasing...' : 'Purchase${n > 1 ? ' $n' : ''} for ${fmt(it.price * n)}',
               tone: ButtonTone.green,
               onPressed: pending
                   ? null
                   : () async {
                       set(() => pending = true); // one tap only: the request id makes retries idempotent
                       await Future<void>.delayed(const Duration(milliseconds: 300));
-                      final r = c.run((s, n) => g.purchase(s, id, requestId, n));
+                      final qty = n;
+                      final r = qty > 1 ? buyMany(c, id, qty, requestId) : c.run((s, t) => g.purchase(s, id, requestId, t));
                       if (d.mounted) Navigator.pop(d);
                       if (r.ok) {
-                        c.analytics.track('item_purchased', {'item': id, 'price': it.price});
+                        c.analytics.track('item_purchased', {'item': id, 'price': it.price * qty, 'qty': qty});
                         _scene.react('reward');
-                        if (mounted) _purchased(c, id);
+                        if (mounted) _purchased(c, id, qty);
                       }
                     },
             ),
@@ -90,13 +108,23 @@ class _ShopScreenState extends State<ShopScreen> {
         }));
   }
 
-  void _purchased(GameController c, String id) {
+  void _purchased(GameController c, String id, [int n = 1]) {
     final it = item(id);
+    final seed = it.category == ItemCategory.seed;
     showEvochiDialog<void>(context, builder: (d) => Column(mainAxisSize: MainAxisSize.min, children: [
           ItemImage(id, size: 110),
-          Text('${it.name} is yours!', style: EvochiText.section, textAlign: TextAlign.center),
-          const Text("It's waiting in your Bag.", style: EvochiText.bodyText),
+          Text(n > 1 ? '$n × ${it.name} are yours!' : '${it.name} is yours!', style: EvochiText.section, textAlign: TextAlign.center),
+          Text(seed ? "They're in your Bag's Pantry." : "It's waiting in your Bag.", style: EvochiText.bodyText),
           const SizedBox(height: 12),
+          if (seed)
+            EvochiButton(
+              label: 'Plant now',
+              tone: ButtonTone.green,
+              onPressed: () {
+                Navigator.pop(d);
+                openGarden(context);
+              },
+            ),
           if (it.category == ItemCategory.wearable)
             EvochiButton(
               label: 'Equip now',
@@ -154,6 +182,7 @@ class _ShopScreenState extends State<ShopScreen> {
     final owned = own > 0 && !it.isStackable;
     final afford = c.balance >= it.price;
     final (tg, tgi) = _tagFor(it);
+    final seedLevel = h.cropDefs[it.crop]?.level ?? 1;
     final equipped = Map<String, String>.of(pet.equipped);
     if (_tryOn && it.category == ItemCategory.wearable) equipped[it.slot!] = id;
     final reduce = MediaQuery.of(context).disableAnimations;
@@ -264,7 +293,15 @@ class _ShopScreenState extends State<ShopScreen> {
                   if (w >= 360) Text(it.desc, maxLines: 3, overflow: TextOverflow.ellipsis, style: EvochiText.caption.copyWith(color: EvochiColor.textSecondary, fontSize: 12.5)),
                   const SizedBox(height: 6),
                   Wrap(spacing: 4, runSpacing: 4, children: [
-                    Tag(it.category == ItemCategory.wearable ? 'Wearable' : (it.category == ItemCategory.consumable ? 'Consumable' : 'Decoration'), icon: tgi),
+                    Tag(
+                      switch (it.category) {
+                        ItemCategory.wearable => 'Wearable',
+                        ItemCategory.consumable => 'Consumable',
+                        ItemCategory.seed => 'Farming Lv $seedLevel',
+                        _ => 'Decoration',
+                      },
+                      icon: tgi,
+                    ),
                     Tag(tg),
                     Tag(it.rarity[0].toUpperCase() + it.rarity.substring(1), tone: TagTone.ok, icon: 'care'),
                   ]),
@@ -344,7 +381,7 @@ class _ShopScreenState extends State<ShopScreen> {
                     final p = item(pid);
                     final (ptg, ptgi) = _tagFor(p);
                     final pown = g.ownedQty(c.state, pid) > 0 && !p.isStackable;
-                    final tint = _tints[p.category == ItemCategory.consumable ? 1 : i % _tints.length];
+                    final tint = _tints[p.category == ItemCategory.consumable ? 1 : (p.category == ItemCategory.seed ? (i.isEven ? 1 : 0) : i % _tints.length)];
                     return Semantics(
                       selected: pid == id,
                       button: true,

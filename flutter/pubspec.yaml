@@ -30,6 +30,7 @@ flutter:
     - assets/art/
     - assets/art/chars/
     - assets/art/habitats/
+    - assets/art/home/
     - assets/art/items/
     - assets/art/icons/
     - assets/art/titles/

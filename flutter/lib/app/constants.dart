@@ -86,6 +86,7 @@ class GameConfig {
     required this.bondFirstPlay,
     required this.bondGoal,
     required this.bondDirectDailyCap,
+    this.bondTreat = 1,
     required this.recoveryCooldownHours,
     required this.reviveVitality,
     required this.reviveHerbCost,
@@ -130,6 +131,7 @@ class GameConfig {
   final int bondFirstPlay;
   final int bondGoal;
   final int bondDirectDailyCap;
+  final int bondTreat; // a homemade meal or tea, once a day (outside the pet/play cap)
   final int recoveryCooldownHours;
   final int reviveVitality;
   final int reviveHerbCost;
@@ -182,6 +184,7 @@ class GameConfig {
         bondFirstPlay: 3,
         bondGoal: 1,
         bondDirectDailyCap: 5,
+        bondTreat: 1,
         recoveryCooldownHours: 12,
         reviveVitality: 40,
         reviveHerbCost: 3,
@@ -258,6 +261,7 @@ class GameConfig {
       bondFirstPlay: pick(() => (m('bond')['firstPlay'] as num).toInt(), d.bondFirstPlay),
       bondGoal: pick(() => (m('bond')['goalCelebration'] as num).toInt(), d.bondGoal),
       bondDirectDailyCap: pick(() => (m('bond')['directDailyCap'] as num).toInt(), d.bondDirectDailyCap),
+      bondTreat: pick(() => (m('bond')['treat'] as num).toInt(), d.bondTreat),
       recoveryCooldownHours: pick(() => (m('care')['recoveryCooldownHours'] as num).toInt(), d.recoveryCooldownHours),
       reviveVitality: pick(() => (m('care')['revive']['vitality'] as num).toInt(), d.reviveVitality),
       reviveHerbCost: pick(() => (m('care')['revive']['herbCost'] as num).toInt(), d.reviveHerbCost),

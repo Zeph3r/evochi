@@ -8,8 +8,8 @@ Evochi is a cozy pet that grows from your steps. This folder is the iOS/Android 
 > project-internal import resolves, but `flutter analyze` and `flutter test` have **not** been run.
 > Run them first and expect to fix a few small type or API details. The likeliest spot is
 > `lib/data/health_adapters/health_step_source.dart` if your `health` package major differs from the
-> one pinned. The game rules match the web build, and those rules *are* tested: 40 passing tests in
-> `../web/test`, mirrored in `test/engine_test.dart` and `test/story_test.dart`.
+> one pinned. The game rules match the web build, and those rules *are* tested in `../web/test`, mirrored in
+> `test/engine_test.dart`, `test/story_test.dart` and `test/home_test.dart`.
 
 ## Getting it running
 
@@ -37,9 +37,11 @@ lib/
   core/models/    GameState contracts (§22) + starter catalog (§18)
   core/utils/     account-time-zone day keys (§15, Q11), ids
   core/services/  art manifest + atlas cache, audio, privacy-conscious analytics
-  game/           pure rules: xp/ (XP, levels, step aggregation), vitality/, evolution/, bond/, engine.dart
+  game/           pure rules: xp/ (XP, levels, step aggregation), vitality/, evolution/, bond/, story/,
+                  home/ (Home Tales), engine.dart
   data/           local store, repository, remote sync boundary, health adapters
-  features/       onboarding, nest (+ memorial), journey, pet (details + evolution), bag, shop, evodex, settings
+  features/       onboarding, nest (+ memorial), journey, pet (details + evolution), bag, shop, evodex, settings,
+                  village (Village Tales), home (Home Tales)
 assets/
   art/            voxel atlases, habitats (parallax layers), items, icons, titles, manifest.json
   audio/          sfx/ and ambient/
@@ -100,6 +102,56 @@ played and tested end to end).
   toward story walks.
 - **Tests:** `test/story_test.dart` mirrors `../web/test/story.test.mjs`, including the Bible's 10
   acceptance tests.
+
+## Home Tales
+
+The home loop from the web build (where it is played and tested end to end): walk, grow, cook and
+brew, then share with your Evochi or a villager. Like the story, it is **uncompiled here**: every file
+passes the syntax check and its imports resolve, but `flutter analyze` / `flutter test` have not run.
+
+- **What it is:**
+  - **Home Map** (Explore Home on the Nest): the nest, the Garden, the Cottage and the Village Gate,
+    plus a one-time starter-seed gift.
+  - **Garden:** four beds (the fourth at Farming Lv 4). Crops grow on real time; steps walked after
+    planting add up to 60% more, watering adds 15%, and a Sprout Tonic adds 50%. Ripe beds harvest
+    with one tap.
+  - **Cottage:** restored by the Home Tales quest "A Place to Call Home" (Bram), which opens the
+    **Kitchen**. "Mira's Mortar" opens the **Apothecary**. Both rooms share one screen: recipe cards
+    and a skippable timing game, where a perfect stop makes a double batch and +50% skill XP.
+    Ingredients are never wasted.
+  - **Cozy Skills:** Farming, Cooking and Alchemy, with a milestone chart (the Skills screen and
+    Journey > Skills).
+  - **Side stories:** "The Shy Visitor" (Pip) and "Guardian of the Old Grove" (Alder, needs a
+    Juvenile). They are always optional.
+  - **Homemade treats:** they add Bond +1 once a day, even at full vitality.
+- **Rules** live in `lib/game/home/home.dart` (crops, beds, growth, recipes, skills, milestones,
+  actions). Quest changes live in `lib/game/story/`:
+  - quests `hq01`, `hq02`, `sq01` and `sq02`, with `consumeItems`, `requireStage`, skill gates and
+    walk-less quests
+  - next-step kinds `gather` and `grow`
+  - gifts and unlocks in rewards
+  - the new dialogue
+- **State** is `GameState.home` (`lib/core/models/home_state.dart`). It uses the same JSON as the web
+  save (`state.home`). Old saves get a fresh one on load.
+- **Screens** live in `lib/features/home/`:
+  - `home_map_screen.dart`
+  - `garden_screen.dart`
+  - `cottage_screen.dart`
+  - `station_screen.dart`
+  - `skills_screen.dart`
+  - `home_widgets.dart`: navigation (`goHome`), strips, the quick seed shop and the Skill-up card.
+    The Skill-up card is shown by `SkillUpListener` through `rootNavigatorKey`.
+- **Elsewhere:**
+  - **Bag > Pantry:** seeds and ingredients.
+  - **Shop > Garden:** seeds, x1/x3/x5, with Plant now.
+  - **Village dialogue:** routes to the Garden, Cottage, Kitchen and Apothecary.
+  - **Journey > Story:** lists Home Tales and Side stories.
+  - **Settings > Playtest tools > Home Tales:** skip time, skip to Home Tales, seeds, and skill levels.
+- **Art:** the manifest's `home` block (`HomeArt` in `asset_manifest.dart`), served from
+  `assets/art/home/`. That folder must exist, or the build reports a missing asset directory (the art sync fills it). Until the Cottage close-up
+  lands, the Home Map, framed on the cottage, stands in.
+- **Tests:** `test/home_test.dart` mirrors `../web/test/home.test.mjs`. It adds a save round-trip
+  check and a check for the playtest shortcut.
 
 ## Accounts and cloud
 

@@ -1,4 +1,5 @@
-// S09 Bag / inventory with live equipment preview (style guide §11, §19).
+// S09 Bag / inventory with live equipment preview (style guide §11, §19). The Pantry holds Home Tales
+// seeds and harvests (Plant / Cook / Cottage); homemade meals sit in Care and are given as treats.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -8,20 +9,40 @@ import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/models/catalog.dart';
 import '../../game/engine.dart' as g;
+import '../../game/home/home.dart' as h;
+import '../home/home_widgets.dart';
 import '../nest/sheets.dart';
 import '../shared/scene_scaffold.dart';
 import '../shared/scene_view.dart';
 import '../shared/widgets.dart';
 import '../village/story_widgets.dart';
 
-// (category, short tab label, icon, full name). A null category is the Quest Pouch (Village Tales
-// materials, which are never catalog items).
-const _cats = <(ItemCategory?, String, String, String)>[
-  (ItemCategory.wearable, 'Wear', 'wearables', 'Wearables'),
-  (ItemCategory.consumable, 'Care', 'consumables', 'Consumables'),
-  (ItemCategory.decoration, 'Decor', 'decorations', 'Decorations'),
-  (null, 'Pouch', 'journey', 'Quest Pouch'),
+// (pocket, short tab label, icon, full name). 'pantry' holds seeds and ingredients; 'pouch' is the
+// Quest Pouch (Village Tales materials, which are never catalog items).
+const _cats = <(String, String, String, String)>[
+  ('wearable', 'Wear', 'wearables', 'Wearables'),
+  ('consumable', 'Care', 'consumables', 'Consumables'),
+  ('decoration', 'Decor', 'decorations', 'Decorations'),
+  ('pantry', 'Pantry', 'skill_farming', 'Pantry: seeds and ingredients'),
+  ('pouch', 'Pouch', 'journey', 'Quest Pouch'),
 ];
+
+/// The catalog categories in a Bag pocket, in display order.
+List<ItemCategory> _pocket(String cat) => switch (cat) {
+      'wearable' => const [ItemCategory.wearable],
+      'consumable' => const [ItemCategory.consumable],
+      'decoration' => const [ItemCategory.decoration],
+      'pantry' => const [ItemCategory.seed, ItemCategory.ingredient],
+      _ => const <ItemCategory>[],
+    };
+
+const _catIcon = {
+  ItemCategory.wearable: 'wearables',
+  ItemCategory.consumable: 'consumables',
+  ItemCategory.decoration: 'decorations',
+  ItemCategory.seed: 'skill_farming',
+  ItemCategory.ingredient: 'skill_cooking',
+};
 const _slotUi = {'head': 'Head', 'back': 'Back', 'neck': 'Accessory'};
 
 class BagScreen extends StatefulWidget {
@@ -33,30 +54,37 @@ class BagScreen extends StatefulWidget {
 
 class _BagScreenState extends State<BagScreen> {
   final _scene = SceneController();
-  ItemCategory _cat = ItemCategory.wearable;
-  bool _pouch = false;
+  String _cat = 'wearable';
   String? _sel;
   String? _selQ;
 
-  List<String> _owned(GameController c, ItemCategory cat) {
-    final list = c.state.inventory.entries.where((e) => e.value.quantity > 0 && catalog[e.key]?.category == cat).map((e) => e.key).toList();
-    list.sort((a, b) => item(a).name.compareTo(item(b).name));
+  bool get _pouch => _cat == 'pouch';
+
+  List<String> _owned(GameController c, String cat) {
+    final cats = _pocket(cat);
+    final list = c.state.inventory.entries.where((e) => e.value.quantity > 0 && cats.contains(catalog[e.key]?.category)).map((e) => e.key).toList();
+    list.sort((a, b) {
+      final k = cats.indexOf(item(a).category) - cats.indexOf(item(b).category);
+      return k != 0 ? k : item(a).name.compareTo(item(b).name);
+    });
     return list;
   }
 
   @override
   Widget build(BuildContext context) {
     final c = context.watch<GameController>();
-    if (c.bagCategoryRequest == 'pouch') {
+    final req = c.bagCategoryRequest;
+    if (req != null && _cats.any((x) => x.$1 == req)) {
       c.bagCategoryRequest = null;
-      _pouch = true;
+      _cat = req;
+      _sel = null;
     }
     final pet = c.state.pet!;
     final v = c.view;
     final list = _pouch ? const <String>[] : _owned(c, _cat);
     if (_sel != null && (!list.contains(_sel))) _sel = null;
     if (!_pouch) {
-      _sel ??= _cat == ItemCategory.wearable ? (pet.equipped.values.isNotEmpty ? pet.equipped.values.first : (list.isEmpty ? null : list.first)) : (list.isEmpty ? null : list.first);
+      _sel ??= _cat == 'wearable' ? (pet.equipped.values.isNotEmpty ? pet.equipped.values.first : (list.isEmpty ? null : list.first)) : (list.isEmpty ? null : list.first);
     }
     if (_selQ != null && (c.storyView.pouch[_selQ] ?? 0) <= 0) _selQ = null;
     final sel = _sel;
@@ -97,9 +125,8 @@ class _BagScreenState extends State<BagScreen> {
               label: '${_slotUi[slot]} slot: ${id == null ? 'empty' : item(id).name}',
               child: GestureDetector(
                 onTap: () => setState(() {
-                  _cat = ItemCategory.wearable;
-                  _pouch = false;
-                  _sel = id ?? _owned(c, ItemCategory.wearable).where((x) => item(x).slot == slot).firstOrNull;
+                  _cat = 'wearable';
+                  _sel = id ?? _owned(c, 'wearable').where((x) => item(x).slot == slot).firstOrNull;
                   if (_sel == null) c.toast('No ${_slotUi[slot]!.toLowerCase()} items yet - find some in the Market', icon: 'shop', kind: 'warn');
                 }),
                 child: Container(
@@ -147,14 +174,9 @@ class _BagScreenState extends State<BagScreen> {
                       label: cat.$2,
                       fullLabel: cat.$4,
                       icon: cat.$3,
-                      selected: cat.$1 == null ? _pouch : (!_pouch && _cat == cat.$1),
+                      selected: _cat == cat.$1,
                       onTap: () => setState(() {
-                        if (cat.$1 == null) {
-                          _pouch = true;
-                        } else {
-                          _pouch = false;
-                          _cat = cat.$1!;
-                        }
+                        _cat = cat.$1;
                         _sel = null;
                         _selQ = null;
                       }),
@@ -180,7 +202,10 @@ class _BagScreenState extends State<BagScreen> {
                     const SizedBox(height: 6),
                     const Text('Nothing in this pocket yet.', style: EvochiText.cardTitle),
                     const SizedBox(height: 10),
-                    EvochiButton(label: 'Visit the Market', small: true, expand: false, onPressed: () => TabNav.of(context).go('shop')),
+                    if (_cat == 'pantry')
+                      EvochiButton(label: 'Visit your Garden', small: true, expand: false, tone: ButtonTone.green, onPressed: () => openGarden(context))
+                    else
+                      EvochiButton(label: 'Visit the Market', small: true, expand: false, onPressed: () => TabNav.of(context).go('shop')),
                   ]),
                 )
               else
@@ -282,7 +307,7 @@ class _ItemTile extends StatelessWidget {
               Expanded(child: ItemImage(id, size: 62)),
               Text(it.name, textAlign: TextAlign.center, maxLines: 2, style: EvochiText.tag.copyWith(fontSize: 12, color: EvochiColor.ink)),
             ]),
-            if (it.category != ItemCategory.wearable)
+            if (it.category != ItemCategory.wearable && (qty > 1 || it.isStackable))
               Positioned(
                 right: 0,
                 top: 0,
@@ -342,26 +367,50 @@ class _Detail extends StatelessWidget {
             onPressed: eq ? () => c.run((s, n) => g.unequip(s, it.slot!)) : null,
           ),
         ];
+      case ItemCategory.consumable when it.growth > 0:
+        tag = 'Garden';
+        acts = [EvochiButton(label: 'Use in Garden', small: true, tone: ButtonTone.green, onPressed: () => openGarden(context))];
       case ItemCategory.consumable:
-        tag = 'Care';
+        tag = it.kind == 'meal' ? 'Homemade' : 'Care';
         final cool = it.recovery && pv.recoveryReadyAt > c.now;
+        final treatOpen = it.treat && !g.treatGivenToday(c.state, c.view.today);
+        final full = pv.vitality.vitality >= 100 && !treatOpen;
         acts = [
           EvochiButton(
-            label: 'Use',
+            label: it.treat ? 'Give' : 'Use',
             small: true,
             tone: ButtonTone.green,
-            onPressed: cool || pv.dead || pv.vitality.vitality >= 100
+            onPressed: cool || pv.dead || full
                 ? null
                 : () {
-                    if (c.run((s, n) => g.useConsumable(s, id, n)).ok) {
-                      scene.react('pet');
-                      c.toast('+${it.vitality} vitality', icon: 'heart');
-                      c.audio.play('reward_chime', volume: 0.6);
-                    }
+                    final r = c.run((s, n) => g.useConsumable(s, id, n));
+                    if (!r.ok) return;
+                    final used = r.events.where((e) => e.type == 'used').firstOrNull;
+                    final vit = (used?.data['vitality'] as int?) ?? 0;
+                    final treat = r.events.any((e) => e.type == 'treat');
+                    scene.react(treat ? 'play' : 'pet');
+                    c.toast(treat ? '${pet.name} loved the ${it.name}!${vit > 0 ? ' +$vit vitality' : ''}' : '+$vit vitality', icon: 'heart');
+                    c.audio.play(treat ? 'pet_chirp' : 'reward_chime', volume: 0.6);
                   },
           ),
           const SizedBox(height: 6),
-          Text(pv.vitality.vitality >= 100 ? 'Vitality full' : (cool ? 'Cooling down' : 'Vitality ${pv.vitality.vitality}'), style: EvochiText.caption, textAlign: TextAlign.center),
+          Text(full ? 'Vitality full' : (cool ? 'Cooling down' : (treatOpen ? 'Treat: Bond +1' : 'Vitality ${pv.vitality.vitality}')), style: EvochiText.caption, textAlign: TextAlign.center),
+        ];
+      case ItemCategory.seed:
+        tag = 'Seed';
+        acts = [
+          EvochiButton(label: 'Plant', small: true, tone: ButtonTone.green, onPressed: () => openGarden(context)),
+          const SizedBox(height: 6),
+          Text('Farming Lv ${h.cropDefs[it.crop]?.level ?? 1}', style: EvochiText.caption, textAlign: TextAlign.center),
+        ];
+      case ItemCategory.ingredient:
+        tag = 'Ingredient';
+        final room = h.recipesUsing(id).map((r) => r.station).where((st) => h.stationOpen(c.state, st)).firstOrNull;
+        acts = [
+          if (room != null)
+            EvochiButton(label: h.stationDefs[room]!.verb, small: true, onPressed: () => openStation(context, room))
+          else
+            EvochiButton(label: 'Cottage', small: true, tone: ButtonTone.cream, onPressed: () => openCottage(context)),
         ];
       case ItemCategory.decoration:
         tag = 'Decoration';
@@ -401,12 +450,17 @@ class _Detail extends StatelessWidget {
             Text(it.name, style: EvochiText.cardTitle),
             const SizedBox(height: 4),
             Wrap(spacing: 4, runSpacing: 4, children: [
-              Tag(tag),
+              Tag(tag, icon: _catIcon[it.category]),
               if (it.isStory) const StoryRewardTag(small: true) else Tag(it.rarity[0].toUpperCase() + it.rarity.substring(1), tone: TagTone.ok, icon: 'care'),
             ]),
             const SizedBox(height: 4),
             Text(it.desc, style: EvochiText.caption.copyWith(color: EvochiColor.textSecondary)),
             storySourceLine(id),
+            if (it.category == ItemCategory.ingredient && h.recipesUsing(id).isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(top: 3),
+                child: Text('Used in: ${h.recipesUsing(id).map((r) => item(r.makes).name).join(', ')}', style: EvochiText.caption.copyWith(fontSize: 11)),
+              ),
           ]),
         ),
         const SizedBox(width: 8),

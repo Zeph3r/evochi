@@ -223,5 +223,223 @@
     "originQuest": "vq03",
     "tradable": false,
     "sellable": false
+  },
+  "seed_sunberry": {
+    "name": "Sunberry Seeds",
+    "category": "seed",
+    "crop": "sunberry",
+    "price": 8,
+    "rarity": "common",
+    "stackable": true,
+    "shop": "garden",
+    "desc": "Plant in a garden bed. Ripe in about 20 minutes, and sooner when you walk. Farming Lv 1."
+  },
+  "seed_meadow_carrot": {
+    "name": "Carrot Seeds",
+    "category": "seed",
+    "crop": "meadow_carrot",
+    "price": 10,
+    "rarity": "common",
+    "stackable": true,
+    "shop": "garden",
+    "desc": "Crunchy Meadow Carrots in about 45 minutes. Farming Lv 1."
+  },
+  "seed_golden_wheat": {
+    "name": "Wheat Seeds",
+    "category": "seed",
+    "crop": "golden_wheat",
+    "price": 12,
+    "rarity": "common",
+    "stackable": true,
+    "shop": "garden",
+    "desc": "Golden Wheat for tarts and buns, ready in about 1.5 hours. Farming Lv 2."
+  },
+  "seed_glowleaf": {
+    "name": "Glowleaf Seeds",
+    "category": "seed",
+    "crop": "glowleaf",
+    "price": 20,
+    "rarity": "uncommon",
+    "stackable": true,
+    "shop": "garden",
+    "desc": "A softly shining herb for tonics. Slow growing: about 3 hours. Farming Lv 3."
+  },
+  "seed_moonshroom": {
+    "name": "Moonshroom Spores",
+    "category": "seed",
+    "crop": "moonshroom",
+    "price": 35,
+    "rarity": "rare",
+    "stackable": true,
+    "shop": "garden",
+    "desc": "Speckled mushrooms that glow at dusk. Takes about 6 hours. Farming Lv 5."
+  },
+  "sunberry": {
+    "name": "Sunberry",
+    "category": "ingredient",
+    "price": null,
+    "rarity": "common",
+    "stackable": true,
+    "shop": null,
+    "acquisition": "home",
+    "desc": "Sweet, sun-warm berries from your own garden."
+  },
+  "meadow_carrot": {
+    "name": "Meadow Carrot",
+    "category": "ingredient",
+    "price": null,
+    "rarity": "common",
+    "stackable": true,
+    "shop": null,
+    "acquisition": "home",
+    "desc": "A crunchy orange carrot with a leafy top."
+  },
+  "golden_wheat": {
+    "name": "Golden Wheat",
+    "category": "ingredient",
+    "price": null,
+    "rarity": "common",
+    "stackable": true,
+    "shop": null,
+    "acquisition": "home",
+    "desc": "A bundle of golden wheat, ready for the oven."
+  },
+  "glowleaf": {
+    "name": "Glowleaf",
+    "category": "ingredient",
+    "price": null,
+    "rarity": "uncommon",
+    "stackable": true,
+    "shop": null,
+    "acquisition": "home",
+    "desc": "A minty herb that glows faintly. The heart of every tonic."
+  },
+  "moonshroom": {
+    "name": "Moonshroom",
+    "category": "ingredient",
+    "price": null,
+    "rarity": "rare",
+    "stackable": true,
+    "shop": null,
+    "acquisition": "home",
+    "desc": "A speckled violet mushroom with a soft night-time shimmer."
+  },
+  "sunberry_tart": {
+    "name": "Sunberry Tart",
+    "category": "consumable",
+    "kind": "meal",
+    "price": null,
+    "rarity": "uncommon",
+    "stackable": true,
+    "shop": null,
+    "acquisition": "home",
+    "effect": {
+      "vitality": 8,
+      "treat": true
+    },
+    "desc": "Baked in your Cottage oven. Restores 8 vitality, and a homemade treat adds Bond once a day."
+  },
+  "carrot_stew": {
+    "name": "Carrot Stew",
+    "category": "consumable",
+    "kind": "meal",
+    "price": null,
+    "rarity": "common",
+    "stackable": true,
+    "shop": null,
+    "acquisition": "home",
+    "effect": {
+      "vitality": 6,
+      "treat": true
+    },
+    "desc": "A warm bowl of stew. Restores 6 vitality; a homemade treat adds Bond once a day."
+  },
+  "golden_bun": {
+    "name": "Golden Bun",
+    "category": "consumable",
+    "kind": "meal",
+    "price": null,
+    "rarity": "common",
+    "stackable": true,
+    "shop": null,
+    "acquisition": "home",
+    "effect": {
+      "vitality": 5,
+      "treat": true
+    },
+    "desc": "A soft wheat bun, still warm. Restores 5 vitality; a homemade treat adds Bond once a day."
+  },
+  "moonshroom_pie": {
+    "name": "Moonshroom Pie",
+    "category": "consumable",
+    "kind": "meal",
+    "price": null,
+    "rarity": "rare",
+    "stackable": true,
+    "shop": null,
+    "acquisition": "home",
+    "effect": {
+      "vitality": 14,
+      "treat": true
+    },
+    "desc": "A savoury pie with a shimmering crust. Restores 14 vitality; a homemade treat adds Bond once a day."
+  },
+  "glowleaf_tonic": {
+    "name": "Glowleaf Tonic",
+    "category": "consumable",
+    "kind": "potion",
+    "price": null,
+    "rarity": "uncommon",
+    "stackable": true,
+    "shop": null,
+    "acquisition": "home",
+    "effect": {
+      "vitality": 10
+    },
+    "desc": "A gentle mint-green tonic. Restores 10 vitality. Some old friends of the forest love it."
+  },
+  "meadow_tea": {
+    "name": "Meadow Tea",
+    "category": "consumable",
+    "kind": "potion",
+    "price": null,
+    "rarity": "common",
+    "stackable": true,
+    "shop": null,
+    "acquisition": "home",
+    "effect": {
+      "vitality": 6,
+      "treat": true
+    },
+    "desc": "Calming herb tea. Restores 6 vitality; a homemade treat adds Bond once a day."
+  },
+  "sprout_tonic": {
+    "name": "Sprout Tonic",
+    "category": "consumable",
+    "kind": "garden",
+    "price": null,
+    "rarity": "uncommon",
+    "stackable": true,
+    "shop": null,
+    "acquisition": "home",
+    "effect": {
+      "growth": 0.5
+    },
+    "desc": "Pour on a growing bed in your Garden: it grows half its time at once (once per planting)."
+  },
+  "moonlight_draught": {
+    "name": "Moonlight Draught",
+    "category": "consumable",
+    "kind": "potion",
+    "price": null,
+    "rarity": "rare",
+    "stackable": true,
+    "shop": null,
+    "acquisition": "home",
+    "effect": {
+      "vitality": 20,
+      "recovery": true
+    },
+    "desc": "A deep-blue draught full of tiny stars. Restores 20 vitality (12h cooldown, like a Healing Herb)."
   }
 }

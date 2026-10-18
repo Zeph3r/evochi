@@ -1,5 +1,7 @@
 // Navigation: onboarding gate -> five-tab shell. Tabs keep their own state (IndexedStack);
 // nested screens (Inspect, Evolution, Settings) push on top and return to the initiating tab.
+// The Village (lib/features/village) and Home Tales (lib/features/home: Home Map, Garden, Cottage,
+// Kitchen / Apothecary, Skills) push named routes on top of the shell from their own open* helpers.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -12,6 +14,9 @@ import '../features/nest/nest_screen.dart';
 import '../features/onboarding/onboarding_screens.dart';
 import '../features/shared/widgets.dart';
 import '../features/shop/shop_screen.dart';
+
+/// The app's root navigator, so app-wide listeners (the Skill-up card) can open dialogs.
+final rootNavigatorKey = GlobalKey<NavigatorState>();
 
 class RootGate extends StatelessWidget {
   const RootGate({super.key});

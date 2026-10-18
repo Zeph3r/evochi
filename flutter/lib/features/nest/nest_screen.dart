@@ -11,6 +11,7 @@ import '../../controllers/game_controller.dart';
 import '../../core/utils/day_keys.dart';
 import '../../game/engine.dart' as g;
 import '../../game/vitality/vitality.dart';
+import '../home/home_widgets.dart';
 import '../onboarding/onboarding_screens.dart' show EvolutionStrip;
 import '../pet/pet_screens.dart';
 import '../settings/settings_screen.dart';
@@ -265,37 +266,48 @@ class _NestHud extends StatelessWidget {
     final v = c.view;
     return Padding(
       padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          TitleImage('wordmark_evochi', height: 40, label: 'Evochi - ${c.state.pet!.name}\'s nest'),
-          const SizedBox(height: 10),
-          Semantics(
-            button: true,
-            label: 'Sunlit Meadow - arrange decorations',
-            child: GestureDetector(
-              onTap: () => showHabitatSheet(context),
-              child: Container(
-                height: 36,
-                padding: const EdgeInsets.fromLTRB(6, 0, 10, 0),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: const Color(0xFFE7D3BC), width: 2),
-                  color: const Color(0xFFFFF9F0),
-                  boxShadow: const [BoxShadow(color: Color(0xFFCDB396), offset: Offset(0, 3))],
+      child: Row(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+        Flexible(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            TitleImage('wordmark_evochi', height: 40, label: 'Evochi - ${c.state.pet!.name}\'s nest'),
+            const SizedBox(height: 10),
+            Semantics(
+              button: true,
+              label: 'Sunlit Meadow - arrange decorations',
+              child: GestureDetector(
+                onTap: () => showHabitatSheet(context),
+                child: Container(
+                  height: 36,
+                  padding: const EdgeInsets.fromLTRB(6, 0, 10, 0),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: const Color(0xFFE7D3BC), width: 2),
+                    color: const Color(0xFFFFF9F0),
+                    boxShadow: const [BoxShadow(color: Color(0xFFCDB396), offset: Offset(0, 3))],
+                  ),
+                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                    VoxelIcon('pin', size: 24),
+                    SizedBox(width: 4),
+                    Text('Sunlit Meadow', style: EvochiText.cardTitle),
+                    Text('  ›', style: EvochiText.cardTitle),
+                  ]),
                 ),
-                child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                  VoxelIcon('pin', size: 24),
-                  SizedBox(width: 4),
-                  Text('Sunlit Meadow', style: EvochiText.cardTitle),
-                  Text('  ›', style: EvochiText.cardTitle),
-                ]),
               ),
             ),
-          ),
-          const SizedBox(height: 8),
-          _VisitVillageButton(attention: c.storyAttention > 0),
-        ]),
-        const Spacer(),
+            const SizedBox(height: 8),
+            // the trip row: Explore Home (Home Tales) and Visit Village, scaled down on narrow phones
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                _ExploreHomeButton(attention: c.homeAttention),
+                const SizedBox(width: 8),
+                _VisitVillageButton(attention: c.storyAttention > 0, short: MediaQuery.of(context).size.width < 400),
+              ]),
+            ),
+          ]),
+        ),
+        const SizedBox(width: 8),
         Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
           CoinPill(balance: v.balance, onPlus: () => showCoinsInfo(context)),
           const SizedBox(height: 10),
@@ -312,10 +324,47 @@ class _NestHud extends StatelessWidget {
   }
 }
 
+/// Opens the Home Map (Home Tales). The dot means a bed is ripe, the starter seeds are waiting, or the
+/// Cottage is ready to restore.
+class _ExploreHomeButton extends StatelessWidget {
+  const _ExploreHomeButton({required this.attention});
+  final bool attention;
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: 'Explore Home${attention ? ', something new' : ''}',
+        child: GestureDetector(
+          onTap: () {
+            context.read<GameController>().audio.play('ui_tap', volume: 0.4);
+            openHomeMap(context);
+          },
+          child: Stack(clipBehavior: Clip.none, children: [
+            Container(
+              height: 44,
+              padding: const EdgeInsets.fromLTRB(6, 0, 12, 0),
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFF5C9340), width: 2),
+                gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFD5EDB4), Color(0xFFA6D27D)]),
+                boxShadow: const [BoxShadow(color: Color(0xFF4F7E37), offset: Offset(0, 3)), BoxShadow(color: Color(0x333C2314), blurRadius: 8, offset: Offset(0, 4))],
+              ),
+              child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                VoxelIcon('home_map', size: 28),
+                SizedBox(width: 6),
+                Text('Explore Home', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15, color: EvochiColor.ink)),
+              ]),
+            ),
+            if (attention) const Positioned(top: -6, right: -6, child: BadgeDot()),
+          ]),
+        ),
+      );
+}
+
 /// Opens Sunlit Village (Village Tales). The dot means a villager has something for you.
 class _VisitVillageButton extends StatelessWidget {
-  const _VisitVillageButton({required this.attention});
+  const _VisitVillageButton({required this.attention, this.short = false});
   final bool attention;
+  final bool short;
   @override
   Widget build(BuildContext context) => Semantics(
         button: true,
@@ -335,10 +384,10 @@ class _VisitVillageButton extends StatelessWidget {
                 gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFE3B98B), Color(0xFFC69469)]),
                 boxShadow: const [BoxShadow(color: Color(0xFF6E4529), offset: Offset(0, 3)), BoxShadow(color: Color(0x333C2314), blurRadius: 8, offset: Offset(0, 4))],
               ),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                VoxelIcon('habitats', size: 28),
-                SizedBox(width: 6),
-                Text('Visit Village', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15, color: EvochiColor.ink)),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const VoxelIcon('habitats', size: 28),
+                const SizedBox(width: 6),
+                Text(short ? 'Village' : 'Visit Village', style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15, color: EvochiColor.ink)),
               ]),
             ),
             if (attention) const Positioned(top: -6, right: -6, child: BadgeDot()),

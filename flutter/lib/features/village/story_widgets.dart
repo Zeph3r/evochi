@@ -1,5 +1,6 @@
-// Village Tales, Chapter 1: shared story UI. Quest details, the reward card, the Journey > Story tab,
-// the Bag > Quest Pouch and the Home story chip (Quest Bible §8). Mirrors web/src/screens/village.js.
+// Village Tales: shared story UI. Quest details, the reward cards (story items, or Home Tales gifts
+// and unlocks), the Journey > Story tab (Chapter 1, Home Tales, side stories), the Bag > Quest Pouch
+// and the Home story chip (Quest Bible §8). Mirrors web/src/screens/village.js.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -9,7 +10,10 @@ import '../../controllers/game_controller.dart';
 import '../../core/models/catalog.dart';
 import '../../core/services/asset_manifest.dart';
 import '../../game/engine.dart' as g;
+import '../../game/home/home.dart' as h;
 import '../../game/story/story.dart' as q;
+import '../home/home_widgets.dart';
+import '../pet/pet_screens.dart';
 import '../shared/widgets.dart';
 import 'village_screen.dart';
 
@@ -30,7 +34,23 @@ const speakers = <String, Speaker>{
   'waystone': Speaker('The Waystone', '', Color(0xFF6E8A7E)),
 };
 
-String npcLabel(String id) => id == 'waystone' ? 'the Waystone' : q.npcs[id]!.name;
+String npcLabel(String id) => id == 'waystone' ? 'the Waystone' : (id == 'cottage' ? 'your Cottage' : q.npcs[id]!.name);
+
+const _unlockIcon = {'Cottage': 'home_map', 'Kitchen': 'skill_cooking', 'Apothecary': 'skill_alchemy'};
+
+/// "Village Tales, Chapter 1 · Quest 01", "Home Tales · Quest 01" or "Side story · optional".
+String questLead(q.StoryQuestView v) {
+  final n = v.n.toString().padLeft(2, '0');
+  if (v.line == 'home') return 'Home Tales · Quest $n';
+  if (v.line == 'side') return 'Side story · optional';
+  return '${q.chapterName} · Quest $n';
+}
+
+/// "Grow 3 Sunberries (1/3)" for the items still missing from a hand-in.
+String _gatherText(List<q.ItemNeed> needs) => needs.where((x) => !x.ok).map((x) {
+      final src = h.homeSource(x.id);
+      return '${src?.verb ?? 'Find'} ${x.need} ${h.itemLabel(x.id, x.need)} (${x.have}/${x.need})';
+    }).join(', ');
 
 /// A villager's sprite (they face right, toward the player; [flip] mirrors one to face left).
 class NpcImage extends StatelessWidget {
@@ -61,8 +81,16 @@ String nextText(q.StoryQuestView v) {
       return v.walk.todayDone
           ? 'Day ${v.walk.qualified}/${v.walk.days} done. Walk again tomorrow'
           : 'Walk ${fmt(v.resolved)} steps today (day ${v.walk.qualified + 1} of ${v.walk.days})';
+    case 'gather':
+      return _gatherText(n.needs);
+    case 'grow':
+      return 'Visit once your Evochi has grown into a ${stageLabel(n.stage)}';
     case 'handin':
-      return n.npc == 'waystone' ? 'Restore the Waystone in the Square' : '${n.label} to ${npcLabel(n.npc!)}';
+      if (n.npc == 'waystone') return 'Restore the Waystone in the Square';
+      if (n.npc == 'cottage') return 'Restore the Cottage on your Home Map';
+      final label = n.label ?? '';
+      if (label.contains(' to ')) return label;
+      return RegExp(r'^(Give|Bring|Hand)').hasMatch(label) ? '$label to ${npcLabel(n.npc!)}' : label;
   }
   return '';
 }
@@ -72,17 +100,39 @@ Widget storyStatusTag(q.StoryQuestView v) {
   if (v.phase == 'locked') return Tag('Lv ${v.level}', tone: TagTone.neutral, icon: 'lock');
   if (v.phase == 'available') return const Tag('New', tone: TagTone.stage);
   if (v.next.kind == 'handin') return const Tag('Ready', tone: TagTone.ok);
+  if (v.next.kind == 'grow') return const Tag('Needs a Juvenile', tone: TagTone.warn);
   if (v.paused) return const Tag('Paused', tone: TagTone.warn);
   return const Tag('In progress');
 }
 
-/// Walking progress: a bar for single walks, day markers plus today's bar for multi-day walks.
+/// Walking progress: a bar for single walks, day markers plus today's bar for multi-day walks. Once
+/// the walk is done (or for quests without one), a small counter per item still needed.
 class WalkProgress extends StatelessWidget {
   const WalkProgress(this.v, {super.key});
   final q.StoryQuestView v;
   @override
   Widget build(BuildContext context) {
     if (!v.accepted || v.completed) return const SizedBox.shrink();
+    if (!v.hasWalk || v.next.kind != 'walk') {
+      // item objectives (harvests, homemade food): one small counter per item still needed
+      final its = v.objectives.where((o) => o.item != null && !o.done).toList();
+      if (its.isEmpty) return const SizedBox.shrink();
+      return Wrap(spacing: 10, runSpacing: 6, children: [
+        for (final o in its)
+          Semantics(
+            label: '${item(o.item!).name}: ${o.have} of ${o.need}',
+            child: ExcludeSemantics(
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                ItemImage(o.item!, size: 26),
+                const SizedBox(width: 4),
+                SizedBox(width: 56, child: ProgressBarX(value: o.need == 0 ? 1 : o.have / o.need, height: 8, tone: o.ready ? 'green' : 'amber')),
+                const SizedBox(width: 4),
+                Text('${o.have}/${o.need}', style: EvochiText.tag.copyWith(fontSize: 12, color: o.ready ? EvochiColor.healthy : EvochiColor.textSecondary)),
+              ]),
+            ),
+          ),
+      ]);
+    }
     final w = v.walk;
     if (w.type == 'incremental') {
       return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -148,6 +198,8 @@ class RewardChips extends StatelessWidget {
   Widget build(BuildContext context) => Wrap(spacing: 6, runSpacing: 6, children: [
         for (final id in r.items) _Chip(image: ItemImage(id, size: 30), label: item(id).name, story: true),
         if (r.coins > 0) _Chip(image: const VoxelIcon('coin', size: 30), label: '${r.coins}'),
+        for (final e in r.gifts.entries) _Chip(image: ItemImage(e.key, size: 30), label: '${e.value} × ${item(e.key).name}'),
+        for (final u in r.unlocks) _Chip(image: VoxelIcon(_unlockIcon[u] ?? 'star', size: 30), label: 'Unlocks $u', story: true),
         for (final t in r.titles) _Chip(image: const VoxelIcon('crown', size: 30), label: 'Title: ${q.titles[t]}'),
       ]);
 }
@@ -181,26 +233,7 @@ Future<void> showStoryQuest(BuildContext context, String qid) {
   return showEvochiSheet<void>(context, builder: (sheet) {
     final c = sheet.watch<GameController>();
     final v = q.questView(c.state, qid, c.now);
-    final n = v.next;
-    Widget? go;
-    if (n.kind == 'talk' || n.kind == 'handin' || n.kind == 'locked') {
-      go = EvochiButton(
-        label: 'Go to ${q.places[n.place]!.name}',
-        onPressed: () {
-          Navigator.pop(sheet);
-          openPlace(context, n.place!);
-        },
-      );
-    } else if (n.kind == 'walk') {
-      go = EvochiButton(
-        label: 'Go for a walk',
-        tone: ButtonTone.green,
-        onPressed: () {
-          Navigator.pop(sheet);
-          c.goTab('journey', journey: 'daily');
-        },
-      );
-    }
+    final go = v.completed ? null : _questGo(context, sheet, c, v);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
       Center(child: Container(width: 44, height: 5, margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: const Color(0xFFDCC6AE), borderRadius: BorderRadius.circular(3)))),
       Row(children: [
@@ -208,7 +241,7 @@ Future<void> showStoryQuest(BuildContext context, String qid) {
         const SizedBox(width: 10),
         Expanded(
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            Text('${q.chapterName} · Quest ${v.n.toString().padLeft(2, '0')}', style: EvochiText.caption),
+            Text(questLead(v), style: EvochiText.caption),
             Semantics(header: true, child: Text(v.title, style: EvochiText.section)),
             const SizedBox(height: 4),
             Wrap(spacing: 6, runSpacing: 4, children: [Tag('Lv ${v.level}+'), storyStatusTag(v)]),
@@ -264,6 +297,44 @@ Future<void> showStoryQuest(BuildContext context, String qid) {
   });
 }
 
+/// The quest card's main button: where to go next (a walk, your Garden or Kitchen, a villager...).
+Widget? _questGo(BuildContext context, BuildContext sheet, GameController c, q.StoryQuestView v) {
+  final n = v.next;
+  Widget button(String label, VoidCallback go, {ButtonTone tone = ButtonTone.gold}) => EvochiButton(
+        label: label,
+        tone: tone,
+        onPressed: () {
+          Navigator.pop(sheet);
+          go();
+        },
+      );
+  if (n.kind == 'walk') return button('Go for a walk', () => c.goTab('journey', journey: 'daily'), tone: ButtonTone.green);
+  if (n.kind == 'gather') {
+    final miss = n.needs.where((x) => !x.ok).firstOrNull;
+    final src = miss == null ? null : h.homeSource(miss.id);
+    if (src != null) {
+      final where = src.route == 'station' ? src.station! : 'garden';
+      return button('Go to your ${src.place}', () => goHome(context, where), tone: ButtonTone.green);
+    }
+  }
+  if (n.kind == 'grow') {
+    return button('Check on your Evochi', () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PetDetailsScreen())), tone: ButtonTone.cream);
+  }
+  if (n.place == 'cottage') return button('Go to your Cottage', () => goHome(context, 'cottage'));
+  if (v.phase == 'locked' && (v.lock?.needSkills.isNotEmpty ?? false)) return button('Open Skills', () => goHome(context, 'skills'), tone: ButtonTone.cream);
+  if (const {'talk', 'handin', 'locked', 'gather', 'grow'}.contains(n.kind)) {
+    final place = q.places[n.place];
+    return button('Go to ${place?.name ?? 'the Village'}', () {
+      if (place != null) {
+        openPlace(context, place.id, npc: n.npc != null && n.npc != 'waystone' ? n.npc : null);
+      } else {
+        openVillage(context);
+      }
+    });
+  }
+  return null;
+}
+
 class _ObjectiveRow extends StatelessWidget {
   const _ObjectiveRow({required this.o, required this.now});
   final q.ObjectiveView o;
@@ -305,13 +376,18 @@ class _ObjectiveRow extends StatelessWidget {
 
 // ------------------------------------------------------------------- reward card ----
 /// "Quest complete!" with the story reward, Equip now / Place in Nest, then back to the Village.
+/// Quests that pay out gifts and unlocks instead (Home Tales, side stories) get [_homeRewardCard].
 Future<void> showStoryReward(BuildContext context, String qid, {bool backToVillage = true}) async {
   final c = context.read<GameController>();
   final quest = q.storyQuests[qid]!;
-  final id = quest.rewards.items.first;
-  final it = item(id);
   c.run((s, n) => q.markCompletionSeen(s, qid), quiet: true);
   c.audio.play('reward_chime');
+  if (quest.rewards.items.isEmpty) {
+    await _homeRewardCard(context, quest, backToVillage: backToVillage);
+    return;
+  }
+  final id = quest.rewards.items.first;
+  final it = item(id);
   await showDialog<void>(
     context: context,
     barrierDismissible: false,
@@ -342,7 +418,7 @@ Future<void> showStoryReward(BuildContext context, String qid, {bool backToVilla
                 ),
               ),
               const SizedBox(height: 8),
-              Text('${q.chapterName} · Quest ${quest.n.toString().padLeft(2, '0')}', style: EvochiText.caption, textAlign: TextAlign.center),
+              Text(questLead(q.questView(s, qid, c.now)), style: EvochiText.caption, textAlign: TextAlign.center),
               Text(quest.title, style: EvochiText.section, textAlign: TextAlign.center),
               const SizedBox(height: 16),
               Stack(clipBehavior: Clip.none, alignment: Alignment.topCenter, children: [
@@ -406,6 +482,91 @@ Future<void> showStoryReward(BuildContext context, String qid, {bool backToVilla
   if (backToVillage && context.mounted) returnToVillage(context);
 }
 
+/// Reward card for quests that pay out gifts, unlocks and titles instead of one story item.
+Future<void> _homeRewardCard(BuildContext context, q.StoryQuest quest, {required bool backToVillage}) async {
+  final r = quest.rewards;
+  final room = r.unlocks.contains('Apothecary') ? 'apothecary' : (r.unlocks.contains('Kitchen') ? 'kitchen' : null);
+  String? goTo;
+  await showDialog<void>(
+    context: context,
+    barrierDismissible: false,
+    barrierColor: const Color(0x8C201B17),
+    builder: (d) => Dialog(
+      backgroundColor: EvochiColor.canvas,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: SingleChildScrollView(
+          child: Builder(builder: (d) {
+            final c = d.watch<GameController>();
+            return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              const GoldBanner('Quest complete!'),
+              const SizedBox(height: 8),
+              Text(questLead(q.questView(c.state, quest.id, c.now)), style: EvochiText.caption, textAlign: TextAlign.center),
+              Text(quest.title, style: EvochiText.section, textAlign: TextAlign.center),
+              if (r.unlocks.isNotEmpty) ...[
+                const SizedBox(height: 16),
+                Stack(clipBehavior: Clip.none, alignment: Alignment.topCenter, children: [
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(14, 20, 14, 14),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: const Color(0xFFE8B956), width: 3),
+                      gradient: const RadialGradient(center: Alignment(0, -0.3), radius: 0.9, colors: [Color(0xFFFFF6DA), Color(0xFFFFF9F0)]),
+                      boxShadow: const [BoxShadow(color: Color(0xFFFFF1C9), spreadRadius: 4), BoxShadow(color: Color(0xFFD9A84A), offset: Offset(0, 4))],
+                    ),
+                    child: Wrap(alignment: WrapAlignment.center, spacing: 14, runSpacing: 8, children: [
+                      for (final u in r.unlocks)
+                        Column(mainAxisSize: MainAxisSize.min, children: [VoxelIcon(_unlockIcon[u] ?? 'star', size: 74), Text(u, style: EvochiText.cardTitle)]),
+                    ]),
+                  ),
+                  Positioned(
+                    top: -13,
+                    child: Container(
+                      height: 26,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(9), border: Border.all(color: const Color(0xFFE8B956), width: 2), color: const Color(0xFFFFF9F0)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const VoxelIcon('star', size: 16),
+                        const SizedBox(width: 4),
+                        Text('UNLOCKED', style: EvochiText.tag.copyWith(color: EvochiColor.gold900, fontSize: 12, letterSpacing: 0.4)),
+                      ]),
+                    ),
+                  ),
+                ]),
+              ],
+              const SizedBox(height: 12),
+              Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
+                if (r.coins > 0) Tag('+${r.coins}', tone: TagTone.stage, icon: 'coin'),
+                for (final e in r.gifts.entries) ItemCountChip(id: e.key, label: '${e.value} × ${item(e.key).name}'),
+                for (final t in r.titles) Tag('Title: ${q.titles[t]}', tone: TagTone.ok, icon: 'crown'),
+              ]),
+              const SizedBox(height: 12),
+              if (room != null) ...[
+                EvochiButton(
+                  label: 'Open your ${room == 'kitchen' ? 'Kitchen' : 'Apothecary'}',
+                  onPressed: () {
+                    goTo = room;
+                    Navigator.pop(d);
+                  },
+                ),
+                const SizedBox(height: 8),
+              ],
+              EvochiButton(label: backToVillage ? 'Back to Village' : 'Done', tone: room != null ? ButtonTone.cream : ButtonTone.gold, onPressed: () => Navigator.pop(d)),
+            ]);
+          }),
+        ),
+      ),
+    ),
+  );
+  if (!context.mounted) return;
+  if (goTo != null) {
+    goHome(context, goTo!);
+  } else if (backToVillage) {
+    returnToVillage(context);
+  }
+}
+
 // -------------------------------------------------------------- Journey > Story ----
 class StoryTab extends StatelessWidget {
   const StoryTab({super.key});
@@ -443,9 +604,18 @@ class StoryTab extends StatelessWidget {
       ),
       const SizedBox(height: 10),
       for (final v in st.quests) StoryQuestCard(v: v),
+      const SizedBox(height: 6),
+      const SectionHead('Home Tales'),
+      for (final v in st.home) StoryQuestCard(v: v),
+      const SizedBox(height: 6),
+      const SectionHead('Side stories', trailing: Tag('Optional')),
+      for (final v in st.side) StoryQuestCard(v: v),
       const Padding(
         padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
-        child: Text('Story walks only count steps taken after you accept a quest. Rest days never break them, and nothing expires.', style: EvochiText.caption),
+        child: Text(
+          'Story walks only count steps taken after you accept a quest. Rest days never break them, and nothing expires. Side stories never block the main story.',
+          style: EvochiText.caption,
+        ),
       ),
     ]);
   }
