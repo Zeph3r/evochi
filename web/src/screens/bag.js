@@ -8,22 +8,28 @@ import { coinPill, nav, titleImg, rarityTag } from '../core/app.js';
 import { petScene, openHabitatSheet } from './home.js';
 import { pouchGrid, pouchDetail, storySourceTag } from './village.js';
 import { QUEST_MATERIALS } from '../game/story.js';
+import { CROPS, RECIPES, STATIONS, stationOpen } from '../game/home.js';
+import { goHome } from './homeland.js';
 
 const CATS = [
   { id: 'wearable', label: 'Wear', icon: 'wearables', aria: 'Wearables' },
   { id: 'consumable', label: 'Care', icon: 'consumables', aria: 'Consumables' },
   { id: 'decoration', label: 'Decor', icon: 'decorations', aria: 'Decorations' },
+  { id: 'pantry', label: 'Pantry', icon: 'skill_farming', aria: 'Pantry: seeds and ingredients' },
   { id: 'pouch', label: 'Pouch', icon: 'journey', aria: 'Quest Pouch' },
 ];
+const PANTRY = ['seed', 'ingredient'];
 const STAR = '<svg class="stag" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5l2.9 6 6.6.8-4.9 4.5 1.3 6.5L12 17l-5.9 3.3 1.3-6.5L2.5 9.3l6.6-.8z" fill="#F4B84E" stroke="#80531F" stroke-width="1.4" stroke-linejoin="round"/></svg>';
 const SLOT_UI = { head: 'Head', back: 'Back', neck: 'Accessory' };
 
 function owned(state, cat) {
+  const cats = cat === 'pantry' ? PANTRY : [cat];
   return Object.entries(state.inventory)
-    .filter(([id, v]) => v.quantity > 0 && ITEMS[id] && ITEMS[id].category === cat)
+    .filter(([id, v]) => v.quantity > 0 && ITEMS[id] && cats.includes(ITEMS[id].category))
     .map(([id]) => id)
-    .sort((a, b) => ITEMS[a].name.localeCompare(ITEMS[b].name));
+    .sort((a, b) => cats.indexOf(ITEMS[a].category) - cats.indexOf(ITEMS[b].category) || ITEMS[a].name.localeCompare(ITEMS[b].name));
 }
+const inCat = (it, cat) => (cat === 'pantry' ? PANTRY.includes(it.category) : it.category === cat);
 
 export const bag = {
   id: 'bag',
@@ -88,7 +94,7 @@ export const bag = {
       const have = Object.keys(QUEST_MATERIALS).filter((id) => (ctx.d.story?.pouch[id] || 0) > 0);
       if (!have.includes(u.selQ)) u.selQ = have[0] || null;
     }
-    if (u.sel && (!ITEMS[u.sel] || ITEMS[u.sel].category !== cat || !G.ownedQty(s, u.sel))) u.sel = null;
+    if (u.sel && (!ITEMS[u.sel] || !inCat(ITEMS[u.sel], cat) || !G.ownedQty(s, u.sel))) u.sel = null;
     if (!u.sel && list.length && cat !== 'wearable') u.sel = list[0];
     if (!u.sel && cat === 'wearable') u.sel = Object.values(p.equipped || {})[0] || list[0] || null;
     const sel = u.sel;
@@ -107,7 +113,7 @@ export const bag = {
       })}
       <div class="spacer hero-space bag-hero" aria-hidden="true"></div>
       <section class="bag-sheet">
-        <div class="tabs" role="tablist" aria-label="Categories" style="grid-template-columns:repeat(4,minmax(0,1fr))">
+        <div class="tabs five" role="tablist" aria-label="Categories" style="grid-template-columns:repeat(5,minmax(0,1fr))">
           ${CATS.map((c) => html`<button class="tab" role="tab" aria-selected="${c.id === cat}" data-act="cat" data-arg="${c.id}" data-k="cat-${c.id}" aria-label="${c.aria || c.label}"><img src="${icon(c.icon)}" alt=""><span>${c.label}</span>${c.id === 'wearable' && newWear ? raw('<i class="badge-dot" style="top:-4px;right:-4px"></i>') : ''}</button>`)}
         </div>
         <div class="sheet-bg bag-inner">
@@ -119,7 +125,7 @@ export const bag = {
               const placed = it.category === 'decoration' && Object.values(s.nest.placements).includes(id);
               const story = it.acquisition === 'story';
               return html`<button class="tile ${story ? 'story-tile' : ''}" role="listitem" aria-pressed="${sel === id}" data-act="sel" data-arg="${id}" data-k="t-${id}" aria-label="${it.name}${q > 1 ? `, ${q} owned` : ''}${eq ? ', equipped' : ''}${placed ? ', placed' : ''}">
-                ${story ? raw(STAR) : ''}<img src="${itemImg(id)}" alt="">${it.category !== 'wearable' && (q > 1 || it.category === 'consumable') ? html`<span class="qty">x${q}</span>` : ''}${eq || placed ? html`<span class="eq" aria-hidden="true">${ICON.check}</span>` : ''}<span class="nm">${it.name}</span></button>`;
+                ${story ? raw(STAR) : ''}<img src="${itemImg(id)}" alt="">${it.category !== 'wearable' && (q > 1 || it.category === 'consumable' || it.stackable) ? html`<span class="qty">x${q}</span>` : ''}${eq || placed ? html`<span class="eq" aria-hidden="true">${ICON.check}</span>` : ''}<span class="nm">${it.name}</span></button>`;
             }) : html`<div class="empty" style="grid-column:1/-1"><img src="${icon(CATS.find((c) => c.id === cat).icon)}" alt="" width="54" height="54" style="opacity:.6"><p class="body" style="margin:6px 0 10px"><b>Nothing in this pocket yet.</b></p><button class="btn sm" data-act="shop" data-k="bag-shop">Visit the Market</button></div>`}
           </div>
           ${pouch ? (u.selQ ? pouchDetail(ctx, u.selQ) : '') : sel ? detail(ctx, sel) : ''}
@@ -178,10 +184,15 @@ export const bag = {
     use(ctx, id) {
       const r = ctx.act(G.useConsumable, id);
       if (!r.error) {
-        ctx.toast(`+${ITEMS[id].effect.vitality} vitality`, 'ok', 'heart');
-        ctx.scene.react('pet');
-        ctx.sfx('reward_chime', 0.6);
+        const used = r.events.find((e) => e.type === 'used');
+        const treat = r.events.find((e) => e.type === 'treat');
+        ctx.toast(treat ? `${ctx.state.pet.name} loved the ${ITEMS[id].name}!${used.vitality ? ` +${used.vitality} vitality` : ''}` : `+${used.vitality} vitality`, 'ok', 'heart');
+        ctx.scene.react(treat ? 'play' : 'pet');
+        ctx.sfx(treat ? 'pet_chirp' : 'reward_chime', 0.6);
       }
+    },
+    home(ctx, where) {
+      goHome(ctx, where);
     },
     place(ctx, id) {
       const s = ctx.state;
@@ -205,7 +216,7 @@ export const bag = {
     },
     shop(ctx) {
       const u = ctx.ui('bag');
-      ctx.app.ui.shop = { ...(ctx.app.ui.shop || {}), cat: u.cat === 'consumable' ? 'care' : u.cat === 'decoration' ? 'habitats' : 'wearables' };
+      ctx.app.ui.shop = { ...(ctx.app.ui.shop || {}), cat: u.cat === 'consumable' ? 'care' : u.cat === 'decoration' ? 'habitats' : u.cat === 'pantry' ? 'garden' : 'wearables' };
       ctx.app.tab('shop');
     },
   },
@@ -223,11 +234,27 @@ function detail(ctx, id) {
     tag = SLOT_UI[it.slot];
     acts = html`<button class="btn sm" data-act="equip" data-arg="${id}" ${eq ? raw('disabled') : ''} data-k="d-equip">${ICON.shirt}<span>${eq ? 'Equipped' : 'Equip'}</span></button>
       <button class="btn sm cream" data-act="unequip" data-arg="${it.slot}" ${eq ? '' : raw('disabled')} data-k="d-remove">${ICON.trash}<span>Remove</span></button>`;
+  } else if (it.category === 'consumable' && it.effect.growth) {
+    tag = 'Garden';
+    acts = html`<button class="btn sm green" data-act="home" data-arg="garden" data-k="d-garden">Use in Garden</button>`;
   } else if (it.category === 'consumable') {
-    tag = 'Care';
+    tag = it.kind === 'meal' ? 'Homemade' : 'Care';
     const cool = it.effect.recovery && d.pet.recoveryReadyAt > ctx.now;
-    acts = html`<button class="btn sm green" data-act="use" data-arg="${id}" ${cool || d.pet.dead || d.pet.vitality >= 100 ? raw('disabled') : ''} data-k="d-use">Use</button>
-      <span class="tiny muted center">${d.pet.vitality >= 100 ? 'Vitality full' : cool ? 'Cooling down' : `Vitality ${d.pet.vitality}`}</span>`;
+    const treatOpen = it.effect.treat && !(p.bondEvents || []).some((e) => e.key === d.today && e.type === 'treat');
+    const full = d.pet.vitality >= 100 && !treatOpen;
+    acts = html`<button class="btn sm green" data-act="use" data-arg="${id}" ${cool || d.pet.dead || full ? raw('disabled') : ''} data-k="d-use">${it.effect.treat ? 'Give' : 'Use'}</button>
+      <span class="tiny muted center">${full ? 'Vitality full' : cool ? 'Cooling down' : treatOpen ? 'Treat: Bond +1' : `Vitality ${d.pet.vitality}`}</span>`;
+  } else if (it.category === 'seed') {
+    tag = 'Seed';
+    const C = CROPS[it.crop];
+    acts = html`<button class="btn sm green" data-act="home" data-arg="garden" data-k="d-plant">Plant</button>
+      <span class="tiny muted center">Farming Lv ${C.level}</span>`;
+  } else if (it.category === 'ingredient') {
+    tag = 'Ingredient';
+    const uses = Object.values(RECIPES).filter((R) => R.needs[id]);
+    const room = uses.map((R) => R.station).find((st) => stationOpen(s, st));
+    acts = room ? html`<button class="btn sm" data-act="home" data-arg="${room}" data-k="d-cook">${STATIONS[room].verb}</button>`
+      : html`<button class="btn sm cream" data-act="home" data-arg="cottage" data-k="d-cottage">Cottage</button>`;
   } else {
     tag = 'Decoration';
     const placed = Object.values(s.nest.placements).filter((v) => v === id).length;
@@ -238,7 +265,16 @@ function detail(ctx, id) {
   return html`<div class="card detail" aria-live="polite">
     <div class="pic"><img src="${itemImg(id)}" alt=""></div>
     <div style="min-width:0"><b class="h-card">${it.name}</b>
-      <div class="row" style="gap:4px;margin:4px 0;flex-wrap:wrap"><span class="tag small cream"><img src="${icon(it.category === 'wearable' ? 'wearables' : it.category === 'consumable' ? 'consumables' : 'decorations')}" alt="">${tag}</span>${rarityTag(id)}</div>
-      <div class="small" style="color:var(--ink-700)">${it.desc}</div>${storySourceTag(id) ? html`<div style="margin-top:4px">${storySourceTag(id)}</div>` : ''}</div>
+      <div class="row" style="gap:4px;margin:4px 0;flex-wrap:wrap"><span class="tag small cream"><img src="${icon(CAT_ICON[it.category] || 'decorations')}" alt="">${tag}</span>${rarityTag(id)}</div>
+      <div class="small" style="color:var(--ink-700)">${it.desc}</div>${storySourceTag(id) ? html`<div style="margin-top:4px">${storySourceTag(id)}</div>` : ''}${usedIn(id)}</div>
     <div class="acts">${acts}</div></div>`;
+}
+
+const CAT_ICON = { wearable: 'wearables', consumable: 'consumables', decoration: 'decorations', seed: 'skill_farming', ingredient: 'skill_cooking' };
+
+function usedIn(id) {
+  if (ITEMS[id].category !== 'ingredient') return '';
+  const uses = Object.values(RECIPES).filter((R) => R.needs[id]);
+  if (!uses.length) return '';
+  return html`<div class="tiny muted" style="margin-top:3px">Used in: ${uses.map((R) => ITEMS[R.makes].name).join(', ')}</div>`;
 }

@@ -379,6 +379,11 @@ if __name__ == '__main__':
     packed = all(n.endswith('.npz') for n in names)
     if not packed:
         import village_scenes as VS2      # needs scipy/cv2/PIL; packed scenes need only numpy
+        try:
+            import home_scenes                # the Home Map, Garden, Kitchen and Apothecary
+            VS2.SCENES.update(home_scenes.SCENES)
+        except ImportError as e:
+            print('home scenes unavailable:', e, flush=True)
         if names == ['all']:
             names = list(VS2.SCENES)
     raw_dir = raw_dir or out

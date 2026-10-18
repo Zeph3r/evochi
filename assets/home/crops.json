@@ -1,0 +1,21 @@
+{
+ "w": 640,
+ "h": 520,
+ "ground": [
+  320.0,
+  334.7
+ ],
+ "bedW": 563.2,
+ "stages": [
+  "sprout",
+  "growing",
+  "ripe"
+ ],
+ "crops": [
+  "sunberry",
+  "meadow_carrot",
+  "golden_wheat",
+  "glowleaf",
+  "moonshroom"
+ ]
+}

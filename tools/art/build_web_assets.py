@@ -297,8 +297,81 @@ def build_village(src, out):
     print('village packed', flush=True)
 
 
+HOME_ITEMS = ['sunberry', 'meadow_carrot', 'golden_wheat', 'glowleaf', 'moonshroom', 'seed_sunberry', 'seed_meadow_carrot',
+              'seed_golden_wheat', 'seed_glowleaf', 'seed_moonshroom', 'sunberry_tart', 'carrot_stew', 'golden_bun',
+              'moonshroom_pie', 'glowleaf_tonic', 'meadow_tea', 'sprout_tonic', 'moonlight_draught', 'q_sturdy_timber']
+HOME_ICONS = ['skill_farming', 'skill_cooking', 'skill_alchemy', 'home_map']
+
+
+def build_home(src, out):
+    """Home: the Home Map (cottage ruined / restored), the Garden with its bed anchors, the Kitchen and
+    Apothecary rooms, the crop sprites (one shared canvas) and the new item and UI icons. Updates the
+    manifest in place (--home-only)."""
+    mp = os.path.join(out, 'manifest.json')
+    man = json.load(open(mp))
+    Hs = os.path.join(src, 'home')
+    os.makedirs(os.path.join(out, 'home'), exist_ok=True)
+    smeta = json.load(open(os.path.join(Hs, 'scenes.json')))
+    k = 2 / 3
+
+    def scene(name, q=84):
+        im = Image.open(os.path.join(Hs, f'{name}.png')).convert('RGB')
+        im = im.resize((round(im.width * k), round(im.height * k)), Image.LANCZOS)
+        fn = f'home/{name}.webp'
+        im.save(os.path.join(out, fn), 'WEBP', quality=q, method=6)
+        return fn, im.width, im.height
+
+    def anchors(name):
+        return {a: [round(v[0] * k, 1), round(v[1] * k, 1)] for a, v in smeta[name]['anchors'].items()}
+
+    hm = {'map': {}, 'garden': {}, 'rooms': {}, 'crops': {}, 'cottage': {}}
+    for st in ('ruined', 'restored'):
+        fn, w, h = scene(f'home_map_{st}')
+        hm['map'][st] = fn
+        hm['map']['w'], hm['map']['h'] = w, h
+    hm['map']['anchors'] = anchors('home_map_ruined')
+    fn, w, h = scene('garden')
+    hm['garden'] = {'file': fn, 'w': w, 'h': h, 'anchors': anchors('garden')}
+    for room in ('kitchen', 'apothecary'):
+        fn, w, h = scene(room)
+        hm['rooms'][room] = {'file': fn, 'w': w, 'h': h}
+    if all(os.path.exists(os.path.join(Hs, f'cottage_{st}.png')) for st in ('ruined', 'restored')):
+        for st in ('ruined', 'restored'):
+            fn, w, h = scene(f'cottage_{st}')
+            hm['cottage'][st] = fn
+            hm['cottage']['w'], hm['cottage']['h'] = w, h
+    cm = json.load(open(os.path.join(Hs, 'crops.json')))
+    cs = 0.6
+    files = {}
+    for crop in cm['crops']:
+        files[crop] = {}
+        for stage in cm['stages']:
+            im = Image.open(os.path.join(Hs, f'crop_{crop}_{stage}.png'))
+            im = im.resize((round(im.width * cs), round(im.height * cs)), Image.LANCZOS)
+            fn = f'home/crop_{crop}_{stage}.webp'
+            webp(im, os.path.join(out, fn), 90)
+            files[crop][stage] = fn
+    hm['crops'] = {'w': round(cm['w'] * cs), 'h': round(cm['h'] * cs), 'ground': [round(v * cs, 1) for v in cm['ground']],
+                   'bedW': round(cm['bedW'] * cs, 1), 'files': files}
+    man['home'] = hm
+    for key in HOME_ITEMS:
+        im = Image.open(os.path.join(src, 'items', f'item_{key}_icon.png')).resize((168, 168), Image.LANCZOS)
+        fn = f'items/{key}.webp'
+        webp(im, os.path.join(out, fn), 90)
+        man['items'][key] = fn
+    for key in HOME_ICONS:
+        im = Image.open(os.path.join(src, 'ui_icons', f'icon_{key}.png')).resize((112, 112), Image.LANCZOS)
+        fn = f'icons/{key}.webp'
+        webp(im, os.path.join(out, fn), 90)
+        man['icons'][key] = fn
+    json.dump(man, open(mp, 'w'), indent=1)
+    print('home packed', flush=True)
+
+
 if __name__ == '__main__':
-    if len(sys.argv) > 2 and sys.argv[-1] == '--thumbs-only':
+    if len(sys.argv) > 2 and sys.argv[-1] == '--home-only':
+        build_home(sys.argv[1], sys.argv[2])
+    elif len(sys.argv) > 2 and sys.argv[-1] == '--thumbs-only':
         build_thumbs(sys.argv[1], sys.argv[2])
     elif len(sys.argv) > 2 and sys.argv[-1] == '--village-only':
         build_village(sys.argv[1], sys.argv[2])

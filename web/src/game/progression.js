@@ -185,7 +185,8 @@ export function bondValue(events) {
     const id = e.key + ':' + e.type;
     if (seen.has(id)) continue;
     seen.add(id);
-    let amt = e.type === 'pet' ? B.firstPet : e.type === 'play' ? B.firstPlay : e.type === 'goal' ? B.goalCelebration : 0;
+    let amt = e.type === 'pet' ? B.firstPet : e.type === 'play' ? B.firstPlay : e.type === 'goal' ? B.goalCelebration
+      : e.type === 'treat' ? (B.treat || 0) : 0;
     if (e.type === 'pet' || e.type === 'play') {
       const used = perDay.get(e.key) || 0;
       amt = Math.max(0, Math.min(amt, B.directDailyCap - used));

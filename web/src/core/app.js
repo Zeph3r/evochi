@@ -3,7 +3,8 @@ import { setLook } from '../ui/puppet.js';
 import * as G from '../game/state.js';
 import { CONFIG } from '../game/config.js';
 import { ITEMS } from '../game/catalog.js';
-import { QUEST_MATERIALS, QUESTS } from '../game/story.js';
+import { QUEST_MATERIALS, QUESTS, NPCS } from '../game/story.js';
+import { SKILLS, CROPS, itemLabel } from '../game/home.js';
 import { html, raw, esc, fmt, $, $$ } from '../ui/dom.js';
 import { icon, itemImg, title, url, hydrateSprites, manifest } from '../ui/assets.js';
 import { ICON } from '../ui/icons.js';
@@ -136,7 +137,19 @@ export class App {
       not_for_sale: ['Story rewards are earned, never sold', 'warn', 'star'],
       story_locked: [res.message || 'Not unlocked yet', 'warn', 'lock'],
       story_not_ready: ['Not ready yet - keep going!', 'warn', 'journey'],
-      story_missing_items: ['Something is missing from your Quest Pouch', 'warn', 'journey'],
+      story_missing_items: [res.missing?.length ? `You still need ${res.missing.map((x) => `${x.need - x.have} more ${itemLabel(x.id, x.need - x.have)}`).join(' and ')}` : 'Something is missing from your Quest Pouch', 'warn', 'journey'],
+      story_needs_stage: ['Your Evochi needs to grow into a Juvenile first', 'warn', 'evolve'],
+      plot_locked: [`This bed opens at Farming Lv ${res.need || 4}`, 'warn', 'lock'],
+      plot_busy: ['Something is already growing here', 'warn', 'skill_farming'],
+      crop_locked: [`Reach Farming Lv ${res.need || 2} to grow this`, 'warn', 'lock'],
+      no_seed: ['No seeds left - get more in the Market', 'warn', 'shop'],
+      not_ripe: ['Not ripe yet - a walk will speed it up', 'warn', 'steps'],
+      tonic_used: ['This bed already had a Sprout Tonic', 'warn', 'potion'],
+      already_ripe: ['Already ripe - harvest it!', 'ok', 'skill_farming'],
+      station_locked: ['That room is not open yet', 'warn', 'lock'],
+      recipe_locked: [`Reach ${SKILLS[res.skill]?.name || 'your skill'} Lv ${res.need || 2} to learn this recipe`, 'warn', 'lock'],
+      missing_ingredients: ['Some ingredients are missing', 'warn', 'skill_farming'],
+      use_in_garden: ['Use this on a garden bed', 'warn', 'skill_farming'],
     };
     const [m, k, i] = M[res.error] || ['Something went wrong - please try again', 'err', 'warning'];
     this.toast(m, k, i);
@@ -368,10 +381,27 @@ export class App {
           break;
         }
         case 'story_ready':
-          if (ev.npc && ev.npc !== 'waystone') {
-            const who = { npc_mira: 'Mira', npc_bram: 'Bram', npc_pip: 'Pip', npc_alder: 'Alder' }[ev.npc];
-            this.toast(`${who} is ready for you in Sunlit Village`, 'ok', 'pin');
-          } else if (ev.npc === 'waystone') this.toast('The Waystone is ready to wake', 'ok', 'star');
+          if (ev.npc === 'cottage') this.toast('Bram has the roof up! Restore your Cottage on the Home Map', 'ok', 'home_map');
+          else if (ev.kind === 'gather') this.toast(`${esc(QUESTS[ev.questId].title)}: now gather what ${NPCS[ev.npc]?.name || 'they'} asked for`, 'ok', 'skill_farming');
+          else if (ev.npc && NPCS[ev.npc]) this.toast(`${NPCS[ev.npc].name} is ready for you in Sunlit Village`, 'ok', 'pin');
+          else if (ev.npc === 'waystone') this.toast('The Waystone is ready to wake', 'ok', 'star');
+          break;
+        case 'harvested': {
+          const parts = Object.entries(ev.items).map(([id, n]) => `+${n} ${itemLabel(id, n)}`).join(', ');
+          this.toast(esc(parts), 'ok', 'item:' + Object.keys(ev.items)[0]);
+          break;
+        }
+        case 'planted':
+          this.toast(`${esc(CROPS[ev.crop].name)} planted`, 'ok', 'item:' + CROPS[ev.crop].seed);
+          break;
+        case 'watered':
+          this.toast('Watered! +15% growth', 'ok', 'skill_farming');
+          break;
+        case 'tonic_used':
+          this.toast('Sprout Tonic! +50% growth', 'ok', 'item:sprout_tonic');
+          break;
+        case 'skill_up':
+          this.skillUp(ev);
           break;
         case 'story_completed':
           this.store.track('story_quest_completed', { quest: ev.questId });
@@ -382,6 +412,23 @@ export class App {
         default:
       }
     }
+  }
+
+  skillUp(ev) {
+    const S = SKILLS[ev.skill];
+    this.sfx('level_up');
+    const pic = (m) => (m.kind === 'crop' || m.kind === 'recipe' ? itemImg(m.id) : m.kind === 'plot' ? icon('skill_farming') : icon('journey'));
+    const kind = { crop: 'New crop', plot: 'New bed', recipe: 'New recipe', quest: 'Story' };
+    this.openModal({
+      center: true,
+      label: `${S.name} level ${ev.level}`,
+      render: () => html`<div class="stack center skill-up">
+        <img src="${icon(S.icon)}" alt="" width="92" height="92" style="margin:0 auto">
+        <div class="story-banner">${S.name} Lv ${ev.level}!</div>
+        ${ev.unlocks.length ? html`<div class="stack" style="gap:6px">${ev.unlocks.map((m) => html`<div class="card inset row" style="padding:8px 10px;gap:10px;text-align:left"><img src="${pic(m)}" alt="" width="40" height="40"><div><div class="tiny muted">${kind[m.kind]}</div><b class="small">${m.label}</b></div></div>`)}</div>`
+          : html`<p class="body" style="margin:0">Keep going: the next unlock is on your Skills chart.</p>`}
+        <button class="btn block" data-act="modal-close" data-autofocus>Wonderful!</button></div>`,
+    });
   }
 
   // ------------------------------------------------------------ toasts

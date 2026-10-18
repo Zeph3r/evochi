@@ -7,6 +7,8 @@ import { html, raw, fmt, timeAgo } from '../ui/dom.js';
 import { icon, url, manifest } from '../ui/assets.js';
 import { ICON } from '../ui/icons.js';
 import { titleImg } from '../core/app.js';
+import * as H from '../game/home.js';
+import * as Q from '../game/story.js';
 
 const ZONES = ['UTC', 'America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York', 'America/Sao_Paulo',
   'Europe/London', 'Europe/Berlin', 'Africa/Lagos', 'Asia/Kolkata', 'Asia/Singapore', 'Asia/Tokyo', 'Australia/Sydney'];
@@ -82,6 +84,13 @@ export const settings = {
             <button class="btn sm cream" data-act="dev" data-arg="evolve" data-k="dv3">Fast-track evolution</button>
             <button class="btn sm cream" data-act="dev" data-arg="skip" data-k="dv4">Skip 3 idle days</button>
             <button class="btn sm cream" data-act="dev" data-arg="herbs" data-k="dv5">+3 Healing Herbs</button>
+          </div>
+          <div class="setting" style="padding-top:0"><div class="grow"><div class="t">Home Tales</div><div class="d">Garden, Cottage, Kitchen, Apothecary and Skills.</div></div></div>
+          <div class="row" style="padding:0 12px 12px;gap:6px;flex-wrap:wrap">
+            <button class="btn sm cream" data-act="dev" data-arg="hour" data-k="dv7">Skip 1 hour</button>
+            <button class="btn sm cream" data-act="dev" data-arg="hometales" data-k="dv8">Skip to Home Tales</button>
+            <button class="btn sm cream" data-act="dev" data-arg="pantry" data-k="dv9">+ Seeds and ingredients</button>
+            <button class="btn sm cream" data-act="dev" data-arg="skills" data-k="dv10">+1 level, every skill</button>
           </div>
         </section>
         <p class="small muted center" style="margin:4px 0 0">${ctx.store.cloud?.status === 'on' ? 'Saved to your account and this device.' : 'Saved on this device.'} Evochi web preview - spec v1.0 - config ${CONFIG.version}${ctx.store.storageOk ? '' : ' - storage unavailable, progress kept in memory'}</p>
@@ -219,6 +228,31 @@ export const settings = {
         s.inventory.healing_herb = cur;
         store.replace(s);
       }
+      if (what === 'hour') {
+        skipTime(store, HOUR);
+        ctx.toast('An hour passed (no steps)', 'ok', 'skill_farming');
+      }
+      if (what === 'hometales') {
+        const r = homeTalesReady(store);
+        ctx.toast(r ? 'Chapter 1 quest 1 done and level 2 reached: Bram has a job for you' : 'Home Tales are already open', 'ok', 'home_map');
+      }
+      if (what === 'pantry') {
+        const s = structuredClone(store.state);
+        const add = { seed_sunberry: 3, seed_meadow_carrot: 3, seed_golden_wheat: 3, seed_glowleaf: 2, seed_moonshroom: 2, sunberry: 6, meadow_carrot: 4, golden_wheat: 4, glowleaf: 4, moonshroom: 4 };
+        for (const [id, n] of Object.entries(add)) G.grantItem(s, id, n, 'playtest', store.now(), null);
+        store.replace(s);
+        ctx.toast('Seeds and ingredients added to Bag > Pantry', 'ok', 'skill_farming');
+      }
+      if (what === 'skills') {
+        const s = structuredClone(store.state);
+        H.ensureHome(s);
+        for (const k of H.SKILL_ORDER) {
+          const v = H.skillLevel(s.home.skills[k]);
+          if (!v.maxed) s.home.skills[k] += v.need - v.into;
+        }
+        store.replace(s);
+        ctx.toast('Every skill went up a level', 'ok', 'star');
+      }
       if (what === 'skip') {
         advance(store, 3, 0);
         ctx.toast('Skipped 3 days without steps', 'warn', 'warning');
@@ -245,6 +279,36 @@ export const settings = {
     },
   },
 };
+
+/** Move the preview clock forward (crops grow, cooldowns tick) without any steps. */
+export function skipTime(store, ms) {
+  let s = structuredClone(store.state);
+  s.debug.clockOffset = (s.debug.clockOffset || 0) + ms;
+  s = G.syncSteps(s, [], Date.now() + s.debug.clockOffset).state;
+  store.replace(s);
+}
+
+/** Playtest: finish Chapter 1's first quest (with its reward) and reach account level 2. */
+function homeTalesReady(store) {
+  const s = structuredClone(store.state);
+  const S = Q.ensureStory(s);
+  const now = store.now();
+  let changed = false;
+  if (S.questStates.vq01?.phase !== 'completed') {
+    S.questStates.vq01 = { phase: 'completed', acceptedAt: now - HOUR, completedAt: now, resolvedSteps: 2000, seenCompletion: true, tracked: false };
+    for (const id of ['q_dawn_dew_vial', 'q_lumenbud_sprig']) delete S.questPouch[id];
+    S.flags.lamp_lit = true;
+    Q.grantStoryRewardOnce(s, 'vq01', now);
+    if (S.activeQuestId === 'vq01') S.activeQuestId = null;
+    changed = true;
+  }
+  if (Q.accountLevel(s) < 2) {
+    S.peakLevel = 2;
+    changed = true;
+  }
+  if (changed) store.replace(s);
+  return changed;
+}
 
 /** Walk `ratio` x goal on each of `days` days, advancing the preview clock one day at a time. */
 function advance(store, days, ratio, quiet = false) {

@@ -3,6 +3,7 @@
 // story quests live in Journey > Story, quest items in Bag > Quest Pouch.
 import * as G from '../game/state.js';
 import * as Q from '../game/story.js';
+import * as H from '../game/home.js';
 import { ITEMS, STORY_SOURCE, DECOR_SLOTS } from '../game/catalog.js';
 import { html, raw, fmt } from '../ui/dom.js';
 import { icon, itemImg, url, manifest } from '../ui/assets.js';
@@ -18,6 +19,12 @@ const SPEAKER = {
   npc_alder: { name: 'Alder', role: 'the Mapmaker', col: '#43523D' },
   waystone: { name: 'The Waystone', role: '', col: '#6E8A7E' },
 };
+const UNLOCK_ICON = { Cottage: 'home_map', Kitchen: 'skill_cooking', Apothecary: 'skill_alchemy' };
+export function questLead(v) {
+  if (v.line === 'home') return `Home Tales · Quest ${String(v.n).padStart(2, '0')}`;
+  if (v.line === 'side') return 'Side story · optional';
+  return `${Q.CHAPTER.name} · Quest ${String(v.n).padStart(2, '0')}`;
+}
 const PLACE_ICON = { glasshouse: 'care', workshop: 'bell', lodge: 'mail', waystone: 'star' };
 
 function V() {
@@ -34,7 +41,33 @@ export function storyItemImg(id) {
   return itemImg(id);
 }
 function npcName(id) {
-  return id === 'waystone' ? 'the Waystone' : SPEAKER[id].name;
+  return id === 'waystone' ? 'the Waystone' : id === 'cottage' ? 'your Cottage' : SPEAKER[id].name;
+}
+
+/** "Grow 3 Sunberries (1/3)" for the items still missing from a hand-in. */
+function gatherText(needs) {
+  return needs.filter((x) => !x.ok).map((x) => {
+    const src = H.homeSource(x.id);
+    return `${src ? src.verb : 'Find'} ${x.need} ${H.itemLabel(x.id, x.need)} (${x.have}/${x.need})`;
+  }).join(', ');
+}
+
+/** Where the quest card's main button should take the player. */
+function questGo(v) {
+  const n = v.next;
+  if (n.kind === 'walk') return { act: 'sq-walk', label: 'Go for a walk', cls: 'green' };
+  if (n.kind === 'gather') {
+    const miss = n.needs.find((x) => !x.ok);
+    const src = H.homeSource(miss.id);
+    if (src) return { act: 'sq-home', arg: src.route === 'station' ? src.station : 'garden', label: `Go to your ${src.place}`, cls: 'green' };
+  }
+  if (n.kind === 'grow') return { act: 'sq-pet', label: 'Check on your Evochi', cls: 'cream' };
+  if (n.place === 'cottage') return { act: 'sq-home', arg: 'cottage', label: 'Go to your Cottage' };
+  if (v.phase === 'locked' && v.lock?.needSkills && Object.keys(v.lock.needSkills).length) return { act: 'sq-home', arg: 'skills', label: 'Open Skills', cls: 'cream' };
+  if (n.kind === 'talk' || n.kind === 'handin' || n.kind === 'locked' || n.kind === 'gather' || n.kind === 'grow') {
+    return { act: 'sq-go', arg: n.place, label: `Go to ${n.place && Q.PLACES[n.place] ? Q.PLACES[n.place].name : 'the Village'}` };
+  }
+  return null;
 }
 
 /** One line for "what to do next" on a quest. */
@@ -49,7 +82,14 @@ export function nextText(v) {
     return v.walk.todayDone ? `Day ${v.walk.qualified}/${v.walk.days} done. Walk again tomorrow`
       : `Walk ${fmt(v.resolved)} steps today (day ${v.walk.qualified + 1} of ${v.walk.days})`;
   }
-  if (n.kind === 'handin') return n.npc === 'waystone' ? 'Restore the Waystone in the Square' : `${n.label} to ${npcName(n.npc)}`;
+  if (n.kind === 'gather') return gatherText(n.needs);
+  if (n.kind === 'grow') return `Visit once your Evochi has grown into a ${['', 'Eggling', 'Juvenile', 'Elder'][n.stage]}`;
+  if (n.kind === 'handin') {
+    if (n.npc === 'waystone') return 'Restore the Waystone in the Square';
+    if (n.npc === 'cottage') return 'Restore the Cottage on your Home Map';
+    if (/ to /.test(n.label)) return n.label;
+    return /^(Give|Bring|Hand)/.test(n.label) ? `${n.label} to ${npcName(n.npc)}` : n.label;
+  }
   return '';
 }
 
@@ -58,12 +98,20 @@ export function statusTag(v) {
   if (v.phase === 'locked') return html`<span class="tag neutral"><img src="${icon('lock')}" alt="">Lv ${v.level}</span>`;
   if (v.phase === 'available') return html`<span class="tag stage">New</span>`;
   if (v.next.kind === 'handin') return html`<span class="tag ok">Ready</span>`;
+  if (v.next.kind === 'grow') return html`<span class="tag warn">Needs a Juvenile</span>`;
   if (v.paused) return html`<span class="tag warn">Paused</span>`;
   return html`<span class="tag cream">In progress</span>`;
 }
 
 export function walkBar(v) {
   if (!v.accepted || v.completed) return '';
+  if (!v.walk || v.next.kind !== 'walk') {
+    // item objectives (harvests, homemade food): one small counter per item still needed
+    const its = v.objectives.filter((o) => o.item && !o.done);
+    if (!its.length) return '';
+    return html`<div class="item-goals">${its.map((o) => html`<span class="item-goal ${o.ready ? 'ok' : ''}"><img src="${itemImg(o.item)}" alt="">
+      <span class="bar ${o.ready ? 'green' : 'amber'}" aria-hidden="true"><i style="width:${(o.have / o.need) * 100}%"></i></span><b>${o.have}/${o.need}</b><span class="sr-only">${ITEMS[o.item].name}</span></span>`)}</div>`;
+  }
   if (v.walk.type === 'incremental') {
     const p = Math.min(1, (v.walk.progress || 0) / v.resolved);
     return html`<div class="bar green" role="progressbar" aria-label="Story walk" aria-valuemin="0" aria-valuemax="${v.resolved}" aria-valuenow="${v.walk.progress || 0}"><i style="width:${p * 100}%"></i></div>
@@ -79,6 +127,8 @@ export function walkBar(v) {
 function rewardChips(r) {
   return html`${(r.items || []).map((id) => html`<span class="reward-chip story"><img src="${itemImg(id)}" alt=""><span>${ITEMS[id].name}</span></span>`)}
     ${r.coins ? html`<span class="reward-chip"><img src="${icon('coin')}" alt=""><span>${r.coins}</span></span>` : ''}
+    ${Object.entries(r.gifts || {}).map(([id, n]) => html`<span class="reward-chip"><img src="${itemImg(id)}" alt=""><span>${n} × ${ITEMS[id].name}</span></span>`)}
+    ${(r.unlocks || []).map((u) => html`<span class="reward-chip unlock"><img src="${icon(UNLOCK_ICON[u] || 'star')}" alt=""><span>Unlocks ${u}</span></span>`)}
     ${(r.titles || []).map((t) => html`<span class="reward-chip"><img src="${icon('crown')}" alt=""><span>Title: ${Q.TITLES[t].name}</span></span>`)}`;
 }
 
@@ -89,13 +139,11 @@ export function openStoryQuest(ctx, qid) {
     label: Q.QUESTS[qid].title,
     render: (c) => {
       const v = Q.questView(c.state, qid, c.now);
-      const n = v.next;
-      const go = n.kind === 'talk' || n.kind === 'handin' || n.kind === 'locked'
-        ? html`<button class="btn block" data-act="sq-go" data-arg="${n.place}" data-k="sq-go">Go to ${n.place ? Q.PLACES[n.place].name : 'the Village'}</button>`
-        : n.kind === 'walk' ? html`<button class="btn green block" data-act="sq-walk" data-k="sq-walk">Go for a walk</button>` : '';
+      const g = v.completed ? null : questGo(v);
+      const go = g ? html`<button class="btn ${g.cls || ''} block" data-act="${g.act}" data-arg="${g.arg || ''}" data-k="sq-go">${g.label}</button>` : '';
       return html`<div class="stack story-modal">
         <div class="row" style="gap:10px"><img src="${npcSprite(Q.QUESTS[qid].giver, v.completed ? 'happy' : 'neutral')}" alt="" class="story-face">
-          <div class="grow"><div class="tiny muted">${Q.CHAPTER.name} · Quest ${String(v.n).padStart(2, '0')}</div>
+          <div class="grow"><div class="tiny muted">${questLead(v)}</div>
             <h2 class="h-sec">${v.title}</h2>
             <div class="row" style="gap:6px;margin-top:4px;flex-wrap:wrap"><span class="tag small cream">Lv ${v.level}+</span>${statusTag(v)}</div></div></div>
         <p class="body" style="margin:0">${v.summary}</p>
@@ -112,7 +160,18 @@ export function openStoryQuest(ctx, qid) {
     actions: {
       'sq-go': (c, place) => {
         c.closeModal();
-        c.go('place', { id: place });
+        const n = Q.questView(c.state, qid, c.now).next;
+        if (place && Q.PLACES[place]) c.go('place', { id: place, npc: n.npc && n.npc !== 'waystone' ? n.npc : undefined });
+        else c.go('village');
+      },
+      'sq-home': (c, where) => {
+        c.closeModal();
+        if (where === 'kitchen' || where === 'apothecary') c.go('station', { id: where });
+        else c.go(where);
+      },
+      'sq-pet': (c) => {
+        c.closeModal();
+        c.go('inspect');
       },
       'sq-walk': (c) => {
         c.closeModal();
@@ -139,14 +198,15 @@ export function openStoryReward(ctx, qid, { then = 'village' } = {}) {
     noDismiss: true,
     render: (c) => {
       const r = q.rewards;
-      const id = r.items[0];
+      const id = (r.items || [])[0];
+      if (!id) return homeRewardCard(c, q, then);
       const it = ITEMS[id];
       const s = c.state;
       const equipped = it.category === 'wearable' && s.pet?.equipped?.[it.slot] === id;
       const placed = it.category === 'decoration' && Object.values(s.nest.placements).includes(id);
       return html`<div class="stack center story-reward">
         <div class="story-banner">Quest complete!</div>
-        <div class="tiny muted">${Q.CHAPTER.name} · Quest ${String(q.n).padStart(2, '0')}</div>
+        <div class="tiny muted">${questLead(Q.questView(c.state, qid, c.now))}</div>
         <h2 class="h-sec" style="margin:0">${q.title}</h2>
         <div class="reward-card">
           <span class="story-tag">${raw(starSvg())}Story reward</span>
@@ -189,8 +249,33 @@ export function openStoryReward(ctx, qid, { then = 'village' } = {}) {
         c.closeModal();
         if (then === 'village') c.go('village');
       },
+      'sr-home': (c, where) => {
+        c.closeModal();
+        if (where === 'kitchen' || where === 'apothecary') c.go('station', { id: where });
+        else c.go(where);
+      },
     },
   });
+}
+
+/** Reward card for quests that pay out gifts, unlocks and titles instead of one story item. */
+function homeRewardCard(c, q, then) {
+  const r = q.rewards;
+  const gifts = Object.entries(r.gifts || {});
+  const room = (r.unlocks || []).includes('Apothecary') ? 'apothecary' : (r.unlocks || []).includes('Kitchen') ? 'kitchen' : null;
+  return html`<div class="stack center story-reward">
+    <div class="story-banner">Quest complete!</div>
+    <div class="tiny muted">${questLead(Q.questView(c.state, q.id, c.now))}</div>
+    <h2 class="h-sec" style="margin:0">${q.title}</h2>
+    ${(r.unlocks || []).length ? html`<div class="reward-card unlocks"><span class="story-tag">${raw(starSvg())}Unlocked</span>
+      <div class="row" style="justify-content:center;gap:14px;flex-wrap:wrap">${r.unlocks.map((u) => html`<span class="unlock-big"><img src="${icon(UNLOCK_ICON[u] || 'star')}" alt="" width="74" height="74"><b class="h-card">${u}</b></span>`)}</div></div>` : ''}
+    <div class="row" style="justify-content:center;gap:8px;flex-wrap:wrap">
+      ${r.coins ? html`<span class="tag stage" style="height:34px;font-size:16px"><img src="${icon('coin')}" alt="" style="width:24px;height:24px">+${r.coins}</span>` : ''}
+      ${gifts.map(([id, n]) => html`<span class="tag cream" style="height:34px;font-size:14px"><img src="${itemImg(id)}" alt="" style="width:26px;height:26px">${n} × ${ITEMS[id].name}</span>`)}
+      ${(r.titles || []).map((t) => html`<span class="tag ok" style="height:34px;font-size:15px"><img src="${icon('crown')}" alt="" style="width:24px;height:24px">Title: ${Q.TITLES[t].name}</span>`)}
+    </div>
+    ${room ? html`<button class="btn block" data-act="sr-home" data-arg="${room}" data-autofocus>Open your ${room === 'kitchen' ? 'Kitchen' : 'Apothecary'}</button>` : ''}
+    <button class="btn ${room ? 'cream' : ''} block" data-act="sr-done" ${room ? '' : raw('data-autofocus')}>${then === 'village' ? 'Back to Village' : 'Done'}</button></div>`;
 }
 
 function starSvg() {
@@ -317,7 +402,7 @@ function currentNode(ctx, npcId) {
 function handinIcons(ctx, ch) {
   if (!ch.act || ch.act.kind !== 'handin') return '';
   const t = Q.QUESTS[ch.act.quest].turnIns.find((x) => x.id === ch.act.turnIn);
-  const items = Object.entries(t.consume || {});
+  const items = [...Object.entries(t.consume || {}), ...Object.entries(t.consumeItems || {})];
   if (!items.length) return '';
   return html`<span class="give">${items.map(([id, n]) => html`<img src="${itemImg(id)}" alt="">${n > 1 ? html`<b>x${n}</b>` : ''}`)}</span>`;
 }
@@ -500,7 +585,9 @@ export const place = {
         if (ch.goto === 'journey') {
           ctx.app.ui.journey = { ...(ctx.app.ui.journey || {}), tab: 'daily' };
           ctx.app.tab('journey');
-        } else ctx.app.go('place', { id: ch.goto }, { replace: true });
+        } else if (ch.goto === 'kitchen' || ch.goto === 'apothecary') ctx.app.go('station', { id: ch.goto });
+        else if (ch.goto === 'garden' || ch.goto === 'cottage') ctx.app.go(ch.goto);
+        else ctx.app.go('place', { id: ch.goto }, { replace: true });
         return;
       }
       if (ch.npc) {
@@ -509,7 +596,7 @@ export const place = {
       }
       if (ch.reward) {
         u.node = null;
-        openStoryReward(ctx, ch.reward);
+        openStoryReward(ctx, ch.reward, { then: Q.QUESTS[ch.reward].line ? 'stay' : 'village' });
         return;
       }
       if (ch.act) {
@@ -559,7 +646,20 @@ export function storyTab(ctx) {
         <div class="small muted">${nextText(v)}</div>
         ${v.accepted && !v.completed ? html`<div style="margin-top:4px">${walkBar(v)}</div>` : ''}</div>
       <span class="chev" aria-hidden="true">&rsaquo;</span></button>`)}</div>
-    <p class="small muted" style="margin:2px 4px">Story walks only count steps taken after you accept a quest. Rest days never break them, and nothing expires.</p>`;
+    <h2 class="h-sec sec-head" style="margin-top:6px">Home Tales</h2>
+    <div class="list">${st.home.map((v) => storyRow(v))}</div>
+    <h2 class="h-sec sec-head" style="margin-top:6px">Side stories <span class="tag small cream" style="margin-left:4px">Optional</span></h2>
+    <div class="list">${st.side.map((v) => storyRow(v))}</div>
+    <p class="small muted" style="margin:2px 4px">Story walks only count steps taken after you accept a quest. Rest days never break them, and nothing expires. Side stories never block the main story.</p>`;
+}
+
+function storyRow(v) {
+  return html`<button class="card story-quest ${v.completed ? 'claimed' : ''}" data-act="story-quest" data-arg="${v.id}" data-k="sq-${v.id}">
+    <img src="${npcSprite(Q.QUESTS[v.id].giver, v.completed ? 'happy' : 'neutral')}" alt="" class="face">
+    <div style="min-width:0;text-align:left"><div class="row" style="gap:6px;flex-wrap:wrap"><span class="t">${v.title}</span>${statusTag(v)}</div>
+      <div class="small muted">${nextText(v)}</div>
+      ${v.accepted && !v.completed ? html`<div style="margin-top:4px">${walkBar(v)}</div>` : ''}</div>
+    <span class="chev" aria-hidden="true">&rsaquo;</span></button>`;
 }
 
 // ------------------------------------------------------------------ Bag > Quest Pouch

@@ -55,6 +55,7 @@ export const CONFIG = {
     firstPlay: 3,
     goalCelebration: 1,
     directDailyCap: 5,
+    treat: 1, // a homemade meal or tea, once a day (outside the pet/play cap)
   },
 
   care: {

@@ -5,14 +5,17 @@ import { html, raw, fmt } from '../ui/dom.js';
 import { icon, itemImg, url, title } from '../ui/assets.js';
 import { ICON } from '../ui/icons.js';
 import { coinPill, nav, rarityTag } from '../core/app.js';
+import { buyMany } from './homeland.js';
+import { CROPS } from '../game/home.js';
 
 const CATS = [
   { id: 'featured', label: 'Featured', icon: 'star' },
   { id: 'wearables', label: 'Wearables', icon: 'wearables' },
   { id: 'care', label: 'Care', icon: 'care' },
   { id: 'habitats', label: 'Habitats', icon: 'habitats' },
+  { id: 'garden', label: 'Garden', icon: 'skill_farming' },
 ];
-const TINT = { wearable: ['bg-gold', 'bg-green', 'bg-blue', 'bg-rose', 'bg-violet'], consumable: ['bg-green'], decoration: ['bg-gold', 'bg-green'] };
+const TINT = { wearable: ['bg-gold', 'bg-green', 'bg-blue', 'bg-rose', 'bg-violet'], consumable: ['bg-green'], decoration: ['bg-gold', 'bg-green'], seed: ['bg-green', 'bg-gold'] };
 
 function listFor(cat) {
   const ids = Object.keys(ITEMS);
@@ -23,6 +26,7 @@ function listFor(cat) {
 function tagFor(it) {
   if (it.category === 'wearable') return [it.slot === 'neck' ? 'Neck' : SLOT_LABEL[it.slot], 'wearables'];
   if (it.category === 'consumable') return ['Care', 'care'];
+  if (it.category === 'seed') return ['Seed', 'skill_farming'];
   return ['Habitat', 'habitats'];
 }
 
@@ -72,8 +76,8 @@ export const shop = {
           <img src="${url(t1.file)}" alt="" style="height:36px;width:auto"><img src="${url(t2.file)}" alt="" style="height:30px;width:auto;margin-top:-4px"></div>
         ${coinPill(ctx)}
       </header>
-      <div class="tabs four" role="tablist" aria-label="Market sections" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:8px;position:relative;z-index:4">
-        ${CATS.map((c) => html`<button class="tab" role="tab" aria-selected="${c.id === cat}" data-act="cat" data-arg="${c.id}" data-k="sc-${c.id}" style="font-size:12.5px;gap:2px;padding:0 3px"><img src="${icon(c.icon)}" alt="" style="width:21px;height:21px"><span>${c.label}</span></button>`)}
+      <div class="tabs five" role="tablist" aria-label="Market sections" style="grid-template-columns:repeat(5,minmax(0,1fr));margin-top:8px;position:relative;z-index:4">
+        ${CATS.map((c) => html`<button class="tab" role="tab" aria-selected="${c.id === cat}" data-act="cat" data-arg="${c.id}" data-k="sc-${c.id}"><img src="${icon(c.icon)}" alt=""><span>${c.label}</span></button>`)}
       </div>
       <div class="shop-stage">
       <section class="card shop-feature" aria-live="polite" aria-label="${it.name}">
@@ -81,7 +85,7 @@ export const shop = {
         <div class="thumb"><img src="${itemImg(id)}" alt=""></div>
         <h2 style="margin-right:64px">${it.name}</h2>
         <p class="desc" style="margin:0 0 6px">${it.desc}</p>
-        <div class="row" style="gap:4px;flex-wrap:wrap"><span class="tag small cream"><img src="${icon(tgi)}" alt="">${it.category === 'wearable' ? 'Wearable' : it.category === 'consumable' ? 'Consumable' : 'Decoration'}</span><span class="tag small cream">${tg}</span>${rarityTag(id)}</div>
+        <div class="row" style="gap:4px;flex-wrap:wrap"><span class="tag small cream"><img src="${icon(tgi)}" alt="">${it.category === 'wearable' ? 'Wearable' : it.category === 'consumable' ? 'Consumable' : it.category === 'seed' ? `Farming Lv ${CROPS[it.crop].level}` : 'Decoration'}</span><span class="tag small cream">${tg}</span>${rarityTag(id)}</div>
         <div class="price-row"><img src="${icon('coin')}" alt="">${fmt(it.price)}${stack && own ? html`<span class="tiny muted" style="margin-left:auto">Owned x${own}</span>` : ''}</div>
         <div class="row" style="gap:8px">
           ${it.category === 'wearable' ? html`<button class="btn sm cream" data-act="try" data-k="try" aria-pressed="${!!u.tryOn}">${ICON.hanger}<span>${u.tryOn ? 'Take off' : 'Try On'}</span></button>` : ''}
@@ -160,31 +164,37 @@ export const shop = {
     buy(ctx) {
       const id = ctx.ui('shop').sel;
       const it = ITEMS[id];
-      const m = { requestId: G.uid('buy'), pending: false };
+      const m = { requestId: G.uid('buy'), pending: false, n: 1 };
+      const multi = it.category === 'seed';
       ctx.modal({
         center: true,
         label: `Buy ${it.name}`,
         render: (c) => html`<div class="stack center">
           <img src="${itemImg(id)}" alt="" width="104" height="104" style="margin:0 auto">
           <h2 class="h-sec">Buy ${it.name}?</h2>
+          ${multi ? html`<div class="qty-pick" role="radiogroup" aria-label="How many">${[1, 3, 5].map((n) => html`<button role="radio" aria-checked="${m.n === n}" data-act="buy-n" data-arg="${n}" ${c.d.balance >= it.price * n ? '' : raw('disabled')}>x${n}<small><img src="${icon('coin')}" alt="">${fmt(it.price * n)}</small></button>`)}</div>` : ''}
           <div class="kv card inset" style="padding:10px 12px;text-align:left">
-            <span>Price</span><b>${fmt(it.price)} EvoCoins</b>
-            <span>Balance after</span><b>${fmt(c.d.balance - it.price)} EvoCoins</b>
+            <span>Price</span><b>${fmt(it.price * m.n)} EvoCoins</b>
+            <span>Balance after</span><b>${fmt(c.d.balance - it.price * m.n)} EvoCoins</b>
           </div>
           ${it.category === 'wearable' ? html`<p class="small muted" style="margin:0">Fits all three forms of the lizard family. Owned by your account and kept forever.</p>` : ''}
-          <button class="btn green block ${m.pending ? 'loading' : ''}" data-act="confirm-buy" data-autofocus ${m.pending ? raw('disabled') : ''}><span>Purchase for ${fmt(it.price)}</span><i class="spinner" style="display:${m.pending ? 'block' : 'none'}"></i></button>
+          <button class="btn green block ${m.pending ? 'loading' : ''}" data-act="confirm-buy" data-autofocus ${m.pending ? raw('disabled') : ''}><span>Purchase${m.n > 1 ? ` ${m.n}` : ''} for ${fmt(it.price * m.n)}</span><i class="spinner" style="display:${m.pending ? 'block' : 'none'}"></i></button>
           <button class="btn cream block" data-act="modal-close">Cancel</button></div>`,
         actions: {
+          'buy-n': (c, n) => {
+            m.n = Number(n);
+            c.app.renderModals();
+          },
           'confirm-buy': (c) => {
             if (m.pending) return; // debounced: one tap only
             m.pending = true;
             c.app.renderModals();
             setTimeout(() => {
-              const r = c.act(G.purchase, id, m.requestId);
+              const r = m.n > 1 ? buyMany(c, id, m.n, m.requestId) : c.act(G.purchase, id, m.requestId);
               c.closeModal();
               if (!r.error) {
-                c.track('item_purchased', { item: id, price: it.price });
-                purchasedModal(c, id);
+                c.track('item_purchased', { item: id, price: it.price * m.n, qty: m.n });
+                purchasedModal(c, id, m.n);
               }
             }, 380);
           },
@@ -194,7 +204,7 @@ export const shop = {
   },
 };
 
-function purchasedModal(ctx, id) {
+function purchasedModal(ctx, id, n = 1) {
   const it = ITEMS[id];
   ctx.scene.react('reward');
   ctx.modal({
@@ -202,8 +212,9 @@ function purchasedModal(ctx, id) {
     label: 'Purchased',
     render: () => html`<div class="stack center">
       <img src="${itemImg(id)}" alt="" width="110" height="110" style="margin:0 auto">
-      <h2 class="h-sec">${it.name} is yours!</h2>
-      <p class="body" style="margin:0">It's waiting in your Bag.</p>
+      <h2 class="h-sec">${n > 1 ? `${n} × ${it.name}` : it.name} ${n > 1 ? 'are' : 'is'} yours!</h2>
+      <p class="body" style="margin:0">${it.category === 'seed' ? 'They\'re in your Bag\'s Pantry.' : 'It\'s waiting in your Bag.'}</p>
+      ${it.category === 'seed' ? html`<button class="btn green block" data-act="plant-now" data-autofocus>Plant now</button>` : ''}
       ${it.category === 'wearable' ? html`<button class="btn block" data-act="equip-now" data-autofocus>${ICON.shirt}<span>Equip now</span></button>` : ''}
       ${it.category === 'decoration' ? html`<button class="btn block" data-act="place-now" data-autofocus>Place in nest</button>` : ''}
       <button class="btn cream block" data-act="modal-close">Keep shopping</button></div>`,
@@ -217,6 +228,10 @@ function purchasedModal(ctx, id) {
           c.app.ui.bag = { cat: 'wearable', sel: id };
           c.app.tab('bag');
         }
+      },
+      'plant-now': (c) => {
+        c.closeModal();
+        c.go('garden');
       },
       'place-now': (c) => {
         c.closeModal();

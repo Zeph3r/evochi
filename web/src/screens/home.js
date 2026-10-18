@@ -93,13 +93,15 @@ export const home = {
     const stepsPct = Math.min(1, d.todaySteps / d.goal);
     const banner = statusBanner(ctx);
     const showCoach = !s.flags.coachDone;
+    const homeNew = !!(d.home && (d.home.ripe || !d.home.starterSeeds || d.story?.cottageReady));
     return html`<main class="screen" aria-label="Home">
       <header class="hud">
         <div>
           <h1 class="sr-only">Evochi - ${p.name}'s nest</h1>
           ${titleImg('wordmark_evochi', 'Evochi', 'wordmark')}
           <button class="loc-pill" data-act="habitat" data-k="loc" aria-label="Sunlit Meadow - arrange decorations"><img src="${icon('pin')}" alt="">Sunlit Meadow<span class="chev" aria-hidden="true">&rsaquo;</span></button>
-          <div><button class="village-btn" data-act="visit-village" data-k="village" aria-label="Visit Sunlit Village${d.story?.attention ? ', something new' : ''}"><img src="${icon('habitats')}" alt="">Visit Village${d.story?.attention ? raw('<i class="badge-dot" aria-hidden="true"></i>') : ''}</button></div>
+          <div class="trip-row"><button class="village-btn home-btn" data-act="explore-home" data-k="explore" aria-label="Explore Home${homeNew ? ', something new' : ''}"><img src="${icon('home_map')}" alt="">Explore Home${homeNew ? raw('<i class="badge-dot" aria-hidden="true"></i>') : ''}</button>
+            <button class="village-btn" data-act="visit-village" data-k="village" aria-label="Visit Sunlit Village${d.story?.attention ? ', something new' : ''}"><img src="${icon('habitats')}" alt=""><span class="vlong">Visit Village</span><span class="vshort" aria-hidden="true">Village</span>${d.story?.attention ? raw('<i class="badge-dot" aria-hidden="true"></i>') : ''}</button></div>
         </div>
         <div class="hud-col">
           ${coinPill(ctx)}
@@ -251,6 +253,10 @@ export const home = {
       const s = structuredClone(ctx.store.state);
       s.flags.coachDone = true;
       ctx.store.replace(s);
+    },
+    'explore-home'(ctx) {
+      ctx.sfx('ui_tap', 0.4);
+      ctx.go('homemap');
     },
     'story-chip'(ctx, id) {
       openStoryQuest(ctx, id);

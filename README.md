@@ -5,7 +5,7 @@
 
 | Folder | What it is |
 |---|---|
-| `web/` | The playable build: every screen, all the game rules, 40 engine, QA and story tests (`npm test`) and an inline build (`node build.mjs`). |
+| `web/` | The playable build: every screen, all the game rules, 56 engine, QA, story and home tests (`npm test`) and an inline build (`node build.mjs`). |
 | `flutter/` | The iOS/Android client, organised per §21. It has not been compiled yet; see its README. |
 | `assets/` | Master art (PNG) and audio (WAV), named per the §21 convention. |
 | `tools/art/` | The Python voxel pipeline that generated every asset. |
@@ -80,6 +80,40 @@ belong to.
 - Tests: `web/test/story.test.mjs` (the Bible's 10 acceptance tests plus step-rule checks),
   mirrored in `flutter/test/story_test.dart`.
 
+## Home Tales: the Home Map, Garden, Cottage and Skills
+
+A cozy crafting layer around the nest. The core loop is **walk → grow → craft → use it for your
+Evochi or a quest → unlock**. Still no sixth tab: **Explore Home** on Home opens the Home Map, and
+everything else is nested.
+
+| Screen | Where | What it does |
+|---|---|---|
+| Home Map | Home → Explore Home | The Nest (your Evochi), the Garden, the Cottage and the Village Gate. First visit gives starter seeds (3 Sunberry, 2 Carrot). |
+| Garden | Home Map → Garden | 3 beds to start (a 4th at Farming 4). Plant, then crops grow on real time; steps walked after planting add up to 60% more, watering adds 15%, a Sprout Tonic 50%. One tap harvests a ripe bed. |
+| Cottage | Home Map → Cottage | Ruined until *A Place to Call Home* (Bram) is done, then it holds the Kitchen and the Apothecary. |
+| Kitchen / Apothecary | Cottage | One shared UI: recipes with ingredient have/need, then a skippable timing game. A perfect result doubles the batch and gives +50% XP. Ingredients are never wasted. |
+| Skills | Journey → Skills, or the Cottage | Farming, Cooking and Alchemy: XP, level and a milestone timeline showing the skill level and any story quest each unlock needs. |
+
+**Quests** (same engine as Chapter 1; hand-ins can ask for real inventory items):
+
+| Quest | Needs | Steps | Reward |
+|---|---|---|---|
+| HQ01 A Place to Call Home (Bram) | Lv 2, VQ01 | 3,000 new steps for timber, 3 Sunberries | Cottage + Kitchen, 100 coins, wheat seeds and wheat |
+| HQ02 Mira's Mortar (Mira) | HQ01, Cooking 2 | 2 Glowleaf (Farming 3) | Apothecary, 80 coins, Glowleaf and Moonshroom seeds |
+| SQ01 The Shy Visitor (Pip), *optional* | HQ01 | a homemade Sunberry Tart | 120 coins, Moonshroom spores, title *Friend of Small Things* |
+| SQ02 Guardian of the Old Grove (Alder), *optional* | HQ02, a Juvenile Evochi | a Glowleaf Tonic | 200 coins, title *Grove Friend* |
+
+Special requirements (a grown Evochi, crafted food) live only in side stories, so they never block
+the main story. Seeds are sold on the Market's **Garden** shelf; harvests, meals and brews are never
+sold. Meals and teas are treats: once a day they give Bond +1, even at full vitality. Seeds and
+ingredients live in **Bag > Pantry**. Home progress (beds, skills) belongs to the account, like the
+story.
+
+**Code:** rules in `web/src/game/home.js` (+ the HQ/SQ quests in `story.js`), screens in
+`web/src/screens/homeland.js`, tests in `web/test/home.test.mjs`. Art: `tools/art/home_scenes.py`
+(Home Map, Garden, Cottage close-ups, Kitchen, Apothecary; Blender) and `tools/art/home_items.py`
+(seeds, crops, dishes, potions, skill icons, crop growth sprites).
+
 ## Asset pack contents
 
 - **Characters:**
@@ -127,6 +161,9 @@ python3 build_village.py ../../assets                    # quest items, mantle, 
 BPY_PYTHON=<bpy-python> python3 build_village.py ../../assets npcs                                 # ~25 min on 2 cores
 python3 build_web_assets.py ../../assets ../../web/public/assets <fontsource-dir>
 python3 build_web_assets.py ../../assets ../../web/public/assets --village-only   # just the Village Tales art
+python3 home_items.py ../../assets                                                   # home items, skill icons, crop sprites
+<bpy-python> village_blender.py ../../assets/home home_map_ruined home_map_restored garden kitchen apothecary cottage_ruined cottage_restored --meta scenes.json --raw /tmp/home_raw   # ~40 min on 2 cores
+python3 build_web_assets.py ../../assets ../../web/public/assets --home-only      # just the Home Tales art
 ```
 
 The models live in `characters.py` and `accessories.py`, and the palettes in `palettes.py`. The

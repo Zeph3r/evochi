@@ -2624,7 +2624,26 @@
   "q_windprint_paper": "items/q_windprint_paper.webp",
   "reward_firefly_hearth": "items/reward_firefly_hearth.webp",
   "reward_waystone_bloom": "items/reward_waystone_bloom.webp",
-  "reward_windtrail_mantle": "items/reward_windtrail_mantle.webp"
+  "reward_windtrail_mantle": "items/reward_windtrail_mantle.webp",
+  "sunberry": "items/sunberry.webp",
+  "meadow_carrot": "items/meadow_carrot.webp",
+  "golden_wheat": "items/golden_wheat.webp",
+  "glowleaf": "items/glowleaf.webp",
+  "moonshroom": "items/moonshroom.webp",
+  "seed_sunberry": "items/seed_sunberry.webp",
+  "seed_meadow_carrot": "items/seed_meadow_carrot.webp",
+  "seed_golden_wheat": "items/seed_golden_wheat.webp",
+  "seed_glowleaf": "items/seed_glowleaf.webp",
+  "seed_moonshroom": "items/seed_moonshroom.webp",
+  "sunberry_tart": "items/sunberry_tart.webp",
+  "carrot_stew": "items/carrot_stew.webp",
+  "golden_bun": "items/golden_bun.webp",
+  "moonshroom_pie": "items/moonshroom_pie.webp",
+  "glowleaf_tonic": "items/glowleaf_tonic.webp",
+  "meadow_tea": "items/meadow_tea.webp",
+  "sprout_tonic": "items/sprout_tonic.webp",
+  "moonlight_draught": "items/moonlight_draught.webp",
+  "q_sturdy_timber": "items/q_sturdy_timber.webp"
  },
  "icons": {
   "bag": "icons/bag.webp",
@@ -2658,7 +2677,11 @@
   "trophy": "icons/trophy.webp",
   "warning": "icons/warning.webp",
   "wearables": "icons/wearables.webp",
-  "xp": "icons/xp.webp"
+  "xp": "icons/xp.webp",
+  "skill_farming": "icons/skill_farming.webp",
+  "skill_cooking": "icons/skill_cooking.webp",
+  "skill_alchemy": "icons/skill_alchemy.webp",
+  "home_map": "icons/home_map.webp"
  },
  "titles": {
   "title_bag": {
@@ -4475,5 +4498,135 @@
    "h": 667,
    "restored": "village/waystone_restored.webp"
   }
+ },
+ "home": {
+  "map": {
+   "ruined": "home/home_map_ruined.webp",
+   "w": 780,
+   "h": 867,
+   "restored": "home/home_map_restored.webp",
+   "anchors": {
+    "nest": [
+     200.0,
+     635.3
+    ],
+    "garden": [
+     592.3,
+     435.8
+    ],
+    "cottage": [
+     174.6,
+     141.0
+    ],
+    "gate": [
+     588.9,
+     138.8
+    ]
+   }
+  },
+  "garden": {
+   "file": "home/garden.webp",
+   "w": 780,
+   "h": 867,
+   "anchors": {
+    "p1": [
+     230.1,
+     353.3
+    ],
+    "p1l": [
+     93.4,
+     353.3
+    ],
+    "p1r": [
+     366.9,
+     353.3
+    ],
+    "p2": [
+     549.9,
+     353.3
+    ],
+    "p2l": [
+     413.1,
+     353.3
+    ],
+    "p2r": [
+     686.6,
+     353.3
+    ],
+    "p3": [
+     198.9,
+     530.2
+    ],
+    "p3l": [
+     35.6,
+     530.2
+    ],
+    "p3r": [
+     362.3,
+     530.2
+    ],
+    "p4": [
+     581.1,
+     530.2
+    ],
+    "p4l": [
+     417.7,
+     530.2
+    ],
+    "p4r": [
+     744.4,
+     530.2
+    ]
+   }
+  },
+  "rooms": {
+   "kitchen": {
+    "file": "home/kitchen.webp",
+    "w": 780,
+    "h": 1000
+   },
+   "apothecary": {
+    "file": "home/apothecary.webp",
+    "w": 390,
+    "h": 500
+   }
+  },
+  "crops": {
+   "w": 384,
+   "h": 312,
+   "ground": [
+    192.0,
+    200.8
+   ],
+   "bedW": 337.9,
+   "files": {
+    "sunberry": {
+     "sprout": "home/crop_sunberry_sprout.webp",
+     "growing": "home/crop_sunberry_growing.webp",
+     "ripe": "home/crop_sunberry_ripe.webp"
+    },
+    "meadow_carrot": {
+     "sprout": "home/crop_meadow_carrot_sprout.webp",
+     "growing": "home/crop_meadow_carrot_growing.webp",
+     "ripe": "home/crop_meadow_carrot_ripe.webp"
+    },
+    "golden_wheat": {
+     "sprout": "home/crop_golden_wheat_sprout.webp",
+     "growing": "home/crop_golden_wheat_growing.webp",
+     "ripe": "home/crop_golden_wheat_ripe.webp"
+    },
+    "glowleaf": {
+     "sprout": "home/crop_glowleaf_sprout.webp",
+     "growing": "home/crop_glowleaf_growing.webp",
+     "ripe": "home/crop_glowleaf_ripe.webp"
+    },
+    "moonshroom": {
+     "sprout": "home/crop_moonshroom_sprout.webp",
+     "growing": "home/crop_moonshroom_growing.webp",
+     "ripe": "home/crop_moonshroom_ripe.webp"
+    }
+   }
+  },
+  "cottage": {}
  }
 }

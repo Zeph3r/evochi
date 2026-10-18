@@ -17,8 +17,9 @@ import { ITEMS } from './catalog.js';
 import { dayKey } from './time.js';
 import { aggregateDays } from './steps.js';
 import { levelInfo } from './progression.js';
-// state.js imports this module too; these are only used inside functions (never at load time)
-import { goalFor, grantItem, addTxn } from './state.js';
+// state.js and home.js import this module too; these are only used inside functions (never at load time)
+import { goalFor, grantItem, addTxn, ownedQty } from './state.js';
+import { skillLevel, SKILLS } from './home.js';
 
 export const STORY_SCHEMA = 1;
 
@@ -77,9 +78,15 @@ export const QUEST_MATERIALS = {
     desc: 'A cream stone cube with three gold channels and a tiny mint centre. No sparks yet.' },
   q_glowbloom_essence: { name: 'Glowbloom Essence', quest: 'vq03', usedBy: 'waystone', max: 1,
     desc: 'A droplet jar holding one luminous petal. Care, gathered a little every day.' },
+  q_sturdy_timber: { name: 'Sturdy Timber', quest: 'hq01', usedBy: 'npc_bram', max: 1,
+    desc: 'Straight oak planks, tied with twine. Exactly what an old roof needs.' },
 };
 
-export const TITLES = { first_lightkeeper: { name: 'First Lightkeeper', quest: 'vq03' } };
+export const TITLES = {
+  first_lightkeeper: { name: 'First Lightkeeper', quest: 'vq03' },
+  friend_of_small_things: { name: 'Friend of Small Things', quest: 'sq01' },
+  grove_friend: { name: 'Grove Friend', quest: 'sq02' },
+};
 
 export const CHAPTER = { id: 'ch1', name: 'Village Tales, Chapter 1', title: 'The Light of Sunlit Village' };
 
@@ -150,8 +157,85 @@ export const QUESTS = {
     ],
     rewards: { items: ['reward_waystone_bloom'], coins: 250, titles: ['first_lightkeeper'] },
   },
+
+  // ---- Home Tales: the Cottage and its rooms. Same engine; hand-ins can ask for real inventory
+  // items (`consumeItems`, e.g. harvests and homemade food) as well as Quest Pouch materials.
+  hq01: {
+    id: 'hq01', n: 1, line: 'home', title: 'A Place to Call Home', level: 2, dependsOn: ['vq01'], giver: 'npc_bram',
+    summary: 'The old cottage past your nest has lost its roof. Gather timber on your walks, grow lunch for the builders and help Bram restore it.',
+    phases: ['locked', 'available', 'accepted_walk', 'timber_ready', 'restoration_ready', 'completed'],
+    walk: { type: 'incremental', nominal: 3000, days: 1, phase: 'accepted_walk', ready: 'timber_ready', grant: { q_sturdy_timber: 1 } },
+    turnIns: [
+      { id: 'bram_timber', npc: 'npc_bram', from: 'timber_ready', to: 'restoration_ready', consume: { q_sturdy_timber: 1 },
+        consumeItems: { sunberry: 3 }, label: 'Give the timber and 3 Sunberries' },
+      { id: 'restore_cottage', npc: 'cottage', from: 'restoration_ready', to: 'completed', consume: {},
+        flags: ['cottage_restored'], label: 'Restore the Cottage' },
+    ],
+    objectives: [
+      { id: 'talk', text: 'Talk to Bram', doneAt: 'accepted_walk' },
+      { id: 'walk', text: 'Walk {resolved_steps} new steps to gather timber', doneAt: 'timber_ready' },
+      { id: 'berries', text: 'Grow and harvest 3 Sunberries', doneAt: 'restoration_ready', count: { item: 'sunberry', n: 3 } },
+      { id: 'give', text: 'Bring the timber and Sunberries to Bram', doneAt: 'restoration_ready' },
+      { id: 'restore', text: 'Restore the Cottage on your Home Map', doneAt: 'completed' },
+    ],
+    rewards: { coins: 100, gifts: { seed_golden_wheat: 3, golden_wheat: 2 }, unlocks: ['Cottage', 'Kitchen'] },
+  },
+  hq02: {
+    id: 'hq02', n: 2, line: 'home', title: "Mira's Mortar", level: 2, dependsOn: ['hq01'], skills: { cooking: 2 }, giver: 'npc_mira',
+    summary: "Mira's grandmother's mortar is gathering dust. Bring her two Glowleaf from your garden and she'll help you set up an Apothecary.",
+    phases: ['locked', 'available', 'need_glowleaf', 'completed'],
+    acceptPhase: 'need_glowleaf',
+    turnIns: [
+      { id: 'mira_glowleaf', npc: 'npc_mira', from: 'need_glowleaf', to: 'completed', consume: {}, consumeItems: { glowleaf: 2 },
+        flags: ['apothecary_unlocked'], label: 'Give 2 Glowleaf' },
+    ],
+    objectives: [
+      { id: 'talk', text: 'Talk to Mira', doneAt: 'need_glowleaf' },
+      { id: 'grow', text: 'Grow and harvest 2 Glowleaf (Farming Lv 3)', doneAt: 'completed', count: { item: 'glowleaf', n: 2 } },
+      { id: 'give', text: 'Bring the Glowleaf to Mira', doneAt: 'completed' },
+    ],
+    rewards: { coins: 80, gifts: { seed_glowleaf: 2, seed_moonshroom: 2 }, unlocks: ['Apothecary'] },
+  },
+
+  // ---- Side stories: optional, never on the main path. Special requirements (a grown Evochi, a
+  // homemade dish) live only here.
+  sq01: {
+    id: 'sq01', n: 1, line: 'side', title: 'The Shy Visitor', level: 3, dependsOn: ['hq01'], giver: 'npc_pip',
+    summary: 'Something small and fluffy keeps peeking at Pip\'s mail sacks. Shy visitors can\'t resist a fresh Sunberry Tart.',
+    phases: ['locked', 'available', 'need_tart', 'completed'],
+    acceptPhase: 'need_tart',
+    turnIns: [
+      { id: 'pip_tart', npc: 'npc_pip', from: 'need_tart', to: 'completed', consume: {}, consumeItems: { sunberry_tart: 1 },
+        label: 'Give a Sunberry Tart' },
+    ],
+    objectives: [
+      { id: 'talk', text: 'Talk to Pip', doneAt: 'need_tart' },
+      { id: 'bake', text: 'Bake a Sunberry Tart in your Kitchen', doneAt: 'completed', count: { item: 'sunberry_tart', n: 1 } },
+      { id: 'give', text: 'Bring the tart to Pip', doneAt: 'completed' },
+    ],
+    rewards: { coins: 120, gifts: { seed_moonshroom: 3 }, titles: ['friend_of_small_things'] },
+  },
+  sq02: {
+    id: 'sq02', n: 2, line: 'side', title: 'Guardian of the Old Grove', level: 4, dependsOn: ['hq02'], stage: 2, giver: 'npc_alder',
+    summary: 'An old guardian sleeps in the grove past the north road. It only wakes for a grown Evochi carrying a Glowleaf Tonic.',
+    phases: ['locked', 'available', 'need_tonic', 'completed'],
+    acceptPhase: 'need_tonic',
+    turnIns: [
+      { id: 'alder_tonic', npc: 'npc_alder', from: 'need_tonic', to: 'completed', consume: {}, consumeItems: { glowleaf_tonic: 1 },
+        requireStage: 2, label: 'Bring the Glowleaf Tonic to the grove' },
+    ],
+    objectives: [
+      { id: 'talk', text: 'Talk to Alder', doneAt: 'need_tonic' },
+      { id: 'brew', text: 'Brew a Glowleaf Tonic in your Apothecary', doneAt: 'completed', count: { item: 'glowleaf_tonic', n: 1 } },
+      { id: 'give', text: 'Visit the grove with your Juvenile (or Elder) Evochi', doneAt: 'completed' },
+    ],
+    rewards: { coins: 200, titles: ['grove_friend'] },
+  },
 };
 export const QUEST_ORDER = ['vq01', 'vq02', 'vq03'];
+export const HOME_ORDER = ['hq01', 'hq02'];
+export const SIDE_ORDER = ['sq01', 'sq02'];
+export const ALL_QUESTS = [...QUEST_ORDER, ...HOME_ORDER, ...SIDE_ORDER];
 
 // --------------------------------------------------------------- helpers ----
 function ok(state, events = []) {
@@ -172,7 +256,7 @@ export function newStory() {
     questPouch: {},
     qualifiedDayKeys: {},
     claimedRewards: [],
-    flags: { lamp_lit: false, waystone_revealed: false, waystone_restored: false },
+    flags: { lamp_lit: false, waystone_revealed: false, waystone_restored: false, cottage_restored: false, apothecary_unlocked: false },
     titleUnlocks: [],
     npcsMet: {},
     offersSeen: {},
@@ -226,11 +310,18 @@ export function lockReason(state, qid) {
   const done = (id) => story(state).questStates[id]?.phase === 'completed';
   const missing = q.dependsOn.filter((id) => !done(id));
   const lv = accountLevel(state);
-  if (missing.length || lv < q.level) {
+  const skills = Object.entries(q.skills || {}).filter(([k, n]) => skillLevel(state.home?.skills?.[k] || 0).level < n);
+  const stage = q.stage && (state.pet?.stage || 0) < q.stage;
+  if (missing.length || lv < q.level || skills.length || stage) {
     const parts = [];
     if (lv < q.level) parts.push(`reach level ${q.level}`);
     if (missing.length) parts.push(`finish "${QUESTS[missing[0]].title}"`);
-    return { level: q.level, needLevel: lv < q.level, needQuest: missing[0] || null, text: 'Unlocks when you ' + parts.join(' and ') };
+    for (const [k, n] of skills) parts.push(`reach ${SKILLS[k].name} Lv ${n}`);
+    if (stage) parts.push('your Evochi grows into a Juvenile');
+    return {
+      level: q.level, needLevel: lv < q.level, needQuest: missing[0] || null, needSkills: Object.fromEntries(skills),
+      needStage: stage ? q.stage : null, text: 'Unlocks when ' + (parts[0].startsWith('your') ? '' : 'you ') + parts.join(' and '),
+    };
   }
   return null;
 }
@@ -241,6 +332,7 @@ export function resolvedSteps(state, qid, now) {
   if (st) return st.resolvedSteps;
   const tz = state.player?.timezone || state.tzHint || 'UTC';
   const goal = goalFor(state, dayKey(now, tz));
+  if (!QUESTS[qid].walk) return 0;
   return Math.min(QUESTS[qid].walk.nominal, goal);
 }
 
@@ -278,10 +370,10 @@ export function applyStoryProgress(s, now) {
   const st0 = ensureStory(s);
   st0.peakLevel = Math.max(st0.peakLevel || 1, accountLevel(s));
   const tz = s.player.timezone || s.tzHint || 'UTC';
-  for (const qid of QUEST_ORDER) {
+  for (const qid of ALL_QUESTS) {
     const q = QUESTS[qid];
     const st = st0.questStates[qid];
-    if (!st || st.phase !== q.walk.phase) continue;
+    if (!q.walk || !st || st.phase !== q.walk.phase) continue;
     const days = freshDays(s, st.acceptedAt, tz);
     st.dayProgress = st.dayProgress || {};
     for (const [k, d] of Object.entries(days)) st.dayProgress[k] = Math.max(st.dayProgress[k] || 0, d.steps);
@@ -292,7 +384,7 @@ export function applyStoryProgress(s, now) {
         addPouch(s, q.walk.grant, events, qid, now);
         st.phase = q.walk.ready;
         st.readyAt = now;
-        events.push({ type: 'story_ready', questId: qid, npc: nextStep(s, qid).npc });
+        events.push({ type: 'story_ready', questId: qid, npc: nextStep(s, qid).npc, kind: nextStep(s, qid).kind });
       }
     } else {
       const set = st0.qualifiedDayKeys[qid] || (st0.qualifiedDayKeys[qid] = []);
@@ -307,7 +399,7 @@ export function applyStoryProgress(s, now) {
       if (set.length >= q.walk.days) {
         st.phase = q.walk.ready;
         st.readyAt = now;
-        events.push({ type: 'story_ready', questId: qid, npc: nextStep(s, qid).npc });
+        events.push({ type: 'story_ready', questId: qid, npc: nextStep(s, qid).npc, kind: nextStep(s, qid).kind });
       }
     }
   }
@@ -327,7 +419,7 @@ export function acceptStoryQuest(state, qid, now) {
   const st = ensureStory(s);
   const tz = s.player.timezone || s.tzHint || 'UTC';
   st.questStates[qid] = {
-    phase: q.walk.phase, acceptedAt: now, acceptedDay: dayKey(now, tz), resolvedSteps: resolvedSteps(s, qid, now),
+    phase: q.walk ? q.walk.phase : q.acceptPhase, acceptedAt: now, acceptedDay: dayKey(now, tz), resolvedSteps: resolvedSteps(s, qid, now),
     dayProgress: {}, freshTotal: 0, tracked: true, completedAt: null, seenCompletion: false,
   };
   st.activeQuestId = qid;
@@ -341,6 +433,20 @@ function hasItems(state, consume) {
   return Object.entries(consume || {}).every(([id, n]) => pouchQty(state, id) >= n);
 }
 
+/** Inventory items a hand-in asks for (harvests, homemade food), and what's still missing. */
+export function itemNeeds(state, t) {
+  const out = [];
+  for (const [id, n] of Object.entries(t?.consumeItems || {})) {
+    const have = ownedQty(state, id);
+    out.push({ id, need: n, have: Math.min(have, n), ok: have >= n });
+  }
+  return out;
+}
+
+function stageOk(state, t) {
+  return !t?.requireStage || (state.pet?.stage || 0) >= t.requireStage;
+}
+
 /** Give quest items to an NPC (or the Waystone). Transactional and idempotent. */
 export function storyHandIn(state, qid, turnInId, now) {
   const q = QUESTS[qid];
@@ -351,6 +457,9 @@ export function storyHandIn(state, qid, turnInId, now) {
   if (phaseIndex(q, st.phase) > phaseIndex(q, t.from)) return ok(state, [{ type: 'story_already', questId: qid, turnIn: turnInId }]);
   if (st.phase !== t.from) return fail(state, 'story_not_ready');
   if (!hasItems(state, t.consume)) return fail(state, 'story_missing_items');
+  const short = itemNeeds(state, t).filter((x) => !x.ok);
+  if (short.length) return fail(state, 'story_missing_items', { missing: short });
+  if (!stageOk(state, t)) return fail(state, 'story_needs_stage', { stage: t.requireStage });
   const s = clone(state);
   const S = ensureStory(s);
   const events = [];
@@ -358,6 +467,7 @@ export function storyHandIn(state, qid, turnInId, now) {
     S.questPouch[id] -= n;
     if (S.questPouch[id] <= 0) delete S.questPouch[id];
   }
+  for (const [id, n] of Object.entries(t.consumeItems || {})) s.inventory[id].quantity -= n;
   events.push({ type: 'story_handin', questId: qid, turnIn: turnInId, npc: t.npc, consumed: t.consume });
   addPouch(s, t.grant, events, qid, now);
   for (const f of t.flags || []) S.flags[f] = true;
@@ -369,7 +479,7 @@ export function storyHandIn(state, qid, turnInId, now) {
     if (S.activeQuestId === qid) S.activeQuestId = null;
     events.push({ type: 'story_completed', questId: qid, title: q.title, rewards });
   } else {
-    events.push({ type: 'story_ready', questId: qid, npc: nextStep(s, qid).npc });
+    events.push({ type: 'story_ready', questId: qid, npc: nextStep(s, qid).npc, kind: nextStep(s, qid).kind });
   }
   return ok(s, events);
 }
@@ -384,6 +494,7 @@ export function grantStoryRewardOnce(s, qid, now) {
     if (!(s.inventory[id]?.quantity > 0)) grantItem(s, id, 1, `story:${qid}`, now, `story:${qid}`);
   }
   if (r.coins) addTxn(s, { id: `story:${qid}`, amount: r.coins, currency: 'evocoin', cause: `story:${qid}`, at: now });
+  for (const [id, n] of Object.entries(r.gifts || {})) grantItem(s, id, n, `story:${qid}`, now, `story:${qid}:gift`);
   for (const t of r.titles || []) if (!S.titleUnlocks.includes(t)) S.titleUnlocks.push(t);
   S.claimedRewards.push(qid);
   return r;
@@ -417,10 +528,14 @@ export function nextStep(state, qid) {
   if (phase === 'completed') return { kind: 'done' };
   if (phase === 'locked') return { kind: 'locked', npc: q.giver, place: NPCS[q.giver].location };
   if (phase === 'available') return { kind: 'talk', npc: q.giver, place: NPCS[q.giver].location };
-  if (phase === q.walk.phase) return { kind: 'walk' };
+  if (q.walk && phase === q.walk.phase) return { kind: 'walk' };
   const t = q.turnIns.find((x) => x.from === phase);
   if (!t) return { kind: 'done' };
-  return { kind: 'handin', npc: t.npc, place: t.npc === 'waystone' ? 'waystone' : NPCS[t.npc].location, turnIn: t.id, label: t.label };
+  const place = t.npc === 'waystone' || t.npc === 'cottage' ? t.npc : NPCS[t.npc].location;
+  const needs = itemNeeds(state, t);
+  if (needs.some((x) => !x.ok)) return { kind: 'gather', npc: t.npc, place, turnIn: t.id, label: t.label, needs };
+  if (!stageOk(state, t)) return { kind: 'grow', npc: t.npc, place, turnIn: t.id, label: t.label, stage: t.requireStage };
+  return { kind: 'handin', npc: t.npc, place, turnIn: t.id, label: t.label, needs };
 }
 
 export function fill(text, vars) {
@@ -441,8 +556,8 @@ export function questView(state, qid, now) {
   const tz = state.player?.timezone || state.tzHint || 'UTC';
   const today = dayKey(now, tz);
   const qualified = story(state).qualifiedDayKeys[qid] || [];
-  let walk = { target: resolved, days: q.walk.days, type: q.walk.type };
-  if (st) {
+  let walk = q.walk ? { target: resolved, days: q.walk.days, type: q.walk.type } : null;
+  if (st && q.walk) {
     if (q.walk.type === 'incremental') {
       const total = phaseIndex(q, phase) > phaseIndex(q, q.walk.phase) ? resolved : Math.min(resolved, st.freshTotal || 0);
       walk = { ...walk, progress: total, pct: total / resolved };
@@ -455,17 +570,23 @@ export function questView(state, qid, now) {
     }
   }
   const pi = phaseIndex(q, phase);
-  const objectives = q.objectives.map((o) => ({
-    id: o.id, text: fill(o.text, { resolved_steps: fmtN(resolved) }), done: pi >= phaseIndex(q, o.doneAt),
-  }));
-  const current = objectives.find((o) => !o.done)?.id || null;
-  const paused = !!st && phase === q.walk.phase && (!state.steps || state.steps.connection === 'none');
+  const objectives = q.objectives.map((o) => {
+    const done = pi >= phaseIndex(q, o.doneAt);
+    const v = { id: o.id, text: fill(o.text, { resolved_steps: fmtN(resolved) }), done };
+    if (o.count) {
+      const have = Math.min(o.count.n, ownedQty(state, o.count.item));
+      Object.assign(v, { item: o.count.item, need: o.count.n, have: done ? o.count.n : have, ready: done || have >= o.count.n });
+    }
+    return v;
+  });
+  const current = objectives.find((o) => !o.done && !(o.ready && o.item))?.id || objectives.find((o) => !o.done)?.id || null;
+  const paused = !!st && !!q.walk && phase === q.walk.phase && (!state.steps || state.steps.connection === 'none');
   return {
     id: qid, n: q.n, title: q.title, level: q.level, summary: q.summary, phase, accepted: !!st, lock,
     completed: phase === 'completed', resolved, walk, objectives, current, next: nextStep(state, qid),
     rewards: q.rewards, tracked: st ? st.tracked !== false : false, paused,
     seenCompletion: st?.seenCompletion || false, completedAt: st?.completedAt || null,
-    giver: q.giver, dependsOn: q.dependsOn,
+    giver: q.giver, dependsOn: q.dependsOn, line: q.line || 'chapter',
   };
 }
 
@@ -473,22 +594,31 @@ export function questView(state, qid, now) {
 export function storyStatus(state, now) {
   const S = story(state);
   const quests = QUEST_ORDER.map((id) => questView(state, id, now));
-  const turnIns = quests.filter((v) => v.next.kind === 'handin');
-  const offers = quests.filter((v) => v.phase === 'available' && !S.offersSeen[v.id]);
-  const unseenDone = quests.filter((v) => v.completed && !v.seenCompletion);
-  const active = quests.find((v) => v.accepted && !v.completed) || null;
-  const nextUp = active || quests.find((v) => v.phase === 'available') || quests.find((v) => v.phase === 'locked') || null;
+  const home = HOME_ORDER.map((id) => questView(state, id, now));
+  const side = SIDE_ORDER.map((id) => questView(state, id, now));
+  const all = [...quests, ...home, ...side];
+  // the Cottage hand-in happens on the Home Map, so it isn't a Village visit
+  const turnIns = all.filter((v) => v.next.kind === 'handin' && v.next.npc !== 'cottage');
+  const offers = all.filter((v) => v.phase === 'available' && !S.offersSeen[v.id]);
+  const unseenDone = all.filter((v) => v.completed && !v.seenCompletion);
+  const actives = all.filter((v) => v.accepted && !v.completed);
+  const active = actives.find((v) => v.id === S.activeQuestId) || actives[0] || null;
+  const chapterActive = quests.find((v) => v.accepted && !v.completed) || null;
+  const nextUp = chapterActive || quests.find((v) => v.phase === 'available')
+    || (quests.every((v) => v.completed) ? home.find((v) => v.accepted && !v.completed) || home.find((v) => v.phase === 'available') : null)
+    || quests.find((v) => v.phase === 'locked') || null;
   return {
-    quests, flags: { ...newStory().flags, ...S.flags }, pouch: { ...S.questPouch }, titles: S.titleUnlocks.slice(),
-    active, nextUp, turnIns, offers, unseenDone, attention: turnIns.length + offers.length,
+    quests, home, side, all, flags: { ...newStory().flags, ...S.flags }, pouch: { ...S.questPouch }, titles: S.titleUnlocks.slice(),
+    active, actives, nextUp, turnIns, offers, unseenDone, attention: turnIns.length + offers.length,
     chapterDone: quests.every((v) => v.completed), level: accountLevel(state),
+    cottageReady: questPhase(state, 'hq01') === 'restoration_ready',
   };
 }
 
 /** Which NPCs have something for the player right now (map markers). */
 export function npcMarkers(state, now) {
   const out = {};
-  for (const qid of QUEST_ORDER) {
+  for (const qid of ALL_QUESTS) {
     const n = nextStep(state, qid);
     if (n.kind === 'handin') out[n.npc] = 'handin';
     else if (n.kind === 'talk' && !out[n.npc]) out[n.npc] = 'quest';
@@ -546,6 +676,49 @@ export const LINES = {
   VQ03_WAY00: { s: 'waystone', t: 'A cool stone with three dark channels. One of its grooves glimmers when your Evochi approaches.' },
   VQ03_WAY01: { s: 'waystone', t: 'The Core settles into the stone. Mint light runs through the grooves. Fireflies rise over Sunlit Village.' },
   WAY_DONE: { s: 'waystone', t: 'Mint light hums in the grooves. Fireflies drift over the Square, and every path out of the village has a little glow.', extra: true },
+
+  // ---- Home Tales 1: A Place to Call Home (Bram)
+  HQ01_B00: { s: 'npc_bram', e: 'thinking', t: "That old cottage past your nest? Roof's half gone and the door's wandered off. Shame. It's a good little house." },
+  HQ01_B01: { s: 'npc_bram', e: 'neutral', t: "I'll fix it up if you'll lend a hand. I need sturdy timber, the kind you only spot when you're out walking the hedgerows." },
+  HQ01_B02: { s: 'npc_bram', e: 'happy', t: "Good! Walk {resolved_steps} steps and keep your eyes open. And grow a few Sunberries for the builders' lunch, eh?" },
+  HQ01_B03: { s: 'npc_bram', e: 'neutral', t: 'Timber turns up for walkers. You\'re {progress}/{resolved_steps} steps along. No hurry.' },
+  HQ01_B04: { s: 'npc_bram', e: 'thinking', t: "Fine timber, that! Now, about lunch... three Sunberries, if your garden's grown any. You've got {sunberry}/3." },
+  HQ01_B05: { s: 'npc_bram', e: 'happy', t: "Timber AND Sunberries. That's a builder's breakfast. Hand them over and I'll get the roof up." },
+  HQ01_B06: { s: 'npc_bram', e: 'proud', t: "Roof's on, shutters are hung. The last bit's yours: go and open the place up. It's on your Home Map." },
+  HQ01_B07: { s: 'npc_bram', e: 'neutral', t: "It's waiting for you. Go on, open it up." },
+  HQ01_B08: { s: 'npc_bram', e: 'happy', t: 'Good roof, good friends. That\'s all a cottage needs.' },
+  HQ01_C00: { s: 'cottage', t: 'The old cottage stands quiet. Bram has stacked the timber by the door, and new roof beams are waiting.' },
+  HQ01_C01: { s: 'cottage', t: 'Hammers tap, shutters swing open and a warm glow fills the windows. The chimney gives a happy little puff.' },
+  HQ01_C02: { s: 'cottage', t: 'An old cottage with a broken roof and an empty doorway. Someone in the village might know how to fix it.', extra: true },
+  HQ01_B09: { s: 'npc_bram', e: 'proud', t: 'There. A hearth, a kitchen, and a place to call home. Welcome in.' },
+
+  // ---- Home Tales 2: Mira's Mortar (Mira)
+  HQ02_M00: { s: 'npc_mira', e: 'happy', t: 'Your kitchen smells lovely, all the way from here! Have you ever tried brewing?' },
+  HQ02_M01: { s: 'npc_mira', e: 'thinking', t: "My grandmother's mortar is gathering dust. Bring me two Glowleaf from your garden and I'll show you how it's done." },
+  HQ02_M02: { s: 'npc_mira', e: 'happy', t: 'Glowleaf grows slowly, so plant it early. You\'ll need Farming level 3 to coax it out of the soil.' },
+  HQ02_M03: { s: 'npc_mira', e: 'neutral', t: 'Any Glowleaf yet? You have {glowleaf}/2. The seedlings say hello.' },
+  HQ02_M04: { s: 'npc_mira', e: 'happy', t: "Oh, they're glowing beautifully! Here, take the mortar. Your cottage has a little back room that would suit it." },
+  HQ02_M05: { s: 'npc_mira', e: 'proud', t: 'The Apothecary is yours. Start with a Glowleaf Tonic. Stir slowly, smile often.' },
+  HQ02_M06: { s: 'npc_mira', e: 'happy', t: 'How are the brews going? Your Evochi looks very well looked after.' },
+
+  // ---- Side story: The Shy Visitor (Pip)
+  SQ01_P00: { s: 'npc_pip', e: 'thinking', t: "Psst! Something small and fluffy keeps peeking at the mail sacks. I think it's hungry, but it's SO shy." },
+  SQ01_P01: { s: 'npc_pip', e: 'happy', t: "They say shy visitors can't resist a fresh Sunberry Tart. Could you bake one?" },
+  SQ01_P02: { s: 'npc_pip', e: 'happy', t: 'Bake it in your Cottage kitchen and bring it here. I\'ll leave it on the step!' },
+  SQ01_P03: { s: 'npc_pip', e: 'neutral', t: 'No tart yet? Sunberries, wheat and a warm oven. You can do it!' },
+  SQ01_P04: { s: 'npc_pip', e: 'happy', t: "It smells amazing! Let me put it on the step... shh... look!" },
+  SQ01_P05: { s: 'npc_pip', e: 'proud', t: 'A little fox-sprite! It took the tart and left some Moonshroom spores behind. I think that means thank you.' },
+  SQ01_P06: { s: 'npc_pip', e: 'happy', t: 'The fox-sprite waves at me now. Well, it wiggles its tail. Same thing!' },
+
+  // ---- Side story: Guardian of the Old Grove (Alder)
+  SQ02_A00: { s: 'npc_alder', e: 'thinking', t: 'There is an old guardian in the grove past the north road. It only wakes for an Evochi that has grown a little.' },
+  SQ02_A01: { s: 'npc_alder', e: 'neutral', t: 'Bring a Glowleaf Tonic. The guardian is very old, and very thirsty.' },
+  SQ02_A02: { s: 'npc_alder', e: 'happy', t: 'Brew one in your Apothecary, then come and find me. We\'ll walk there together.' },
+  SQ02_A03: { s: 'npc_alder', e: 'neutral', t: 'The grove is patient. A Glowleaf Tonic, whenever you have one.' },
+  SQ02_A04: { s: 'npc_alder', e: 'proud', t: 'A fine tonic. The guardian opens one mossy eye, drinks, and the whole grove sighs with green light.' },
+  SQ02_A05: { s: 'npc_alder', e: 'happy', t: 'It remembered {pet}. Few travellers can say that.' },
+  SQ02_A06: { s: 'npc_alder', e: 'happy', t: 'The old grove has been greener since your visit.' },
+  SQ02_ALOCK: { s: 'npc_alder', e: 'thinking', t: 'Your Evochi is still very young. When it has grown into a Juvenile, ask me about the old grove.', extra: true },
 };
 
 // Choice helpers: next = another line, act = an engine action run before moving on
@@ -572,8 +745,6 @@ export function npcConversation(state, npcId, now) {
       node('VQ03_MIR01', [C('Go to the Waystone', { goto: 'waystone' }), LEAVE()]);
     } else if (p3 === 'restoration_ready') {
       start = node('VQ03_MIR01', [C('Go to the Waystone', { goto: 'waystone' }), LEAVE()]).id;
-    } else if (p3 === 'completed') {
-      start = node('VQ03_MIR02', [LEAVE('Goodbye, Mira')]).id;
     } else if (p1 === 'available') {
       node('VQ01_M01', [C('What happened to it?', { next: 'VQ01_M02' }), C('I can help.', { act: { kind: 'accept', quest: 'vq01' }, then: 'VQ01_M03' }), LEAVE('Maybe later.')]);
       node('VQ01_M02', [C('I can help.', { act: { kind: 'accept', quest: 'vq01' }, then: 'VQ01_M03' }), LEAVE('Maybe later.')]);
@@ -586,23 +757,54 @@ export function npcConversation(state, npcId, now) {
       node('VQ01_M06', [C("Go to Bram's Workshop", { goto: 'workshop' }), LEAVE()]);
     } else if (p1 === 'sprig_ready') {
       start = node('VQ01_M06', [C("Go to Bram's Workshop", { goto: 'workshop' }), LEAVE()]).id;
+    } else if (ph('hq02') === 'available') {
+      node('HQ02_M00', [C('Brewing?', { next: 'HQ02_M01' })]);
+      node('HQ02_M01', [C("I'd love to learn.", { act: { kind: 'accept', quest: 'hq02' }, then: 'HQ02_M02' }), LEAVE('Maybe later.')]);
+      node('HQ02_M02', [C('Visit your Garden', { goto: 'garden' }), LEAVE('See you soon')]);
+      start = 'HQ02_M00';
+    } else if (ph('hq02') === 'need_glowleaf') {
+      if (nextStep(state, 'hq02').kind === 'handin') {
+        start = node('HQ02_M04', [C('Give 2 Glowleaf', { act: { kind: 'handin', quest: 'hq02', turnIn: 'mira_glowleaf' }, then: 'HQ02_M05' }), LEAVE('Not yet')]).id;
+        node('HQ02_M05', [C('Thank you, Mira!', { reward: 'hq02' })]);
+      } else start = node('HQ02_M03', [C('Visit your Garden', { goto: 'garden' }), LEAVE('See you soon')]).id;
+    } else if (p3 === 'completed') {
+      start = node('VQ03_MIR02', [LEAVE('Goodbye, Mira')]).id;
+    } else if (ph('hq02') === 'completed') {
+      start = node('HQ02_M06', [LEAVE('Goodbye, Mira')]).id;
     } else {
       start = node('VQ01_M07', [LEAVE('Goodbye, Mira')]).id;
     }
   } else if (npcId === 'npc_bram') {
     const p3 = ph('vq03');
     const p1 = ph('vq01');
+    const h1 = ph('hq01');
     if (p3 === 'rubbings_ready') {
       start = node('VQ03_BRA00', [C('Give 3 Echo Rubbings', { act: { kind: 'handin', quest: 'vq03', turnIn: 'bram_rubbings' }, then: 'VQ03_BRA01' }), LEAVE('Not yet')]).id;
       node('VQ03_BRA01', [C("Go to Mira's Glasshouse", { goto: 'glasshouse' }), LEAVE()]);
     } else if (p3 === 'core_ready') {
       start = node('VQ03_BRA01', [C("Go to Mira's Glasshouse", { goto: 'glasshouse' }), LEAVE()]).id;
-    } else if (p3 === 'completed') {
-      start = node('VQ03_BRA02', [LEAVE('Goodbye, Bram')]).id;
     } else if (p1 === 'sprig_ready') {
       start = node('VQ01_B01', [C('Give Lumenbud Sprig', { act: { kind: 'handin', quest: 'vq01', turnIn: 'bram_sprig' }, then: 'VQ01_B02' }), LEAVE('Not yet')]).id;
       node('VQ01_B02', [C('Continue', { next: 'VQ01_B03' })]);
       node('VQ01_B03', [C('Thank you, Bram!', { reward: 'vq01' })]);
+    } else if (h1 === 'available') {
+      node('HQ01_B00', [C('What does it need?', { next: 'HQ01_B01' })]);
+      node('HQ01_B01', [C("I'll help!", { act: { kind: 'accept', quest: 'hq01' }, then: 'HQ01_B02' }), LEAVE('Maybe later.')]);
+      node('HQ01_B02', [C('Go for a walk', { goto: 'journey' }), C('Visit your Garden', { goto: 'garden' }), LEAVE('See you soon')]);
+      start = 'HQ01_B00';
+    } else if (h1 === 'accepted_walk') {
+      start = node('HQ01_B03', [C('Go for a walk', { goto: 'journey' }), C('Visit your Garden', { goto: 'garden' }), LEAVE('See you soon')]).id;
+    } else if (h1 === 'timber_ready') {
+      if (nextStep(state, 'hq01').kind === 'handin') {
+        start = node('HQ01_B05', [C('Give the timber and 3 Sunberries', { act: { kind: 'handin', quest: 'hq01', turnIn: 'bram_timber' }, then: 'HQ01_B06' }), LEAVE('Not yet')]).id;
+        node('HQ01_B06', [C('Go to your Cottage', { goto: 'cottage' }), LEAVE()]);
+      } else start = node('HQ01_B04', [C('Visit your Garden', { goto: 'garden' }), LEAVE('See you soon')]).id;
+    } else if (h1 === 'restoration_ready') {
+      start = node('HQ01_B07', [C('Go to your Cottage', { goto: 'cottage' }), LEAVE()]).id;
+    } else if (p3 === 'completed') {
+      start = node('VQ03_BRA02', [LEAVE('Goodbye, Bram')]).id;
+    } else if (h1 === 'completed') {
+      start = node('HQ01_B08', [LEAVE('Goodbye, Bram')]).id;
     } else if (p1 === 'completed') {
       start = node('VQ01_B04', [LEAVE('Goodbye, Bram')]).id;
     } else {
@@ -611,9 +813,8 @@ export function npcConversation(state, npcId, now) {
   } else if (npcId === 'npc_pip') {
     const p2 = ph('vq02');
     const p3 = ph('vq03');
-    if (p3 === 'completed') {
-      start = node('VQ03_PIP08', [LEAVE('Goodbye, Pip')]).id;
-    } else if (p2 === 'locked') {
+    const s1 = ph('sq01');
+    if (p2 === 'locked') {
       node('PIP_LOCKED', [LEAVE('Okay!')]);
       start = met ? 'PIP_LOCKED' : node('VQ02_PIP00', [C('Hello, Pip!', { next: 'PIP_LOCKED' })]).id;
     } else if (p2 === 'available') {
@@ -628,6 +829,20 @@ export function npcConversation(state, npcId, now) {
       node('VQ02_PIP06', [C('Talk to Alder', { npc: 'npc_alder' }), LEAVE()]);
     } else if (p2 === 'letter_ready') {
       start = node('VQ02_PIP06', [C('Talk to Alder', { npc: 'npc_alder' }), LEAVE()]).id;
+    } else if (s1 === 'available') {
+      node('SQ01_P00', [C('Hungry?', { next: 'SQ01_P01' })]);
+      node('SQ01_P01', [C("I'll bake one!", { act: { kind: 'accept', quest: 'sq01' }, then: 'SQ01_P02' }), LEAVE('Not now.')]);
+      node('SQ01_P02', [C('Go to your Kitchen', { goto: 'kitchen' }), LEAVE('See you soon')]);
+      start = 'SQ01_P00';
+    } else if (s1 === 'need_tart') {
+      if (nextStep(state, 'sq01').kind === 'handin') {
+        start = node('SQ01_P04', [C('Give a Sunberry Tart', { act: { kind: 'handin', quest: 'sq01', turnIn: 'pip_tart' }, then: 'SQ01_P05' }), LEAVE('Not yet')]).id;
+        node('SQ01_P05', [C('Thank you, Pip!', { reward: 'sq01' })]);
+      } else start = node('SQ01_P03', [C('Go to your Kitchen', { goto: 'kitchen' }), LEAVE('See you soon')]).id;
+    } else if (p3 === 'completed') {
+      start = node('VQ03_PIP08', [LEAVE('Goodbye, Pip')]).id;
+    } else if (s1 === 'completed') {
+      start = node('SQ01_P06', [LEAVE('Goodbye, Pip')]).id;
     } else {
       start = node('VQ02_PIP07', [LEAVE('Goodbye, Pip')]).id;
     }
@@ -649,12 +864,37 @@ export function npcConversation(state, npcId, now) {
       start = node('VQ03_ALD04', [C("Go to Bram's Workshop", { goto: 'workshop' }), LEAVE()]).id;
     } else if (p3 === 'core_ready' || p3 === 'restoration_ready') {
       start = node('ALD_WAITING', [C(p3 === 'core_ready' ? "Go to Mira's Glasshouse" : 'Go to the Waystone', { goto: p3 === 'core_ready' ? 'glasshouse' : 'waystone' }), LEAVE()]).id;
+    } else if (ph('sq02') === 'available') {
+      node('SQ02_A00', [C('What does it need?', { next: 'SQ02_A01' })]);
+      node('SQ02_A01', [C("Let's wake it.", { act: { kind: 'accept', quest: 'sq02' }, then: 'SQ02_A02' }), LEAVE('Another time.')]);
+      node('SQ02_A02', [C('Go to your Apothecary', { goto: 'apothecary' }), LEAVE('See you soon')]);
+      start = 'SQ02_A00';
+    } else if (ph('sq02') === 'need_tonic') {
+      if (nextStep(state, 'sq02').kind === 'handin') {
+        start = node('SQ02_A04', [C('Offer the Glowleaf Tonic', { act: { kind: 'handin', quest: 'sq02', turnIn: 'alder_tonic' }, then: 'SQ02_A05' }), LEAVE('Not yet')]).id;
+        node('SQ02_A05', [C('Thank you, Alder!', { reward: 'sq02' })]);
+      } else if (nextStep(state, 'sq02').kind === 'grow') {
+        start = node('SQ02_ALOCK', [LEAVE('Okay!')]).id;
+      } else start = node('SQ02_A03', [C('Go to your Apothecary', { goto: 'apothecary' }), LEAVE('See you soon')]).id;
+    } else if (ph('sq02') === 'locked' && ph('hq02') === 'completed' && lockReason(state, 'sq02')?.needStage) {
+      start = node('SQ02_ALOCK', [LEAVE('Okay!')]).id;
     } else if (p3 === 'completed') {
       start = node('VQ03_ALD06', [LEAVE('Goodbye, Alder')]).id;
+    } else if (ph('sq02') === 'completed') {
+      start = node('SQ02_A06', [LEAVE('Goodbye, Alder')]).id;
     } else if (p2 === 'completed') {
       start = node('VQ02_ALD04', [LEAVE()]).id;
     } else {
       start = node('VQ02_ALD00', [LEAVE()]).id;
+    }
+  } else if (npcId === 'cottage') {
+    const h1 = ph('hq01');
+    if (h1 === 'restoration_ready') {
+      start = node('HQ01_C00', [C('Restore the Cottage', { act: { kind: 'handin', quest: 'hq01', turnIn: 'restore_cottage' }, then: 'HQ01_C01' }), LEAVE('Not yet')]).id;
+      node('HQ01_C01', [C('Continue', { next: 'HQ01_B09' })]);
+      node('HQ01_B09', [C('Step inside', { reward: 'hq01' })]);
+    } else {
+      start = node('HQ01_C02', [LEAVE('Back to the map')]).id;
     }
   } else if (npcId === 'waystone') {
     const p3 = ph('vq03');
@@ -680,7 +920,8 @@ export function npcConversation(state, npcId, now) {
 export function lineText(state, id, now, petName = 'your Evochi') {
   const L = LINES[id];
   if (!L) return '';
-  const qid = id.startsWith('VQ01') ? 'vq01' : id.startsWith('VQ02') || id.startsWith('PIP') ? 'vq02' : 'vq03';
+  const P = { VQ01: 'vq01', VQ02: 'vq02', PIP_: 'vq02', HQ01: 'hq01', HQ02: 'hq02', SQ01: 'sq01', SQ02: 'sq02' };
+  const qid = P[id.slice(0, 4)] || 'vq03';
   const v = questView(state, qid, now);
   const lock = lockReason(state, 'vq02');
   const hint = !lock ? 'Come back soon'
@@ -688,9 +929,11 @@ export function lineText(state, id, now, petName = 'your Evochi') {
       : lock.needLevel ? `Reach level ${lock.level}` : 'Help Mira and Bram light the lamp first,';
   return fill(L.t, {
     resolved_steps: fmtN(v.resolved),
-    progress: fmtN(v.walk.progress || 0),
-    qualifying_days: String(v.walk.qualified || 0),
+    progress: fmtN(v.walk?.progress || 0),
+    qualifying_days: String(v.walk?.qualified || 0),
     lock_hint: hint,
     pet: petName,
+    sunberry: String(Math.min(3, ownedQty(state, 'sunberry'))),
+    glowleaf: String(Math.min(2, ownedQty(state, 'glowleaf'))),
   });
 }

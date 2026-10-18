@@ -10,6 +10,7 @@ import { icon, url, manifest } from '../ui/assets.js';
 import { ICON } from '../ui/icons.js';
 import { coinPill, nav, titleImg } from '../core/app.js';
 import { storyTab, openStoryQuest } from './village.js';
+import { skillsPanel, skillsActions } from './homeland.js';
 
 export const journey = {
   id: 'journey',
@@ -43,11 +44,11 @@ export const journey = {
         <header class="hud" style="position:absolute;left:0;right:0;top:0">${titleImg('title_journey', 'Journey')}${coinPill(ctx)}</header></div>
       <h1 class="sr-only">Journey</h1>
       <div class="pad stack" style="gap:10px;margin-top:-28px;position:relative;z-index:3">
-        <div class="tabs jtabs" role="tablist" aria-label="Quests" style="grid-template-columns:repeat(3,minmax(0,1fr));margin-top:0">
+        <div class="tabs jtabs" role="tablist" aria-label="Quests" style="grid-template-columns:repeat(4,minmax(0,1fr));margin-top:0">
           ${[['daily', 'Daily', 'steps', daily.some((q) => q.eligible && !q.claimed)], ['weekly', 'Weekly', 'trophy', weekly.some((q) => q.eligible && !q.claimed)],
-            ['story', 'Story', 'habitats', !!d.story?.turnIns.length]].map(([id, label, ic, dot]) => html`<button class="tab" role="tab" aria-selected="${tab === id}" data-act="jtab" data-arg="${id}" data-k="jt-${id}"><img src="${icon(ic)}" alt=""><span>${label}</span>${dot ? raw('<i class="badge-dot" style="top:-4px;right:-4px"></i>') : ''}</button>`)}
+            ['story', 'Story', 'habitats', !!d.story?.turnIns.length], ['skills', 'Skills', 'skill_farming', false]].map(([id, label, ic, dot]) => html`<button class="tab" role="tab" aria-selected="${tab === id}" data-act="jtab" data-arg="${id}" data-k="jt-${id}"><img src="${icon(ic)}" alt=""><span>${label}</span>${dot ? raw('<i class="badge-dot" style="top:-4px;right:-4px"></i>') : ''}</button>`)}
         </div>
-        ${tab !== 'story' ? html`        <section class="card" style="padding:14px" aria-label="Today">
+        ${tab === 'daily' || tab === 'weekly' ? html`        <section class="card" style="padding:14px" aria-label="Today">
           <div class="row" style="gap:14px">
             <div class="ring" role="img" aria-label="${fmt(d.todaySteps)} of ${fmt(d.goal)} steps">
               <svg viewBox="0 0 120 120"><circle cx="60" cy="60" r="54" fill="none" stroke="#E7D9C8" stroke-width="12"/>
@@ -68,7 +69,8 @@ export const journey = {
             ${conn === 'none' ? html`<button class="btn sm green" data-act="connect" data-k="jconn">Connect</button>` : html`<button class="btn sm cream" data-act="sync" data-k="jsync" ${u.syncing ? raw('disabled') : ''}>${u.syncing ? html`<span class="spinner" style="width:16px;height:16px"></span>` : ICON.sync}<span>${u.syncing ? 'Syncing' : 'Sync'}</span></button>`}
           </div>
         </section>` : ''}
-        ${tab !== 'story' ? sources : ''}
+        ${tab === 'daily' || tab === 'weekly' ? sources : ''}
+        ${tab === 'skills' ? skillsPanel(ctx) : ''}
         ${tab === 'daily' ? html`<h2 class="h-sec sec-head" style="margin-top:4px">Daily quests</h2>
         <div class="list">${daily.map((q) => questRow(q))}</div>` : ''}
         ${tab === 'story' ? html`${storyTab(ctx)}${sources}` : ''}
@@ -107,6 +109,7 @@ export const journey = {
     },
   },
   actions: {
+    ...skillsActions,
     jtab(ctx, id) {
       ctx.ui('journey').tab = id;
       ctx.sfx('ui_tap', 0.3);
@@ -161,7 +164,9 @@ function doWalk(ctx, n) {
   // so a demo walk right after accepting counts in full (real step data keeps its own timestamps)
   const st = ctx.state.story;
   const since = st?.activeQuestId ? st.questStates[st.activeQuestId]?.acceptedAt : null;
-  const samples = simulateWalk(n, now, { notBefore: since || 0 });
+  // likewise it never reaches back before the latest planting, so a demo walk always helps the garden
+  const planted = Math.max(0, ...Object.values(ctx.state.home?.plots || {}).filter(Boolean).map((p) => p.plantedAt || 0));
+  const samples = simulateWalk(n, now, { notBefore: Math.max(since || 0, planted) });
   ctx.act((s, t) => G.syncSteps(s, samples, t, { source: 'demo' }));
   ctx.sfx('ui_tap', 0.5);
   ctx.track('step_sync_result', { ok: true, bucket: n >= 2500 ? 'large' : 'small' });

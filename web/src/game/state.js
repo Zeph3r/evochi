@@ -11,6 +11,7 @@ import {
   activityXp, levelInfo, isActiveDay, evolutionStatus, replayVitality, bondValue, bondHearts,
 } from './progression.js';
 import { newStory, ensureStory, applyStoryProgress, storyStatus } from './story.js';
+import { newHome, ensureHome, homeStatus } from './home.js';
 
 export const SCHEMA_VERSION = 1;
 
@@ -73,6 +74,7 @@ export function newState(now = Date.now(), tz = deviceZone()) {
     analytics: [],
     debug: { clockOffset: 0 },
     story: newStory(),
+    home: newHome(),
     tzHint: tz,
     createdAt: now,
   };
@@ -142,6 +144,7 @@ export function derive(state, now) {
   out.quests = questStatus(state, out, now);
   out.claimable = out.quests.filter((q) => q.eligible && !q.claimed).length;
   out.story = state.player ? storyStatus(state, now) : null;
+  out.home = state.player ? homeStatus(state, now) : null;
   return out;
 }
 
@@ -501,15 +504,26 @@ export function useConsumable(state, itemId, now) {
   const it = ITEMS[itemId];
   if (!it || it.category !== 'consumable') return fail(state, 'not_consumable');
   if (ownedQty(state, itemId) < 1) return fail(state, 'not_owned');
+  if (it.effect.growth) return fail(state, 'use_in_garden');
   const d = derive(state, now);
   if (!d.pet) return fail(state, 'no_pet');
   if (d.pet.dead) return fail(state, 'pet_dead');
-  if (d.pet.vitality >= 100) return fail(state, 'full');
+  // a homemade treat still counts for Bond once a day, even when vitality is already full
+  const treat = !!it.effect.treat && !(state.pet.bondEvents || []).some((e) => e.key === d.today && e.type === 'treat');
+  if (d.pet.vitality >= 100 && !treat) return fail(state, 'full');
   if (it.effect.recovery && d.pet.recoveryReadyAt > now) return fail(state, 'cooldown', { readyAt: d.pet.recoveryReadyAt });
   const s = clone(state);
   s.inventory[itemId].quantity -= 1;
+  const gain = Math.min(it.effect.vitality || 0, Math.max(0, 100 - d.pet.vitality));
   s.pet.events.push({ t: now, type: 'care', amount: it.effect.vitality, itemId, recovery: !!it.effect.recovery });
-  return ok(s, [{ type: 'used', itemId, vitality: it.effect.vitality }]);
+  const events = [{ type: 'used', itemId, vitality: gain }];
+  if (treat) {
+    s.pet.bondEvents.push({ key: d.today, type: 'treat', t: now });
+    const b = derive(s, now).pet.bond - d.pet.bond;
+    events.push({ type: 'treat', itemId, bond: b });
+    if (b > 0) events.push({ type: 'bond', amount: b });
+  }
+  return ok(s, events);
 }
 
 export function placeDecoration(state, itemId, slotId) {
@@ -609,6 +623,8 @@ export function migrate(obj) {
   if (obj.schema > SCHEMA_VERSION) return null;
   // Village Tales (story schema 1) arrived after save schema 1: add it to older saves in place
   ensureStory(obj);
+  // Home (garden, cottage, skills) arrived after story schema 1: same in-place upgrade
+  ensureHome(obj);
   return obj;
 }
 
