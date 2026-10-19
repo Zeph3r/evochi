@@ -7,12 +7,16 @@
 //   WINDOW  sheets, dialogs, the Bag's and the Market's lower sheet, the encounter panel: a carved
 //           [FramedWindow] around parchment.
 //   CARD    printed card stock ([Kit.card]): grain over a cream-to-parchment gradient, an inner double
-//           rule and a hard bottom edge.
+//           rule and a hard bottom edge. The content you act on.
+//   INSET   a pressed-in parchment panel ([Kit.inset], [KitInsetList]) holding plain rows split by
+//           stitched rules: secondary information (finished quests, what's coming next).
 //   SLOT    an inset pocket ([Kit.slot]); selected = a gold ring and glow.
 //   SIGN    page titles ([WoodPlaque]), section heads ([KitSectionHead]), tabs ([KitTab]), the nav: wood.
 // Each screen adds its own material through [KitPage] / [KitScope]: journal, satchel, market, board,
 // kitchen, apothecary, binder. Flutter has no inset box-shadows, so [KitDecoration] paints them (lit and
 // shaded edges, rings, inner shadows, the gloss strip on buttons) on top of a plain [BoxDecoration].
+// Performance: big panels only get plain BoxShadows (never BackdropFilter, ImageFiltered or layers), and
+// the textures are decoded at startup ([precacheKitTextures]).
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;
@@ -36,6 +40,16 @@ class KitTextures {
   /// Every frame is sliced 56 px in from each side.
   static const frameSlice = 56.0;
   static const frameCenter = Rect.fromLTRB(56, 56, 136, 136);
+
+  static const all = [woodLight, woodMid, woodDark, paperGrain, clothWeave, frameWood, framePlum, frameLeather, frameCloth];
+}
+
+/// Decode the kit's materials up front (web: main.js preloads them), so the first screen switch never
+/// paints a card without its grain or a window without its frame.
+void precacheKitTextures(BuildContext context) {
+  for (final f in KitTextures.all) {
+    precacheImage(AssetImage(f), context, onError: (_, __) {});
+  }
 }
 
 class KitColor {
@@ -162,9 +176,9 @@ class KitBand {
 
 /// A [BoxDecoration] plus the inset effects CSS draws with inset box-shadows and pseudo-elements, all
 /// painted under the child and inside the border ([inset] px in): a lit [top] edge, a shaded [bottom]
-/// edge, the double rule ([rule] under [ring]), a soft inner [shadow], a [left] margin rule, binder
-/// [holes], a dashed [stitch], the button gloss strip ([glossTop] to [glossBottom]) and its [dot], and a
-/// bar fill's [shine].
+/// edge, the double rule ([rule] under [ring]), a soft inner [shadow], a [left] margin rule, a dashed
+/// [stitch], the button gloss strip ([glossTop] to [glossBottom]) and its [dot], and a bar fill's
+/// [shine].
 class KitDecoration extends Decoration {
   const KitDecoration({
     required this.base,
@@ -180,7 +194,6 @@ class KitDecoration extends Decoration {
     this.glossBottom = const Color(0x14FFFFFF),
     this.glossSmall = false,
     this.dot,
-    this.holes = false,
     this.shine,
   });
 
@@ -197,7 +210,6 @@ class KitDecoration extends Decoration {
   final Color glossBottom;
   final bool glossSmall;
   final Color? dot;
-  final bool holes;
   final Color? shine;
 
   @override
@@ -236,7 +248,6 @@ class KitDecoration extends Decoration {
       glossBottom: Color.lerp(a.glossBottom, b.glossBottom, t)!,
       glossSmall: o.glossSmall,
       dot: o.dot,
-      holes: o.holes,
       shine: o.shine,
     );
   }
@@ -257,11 +268,10 @@ class KitDecoration extends Decoration {
       other.glossBottom == glossBottom &&
       other.glossSmall == glossSmall &&
       other.dot == dot &&
-      other.holes == holes &&
       other.shine == shine;
 
   @override
-  int get hashCode => Object.hash(base, inset, top, bottom, ring, rule, shadow, left, stitch, glossTop, glossBottom, glossSmall, dot, holes, shine);
+  int get hashCode => Object.hash(base, inset, top, bottom, ring, rule, shadow, left, stitch, glossTop, glossBottom, glossSmall, dot, shine);
 
   @override
   BoxPainter createBoxPainter([VoidCallback? onChanged]) => _KitPainter(this, base.createBoxPainter(onChanged), onChanged);
@@ -338,20 +348,6 @@ class _KitPainter extends BoxPainter {
       canvas.clipRRect(outer);
       canvas.drawRect(Rect.fromLTWH(outer.left, outer.top, l.size, outer.height), Paint()..color = l.color);
       canvas.restore();
-    }
-
-    // binder ring holes, one every 40 px down the left
-    if (d.holes) {
-      final rim = Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
-        ..color = const Color(0xCCFFFFFF);
-      final hole = Paint()..color = const Color(0xFF8E6A4A);
-      for (var y = box.top + 20; y < box.bottom - 6; y += 40) {
-        final c = Offset(box.left + 12, y);
-        canvas.drawCircle(c, 5.25, rim);
-        canvas.drawCircle(c, 4.25, hole);
-      }
     }
 
     // a dashed stitch line (outline: dashed; outline-offset: -6px)
@@ -524,8 +520,8 @@ class KitButtonPalette {
 class Kit {
   /// Printed card stock (`.card`): grain over the paper's gradient, a 2 px edge, the inner double rule,
   /// a hard bottom edge and a soft drop. [flat] drops the inner rule (place cards); [rule] adds a 6 px
-  /// margin rule on the left (journal entries, recipes); [holes] punches binder ring holes.
-  static KitDecoration card({KitPaper paper = KitPaper.cream, double radius = 14, bool highlight = false, Color? rule, bool holes = false, bool flat = false}) {
+  /// margin rule on the left (journal entries, recipes).
+  static KitDecoration card({KitPaper paper = KitPaper.cream, double radius = 14, bool highlight = false, Color? rule, bool flat = false}) {
     final edge = highlight ? const Color(0xFFE2A93E) : paper.edge;
     final bevel = highlight ? const Color(0xFFC0852A) : paper.bevel;
     return KitDecoration(
@@ -544,7 +540,6 @@ class Kit {
       rule: flat || paper.rule == const Color(0x00000000) ? null : KitBand(3.5, paper.rule),
       ring: flat ? null : const KitBand(2, Color(0xBFFFFCF0)),
       left: rule == null ? null : KitBand(6, rule),
-      holes: holes,
     );
   }
 
@@ -1146,6 +1141,40 @@ class _DashPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DashPainter oldDelegate) => oldDelegate.color != color;
+}
+
+/// A five-point sparkle [r] px from [c] to its tips (the web's star clip-path), for reward bursts.
+Path kitStarPath(Offset c, double r) {
+  const pts = [(0.50, 0.00), (0.61, 0.35), (0.98, 0.35), (0.68, 0.57), (0.79, 0.91), (0.50, 0.70), (0.21, 0.91), (0.32, 0.57), (0.02, 0.35), (0.39, 0.35)];
+  final path = Path();
+  for (var i = 0; i < pts.length; i++) {
+    final x = c.dx + (pts[i].$1 * 2 - 1) * r;
+    final y = c.dy + (pts[i].$2 * 2 - 1) * r;
+    if (i == 0) {
+      path.moveTo(x, y);
+    } else {
+      path.lineTo(x, y);
+    }
+  }
+  return path..close();
+}
+
+/// Level 3 of the framing (`.card.inset.mini-list`): a pressed-in parchment panel whose [children]
+/// (plain rows) are split by stitched rules. For secondary lists: what's coming next, finished quests.
+class KitInsetList extends StatelessWidget {
+  const KitInsetList({super.key, required this.children});
+  final List<Widget> children;
+  @override
+  Widget build(BuildContext context) => Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 2),
+        decoration: Kit.inset(),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) const StitchedRule(color: Color(0x5996693C)),
+            children[i],
+          ],
+        ]),
+      );
 }
 
 /// A section head (`.sec-head`): a leaf, the title, an optional [trailing] chip, a stitched rule filling

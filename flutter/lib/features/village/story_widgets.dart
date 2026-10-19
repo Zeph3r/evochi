@@ -1,7 +1,8 @@
 // Village Tales: shared story UI. Quest details, the reward cards (story items, or Home Tales gifts
 // and unlocks, or a new companion), the Journey > Story tab (a waiting encounter's call under Main
-// Quests, Chapter 1, Home Tales, Lumen Trails, side stories), the Bag > Quest Pouch and the Home story
-// chip (Quest Bible §8). Mirrors web/src/screens/village.js.
+// Quests, your adventures across every story line, what's coming up, the chapter, and the finished
+// stories folded away), the Bag > Quest Pouch and the Home story chip (Quest Bible §8). Mirrors
+// web/src/screens/village.js.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -628,16 +629,89 @@ Future<void> _homeRewardCard(BuildContext context, q.StoryQuest quest, {required
 }
 
 // -------------------------------------------------------------- Journey > Story ----
-class StoryTab extends StatelessWidget {
+// The Story tab is a journal (web: storyTab in village.js): what's waiting for you right now on top
+// (encounters under Main Quests, then every active and new story as a full entry), what's coming next
+// as short locked lines, the chapter card, and everything finished folded under one toggle, so the
+// page is about the next adventure, not the last five.
+const _storyLines = [('chapter', 'Village Tales'), ('home', 'Home Tales'), ('trail', 'Lumen Trails'), ('side', 'Side story')];
+
+/// Ready first (a hand-in or an encounter), then in progress, then new.
+int _storyRank(q.StoryQuestView v) => v.next.kind == 'handin' || v.next.kind == 'encounter' ? 0 : (v.accepted ? 1 : 2);
+
+class StoryTab extends StatefulWidget {
   const StoryTab({super.key});
+  @override
+  State<StoryTab> createState() => _StoryTabState();
+}
+
+class _StoryTabState extends State<StoryTab> {
   @override
   Widget build(BuildContext context) {
     final c = context.watch<GameController>();
     final st = c.storyView;
     final done = st.quests.where((v) => v.completed).length;
+    final distIds = {for (final v in st.encounters) v.id};
+    final byLine = {'chapter': st.quests, 'home': st.home, 'trail': st.trail, 'side': st.side};
+    final all = [
+      for (final l in _storyLines)
+        for (final v in byLine[l.$1]!) (v, l.$2),
+    ];
+    // a stable sort: List.sort isn't, so ties keep the story order by their index
+    final activeIdx = [for (var i = 0; i < all.length; i++) if (!all[i].$1.completed && all[i].$1.phase != 'locked' && !distIds.contains(all[i].$1.id)) i];
+    activeIdx.sort((a, b) {
+      final k = _storyRank(all[a].$1) - _storyRank(all[b].$1);
+      return k != 0 ? k : a - b;
+    });
+    final active = [for (final i in activeIdx) all[i]];
+    final soonIdx = [for (var i = 0; i < all.length; i++) if (!all[i].$1.completed && all[i].$1.phase == 'locked') i];
+    soonIdx.sort((a, b) {
+      final k = all[a].$1.level - all[b].$1.level;
+      return k != 0 ? k : a - b;
+    });
+    final soon = [for (final i in soonIdx.take(3)) all[i]];
+    final finished = [for (final x in all) if (x.$1.completed) x];
+    final open = c.storyDoneOpen;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      // a waiting encounter calls first (the UX board's Trail Discovery)
+      // a waiting encounter calls first, under "Main Quests" (the UX board's Trail Discovery)
       const DisturbanceCards(),
+      const SectionHead('Your adventures'),
+      if (active.isNotEmpty)
+        ...[for (final x in active) StoryQuestCard(v: x.$1, line: x.$2)]
+      else
+        Padding(
+          padding: const EdgeInsets.only(bottom: 8),
+          child: Container(
+            padding: const EdgeInsets.all(12),
+            decoration: Kit.inset(),
+            child: const Row(children: [
+              VoxelIcon('journey', size: 40),
+              SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('All caught up', style: EvochiText.cardTitle),
+                  Text('New stories open as your Evochi grows and the village needs a hand.', style: EvochiText.caption),
+                ]),
+              ),
+            ]),
+          ),
+        ),
+      if (soon.isNotEmpty) ...[
+        const SizedBox(height: 6),
+        const SectionHead('Coming up'),
+        KitInsetList(children: [
+          for (final x in soon)
+            _MiniRow(
+              label: '${x.$1.title}. ${x.$2}. ${nextText(x.$1)}. Level ${x.$1.level}',
+              onTap: () => showStoryQuest(context, x.$1.id),
+              lead: const Opacity(opacity: 0.8, child: VoxelIcon('lock', size: 26)),
+              title: x.$1.title,
+              sub: '${x.$2} · ${nextText(x.$1)}',
+              locked: true,
+              trail: Tag('Lv ${x.$1.level}', tone: TagTone.neutral),
+            ),
+        ]),
+        const SizedBox(height: 10),
+      ],
       Semantics(
         label: q.chapterName,
         child: ClipRRect(
@@ -650,7 +724,7 @@ class StoryTab extends StatelessWidget {
               Padding(
                 padding: const EdgeInsets.fromLTRB(14, 12, 14, 0),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Text(q.chapterName, style: EvochiText.caption.copyWith(color: const Color(0xFFFFF6E6))),
+                  Text(q.chapterName, style: EvochiText.tiny.copyWith(color: const Color(0xFFFFF6E6))),
                   Text(q.chapterTitle, style: EvochiText.cardTitle.copyWith(color: Colors.white)),
                   const SizedBox(height: 6),
                   Wrap(spacing: 6, children: [
@@ -665,16 +739,36 @@ class StoryTab extends StatelessWidget {
         ),
       ),
       const SizedBox(height: 10),
-      for (final v in st.quests) StoryQuestCard(v: v),
-      const SizedBox(height: 6),
-      const SectionHead('Home Tales'),
-      for (final v in st.home) StoryQuestCard(v: v),
-      const SizedBox(height: 6),
-      const SectionHead('Lumen Trails', trailing: Tag('Encounters')),
-      for (final v in st.trail) StoryQuestCard(v: v),
-      const SizedBox(height: 6),
-      const SectionHead('Side stories', trailing: Tag('Optional')),
-      for (final v in st.side) StoryQuestCard(v: v),
+      if (finished.isNotEmpty) ...[
+        _DoneToggle(
+          count: finished.length,
+          open: open,
+          onTap: () {
+            c.audio.play('ui_tap', volume: 0.3);
+            setState(() => c.storyDoneOpen = !open);
+          },
+        ),
+        if (open) ...[
+          const SizedBox(height: 8),
+          KitInsetList(children: [
+            for (final x in finished)
+              _MiniRow(
+                label: '${x.$1.title}. ${x.$2}. Complete',
+                onTap: () => showStoryQuest(context, x.$1.id),
+                lead: NpcImage(x.$1.giver, expression: 'happy', height: 38),
+                title: x.$1.title,
+                sub: x.$2,
+                trail: Container(
+                  width: 26,
+                  height: 26,
+                  decoration: BoxDecoration(color: EvochiColor.meadow100, shape: BoxShape.circle, border: Border.all(color: const Color(0xFF9CC27A), width: 1.5)),
+                  child: const Icon(Icons.check_rounded, size: 16, color: EvochiColor.healthy),
+                ),
+              ),
+          ]),
+        ],
+        const SizedBox(height: 10),
+      ],
       const Padding(
         padding: EdgeInsets.symmetric(horizontal: 4, vertical: 2),
         child: Text(
@@ -686,9 +780,106 @@ class StoryTab extends StatelessWidget {
   }
 }
 
+/// A plain row inside an inset panel (`.mini-row`): a 34 px picture, a title over one short line, and
+/// something small at the end.
+class _MiniRow extends StatelessWidget {
+  const _MiniRow({required this.label, required this.onTap, required this.lead, required this.title, required this.sub, required this.trail, this.locked = false});
+  final String label;
+  final VoidCallback onTap;
+  final Widget lead;
+  final String title;
+  final String sub;
+  final Widget trail;
+  final bool locked;
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(minHeight: 48),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 7),
+              child: Row(children: [
+                SizedBox(width: 34, height: 38, child: Center(child: lead)),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    Text(title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 14.5, height: 1.2, color: locked ? EvochiColor.textSecondary : EvochiColor.ink)),
+                    const SizedBox(height: 2),
+                    Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.body, fontWeight: FontWeight.w600, fontSize: 12.5, height: 1.25, color: EvochiColor.textHelper)),
+                  ]),
+                ),
+                const SizedBox(width: 10),
+                trail,
+              ]),
+            ),
+          ),
+        ),
+      );
+}
+
+/// "Completed stories (5)" with a chevron: unfolds the finished quests (`.done-toggle`).
+class _DoneToggle extends StatelessWidget {
+  const _DoneToggle({required this.count, required this.open, required this.onTap});
+  final int count;
+  final bool open;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: 'Completed stories, $count, ${open ? 'shown' : 'hidden'}',
+        hint: open ? 'Fold them away' : 'Show them',
+        excludeSemantics: true,
+        child: KitPress(
+          onTap: onTap,
+          builder: (_, down) => AnimatedContainer(
+            duration: const Duration(milliseconds: 60),
+            constraints: const BoxConstraints(minHeight: 50),
+            padding: const EdgeInsets.fromLTRB(10, 6, 14, 6),
+            transform: Matrix4.translationValues(0, down ? 2 : 0, 0),
+            decoration: KitDecoration(
+              base: BoxDecoration(
+                gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFBF0DA), Color(0xFFEEDDBC)]),
+                image: kitGrain,
+                borderRadius: BorderRadius.circular(13),
+                border: Border.all(color: KitPaper.cream.edge, width: 2),
+                boxShadow: [BoxShadow(color: KitPaper.cream.bevel, offset: Offset(0, down ? 1 : 3))],
+              ),
+              inset: 2,
+              top: const KitBand(1.5, Color(0xFFFFFDF5)),
+            ),
+            child: Row(children: [
+              const VoxelIcon('trophy', size: 30),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text.rich(
+                  TextSpan(children: [
+                    const TextSpan(text: 'Completed stories '),
+                    TextSpan(text: '($count)', style: const TextStyle(color: EvochiColor.textHelper)),
+                  ]),
+                  style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 15, color: EvochiColor.ink),
+                ),
+              ),
+              Text(open ? '▴' : '▾', style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 16, color: EvochiColor.textHelper)),
+            ]),
+          ),
+        ),
+      );
+}
+
+/// A story entry: the giver, the title and its status, what to do next and the walk. [line] adds a
+/// small uppercase kicker naming its story line (Journey > Your adventures).
 class StoryQuestCard extends StatelessWidget {
-  const StoryQuestCard({super.key, required this.v});
+  const StoryQuestCard({super.key, required this.v, this.line});
   final q.StoryQuestView v;
+  final String? line;
   @override
   Widget build(BuildContext context) {
     final m = KitScope.of(context);
@@ -696,7 +887,7 @@ class StoryQuestCard extends StatelessWidget {
         padding: const EdgeInsets.only(bottom: 8),
         child: Semantics(
           button: true,
-          label: '${v.title}. ${nextText(v)}',
+          label: '${line == null ? '' : '$line: '}${v.title}. ${nextText(v)}',
           child: GestureDetector(
             onTap: () => showStoryQuest(context, v.id),
             child: Opacity(
@@ -711,11 +902,17 @@ class StoryQuestCard extends StatelessWidget {
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      if (line != null)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 3),
+                          child: Text(line!.toUpperCase(),
+                              style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 12, height: 1, letterSpacing: 0.7, color: Color(0xFFA8643E))),
+                        ),
                       Wrap(spacing: 6, runSpacing: 4, crossAxisAlignment: WrapCrossAlignment.center, children: [
                         Text(v.title, style: EvochiText.cardTitle.copyWith(fontSize: 15, fontWeight: FontWeight.w900)),
                         storyStatusTag(v),
                       ]),
-                      Text(nextText(v), style: EvochiText.caption.copyWith(fontSize: 13)),
+                      Text(nextText(v), style: EvochiText.caption),
                       if (v.accepted && !v.completed) Padding(padding: const EdgeInsets.only(top: 4), child: WalkProgress(v)),
                     ]),
                   ),
@@ -829,7 +1026,7 @@ class PouchGrid extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                         decoration: BoxDecoration(color: const Color(0xFF5E4B40), borderRadius: BorderRadius.circular(7)),
-                        child: Text('x${pouch[id]}', style: EvochiText.tag.copyWith(color: Colors.white, fontSize: 11)),
+                        child: Text('x${pouch[id]}', style: EvochiText.tag.copyWith(color: Colors.white, fontSize: 11.5)), // a counter: stays compact
                       ),
                     ),
                 ]),
@@ -870,7 +1067,7 @@ class PouchDetail extends StatelessWidget {
               const Wrap(spacing: 4, runSpacing: 4, children: [Tag('Quest item', tone: TagTone.ok), Tag("Can't trade"), Tag("Can't sell")]),
               const SizedBox(height: 4),
               Text(m.desc, style: EvochiText.caption.copyWith(color: EvochiColor.textSecondary)),
-              Text('Used by $who', style: EvochiText.caption.copyWith(fontSize: 11)),
+              Text('Used by $who', style: EvochiText.tiny),
             ]),
           ),
         ]),
@@ -893,5 +1090,5 @@ const satchelPaper = KitPaper(Color(0xFFFFF9EA), Color(0xFFF4E2C0), Color(0xFF8C
 Widget storySourceLine(String itemId) {
   final it = catalog[itemId];
   if (it == null || !it.isStory) return const SizedBox.shrink();
-  return Text('${storySource[it.originQuest]}: ${q.storyQuests[it.originQuest]!.title}', style: EvochiText.caption.copyWith(fontSize: 11));
+  return Text('${storySource[it.originQuest]}: ${q.storyQuests[it.originQuest]!.title}', style: EvochiText.tiny);
 }

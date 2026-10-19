@@ -293,7 +293,10 @@ The UI is dressed as crafted game props rather than app panels, mirroring the we
   leather or cloth), drawn 11–14 px wide. Bottom sheets, dialogs, the Bag's satchel, the Market's
   stall and the encounter's action panel use it. The encounter panel's frame is open at the bottom.
 - **Card** (`GameCard`, `Kit.card`): printed card stock. Paper grain over a cream-to-parchment
-  gradient, a 2 px edge, an inner double rule and a hard bottom edge.
+  gradient, a 2 px edge, an inner double rule and a hard bottom edge. The content you act on.
+- **Inset** (`Kit.inset`, `KitInsetList`): a pressed-in parchment panel holding plain rows split by
+  stitched rules, for secondary information (what's coming up, finished stories). With windows and
+  cards that makes three levels of framing, so not every rectangle wears a thick border.
 - **Slot** (`Kit.slot`): an inset pocket for item tiles and pictures. The selected slot gets a gold
   ring and glow.
 - **Sign**:
@@ -313,14 +316,63 @@ The UI is dressed as crafted game props rather than app panels, mirroring the we
   | `market` | Shop | Wood-framed stall with a scalloped awning, shelf cards, prices on wood tags |
   | `board` | Village, places, Guild | Notice board: push-pins and a slight tilt |
   | `kitchen` | Kitchen | Recipe book: recipe margin rule, round plate pictures |
-  | `apothecary` | Apothecary | Lavender card stock, plum section heads, plum Brew buttons, the brewing game in a plum frame |
-  | `binder` | EvoDex | Ring holes down every card |
+  | `apothecary` | Apothecary | Lavender card stock, plum section heads, plum Brew buttons |
+  | `binder` | EvoDex | Sleeves for the forms (no ring holes: on a phone they read as stray bullets) |
 
-  The Home id card is a nameplate with a wood edge, and the steps card is a light-wood board.
+  The Home id card is a nameplate with a wood edge (and the next form on it: a silhouette, "Next:
+  Elder", the level and active days it needs and a progress ring, opening Inspect), and the steps
+  card is a light-wood board.
 
 Flutter has no inset box-shadows, so `KitDecoration` paints them over an ordinary `BoxDecoration`:
-lit and shaded edges, rings, inner shadows, the gloss strip, binder holes and stitches. It also
-delegates clipping and hit-testing to that `BoxDecoration`.
+lit and shaded edges, rings, inner shadows, the gloss strip and stitches. It also delegates clipping
+and hit-testing to that `BoxDecoration`.
+
+### The UX pass (web commit e24bcd9)
+
+- **Journey > Story** is a journal of what's next: Main Quests (a waiting encounter) on top, then
+  *Your adventures*: every quest across Village Tales, Home Tales, Lumen Trails and the side stories
+  that is open and not finished, ready ones first (a hand-in or an encounter), then in progress, then
+  new, each a full card with its story line as a small kicker (or an *All caught up* panel). *Coming
+  up* lists the next three locked quests by level as short rows in an inset panel; then the chapter
+  card, and *Completed stories (n)* folds the finished ones away behind one toggle
+  (`GameController.storyDoneOpen` keeps it open between visits).
+- **Journey > Daily / Weekly** ("Today's quests", "This week"): the quests you can claim come first,
+  then the ones in progress, and the claimed ones fold into one green line ("2 claimed today", "All 3
+  claimed today. Nice walking.").
+- **Bag** has two presentations. *Wear* is a dressing room: the Evochi 1.3× and centred, the slot
+  boxes placed around it from its rect (`SceneScaffold.heroBuilder`, `scenePetRect`), a "Dressing
+  room" / "Trying on" tag over its head, the wearables in one horizontal strip of 80×92 pockets, and a
+  bar with the item, its slot and rarity, and one big button (gold Equip, or cream Take off). The
+  other pockets give the grid the room (`SceneScaffold.heroHeight`): a 0.8× Evochi in a short hero,
+  the grid scrolling inside the satchel with tiles at their own height, and an item card at its foot
+  (a 64 px picture, the name and tags, two lines of description with More / Less for the rest, the
+  story source and what it's used in, and the actions in a full-width row). Picking food makes the
+  Evochi hop with hearts (`snack`); other items make it curious.
+- **Kitchen and Apothecary**: cooking happens at the station (`_CookView` in `station_screen.dart`).
+  Choosing a recipe turns the screen into a square stage on the 780×1000 room plate that pushes in
+  from the room (zoom 1.15) to the oven's mouth or the cauldron (zoom 2.1, clamped so the plate always
+  covers the stage), the ingredients fly up into it, a glow pulses (orange or violet) and embers or
+  bubbles rise, and the recipe sits on a parchment plaque. After 1.75 s the timing gauge (golden zone
+  62–80%, a 1.7 s triangle wave, 2.6 s with reduced motion) slides up on a light-wood plaque. Stopping
+  or skipping freezes it, a banner pops in, the dish pops out of the mouth in a burst of sparkles, and
+  the reward card follows (1.35 s; 0.45 s for a skip). *Back* (or the system back) cancels and uses
+  nothing; *Cook another* goes straight back to the stage. Reduced motion: no push-in, nothing flies,
+  no particles.
+- **Purchases** get a reveal: a "Purchased!" banner, the item popping up in turning gold rays, a ring
+  of sparkles and five coins falling away (reduced motion: the banner and the item only).
+- **Readability**: nothing below 12 px. `EvochiText.caption` (secondary text) is 13 px and
+  `EvochiText.tiny` 12 px; only counters and badges stay smaller. **Profile > Larger text**
+  (`Settings.largeText`) swaps in `EvochiTextScaler` at the app root: small and secondary text grows
+  about 12% (13 → 14.5, 12 → 13.5), card titles a little less, headings barely, on top of the system's
+  own text size.
+- **Profile > Developer tools** (`Settings.devTools`, off by default here since the app reads real
+  health data; the web preview defaults it on) shows the Journey step simulator, the Simulated step
+  source, the Garden's time skip and the Playtest tools card. Choosing the simulated step device in
+  onboarding turns it on, and older saves already on the simulator keep it.
+- **Performance**: big panels only get plain `BoxShadow`s (no `BackdropFilter`, `ImageFiltered` or
+  layer effects); the Village, Guild and Cottage plates take their colour grade as they paint
+  (`DecorationImage.colorFilter`) instead of through a `ColorFiltered` layer; and the kit textures are
+  decoded at startup (`precacheKitTextures`).
 
 The textures in `assets/ui/` are procedural and ours (CC0). `../tools/ui_textures.py` paints them:
 

@@ -335,9 +335,11 @@ class _RoomCard extends StatelessWidget {
               Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 SizedBox(
                   height: 84,
-                  child: ColorFiltered(
-                    colorFilter: open ? const ColorFilter.mode(Color(0x00000000), BlendMode.dst) : const ColorFilter.matrix(_locked),
-                    child: Image.asset(homeArt.room(id), fit: BoxFit.cover, alignment: const Alignment(0, 0.28)),
+                  // locked rooms are greyed as the picture paints (no offscreen layer)
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      image: DecorationImage(image: AssetImage(homeArt.room(id)), fit: BoxFit.cover, alignment: const Alignment(0, 0.28), colorFilter: open ? null : const ColorFilter.matrix(_locked)),
+                    ),
                   ),
                 ),
                 Padding(

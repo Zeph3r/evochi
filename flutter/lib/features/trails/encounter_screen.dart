@@ -1356,7 +1356,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
             _ResultTiles(tiles: tiles, restore: !befriend),
             const SizedBox(height: 8),
             Text('${v.turn} turn${v.turn == 1 ? '' : 's'}${used.isEmpty ? '' : ' · $used'}',
-                textAlign: TextAlign.center, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w700, fontSize: 11.5, color: EvochiColor.textHelper)),
+                textAlign: TextAlign.center, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w700, fontSize: 12, color: EvochiColor.textHelper)),
           ]),
         ),
       ),
@@ -1677,7 +1677,7 @@ class _ResultTiles extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       Text(t.name, textAlign: TextAlign.center, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 12.5, height: 1.15, color: EvochiColor.ink)),
-                      Text(t.sub, textAlign: TextAlign.center, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w700, fontSize: 11, height: 1.2, color: EvochiColor.textHelper)),
+                      Text(t.sub, textAlign: TextAlign.center, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w700, fontSize: 12, height: 1.2, color: EvochiColor.textHelper)),
                     ]),
                   ),
                 ),
@@ -1846,7 +1846,7 @@ class _CompButtonState extends State<_CompButton> {
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                       Text(a.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 14.5, height: 1.1, color: EvochiColor.ink)),
-                      Text(_actionSub(a, v), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 11.5, color: Color(0xB33B2923))),
+                      Text(_actionSub(a, v), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 12, color: Color(0xB33B2923))),
                     ]),
                   ),
                 ]),

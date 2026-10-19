@@ -82,7 +82,7 @@ class _GuildScreenState extends State<GuildScreen> {
                         ]),
                       ),
                     const SizedBox(height: 10),
-                    SectionHead("Today's discoveries", end: Text('Resets in ${resetText(t.msToReset)}', style: EvochiText.caption.copyWith(fontSize: 11))),
+                    SectionHead("Today's discoveries", end: Text('Resets in ${resetText(t.msToReset)}', style: EvochiText.tiny)),
                     const SizedBox(height: 4),
                     for (var i = 0; i < t.discoveries.length; i++) DiscoveryRow(t.discoveries[i], pinned: true, tilt: i.isEven ? -0.5 : 0.45),
                     const SizedBox(height: 4),
@@ -122,9 +122,11 @@ class _GuildHead extends StatelessWidget {
   Widget build(BuildContext context) => SizedBox(
         height: 150,
         child: Stack(fit: StackFit.expand, children: [
-          ColorFiltered(
-            colorFilter: const ColorFilter.matrix(_soft),
-            child: Image.asset(villageArt.place('lodge'), fit: BoxFit.cover, alignment: const Alignment(0, -0.2), excludeFromSemantics: true),
+          // the soft grade is applied as the plate paints (no offscreen layer)
+          DecoratedBox(
+            decoration: BoxDecoration(
+              image: DecorationImage(image: AssetImage(villageArt.place('lodge')), fit: BoxFit.cover, alignment: const Alignment(0, -0.2), colorFilter: const ColorFilter.matrix(_soft)),
+            ),
           ),
           const DecoratedBox(
             decoration: BoxDecoration(

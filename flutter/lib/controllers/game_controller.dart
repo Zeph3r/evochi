@@ -56,7 +56,11 @@ class GameController extends ChangeNotifier {
   /// Cross-route navigation requests (pushed Village screens can't reach the tab shell directly).
   final tabRequest = ValueNotifier<String?>(null);
   String journeyTab = 'daily'; // daily | weekly | story | skills
+  bool storyDoneOpen = false; // Journey > Story: the completed stories unfolded
   String? bagCategoryRequest; // e.g. 'pouch'
+
+  /// Profile > Developer tools: the step simulator, the Garden's time skip and the playtest shortcuts.
+  bool get devTools => state.player?.settings.devTools ?? false;
 
   int get now => DateTime.now().millisecondsSinceEpoch + state.clockOffset;
 

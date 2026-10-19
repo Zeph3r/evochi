@@ -160,7 +160,7 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
               const Text(
                 'By continuing, you agree to our Terms of Service and Privacy Policy.',
                 textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 11.5, color: Colors.white, shadows: [Shadow(color: Color(0xCC32200F), blurRadius: 3)]),
+                style: TextStyle(fontSize: 12, color: Colors.white, shadows: [Shadow(color: Color(0xCC32200F), blurRadius: 3)]),
               ),
             ]),
           ),
@@ -429,7 +429,7 @@ class _MiniHead extends StatelessWidget {
         const SizedBox(width: 6),
         Text(title, style: EvochiText.cardTitle.copyWith(fontSize: 15)),
         const SizedBox(width: 8),
-        Expanded(child: Text(note, textAlign: TextAlign.right, style: EvochiText.caption.copyWith(fontSize: 10.5))),
+        Expanded(child: Text(note, textAlign: TextAlign.right, style: EvochiText.tiny.copyWith(fontWeight: FontWeight.w400))),
       ]);
 }
 
@@ -509,6 +509,8 @@ class _ConnectScreenState extends State<ConnectScreen> {
   void _choose(String conn) {
     final c = context.read<GameController>();
     if (conn != 'none') c.run((s, n) => g.setConnection(s, conn, n));
+    // the simulated step device walks through the step simulator, a developer tool: turn them on
+    if (conn == 'demo' && c.state.player != null) c.updateSettings((x) => x.devTools = true);
     c.run((s, n) => g.setOnboardingStep(s, 'goal'));
     c.analytics.track('step_source', {'source': conn});
   }

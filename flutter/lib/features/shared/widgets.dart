@@ -3,8 +3,6 @@
 // that sink, stamped tags, wooden signs, a carved groove for progress, a wooden nav bar, and carved
 // window frames around sheets and dialogs.
 
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -150,9 +148,10 @@ class _EvochiButtonState extends State<EvochiButton> {
 }
 
 /// A CARD: printed card stock (grain, an inner double rule, a hard bottom edge). It prints on its
-/// screen's material ([KitScope]): lavender in the Apothecary, with ring holes in the EvoDex binder.
-/// [color] tints it, [paper] picks a stock outright, [rule] adds a margin rule down the left (journal
-/// entries, recipes), and [pinned] / [tilt] pin it to the notice board.
+/// screen's material ([KitScope]): lavender in the Apothecary. [color] tints it, [paper] picks a stock
+/// outright, [rule] adds a margin rule down the left (journal entries, recipes), and [pinned] / [tilt]
+/// pin it to the notice board. (The EvoDex binder's ring holes are gone: on a phone they read as stray
+/// bullets.)
 class GameCard extends StatelessWidget {
   const GameCard({
     super.key,
@@ -176,11 +175,10 @@ class GameCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final m = KitScope.of(context);
-    final binder = m == KitMaterial.binder;
     final stock = paper ?? (color != null ? KitPaper.tint(color!) : KitPaper.of(m));
     final card = Container(
-      padding: binder ? padding.copyWith(left: math.max(padding.left, 26)) : padding,
-      decoration: Kit.card(paper: stock, highlight: highlight, rule: rule, holes: binder),
+      padding: padding,
+      decoration: Kit.card(paper: stock, highlight: highlight, rule: rule),
       child: child,
     );
     return pinned || tilt != 0 ? Pinned(pin: pinned, tilt: tilt, child: card) : card;

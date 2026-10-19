@@ -24,6 +24,9 @@ pipeline and how to build.
   `DecoratedSliver` in Journey, and `SnackBar(clipBehavior:)` / `Dialog(surfaceTintColor:)`. Compare
   each screen with `node tools/ui_tour.mjs OUT` on the web build. Settings, Pet, onboarding, Cottage,
   Garden and Home Map only pick up the kit through the shared widgets so far.
+  The UX pass on top of it (Journey order, the Bag's dressing room, the cooking station, Larger text,
+  Developer tools) is uncompiled too; check `EvochiTextScaler` in `app/theme.dart`, `ListenableBuilder`
+  in `shared/scene_scaffold.dart` and `Image.asset(opacity:)` in `home/station_screen.dart` first.
 - The web build is the reference. Run `cd web && node build.mjs`, serve `web/dist`, and play. Web
   tests: `npm test` (65 pass). Phone-size playthroughs (Home Tales: walk → plant → harvest → Bram →
   cottage → cook → Mira → Apothecary; Lumen Trails: discovery → Guild → Pip → prep → travel →

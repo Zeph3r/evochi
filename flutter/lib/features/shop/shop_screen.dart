@@ -1,6 +1,8 @@
 // S10 Shop / Evochi Market (style guide §12, §18 "Purchase/preview UX"). The Garden shelf sells Home
 // Tales seeds, bought 1, 3 or 5 at a time, with "Plant now" after buying.
 
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -124,7 +126,7 @@ class _ShopScreenState extends State<ShopScreen> {
     final it = item(id);
     final seed = it.category == ItemCategory.seed;
     showEvochiDialog<void>(context, builder: (d) => Column(mainAxisSize: MainAxisSize.min, children: [
-          ItemImage(id, size: 110),
+          _BuyReveal(id: id),
           Text(n > 1 ? '$n × ${it.name} are yours!' : '${it.name} is yours!', style: EvochiText.section, textAlign: TextAlign.center),
           Text(seed ? "They're in your Bag's Pantry." : "It's waiting in your Bag.", style: EvochiText.bodyText),
           const SizedBox(height: 12),
@@ -474,4 +476,160 @@ class _ShopScreenState extends State<ShopScreen> {
       ),
     );
   }
+}
+
+/// The purchase reveal (`.bought` in kit.css): a "Purchased!" banner pops in, the item pops up out of
+/// nothing inside slowly turning gold rays, a ring of sparkles bursts out and five coins fall away.
+/// Reduced motion: the banner and the item only (no rays, coins or sparkles).
+class _BuyReveal extends StatefulWidget {
+  const _BuyReveal({required this.id});
+  final String id;
+  @override
+  State<_BuyReveal> createState() => _BuyRevealState();
+}
+
+class _BuyRevealState extends State<_BuyReveal> with TickerProviderStateMixin {
+  static const _bounce = Cubic(0.2, 1.4, 0.4, 1);
+  static const _spring = Cubic(0.2, 1.5, 0.4, 1);
+  late final AnimationController _in = AnimationController(vsync: this, duration: const Duration(milliseconds: 1400));
+  late final AnimationController _spin = AnimationController(vsync: this, duration: const Duration(seconds: 6));
+  bool _started = false;
+  bool _rm = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _rm = MediaQuery.of(context).disableAnimations;
+    if (!_started) {
+      _started = true;
+      _in.forward();
+      if (!_rm) _spin.repeat();
+    } else if (_rm && _spin.isAnimating) {
+      _spin.stop();
+    }
+  }
+
+  @override
+  void dispose() {
+    _in.dispose();
+    _spin.dispose();
+    super.dispose();
+  }
+
+  /// Progress (0..1) of a part that starts [start] s in and lasts [dur] s, at [t] s.
+  static double _seg(double t, double start, double dur) => ((t - start) / dur).clamp(0.0, 1.0).toDouble();
+
+  @override
+  Widget build(BuildContext context) => ExcludeSemantics(
+        child: AnimatedBuilder(
+          animation: Listenable.merge([_in, _spin]),
+          builder: (ctx, _) {
+            final t = _in.value * 1.4; // seconds in
+            final b = _seg(t, 0, 0.45);
+            final pop = _spring.transform(_seg(t, 0.1, 0.7));
+            return Column(mainAxisSize: MainAxisSize.min, children: [
+              Opacity(
+                opacity: _bounce.transform(b).clamp(0.0, 1.0).toDouble(),
+                child: Transform.scale(scale: 0.5 + 0.5 * _bounce.transform(b), child: const GoldBanner('Purchased!')),
+              ),
+              const SizedBox(height: 4),
+              SizedBox(
+                width: 150,
+                height: 150,
+                child: Stack(clipBehavior: Clip.none, children: [
+                  if (!_rm) ...[
+                    Positioned(left: -30, top: -30, right: -30, bottom: -30, child: CustomPaint(painter: _Rays(turn: _spin.value, fade: _seg(t, 0, 0.4)))),
+                    Positioned.fill(child: CustomPaint(painter: _BuySparks(t: t - 0.25))),
+                    for (var i = 0; i < 5; i++) _coin(i, t),
+                  ],
+                  Positioned(
+                    left: 15,
+                    top: 15,
+                    width: 120,
+                    height: 120,
+                    child: Transform.rotate(
+                      angle: -12 * math.pi / 180 * (1 - pop),
+                      child: Transform.scale(scale: math.max(0.0, pop), child: ItemImage(widget.id, size: 120)),
+                    ),
+                  ),
+                ]),
+              ),
+            ]);
+          },
+        ),
+      );
+
+  /// Coin [i] of five, tumbling out from under the item and fading (0.9 s, 0.07 s apart).
+  Widget _coin(int i, double t) {
+    final u = _seg(t, i * 0.07, 0.9);
+    if (u <= 0 || u >= 1) return const SizedBox.shrink();
+    final m = Curves.easeOut.transform(u);
+    return Positioned(
+      left: 75 - 13 + (i - 2) * 34 * m,
+      top: 90 - 13 + 90 * m,
+      width: 26,
+      height: 26,
+      child: Transform.rotate(
+        angle: math.pi * m,
+        child: Transform.scale(
+          scale: 1 - 0.4 * m,
+          child: Image.asset(art.icon('coin'), opacity: AlwaysStoppedAnimation(1 - m), excludeFromSemantics: true),
+        ),
+      ),
+    );
+  }
+}
+
+/// Gold rays turning slowly behind a reveal, fading out toward their tips.
+class _Rays extends CustomPainter {
+  _Rays({required this.turn, required this.fade});
+  final double turn; // 0..1, a full turn every 6 s
+  final double fade; // fades in over 0.4 s
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (fade <= 0) return;
+    final c = size.center(Offset.zero);
+    final r = size.shortestSide / 2;
+    final rect = Rect.fromCircle(center: c, radius: r);
+    final path = Path();
+    for (var k = 0; k < 15; k++) {
+      final a = (k * 24 - 90) * math.pi / 180;
+      path
+        ..moveTo(c.dx, c.dy)
+        ..arcTo(rect, a, 10 * math.pi / 180, false)
+        ..close();
+    }
+    final gold = Color.fromRGBO(255, 214, 110, 0.47 * fade);
+    canvas.save();
+    canvas.translate(c.dx, c.dy);
+    canvas.rotate(turn * 2 * math.pi);
+    canvas.translate(-c.dx, -c.dy);
+    canvas.drawPath(path, Paint()..shader = RadialGradient(colors: [gold, gold, gold.withAlpha(0)], stops: const [0, 0.35, 1]).createShader(rect));
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_Rays old) => old.turn != turn || old.fade != fade;
+}
+
+/// Ten sparkles bursting out of the reveal's centre ([t] s in, 0.9 s).
+class _BuySparks extends CustomPainter {
+  _BuySparks({required this.t});
+  final double t;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final u = t / 0.9;
+    if (u <= 0 || u >= 1) return;
+    final m = Curves.easeOut.transform(u);
+    final c = size.center(Offset.zero);
+    final paint = Paint()..color = const Color(0xFFFFE5A2).withAlpha((255 * (1 - m)).round());
+    for (var i = 0; i < 10; i++) {
+      final a = i * 36 * math.pi / 180;
+      final d = (78 + (i % 3) * 20) * m;
+      canvas.drawPath(kitStarPath(c + Offset(math.sin(a) * d, -math.cos(a) * d), 8 * (0.6 + 0.6 * m)), paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_BuySparks old) => old.t != t;
 }

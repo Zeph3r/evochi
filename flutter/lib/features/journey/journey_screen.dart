@@ -61,6 +61,17 @@ class _JourneyScreenState extends State<JourneyScreen> {
     }
   }
 
+  /// What's left to do first: the quests ready to claim, then the ones in progress; the claimed ones
+  /// fold into one green line (web: questList in journey.js).
+  List<Widget> _questList(GameController c, List<g.QuestView> qs, String when) {
+    final open = [...qs.where((q) => !q.claimed && q.eligible), ...qs.where((q) => !q.claimed && !q.eligible)];
+    final claimed = qs.where((q) => q.claimed).length;
+    return [
+      for (final q in open) _QuestRow(q: q, onClaim: () => _claim(c, q.def.id)),
+      if (claimed > 0) _ClaimedLine(open.isEmpty ? 'All $claimed claimed $when. Nice walking.' : '$claimed claimed $when'),
+    ];
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.watch<GameController>();
@@ -135,7 +146,8 @@ class _JourneyScreenState extends State<JourneyScreen> {
       ]),
     );
     final sources = <Widget>[
-      if (conn == 'demo')
+      // the step simulator is a developer tool (Profile > Developer tools)
+      if (conn == 'demo' && c.devTools)
         GameCard(
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             const Row(children: [Expanded(child: Text('Go for a walk', style: EvochiText.cardTitle)), Tag('Playtest')]),
@@ -240,13 +252,13 @@ class _JourneyScreenState extends State<JourneyScreen> {
               ...sources,
               const SizedBox(height: 14),
               if (tab == 'daily') ...[
-                const _SectionHead('Daily quests'),
-                for (final q in v.quests.where((q) => q.def.period == 'day')) _QuestRow(q: q, onClaim: () => _claim(c, q.def.id)),
+                const _SectionHead("Today's quests"),
+                ..._questList(c, v.quests.where((q) => q.def.period == 'day').toList(), 'today'),
                 const SizedBox(height: 4),
                 const DiscoveriesPanel(),
               ] else ...[
                 const _SectionHead('This week'),
-                for (final q in v.quests.where((q) => q.def.period == 'week')) _QuestRow(q: q, onClaim: () => _claim(c, q.def.id)),
+                ..._questList(c, v.quests.where((q) => q.def.period == 'week').toList(), 'this week'),
                 const SizedBox(height: 4),
                 _WeekCard(),
               ],
@@ -333,6 +345,29 @@ class _SectionHead extends StatelessWidget {
   Widget build(BuildContext context) => KitSectionHead(text, padding: const EdgeInsets.only(bottom: 8));
 }
 
+/// "2 claimed today" / "All 3 claimed today. Nice walking." (`.claimed-line`).
+class _ClaimedLine extends StatelessWidget {
+  const _ClaimedLine(this.text);
+  final String text;
+  @override
+  Widget build(BuildContext context) => Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          decoration: BoxDecoration(
+            color: const Color(0x99E5F2CF),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0x7382B75E), width: 1.5),
+          ),
+          child: Row(children: [
+            const Icon(Icons.check_rounded, size: 18, color: EvochiColor.healthy),
+            const SizedBox(width: 8),
+            Expanded(child: Text(text, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 13.5, color: EvochiColor.healthy))),
+          ]),
+        ),
+      );
+}
+
 class _QuestRow extends StatelessWidget {
   const _QuestRow({required this.q, required this.onClaim});
   final g.QuestView q;
@@ -358,7 +393,7 @@ class _QuestRow extends StatelessWidget {
                   const SizedBox(height: 4),
                   ProgressBarX(value: q.progress / q.target, height: 10, tone: 'green'),
                   const SizedBox(height: 2),
-                  Text(q.label, style: EvochiText.caption.copyWith(fontSize: 11)),
+                  Text(q.label, style: EvochiText.tiny),
                 ]),
               ),
               const SizedBox(width: 8),
@@ -425,11 +460,14 @@ class _WeekCard extends StatelessWidget {
                       border: Border.all(color: k == v.today ? const Color(0xFFF2BE55) : const Color(0xFFE8D5BF), width: 1.5),
                     ),
                     child: Column(children: [
-                      Text(names[dow], style: EvochiText.tag.copyWith(fontSize: 11)),
+                      Text(names[dow], style: EvochiText.tag.copyWith(fontSize: 12)),
                       const SizedBox(height: 3),
                       Container(width: 26, height: 26, decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)), alignment: Alignment.center, child: Text(mark, style: EvochiText.tag)),
                       const SizedBox(height: 3),
-                      Text(steps == 0 ? '-' : (steps >= 1000 ? '${(steps / 1000).toStringAsFixed(1)}k' : '$steps'), style: EvochiText.caption.copyWith(fontSize: 9.5)),
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(steps == 0 ? '-' : (steps >= 1000 ? '${(steps / 1000).toStringAsFixed(1)}k' : '$steps'), style: EvochiText.tiny),
+                      ),
                     ]),
                   ),
                 );

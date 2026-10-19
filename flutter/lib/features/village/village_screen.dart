@@ -331,7 +331,7 @@ class _PinButton extends StatelessWidget {
                     Row(mainAxisSize: MainAxisSize.min, children: [
                       const VoxelIcon('lock', size: 13),
                       const SizedBox(width: 2),
-                      Text(lock, style: EvochiText.tag.copyWith(fontSize: 11)),
+                      Text(lock, style: EvochiText.tag.copyWith(fontSize: 12)),
                     ]),
                 ]),
               ),
@@ -443,6 +443,8 @@ class _PlaceScreenState extends State<PlaceScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     _reduce = MediaQuery.of(context).disableAnimations;
+    // the restored Waystone's plate is decoded ahead, so the restoration never shows a blank frame
+    if (_isWay) precacheImage(AssetImage(villageArt.waystone(restored: true)), context, onError: (_, __) {});
   }
 
   @override
@@ -631,10 +633,10 @@ class _PlaceScreenState extends State<PlaceScreen> {
                           width: w,
                           height: stageH,
                           child: Stack(clipBehavior: Clip.hardEdge, children: [
+                            // the soft grade is applied as the plate paints (no offscreen layer under the villagers)
                             Positioned.fill(
-                              child: ColorFiltered(
-                                colorFilter: const ColorFilter.matrix(_backdrop),
-                                child: Image.asset(plate, fit: BoxFit.cover, excludeFromSemantics: true, gaplessPlayback: true),
+                              child: DecoratedBox(
+                                decoration: BoxDecoration(image: DecorationImage(image: AssetImage(plate), fit: BoxFit.cover, colorFilter: const ColorFilter.matrix(_backdrop))),
                               ),
                             ),
                             // depth: a soft vignette and a fade into the page keep the eye on the villagers

@@ -1,4 +1,5 @@
-// S13 Profile / Settings: account, goal, step source, reminders, accessibility, privacy, playtest tools.
+// S13 Profile / Settings: account, goal, step source, reminders, accessibility (Larger text, Reduce
+// motion), privacy, and Developer tools (the step simulator and playtest shortcuts, off by default).
 
 import 'dart:convert';
 
@@ -139,7 +140,9 @@ class SettingsScreen extends StatelessWidget {
                       }
                     },
                   ),
-                  EvochiButton(label: 'Simulated', small: true, expand: false, tone: conn == 'demo' ? ButtonTone.green : ButtonTone.cream, onPressed: () => c.run((x, n) => g.setConnection(x, 'demo', n))),
+                  // the simulated step device is a developer tool
+                  if (st.devTools || conn == 'demo')
+                    EvochiButton(label: 'Simulated', small: true, expand: false, tone: conn == 'demo' ? ButtonTone.green : ButtonTone.cream, onPressed: () => c.run((x, n) => g.setConnection(x, 'demo', n))),
                   EvochiButton(label: 'Manual', small: true, expand: false, tone: conn == 'manual' ? ButtonTone.green : ButtonTone.cream, onPressed: () => c.run((x, n) => g.setConnection(x, 'manual', n))),
                   EvochiButton(label: 'Disconnect', small: true, expand: false, tone: ButtonTone.cream, onPressed: conn == 'none' ? null : () => c.run((x, n) => g.setConnection(x, 'none', n))),
                 ]),
@@ -174,6 +177,7 @@ class SettingsScreen extends StatelessWidget {
                 toggle('Sound effects', null, st.sound, (x, v) => x.sound = v),
                 toggle('Ambient music', null, st.music, (x, v) => x.music = v),
                 toggle('Haptics', null, st.haptics, (x, v) => x.haptics = v),
+                toggle('Larger text', 'Bigger labels, descriptions and item text everywhere.', st.largeText, (x, v) => x.largeText = v),
                 toggle('Reduce motion', 'Crossfades instead of bounces, flashes and particles.', st.reducedMotion, (x, v) => x.reducedMotion = v),
                 toggle('Classic villagers', "Flat, evenly lit villagers instead of ones lit by each room's lanterns and windows.", st.classicVillagers,
                     (x, v) => x.classicVillagers = v),
@@ -245,103 +249,117 @@ class SettingsScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             GameCard(
-              color: const Color(0xD9FFF9F0),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                const Text('Playtest tools', style: EvochiText.cardTitle),
-                Text('Shortcuts for testing progression. Clock offset: +$offDays day${offDays == 1 ? '' : 's'}.', style: EvochiText.caption),
-                const SizedBox(height: 8),
-                Wrap(spacing: 6, runSpacing: 6, children: [
-                  EvochiButton(label: '+500 coins', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.run((x, n) => g.grantCoins(x, 500, n))),
-                  EvochiButton(label: 'Walk 1 goal day', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.advanceDays(1, 1.05)),
-                  EvochiButton(label: 'Walk 7 goal days', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.advanceDays(7, 1.05)),
-                  EvochiButton(label: 'Fast-track evolution', small: true, expand: false, tone: ButtonTone.cream, onPressed: c.fastTrackEvolution),
-                  EvochiButton(label: 'Skip 3 idle days', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.advanceDays(3, 0)),
-                  EvochiButton(label: '+3 Healing Herbs', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.grantHerbs(3)),
-                ]),
-                const SizedBox(height: 12),
-                const Text('Home Tales', style: EvochiText.cardTitle),
-                const Text('Garden, Cottage, Kitchen, Apothecary and Skills.', style: EvochiText.caption),
-                const SizedBox(height: 8),
-                Wrap(spacing: 6, runSpacing: 6, children: [
-                  EvochiButton(
-                    label: 'Skip 1 hour',
-                    small: true,
-                    expand: false,
-                    tone: ButtonTone.cream,
-                    onPressed: () {
-                      c.skipTime(hourMs);
-                      c.toast('An hour passed (no steps)', icon: 'skill_farming');
-                    },
-                  ),
-                  EvochiButton(
-                    label: 'Skip to Home Tales',
-                    small: true,
-                    expand: false,
-                    tone: ButtonTone.cream,
-                    onPressed: () {
-                      final changed = c.homeTalesReady();
-                      c.toast(changed ? 'Chapter 1 quest 1 done and level 2 reached: Bram has a job for you' : 'Home Tales are already open', icon: 'home_map');
-                    },
-                  ),
-                  EvochiButton(
-                    label: '+ Seeds and ingredients',
-                    small: true,
-                    expand: false,
-                    tone: ButtonTone.cream,
-                    onPressed: () {
-                      c.grantPantry();
-                      c.toast('Seeds and ingredients added to Bag > Pantry', icon: 'skill_farming');
-                    },
-                  ),
-                  EvochiButton(
-                    label: '+1 level, every skill',
-                    small: true,
-                    expand: false,
-                    tone: ButtonTone.cream,
-                    onPressed: () {
-                      c.skillsUp();
-                      c.toast('Every skill went up a level', icon: 'star');
-                    },
-                  ),
-                ]),
-                const SizedBox(height: 12),
-                const Text('Lumen Trails', style: EvochiText.cardTitle),
-                const Text('Discoveries, the Trail Guild and encounters.', style: EvochiText.caption),
-                const SizedBox(height: 8),
-                Wrap(spacing: 6, runSpacing: 6, children: [
-                  EvochiButton(
-                    label: 'Skip to Lumen Trails',
-                    small: true,
-                    expand: false,
-                    tone: ButtonTone.cream,
-                    onPressed: () {
-                      final n = c.trailsReady();
-                      c.toast(n > 0 ? 'Level 3, two discoveries done: Pip has a Guild job for you' : 'Lumen Trails are already open', icon: 'trail_badge');
-                    },
-                  ),
-                  EvochiButton(
-                    label: "Finish today's discoveries",
-                    small: true,
-                    expand: false,
-                    tone: ButtonTone.cream,
-                    onPressed: () {
-                      final n = c.finishDiscoveries(3);
-                      c.toast(n > 0 ? '$n discover${n == 1 ? 'y' : 'ies'} found' : 'Nothing left to find today', icon: 'discover');
-                    },
-                  ),
-                  EvochiButton(
-                    label: '+3 Lumen Shards, +1 Lantern Tonic',
-                    small: true,
-                    expand: false,
-                    tone: ButtonTone.cream,
-                    onPressed: () {
-                      c.grantTrailItems();
-                      c.toast('Shards and a Lantern Tonic added', icon: 'item:lumen_shard');
-                    },
-                  ),
-                ]),
-              ]),
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: SwitchListTile(
+                value: st.devTools,
+                onChanged: (v) => c.updateSettings((x) => x.devTools = v),
+                secondary: const VoxelIcon('settings', size: 30),
+                title: Text('Developer tools', style: EvochiText.cardTitle.copyWith(fontSize: 15)),
+                subtitle: const Text('The step simulator, the Garden\'s time skip and the playtest shortcuts below. Off, you see Evochi as players will.', style: EvochiText.caption),
+                activeTrackColor: EvochiColor.steps,
+              ),
             ),
+            if (st.devTools) ...[
+              const SizedBox(height: 10),
+              GameCard(
+                color: const Color(0xD9FFF9F0),
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  const Text('Playtest tools', style: EvochiText.cardTitle),
+                  Text('Shortcuts for testing progression. Clock offset: +$offDays day${offDays == 1 ? '' : 's'}.', style: EvochiText.caption),
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 6, runSpacing: 6, children: [
+                    EvochiButton(label: '+500 coins', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.run((x, n) => g.grantCoins(x, 500, n))),
+                    EvochiButton(label: 'Walk 1 goal day', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.advanceDays(1, 1.05)),
+                    EvochiButton(label: 'Walk 7 goal days', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.advanceDays(7, 1.05)),
+                    EvochiButton(label: 'Fast-track evolution', small: true, expand: false, tone: ButtonTone.cream, onPressed: c.fastTrackEvolution),
+                    EvochiButton(label: 'Skip 3 idle days', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.advanceDays(3, 0)),
+                    EvochiButton(label: '+3 Healing Herbs', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.grantHerbs(3)),
+                  ]),
+                  const SizedBox(height: 12),
+                  const Text('Home Tales', style: EvochiText.cardTitle),
+                  const Text('Garden, Cottage, Kitchen, Apothecary and Skills.', style: EvochiText.caption),
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 6, runSpacing: 6, children: [
+                    EvochiButton(
+                      label: 'Skip 1 hour',
+                      small: true,
+                      expand: false,
+                      tone: ButtonTone.cream,
+                      onPressed: () {
+                        c.skipTime(hourMs);
+                        c.toast('An hour passed (no steps)', icon: 'skill_farming');
+                      },
+                    ),
+                    EvochiButton(
+                      label: 'Skip to Home Tales',
+                      small: true,
+                      expand: false,
+                      tone: ButtonTone.cream,
+                      onPressed: () {
+                        final changed = c.homeTalesReady();
+                        c.toast(changed ? 'Chapter 1 quest 1 done and level 2 reached: Bram has a job for you' : 'Home Tales are already open', icon: 'home_map');
+                      },
+                    ),
+                    EvochiButton(
+                      label: '+ Seeds and ingredients',
+                      small: true,
+                      expand: false,
+                      tone: ButtonTone.cream,
+                      onPressed: () {
+                        c.grantPantry();
+                        c.toast('Seeds and ingredients added to Bag > Pantry', icon: 'skill_farming');
+                      },
+                    ),
+                    EvochiButton(
+                      label: '+1 level, every skill',
+                      small: true,
+                      expand: false,
+                      tone: ButtonTone.cream,
+                      onPressed: () {
+                        c.skillsUp();
+                        c.toast('Every skill went up a level', icon: 'star');
+                      },
+                    ),
+                  ]),
+                  const SizedBox(height: 12),
+                  const Text('Lumen Trails', style: EvochiText.cardTitle),
+                  const Text('Discoveries, the Trail Guild and encounters.', style: EvochiText.caption),
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 6, runSpacing: 6, children: [
+                    EvochiButton(
+                      label: 'Skip to Lumen Trails',
+                      small: true,
+                      expand: false,
+                      tone: ButtonTone.cream,
+                      onPressed: () {
+                        final n = c.trailsReady();
+                        c.toast(n > 0 ? 'Level 3, two discoveries done: Pip has a Guild job for you' : 'Lumen Trails are already open', icon: 'trail_badge');
+                      },
+                    ),
+                    EvochiButton(
+                      label: "Finish today's discoveries",
+                      small: true,
+                      expand: false,
+                      tone: ButtonTone.cream,
+                      onPressed: () {
+                        final n = c.finishDiscoveries(3);
+                        c.toast(n > 0 ? '$n discover${n == 1 ? 'y' : 'ies'} found' : 'Nothing left to find today', icon: 'discover');
+                      },
+                    ),
+                    EvochiButton(
+                      label: '+3 Lumen Shards, +1 Lantern Tonic',
+                      small: true,
+                      expand: false,
+                      tone: ButtonTone.cream,
+                      onPressed: () {
+                        c.grantTrailItems();
+                        c.toast('Shards and a Lantern Tonic added', icon: 'item:lumen_shard');
+                      },
+                    ),
+                  ]),
+                ]),
+              ),
+            ],
             const SizedBox(height: 8),
             Text('Evochi ${c.config.version} - ${c.repo.storageOk ? 'saved on this device' : 'storage unavailable, progress kept in memory'}',
                 textAlign: TextAlign.center, style: EvochiText.caption),

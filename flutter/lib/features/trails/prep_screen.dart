@@ -289,7 +289,7 @@ class _PrepScreenState extends State<PrepScreen> {
                   line: 'Lv. $level · ${stageLabel(pet.stage)}',
                   label: '${pet.name}, level $level, ${stageLabel(pet.stage)}. Energy $maxE of $maxE${stageOk ? '' : '. A grown Evochi has more Energy'}',
                   trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
-                    const Text('Energy', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 11, color: EvochiColor.textHelper)),
+                    const Text('Energy', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 12, color: EvochiColor.textHelper)),
                     const SizedBox(height: 2),
                     const ThinBar(kind: 'energy', frac: 1, width: 92),
                     const SizedBox(height: 2),
@@ -449,7 +449,7 @@ class _RecTile extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(8, 10, 8, 12),
           decoration: Kit.card(radius: 16),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
-            Text(kicker, textAlign: TextAlign.center, style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 11.5, color: hollow ? const Color(0xFF7B52C2) : const Color(0xFF5E9A3E))),
+            Text(kicker, textAlign: TextAlign.center, style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 12, color: hollow ? const Color(0xFF7B52C2) : const Color(0xFF5E9A3E))),
             const SizedBox(height: 5),
             Container(
               width: 56,
@@ -565,7 +565,7 @@ class _CheckRow extends StatelessWidget {
                 margin: const EdgeInsets.only(left: 8),
                 padding: const EdgeInsets.fromLTRB(7, 1, 7, 1),
                 decoration: BoxDecoration(color: const Color(0xFFF3E8DA), borderRadius: BorderRadius.circular(8)),
-                child: const Text('optional', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 11, color: EvochiColor.textHelper)),
+                child: const Text('optional', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 12, color: EvochiColor.textHelper)),
               ),
           ]),
         ),

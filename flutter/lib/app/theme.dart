@@ -44,6 +44,8 @@ class EvochiSpace {
   static const minTarget = 44.0;
 }
 
+/// Readability (web kit.css "UX pass"): nothing below 12 px; secondary text ([caption]) is 13 px.
+/// Profile > Larger text raises small and secondary text further through [EvochiTextScaler].
 class EvochiText {
   static const game = 'Nunito';
   static const body = 'Lato';
@@ -52,9 +54,35 @@ class EvochiText {
   static const cardTitle = TextStyle(fontFamily: game, fontWeight: FontWeight.w800, fontSize: 16, height: 1.3, color: EvochiColor.ink);
   static const button = TextStyle(fontFamily: game, fontWeight: FontWeight.w900, fontSize: 17, color: EvochiColor.ink);
   static const bodyText = TextStyle(fontFamily: body, fontWeight: FontWeight.w400, fontSize: 14, height: 1.43, color: EvochiColor.ink);
-  static const caption = TextStyle(fontFamily: body, fontWeight: FontWeight.w400, fontSize: 12, height: 1.33, color: EvochiColor.textHelper);
+  static const caption = TextStyle(fontFamily: body, fontWeight: FontWeight.w400, fontSize: 13, height: 1.38, color: EvochiColor.textHelper);
+
+  /// The smallest text (web `.tiny`): footnotes and counters under buttons.
+  static const tiny = TextStyle(fontFamily: body, fontWeight: FontWeight.w700, fontSize: 12, height: 1.25, color: EvochiColor.textHelper);
   static const tag = TextStyle(fontFamily: game, fontWeight: FontWeight.w800, fontSize: 13, color: EvochiColor.textSecondary);
   static const number = TextStyle(fontFamily: game, fontWeight: FontWeight.w900, fontSize: 20, color: EvochiColor.ink, fontFeatures: [FontFeature.tabularFigures()]);
+}
+
+/// Profile > Larger text (web `.large-text`): small and secondary text grows about 12% (13 -> 14.5,
+/// 12 -> 13.5), card titles a little less, headings and big numbers barely at all, all on top of the
+/// system's own text size ([base]).
+class EvochiTextScaler extends TextScaler {
+  const EvochiTextScaler(this.base);
+  final TextScaler base;
+
+  static double boost(double size) => size <= 14 ? 1.12 : (size >= 22 ? 1.0 : 1.12 - 0.12 * (size - 14) / 8);
+
+  @override
+  double scale(double fontSize) => base.scale(fontSize * boost(fontSize));
+
+  // TextScaler still asks for a single factor in a few legacy places: the body-text size's factor
+  @override
+  double get textScaleFactor => scale(14) / 14;
+
+  @override
+  bool operator ==(Object other) => other is EvochiTextScaler && other.base == base;
+
+  @override
+  int get hashCode => Object.hash(EvochiTextScaler, base);
 }
 
 ThemeData evochiTheme() {

@@ -301,10 +301,10 @@ class _MapPin extends StatelessWidget {
                   Row(mainAxisSize: MainAxisSize.min, children: [
                     const VoxelIcon('lock', size: 13),
                     const SizedBox(width: 2),
-                    Text(lock, style: EvochiText.tag.copyWith(fontSize: 11)),
+                    Text(lock, style: EvochiText.tag.copyWith(fontSize: 12)),
                   ])
                 else if (sub != null && sub.isNotEmpty)
-                  Text(sub, style: EvochiText.tag.copyWith(fontSize: 11)),
+                  Text(sub, style: EvochiText.tag.copyWith(fontSize: 12)),
               ]),
             ),
             if (mark != null) Positioned(top: -12, right: -10, child: PinMark(mark)),

@@ -336,7 +336,7 @@ class _Req extends StatelessWidget {
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           if (ok) const Icon(Icons.check_rounded, size: 14, color: EvochiColor.healthy) else VoxelIcon(icon, size: 14),
           const SizedBox(width: 3),
-          Flexible(child: Text(text, style: EvochiText.tag.copyWith(fontSize: 11.5, color: ok ? EvochiColor.healthy : EvochiColor.textSecondary))),
+          Flexible(child: Text(text, style: EvochiText.tag.copyWith(fontSize: 12, color: ok ? EvochiColor.healthy : EvochiColor.textSecondary))),
         ]),
       );
 }

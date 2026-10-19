@@ -127,7 +127,7 @@ class _PetDetailsScreenState extends State<PetDetailsScreen> {
                             ),
                             child: Column(children: [
                               SizedBox(height: 40, child: PetSprite(stage: pet.stage, palette: pet.paletteId, view: v, height: 38)),
-                              Text(v, style: EvochiText.tag.copyWith(fontSize: 10)),
+                              Text(v, style: EvochiText.tag.copyWith(fontSize: 12)),
                             ]),
                           ),
                         ),
@@ -217,7 +217,7 @@ class _PetDetailsScreenState extends State<PetDetailsScreen> {
                         child: Column(children: [
                           if (pet.equipped[slot] != null) ItemImage(pet.equipped[slot]!, size: 44) else const Opacity(opacity: 0.3, child: VoxelIcon('wearables', size: 44)),
                           Text(pet.equipped[slot] != null ? item(pet.equipped[slot]!).name : '${slotLabels[slot]}: empty',
-                              textAlign: TextAlign.center, style: EvochiText.tag.copyWith(fontSize: 11.5)),
+                              textAlign: TextAlign.center, style: EvochiText.tag.copyWith(fontSize: 12)),
                         ]),
                       ),
                     ),

@@ -57,6 +57,27 @@ class SceneConfig {
   final Color background;
 }
 
+/// Where [HabitatScene] draws the pet in a scene of [size] (its atlas frame, before any reaction
+/// motion), or null without a visible pet. The same placement as HabitatScene.build: keep them in step.
+Rect? scenePetRect(SceneConfig cfg, Size size) {
+  final p = cfg.pet;
+  if (p == null || !p.visible || size.isEmpty) return null;
+  final m = AssetManifest.instance!;
+  final hab = m.habitat(cfg.habitat);
+  final w = size.width, h = size.height;
+  final k = w / hab.w * cfg.zoom;
+  final anchor = hab.pet;
+  final fx = cfg.focus.dx <= 1 ? cfg.focus.dx * w : cfg.focus.dx;
+  final fy = cfg.focus.dy <= 1 ? cfg.focus.dy * h : cfg.focus.dy;
+  final ox = (fx - anchor.dx * k).clamp(math.min(0.0, w - hab.w * k), 0.0).toDouble();
+  final oy = math.min(0.0, fy - anchor.dy * k);
+  final ground = Offset(ox + anchor.dx * k, oy + anchor.dy * k);
+  final e = m.char(p.stage);
+  final s = hab.petPxPerUnit * k * (_worldScale[p.stage] ?? 0.2) * p.scale / e.scale;
+  final a = e.anchor('ground');
+  return Rect.fromLTWH(ground.dx - a.dx * s, ground.dy - a.dy * s, e.w * s, e.h * s);
+}
+
 class _Reaction {
   _Reaction(this.expr, this.motion, this.start, this.dur);
   final String expr;
@@ -160,6 +181,7 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
         'surprised': ['surprised', 'hop', '900', ''],
         'equip': ['happy', 'wiggle', '700', 'stars'],
         'sad': ['sad', 'none', '1400', ''],
+        'snack': ['excited', 'hop', '1000', 'hearts'], // food picked in the Bag
       };
       final s = spec[kind];
       if (s == null) continue;

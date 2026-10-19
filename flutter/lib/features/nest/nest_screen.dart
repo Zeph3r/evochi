@@ -1,6 +1,7 @@
 // S06 Home / Nest (style guide §10, §14, §17) + S12 memorial when vitality reaches zero.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -18,6 +19,7 @@ import '../settings/settings_screen.dart';
 import '../shared/kit.dart';
 import '../shared/scene_scaffold.dart';
 import '../shared/scene_view.dart';
+import '../shared/sprite.dart';
 import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import '../village/story_widgets.dart';
@@ -415,6 +417,8 @@ class _IdCard extends StatelessWidget {
                 IconButton(tooltip: 'Rename ${pet.name}', onPressed: () => showRenameSheet(context), icon: const Icon(Icons.edit_rounded, color: EvochiColor.primaryShadow, size: 20)),
               ]),
               Wrap(spacing: 6, runSpacing: 4, children: [Tag(stageLabel(pet.stage), tone: TagTone.stage), statusTag(pv.status)]),
+              // the next form, always on the nameplate (hidden once the final form is reached)
+              if (!pv.evolution.maxed && pv.evolution.gate != null) const Padding(padding: EdgeInsets.only(top: 6), child: _EvoNext()),
             ]),
           ),
           const VerticalDivider(color: Color(0x66C49660), thickness: 1.5, width: 20),
@@ -442,6 +446,84 @@ class _IdCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// "Next: Elder" on the nameplate: the next form's silhouette, the two things it needs (level and
+/// active days) and a ring for the slower of the two. Opens Inspect.
+class _EvoNext extends StatelessWidget {
+  const _EvoNext();
+  @override
+  Widget build(BuildContext context) {
+    final c = context.watch<GameController>();
+    final pet = c.state.pet!;
+    final pv = c.view.pet!;
+    final ev = pv.evolution;
+    final gate = ev.gate!;
+    final next = stageLabel(pet.stage + 1);
+    final pct = ev.levelProgress < ev.daysProgress ? ev.levelProgress : ev.daysProgress;
+    return Semantics(
+      button: true,
+      label: 'Next form: $next. Level ${pv.level.level} of ${gate.level}, ${pv.activeDays} of ${gate.activeDays} active days',
+      excludeSemantics: true,
+      child: GestureDetector(
+        onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PetDetailsScreen())),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 40),
+          padding: const EdgeInsets.fromLTRB(4, 3, 8, 3),
+          decoration: const KitDecoration(
+            base: BoxDecoration(
+              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFF6DF), Color(0xFFFBE6BC)]),
+              borderRadius: BorderRadius.all(Radius.circular(11)),
+              border: Border.fromBorderSide(BorderSide(color: Color(0xFFD9B57E), width: 1.5)),
+              boxShadow: [BoxShadow(color: Color(0xFFC99A62), offset: Offset(0, 2))],
+            ),
+            inset: 1.5,
+            top: KitBand(1, Color(0xFFFFFDF5)),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            SizedBox(width: 30, height: 30, child: FittedBox(child: PetSprite(stage: pet.stage + 1, palette: pet.paletteId, height: 80, silhouette: true))),
+            const SizedBox(width: 6),
+            Flexible(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                Text('Next: $next',
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 13, height: 1.1, color: EvochiColor.ink)),
+                const SizedBox(height: 1),
+                Text('Lv ${pv.level.level}/${gate.level} · ${pv.activeDays}/${gate.activeDays} days',
+                    maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 12, color: EvochiColor.textHelper)),
+              ]),
+            ),
+            const SizedBox(width: 6),
+            SizedBox(width: 22, height: 22, child: CustomPaint(painter: _EvoRing(pct))),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// A small progress ring (gold on a faint track), filling clockwise from the top.
+class _EvoRing extends CustomPainter {
+  _EvoRing(this.pct);
+  final double pct;
+  @override
+  void paint(Canvas canvas, Size size) {
+    const stroke = 4.5;
+    final c = size.center(Offset.zero);
+    final r = size.shortestSide / 2 - stroke / 2;
+    canvas.drawCircle(c, r, Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = stroke
+      ..color = const Color(0x2E6E461E));
+    if (pct > 0) {
+      canvas.drawArc(Rect.fromCircle(center: c, radius: r), -math.pi / 2, math.pi * 2 * pct, false, Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke
+        ..color = const Color(0xFFE9A541));
+    }
+  }
+
+  @override
+  bool shouldRepaint(_EvoRing old) => old.pct != pct;
 }
 
 class _StepsCard extends StatelessWidget {

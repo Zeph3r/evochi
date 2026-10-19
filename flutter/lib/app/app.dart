@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 
 import '../controllers/game_controller.dart';
 import '../features/home/home_widgets.dart';
+import '../features/shared/kit.dart';
 import '../features/shared/widgets.dart';
 import 'router.dart';
 import 'theme.dart';
@@ -14,10 +15,22 @@ class EvochiApp extends StatefulWidget {
 }
 
 class _EvochiAppState extends State<EvochiApp> with WidgetsBindingObserver {
+  bool _precached = false;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // the kit's wood, paper, canvas and frames, decoded before the first screen needs them
+    if (!_precached) {
+      _precached = true;
+      precacheKitTextures(context);
+    }
   }
 
   @override
@@ -41,6 +54,7 @@ class _EvochiAppState extends State<EvochiApp> with WidgetsBindingObserver {
   @override
   Widget build(BuildContext context) {
     final reduce = context.select<GameController, bool>((c) => c.state.player?.settings.reducedMotion ?? false);
+    final large = context.select<GameController, bool>((c) => c.state.player?.settings.largeText ?? false);
     return MaterialApp(
       title: 'Evochi',
       navigatorKey: rootNavigatorKey,
@@ -48,9 +62,10 @@ class _EvochiAppState extends State<EvochiApp> with WidgetsBindingObserver {
       theme: evochiTheme(),
       builder: (context, child) {
         final mq = MediaQuery.of(context);
-        // honour the OS reduce-motion setting as well as the in-game toggle
+        // honour the OS reduce-motion setting as well as the in-game toggle; Larger text raises small
+        // and secondary text on top of the system's text size
         return MediaQuery(
-          data: mq.copyWith(disableAnimations: mq.disableAnimations || reduce),
+          data: mq.copyWith(disableAnimations: mq.disableAnimations || reduce, textScaler: large ? EvochiTextScaler(mq.textScaler) : mq.textScaler),
           child: ToastListener(child: SkillUpListener(child: child!)),
         );
       },

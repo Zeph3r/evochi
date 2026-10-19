@@ -176,7 +176,8 @@ class _GardenScreenState extends State<GardenScreen> {
                       onWalk: () => goWalk(context),
                     ),
                     const SizedBox(height: 10),
-                    if (c.state.steps.connection == 'demo' && plots.any((x) => !x.empty && !x.ripe)) ...[
+                    // a developer tool (Profile > Developer tools)
+                    if (c.state.steps.connection == 'demo' && c.devTools && plots.any((x) => !x.empty && !x.ripe)) ...[
                       _PlaytestSkip(onSkip: (min) {
                         c.audio.play('ui_tap', volume: 0.4);
                         c.skipTime(min * 60000);
@@ -672,7 +673,7 @@ class _SeedRow extends StatelessWidget {
               Flexible(child: Text(crop.name, style: EvochiText.cardTitle.copyWith(fontSize: 14, fontWeight: FontWeight.w900, color: open ? EvochiColor.ink : EvochiColor.textHelper))),
               if (have > 0) ...[const SizedBox(width: 6), Tag('x$have')],
             ]),
-            Text('${durationText(crop.growMin * 60000)} · ${yieldText(crop.yieldItems)} · +${crop.xp} XP', style: EvochiText.caption.copyWith(fontSize: 11)),
+            Text('${durationText(crop.growMin * 60000)} · ${yieldText(crop.yieldItems)} · +${crop.xp} XP', style: EvochiText.tiny),
           ]),
         ),
         const SizedBox(width: 6),

@@ -39,7 +39,7 @@ class _EvoDexScreenState extends State<EvoDexScreen> {
     final sel = (_stage != null && unlocked(_stage!)) ? _stage! : (s.pet?.stage ?? 1);
     final evo = c.view.pet?.evolution;
     final found = palettes.where((p) => s.unlocks.containsKey('palette:${p.id}')).length;
-    // a collector's binder: every card has ring holes down its left edge
+    // a collector's binder: sleeves for the forms (no ring holes: on a phone they read as stray bullets)
     return Scaffold(
       backgroundColor: EvochiColor.panel,
       body: KitPage(
@@ -149,7 +149,7 @@ class _EvoDexScreenState extends State<EvoDexScreen> {
                               decoration: Kit.slot(selected: view == _view, radius: 10),
                               child: Column(children: [
                                 SizedBox(height: 40, child: PetSprite(stage: sel, palette: pal, view: view, height: 38)),
-                                Text(view, style: EvochiText.tag.copyWith(fontSize: 10)),
+                                Text(view, style: EvochiText.tag.copyWith(fontSize: 12)),
                               ]),
                             ),
                           ),

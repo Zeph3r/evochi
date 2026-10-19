@@ -108,6 +108,8 @@ class Settings {
     this.quietEnd = 8,
     this.analytics = false,
     this.classicVillagers = false,
+    this.largeText = false,
+    this.devTools = false,
   });
   bool sound;
   bool music;
@@ -118,6 +120,10 @@ class Settings {
   int quietEnd;
   bool analytics;
   bool classicVillagers; // flat, evenly lit villagers instead of room-lit ones
+  bool largeText; // bigger labels, descriptions and item text everywhere
+  // the step simulator and playtest shortcuts (off by default here: the app reads real health data;
+  // the web preview defaults it on)
+  bool devTools;
   factory Settings.fromJson(Map<String, dynamic> j) => Settings(
         sound: j['sound'] != false,
         music: j['music'] != false,
@@ -128,6 +134,8 @@ class Settings {
         quietEnd: _i(j['quietEnd'], 8),
         analytics: j['analytics'] == true,
         classicVillagers: j['classicVillagers'] == true,
+        largeText: j['largeText'] == true,
+        devTools: j['devTools'] == true,
       );
   Map<String, dynamic> toJson() => {
         'sound': sound,
@@ -139,6 +147,8 @@ class Settings {
         'quietEnd': quietEnd,
         'analytics': analytics,
         'classicVillagers': classicVillagers,
+        'largeText': largeText,
+        'devTools': devTools,
       };
 }
 
@@ -412,7 +422,7 @@ class GameState {
 
   factory GameState.fromJson(Map<String, dynamic> j) {
     final nest = _m(j['nest']);
-    return GameState(
+    final s = GameState(
       createdAt: _i(j['createdAt']),
       tzHint: (j['tzHint'] as String?) ?? 'UTC',
       player: j['player'] == null ? null : Player.fromJson(_m(j['player'])),
@@ -434,6 +444,11 @@ class GameState {
       configVersion: (j['configVersion'] as String?) ?? '1.0.0',
       savedAtMs: _i(j['savedAtMs']),
     );
+    // saves from before the Developer tools switch that already walk with the simulated step device
+    // keep their step simulator
+    final pl = s.player;
+    if (pl != null && !_m(_m(j['player'])['settings']).containsKey('devTools') && s.steps.connection == 'demo') pl.settings.devTools = true;
+    return s;
   }
 
   Map<String, dynamic> toJson() => {
