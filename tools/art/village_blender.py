@@ -306,11 +306,11 @@ def render(vs, out_path, preview=False):
     sc.cycles.device = 'CPU'
     if GPU:
         print('device:', use_gpu(sc) or 'CPU (no GPU found)', flush=True)
-    scale = 0.5 if preview else 1.0
+    scale = QUICK or (0.5 if preview else 1.0)
     sc.render.resolution_x = int(vs.w * scale)
     sc.render.resolution_y = int(vs.h * scale)
     sc.render.resolution_percentage = 100
-    sc.cycles.samples = vs.samples // (3 if preview else 2)
+    sc.cycles.samples = 12 if QUICK else vs.samples // (3 if preview else 2)
     sc.cycles.use_adaptive_sampling = True
     sc.cycles.adaptive_threshold = 0.02
     sc.cycles.use_denoising = True
@@ -356,12 +356,17 @@ def render(vs, out_path, preview=False):
 
 
 GPU = False
+QUICK = 0.0
 
 if __name__ == '__main__':
     sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
     args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:]
     preview = '--preview' in args
     GPU = '--gpu' in args
+    if '--quick' in args:
+        QUICK = 0.3
+        preview = True
+    args = [a for a in args if a != '--quick']
     args = [a for a in args if a != '--gpu']
 
     def opt(name, default):

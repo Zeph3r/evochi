@@ -21,6 +21,9 @@ HERO_CAM = {1: Camera(yaw=18, pitch=13), 2: Camera(yaw=36, pitch=13), 3: Camera(
 SCALE_HERO = 14.0
 SCALE_TURN = 7.0
 TURN_VIEWS = {'front': (0, 10), 'left': (90, 8), 'back': (180, 10), 'right': (-90, 8), 'top': (0, 89)}
+# encounters: your Evochi from behind, turned toward the wild one up and to the right of the shot
+BATTLE_CAM = Camera(yaw=-125, pitch=10)
+BATTLE_EXPR = ['default', 'blink', 'happy', 'determined', 'surprised', 'sleepy', 'excited']
 
 
 def fit_for(models, cam, scale, pad=10):
@@ -85,5 +88,46 @@ def main(out, stages):
         json.dump(manifest, open(mpath, 'w'), indent=1)
 
 
+def battle(out, stages):
+    """The encounter view: every stage x palette x BATTLE_EXPR from BATTLE_CAM, plus wearable overlays,
+    named evochi_lizard_sNN_<palette>_<expr>_battle_f000.png / item_<k>_<slot>_sNN_battle.png."""
+    os.makedirs(out, exist_ok=True)
+    mpath = os.path.join(out, 'manifest_battle_%s.json' % '_'.join(map(str, stages)))
+    manifest = {}
+    cam = BATTLE_CAM
+    for stage in stages:
+        ch = build(stage)
+        worn = {k: wear(ch, k) for k in WEARABLES}
+        fit = fit_for([ch.model] + [worn[k] for k in FRAME_WEARABLES], cam, SCALE_HERO)
+        anchors = {k: project_px(cam, fit, v)[0].round(1).tolist() for k, v in ch.anchors.items()}
+        # the body's own top (no hats), so the game can size every stage by its body
+        bfit_pts = model_extent_points(ch.model)
+        sx, sy, _ = cam.project(bfit_pts)
+        anchors['body_top'] = [round(float((sx.min() + sx.max()) / 2 * fit.scale + fit.ox), 1), round(float(sy.min() * fit.scale + fit.oy), 1)]
+        sid = 's%02d' % stage
+        manifest[sid] = {'battle': {'w': fit.w, 'h': fit.h, 'scale': fit.scale, 'yaw': cam.yaw, 'pitch': cam.pitch,
+                                    'anchors': anchors, 'expressions': BATTLE_EXPR}}
+        for v in VARIANT_ORDER:
+            for e in BATTLE_EXPR:
+                o = render_char(ch, v, e, cam, fit.w, fit.h, fit=fit)
+                save_rgba(o.rgba, os.path.join(out, f'evochi_lizard_{sid}_{v}_{e}_battle_f000.png'))
+            print(sid, v, 'battle done', flush=True)
+        body = render_char(ch, 'amber', 'default', cam, fit.w, fit.h, fit=fit)
+        for k, M in worn.items():
+            comb = render_char(ch, 'amber', 'default', cam, fit.w, fit.h, fit=fit, extra_model=M, cov_prefix='acc_')
+            ab = body.rgba[..., 3] / 255.0
+            ac = comb.rgba[..., 3] / 255.0
+            extra = np.clip((ac - ab) / np.maximum(1 - ab, 1e-3), 0, 1)
+            a = np.clip(np.maximum(comb.cov, extra) * 1.05, 0, 1)
+            ov = comb.rgba.copy()
+            ov[..., 3] = (a * 255).astype(np.uint8)
+            save_rgba(ov, os.path.join(out, f'item_{k}_{WEARABLES[k][0]}_{sid}_battle.png'))
+        print(sid, 'battle overlays done', flush=True)
+        json.dump(manifest, open(mpath, 'w'), indent=1)
+
+
 if __name__ == '__main__':
-    main(sys.argv[1], [int(s) for s in sys.argv[2:]] or [1, 2, 3])
+    if len(sys.argv) > 2 and sys.argv[2] == '--battle':
+        battle(sys.argv[1], [int(s) for s in sys.argv[3:]] or [1, 2, 3])
+    else:
+        main(sys.argv[1], [int(s) for s in sys.argv[2:]] or [1, 2, 3])

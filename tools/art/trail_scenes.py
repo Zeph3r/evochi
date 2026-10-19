@@ -303,5 +303,198 @@ def scene_sentinel_gate():
     return S
 
 
+# ------------------------------------------------------------------ battle shots
+# The encounter itself is shot from a low camera just behind and to the side of your Evochi, looking past
+# it at the wild one: your Evochi stands in the foreground on the left (seen from behind, composited by the
+# game), the wild Evochi faces it in the middle distance on the right. 2:3 portrait so the stage can cover
+# any phone. Everything above the ground that is nearer than your Evochi is cleared from the backdrop and
+# goes into a separate foreground layer (`<name>_battle_fg`, transparent), so it can sit in front of the
+# sprites and move with parallax. Depth of field: focused between the two, the far background and the
+# foreground layer soften.
+#
+# Anchors: pet / pet_top (your Evochi's feet and a point 4 units above), wild / wild_top (the wild one's
+# feet and the top of its design height), so the game sizes both sprites with the scene's perspective.
+
+BATTLE_W, BATTLE_H = 1170, 1755
+BATTLE = {
+    'mossy_ruins': dict(cam=((4.65, 4.49, 8.99), -17.7, -3.3, 56.0), pet=(0.29, 0.0, 1.46), wild=(0.5, 0.0, -6.0), wild_h=5.0),
+    'mossy_ruins_hollow': dict(cam=((4.65, 4.49, 8.99), -17.7, -3.3, 56.0), pet=(0.29, 0.0, 1.46), wild=(0.5, 0.0, -6.0), wild_h=5.0),
+    # the Sentinel: a camera near the ground looking up at it
+    'sentinel_gate': dict(cam=((4.1, 1.95, 8.01), -18.7, 12.9, 56.0), pet=(-0.56, 0.0, -0.11), wild=(0.0, 1.8, -6.0), wild_h=12.0),
+}
+PET_H = 4.0
+FSTOP = 1.4
+
+
+class CamRig:
+    """The same pinhole Blender uses (vertical sensor fit) so props can be placed by screen position."""
+
+    def __init__(self, pos, yaw, pitch, fov, w=BATTLE_W, h=BATTLE_H):
+        self.pos = np.array(pos, float)
+        y, p = math.radians(yaw), math.radians(pitch)
+        f = np.array([math.sin(y), math.sin(p), -math.cos(y)])
+        self.target = self.pos + f * 20.0
+        f = f / np.linalg.norm(f)
+        r = np.cross(f, [0.0, 1.0, 0.0])
+        r /= np.linalg.norm(r)
+        self.f, self.r, self.u = f, r, np.cross(r, f)
+        self.th = math.tan(math.radians(fov) / 2)
+        self.aspect = w / h
+        self.fov = fov
+
+    def world(self, sx, sy, depth):
+        """Screen (0..1, 0..1 top-down) at a depth along the view axis -> voxel-space point."""
+        x = (sx - 0.5) * 2 * self.th * self.aspect * depth
+        y = (0.5 - sy) * 2 * self.th * depth
+        return self.pos + self.f * depth + self.r * x + self.u * y
+
+    def depth(self, M):
+        return (M.X - self.pos[0]) * self.f[0] + (M.Y - self.pos[1]) * self.f[1] + (M.Z - self.pos[2]) * self.f[2]
+
+    def cam(self, focus_depth):
+        return {'pos': tuple(self.pos), 'target': tuple(self.target), 'fov': self.fov,
+                'focus': tuple(self.pos + self.f * focus_depth), 'fstop': FSTOP}
+
+
+def battle_rig(base):
+    b = BATTLE[base]
+    pos, yaw, pitch, fov = b['cam']
+    return CamRig(pos, yaw, pitch, fov), b
+
+
+def battle_anchors(b):
+    px, py, pz = b['pet']
+    wx, wy, wz = b['wild']
+    return {'pet': (px, py, pz), 'pet_top': (px, py + PET_H, pz), 'wild': (wx, wy, wz), 'wild_top': (wx, wy + b['wild_h'], wz)}
+
+
+def hollow_base(base):
+    return base != 'mossy_ruins'
+
+
+def to_battle(S, base):
+    """Turn a place scene into its battle backdrop: new camera, near props cleared, anchors."""
+    rig, b = battle_rig(base)
+    S.name = base + '_battle'
+    S.w, S.h = BATTLE_W, BATTLE_H
+    pet_d = float(np.dot(np.array(b['pet']) - rig.pos, rig.f))
+    wild_d = float(np.dot(np.array(b['wild']) - rig.pos, rig.f))
+    S.cam = rig.cam(pet_d + (wild_d - pet_d) * 0.45)
+    S.anchors = battle_anchors(b)
+    M = S.models[0][0]
+    near = (rig.depth(M) < pet_d - 0.8) & (M.Y >= 0)
+    # low clutter (tufts, vines, small blocks) between the two reads as big blocks from down here
+    near |= (rig.depth(M) < wild_d - 1.0) & (M.Y >= 0) & (M.Y < 1.6)
+    M.m[near] = 0
+    M.glow[near] = 0
+    P = CPainter(M, 23)
+    rng = np.random.default_rng(23)
+    # a calmer, finer lawn up close (the place view's 1-unit colour cells read as a checkerboard this low)
+    lawn = np.zeros(M.m.shape, bool)
+    for c in GRASS + ['#9BC27A', '#A6CA86']:
+        if c in M.ids:
+            lawn |= M.m == M.ids[c]
+    if base != 'sentinel_gate':
+        P.fill(lawn, ['#86B864', '#8DBD69', '#80B25F', '#92C26E'], cell=0.5)
+        # flowering bushes and tufts around the clearing, clear of your Evochi and the wild one
+        for sx, sy, d, r in ((0.98, 0.72, wild_d + 1.0, 1.1), (0.76, 0.69, wild_d + 3.0, 0.8),
+                             (0.04, 0.70, wild_d + 1.0, 1.0), (0.32, 0.68, wild_d + 4.0, 0.7)):
+            g = rig.world(sx, sy, d)
+            g[1] = 0.0
+            bush(P, M, g + np.array([0, r * 0.5, 0]), r, rng, FG_LEAVES, ['#F5A3B5', '#FBC6D1', '#F28CA6'] if not hollow_base(base) else None, n=7)
+        if hollow_base(base):
+            # Hollow crystals flanking the wild one, and a few creeping vines behind it
+            for sx, sy, d, h in ((0.1, 0.74, wild_d - 0.5, 2.6), (0.93, 0.7, wild_d + 1.5, 3.2), (0.76, 0.66, wild_d + 5.0, 2.0)):
+                c = rig.world(sx, sy, d)
+                crystal(S, P, M, c[0], c[2], h, power=4.0)
+            hollow_vines(P, M, rng, 4, (b['wild'][0] - 8, b['wild'][0] + 8), (b['wild'][2] - 8, b['wild'][2] - 2))
+    S.grade = dict(S.grade, vignette=S.grade.get('vignette', 0.1) + 0.08)
+    return S
+
+
+def blades(P, M, x, z, n, h, spread, rng, cols, lean=(0.0, 0.0), th=0.32):
+    """A clump of tall grass blades, each a curved stroke leaning outward."""
+    for _ in range(n):
+        bx, bz = x + rng.uniform(-spread, spread), z + rng.uniform(-spread, spread)
+        hh = h * rng.uniform(0.55, 1.0)
+        a = rng.uniform(0, 2 * math.pi)
+        lx, lz = math.cos(a) * 0.35 + lean[0], math.sin(a) * 0.35 + lean[1]
+        for t in np.linspace(0, 1, max(6, int(hh * 5))):
+            px, pz = bx + lx * hh * t * t, bz + lz * hh * t * t
+            r = th * (1.0 - 0.6 * t)
+            P.fill((np.abs(M.X - px) <= r) & (np.abs(M.Z - pz) <= r) & (np.abs(M.Y - hh * t) <= 0.3), cols, cell=9)
+
+
+def leaf_spray(P, M, c, r, rng, cols, n=7):
+    for _ in range(n):
+        d = rng.uniform(-1, 1, 3) * np.array([r, r * 0.5, r])
+        P.fill(ball(M, c + d, r * rng.uniform(0.35, 0.6), 0.7), cols, cell=1.0)
+
+
+FG_GRASS = ['#4E7F3A', '#5A8C43', '#46733A']
+FG_LEAVES = ['#4F7F3E', '#5B8E47', '#467536', '#6A9C52']
+
+
+def bush(P, M, c, r, rng, leaves, flowers=None, n=8):
+    """A low leafy mound, optionally dotted with flowers on top."""
+    for _ in range(n):
+        d = rng.uniform(-1, 1, 3) * np.array([r, r * 0.35, r])
+        P.fill(ball(M, c + d, r * rng.uniform(0.45, 0.7), 0.75) & (M.m == 0), leaves, cell=1.0)
+    if flowers:
+        for _ in range(int(n * 1.6)):
+            a, rr = rng.uniform(0, 2 * math.pi), rng.uniform(0, r * 1.1)
+            f = c + np.array([math.cos(a) * rr, r * 0.55 + rng.uniform(0, r * 0.3), math.sin(a) * rr])
+            P.fill(ball(M, f, r * 0.18), flowers, cell=9)
+            P.fill(ball(M, f + np.array([0, r * 0.08, 0]), r * 0.07), ['#FFE08A'], cell=9)
+
+
+def battle_fg(S, base, hollow=False):
+    """The foreground layer: a flowering bush (or Hollow crystals) low on the right and a spray of leaves
+    in the top-right corner, close to the lens so they sit over everything. Rendered sharp; the packer
+    blurs it so it reads as out of focus."""
+    rig, b = battle_rig(base)
+    F = VScene(base + '_battle_fg', BATTLE_W, BATTLE_H, {'pos': tuple(rig.pos), 'target': tuple(rig.target), 'fov': rig.fov},
+               world=S.world, samples=64, transparent=True, sky=None)
+    F.lights = list(S.lights)
+    F.keep_alpha = True
+    lo = np.floor(rig.pos - 12).astype(int)
+    hi = np.ceil(rig.pos + 12).astype(int)
+    lo[1], hi[1] = -1, int(rig.pos[1] + 8)
+    M = Model(tuple(lo), tuple(hi), [], res=4)
+    P = CPainter(M, 7)
+    rng = np.random.default_rng(17 if not hollow else 19)
+    gate = base == 'sentinel_gate'
+    # low on the right, close to the lens
+    p = rig.world(0.97, 0.98, 3.4)
+    if gate or hollow:
+        for k, (dx, dz, h) in enumerate(((0.0, 0.0, 1.7), (0.6, -0.4, 1.0), (-0.5, 0.3, 0.8))):
+            base_y = p[1] - 0.6
+            for t in np.linspace(0, 1, 10):
+                r = (0.34 if k == 0 else 0.22) * (1 - t * 0.85) + 0.05
+                P.fill(ball(M, (p[0] + dx + t * 0.15, base_y + t * h, p[2] + dz), r), HOLLOW if t < 0.7 else HOLLOW_LT, glow=0.5 + 0.4 * t, cell=9)
+        bush(P, M, p + np.array([0.4, -0.7, 0.2]), 0.8, rng, ['#4A5F3E', '#55684A', '#3E5236'], n=6)
+    else:
+        bush(P, M, p + np.array([0.0, -0.35, 0.0]), 0.75, rng, FG_LEAVES, ['#F5A3B5', '#FBC6D1', '#F28CA6'], n=9)
+    # leaves hanging into the top-right corner
+    c = rig.world(1.0, 0.0, 3.4)
+    leaf_spray(P, M, c, 0.8, rng, FG_LEAVES if not gate else ['#55744E', '#5F7F58', '#4B6844'], n=9)
+    P.fill((np.abs(M.Y - c[1] - 0.6) < 0.18) & (np.abs(M.Z - c[2]) < 0.18) & (M.X > c[0] - 1.4) & (M.X < c[0] + 3.0) & (M.m == 0), ['#6B4A2E'], cell=9)
+    F.models.append((M, ()))
+    F.anchors = battle_anchors(b)
+    F.grade = {}
+    return F
+
+
+def scene_battle(base, fg=False):
+    S = {'mossy_ruins': lambda: scene_mossy_ruins(False), 'mossy_ruins_hollow': lambda: scene_mossy_ruins(True),
+         'sentinel_gate': scene_sentinel_gate}[base]()
+    if fg:
+        return battle_fg(S, base, hollow=base != 'mossy_ruins')
+    return to_battle(S, base)
+
+
 SCENES = {'mossy_ruins': lambda: scene_mossy_ruins(False), 'mossy_ruins_hollow': lambda: scene_mossy_ruins(True),
           'sentinel_gate': scene_sentinel_gate}
+for _b in BATTLE:
+    SCENES[_b + '_battle'] = (lambda b=_b: scene_battle(b))
+    SCENES[_b + '_battle_fg'] = (lambda b=_b: scene_battle(b, fg=True))

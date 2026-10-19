@@ -1306,6 +1306,11 @@ def finish(vs: VScene, raw_path, out_path, preview=False):
         yy, xx = np.mgrid[0:h, 0:w]
         d = np.sqrt(((xx - w / 2) / (w / 2)) ** 2 + ((yy - h / 2) / (h / 2)) ** 2) / math.sqrt(2)
         rgb = rgb * (1 - g['vignette'] * np.clip(d - 0.35, 0, 1) ** 1.5)[..., None]
+    if getattr(vs, 'keep_alpha', False):
+        # a layer to composite (e.g. a battle foreground): keep the alpha, premultiplied edges stay soft
+        rgba = np.concatenate([np.clip(rgb, 0, 255), a[..., 3:4]], -1).astype(np.uint8)
+        Image.fromarray(rgba, 'RGBA').save(out_path)
+        return
     Image.fromarray(np.clip(rgb, 0, 255).astype(np.uint8)).save(out_path)
 
 

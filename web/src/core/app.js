@@ -84,6 +84,7 @@ export class App {
       modal: (spec) => this.openModal(spec),
       closeModal: () => this.closeModal(),
       sfx: (n, v) => this.sfx(n, v),
+      music: (n) => audio.setMusic(n),
       scene: this.scene,
       rerender: () => this.schedule(),
       track: (n, p) => store.track(n, p),
@@ -213,6 +214,32 @@ export class App {
     if (sc && this.route) this.scrolls[this.route.id] = sc.scrollTop;
   }
 
+  /**
+   * Screens can keep a live element across re-renders (the encounter stage, mid-animation): the root
+   * carries data-keep-root, and leading children with data-keep stay in place (never detached, so their
+   * CSS animations and imperative state survive); everything after them is replaced. Returns false when
+   * the new markup doesn't match the current root, so the caller falls back to a full replace.
+   */
+  patchKept(body) {
+    const cur = this.host.firstElementChild;
+    const key = cur?.getAttribute('data-keep-root');
+    if (!key) return false;
+    const tpl = document.createElement('template');
+    tpl.innerHTML = body;
+    const next = tpl.content.firstElementChild;
+    if (!next || next.getAttribute('data-keep-root') !== key) return false;
+    const nk = [...next.children];
+    const ck = [...cur.children];
+    let i = 0;
+    while (i < nk.length && i < ck.length && nk[i].dataset.keep && nk[i].dataset.keep === ck[i].dataset.keep) i++;
+    if (!i) return false;
+    for (const a of [...cur.attributes]) if (!next.hasAttribute(a.name)) cur.removeAttribute(a.name);
+    for (const a of [...next.attributes]) if (cur.getAttribute(a.name) !== a.value) cur.setAttribute(a.name, a.value);
+    for (const c of ck.slice(i)) c.remove();
+    for (const n of nk.slice(i)) cur.appendChild(n);
+    return true;
+  }
+
   schedule() {
     if (this.pending) return;
     this.pending = true;
@@ -262,7 +289,8 @@ export class App {
     const sc0 = $('.screen.scroll', this.host);
     const keepScroll = !navigated && sc0 ? sc0.scrollTop : this.scrolls[this.route.id] || 0;
     const body = scr.render(ctx);
-    this.host.innerHTML = String(body);
+    if (!navigated && !this.patchKept(String(body))) this.host.innerHTML = String(body);
+    else if (navigated) this.host.innerHTML = String(body);
     const el = this.host.firstElementChild;
     if (navigated && el) el.classList.add('fade-in');
     const sc1 = $('.screen.scroll', this.host);

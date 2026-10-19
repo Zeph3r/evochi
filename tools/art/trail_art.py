@@ -225,7 +225,8 @@ def hollow_sprout(state='hollow'):
 # ------------------------------------------------------------------ Forgotten Sentinel (Hollow -> Celestial)
 def sentinel(state='hollow'):
     M = M_((-22, -1, -18), (22, 40, 18), res=2)
-    hollow = state in ('hollow', 'waking')
+    dormant = state == 'dormant'          # before it wakes (the awakening cinematic): eyes and cracks dark
+    hollow = state in ('hollow', 'waking', 'dormant')
     waking = state == 'waking'
     glowc = GLOW_V if hollow else RUNE_LIT
     crystal_col = (VIOLET, VIOLET_HI) if hollow else (MINT, MINT_HI)
@@ -262,11 +263,11 @@ def sentinel(state='hollow'):
             r = 1.5 * (1 - t * 0.85) + 0.25
             y = 20.0 + t * h
             put(M, ell(M, (cx + lean[0] * t * h * 4, y, cz + lean[1] * t * h * 4), (r, r * 0.8, r)),
-                crystal_col[0] if t < 0.7 else crystal_col[1], glow=(0.45 if hollow else 0.35) + 0.4 * t)
+                crystal_col[0] if t < 0.7 else crystal_col[1], glow=0.08 if dormant else (0.45 if hollow else 0.35) + 0.4 * t)
     # chest rune and arm runes
     rune = front(M, torso, 0, 14.0, 0, 0.5, 2.2, 3.4, depth=2) & ~front(M, torso, 0, 14.0, 0, 0.5, 1.2, 2.3, depth=2)
     put(M, rune, glowc if (not hollow or waking) else STONE_B_LO, glow=0.8 if (not hollow or waking) else 0.0)
-    put(M, front(M, torso, 0, 14.0, 0, 0.5, 0.5, 1.4, depth=2), glowc, glow=0.9 if (not hollow or waking) else 0.35)
+    put(M, front(M, torso, 0, 14.0, 0, 0.5, 0.5, 1.4, depth=2), STONE_B_LO if dormant else glowc, glow=0.0 if dormant else 0.9 if (not hollow or waking) else 0.35)
     for s in (-1, 1):
         band = shell(M, arm_r if s > 0 else arm_l, 1) & (np.abs(M.Y - (9.0 if s > 0 else 15.0)) < 0.5)
         put(M, band, glowc if not hollow else VIOLET_LO, glow=0.6 if not hollow else 0.25)
@@ -274,21 +275,25 @@ def sentinel(state='hollow'):
     if hollow:
         for (x0, y0, dx, dy) in ((4.0, 9.0, 0.6, 1.0), (-7.0, 12.0, -0.3, 1.0), (2.0, 22.0, 0.8, -0.5)):
             for t in np.linspace(0, 1, 14):
-                put(M, front(M, body, 0, 0, x0 + dx * t * 5.0, y0 + dy * t * 5.0, 0.45, 0.45, depth=1), VIOLET, glow=0.7)
+                put(M, front(M, body, 0, 0, x0 + dx * t * 5.0, y0 + dy * t * 5.0, 0.45, 0.45, depth=1), VIOLET_LO if dormant else VIOLET, glow=0.0 if dormant else 0.7)
     # face: two deep eye sockets with a glow inside
     for s in (-1, 1):
         sock = front(M, head, 0, 27.0, s * 3.2, 0.3, 2.0, 1.6, depth=3, p=2.4)
         put(M, sock, STONE_B_LO)
         M.clear(sock & (M.Z > 6.2))
         inner = front(M, head, 0, 27.0, s * 3.2, 0.3, 1.2 if state != 'hollow' else 0.9, 0.9 if hollow else 0.7, depth=4)
-        put(M, inner, '#F1E6FF' if waking else glowc, glow=1.0 if waking else 0.95 if not hollow else 0.55)
+        if dormant:
+            put(M, inner, '#2E2638')
+        else:
+            put(M, inner, '#F1E6FF' if waking else glowc, glow=1.0 if waking else 0.95 if not hollow else 0.55)
     if not hollow:
         # a gentle smile line and flowers in the moss
         mouth(M, head, 0, 27.0, -2.6, 2.0, kind='smile', col=STONE_B_LO)
         for (fx, fy, fz) in ((-9.0, 24.0, -2.0), (8.5, 24.5, -1.5), (-2.0, 32.5, -1.0), (3.5, 33.0, 0.5)):
             flower(M, (fx, fy, fz), n=(fx / 12.0, 0.9, 0.2), size=1.1, petal=WHITE if fx > 0 else PINK, centre=GOLD)
         glowleaf(M, (-13.0, 19.5, -1.0), s=0.6, glow=0.6, n=4)
-    anchors = {'ground': (0, 0, 0), 'top': (0, 33.5, 0), 'face': (0, 27.0, 7.5)}
+    anchors = {'ground': (0, 0, 0), 'top': (0, 33.5, 0), 'face': (0, 27.0, 7.5),
+               'eye_l': (-3.2, 27.3, 6.6), 'eye_r': (3.2, 27.3, 6.6), 'chest': (0, 14.5, 9.0)}
     return M, anchors
 
 
@@ -297,6 +302,11 @@ CREATURES = {
     'hollow_sprout': {'states': ['hollow', 'restored'], 'build': hollow_sprout},
     'sentinel': {'states': ['hollow', 'waking', 'restored'], 'build': sentinel},
 }
+# encounter views: turned toward your Evochi (in the lower left of the battle shot), seen from the battle
+# camera's height: a touch above the small ones, from below for the Sentinel
+BATTLE_STATES = {'sentinel': ['dormant', 'hollow', 'waking', 'restored']}
+BATTLE_SCALE = 18.0          # px per unit: big on the encounter stage
+BATTLE_CAM = {'petalune': Camera(yaw=26, pitch=7), 'hollow_sprout': Camera(yaw=26, pitch=7), 'sentinel': Camera(yaw=22, pitch=-6)}
 CREATURE_CAM = Camera(yaw=18, pitch=12)
 CREATURE_SCALE = 11.0          # px per unit (the Evochi hero sprites use 14): the Sentinel still towers
 
@@ -327,6 +337,39 @@ def creatures(out, only=None):
             anchors = {k: project_px(CREATURE_CAM, fit, v)[0].round(1).tolist() for k, v in anc.items()}
             print('creature', cid, st, w, h, flush=True)
         meta[cid] = {'w': w, 'h': h, 'states': spec['states'], 'anchors': anchors}
+        json.dump(meta, open(mp, 'w'), indent=1)
+
+
+def creatures_battle(out, only=None):
+    """The encounter sprites: turned toward your Evochi, no CSS flip; one fit per creature. Writes
+    trails/creature_<id>_<state>_battle.png and trails/creatures_battle.json (w, h, states, anchors)."""
+    d = os.path.join(out, 'trails')
+    os.makedirs(d, exist_ok=True)
+    mp = os.path.join(d, 'creatures_battle.json')
+    meta = json.load(open(mp)) if os.path.exists(mp) else {}
+    from voxel import Fit
+    for cid, spec in CREATURES.items():
+        if only and cid not in only:
+            continue
+        cam = BATTLE_CAM[cid]
+        states = BATTLE_STATES.get(cid, spec['states'])
+        models = {st: spec['build'](st) for st in states}
+        pts = np.concatenate([model_extent_points(m) for m, _ in models.values()])
+        sx, sy, _ = cam.project(pts)
+        pad = 14
+        w = int(math.ceil((sx.max() - sx.min()) * BATTLE_SCALE + 2 * pad))
+        h = int(math.ceil((sy.max() - sy.min()) * BATTLE_SCALE + 2 * pad))
+        w += w % 2
+        h += h % 2
+        fit = Fit(BATTLE_SCALE, pad - sx.min() * BATTLE_SCALE, pad - sy.min() * BATTLE_SCALE, w, h)
+        anchors = None
+        for st, (M, anc) in models.items():
+            o = render(M, {}, cam, w, h, fit=fit, light=LIGHT, ss=3, outline_px=max(2.0, BATTLE_SCALE * 0.2),
+                       outline_col='#3B2923', inner_thresh=2.0, inner_alpha=0.55, inner_px=0.8)
+            save_rgba(o.rgba, os.path.join(d, f'creature_{cid}_{st}_battle.png'))
+            anchors = {k: project_px(cam, fit, v)[0].round(1).tolist() for k, v in anc.items()}
+            print('battle creature', cid, st, w, h, flush=True)
+        meta[cid] = {'w': w, 'h': h, 'states': states, 'anchors': anchors}
         json.dump(meta, open(mp, 'w'), indent=1)
 
 
@@ -560,7 +603,84 @@ def ic_trail():
     return M, Camera(yaw=-10, pitch=8)
 
 
+def ic_sun():
+    """Lumen Glow: a warm sun with chunky rays."""
+    M = M_((-9, -9, -3), (9, 9, 3), res=2)
+    r = np.sqrt(M.X ** 2 + M.Y ** 2)
+    a = np.arctan2(M.X, M.Y)
+    rays = (r > 5.0) & (r <= 8.4) & (np.cos(8 * a) > 0.55) & (np.abs(M.Z) <= 1.0)
+    put(M, rays, '#F2A93B', glow=0.3)
+    disc = (r <= 4.6) & (np.abs(M.Z) <= 1.6)
+    put(M, disc, '#F7C33F', glow=0.4)
+    put(M, disc & (M.X < -0.8) & (M.Y > 0.8) & (M.Z > 0.6), '#FFE590', glow=0.6)
+    put(M, (r > 3.6) & disc & (M.Z > 0.6) & (M.X > 0.5) & (M.Y < -0.5), '#E89A30', glow=0.3)
+    return M, Camera(yaw=-8, pitch=6)
+
+
+def ic_purify():
+    """The Hollow-side light: a four-point sparkle in a lilac disc."""
+    M = M_((-9, -9, -3), (9, 9, 3), res=2)
+    r = np.sqrt(M.X ** 2 + M.Y ** 2)
+    disc = (r <= 7.8) & (np.abs(M.Z) <= 1.2)
+    put(M, disc, '#E6D9FA')
+    put(M, disc & (r > 6.6), '#9975C9')
+    a = np.arctan2(M.X, M.Y)
+    star = (r <= 1.3 + 4.6 * np.abs(np.cos(2 * a)) ** 3) & (M.Z > 1.0) & (M.Z <= 2.8)
+    put(M, star, '#7B48C4', glow=0.4)
+    put(M, star & (M.X < 0) & (M.Y > 0), '#B48CF0', glow=0.6)
+    for (x, y) in ((4.2, 4.0), (-4.4, -4.0)):
+        put(M, (np.abs(M.X - x) + np.abs(M.Y - y) <= 1.0) & (M.Z > 1.0) & (M.Z <= 2.4), '#FFFFFF', glow=0.8)
+    return M, Camera(yaw=-8, pitch=6)
+
+
+def ic_nudge():
+    """Gentle Nudge: a round red berry with a leaf (an offered treat and a playful bump)."""
+    M = M_((-9, -9, -3), (9, 9, 4), res=2)
+    b = ell(M, (0, -1.2, 0), (6.0, 5.8, 3.0))
+    put(M, b, '#D9473F')
+    put(M, b & (M.X < -1.5) & (M.Y > 0.5) & (M.Z > 1.0), '#F0706A')
+    put(M, b & (M.X > 2.5) & (M.Y < -3.0), '#B73A34')
+    for (x, y) in ((-2.4, 0.4), (1.6, -2.2), (2.8, 1.4), (-1.0, -3.6)):
+        put(M, ell(M, (x, y, 2.6), (0.5, 0.6, 0.6)), '#FFE3A8')
+    put(M, ell(M, (-2.6, 1.8, 2.4), (1.1, 0.8, 0.6)), '#FFFFFF')
+    lf = ell(M, (2.6, 6.0, 0), (3.2, 1.5, 1.0)) & (M.Y > 4.2)
+    put(M, lf, '#5DAA45')
+    put(M, ell(M, (-1.8, 5.8, 0), (2.4, 1.2, 1.0)) & (M.Y > 4.4), '#7FC25C')
+    put(M, box(M, (-0.5, 3.8, -0.6), (0.5, 7.2, 0.6)), '#6B4A2E')
+    return M, Camera(yaw=-8, pitch=6)
+
+
+def ic_moon():
+    """The Hollow badge: a crescent moon in a deep violet disc."""
+    M = M_((-9, -9, -3), (9, 9, 3), res=2)
+    r = np.sqrt(M.X ** 2 + M.Y ** 2)
+    disc = (r <= 7.8) & (np.abs(M.Z) <= 1.2)
+    put(M, disc, '#3F2E62')
+    put(M, disc & (r > 6.6), '#7B48C4')
+    moon = (r <= 4.6) & (np.sqrt((M.X - 2.2) ** 2 + (M.Y - 1.6) ** 2) > 3.8) & (M.Z > 1.0) & (M.Z <= 2.6)
+    put(M, moon, '#D9C2FF', glow=0.7)
+    return M, Camera(yaw=-8, pitch=6)
+
+
+def ic_swirl():
+    """Your Evochi's badge on the encounter card: a warm swirl in a peach disc."""
+    M = M_((-9, -9, -3), (9, 9, 3), res=2)
+    r = np.sqrt(M.X ** 2 + M.Y ** 2)
+    disc = (r <= 7.8) & (np.abs(M.Z) <= 1.2)
+    put(M, disc, '#FBE0CC')
+    put(M, disc & (r > 6.6), '#E7744E')
+    a = np.arctan2(M.Y, M.X)
+    # an Archimedean spiral: r = k * (a + 2 pi n)
+    sp = np.zeros(M.m.shape, bool)
+    for n in range(3):
+        rr = 0.62 * (np.mod(a, 2 * math.pi) + 2 * math.pi * n)
+        sp |= np.abs(r - rr) < 0.75
+    put(M, sp & (r <= 5.6) & (M.Z > 1.0) & (M.Z <= 2.6), '#E7744E')
+    return M, Camera(yaw=-8, pitch=6)
+
+
 ICONS = {
+    'sun': ic_sun, 'purify': ic_purify, 'nudge': ic_nudge, 'moon': ic_moon, 'swirl': ic_swirl,
     'discover': ic_discover, 'encounter': ic_encounter, 'hollow': ic_hollow, 'calm': ic_calm, 'energy': ic_energy,
     'trail': ic_trail,
     'aff_nature': lambda: ic_affinity('nature'), 'aff_ember': lambda: ic_affinity('ember'),
@@ -577,9 +697,11 @@ def items(out):
         print('item', k, flush=True)
 
 
-def icons(out):
+def icons(out, only=None):
     os.makedirs(os.path.join(out, 'ui_icons'), exist_ok=True)
     for k, b in ICONS.items():
+        if only and k not in only:
+            continue
         M, cam = b()
         save_rgba(render_model(M, cam, 192, outline=2.6), os.path.join(out, 'ui_icons', f'icon_{k}.png'))
         print('icon', k, flush=True)
@@ -593,4 +715,6 @@ if __name__ == '__main__':
     if 'items' in parts:
         items(out)
     if 'icons' in parts:
-        icons(out)
+        icons(out, only=[p for p in parts if p in ICONS] or None)
+    if 'battle' in parts:
+        creatures_battle(out, only=[p for p in parts if p in CREATURES] or None)

@@ -7,6 +7,8 @@ const buffers = new Map();
 let enabled = { sound: true, music: true };
 let ambient = null;
 let unlocked = false;
+const DEFAULT_LOOP = 'ambient_meadow_loop';
+let loopName = DEFAULT_LOOP;
 
 function ac() {
   if (!ctx) {
@@ -60,29 +62,53 @@ export async function play(name, vol = 0.8) {
   src.start();
 }
 
-async function startAmbient() {
+async function startAmbient(fadeIn = 2) {
   if (ambient || !enabled.music) return;
   const a = ac();
   if (!a) return;
-  const b = await buffer('ambient_meadow_loop');
-  if (!b || ambient || !enabled.music) return;
+  const name = loopName;
+  const b = await buffer(name);
+  if (!b || ambient || !enabled.music || name !== loopName) return;
   const src = a.createBufferSource();
   const g = a.createGain();
-  g.gain.value = 0;
-  g.gain.linearRampToValueAtTime(0.35, a.currentTime + 2);
+  g.gain.setValueAtTime(0, a.currentTime);
+  g.gain.linearRampToValueAtTime(name === DEFAULT_LOOP ? 0.35 : 0.5, a.currentTime + fadeIn);
   src.buffer = b;
   src.loop = true;
   src.connect(g).connect(a.destination);
   src.start();
-  ambient = { src, g };
+  ambient = { src, g, name };
 }
 
-export function stopAmbient() {
+export function stopAmbient(fade = 0) {
   if (!ambient) return;
-  try {
-    ambient.src.stop();
-  } catch {}
+  const { src, g } = ambient;
   ambient = null;
+  const a = ac();
+  if (fade && a) {
+    g.gain.cancelScheduledValues(a.currentTime);
+    g.gain.setValueAtTime(g.gain.value, a.currentTime);
+    g.gain.linearRampToValueAtTime(0, a.currentTime + fade);
+    setTimeout(() => {
+      try {
+        src.stop();
+      } catch {}
+    }, fade * 1000 + 50);
+    return;
+  }
+  try {
+    src.stop();
+  } catch {}
+}
+
+/** Switch the looping track (null = the meadow ambience), crossfading. Encounters use their own loops. */
+export function setMusic(name, fade = 0.8) {
+  const want = name || DEFAULT_LOOP;
+  if (want === loopName && (ambient || !enabled.music || !unlocked)) return;
+  loopName = want;
+  if (!enabled.music || !unlocked) return;
+  stopAmbient(fade);
+  startAmbient(fade);
 }
 
 export function haptic(ms = 12, on = true) {

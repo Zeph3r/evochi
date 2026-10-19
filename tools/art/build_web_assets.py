@@ -432,8 +432,97 @@ def build_trails(src, out):
     print('trails packed', flush=True)
 
 
+BATTLE_EXPR = ['default', 'blink', 'happy', 'determined', 'surprised', 'sleepy', 'excited']
+BATTLE_BASES = ('mossy_ruins', 'mossy_ruins_hollow', 'sentinel_gate')
+BATTLE_ICONS = ('sun', 'purify', 'nudge', 'moon', 'swirl')
+
+
+def soft_layer(im, radius):
+    """Gaussian blur an RGBA layer with premultiplied alpha (so edges don't pick up a dark fringe)."""
+    import numpy as np
+    from PIL import ImageFilter
+    a = np.asarray(im.convert('RGBA')).astype(np.float32) / 255
+    pm = np.concatenate([a[..., :3] * a[..., 3:4], a[..., 3:4]], -1)
+    ch = [np.asarray(Image.fromarray((pm[..., i] * 255).round().astype(np.uint8)).filter(ImageFilter.GaussianBlur(radius))).astype(np.float32) / 255
+          for i in range(4)]
+    al = ch[3]
+    rgb = np.stack(ch[:3], -1) / np.maximum(al[..., None], 1e-4)
+    return Image.fromarray(np.concatenate([np.clip(rgb, 0, 1) * 255, al[..., None] * 255], -1).round().astype(np.uint8), 'RGBA')
+
+
+def build_battle(src, out):
+    """Encounters (the battle shot): your Evochi from behind (every stage x palette x BATTLE_EXPR + wearable
+    overlays), the low-camera backdrops with their soft foreground layers, the creatures turned toward you,
+    the new button icons and the encounter music / cues."""
+    mp = os.path.join(out, 'manifest.json')
+    man = json.load(open(mp))
+    C = os.path.join(src, 'characters')
+    cmeta = {}
+    for f in glob.glob(os.path.join(C, 'manifest_battle_*.json')):
+        cmeta.update(json.load(open(f)))
+    for stage in (1, 2, 3):
+        sid = 's%02d' % stage
+        bm = cmeta[sid]['battle']
+        entry = {'w': bm['w'], 'h': bm['h'], 'anchors': bm['anchors'], 'expressions': BATTLE_EXPR, 'atlas': {}}
+        for v in VARIANTS:
+            frames = [Image.open(os.path.join(C, f'evochi_lizard_{sid}_{v}_{e}_battle_f000.png')) for e in BATTLE_EXPR]
+            A, rects = atlas(frames, 4)
+            name = f'chars/{sid}_{v}_battle.webp'
+            webp(A, os.path.join(out, name), 88)
+            entry['atlas'][v] = {'file': name, 'rects': rects}
+        frames = [Image.open(os.path.join(C, f'item_{k}_{slot}_{sid}_battle.png')) for k, slot in WEARABLES.items()]
+        A, rects = atlas(frames, 4)
+        name = f'chars/{sid}_battle_overlays.webp'
+        webp(A, os.path.join(out, name), 90)
+        entry['overlays'] = {'file': name, 'rects': dict(zip(WEARABLES.keys(), rects))}
+        man['chars'][sid]['battle'] = entry
+        print(sid, 'battle view packed', flush=True)
+    Ts = os.path.join(src, 'trails')
+    smeta = json.load(open(os.path.join(Ts, 'scenes.json')))
+    k = 0.75
+    tm = man['trails']
+    tm['battle'] = {}
+    for base in BATTLE_BASES:
+        n = base + '_battle'
+        im = Image.open(os.path.join(Ts, f'{n}.png')).convert('RGB')
+        im = im.resize((round(im.width * k), round(im.height * k)), Image.LANCZOS)
+        fn = f'trails/{n}.webp'
+        im.save(os.path.join(out, fn), 'WEBP', quality=84, method=6)
+        fg = Image.open(os.path.join(Ts, f'{n}_fg.png')).convert('RGBA')
+        fg = fg.resize(im.size, Image.LANCZOS)
+        fg = soft_layer(fg, im.width * 0.009)
+        ffn = f'trails/{n}_fg.webp'
+        webp(fg, os.path.join(out, ffn), 82)
+        tm['battle'][base] = {'file': fn, 'fg': ffn, 'w': im.width, 'h': im.height,
+                              'anchors': {a: [round(v[0] * k, 1), round(v[1] * k, 1)] for a, v in smeta[n]['anchors'].items()}}
+    cb = json.load(open(os.path.join(Ts, 'creatures_battle.json')))
+    tm['battleCreatures'] = {}
+    for cid, c in cb.items():
+        files = {}
+        for st in c['states']:
+            im = Image.open(os.path.join(Ts, f'creature_{cid}_{st}_battle.png'))
+            fn = f'trails/creature_{cid}_{st}_battle.webp'
+            webp(im, os.path.join(out, fn), 90)
+            files[st] = fn
+        tm['battleCreatures'][cid] = {'w': c['w'], 'h': c['h'], 'states': files, 'anchors': c['anchors']}
+    for key in BATTLE_ICONS:
+        im = Image.open(os.path.join(src, 'ui_icons', f'icon_{key}.png')).resize((112, 112), Image.LANCZOS)
+        fn = f'icons/{key}.webp'
+        webp(im, os.path.join(out, fn), 90)
+        man['icons'][key] = fn
+    for f in sorted(glob.glob(os.path.join(src, 'audio', 'sfx_enc_*.wav'))):
+        key = os.path.basename(f)[4:-4]
+        fn = f'audio/{key}.mp3'
+        subprocess.run(['ffmpeg', '-y', '-loglevel', 'error', '-i', f, '-ac', '1', '-b:a', '80k', os.path.join(out, fn)], check=True)
+        man['audio'][key] = fn
+    json.dump(man, open(mp, 'w'), indent=1)
+    print('battle packed', flush=True)
+
+
 if __name__ == '__main__':
-    if len(sys.argv) > 2 and sys.argv[-1] == '--trails-only':
+    if len(sys.argv) > 2 and sys.argv[-1] == '--battle-only':
+        build_battle(sys.argv[1], sys.argv[2])
+    elif len(sys.argv) > 2 and sys.argv[-1] == '--trails-only':
         build_trails(sys.argv[1], sys.argv[2])
     elif len(sys.argv) > 2 and sys.argv[-1] == '--home-only':
         build_home(sys.argv[1], sys.argv[2])

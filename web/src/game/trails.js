@@ -520,7 +520,10 @@ export function encounterAct(state, actionId, itemId, now) {
   }
   gain(e, amount);
   e.turn++;
-  if (pct(e) >= 1) return finishEncounter(s, e, events, now);
+  if (pct(e) >= 1) {
+    events.push({ type: 'encounter_turn', turn: e.turn, you: amount, wild: 0, mood: null, drain: 0, kind, item: itemId || null, final: true });
+    return finishEncounter(s, e, events, now);
+  }
   const r = rng(`${e.seed}:${e.turn}`);
   const w = wildTurn(e, r, C, kind);
   if (w.delta) gain(e, w.delta);
@@ -528,7 +531,7 @@ export function encounterAct(state, actionId, itemId, now) {
   e.mood = w.mood;
   log('wild', w.text);
   if (pct(e) >= 1) return finishEncounter(s, e, events, now);
-  events.push({ type: 'encounter_turn', turn: e.turn, you: amount, wild: w.delta || 0 });
+  events.push({ type: 'encounter_turn', turn: e.turn, you: amount, wild: w.delta || 0, mood: w.mood, drain: w.energy || 0, kind, item: itemId || null });
   return ok(s, events);
 }
 

@@ -1,7 +1,10 @@
 # Next steps (handoff)
 
-The latest work is the Lumen Trails commit (daily discoveries, the Trail Guild, encounters and
-companions). README.md covers the project, the art pipeline and how to build.
+The latest work is the encounter rework: the battle shot (your Evochi from behind, the wild one
+facing it, low Blender cameras), camera moves and ability effects, the Sentinel's awakening, encounter
+music, and the encounter UI after the Encounter UI Redesign board. Before that: Lumen Trails (daily
+discoveries, the Trail Guild, encounters and companions). README.md covers the project, the art
+pipeline and how to build.
 
 ## Not verified yet
 
@@ -31,10 +34,19 @@ companions). README.md covers the project, the art pipeline and how to build.
   creatures' favourites in `itemEffect` / `CREATURES.likes`; Petalune's Calm meter 100, the Hollow
   Sprout 100, the Sentinel 200 with a second phase from 50%. The wild creature's replies (skitter,
   surge, lash) and their odds are in `wildTurn` (`web/src/game/trails.js`).
+- Encounter pacing: a turn plays out in about 2-2.5 s (impact at ~0.9 s, the reply at ~1.6 s), the
+  intros run 4.3 s (rare), 4.9 s (Hollow) and 8.2 s (the Sentinel's awakening), all skippable. The
+  timings are in `runTurn` / `playIntro` (`web/src/screens/encounter.js`); the shot sizes (your
+  Evochi's width per stage, the wild one's cap) are `PET_W` and `shotGeometry`.
 - Discoveries: three a day from the authored pool in `DISCOVERIES`; walk targets are
   `min(nominal, half your goal)`; Guild ranks at 0 / 40 / 120 / 260 / 480 XP.
 
 ## Open decisions and ideas
+
+- The encounter backdrops could go further toward the board: more flowers and ferns around the
+  clearing, a waterfall in view at the ruins. They're in `trail_scenes.py` (`to_battle`, `BATTLE`).
+- The intro cinematics and turn effects are CSS + timers; the Flutter port mirrors the layout and the
+  state but not every effect yet (see `flutter/README.md`).
 
 - More discoveries in the pool (the same places support dozens), and seasonal ones.
 - Flamara (Ember) and Aquarel (Water) as daily-discovery encounters, with their exploration

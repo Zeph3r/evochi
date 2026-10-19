@@ -80,7 +80,12 @@ export async function spriteURL(stage, palette, expr = 'default', { overlays = [
       g.drawImage(img, t[0], t[1], t[2], t[3], 0, 0, c.width, c.height);
       return c.toDataURL('image/png');
     }
-    if (view) {
+    const battle = view === 'battle' && e.battle;
+    if (battle) {
+      // the encounter view (from behind); untrimmed so every expression and wearable lines up
+      src = await loadImage(e.battle.atlas[palette].file);
+      r = e.battle.atlas[palette].rects[Math.max(0, e.battle.expressions.indexOf(expr))];
+    } else if (view) {
       src = await loadImage(e.turn[palette].file);
       r = e.turn[palette].rects[view];
     } else {
@@ -92,13 +97,15 @@ export async function spriteURL(stage, palette, expr = 'default', { overlays = [
     c.height = r[3];
     const g = c.getContext('2d');
     g.drawImage(src, r[0], r[1], r[2], r[3], 0, 0, r[2], r[3]);
-    if (!view && overlays.length) {
-      const ov = await loadImage(e.overlays.file);
+    if ((!view || battle) && overlays.length) {
+      const O = battle ? e.battle.overlays : e.overlays;
+      const ov = await loadImage(O.file);
       for (const o of overlays) {
-        const orr = e.overlays.rects[o];
+        const orr = O.rects[o];
         if (orr) g.drawImage(ov, orr[0], orr[1], orr[2], orr[3], 0, 0, r[2], r[3]);
       }
     }
+    if (battle) return c.toDataURL('image/png');
     let out = c;
     if (trim) out = trimCanvas(c);
     if (out.height > maxH) {
@@ -148,6 +155,11 @@ export function hydrateSprites(root) {
       if (img.isConnected) img.src = u;
     });
   }
+}
+
+/** The encounter (back) view of your Evochi, full frame, for manual placement by its anchors. */
+export function battleSprite(stage, palette, expr = 'default', overlays = []) {
+  return spriteURL(stage, palette, expr, { overlays, view: 'battle', trim: false, maxH: 4096 });
 }
 
 export function spriteAttr(stage, palette, expr = 'default', overlays = [], view = '', maxH = 220) {

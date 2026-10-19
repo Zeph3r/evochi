@@ -1,0 +1,146 @@
+{
+ "s01": {
+  "battle": {
+   "w": 456,
+   "h": 500,
+   "scale": 14.0,
+   "yaw": -125,
+   "pitch": 10,
+   "anchors": {
+    "head_top": [
+     239.4,
+     18.8
+    ],
+    "neck": [
+     302.5,
+     376.5
+    ],
+    "back": [
+     113.2,
+     289.2
+    ],
+    "ground": [
+     233.7,
+     453.8
+    ],
+    "face": [
+     366.7,
+     283.2
+    ],
+    "hand": [
+     191.2,
+     329.8
+    ],
+    "body_top": [
+     240.2,
+     11.3
+    ]
+   },
+   "expressions": [
+    "default",
+    "blink",
+    "happy",
+    "determined",
+    "surprised",
+    "sleepy",
+    "excited"
+   ]
+  }
+ },
+ "s02": {
+  "battle": {
+   "w": 620,
+   "h": 550,
+   "scale": 14.0,
+   "yaw": -125,
+   "pitch": 10,
+   "anchors": {
+    "head_top": [
+     416.6,
+     88.7
+    ],
+    "neck": [
+     439.5,
+     368.5
+    ],
+    "back": [
+     278.9,
+     298.4
+    ],
+    "ground": [
+     301.9,
+     509.4
+    ],
+    "face": [
+     526.6,
+     247.6
+    ],
+    "tail": [
+     72.5,
+     254.6
+    ],
+    "body_top": [
+     294.4,
+     37.6
+    ]
+   },
+   "expressions": [
+    "default",
+    "blink",
+    "happy",
+    "determined",
+    "surprised",
+    "sleepy",
+    "excited"
+   ]
+  }
+ },
+ "s03": {
+  "battle": {
+   "w": 958,
+   "h": 588,
+   "scale": 14.0,
+   "yaw": -125,
+   "pitch": 10,
+   "anchors": {
+    "head_top": [
+     749.7,
+     153.7
+    ],
+    "neck": [
+     686.6,
+     361.3
+    ],
+    "back": [
+     508.9,
+     265.7
+    ],
+    "ground": [
+     508.9,
+     527.6
+    ],
+    "face": [
+     896.5,
+     273.7
+    ],
+    "tail": [
+     176.3,
+     195.8
+    ],
+    "body_top": [
+     469.9,
+     10.0
+    ]
+   },
+   "expressions": [
+    "default",
+    "blink",
+    "happy",
+    "determined",
+    "surprised",
+    "sleepy",
+    "excited"
+   ]
+  }
+ }
+}

@@ -158,10 +158,41 @@ Water, Stone, Celestial, and the lizard line's general-purpose Lumen) come from 
 from a colourway.
 
 **Code:** rules in `web/src/game/trails.js` (+ the EQ quests and dialogue in `story.js`), screens in
-`web/src/screens/trails.js` (Guild Board, discoveries, prep, travel, encounter, trail places),
-tests in `web/test/trails.test.mjs`. Art: `tools/art/trail_scenes.py` (Mossy Ruins, its Hollow
-twin and the Sentinel's gate; Blender) and `tools/art/trail_art.py` (the three creatures with their
-encounter states, items, affinity and UI icons).
+`web/src/screens/trails.js` (Guild Board, discoveries, travel, trail places) and
+`web/src/screens/encounter.js` (encounter prep and the encounter itself), tests in
+`web/test/trails.test.mjs`. Art: `tools/art/trail_scenes.py` (Mossy Ruins, its Hollow twin and the
+Sentinel's gate, plus their battle shots; Blender) and `tools/art/trail_art.py` (the three creatures
+with their encounter states, items, affinity and UI icons).
+
+### The encounter shot
+
+Encounters are shot like a battle scene: a low Blender camera just behind your Evochi, which stands
+in the foreground on the left **seen from behind** and turned toward the wild one (the `battle` view of
+every stage, colourway, wearable and 7 expressions, from `build_characters.py --battle`). The wild one
+stands in the middle distance and faces it (`trail_art.py battle`: creature sprites rendered turned
+toward you). Each place has a 2:3 backdrop (`<place>_battle`) and a soft foreground layer
+(`<place>_battle_fg`, blurred by the packer), with anchors for both feet and both heights, so the
+sprites are sized by the scene's perspective.
+
+- **Camera:** the stage is one live element kept across re-renders (`data-keep`, `App.patchKept`) so
+  its moves never restart. Shots: `wide`, `pet` (wind-up), `wild` (push-in with parallax on your
+  Evochi and the foreground), `close` and `face` (intros). Hits shake it; the Sentinel's arrival is a
+  big shake.
+- **Turns are choreographed:** Lumen Glow (glow, an orb flies, a flash and sparks on impact), Gentle
+  Nudge (a lunge, then stars), Soothe (a teal ring, hearts, +Energy), items (tossed in an arc), Petal
+  Hush (Petalune peeks in, petals swirl). Then the reply: skitter, head tilt, a Hollow surge ring, a
+  flicker, or a Hollow lash at your Evochi (Energy float, flinch). The meters move at the beats.
+- **Intros on the same shot:** close on the wild one, then the camera pulls back as your Evochi steps
+  in. The Sentinel's awakening is a story beat: the meadow music stops, a rumble, dust falls, its eyes
+  light one after the other, the gate shakes, your Evochi flinches, and the boss music begins before
+  the title. Everything is skippable, and reduced motion swaps it for a short fade.
+- **Music:** `enc_wild_loop` (encounters), `enc_boss_loop` (the Hollow and the Sentinel), the
+  awakening cues `enc_rumble` and `enc_awaken`, and ability cues (`sfx.py`). `audio.setMusic` crossfades.
+- **UI:** after the Encounter UI Redesign board: a cream nameplate with a thick Calm/Instability bar,
+  a pet card, a log card (tap for history), big coloured buttons (sun = Lumen Glow, violet in Hollow
+  encounters; teal = Soothe; orange = Gentle Nudge; cream = Use Item; green = a companion), Retreat;
+  the prep screen (place header, banner, quest checklist, your team, recommended item, possible
+  rewards, Prepare & Enter); the result (Success ribbon, a caption, a rewards row, the EvoDex card).
 
 ## Asset pack contents
 
@@ -216,6 +247,11 @@ python3 build_web_assets.py ../../assets ../../web/public/assets --home-only    
 python3 trail_art.py ../../assets                                                    # creatures, trail items and icons
 <bpy-python> village_blender.py ../../assets/trails mossy_ruins mossy_ruins_hollow sentinel_gate --meta scenes.json --raw /tmp/trail_raw   # ~15 min on 2 cores
 python3 build_web_assets.py ../../assets ../../web/public/assets --trails-only    # just the Lumen Trails art
+# the encounter shots: your Evochi from behind, the creatures turned toward it, backdrops + foreground layers
+python3 build_characters.py ../../assets/characters --battle                         # ~6 min
+python3 trail_art.py ../../assets battle icons sun purify nudge moon swirl
+<bpy-python> village_blender.py ../../assets/trails mossy_ruins_battle mossy_ruins_battle_fg mossy_ruins_hollow_battle mossy_ruins_hollow_battle_fg sentinel_gate_battle sentinel_gate_battle_fg --meta scenes.json --raw /tmp/trail_raw   # ~25 min on 2 cores
+python3 build_web_assets.py ../../assets ../../web/public/assets --battle-only    # battle views, backdrops, creatures, icons, encounter music
 ```
 
 The models live in `characters.py` and `accessories.py`, and the palettes in `palettes.py`. The
