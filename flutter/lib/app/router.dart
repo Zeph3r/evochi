@@ -117,5 +117,7 @@ class _MainShellState extends State<MainShell> {
   }
 }
 
-/// Height the floating nav occupies at the bottom of tab screens.
-double navInset(BuildContext context) => 84 + MediaQuery.of(context).padding.bottom;
+/// Height the floating nav occupies at the bottom of tab screens. The shell's Scaffold uses
+/// extendBody, so inside a tab the bottom padding already includes the nav bar (and the system
+/// inset under it); only the 6 px gap above the bar is added. (It used to add the bar twice.)
+double navInset(BuildContext context) => MediaQuery.of(context).padding.bottom + 6;

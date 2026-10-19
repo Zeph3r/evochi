@@ -118,7 +118,8 @@ class _EvochiButtonState extends State<EvochiButton> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (widget.icon != null) ...[widget.icon!, const SizedBox(width: 8)],
-          Flexible(child: Text(widget.label, style: style, overflow: TextOverflow.ellipsis, maxLines: 1)),
+          // a label that doesn't fit shrinks a little instead of losing its end ("Need 150 more" on a phone)
+          Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text(widget.label, style: style, maxLines: 1))),
         ],
       ),
     );
@@ -446,17 +447,19 @@ class EvochiNavBar extends StatelessWidget {
                           transform: Matrix4.translationValues(0, on ? -4 : 0, 0),
                           decoration: on ? Kit.navCurrent() : null,
                           child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
-                            Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                            // scale down rather than overflow when the raised plaque's frame eats into the bar
+                            FittedBox(fit: BoxFit.scaleDown, child: Column(mainAxisSize: MainAxisSize.min, children: [
                               AnimatedScale(scale: on ? 1.08 : 1, duration: const Duration(milliseconds: 150), child: VoxelIcon(t.$1, size: 36)),
                               Text(
                                 t.$2,
                                 style: EvochiText.tag.copyWith(
                                   fontSize: 12.5,
+                                  height: 1.15,
                                   color: on ? KitColor.signInk : KitColor.navText,
                                   shadows: on ? const [Shadow(color: Color(0x99FFFFFF), offset: Offset(0, 1))] : const [Shadow(color: Color(0xA61E0C00), offset: Offset(0, 1))],
                                 ),
                               ),
-                            ]),
+                            ])),
                             if ((badges[t.$1] ?? 0) > 0) const Positioned(top: 2, right: 10, child: BadgeDot()),
                           ]),
                         ),

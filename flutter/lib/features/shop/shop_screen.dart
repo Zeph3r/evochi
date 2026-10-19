@@ -711,7 +711,8 @@ class _ShopScreenState extends State<ShopScreen> {
           st: marketItemState(c, list[k]),
           artHeight: artH,
           imageSize: img,
-          showIcon: !narrow,
+          // the category icon only when the card has room for "Nest side · ● Uncommon" beside it
+          showIcon: !narrow && cardW >= 176,
           onTap: () => _open(list[k]),
         );
     return SingleChildScrollView(

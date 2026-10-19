@@ -10,6 +10,14 @@ pipeline and how to build.
 
 ## Not verified yet
 
+- **Flutter now compiles and runs on Windows** (Flutter 3.27.1, VS 2022, 19 Oct 2026): `flutter analyze`
+  has 0 errors, `flutter test` passes 67, and the Windows debug build runs onboarding, Home, Journey,
+  Bag, EvoDex, the Village and the whole Market (browse, details, Dressing Room, buy → Equip Now,
+  nest preview, seeds). On Windows, run `1_check.bat` (doctor, platform folders, pub get, analyze,
+  test) and then `2_build_and_run.bat` (it waits for Developer Mode, which plugins need for symlinks,
+  then builds and opens a phone-sized window). `NuGet.Config` adds nuget.org for audioplayers_windows.
+  Logs go to `logs/`. Android and iOS builds are still untried.
+
 - **Flutter build.** Home Tales and the Lumen Trails were ported to Flutter but, like the rest of
   the Flutter client, only syntax-checked, never compiled. That includes the newest port, the fight
   choreography and the effects engine (`features/trails/stage_fx.dart`, the hit-stop clock in
