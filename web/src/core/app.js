@@ -271,6 +271,8 @@ export class App {
     this.applySettings();
     const prevId = this.route?.id;
     this.resolveRoute();
+    // the screen's material (kit.css): the station's room counts as its own screen
+    this.root.dataset.screen = this.route.id === 'station' ? this.route.params?.id || 'station' : this.route.id;
     const ctx = this.ctx();
     const scr = this.screen();
     if (!scr) return;

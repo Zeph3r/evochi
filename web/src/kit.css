@@ -1,0 +1,277 @@
+/* =====================================================================================================
+   Evochi game-native kit: windows as crafted props, not web panels.
+   Materials (painted by tools/ui_textures.py into assets/ui): honey/mid/dark wood planks, parchment
+   grain, satchel canvas, and 9-slice window frames (carved wood, plum wood, stitched leather, canvas).
+   Hierarchy: a WINDOW (modal, Bag, Market, encounter panel) gets a carved frame; a CARD is printed card
+   stock with a double rule and a thick bottom edge; a SLOT is an inset pocket; a SIGN (page titles,
+   section heads, tabs, nav) is a wooden plaque. Each screen adds its own material identity at the end
+   (#app[data-screen=...]): journal, satchel, market stall, notice board, kitchen, apothecary, binder.
+   Loaded after styles.css, so equal-specificity rules here win.
+   ===================================================================================================== */
+:root {
+  --wood-ink: #4A2A14; --wood-edge: #6B3F1E; --wood-shadow: #3A2010;
+  --wood-l: url(assets/ui/wood_light.png); --wood-m: url(assets/ui/wood_mid.png); --wood-d: url(assets/ui/wood_dark.png);
+  --grain: url(assets/ui/paper_grain.png); --weave: url(assets/ui/cloth_weave.png);
+  --parch-a: #FFF8E8; --parch-b: #F6E6C8; --parch-rule: rgba(196, 150, 96, 0.38);
+  --card-edge: #CFA676; --card-bevel: #B4874F;
+  --nail: radial-gradient(circle at 38% 35%, #FFF1C4 0 18%, #E2B04E 40%, #9A6A1E 72%, #5A3A10 100%);
+  --leaf: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3.5 20.5c0-9.5 6.5-16 17-17-1 10.5-7.5 17-17 17z' fill='%2394C46C' stroke='%233F6E2C' stroke-width='1.7' stroke-linejoin='round'/%3E%3Cpath d='M5 19c4-5 8.5-8.5 12.5-11.5' fill='none' stroke='%233F6E2C' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  --screen-bg: #F7E9CF;
+}
+
+/* ---------------------------------------------------------------- page: parchment, not flat cream */
+#app { background: var(--grain) 0 0 / 256px, linear-gradient(#FAEED8, #F2DFBE); }
+.paper { background: var(--grain) 0 0 / 256px, linear-gradient(#FAEED8 0%, #F3E1C2 100%); }
+.paper-top::after { background: linear-gradient(transparent, #F9ECD4); }
+.guild-head::after { background: linear-gradient(rgba(40,30,20,0.45), rgba(40,30,20,0) 55%, rgba(249,236,212,0.3) 85%, #F9ECD4); }
+.village .hud { background: var(--grain) 0 0 / 256px, linear-gradient(#FAEED8, rgba(248,235,215,0.96)); }
+
+/* ---------------------------------------------------------------- cards: printed card stock */
+.card { background: var(--grain) 0 0 / 256px, linear-gradient(var(--parch-a), var(--parch-b)); border: 2px solid var(--card-edge); border-radius: 14px;
+  box-shadow: inset 0 0 0 2px rgba(255, 252, 240, 0.75), inset 0 0 0 3.5px var(--parch-rule), 0 3px 0 var(--card-bevel), 0 7px 14px rgba(70, 40, 15, 0.16); }
+.card.solid { background: var(--grain) 0 0 / 256px, linear-gradient(#FFFAEE, #F8EBD2); }
+.card.inset { background: var(--grain) 0 0 / 256px, #F6E7CB; box-shadow: inset 0 3px 6px rgba(110, 70, 30, 0.16), inset 0 -1px 0 rgba(255,255,255,0.6), 0 1px 0 rgba(255,255,255,0.7); border-color: #D7B385; }
+.place-card, .room-card, .hab-card { border: 2px solid var(--card-edge); background: var(--grain) 0 0 / 256px, linear-gradient(var(--parch-a), var(--parch-b));
+  box-shadow: 0 3px 0 var(--card-bevel), 0 7px 14px rgba(70, 40, 15, 0.16); }
+.place-card > img, .room-card .thumb { border-bottom: 2px solid var(--card-edge); }
+.ms-card { border: 2px solid var(--card-edge); background: var(--grain) 0 0 / 256px, linear-gradient(var(--parch-a), var(--parch-b)); box-shadow: inset 0 0 0 2px rgba(255,252,240,0.7), 0 2px 0 var(--card-bevel); }
+.lore-card { background: var(--grain) 0 0 / 256px, linear-gradient(#FFF6E2, #F1DFBC); }
+.story-chip { border: 2px solid #9CC07A; background: var(--grain) 0 0 / 256px, linear-gradient(#F6FBEE, #E3F0CF); box-shadow: inset 0 0 0 2px rgba(255,255,255,0.6), 0 3px 0 #6E9A4E; }
+
+/* ---------------------------------------------------------------- section heads: leaf bullet + stitched rule */
+.sec-head { gap: 7px; }
+.sec-head::before { width: 22px; height: 22px; border-radius: 0; flex: none; background: var(--leaf) center / contain no-repeat; box-shadow: none; }
+.sec-head::after { content: ''; flex: 1 1 auto; min-width: 12px; align-self: center; height: 0; border-top: 2px dashed rgba(140, 95, 50, 0.4); margin-left: 4px; }
+
+/* ---------------------------------------------------------------- signs: page titles, back buttons, coins */
+.place-title { position: relative; padding: 7px 12px; border-radius: 12px; font-size: clamp(14px, 4.1cqw, 19px); letter-spacing: -0.2px; color: #3A200E; text-shadow: 0 1px 0 rgba(255, 232, 196, 0.7);
+  background: var(--wood-l) 0 30% / 340px, #D6A066; border: 2.5px solid var(--wood-ink);
+  box-shadow: inset 0 2px 0 rgba(255, 238, 205, 0.65), inset 0 -3px 0 rgba(120, 70, 30, 0.35), 0 3px 0 var(--wood-shadow), 0 6px 12px rgba(40, 20, 5, 0.25); }
+.place-title::before, .place-title::after { content: ''; position: absolute; top: 50%; left: 4px; width: 6px; height: 6px; margin-top: -3px; border-radius: 50%; background: var(--nail); box-shadow: 0 1px 0 rgba(255, 230, 180, 0.6); }
+.place-title::after { left: auto; right: 4px; }
+.back-btn, .sq-btn { border: 2.5px solid var(--wood-ink); background: var(--wood-l) 0 0 / 300px, #D6A066; color: #3A200E;
+  box-shadow: inset 0 2px 0 rgba(255, 238, 205, 0.65), inset 0 -3px 0 rgba(120, 70, 30, 0.35), 0 3px 0 var(--wood-shadow), 0 5px 10px rgba(40, 20, 5, 0.22); }
+.back-btn:active, .sq-btn:active { transform: translateY(2px); box-shadow: inset 0 2px 0 rgba(255, 238, 205, 0.5), 0 1px 0 var(--wood-shadow); }
+.coin-pill { background: var(--wood-d) 0 0 / 260px, #6E4224; border: 2px solid #2E180A; box-shadow: inset 0 1.5px 0 rgba(255, 210, 150, 0.3), 0 2px 0 #2E180A, 0 4px 8px rgba(30, 15, 5, 0.3); }
+.coin-pill .plus { background: linear-gradient(#FFE5A2, #F4B84E); color: #5A3410; border: 1.5px solid #7A4512; box-shadow: inset 0 1px 0 rgba(255,255,255,0.6); }
+.loc-pill, .preview-tag, .subtitle-tag { border: 2px solid var(--wood-edge); background: var(--grain) 0 0 / 256px, linear-gradient(#FFF8E6, #F1DDB8); box-shadow: inset 0 1.5px 0 #FFFDF5, 0 3px 0 var(--wood-edge), 0 5px 10px rgba(50, 28, 10, 0.2); }
+.preview-tag::after { border-top-color: #F1DDB8; }
+.village-btn { background: var(--wood-l) 0 40% / 300px, #D6A066; border: 2.5px solid var(--wood-ink); color: #3A200E; text-shadow: 0 1px 0 rgba(255,232,196,0.6);
+  box-shadow: inset 0 2px 0 rgba(255, 238, 205, 0.6), inset 0 -3px 0 rgba(120, 70, 30, 0.3), 0 3px 0 var(--wood-shadow), 0 5px 10px rgba(40, 20, 5, 0.22); }
+.village-btn:active { box-shadow: 0 1px 0 var(--wood-shadow); }
+.icon-btn { border: 2px solid var(--wood-edge); background: linear-gradient(#FFF8E6, #EED7AE); box-shadow: inset 0 1.5px 0 #FFFDF5, 0 2px 0 var(--wood-edge); }
+
+/* ---------------------------------------------------------------- buttons: chunky, outlined, glossy, they sink */
+.btn { isolation: isolate; border-width: 2.5px; border-color: #8A5414; border-radius: 13px;
+  box-shadow: inset 0 -3px 0 rgba(170, 100, 25, 0.5), 0 4px 0 #6E3F0E, 0 7px 12px rgba(90, 50, 10, 0.25); }
+.btn::before { display: block; width: auto; height: 42%; left: 7px; right: 7px; top: 3px; border-radius: 9px 9px 14px 14px / 9px 9px 8px 8px;
+  background: linear-gradient(rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.08)); box-shadow: none; z-index: -1; }
+.btn::after { z-index: -1; display: block; width: 7px; height: 7px; left: auto; right: 9px; top: 7px; bottom: auto; border-radius: 50%; background: rgba(255, 255, 255, 0.85); box-shadow: none; }
+.btn:active, .btn.pressed { transform: translateY(3px); background: linear-gradient(180deg, #F7D58A 0%, #E0A13E 100%);
+  box-shadow: inset 0 2px 4px rgba(120, 60, 10, 0.35), 0 1px 0 #6E3F0E; }
+.btn:active::before, .btn.pressed::before { opacity: 0.45; }
+.btn.sm::before { display: block; height: 40%; left: 6px; right: 6px; top: 2px; }
+.btn.sm::after { display: none; }
+.btn.green { border-color: #3B6E28; box-shadow: inset 0 -3px 0 rgba(60, 110, 40, 0.45), 0 4px 0 #2C5520, 0 7px 12px rgba(40, 80, 20, 0.25); text-shadow: 0 1px 0 rgba(255,255,255,0.4); }
+.btn.green:active { box-shadow: inset 0 2px 4px rgba(30, 70, 20, 0.35), 0 1px 0 #2C5520; }
+.btn.cream { border-color: #8F6A42; background: var(--grain) 0 0 / 256px, linear-gradient(180deg, #FFF8E8 0%, #F3E1C0 70%, #E9D2A8 100%);
+  box-shadow: inset 0 -3px 0 rgba(170, 130, 80, 0.35), 0 4px 0 #7A5A36, 0 7px 12px rgba(80, 55, 25, 0.18); }
+.btn.cream::before { background: linear-gradient(rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0)); box-shadow: none; }
+.btn.cream::after { background: rgba(255, 255, 255, 0.9); }
+.btn.cream:active { background: linear-gradient(#F1DDB8, #E5CC9E); box-shadow: inset 0 2px 4px rgba(110, 80, 40, 0.3), 0 1px 0 #7A5A36; }
+.btn.danger { border-color: #7E2A22; box-shadow: inset 0 -3px 0 rgba(140, 40, 30, 0.4), 0 4px 0 #62201A, 0 7px 12px rgba(90, 30, 20, 0.22); }
+.btn.ghost::before, .btn.ghost::after, .btn:disabled::before, .btn:disabled::after, .btn.disabled::before, .btn.disabled::after { display: none; }
+.btn:disabled, .btn.disabled, .btn.green:disabled, .btn.cream:disabled, .btn.danger:disabled { border-color: #B29A7E; background: #E6D5BC; box-shadow: inset 0 2px 3px rgba(100, 70, 40, 0.15), 0 2px 0 #B29A7E; }
+.btn.ghost { box-shadow: none; }
+
+/* ---------------------------------------------------------------- tags: little stamped capsules */
+.tag { border-width: 1.5px; box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6), 0 1.5px 0 rgba(90, 55, 25, 0.22); }
+.tag.neutral, .tag.cream { background: var(--grain) 0 0 / 256px, linear-gradient(#FBF0DA, #EEDDBC); border-color: #C9A77A; color: #5A3E2A; }
+.tag.ok { border-color: #9CC27A; }
+.tag.stage { border-color: #C98A2C; }
+
+/* ---------------------------------------------------------------- progress: a carved groove */
+.bar { background: #4C3324; box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.45), 0 0 0 2px #7A5032, 0 1.5px 0 2px rgba(255, 244, 220, 0.7); }
+.bar > i { box-shadow: inset 0 2px 0 rgba(255, 255, 255, 0.55), inset 0 -2px 0 rgba(120, 60, 10, 0.18); }
+.bar.green { background: #4C3324; }
+.bar > i::after { content: ''; position: absolute; left: 4px; right: 4px; top: 2px; height: 3px; border-radius: 2px; background: rgba(255, 255, 255, 0.45); }
+
+/* ---------------------------------------------------------------- tabs: physical plaques; the chosen one lifts and lights */
+.tab { border: 2px solid var(--wood-ink); border-radius: 11px 11px 7px 7px; color: #FFF1D8; text-shadow: 0 1px 0 rgba(30, 12, 0, 0.6);
+  background: var(--wood-m) 0 30% / 300px, #A8693A;
+  box-shadow: inset 0 2px 0 rgba(255, 214, 160, 0.4), inset 0 -3px 0 rgba(40, 18, 4, 0.3), 0 3px 0 var(--wood-shadow);
+  transition: transform 0.12s ease, box-shadow 0.12s ease; }
+.tab img { filter: drop-shadow(0 1.5px 0 rgba(30, 12, 0, 0.45)); }
+.tab:active { transform: translateY(2px); box-shadow: inset 0 2px 0 rgba(255, 214, 160, 0.3), 0 1px 0 var(--wood-shadow); }
+.tab[aria-selected='true'] { color: #3A200E; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6); border-color: #7A4512; transform: translateY(-3px);
+  background: var(--grain) 0 0 / 256px, linear-gradient(#FFF7DC, #FFE19A);
+  box-shadow: inset 0 2px 0 #FFFDF2, 0 0 0 2px #F7C65C, 0 4px 0 #7A4512, 0 0 14px rgba(255, 196, 80, 0.55); }
+.tab[aria-selected='true'] img { filter: drop-shadow(0 1px 0 rgba(120, 70, 20, 0.35)); }
+.tab .badge-dot { z-index: 2; }
+
+/* ---------------------------------------------------------------- nav: a carved wooden bar */
+.nav { border: 2.5px solid var(--wood-ink); border-radius: 18px; background: var(--wood-m) 0 0 / 360px, #9A5F33;
+  box-shadow: inset 0 2px 0 rgba(255, 214, 160, 0.45), inset 0 -4px 0 rgba(40, 18, 4, 0.3), 0 4px 0 var(--wood-shadow), 0 9px 22px rgba(40, 20, 5, 0.35); }
+.nav button { color: #FFF0D2; text-shadow: 0 1px 0 rgba(30, 12, 0, 0.65); transition: transform 0.15s ease; }
+.nav button img { filter: drop-shadow(0 2px 0 rgba(30, 12, 0, 0.4)); }
+.nav button + button::before { background: rgba(40, 18, 4, 0.45); box-shadow: 1.5px 0 0 rgba(255, 214, 160, 0.25); top: 14px; bottom: 14px; }
+.nav button[aria-current='page'] { color: #3A200E; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6); transform: translateY(-4px);
+  background: var(--grain) 0 0 / 256px, linear-gradient(#FFF7DA, #FFDF96);
+  box-shadow: 0 0 0 2.5px var(--wood-ink), inset 0 2px 0 #FFFDF2, 0 4px 0 var(--wood-ink), 0 0 16px rgba(255, 200, 80, 0.65); }
+.nav button[aria-current='page'] img { filter: drop-shadow(0 1.5px 0 rgba(120, 70, 20, 0.35)); }
+
+/* ---------------------------------------------------------------- slots: inset pockets you drop things into */
+.tile { border: 2px solid #B98A55; border-radius: 13px; background: var(--grain) 0 0 / 256px, radial-gradient(circle at 50% 38%, #FFF9E8, #F0DBB4);
+  box-shadow: inset 0 3px 7px rgba(110, 70, 30, 0.22), inset 0 -2px 0 rgba(255, 255, 255, 0.55), 0 2px 0 rgba(255, 246, 225, 0.8); transition: transform 0.12s ease; }
+.tile img { filter: drop-shadow(0 3px 2px rgba(80, 45, 15, 0.25)); }
+.tile .qty { background: #4E3018; border: 1.5px solid #F2D49E; box-shadow: 0 1px 0 rgba(0,0,0,0.3); font-size: 11.5px; }
+.tile:active { transform: scale(0.96); }
+.tile[aria-pressed='true'] { border-color: #C47F1E; background: var(--grain) 0 0 / 256px, radial-gradient(circle at 50% 38%, #FFFCEF, #FFE7A8);
+  box-shadow: inset 0 2px 5px rgba(150, 90, 20, 0.2), 0 0 0 3px #F7C65C, 0 0 14px rgba(255, 190, 70, 0.65); }
+.slot-box { border: 2.5px solid var(--wood-edge); background: var(--grain) 0 0 / 256px, linear-gradient(#FFF8E6, #EFD8AE); box-shadow: inset 0 2px 5px rgba(110, 70, 30, 0.2), 0 3px 0 var(--wood-edge), 0 6px 12px rgba(50, 28, 10, 0.25); }
+.slot-box .plus { background: var(--wood-edge); border: 1.5px solid #FFF1D2; }
+.detail .pic { border: 2.5px solid #C47F1E; background: var(--grain) 0 0 / 256px, radial-gradient(circle at 50% 40%, #FFFCEF, #FBE7BE); box-shadow: inset 0 2px 6px rgba(150, 90, 20, 0.2), 0 2px 0 #E7B65A; }
+.evo-cell.current { background: var(--grain) 0 0 / 256px, linear-gradient(#FFFAEC, #FFEBC0); box-shadow: 0 0 0 2.5px #D9A13A, 0 3px 0 #9A6418; }
+.evo-cell .lbl { border: 1.5px solid #C9A77A; background: linear-gradient(#FBF0DA, #EEDDBC); }
+
+/* ---------------------------------------------------------------- windows: carved frames around parchment */
+.modal { border: 14px solid transparent; border-image: url(assets/ui/frame_wood.png) 56 / 14px stretch; border-radius: 18px;
+  background: var(--grain) 0 0 / 256px, linear-gradient(#FFF8E8, #F4E1BF); background-clip: padding-box; background-origin: padding-box;
+  padding: 12px 14px calc(14px + var(--safe-bottom)); box-shadow: none; filter: drop-shadow(0 -6px 18px rgba(0, 0, 0, 0.3)); }
+.scrim.center .modal { border-radius: 18px; padding: 14px; filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.35)); }
+.modal .grab { background: #C49A68; margin: -2px auto 10px; }
+.toast { background: var(--grain) 0 0 / 256px, linear-gradient(#FFF8E6, #F0DBB2); color: var(--ink-900); border: 2.5px solid var(--wood-ink);
+  box-shadow: inset 0 1.5px 0 #FFFDF5, 0 3px 0 var(--wood-shadow), 0 8px 18px rgba(0, 0, 0, 0.25); }
+.toast.ok { background: var(--grain) 0 0 / 256px, linear-gradient(#F3FAE8, #D9EDBF); border-color: #2F5A21; box-shadow: inset 0 1.5px 0 #FFF, 0 3px 0 #2F5A21, 0 8px 18px rgba(0,0,0,0.25); }
+.toast.warn { background: var(--grain) 0 0 / 256px, linear-gradient(#FFF6DC, #FBE0A6); border-color: #7A4512; }
+.speech { background: var(--grain) 0 0 / 256px, linear-gradient(#FFF9EA, #F7E8CA); border: 2.5px solid var(--wood-edge); box-shadow: inset 0 0 0 2px rgba(255,252,240,0.7), 0 4px 0 var(--wood-edge), 0 12px 26px rgba(40, 25, 10, 0.28); }
+.speech .tail { background: #FFF9EA; border-left-color: var(--wood-edge); border-top-color: var(--wood-edge); }
+.speech .nametag { border: 2px solid var(--wood-ink); box-shadow: inset 0 2px 0 rgba(255,255,255,0.4), 0 3px 0 var(--wood-shadow), 0 4px 10px rgba(40, 25, 10, 0.2); }
+.pin { border: 2px solid var(--wood-edge); background: var(--grain) 0 0 / 256px, linear-gradient(#FFF9EA, #F2DDB6); box-shadow: inset 0 1.5px 0 #FFFDF5, 0 3px 0 var(--wood-edge), 0 5px 10px rgba(40, 25, 10, 0.28); }
+.pin::after { background: #F2DDB6; border-right-color: var(--wood-edge); border-bottom-color: var(--wood-edge); }
+
+/* ---------------------------------------------------------------- controls: a brass knob in a carved groove; parchment fields */
+.switch { background: #6B4A34; border: 2px solid var(--wood-ink); box-shadow: inset 0 3px 4px rgba(0, 0, 0, 0.45), 0 2px 0 rgba(255, 244, 220, 0.8); }
+.switch[aria-checked='true'] { background: linear-gradient(#7FC25A, #4E8F35); }
+.switch::after { top: 2px; left: 2px; width: 22px; height: 22px; background: radial-gradient(circle at 38% 32%, #FFF6D8 0 14%, #F2C463 45%, #B8822A 85%); border: 2px solid #6E4512;
+  box-shadow: 0 2px 0 rgba(40, 20, 5, 0.45); }
+.switch[aria-checked='true']::after { left: 22px; }
+.input, .select, .name-field .inp { border: 2px solid #B98A55; background: var(--grain) 0 0 / 256px, #FFF8EA; box-shadow: inset 0 2px 4px rgba(110, 70, 30, 0.18); }
+.choice, .swatch { border: 2px solid var(--card-edge); background: var(--grain) 0 0 / 256px, linear-gradient(var(--parch-a), var(--parch-b)); box-shadow: inset 0 0 0 2px rgba(255,252,240,0.7), 0 3px 0 var(--card-bevel); }
+.choice[aria-checked='true'], .swatch[aria-checked='true'] { border-color: #C47F1E; background: var(--grain) 0 0 / 256px, linear-gradient(#FFFAEA, #FFE7B0); box-shadow: 0 0 0 3px #F7C65C, 0 3px 0 #9A6418, 0 0 12px rgba(255, 190, 70, 0.5); }
+.stepper .icon-btn, .stepper button { border-color: var(--wood-edge); }
+
+/* =====================================================================================================
+   Materials per screen
+   ===================================================================================================== */
+
+/* Journey: an explorer's journal. Ruled pages, leather bookmark tabs, entries with a margin rule. */
+#app[data-screen='journey'] .paper, #app[data-screen='skills'] .paper {
+  background: repeating-linear-gradient(transparent 0 29px, rgba(150, 110, 70, 0.13) 29px 30px) 0 150px / 100% 100% no-repeat local,
+    var(--grain) 0 0 / 256px, linear-gradient(#FBF0DA, #F2DFBD); }
+#app[data-screen='journey'] .tab, #app[data-screen='skills'] .tab { background: #8E4630; border-color: #3E1E12; border-style: solid;
+  background-image: linear-gradient(rgba(255, 200, 160, 0.16), rgba(0, 0, 0, 0.12)); box-shadow: inset 0 0 0 2px #8E4630, inset 0 0 0 3.5px rgba(241, 217, 168, 0.55), 0 3px 0 #2E140A; }
+#app[data-screen='journey'] .tab[aria-selected='true'], #app[data-screen='skills'] .tab[aria-selected='true'] {
+  background: var(--grain) 0 0 / 256px, linear-gradient(#FFF7DC, #FFE19A); border-color: #7A4512; box-shadow: inset 0 2px 0 #FFFDF2, 0 0 0 2px #F7C65C, 0 4px 0 #7A4512, 0 0 14px rgba(255, 196, 80, 0.55); }
+#app[data-screen='journey'] .quest, #app[data-screen='journey'] .story-quest { border-left: 6px solid #C0634A; }
+
+/* Bag: a traveller's satchel. Canvas sheet with a stitched seam, stitched fabric tabs, cloth pockets. */
+#app[data-screen='bag'] .bag-inner { border: 13px solid transparent; border-image: url(assets/ui/frame_cloth.png) 56 / 13px stretch; border-radius: 17px;
+  background: var(--weave) 0 0 / 64px, linear-gradient(#EFDDBA, #E2C99E); background-clip: padding-box; padding: 6px; box-shadow: none;
+  filter: drop-shadow(0 -4px 14px rgba(50, 28, 10, 0.25)); }
+#app[data-screen='bag'] .tab { background: var(--weave) 0 0 / 48px, #8A6440; border-color: #3E2A16; color: #FFF3DC;
+  box-shadow: inset 0 0 0 2px #8A6440, inset 0 0 0 3.5px rgba(255, 230, 190, 0.45), 0 3px 0 #2E1E0E; outline: none; }
+#app[data-screen='bag'] .tab[aria-selected='true'] { background: var(--grain) 0 0 / 256px, linear-gradient(#FFF7DC, #FFE19A); color: #3A200E;
+  box-shadow: inset 0 2px 0 #FFFDF2, 0 0 0 2px #F7C65C, 0 4px 0 #7A4512, 0 0 14px rgba(255, 196, 80, 0.55); }
+#app[data-screen='bag'] .tile { border: 2px solid #8C6A44; background: var(--weave) 0 0 / 40px, radial-gradient(circle at 50% 38%, #FBF0DA, #E9D3AC);
+  outline: 1.5px dashed rgba(110, 75, 40, 0.55); outline-offset: -6px; }
+#app[data-screen='bag'] .tile[aria-pressed='true'] { border-color: #C47F1E; background: var(--weave) 0 0 / 40px, radial-gradient(circle at 50% 38%, #FFFCEF, #FFE7A8); outline-color: rgba(196, 127, 30, 0.7); }
+#app[data-screen='bag'] .detail { background: var(--grain) 0 0 / 256px, linear-gradient(#FFF9EA, #F4E2C0); border-color: #8C6A44; }
+
+/* Market: a stall. Striped awning over the shelves, products on wooden shelf tags, prices on hanging tags. */
+#app[data-screen='shop'] .shop-lower { position: relative; border: 13px solid transparent; border-image: url(assets/ui/frame_wood.png) 56 / 13px stretch; border-radius: 17px;
+  background: var(--grain) 0 0 / 256px, linear-gradient(#FFF6E2, #F1DDB6); background-clip: padding-box; padding: 26px 8px 6px; box-shadow: none; filter: drop-shadow(0 -4px 14px rgba(50, 28, 10, 0.25)); }
+#app[data-screen='shop'] .shop-lower::before { content: ''; position: absolute; left: -6px; right: -6px; top: -10px; height: 30px; z-index: 2; pointer-events: none;
+  background: repeating-linear-gradient(90deg, #E46A4E 0 26px, #FFF4E0 26px 52px);
+  -webkit-mask: radial-gradient(13px 9px at 13px 21px, #000 98%, transparent 100%) 0 0 / 26px 30px repeat-x, linear-gradient(#000, #000) 0 0 / 100% 21px no-repeat;
+  mask: radial-gradient(13px 9px at 13px 21px, #000 98%, transparent 100%) 0 0 / 26px 30px repeat-x, linear-gradient(#000, #000) 0 0 / 100% 21px no-repeat;
+  filter: drop-shadow(0 2px 0 rgba(90, 30, 15, 0.45)); }
+#app[data-screen='shop'] .prod { border: 2px solid #A87542; background: var(--grain) 0 0 / 256px, linear-gradient(#FFFAEE, #F5E3C0); box-shadow: 0 3px 0 #7A5230, 0 6px 10px rgba(60, 35, 12, 0.18); }
+#app[data-screen='shop'] .prod .pic { border: 2px solid rgba(150, 105, 60, 0.35); box-shadow: inset 0 2px 6px rgba(100, 60, 20, 0.15); }
+#app[data-screen='shop'] .prod .price, #app[data-screen='shop'] .price-row { position: relative; background: var(--wood-l) 0 40% / 240px, #D6A066; border: 2px solid var(--wood-ink); color: #3A200E;
+  box-shadow: inset 0 1.5px 0 rgba(255, 238, 205, 0.6), 0 2px 0 var(--wood-shadow); }
+#app[data-screen='shop'] .prod[aria-pressed='true'] { border-color: #C47F1E; box-shadow: 0 0 0 3px #F7C65C, 0 3px 0 #7A5230, 0 0 14px rgba(255, 190, 70, 0.55); }
+#app[data-screen='shop'] .shop-feature { border-color: #A87542; }
+
+/* Village, places and the Guild: a notice board. Cards are papers pinned up, a hair off straight. */
+#app[data-screen='village'] .place-card, #app[data-screen='guild'] .disc, #app[data-screen='guild'] .rank-card,
+#app[data-screen='village'] .story-strip, #app[data-screen='village'] .market-row, #app[data-screen='village'] .card.disturb, #app[data-screen='village'] .story-quest { overflow: visible; }
+#app[data-screen='village'] .place-card::after, #app[data-screen='guild'] .disc::after, #app[data-screen='village'] .story-strip::after, #app[data-screen='village'] .card.disturb::after, #app[data-screen='village'] .story-quest::after {
+  content: ''; position: absolute; left: 50%; top: -6px; width: 13px; height: 13px; margin-left: -6.5px; border-radius: 50%; z-index: 3; pointer-events: none;
+  background: radial-gradient(circle at 38% 35%, #FFD3C8 0 16%, #E0533E 42%, #9A2A1C 78%); box-shadow: 0 2px 2px rgba(40, 10, 5, 0.4); }
+#app[data-screen='village'] .place-card > img { border-radius: 12px 12px 0 0; }
+#app[data-screen='village'] .place-grid > :nth-child(odd) { transform: rotate(-0.7deg); }
+#app[data-screen='village'] .place-grid > :nth-child(even) { transform: rotate(0.6deg); }
+#app[data-screen='guild'] .disc:nth-of-type(odd) { transform: rotate(-0.5deg); }
+#app[data-screen='guild'] .disc:nth-of-type(even) { transform: rotate(0.45deg); }
+
+/* Kitchen: a recipe book on a warm counter. */
+#app[data-screen='kitchen'] .paper, #app[data-screen='kitchen'] .screen { background: var(--grain) 0 0 / 256px, linear-gradient(#FBEBD2, #F1D7B0); }
+#app[data-screen='kitchen'] .recipe { border-left: 6px solid #D8705A; }
+#app[data-screen='kitchen'] .recipe .pic { border: 2px solid #C98A4E; border-radius: 50%; background: radial-gradient(circle at 50% 40%, #FFFDF4, #F4DDB4); box-shadow: inset 0 2px 5px rgba(120, 70, 20, 0.2); }
+
+/* Apothecary: moodier. Plum wood, lavender paper, labels like jars; Brew glows. */
+#app[data-screen='apothecary'] { --parch-a: #FBF6FF; --parch-b: #EADFF5; --card-edge: #9C7DB8; --card-bevel: #6E4E8C; --parch-rule: rgba(140, 100, 190, 0.35); }
+#app[data-screen='apothecary'] .paper, #app[data-screen='apothecary'] .screen { background: var(--grain) 0 0 / 256px, linear-gradient(#F3ECFA, #E2D3F0); }
+#app[data-screen='apothecary'] .sec-head { color: #3E2550; }
+#app[data-screen='apothecary'] .sec-head::after { border-top-color: rgba(110, 70, 150, 0.4); }
+#app[data-screen='apothecary'] .recipe .pic { border: 2px solid #9C7DB8; border-radius: 12px 12px 18px 18px; background: radial-gradient(circle at 50% 40%, #FFFFFF, #E6DAF4); box-shadow: inset 0 2px 5px rgba(80, 40, 120, 0.2); }
+#app[data-screen='apothecary'] .recipe .btn:not(:disabled) { border-color: #4E2E6C; color: #FFF; text-shadow: 0 1px 0 rgba(40, 10, 60, 0.5);
+  background: linear-gradient(180deg, #D6B8F2 0%, #A983D6 45%, #8358B8 100%); box-shadow: inset 0 -3px 0 rgba(70, 30, 110, 0.4), 0 4px 0 #3E2258, 0 0 14px rgba(170, 120, 240, 0.55); }
+
+/* EvoDex: a collector's binder. Ring holes down the left of every page. */
+#app[data-screen='evodex'] .card { padding-left: 26px; background: radial-gradient(circle at 12px 50%, #8E6A4A 0 4px, rgba(255,255,255,0.8) 4.5px 6px, transparent 6.5px) 0 0 / 24px 40px repeat-y,
+  var(--grain) 0 0 / 256px, linear-gradient(var(--parch-a), var(--parch-b)); }
+
+/* Home: the nameplate and the step board read as props on the diorama. */
+.id-card { border-color: var(--wood-edge); box-shadow: inset 0 0 0 2px rgba(255,252,240,0.75), inset 0 0 0 3.5px var(--parch-rule), 0 4px 0 var(--wood-edge), 0 8px 16px rgba(40, 20, 5, 0.22); }
+.steps-card { border: 2.5px solid var(--wood-ink); background: var(--wood-l) 0 50% / 340px, #D6A066;
+  box-shadow: inset 0 2px 0 rgba(255, 238, 205, 0.6), inset 0 -3px 0 rgba(120, 70, 30, 0.3), 0 4px 0 var(--wood-shadow), 0 8px 16px rgba(40, 20, 5, 0.22); }
+.steps-card .round-ico { background: var(--grain) 0 0 / 256px, #FFF4DC; box-shadow: inset 0 2px 4px rgba(110, 70, 30, 0.25), 0 0 0 2px var(--wood-edge); }
+.steps-card .steps-num, .steps-card .small, .steps-card .muted { color: #3A200E; text-shadow: 0 1px 0 rgba(255, 232, 196, 0.6); }
+.steps-card .bar { box-shadow: inset 0 2px 3px rgba(0, 0, 0, 0.45), 0 0 0 2px var(--wood-ink); }
+
+/* Encounters: the action panel is a carved window rising from the bottom; plates, log and actions are props. */
+.enc2 .enc-panel:not(.intro) { border: 11px solid transparent; border-bottom-width: 0; border-image: url(assets/ui/frame_wood.png) 56 / 11px 11px 0 11px stretch;
+  border-radius: 17px 17px 0 0; background: var(--grain) 0 0 / 256px, linear-gradient(#FBF1DC, #F2E0BF); background-clip: padding-box;
+  padding: 8px 3px calc(8px + var(--safe-bottom)); box-shadow: none; filter: drop-shadow(0 -6px 14px rgba(20, 12, 6, 0.32)); }
+.enc-plate { border: 2.5px solid var(--wood-edge); background: var(--grain) 0 0 / 256px, linear-gradient(#FFF9EA, #F4E3C2);
+  box-shadow: inset 0 0 0 2px rgba(255, 252, 240, 0.7), 0 4px 0 var(--wood-edge), 0 10px 22px rgba(30, 18, 8, 0.3); }
+.enc-log, .rs-card, .rec-tile, .tm-row, .prep-plate { border: 2px solid var(--card-edge); background: var(--grain) 0 0 / 256px, linear-gradient(var(--parch-a), var(--parch-b));
+  box-shadow: inset 0 0 0 2px rgba(255, 252, 240, 0.75), inset 0 0 0 3.5px var(--parch-rule), 0 3px 0 var(--card-bevel), 0 6px 12px rgba(70, 40, 15, 0.14); }
+.prep-plate.hollow { background: var(--grain) 0 0 / 256px, linear-gradient(#FCF8FF, #EEE3FA); border-color: #9C7DB8; }
+.tm-row.ghost { background: none; box-shadow: none; border-style: dashed; }
+.enc-act, .enc-cta, .enc-comp { isolation: isolate; }
+.enc-act::before, .enc-cta::before, .enc-comp::before { content: ''; position: absolute; z-index: -1; left: 6px; right: 6px; top: 3px; height: 40%; border-radius: 12px 12px 16px 16px / 10px 10px 8px 8px;
+  background: linear-gradient(rgba(255, 255, 255, 0.6), rgba(255, 255, 255, 0)); pointer-events: none; }
+.enc-cta, .enc-comp { position: relative; }
+.enc-act.sun { border-color: #9A6414; box-shadow: inset 0 -3px 0 rgba(200, 130, 30, 0.35), 0 4px 0 #7A4A0E, 0 7px 12px rgba(150, 95, 20, 0.25); }
+.enc-act.teal { border-color: #23705A; box-shadow: inset 0 -3px 0 rgba(40, 140, 110, 0.3), 0 4px 0 #1C5A48, 0 7px 12px rgba(30, 110, 80, 0.22); }
+.enc-act.orange { border-color: #9A4A1C; box-shadow: inset 0 -3px 0 rgba(200, 100, 40, 0.3), 0 4px 0 #7A3812, 0 7px 12px rgba(150, 70, 20, 0.25); }
+.enc-act.cream { border-color: #8F6A42; background: var(--grain) 0 0 / 256px, linear-gradient(#FFF9EC 0%, #F4E3C4 60%, #E9D3AA 100%); box-shadow: inset 0 -3px 0 rgba(170, 130, 80, 0.3), 0 4px 0 #7A5A36, 0 7px 12px rgba(120, 80, 30, 0.18); }
+.enc-act.purify { border-color: #5A3A94; box-shadow: inset 0 -3px 0 rgba(120, 80, 190, 0.3), 0 4px 0 #46297A, 0 7px 12px rgba(80, 40, 140, 0.25); }
+.enc-act.green { border-color: #3B6E28; box-shadow: inset 0 -3px 0 rgba(80, 140, 50, 0.3), 0 4px 0 #2C5520, 0 7px 12px rgba(60, 100, 20, 0.22); }
+.enc-act:active:not(:disabled) { transform: translateY(3px); box-shadow: inset 0 2px 4px rgba(60, 30, 5, 0.25), 0 1px 0 rgba(60, 30, 5, 0.6); }
+.enc-act .cost { background: rgba(255, 252, 240, 0.75); box-shadow: inset 0 0 0 1px rgba(110, 70, 30, 0.25); }
+.enc-cta { border-color: #2F5E20; box-shadow: inset 0 -3px 0 rgba(60, 120, 40, 0.35), 0 4px 0 #24481A, 0 8px 16px rgba(40, 90, 20, 0.28); }
+.enc-cta.alt, .enc-cta.gold { border-color: #8A5414; box-shadow: inset 0 -3px 0 rgba(200, 130, 30, 0.35), 0 4px 0 #6E3F0E, 0 8px 16px rgba(120, 70, 20, 0.28); }
+.enc-cta:active { box-shadow: inset 0 2px 4px rgba(40, 20, 5, 0.3), 0 1px 0 rgba(40, 20, 5, 0.6); }
+.enc-comp { border-color: #3B6E28; box-shadow: inset 0 -2px 0 rgba(80, 140, 50, 0.3), 0 3px 0 #2C5520; }
+.rec-tile .mini { border: 2px solid var(--wood-edge); background: var(--grain) 0 0 / 256px, linear-gradient(#FFF8E6, #EED7AE); box-shadow: inset 0 1.5px 0 #FFFDF5, 0 3px 0 var(--wood-edge); }
+.prep-head2 h1 { justify-self: center; position: relative; padding: 7px 18px; border-radius: 12px; font-size: clamp(15px, 4.6cqw, 19px); color: #3A200E; text-shadow: 0 1px 0 rgba(255, 232, 196, 0.7);
+  background: var(--wood-l) 0 30% / 340px, #D6A066; border: 2.5px solid var(--wood-ink); white-space: nowrap;
+  box-shadow: inset 0 2px 0 rgba(255, 238, 205, 0.65), inset 0 -3px 0 rgba(120, 70, 30, 0.35), 0 3px 0 var(--wood-shadow), 0 6px 12px rgba(40, 20, 5, 0.25); }
+.prep-head2 .pb:not(.map) { border: 2.5px solid var(--wood-ink); color: #3A200E; background: var(--wood-l) 0 0 / 300px, #D6A066; box-shadow: inset 0 2px 0 rgba(255, 238, 205, 0.65), 0 3px 0 var(--wood-shadow); }
+.prep-head2 .pb.map { border: 2.5px solid var(--wood-edge); background: var(--grain) 0 0 / 256px, linear-gradient(#FFF8E6, #EED7AE); box-shadow: inset 0 1.5px 0 #FFFDF5, 0 3px 0 var(--wood-edge); }
+
+.reduced-motion .tab, .reduced-motion .nav button, .reduced-motion .tile { transition: none; }

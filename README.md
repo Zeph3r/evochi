@@ -230,6 +230,29 @@ sprites are sized by the scene's perspective.
   you; violet crystals and crackle are the Hollow. A hit tints light creatures gold and brightens dark
   ones, never a white silhouette.
 
+## The game-native kit (windows as props)
+
+The interface is built from crafted materials instead of flat web panels (`web/src/kit.css`, loaded
+after `styles.css`; the Flutter app mirrors it in `lib/features/shared/kit.dart`):
+
+- **Windows** (modals and sheets, the Bag, the Market, the encounter's action panel) sit in a carved
+  9-slice frame with brass rivets and leaf sprigs over the top corners, around parchment.
+- **Cards** are printed card stock: paper grain, a thin double rule inside the edge and a thick bottom
+  edge. **Slots** (item tiles, equipment boxes) are inset pockets with a gold ring when chosen.
+- **Signs**: page titles are nailed wooden plaques, back and square buttons are light wood, the coin
+  purse is dark wood, tabs are wooden plaques whose chosen one lifts and lights, and the bottom nav is
+  a carved wooden bar with the current screen raised on a parchment plaque.
+- **Buttons** have a dark outline, a gloss strip and a thick edge, and sink when pressed. Section
+  heads get a leaf bullet and a stitched rule; progress bars are carved grooves.
+- **Each screen has a material** (`#app[data-screen]`): Journey is an explorer's journal (ruled
+  pages, leather bookmark tabs), the Bag a satchel (canvas, stitched pockets), the Market a stall
+  (awning, shelf cards, prices on wooden tags), the Village and Guild a notice board (pinned papers),
+  the Kitchen a recipe book, the Apothecary plum wood and lavender paper, the EvoDex a binder.
+
+The materials are painted procedurally: `python3 tools/ui_textures.py web/public/assets/ui` writes the
+wood planks, paper grain, canvas weave and the four frames (wood, plum, leather, canvas).
+`tools/ui_tour.mjs` screenshots every screen with a seeded mid-game save for reviews.
+
 ## Asset pack contents
 
 - **Characters:**

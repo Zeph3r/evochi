@@ -1,5 +1,6 @@
 // S00 Splash / restore, then hand off to the router.
 import './styles.css';
+import './kit.css';
 import { Store } from './core/store.js';
 import { App } from './core/app.js';
 import { loadManifest, loadImage, manifest, preloadPet } from './ui/assets.js';
