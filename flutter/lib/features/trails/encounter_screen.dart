@@ -1,11 +1,13 @@
 // Lumen Trails: the encounter. The battle shot (your Evochi from behind in the foreground, the wild
 // one facing it), the intro cinematics on that same shot (the Sentinel's awakening is a story beat of
-// its own), turn choreography with camera moves, hit-stops, punches and canvas effects, and the
-// result.
+// its own) ending on the hero shot under the intro card ("A Wild / Petalune / Appeared!", the goal,
+// Begin Encounter), turn choreography with camera moves, hit-stops, punches and the board's effects,
+// the feedback language (the log card's headline and line, announcements, status chips), and the
+// result card with reward toasts.
 //
 // The stage (encounter_stage.dart) is one live widget tree driven imperatively through an
 // [EncounterStage], so camera moves and effects never restart when the state re-renders; the panel
-// under it (log, actions, goal and result cards) is ordinary widgets that rebuild with the state.
+// under it (log, actions, intro and result cards) is ordinary widgets that rebuild with the state.
 // Rules live in lib/game/trails/trails.dart (startEncounter / encounterAct / completeEncounter).
 // Mirrors the `encounter` screen in web/src/screens/encounter.js.
 
@@ -19,42 +21,161 @@ import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/models/catalog.dart';
-import '../../core/models/game_state.dart';
 import '../../core/services/asset_manifest.dart';
 import '../../game/story/story.dart' as q;
 import '../../game/trails/trails.dart' as tr;
 import '../shared/sprite.dart';
 import '../shared/widgets.dart';
 import '../village/story_widgets.dart';
+import 'encounter_icons.dart';
 import 'encounter_stage.dart';
 import 'trails_widgets.dart';
 
-/// An intro's length, music and title.
+/// An intro's length and music.
 class _Intro {
-  const _Intro(this.ms, this.music, this.sub);
+  const _Intro(this.ms, this.music);
   final int ms;
   final String music;
-  final String sub;
 }
 
 const _intros = <String, _Intro>{
-  'rare': _Intro(4300, 'enc_wild_loop', 'Something rare is watching you.'),
-  'hollow': _Intro(4900, 'enc_boss_loop', 'Hollow energy pulses in the stones.'),
-  'boss': _Intro(8200, 'enc_boss_loop', 'Guardian of the Lumen Trails'),
-  'standard': _Intro(2600, 'enc_wild_loop', ''),
+  'rare': _Intro(2700, 'enc_wild_loop'),
+  'hollow': _Intro(3000, 'enc_boss_loop'),
+  'boss': _Intro(6300, 'enc_boss_loop'),
+  'standard': _Intro(2200, 'enc_wild_loop'),
 };
 
-String _introTitle(String intro, tr.Creature c) => switch (intro) {
-      'rare' => 'A wild ${c.name} appeared!',
-      'hollow' => '${c.name} stirs…',
-      'boss' => 'The ${c.name.replaceFirst(RegExp(r'^Forgotten '), '')} awakens',
-      _ => '${c.name} peeks out',
-    };
+// the intro card's line about the creature
+const _introLines = <String, String>{
+  'petalune': 'A gentle Evochi that nurtures life in the ruins. It seems cautious, but curious about you…',
+  'hollow_sprout': 'A forest Evochi tangled in Hollow growth. It flinches at every sound, but kindness still reaches it…',
+  'sentinel': 'A guardian of the Lumen Trails, asleep for an age. Its light is dim, but it still listens…',
+};
+
+/// The title stacks: "A Wild / Petalune / Appeared!", "A Hollow / Sprout / Appeared!", "The Forgotten /
+/// Sentinel / Awakens!".
+(String, String, String) _introTitle(tr.Creature c) {
+  if (c.boss) {
+    final w = c.name.split(' ');
+    return ('The ${w.sublist(0, w.length - 1).join(' ')}', w.last, 'Awakens!');
+  }
+  if (c.kind == 'hollow' && c.name.startsWith('Hollow ')) return ('A Hollow', c.name.substring(7), 'Appeared!');
+  return ('A Wild', c.name, 'Appeared!');
+}
 
 String _petExpr(tr.EncounterView v) {
   if (v.success) return 'excited';
   if (v.energy < 25) return 'sleepy';
   return 'default';
+}
+
+// ------------------------------------------------------------------ words (the board's feedback language) ----
+/// A line on the log card: a bold headline and the line under it, whose turn it is, and the attempt.
+class _LogLine {
+  const _LogLine(this.title, this.sub, this.who, this.seed);
+  final String title;
+  final String sub;
+  final String who; // you | wild
+  final String seed;
+}
+
+String _theName(tr.Creature c) => c.id == 'sentinel' ? 'The Sentinel' : (c.id == 'hollow_sprout' ? 'The Sprout' : c.name);
+
+/// Your line for the log card, and the announcement it may make.
+({String title, String sub, String? ann, String tone}) _youLine(String pet, tr.EncounterView v, tr.EncounterActionDef a, String? itemId) {
+  final c = v.creature;
+  final hollow = c.kind == 'hollow';
+  switch (a.kind) {
+    case 'item':
+      final f = itemId == null ? null : tr.itemEffect(itemId, v.goal, c.id);
+      final liked = f?.liked ?? false;
+      final weak = !liked && (f?.amount ?? 0) < 10;
+      return (
+        title: '$pet offers ${(itemId == null ? null : catalog[itemId]?.name) ?? 'a gift'}!',
+        sub: liked ? '${c.name} loves it!' : (weak ? 'It’s not very effective…' : '${c.name} sniffs it curiously…'),
+        ann: liked ? '${_theName(c)} loves it!' : (weak ? 'It’s not very effective…' : null),
+        tone: liked ? 'love' : 'meh',
+      );
+    case 'companion':
+      return (title: 'Petalune uses Petal Hush!', sub: 'A soft, green hum fills the air…', ann: null, tone: 'calm');
+    case 'light':
+      return (title: '$pet uses Lumen Glow!', sub: hollow ? 'Warm light pushes back the Hollow…' : 'A warm light soothes ${c.name}…', ann: hollow ? 'It’s very effective!' : null, tone: 'good');
+    case 'physical':
+      final fun = v.goal == 'befriend' && v.e.curious;
+      return (title: '$pet uses Gentle Nudge!', sub: fun ? 'It’s having fun!' : 'The air settles a little…', ann: fun ? 'It’s having fun!' : null, tone: 'good');
+    default:
+      return (title: '$pet uses Soothe!', sub: '$pet rests. Energy returns.', ann: null, tone: 'calm');
+  }
+}
+
+/// The wild one's reply: a short headline (and whether it is worth an announcement) over the game's
+/// own line.
+({String title, String sub, String tone, bool ann}) _wildLine(tr.EncounterView v, String? mood, String? kind, int wild, int drain, String text) {
+  final c = v.creature;
+  final the = _theName(c);
+  if (v.goal == 'befriend') {
+    if (kind == 'item' && mood == 'curious' && wild > 0) return (title: 'Trust is growing.', sub: text, tone: 'love', ann: true);
+    if (mood == 'wary') return (title: '${c.name} seems wary.', sub: text, tone: 'wary', ann: true);
+    if (mood == 'calm') return (title: '${c.name} looks more at ease!', sub: text, tone: 'love', ann: true);
+    return (title: '${c.name} is watching you closely…', sub: text, tone: 'calm', ann: false);
+  }
+  if (mood == 'waking') return (title: '$the stirs!', sub: text, tone: 'hollow', ann: true);
+  if (mood == 'surging' && drain != 0) return (title: 'Hollow energy lashes out!', sub: text, tone: 'hollow', ann: true);
+  if (mood == 'surging') return (title: 'Hollow energy surged!', sub: text, tone: 'hollow', ann: true);
+  if (mood == 'flickering') return (title: '$the’s light flickers…', sub: text, tone: 'calm', ann: false);
+  return (title: '$the is calming down…', sub: text, tone: 'calm', ann: true);
+}
+
+/// The last turn's line on the log card.
+_LogLine _finalLog(tr.EncounterView v) {
+  final c = v.creature;
+  return v.goal == 'befriend'
+      ? _LogLine('${c.name} trusts you.', 'A new friend may join you soon…', 'wild', v.seed)
+      : _LogLine('${c.name} restored.', 'The Hollow energy fades, and its light returns.', 'wild', v.seed);
+}
+
+/// The status chips, read from the real state (the board's mini-library, where the rules have one).
+(List<StageStatus>, List<StageStatus>) _statuses(tr.EncounterView v, double energy) {
+  final w = <StageStatus>[];
+  final p = <StageStatus>[];
+  if (v.done != null) return (w, p);
+  final c = v.creature;
+  if (c.kind == 'hollow') w.add(const StageStatus('hollowed', 'Hollowed', 'Lumen Glow is 30% stronger against the Hollow.'));
+  if (v.phase2) w.add(const StageStatus('waking', 'Waking', 'It lashes out more often now. Keep your Energy up.'));
+  if (v.mood == 'surging' && c.kind == 'hollow') w.add(const StageStatus('unsteady', 'Unsteady', 'Hollow energy is surging through it.'));
+  if (v.mood == 'flickering') w.add(const StageStatus('flicker', 'Flickering', 'Its Hollow is loosening.'));
+  if (v.goal == 'befriend') {
+    if (v.mood == 'wary') w.add(const StageStatus('wary', 'Wary', 'It may skitter away. Gifts and patience help.'));
+    if (v.e.curious) w.add(const StageStatus('trust', 'Curious', 'Gentle Nudge adds +4 Calm while it’s curious.'));
+    if (v.mood == 'calm') w.add(const StageStatus('soothed', 'Soothed', 'It feels at ease with you.'));
+  }
+  if (v.phase2) p.add(const StageStatus('charged', 'Lumen Charged', 'Lumen Glow is 25% stronger now.'));
+  if (energy < tr.encounterActions['lumen_glow']!.energy) p.add(const StageStatus('tired', 'Tired', 'Not enough Energy for Lumen Glow. Soothe to rest.'));
+  if (v.actions.any((a) => a.kind == 'companion' && a.can)) p.add(const StageStatus('bloom', 'Petalune is with you', 'Petal Hush is ready, once this encounter.'));
+  return (w, p);
+}
+
+/// The second line of an action button: what it costs (the board's clear action hierarchy).
+String _actionSub(tr.ActionView a, tr.EncounterView v) {
+  switch (a.kind) {
+    case 'item':
+      final n = v.items.fold<int>(0, (t, i) => t + i.qty);
+      return n > 0 ? '$n available' : 'Nothing useful yet';
+    case 'restore':
+      return '+30 Energy';
+    case 'companion':
+      return v.companionUsed ? 'Used this time' : 'Once · no Energy';
+    default:
+      return '−${a.energy} Energy';
+  }
+}
+
+/// What an action does, for screen readers.
+String _actionLong(tr.ActionView a, tr.EncounterView v) {
+  final l = v.meterLabel;
+  if (a.kind == 'restore') return '${a.name}: +30 Energy and a little ${l == 'Calm' ? 'Calm' : 'less Instability'}';
+  if (a.kind == 'item') return '${a.name}: ${_actionSub(a, v)}';
+  return '${a.name}: ${v.goal == 'befriend' ? '+' : '−'}${a.power} $l${a.energy > 0 ? ', costs ${a.energy} Energy' : ''}';
 }
 
 class EncounterScreen extends StatefulWidget {
@@ -75,13 +196,13 @@ class _EncounterScreenState extends State<EncounterScreen> {
   bool _holdPet = false, _holdWild = false;
   double? _dispMeter, _dispEnergy; // the mid-turn numbers while a turn plays out
   bool _logOpen = false;
-  (String, String)? _log; // the line being shown while busy (text, who)
-  bool _init = false, _introStarted = false, _titleShown = false, _ribbon = false;
+  _LogLine? _log; // the log card's line once a turn has played (tied to the attempt)
+  bool _init = false, _introStarted = false, _resultShown = false;
   Timer? _outroTimer;
   final _timers = <Timer>[];
   bool _leaving = false;
   bool _rm = false;
-  String? _amb; // the ambient motes the effects are showing (gold | hollow | won)
+  String? _amb; // the ambient the effects are showing (gold | hollow | won)
   Timer? _idleTimer; // between turns your Evochi blinks and the wild one glances about
   bool _idleOn = false;
   final _rand = math.Random();
@@ -138,6 +259,21 @@ class _EncounterScreenState extends State<EncounterScreen> {
     Navigator.of(context).pushReplacement(guildRoute());
   }
 
+  String get _petName => _c.state.pet?.name ?? 'Your Evochi';
+
+  /// What the log card shows when nothing is playing: the last turn's lines, or how it began.
+  _LogLine _currentLog(tr.EncounterView v) {
+    final l = _log;
+    if (l != null && l.seed == v.seed) return l;
+    final c = v.creature;
+    if (v.success) return _finalLog(v);
+    if (v.turn == 0) {
+      if (v.goal == 'befriend') return _LogLine('A wild ${c.name} appeared!', 'It watches you from a distance…', 'wild', v.seed);
+      return _LogLine(c.boss ? 'The Sentinel is awake!' : 'Hollow energy shudders through the ruins…', v.log.isEmpty ? '' : v.log.first.text, 'wild', v.seed);
+    }
+    return _LogLine(v.log.isEmpty ? '' : v.log.last.text, '', v.log.isEmpty ? 'wild' : v.log.last.who, v.seed);
+  }
+
   // ------------------------------------------------------------------ the stage in sync ----
   /// Bring the live stage in line with the state (or with the mid-turn numbers while a turn plays).
   void _syncStage(tr.EncounterView v) {
@@ -156,7 +292,10 @@ class _EncounterScreenState extends State<EncounterScreen> {
       s.phase2 = v.phase2;
       s.hollow = v.creature.kind == 'hollow' && !v.success;
     });
-    // the air: motes over the grove, Hollow embers around the wild one
+    // the status chips and the turn
+    final (w, p) = _statuses(v, energy);
+    st.setStatus(w, p, v.done != null ? 'Done' : 'Turn ${v.turn + 1}');
+    // the air: petals and motes over the grove, Hollow embers and crystals around the wild one
     final fx = st.effects;
     final g = _geom;
     if (fx != null && g != null) {
@@ -191,7 +330,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
   }
 
   /// After each frame (the web's `mount`): measure the panel, sync the stage, start the intro or the
-  /// outro, and show the ribbon on the result.
+  /// outro, and bring on the result (the toasts, the speech bubble, the won air).
   void _afterBuild(tr.EncounterView v) {
     if (!mounted || _stage == null) return;
     final h = _panelKey.currentContext?.size?.height;
@@ -209,13 +348,15 @@ class _EncounterScreenState extends State<EncounterScreen> {
         _playIntro(v);
       } else {
         // a fresh stage mid-encounter (came back from elsewhere): no intro, just the shot
+        final card = _phase == 'card' || _phase == 'intro';
         st.update((s) {
-          s.petIn = true;
           s.lit = true;
           s.eyeL = true;
           s.eyeR = true;
+          if (!card) s.petIn = true;
           if (v.success) s.won = true;
         });
+        if (card) st.setShot('hero', instant: true);
         _music(_phase == 'result' ? null : (_intros[v.intro] ?? _intros['standard']!).music);
         if (_phase == 'intro') {
           _clearTimers();
@@ -233,16 +374,42 @@ class _EncounterScreenState extends State<EncounterScreen> {
         }
       });
     }
-    final on = _phase == 'result';
-    if (on && !_ribbon) {
-      _ribbon = true;
+    if (_phase == 'result' && !_resultShown) {
+      _resultShown = true;
       st.setShot('wild');
-    } else if (!on && _ribbon) {
-      _ribbon = false;
+      _rewardToasts(v);
+      // a speech bubble over the creature: a heart for a new friend, light for a restored one
+      final g = _geom!;
+      final wf = g.wildFace ?? Offset(g.wildCx, g.wildHeadY + 0.06);
+      st.speech(Offset(wf.dx + g.wildWidth * 0.06, g.wildHeadY - 0.03), v.goal);
+      _amb = 'won';
+      st.effects?.setAmbient('won', Rect.fromLTWH(g.wildCx - 0.22, g.wildHeadY - 0.08, 0.44, g.wildBottom - g.wildHeadY + 0.08));
+    }
+  }
+
+  /// The reward toasts as the result comes in (the board's Reward Toast), one after another.
+  void _rewardToasts(tr.EncounterView v) {
+    final st = _stage;
+    final r = q.storyQuests[v.quest]?.rewards;
+    if (st == null || r == null) return;
+    final list = <({String text, String? icon, String? itemId})>[
+      if (r.companion != null) (text: '${tr.creatureDefs[r.companion]?.name ?? r.companion} joined your team!', icon: 'creature_${r.companion}', itemId: null),
+      for (final id in r.items) (text: '${catalog[id]?.name ?? id} obtained!', icon: null, itemId: id),
+      for (final t in r.titles) (text: '${q.titles[t] ?? t} title earned!', icon: 'crown', itemId: null),
+      for (final x in r.unlocks) (text: '$x unlocked!', icon: 'star', itemId: null),
+    ];
+    for (var i = 0; i < math.min(3, list.length); i++) {
+      final t = list[i];
+      _later(350 + i * 2500, () {
+        st.toast(t.text, icon: t.icon, itemId: t.itemId);
+        _sfx('reward_chime', 0.4);
+      });
     }
   }
 
   // ------------------------------------------------------------------ intros (on the same shot) ----
+  // The intro ends on the hero shot of the wild one with the big title, the goal and Begin Encounter
+  // (the 'card' phase); your Evochi steps in when you begin.
   void _playIntro(tr.EncounterView v) {
     final st = _stage!;
     final g = _geom!;
@@ -251,32 +418,30 @@ class _EncounterScreenState extends State<EncounterScreen> {
       if (!mounted) return;
       if (_phase != 'intro') return;
       setState(() {
-        _titleShown = false;
         _phase = 'card';
         _holdWild = false;
         _holdPet = false;
       });
     }
 
-    void showTitle() => setState(() => _titleShown = true);
     if (_rm) {
-      st.setShot('wide', instant: true);
+      st.setShot('hero', instant: true);
       st.update((s) {
-        s.petIn = true;
         s.lit = true;
+        s.eyeL = true;
+        s.eyeR = true;
         if (v.intro == 'boss') s.wildState = v.stateKey;
       });
       _music(intro.music);
-      showTitle();
-      _later(1400, done);
+      _later(900, done);
       return;
     }
     final fx = st.effects;
     final w = g.wild;
     final eyes = g.wildEyesAbs;
     if (v.intro == 'boss') {
-      // the Sentinel's awakening: dark and still, a rumble, its eyes light one after the other, the
-      // ruins shake, your Evochi flinches, and the music turns before the encounter begins
+      // the Sentinel's awakening: dark and still, a rumble, stones falling, its eyes light one after
+      // the other, the gate shakes and crackles, your Evochi flinches, and the music turns
       _holdWild = true;
       _holdPet = true;
       st.update((s) {
@@ -290,6 +455,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
         _sfx('enc_rumble', 0.9);
         st.update((s) => s.trembling = true);
         st.doShake();
+        fx?.burst(Offset(w.dx, g.wildHeadY - 0.06), 6, shape: 'rock', pal: 'rock', blend: BlendMode.srcOver, speed: 6, vary: 0.6, angle: math.pi / 2, spread: 0.5, size: 1.6, sizeK: 'hold', alphaK: 'hold', life: 1.1, gravity: 120, spin: 5, jitter: 12);
       });
       _later(1100, () => st.doShake());
       _later(1500, () {
@@ -307,14 +473,16 @@ class _EncounterScreenState extends State<EncounterScreen> {
           s.lit = true;
         });
         fx?.embers(w, 18, pal: 'violet', w: 26, h: 24, life: 1.6);
+        fx?.crackleAround(w, r: 16, n: 4, ms: 500);
       });
       _later(3850, () {
         st.doShake(big: true);
         st.doFlash('violet');
         st.punch(big: true);
         fx?.ring(w, r0: 4, r1: 48, ms: 800, pal: 'violet', width: 3);
-        fx?.shards(w, 20, pal: 'violet', scale: 1.3);
-        fx?.smoke(Offset(w.dx, g.wildBottom), n: 8, scale: 1.3);
+        fx?.hollowShards(w, n: 14, scale: 1.3);
+        fx?.dustBurst(Offset(w.dx, g.wildBottom - 0.02), n: 12, scale: 1.2);
+        fx?.crackleAround(w, r: 22, n: 6, ms: 700);
         fx?.pulse(pal: 'dark', ms: 900, alpha: 0.6);
         st.setShot('wide');
         st.update((s) => s.petIn = true);
@@ -325,18 +493,18 @@ class _EncounterScreenState extends State<EncounterScreen> {
         _sfx('pet_chirp', 0.5);
         _music(intro.music);
       });
-      _later(5400, showTitle);
+      _later(5500, () {
+        st.update((s) => s.trembling = false);
+        st.setShot('hero');
+      });
       _later(intro.ms, () {
-        st.update((s) {
-          s.trembling = false;
-          s.petExpr = 'determined';
-        });
         _holdPet = false;
+        st.update((s) => s.petExpr = 'determined');
         done();
       });
       return;
     }
-    // rare / hollow / standard: start close on the wild one, then pull back as your Evochi steps in
+    // rare / hollow / standard: close on the wild one, a reaction, then the hero shot for the title
     st.setShot('close', instant: true);
     _music(intro.music);
     final hollow = v.intro == 'hollow';
@@ -346,6 +514,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
         _sfx('enc_surge', 0.6);
         fx?.ring(w, r0: 3, r1: 40, ms: 800, pal: 'violet', width: 2.6);
         fx?.embers(w, 20, pal: 'violet', w: 22, h: 20, life: 1.6);
+        fx?.crackleAround(w, r: 14, n: 4, ms: 600);
         fx?.smoke(Offset(w.dx, g.wildBottom), n: 6, scale: 1.1);
         fx?.pulse(pal: 'dark', ms: 900, alpha: 0.45);
         st.doShake();
@@ -355,18 +524,10 @@ class _EncounterScreenState extends State<EncounterScreen> {
       _later(900, () {
         st.retriggerWild('bang', 1600);
         _sfx('pet_chirp', 0.45);
-        fx?.burst(Offset(w.dx, g.wildHeadY), 8, shape: 'star', pal: 'gold', speed: 30, vary: 0.5, drag: 2.5, size: 2.2, sizeK: 'spark', life: 0.7, spin: 6, gravity: 20);
+        fx?.burst(Offset(w.dx, g.wildHeadY), 8, shape: 'sparkle', pal: 'gold', speed: 30, vary: 0.5, drag: 2.5, size: 3, sizeK: 'spark', life: 0.8, spin: 3, gravity: 10);
       });
     }
-    _later(hollow ? 2000 : 1700, () {
-      st.setShot('wide');
-      st.update((s) {
-        s.petIn = true;
-        s.lit = true;
-      });
-      _sfx('enc_whoosh', 0.5);
-    });
-    _later(hollow ? 2900 : 2600, showTitle);
+    _later(hollow ? 1800 : 1500, () => st.setShot('hero'));
     _later(intro.ms, done);
   }
 
@@ -377,20 +538,31 @@ class _EncounterScreenState extends State<EncounterScreen> {
       st.update((s) {
         s.trembling = false;
         s.silhouette = false;
-        s.petIn = true;
         s.lit = true;
         s.eyeL = true;
         s.eyeR = true;
+        if (v.intro == 'boss') s.wildState = v.stateKey;
       });
-      st.setShot('wide', instant: true);
+      st.setShot('hero', instant: true);
       _music((_intros[v.intro] ?? _intros['standard']!).music);
     }
     setState(() {
       _holdWild = false;
       _holdPet = false;
-      _titleShown = false;
       _phase = 'card';
     });
+  }
+
+  /// Begin Encounter: your Evochi steps in and the camera pulls back to the wide shot.
+  void _begin() {
+    _sfx('ui_tap', 0.4);
+    final st = _stage;
+    if (st != null) {
+      _sfx('enc_whoosh', 0.45);
+      st.update((s) => s.petIn = true);
+      st.setShot('wide');
+    }
+    setState(() => _phase = 'play');
   }
 
   // ------------------------------------------------------------------ a turn, choreographed ----
@@ -414,9 +586,10 @@ class _EncounterScreenState extends State<EncounterScreen> {
     step();
   }
 
-  // Every move has the same four beats: a wind-up, the action, the impact (a hit-stop, a flash on the
-  // one that was hit, a camera punch, shards from the point of contact) and the recovery, with the
-  // number popping first and the meter following it. The wild one's reply has the same shape.
+  // Every move has the same four beats: a wind-up, the action, the impact (a hit-stop, a soft flash on
+  // the one that was hit, a camera punch, the effect from the board's library at the point of contact)
+  // and the recovery, with the number popping first and the meter following it. The colours keep one
+  // language: gold light and green leaves are you, violet crystals and crackle are the Hollow.
   void _runTurn(String actionId, String? itemId) {
     if (_busy) return;
     final c = _c;
@@ -433,6 +606,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
     final wild = (ev?.data['wild'] as int?) ?? 0;
     final mood = ev?.data['mood'] as String?;
     final drain = (ev?.data['drain'] as int?) ?? 0;
+    final evKind = ev?.data['kind'] as String?;
     final a = tr.encounterActions[actionId]!;
     final k = _rm ? 0.35 : 1.0;
     int ms(num x) => (x * k).round();
@@ -441,9 +615,8 @@ class _EncounterScreenState extends State<EncounterScreen> {
     final mid = (before.meter + sign * you).clamp(0, before.max).toDouble();
     final cost = math.max(0, a.energy);
     final hollow = before.creature.kind == 'hollow';
-    final pal = hollow ? 'violet' : 'gold';
-    final youLine = after.log.length > before.log.length ? after.log[before.log.length].text : '';
-    final wildLine = after.log.isNotEmpty ? after.log.last.text : '';
+    final wildText = after.log.isNotEmpty ? after.log.last.text : '';
+    final yl = _youLine(_petName, before, a, itemId);
     // the panel: lock the buttons, show your line; the plates: pay the Energy at once
     setState(() {
       _busy = true;
@@ -451,7 +624,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
       _holdWild = true;
       _dispMeter = before.meter.toDouble();
       _dispEnergy = (before.energy - cost).toDouble();
-      _log = (youLine, 'you');
+      _log = _LogLine(yl.title, yl.sub, 'you', before.seed);
     });
     _syncStage(before);
     st.update((s) => s.petExpr = 'determined');
@@ -461,7 +634,11 @@ class _EncounterScreenState extends State<EncounterScreen> {
     final wc = Offset(w.dx - gm.wildWidth * 0.28, w.dy + 0.03); // its near side, where a nudge lands
     final wg = Offset(w.dx - 0.03, gm.wildBottom); // the ground at its feet
     final p = gm.petHead; // your Evochi's head
+    final pc = gm.pet; // its body
     final pg = Offset(gm.petCx, gm.petFeetY); // the ground at its feet
+    // the numbers pop beside its head (the board's "+16 Calm" bubble), clear of the toasts on the left
+    final numX = w.dx + gm.wildWidth * 0.3;
+    final numY = before.creature.size == 'large' ? wf.dy - 0.04 : math.max(gm.wildHeadY + 0.04, w.dy - 0.08);
     void meterTo(double to, int dur) {
       final from = _dispMeter ?? before.meter.toDouble();
       _tween(ms(dur), (t) {
@@ -480,6 +657,9 @@ class _EncounterScreenState extends State<EncounterScreen> {
       });
     }
 
+    // the bouncy hit feedback: stars that pop out and fall
+    void stars(Offset at, int n, double s) => fx?.burst(at, n, shape: 'star', pal: 'gold', speed: 46 * s, vary: 0.5, drag: 2.6, size: 3.2 * s, sizeK: 'pop', alphaK: 'hold', life: 0.75, spin: 7, gravity: 70);
+
     // 3. the impact on the wild one: the visuals fire the moment the projectile lands (or on the beat
     // for the moves without one); the number and the meter follow on the beat
     var landedOnce = false;
@@ -488,20 +668,25 @@ class _EncounterScreenState extends State<EncounterScreen> {
       landedOnce = true;
       switch (a.kind) {
         case 'light':
+          // Golden Pulse winds out round the face; on a Hollow one, its crystals break off
           st.hitstop(ms(100));
           st.retriggerWild('hit', 600);
-          fx?.flashAt(wf, size: 28, life: 0.3, pal: pal);
-          fx?.ring(wf, r0: 2, r1: 28, ms: 420, pal: pal, width: 2.4);
-          fx?.shards(wf, 24, pal: pal, scale: 1);
-          if (hollow) _later(ms(70), () => fx?.ring(wf, r0: 4, r1: 38, ms: 620, pal: 'gold', width: 1.2, alpha: 0.7));
+          fx?.flashAt(wf, size: 26, life: 0.3, pal: 'gold');
+          fx?.goldenPulse(wf, r1: 24, ms: 700);
+          stars(wf, 7, 0.9);
+          if (hollow) {
+            fx?.hollowShards(wf, n: 12, scale: 1);
+          } else {
+            fx?.shards(wf, 14, pal: 'gold', scale: 0.8);
+          }
           st.punch();
           _later(ms(100), () => st.doShake());
           _sfx('reward_chime', 0.35);
         case 'physical':
           st.hitstop(ms(80));
           st.retriggerWild('hit', 600);
-          fx?.dust(wg, n: 10);
-          fx?.burst(wc, 7, shape: 'star', pal: 'gold', speed: 50, vary: 0.5, drag: 3, size: 3, sizeK: 'spark', life: 0.6, spin: 7, gravity: 50);
+          fx?.dustBurst(wc, n: 8, scale: 0.9, ground: wg);
+          stars(wc, 7, 1);
           fx?.ring(wc, r0: 1, r1: 16, ms: 320, pal: 'white', width: 1.6, alpha: 0.8);
           st.punch();
           _later(ms(80), () => st.doShake());
@@ -509,7 +694,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
         case 'item':
           st.hitstop(ms(60));
           st.retriggerWild('munch', 800);
-          fx?.burst(wf, 11, shape: 'star', pal: 'gold', speed: 40, vary: 0.5, drag: 3, size: 3.2, sizeK: 'spark', life: 0.65, spin: 7, gravity: 40);
+          fx?.burst(wf, 10, shape: 'sparkle', pal: 'gold', speed: 38, vary: 0.5, drag: 3, size: 3.4, sizeK: 'spark', life: 0.7, spin: 3, gravity: 30);
           fx?.flashAt(wf, size: 18, life: 0.25, pal: 'gold');
           fx?.ring(wf, r0: 1, r1: 16, ms: 320, pal: 'white', width: 1.4, alpha: 0.75);
           if (you >= 20) _later(ms(320), () => fx?.hearts(wf, n: 4));
@@ -531,46 +716,45 @@ class _EncounterScreenState extends State<EncounterScreen> {
     // 1-2. your move
     switch (a.kind) {
       case 'light':
-        // motes gather into your Evochi as it brightens, then the light leaves it as a comet
+        // Lumen Glow: motes gather into your Evochi as it brightens, then a comet of gold light flies
         st.setShot('pet', speed: 'fast');
         st.retriggerPet('cast', 720);
         _sfx('enc_glow', 0.7);
-        fx?.converge(p, 24, r: 19, pal: pal, life: 0.44 * k, size: 2.6);
-        fx?.halo(p, size: 26, life: 0.5, pal: pal, layer: 'front', alpha: 0.9);
+        fx?.converge(p, 24, r: 19, pal: 'gold', life: 0.44 * k, size: 2.6);
+        fx?.halo(p, size: 26, life: 0.5, pal: 'gold', layer: 'front', alpha: 0.9);
         _later(ms(440), () {
           st.setShot('wild', speed: 'fast');
-          fx?.flashAt(p, size: 30, life: 0.28, pal: pal);
+          fx?.flashAt(p, size: 30, life: 0.28, pal: 'gold');
           if (fx != null) {
-            fx.comet(p, wf, ms: ms(210).toDouble(), pal: pal, size: 7.5, bow: -9, trail: 4, onArrive: landed);
+            fx.comet(p, wf, ms: ms(210).toDouble(), pal: 'gold', size: 7.5, bow: -9, trail: 4, onArrive: landed);
           } else {
             _later(ms(230), landed);
           }
         });
         impact = ms(680);
       case 'physical':
-        // a crouch, a hop into it, dust where it lands
+        // Gentle Nudge: a crouch and a hop into it, Lumen Wisps winding along, a Dust Burst where it lands
         st.setShot('pet', speed: 'fast');
         st.retriggerPet('lunge', 900);
         _sfx('enc_whoosh', 0.6);
+        _later(ms(110), () => fx?.wisps(pc, wc, n: 5, ms: 300 * k));
         _later(ms(190), () {
           st.setShot('wild', speed: 'fast');
           fx?.dust(pg, n: 5, scale: 0.8);
         });
         impact = ms(320);
       case 'restore':
-        // it settles; rings of calm spread from it and its energy climbs back
+        // Soothe: it settles, Healing Sparkles and leaves rise, rings of calm spread, Energy counts up
         st.setShot('pet', speed: 'fast');
         st.retriggerPet('rest', 1300);
         st.update((s) => s.petExpr = 'sleepy');
         _sfx('enc_soothe', 0.6);
-        fx?.halo(p, size: 54, life: 1.3, pal: 'teal', layer: 'front', alpha: 0.55);
+        fx?.halo(p, size: 54, life: 1.3, pal: 'teal', layer: 'front', alpha: 0.5);
         for (var i = 0; i < 3; i++) {
           _later(ms(120 + i * 230), () => fx?.ring(p, r0: 4, r1: 40, ms: 1000, pal: 'teal', width: 1.6, alpha: 0.7));
         }
-        fx?.embers(p, 20, pal: 'teal', w: 30, h: 20, life: 1.5, size: 2.2);
-        for (var i = 0; i < 5; i++) {
-          _later(ms(200 + i * 160), () => fx?.hearts(Offset(p.dx + (i - 2) * 0.04, p.dy - 0.02), n: 1, pal: 'teal', spread: 3));
-        }
+        fx?.healing(Offset(p.dx, p.dy + 0.04), n: 18, w: 30, h: 22);
+        _later(ms(450), () => fx?.healing(Offset(p.dx, p.dy + 0.02), n: 9, w: 26, h: 16));
         _later(ms(650), () {
           st.floatText(Offset(p.dx, p.dy + 0.02), '+30 Energy', 'energy');
           energyTo(math.min(before.energyMax, before.energy + 30).toDouble(), 520);
@@ -579,7 +763,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
         impact = ms(1150);
         replyGap = 650;
       case 'item':
-        // a toss: the item spins over in an arc with a sparkle behind it
+        // an item: it turns over in an arc with a sparkle behind it
         st.setShot('pet', speed: 'fast');
         st.retriggerPet('toss', 600);
         _sfx('enc_whoosh', 0.5);
@@ -598,11 +782,12 @@ class _EncounterScreenState extends State<EncounterScreen> {
         });
         impact = ms(830);
       case 'companion':
-        // Petalune swoops in and a stream of petals winds across to the wild one
+        // Petal Hush: Petalune swoops in and a stream of Flower Petals winds across to the wild one
         st.setShot('wide');
         st.buddy();
         _sfx('enc_soothe', 0.6);
-        _later(ms(260), () => fx?.stream(const Offset(0.10, 0.42), wf, 48, pal: 'pink', ms: ms(650).toDouble(), size: 4));
+        _later(ms(260), () => fx?.stream(const Offset(0.10, 0.42), wf, 48, pal: 'pink', ms: 650 * k, size: 4));
+        _later(ms(380), () => fx?.wisps(const Offset(0.12, 0.44), wf, n: 4, ms: 620 * k));
         _later(ms(520), () => st.setShot('wild', speed: 'fast'));
         impact = ms(1100);
         replyGap = 900;
@@ -612,8 +797,10 @@ class _EncounterScreenState extends State<EncounterScreen> {
       // the number pops, then the meter follows it
       _later(a.kind == 'restore' ? 0 : ms(110), () {
         landed();
-        if (you != 0) st.floatText(Offset(wf.dx, gm.wildHeadY + 0.02), '${sign > 0 ? '+' : '−'}$you $label', hollow ? 'good violet' : 'good');
+        if (you != 0) st.floatText(Offset(numX, numY), '${sign > 0 ? '+' : '−'}$you $label', hollow ? 'good violet' : 'good');
         meterTo(mid, 380);
+        final ann = yl.ann;
+        if (ann != null) _later(ms(160), () => st.announce(ann, yl.tone));
       });
     });
     // 4. the reply (or the finish)
@@ -623,7 +810,9 @@ class _EncounterScreenState extends State<EncounterScreen> {
       return;
     }
     _later(replyAt, () {
-      setState(() => _log = (wildLine, 'wild'));
+      final wl = _wildLine(before, mood, evKind, wild, drain, wildText);
+      setState(() => _log = _LogLine(wl.title, wl.sub, 'wild', before.seed));
+      if (wl.ann) st.announce(wl.title, wl.tone);
       final bad = wild < 0;
       st.setShot(mood == 'surging' || drain != 0 ? 'wild' : 'wide');
       st.update((s) => s.wildMood = mood ?? '');
@@ -635,12 +824,17 @@ class _EncounterScreenState extends State<EncounterScreen> {
         case 'curious':
           st.retriggerWild('tilt', 900);
           st.bubble(Offset(w.dx + 0.06, gm.wildHeadY - 0.02), '?');
+        case 'calm':
+          st.retriggerWild('perk', 700);
+          fx?.hearts(wf, n: 2);
         case 'surging' || 'waking':
-          // the Hollow swells in it
+          // the Hollow swells in it: Violet Crackle, Hollow Shards, a dark pulse
           _sfx('enc_surge', 0.6);
           st.retriggerWild('surge', 900);
           fx?.ring(w, r0: 4, r1: 42, ms: 700, pal: 'violet', width: 2.6);
-          fx?.embers(w, 26, pal: 'violet', w: 26, h: 24, life: 1.5);
+          fx?.crackleAround(w, r: 16, n: mood == 'waking' ? 7 : 5, ms: 650);
+          fx?.hollowShards(w, n: 8, scale: 0.8);
+          fx?.embers(w, 20, pal: 'violet', w: 26, h: 24, life: 1.5);
           fx?.smoke(wg, n: 6);
           fx?.pulse(pal: 'dark', ms: 850, alpha: mood == 'waking' ? 0.6 : 0.4);
           _later(ms(300), () => st.doShake(big: mood == 'waking'));
@@ -651,17 +845,18 @@ class _EncounterScreenState extends State<EncounterScreen> {
         case 'flickering':
           st.retriggerWild('flicker', 900);
           fx?.embers(w, 8, pal: 'violet', life: 1.0);
+          fx?.crackleAround(w, r: 12, n: 2, ms: 400);
         default:
           st.retriggerWild('look', 1400);
       }
       if (wild != 0) {
         _later(ms(120), () {
-          st.floatText(Offset(w.dx, gm.wildHeadY + 0.02), '${(wild > 0) == (sign > 0) ? '+' : '−'}${wild.abs()} $label', bad ? 'bad' : 'good');
+          st.floatText(Offset(numX + 0.04, numY + 0.10), '${(wild > 0) == (sign > 0) ? '+' : '−'}${wild.abs()} $label', bad ? 'bad' : 'good');
           meterTo(after.meter.toDouble(), 380);
         });
       }
       if (drain != 0) {
-        // it comes at you: a crouch, a lunge toward the camera, a lash of Hollow across your Evochi
+        // it comes at you: a crouch, a lunge toward the camera, a bolt of Violet Crackle onto your Evochi
         _later(ms(260), () {
           st.retriggerWild('lunge', 900);
           var hurtOnce = false;
@@ -671,8 +866,8 @@ class _EncounterScreenState extends State<EncounterScreen> {
             st.hitstop(ms(80));
             st.update((s) => s.petExpr = 'surprised');
             st.retriggerPet('hurt', 750);
-            fx?.flashAt(p, size: 32, life: 0.3, pal: 'violet');
-            fx?.shards(p, 12, pal: 'violet', scale: 0.8);
+            fx?.flashAt(p, size: 30, life: 0.3, pal: 'violet');
+            fx?.hollowShards(p, n: 8, scale: 0.7);
             fx?.smoke(Offset(p.dx, p.dy + 0.06), n: 6, scale: 0.9);
             st.punch(at: 'pet');
             _later(ms(80), () => st.doShake());
@@ -684,9 +879,11 @@ class _EncounterScreenState extends State<EncounterScreen> {
             _sfx('enc_whoosh', 0.5);
             fx?.smoke(wf, n: 4, scale: 0.7);
             if (fx != null) {
-              fx.comet(wf, p, ms: ms(200).toDouble(), pal: 'violet', size: 6.5, bow: 7, trail: 4, onArrive: hurt);
+              fx.crackle(wf, p, ms: 320 * k, width: 1.1, jag: 4, segs: 10, branches: 3);
+              _later(ms(70), () => fx.crackle(wf, Offset(p.dx + 0.02, p.dy + 0.03), ms: 240 * k, width: 0.7, jag: 5, segs: 9, branches: 2));
+              _later(ms(60), hurt);
             } else {
-              _later(ms(200), hurt);
+              _later(ms(120), hurt);
             }
           });
           _later(ms(440), () {
@@ -709,8 +906,8 @@ class _EncounterScreenState extends State<EncounterScreen> {
     });
   }
 
-  // the last turn: the Hollow dissolves into motes of light and the creature comes back in a burst,
-  // or a befriended one bounces with hearts; then the outro and the result card
+  // the last turn: the Hollow cracks, sheds its crystals and dissolves into motes of light, and the
+  // creature comes back in a burst; or a befriended one bounces with hearts. Then the outro and the result.
   void _finishChoreo(tr.EncounterView before, tr.EncounterView after) {
     final st = _stage;
     final gm = _geom;
@@ -722,7 +919,8 @@ class _EncounterScreenState extends State<EncounterScreen> {
     final restore = before.goal != 'befriend';
     final wildH = gm.wildWidth * gm.ar / gm.wildAr; // its frame's height, as a fraction of the backdrop's
     final box = Rect.fromLTWH(gm.wildLeft + gm.wildWidth * 0.15, gm.wildHeadY, gm.wildWidth * 0.7, gm.wildTop + wildH * gm.wildGy - gm.wildHeadY);
-    setState(() => _log = (after.log.isEmpty ? '' : after.log.last.text, 'wild'));
+    final fl = _finalLog(after);
+    setState(() => _log = fl);
     final from = _dispMeter ?? before.meter.toDouble();
     _tween(350, (t) {
       if (_dispMeter == null) return;
@@ -743,7 +941,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
         });
     void confetti() {
       fx?.burst(w, 26, shape: 'petal', pal: 'pink', blend: BlendMode.srcOver, speed: 62, vary: 0.6, drag: 1.9, size: 2.6, sizeK: 'hold', alphaK: 'hold', life: 1.7, gravity: 42, spin: 7, angle: -math.pi / 2, spread: 1.3);
-      fx?.burst(w, 14, shape: 'star', pal: 'gold', speed: 70, vary: 0.6, drag: 2, size: 2.6, sizeK: 'spark', life: 1.2, gravity: 50, spin: 6, angle: -math.pi / 2, spread: 1.4);
+      fx?.burst(w, 14, shape: 'sparkle', pal: 'gold', speed: 70, vary: 0.6, drag: 2, size: 3.4, sizeK: 'spark', life: 1.2, gravity: 50, spin: 2, angle: -math.pi / 2, spread: 1.4);
     }
 
     void revealed() => st.update((s) {
@@ -755,6 +953,8 @@ class _EncounterScreenState extends State<EncounterScreen> {
     if (restore && fx != null && !_rm) {
       _sfx('enc_glow', 0.6);
       st.retriggerWild('dissolve', 580);
+      fx.hollowShards(w, n: 16, scale: 1.2);
+      fx.crackleAround(w, r: 16, n: 4, ms: 400);
       fx.dissolve(box, n: 72, ms: 520, pal: 'gold');
       fx.rays(w, n: 9, r: 58, ms: 2400, pal: 'gold', alpha: 0.5);
       fx.halo(w, size: 64, life: 1.3, pal: 'gold', layer: 'back', alpha: 0.9);
@@ -765,7 +965,8 @@ class _EncounterScreenState extends State<EncounterScreen> {
         st.doFlash('gold');
         st.punch(big: true);
         fx.ring(w, r0: 4, r1: 52, ms: 720, pal: 'gold', width: 3);
-        fx.shards(w, 30, pal: 'gold', scale: 1.4);
+        fx.goldenPulse(w, r1: 36, ms: 900, arms: 4, width: 2);
+        fx.shards(w, 26, pal: 'gold', scale: 1.3);
         confetti();
         _later(100, () => st.doShake());
         _syncStage(after);
@@ -784,7 +985,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
     fx?.halo(w, size: 56, life: 1.4, pal: 'gold', layer: 'back', alpha: 0.9);
     fx?.rays(w, n: 8, r: 52, ms: 2200, pal: 'gold', alpha: 0.45);
     fx?.ring(w, r0: 4, r1: 46, ms: 700, pal: 'gold', width: 2.6);
-    fx?.shards(w, 20, pal: 'gold', scale: 1.1);
+    fx?.healing(wf, n: 12, w: 26, h: 20, pal: 'gold');
     fx?.hearts(wf, n: 7, spread: 9);
     confetti();
     st.retriggerWild('joy', 1800);
@@ -937,8 +1138,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
       _log = null;
       _init = false;
       _introStarted = false;
-      _titleShown = false;
-      _ribbon = false;
+      _resultShown = false;
       _amb = null;
       _phase ??= widget.fresh ? 'intro' : 'play';
       // the first frame already looks like the intro's opening (no flash of the wide shot)
@@ -946,9 +1146,9 @@ class _EncounterScreenState extends State<EncounterScreen> {
       final boss = v.intro == 'boss';
       _stage!
         ..wildState = boss && introPending ? 'dormant' : v.stateKey
-        ..shot = introPending ? (boss ? 'face' : 'close') : 'wide'
+        ..shot = introPending ? (boss ? 'face' : 'close') : (_phase == 'card' ? 'hero' : 'wide')
         ..introDark = boss && introPending
-        ..petIn = !introPending;
+        ..petIn = !introPending && _phase != 'card';
     }
     _phase ??= 'play';
     if (v.success && _phase == 'play' && !_busy) _phase = 'outro';
@@ -958,7 +1158,6 @@ class _EncounterScreenState extends State<EncounterScreen> {
     _stage!.geometry = _geom; // the camera needs it (the first one snaps it to the opening shot)
     WidgetsBinding.instance.addPostFrameCallback((_) => _afterBuild(v));
     final phase = _phase!;
-    final intro = _intros[v.intro] ?? _intros['standard']!;
     final stage = EncounterStageView(
       stage: _stage!,
       props: StageProps(
@@ -968,15 +1167,12 @@ class _EncounterScreenState extends State<EncounterScreen> {
         petLevel: c.view.pet?.level.level ?? 1,
         phase: phase,
         panelHeight: _ph,
-        title: _introTitle(v.intro, v.creature),
-        titleSub: intro.sub,
-        titleShown: _titleShown,
         onSkip: () => _skipIntro(v),
       ),
     );
     final Widget panel = switch (phase) {
-      'card' => _cardPanel(v, pet),
-      'result' => _resultPanel(v),
+      'card' => _IntroCard(key: ValueKey('card-${v.seed}'), view: v, rm: _rm, onBegin: _begin, onRetreat: _confirmRetreat),
+      'result' => _SlideUp(key: ValueKey('result-${v.seed}'), rm: _rm, child: _resultPanel(v)),
       _ => _playPanel(v, hidden: phase == 'intro'),
     };
     return PopScope(
@@ -1000,10 +1196,11 @@ class _EncounterScreenState extends State<EncounterScreen> {
               right: 0,
               bottom: 0,
               child: AnimatedSlide(
-                duration: const Duration(milliseconds: 550),
+                // the intro card arrives in place (its own entrance plays), the panel slides
+                duration: phase == 'card' ? Duration.zero : const Duration(milliseconds: 550),
                 curve: const Cubic(0.3, 0.8, 0.25, 1),
                 offset: phase == 'intro' ? const Offset(0, 1.1) : Offset.zero,
-                child: IgnorePointer(ignoring: phase == 'intro', child: _Panel(key: _panelKey, child: panel)),
+                child: IgnorePointer(ignoring: phase == 'intro', child: _Panel(key: _panelKey, bare: phase == 'card', child: panel)),
               ),
             ),
           ]),
@@ -1014,25 +1211,27 @@ class _EncounterScreenState extends State<EncounterScreen> {
 
   // ------------------------------------------------------------------ the panels ----
   Widget _playPanel(tr.EncounterView v, {bool hidden = false}) {
+    final lg = _currentLog(v);
     final hollow = v.creature.kind == 'hollow';
-    final last = _busy && _log != null ? _log! : (v.log.isEmpty ? ('', 'wild') : (v.log.last.text, v.log.last.who));
     final names = [v.creature.name, _c.state.pet?.name ?? ''];
     final main = v.actions.where((a) => a.kind != 'companion').toList();
     final comp = v.actions.where((a) => a.kind == 'companion').firstOrNull;
     final hist = v.log.length > 1 ? v.log.sublist(math.max(0, v.log.length - 6), v.log.length - 1) : v.log.sublist(0, 0);
+    final icn = lg.who == 'wild' && hollow ? 'hollow' : lg.who;
     return ExcludeSemantics(
       excluding: hidden,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+        // the log card: an icon, the headline, the line under it (tap for the earlier lines)
         Semantics(
           button: true,
           liveRegion: true,
-          label: '${last.$1}. Turn ${v.turn + 1}. ${_logOpen ? 'Hide' : 'Show'} earlier lines',
+          label: '${lg.title}${lg.sub.isEmpty ? '' : '. ${lg.sub}'}. ${_logOpen ? 'Hide' : 'Show'} earlier lines',
           child: GestureDetector(
             onTap: () => setState(() => _logOpen = !_logOpen),
             child: ExcludeSemantics(
               child: Container(
-                constraints: const BoxConstraints(minHeight: 64),
-                padding: const EdgeInsets.fromLTRB(14, 10, 36, 9),
+                constraints: const BoxConstraints(minHeight: 58),
+                padding: const EdgeInsets.fromLTRB(10, 8, 34, 8),
                 decoration: BoxDecoration(
                   color: const Color(0xFFFFFDF9),
                   borderRadius: BorderRadius.circular(16),
@@ -1040,7 +1239,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
                   boxShadow: const [BoxShadow(color: Color(0xFFE4D2BC), offset: Offset(0, 2))],
                 ),
                 child: Stack(clipBehavior: Clip.none, children: [
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                  Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
                     if (_logOpen && hist.isNotEmpty) ...[
                       for (final l in hist)
                         Padding(
@@ -1049,22 +1248,37 @@ class _EncounterScreenState extends State<EncounterScreen> {
                         ),
                       Container(margin: const EdgeInsets.only(top: 3, bottom: 6), height: 1.5, color: const Color(0xFFE6D5C0)),
                     ],
-                    AnimatedSwitcher(
-                      duration: const Duration(milliseconds: 350),
-                      transitionBuilder: (child, a) => FadeTransition(opacity: a, child: SlideTransition(position: Tween(begin: const Offset(0, 0.25), end: Offset.zero).animate(a), child: child)),
-                      layoutBuilder: (current, previous) => Stack(alignment: Alignment.topLeft, children: [...previous, if (current != null) current]),
-                      child: KeyedSubtree(key: ValueKey(last.$1), child: logText(last.$1, names)),
-                    ),
-                    const SizedBox(height: 3),
-                    Text('Turn ${v.turn + 1}${v.phase2 ? ' · waking' : ''}', style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 11.5, color: EvochiColor.textHelper)),
+                    Row(children: [
+                      _LogIcon(icn),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: AnimatedSwitcher(
+                          duration: const Duration(milliseconds: 350),
+                          transitionBuilder: (child, a) => FadeTransition(opacity: a, child: SlideTransition(position: Tween(begin: const Offset(0, 0.12), end: Offset.zero).animate(a), child: child)),
+                          layoutBuilder: (current, previous) => Stack(alignment: Alignment.centerLeft, children: [...previous, if (current != null) current]),
+                          child: Column(
+                            key: ValueKey('${lg.title}|${lg.sub}'),
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(lg.title, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15.5, height: 1.2, color: EvochiColor.ink)),
+                              if (lg.sub.isNotEmpty) ...[
+                                const SizedBox(height: 2),
+                                Text(lg.sub, style: const TextStyle(fontFamily: EvochiText.body, fontSize: 13.5, height: 18 / 13.5, color: EvochiColor.textHelper)),
+                              ],
+                            ],
+                          ),
+                        ),
+                      ),
+                    ]),
                   ]),
                   Positioned(
-                    right: -26,
-                    bottom: 2,
+                    right: -21,
+                    bottom: 7,
                     child: AnimatedRotation(
                       duration: const Duration(milliseconds: 200),
                       turns: _logOpen ? 0.5 : 0,
-                      child: const Icon(Icons.arrow_drop_down_rounded, size: 22, color: Color(0xFFA8937F)),
+                      child: const CustomPaint(size: Size(12, 8), painter: _ChevPainter()),
                     ),
                   ),
                 ]),
@@ -1077,168 +1291,100 @@ class _EncounterScreenState extends State<EncounterScreen> {
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Expanded(child: _ActionButton(a: main[i], v: v, hollow: hollow, busy: _busy, onTap: () => _onAction(main[i].id))),
+              Expanded(child: _ActionButton(a: main[i], v: v, busy: _busy, onTap: () => _onAction(main[i].id))),
               const SizedBox(width: 10),
-              Expanded(child: i + 1 < main.length ? _ActionButton(a: main[i + 1], v: v, hollow: hollow, busy: _busy, onTap: () => _onAction(main[i + 1].id)) : const SizedBox.shrink()),
+              Expanded(child: i + 1 < main.length ? _ActionButton(a: main[i + 1], v: v, busy: _busy, onTap: () => _onAction(main[i + 1].id)) : const SizedBox.shrink()),
             ]),
           ),
-        if (comp != null) Padding(padding: const EdgeInsets.only(bottom: 10), child: _ActionButton(a: comp, v: v, hollow: hollow, busy: _busy, onTap: () => _onAction(comp.id))),
-        _RetreatButton(label: 'Retreat', enabled: !_busy && !v.success, onTap: _confirmRetreat),
+        // the companion's ability and Retreat share the last row
+        if (comp != null)
+          Row(children: [
+            Expanded(child: _CompButton(a: comp, v: v, busy: _busy, onTap: () => _onAction(comp.id))),
+            const SizedBox(width: 10),
+            _RetreatButton(label: 'Retreat', enabled: !_busy && !v.success, onTap: _confirmRetreat),
+          ])
+        else
+          _RetreatButton(label: 'Retreat', enabled: !_busy && !v.success, onTap: _confirmRetreat),
       ]),
     );
   }
 
-  Widget _cardPanel(tr.EncounterView v, Pet pet) {
+  Widget _resultPanel(tr.EncounterView v) {
     final cdef = v.creature;
-    final hollow = cdef.kind == 'hollow';
     final befriend = v.goal == 'befriend';
-    final rec = v.recommended.items.map((i) => catalog[i]?.name ?? i).join(', ');
-    final have = v.items.take(3).map((i) => '${i.name}${i.qty > 1 ? ' ×${i.qty}' : ''}').join(', ');
-    final body = TextStyle(fontFamily: EvochiText.body, fontSize: 14.5, height: 20 / 14.5, color: EvochiColor.textSecondary);
-    final bold = body.copyWith(fontWeight: FontWeight.w900, color: EvochiColor.ink);
+    final (big, z, sub, ic) = befriend
+        ? (cdef.name, 'Is Calmed!', 'You earned its trust!', 'leaf')
+        : cdef.boss
+            ? (_theName(cdef), 'Is Restored!', 'Its light returns. The old trail is open.', 'sun')
+            : (cdef.name, 'Is Restored!', 'Its light is back!', 'sun');
+    final r = q.storyQuests[v.quest]!.rewards;
+    final tiles = <_ResultTile>[
+      _ResultTile(icon: 'creature_${cdef.id}', name: cdef.name.replaceFirst(RegExp(r'^Forgotten '), ''), sub: befriend ? 'Now trusts you!' : 'Restored!', hl: true),
+      for (final id in r.items) _ResultTile(item: id, name: catalog[id]?.name ?? id, sub: 'Keepsake'),
+      if (r.coins > 0) _ResultTile(icon: 'coin', name: '+${r.coins}', sub: 'EvoCoins'),
+      for (final e in r.gifts.entries) _ResultTile(item: e.key, name: '+${e.value}', sub: catalog[e.key]?.name ?? e.key),
+      for (final t in r.titles) _ResultTile(icon: 'crown', name: q.titles[t] ?? t, sub: 'Title'),
+    ];
+    final used = v.used.entries.map((e) => '${catalog[e.key]?.name ?? e.key}${e.value > 1 ? ' ×${e.value}' : ''}').join(', ');
+    final (tint, outline) = befriend ? (const Color(0xFF74CC46), const Color(0xFF2C5A1C)) : (const Color(0xFFFFCD4A), const Color(0xFF8A5A12));
+    final size = (MediaQuery.of(context).size.width * 0.10).clamp(30.0, 40.0);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
       Semantics(
         container: true,
         child: Container(
-          padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+          padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
           decoration: BoxDecoration(
             color: const Color(0xFFFFFDF9),
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(20),
             border: Border.all(color: const Color(0xFFEBDCC8), width: 2),
             boxShadow: const [BoxShadow(color: Color(0xFFE4D2BC), offset: Offset(0, 2))],
           ),
           child: Column(children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(4, 3, 12, 3),
-              decoration: BoxDecoration(color: hollow ? const Color(0xFFEEE4FB) : const Color(0xFFE5F2CF), borderRadius: BorderRadius.circular(13)),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                VoxelIcon(befriend ? 'calm' : 'purify', size: 24),
-                const SizedBox(width: 6),
-                Text(befriend ? 'Befriend' : 'Restore', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 13.5, color: hollow ? const Color(0xFF5B3AA0) : const Color(0xFF3E7D33))),
-              ]),
-            ),
-            const SizedBox(height: 6),
-            Semantics(header: true, child: Text(cdef.boss ? cdef.name : '${cdef.name} appeared', textAlign: TextAlign.center, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 21, height: 1.2, color: EvochiColor.ink))),
-            const SizedBox(height: 5),
-            Text.rich(
-              TextSpan(style: body, children: [
-                if (befriend) ...[
-                  const TextSpan(text: 'Fill its '),
-                  TextSpan(text: 'Calm', style: bold),
-                  TextSpan(text: ' meter. Take turns using abilities, items or a quiet moment. ${cdef.name} may skitter, but nothing here can hurt ${pet.name}.'),
-                ] else ...[
-                  const TextSpan(text: 'Bring its '),
-                  TextSpan(text: 'Instability', style: bold),
-                  TextSpan(text: ' to zero. Lumen Glow works best on the Hollow. It may tire ${pet.name} out, never worse.'),
-                ],
-              ]),
-              textAlign: TextAlign.center,
+            // "Petalune / Is Calmed!"
+            Semantics(
+              header: true,
+              label: '$big $z',
+              child: ExcludeSemantics(
+                child: Column(children: [
+                  _Entrance(delay: 120, ms: 600, stamp: true, rm: _rm, child: _OutlinedText(big, size: size, tint: tint, outline: outline, stroke: 3, drop: 5, dropColor: const Color(0x2E000000))),
+                  _Entrance(delay: 260, ms: 500, stamp: true, rm: _rm, child: _OutlinedText(z, size: size, tint: tint, outline: outline, stroke: 3, drop: 5, dropColor: const Color(0x2E000000))),
+                ]),
+              ),
             ),
             const SizedBox(height: 8),
-            Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              ItemImage(v.recommended.items.first, size: 24),
-              const SizedBox(width: 5),
-              Flexible(
-                child: Text.rich(
-                  TextSpan(style: const TextStyle(fontFamily: EvochiText.body, fontWeight: FontWeight.w700, fontSize: 13, color: EvochiColor.textSecondary), children: [
-                    const TextSpan(text: 'Recommended: '),
-                    TextSpan(text: rec, style: const TextStyle(fontWeight: FontWeight.w900, color: EvochiColor.ink)),
-                  ]),
-                ),
-              ),
+            Row(mainAxisSize: MainAxisSize.min, children: [
+              EncIcon(ic, size: 24),
+              const SizedBox(width: 6),
+              Flexible(child: Text(sub, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 15, color: EvochiColor.textSecondary))),
             ]),
-            const SizedBox(height: 3),
-            Text(have.isNotEmpty ? 'You have $have' : 'No useful items yet (that’s fine)', textAlign: TextAlign.center, style: const TextStyle(fontFamily: EvochiText.body, fontSize: 13, color: EvochiColor.textHelper)),
+            const SizedBox(height: 12),
+            const Text('Rewards', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF4A2D45))),
+            const SizedBox(height: 8),
+            _ResultTiles(tiles: tiles, restore: !befriend),
+            const SizedBox(height: 8),
+            Text('${v.turn} turn${v.turn == 1 ? '' : 's'}${used.isEmpty ? '' : ' · $used'}',
+                textAlign: TextAlign.center, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w700, fontSize: 11.5, color: EvochiColor.textHelper)),
           ]),
         ),
       ),
       const SizedBox(height: 10),
-      EncCta(
-        label: 'Begin',
-        onTap: () {
-          _sfx('ui_tap', 0.4);
-          setState(() => _phase = 'play');
-        },
-      ),
-      const SizedBox(height: 4),
-      _RetreatButton(label: 'Not yet', enabled: true, onTap: _confirmRetreat),
-    ]);
-  }
-
-  Widget _resultPanel(tr.EncounterView v) {
-    final cdef = v.creature;
-    final r = q.storyQuests[v.quest]!.rewards;
-    final a = tr.affinityDefs[cdef.affinity]!;
-    final befriend = v.goal == 'befriend';
-    final used = v.used.entries.map((e) => '${catalog[e.key]?.name ?? e.key}${e.value > 1 ? ' ×${e.value}' : ''}').join(', ');
-    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-      Container(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 12),
-        decoration: BoxDecoration(
-          color: const Color(0xFFFFFDF9),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFFEBDCC8), width: 2),
-          boxShadow: const [BoxShadow(color: Color(0xFFE4D2BC), offset: Offset(0, 2))],
-        ),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const Text('Rewards', textAlign: TextAlign.center, style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 16, color: Color(0xFF4A2D45))),
-          const SizedBox(height: 8),
-          RewardTiles(rewardTilesFor(r, cdef, v.goal), row: true),
-        ]),
-      ),
-      const SizedBox(height: 10),
-      Semantics(
-        container: true,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
-          decoration: BoxDecoration(
-            gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: befriend ? const [Color(0xFFF3FBEA), Color(0xFFE1F1CC)] : const [Color(0xFFFFF9EA), Color(0xFFF7EACA)]),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: befriend ? const Color(0xFFA9D58A) : const Color(0xFFE5BF73), width: 2),
-          ),
-          child: Row(children: [
-            Container(
-              width: 76,
-              height: 76,
-              alignment: Alignment.center,
-              decoration: BoxDecoration(color: const Color(0xB3FFFFFF), borderRadius: BorderRadius.circular(14)),
-              child: VoxelIcon('creature_${cdef.id}', size: 66),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Row(children: [
-                  Flexible(child: Text(cdef.name, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 16, color: EvochiColor.ink))),
-                  const SizedBox(width: 4),
-                  VoxelIcon(a.icon, size: 20, semantic: a.name),
-                ]),
-                const SizedBox(height: 2),
-                Text(
-                  befriend
-                      ? 'New companion! ${cdef.name} joins your journey, visits your nest and helps in encounters.'
-                      : '${cdef.name} is restored. ${v.boss ? 'The third trail on the Waystone’s map glows again.' : 'The ruins feel brighter already.'}',
-                  style: const TextStyle(fontFamily: EvochiText.body, fontSize: 13.5, height: 18 / 13.5, color: EvochiColor.textSecondary),
-                ),
-                const SizedBox(height: 3),
-                Text('${v.turn} turn${v.turn == 1 ? '' : 's'}${used.isEmpty ? '' : ' · $used'}', style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w700, fontSize: 11.5, color: EvochiColor.textHelper)),
-              ]),
-            ),
-          ]),
-        ),
-      ),
-      const SizedBox(height: 10),
-      EncCta(label: 'Continue', trailing: const Icon(Icons.arrow_forward_rounded, size: 24, color: Color(0xFF1F4A22)), onTap: () => _finish(v.quest)),
+      EncCta(label: 'Continue', trailing: const Icon(Icons.arrow_forward_rounded, size: 26, color: Color(0xFF1F4A22)), onTap: () => _finish(v.quest)),
     ]);
   }
 }
 
-/// The cream panel under the shot (24px top corners, a shadow up).
+/// The cream panel under the shot (24px top corners, a shadow up); [bare] for the intro card, which
+/// sits on the darkened shot itself.
 class _Panel extends StatelessWidget {
-  const _Panel({super.key, required this.child});
+  const _Panel({super.key, required this.child, this.bare = false});
   final Widget child;
+  final bool bare;
   @override
   Widget build(BuildContext context) {
     final mq = MediaQuery.of(context);
+    if (bare) {
+      return Padding(padding: EdgeInsets.fromLTRB(22, 0, 22, 14 + mq.padding.bottom), child: child);
+    }
     return Container(
       constraints: BoxConstraints(maxHeight: mq.size.height * 0.74),
       padding: EdgeInsets.fromLTRB(14, 12, 14, 8 + mq.padding.bottom),
@@ -1252,30 +1398,313 @@ class _Panel extends StatelessWidget {
   }
 }
 
-/// One action: its icon, name and effect, coloured by kind; a cost chip when it takes Energy.
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.a, required this.v, required this.hollow, required this.busy, required this.onTap});
-  final tr.ActionView a;
-  final tr.EncounterView v;
-  final bool hollow;
-  final bool busy;
-  final VoidCallback onTap;
+/// The result panel comes up from below (panelUp .55s).
+class _SlideUp extends StatelessWidget {
+  const _SlideUp({super.key, required this.child, required this.rm});
+  final Widget child;
+  final bool rm;
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+        tween: Tween(begin: rm ? 0.0 : 1.0, end: 0.0),
+        duration: const Duration(milliseconds: 550),
+        curve: const Cubic(0.3, 0.8, 0.25, 1),
+        builder: (_, t, c) => FractionalTranslation(translation: Offset(0, t), child: c),
+        child: child,
+      );
+}
 
-  String get _sub {
-    final l = v.meterLabel;
-    final sign = v.goal == 'befriend' ? '+' : '−';
-    return switch (a.kind) {
-      'item' => v.items.isNotEmpty ? '${v.items.length} in your Bag' : 'Nothing useful yet',
-      'restore' => '+30 Energy',
-      'companion' => v.companionUsed ? 'Used this time' : '$sign${a.power} $l · once',
-      _ => '$sign${a.power} $l',
-    };
+/// An entrance: a stamp (titleStamp: from 1.7x and transparent, with an overshoot) or a fade up
+/// (encFadeUp: 12px), after [delay] ms.
+class _Entrance extends StatefulWidget {
+  const _Entrance({required this.child, this.delay = 0, this.ms = 500, this.stamp = false, this.rm = false});
+  final Widget child;
+  final int delay;
+  final int ms;
+  final bool stamp;
+  final bool rm;
+  @override
+  State<_Entrance> createState() => _EntranceState();
+}
+
+class _EntranceState extends State<_Entrance> with SingleTickerProviderStateMixin {
+  late final AnimationController _a = AnimationController(vsync: this, duration: Duration(milliseconds: widget.delay + widget.ms));
+
+  @override
+  void initState() {
+    super.initState();
+    if (widget.rm) {
+      _a.value = 1;
+    } else {
+      _a.forward();
+    }
   }
 
   @override
+  void dispose() {
+    _a.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(
+        animation: _a,
+        builder: (_, child) {
+          final total = widget.delay + widget.ms;
+          final raw = ((_a.value * total - widget.delay) / widget.ms).clamp(0.0, 1.0);
+          if (widget.stamp) {
+            final k = const Cubic(0.2, 1.6, 0.4, 1).transform(raw);
+            return Opacity(opacity: k.clamp(0.0, 1.0), child: Transform.scale(scale: 1.7 - 0.7 * k, child: child));
+          }
+          final k = Curves.ease.transform(raw);
+          return Opacity(opacity: k, child: Transform.translate(offset: Offset(0, 12 * (1 - k)), child: child));
+        },
+        child: widget.child,
+      );
+}
+
+/// A big game title line with a thick outline and a drop shadow (the web's stacked text-shadows):
+/// the shadow, then the outline as a stroke, then the fill.
+class _OutlinedText extends StatelessWidget {
+  const _OutlinedText(this.text, {required this.size, required this.tint, required this.outline, required this.stroke, required this.drop, this.dropColor = const Color(0x47000000), this.letterSpacing = 0});
+  final String text;
+  final double size;
+  final Color tint; // the letters' colour
+  final Color outline;
+  final double stroke; // the outline's thickness outside the glyph
+  final double drop; // the drop shadow's offset down
+  final Color dropColor;
+  final double letterSpacing;
+  @override
   Widget build(BuildContext context) {
+    final base = TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: size, height: 0.98, letterSpacing: letterSpacing);
+    return Stack(children: [
+      Transform.translate(offset: Offset(0, drop), child: Text(text, textAlign: TextAlign.center, style: base.copyWith(color: dropColor))),
+      Text(
+        text,
+        textAlign: TextAlign.center,
+        style: base.copyWith(
+          foreground: Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = stroke * 2
+            ..strokeJoin = StrokeJoin.round
+            ..color = outline,
+        ),
+      ),
+      Text(text, textAlign: TextAlign.center, style: base.copyWith(color: tint)),
+    ]);
+  }
+}
+
+/// The intro card on the hero shot: "A Wild / Petalune / Appeared!", the goal, a line about the
+/// creature, Begin Encounter and Not yet.
+class _IntroCard extends StatelessWidget {
+  const _IntroCard({super.key, required this.view, required this.rm, required this.onBegin, required this.onRetreat});
+  final tr.EncounterView view;
+  final bool rm;
+  final VoidCallback onBegin;
+  final VoidCallback onRetreat;
+  @override
+  Widget build(BuildContext context) {
+    final c = view.creature;
+    final hollow = c.kind == 'hollow';
+    final befriend = view.goal == 'befriend';
+    final (a, big, z) = _introTitle(c);
+    final goal = befriend ? 'Earn its trust' : 'Restore its light';
+    final bigSize = (MediaQuery.of(context).size.width * 0.15).clamp(44.0, 60.0);
+    const ink = Color(0xFF3B2923);
+    return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.center, children: [
+      Semantics(
+        header: true,
+        label: '$a $big $z',
+        child: ExcludeSemantics(
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            _Entrance(ms: 500, stamp: true, rm: rm, child: _OutlinedText(a, size: 31, tint: Colors.white, outline: ink, stroke: 3, drop: 6, letterSpacing: 0.3)),
+            _Entrance(
+              delay: 120,
+              ms: 600,
+              stamp: true,
+              rm: rm,
+              child: _OutlinedText(big,
+                  size: bigSize,
+                  tint: hollow ? const Color(0xFFCBA8FF) : const Color(0xFF92E058),
+                  outline: hollow ? const Color(0xFF3A2168) : const Color(0xFF2C5A1C),
+                  stroke: 4,
+                  drop: 7,
+                  dropColor: hollow ? const Color(0x4D000000) : const Color(0x47000000)),
+            ),
+            _Entrance(delay: 260, ms: 500, stamp: true, rm: rm, child: _OutlinedText(z, size: 31, tint: Colors.white, outline: ink, stroke: 3, drop: 6, letterSpacing: 0.3)),
+          ]),
+        ),
+      ),
+      const SizedBox(height: 11),
+      // the goal
+      _Entrance(
+        delay: 400,
+        rm: rm,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(5, 5, 16, 5),
+          decoration: BoxDecoration(
+            color: const Color(0xFFFFFDF6),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: const Color(0xFFF0E2C8), width: 2),
+            boxShadow: const [BoxShadow(color: Color(0x33000000), offset: Offset(0, 3))],
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Container(
+              width: 30,
+              height: 30,
+              padding: const EdgeInsets.all(5),
+              decoration: BoxDecoration(shape: BoxShape.circle, color: hollow ? const Color(0xFFFFF1C9) : const Color(0xFFE5F2CF)),
+              child: EncIcon(befriend ? 'leaf' : 'sun', size: 20),
+            ),
+            const SizedBox(width: 8),
+            Flexible(
+              child: Text.rich(
+                TextSpan(children: [
+                  const TextSpan(text: 'Goal: '),
+                  TextSpan(text: goal, style: const TextStyle(fontWeight: FontWeight.w900, color: EvochiColor.ink)),
+                ]),
+                style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 16, color: EvochiColor.textSecondary),
+              ),
+            ),
+          ]),
+        ),
+      ),
+      const SizedBox(height: 11),
+      // a line about it
+      _Entrance(
+        delay: 500,
+        rm: rm,
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 330),
+          child: Text(
+            _introLines[c.id] ?? c.blurb,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontFamily: EvochiText.body, fontWeight: FontWeight.w600, fontSize: 15, height: 21 / 15, color: Color(0xFFFFF8EC), shadows: [Shadow(color: Color(0xBF000000), offset: Offset(0, 1), blurRadius: 3)]),
+          ),
+        ),
+      ),
+      const SizedBox(height: 11),
+      _Entrance(
+        delay: 600,
+        rm: rm,
+        child: ConstrainedBox(constraints: const BoxConstraints(maxWidth: 340), child: EncCta(label: 'Begin Encounter', gold: true, onTap: onBegin)),
+      ),
+      const SizedBox(height: 11),
+      _RetreatButton(label: 'Not yet', enabled: true, light: true, onTap: onRetreat),
+    ]);
+  }
+}
+
+/// The log card's round icon: a spark for you, a leaf for the wild one, a violet star for the Hollow.
+class _LogIcon extends StatelessWidget {
+  const _LogIcon(this.kind);
+  final String kind; // you | wild | hollow
+  @override
+  Widget build(BuildContext context) {
+    final (bg, ring, icon) = switch (kind) {
+      'wild' => (const Color(0xFFE9F5DC), const Color(0xFFBCDDA0), 'leaf'),
+      'hollow' => (const Color(0xFFF0E7FC), const Color(0xFFCDB4F2), 'hollow'),
+      _ => (const Color(0xFFFFF4D6), const Color(0xFFF2D58F), 'spark'),
+    };
+    return Container(
+      width: 34,
+      height: 34,
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(shape: BoxShape.circle, color: bg, border: Border.all(color: ring, width: 1.5)),
+      child: EncIcon(icon, size: 22),
+    );
+  }
+}
+
+/// The log card's little chevron.
+class _ChevPainter extends CustomPainter {
+  const _ChevPainter();
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width / 2, size.height)
+      ..close();
+    canvas.drawPath(p, Paint()..color = const Color(0xFFA8937F));
+  }
+
+  @override
+  bool shouldRepaint(_ChevPainter old) => false;
+}
+
+/// A reward on the result card.
+class _ResultTile {
+  const _ResultTile({this.icon, this.item, required this.name, required this.sub, this.hl = false});
+  final String? icon;
+  final String? item;
+  final String name;
+  final String sub;
+  final bool hl; // the creature itself, highlighted
+}
+
+/// The result's reward tiles in a wrapping grid (auto-fit columns of at least 56px that share the row).
+class _ResultTiles extends StatelessWidget {
+  const _ResultTiles({required this.tiles, required this.restore});
+  final List<_ResultTile> tiles;
+  final bool restore;
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(builder: (ctx, box) {
+        const gapX = 6.0, gapY = 8.0;
+        final w = box.maxWidth - 4;
+        final cols = math.max(1, ((w + gapX) / (56 + gapX)).floor());
+        final per = math.min(cols, math.max(1, tiles.length));
+        final tw = (w - gapX * (per - 1)) / per;
+        return Padding(
+          padding: const EdgeInsets.fromLTRB(2, 2, 2, 4),
+          child: Wrap(spacing: gapX, runSpacing: gapY, children: [
+            for (final t in tiles)
+              SizedBox(
+                width: tw,
+                child: Semantics(
+                  label: '${t.name}, ${t.sub}',
+                  child: ExcludeSemantics(
+                    child: Column(mainAxisSize: MainAxisSize.min, children: [
+                      Container(
+                        width: 58,
+                        height: 58,
+                        alignment: Alignment.center,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(14),
+                          color: t.hl ? null : const Color(0xFFFBF4EA),
+                          gradient: t.hl
+                              ? LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: restore ? const [Color(0xFFFFF6DA), Color(0xFFF8E2A6)] : const [Color(0xFFEAF7D9), Color(0xFFCFEBB0)])
+                              : null,
+                          border: Border.all(color: t.hl ? (restore ? const Color(0xFFE5BF73) : const Color(0xFF9ACB76)) : const Color(0xFFEFE0CC), width: 1.5),
+                        ),
+                        child: t.item != null ? ItemImage(t.item!, size: 48) : VoxelIcon(t.icon ?? 'star', size: 48),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(t.name, textAlign: TextAlign.center, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 12.5, height: 1.15, color: EvochiColor.ink)),
+                      Text(t.sub, textAlign: TextAlign.center, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w700, fontSize: 11, height: 1.2, color: EvochiColor.textHelper)),
+                    ]),
+                  ),
+                ),
+              ),
+          ]),
+        );
+      });
+}
+
+/// One action: its icon, name and what it costs, coloured by kind.
+class _ActionButton extends StatelessWidget {
+  const _ActionButton({required this.a, required this.v, required this.busy, required this.onTap});
+  final tr.ActionView a;
+  final tr.EncounterView v;
+  final bool busy;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    // gold light is you in every encounter; the Hollow is the violet
     final style = switch (a.kind) {
-      'light' => hollow ? 'purify' : 'sun',
+      'light' => 'sun',
       'physical' => 'orange',
       'restore' => 'teal',
       'item' => 'cream',
@@ -1283,7 +1712,7 @@ class _ActionButton extends StatelessWidget {
       _ => 'cream',
     };
     final icon = switch (a.kind) {
-      'light' => hollow ? 'purify' : 'sun',
+      'light' => 'sun',
       'physical' => 'nudge',
       'restore' => 'calm',
       'item' => 'bag',
@@ -1294,17 +1723,15 @@ class _ActionButton extends StatelessWidget {
       'sun' => (const [Color(0xFFFFF4CC), Color(0xFFFFE39A), Color(0xFFF8C75A)], const Color(0xFFE3AA3A), const Color(0xFFCF952C)),
       'teal' => (const [Color(0xFFE6FCF4), Color(0xFFB2EDD9), Color(0xFF82DBC1)], const Color(0xFF45AF8D), const Color(0xFF369073)),
       'orange' => (const [Color(0xFFFFE6CC), Color(0xFFFDC48E), Color(0xFFF6A262)], const Color(0xFFE1813F), const Color(0xFFC4672B)),
-      'purify' => (const [Color(0xFFF3EAFE), Color(0xFFD9C4F8), Color(0xFFBE9FEF)], const Color(0xFF9871D5), const Color(0xFF7A56B8)),
       'green' => (const [Color(0xFFF3FBE8), Color(0xFFD2EDB4), Color(0xFFB3DB8C)], const Color(0xFF7DB758), const Color(0xFF5D953F)),
       _ => (const [Color(0xFFFFFEFA), Color(0xFFF7EDDF), Color(0xFFEDDCC6)], const Color(0xFFD6BFA2), const Color(0xFFC2A988)),
     };
-    final cost = a.energy > 0 ? a.energy : 0;
     final enabled = a.can && !busy && !v.success;
-    final sub = _sub;
+    final sub = _actionSub(a, v);
     return Semantics(
       button: true,
       enabled: enabled,
-      label: '${a.name}: $sub${cost > 0 ? ', costs $cost Energy' : ''}',
+      label: _actionLong(a, v),
       child: ExcludeSemantics(
         child: GestureDetector(
           onTap: enabled
@@ -1334,20 +1761,73 @@ class _ActionButton extends StatelessWidget {
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                       Text(a.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15.5, height: 1.15, color: EvochiColor.ink)),
                       const SizedBox(height: 2),
-                      Wrap(crossAxisAlignment: WrapCrossAlignment.center, runSpacing: 2, children: [
-                        Text(sub, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 12, height: 1.2, color: Color(0xC73B2923))),
-                        if (cost > 0)
-                          Container(
-                            margin: const EdgeInsets.only(left: 5),
-                            padding: const EdgeInsets.only(left: 1, right: 6),
-                            height: 17,
-                            decoration: BoxDecoration(color: const Color(0x99FFFFFF), borderRadius: BorderRadius.circular(8)),
-                            child: Row(mainAxisSize: MainAxisSize.min, children: [
-                              const VoxelIcon('energy', size: 14),
-                              Text('$cost', style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 11.5, color: Color(0xFF6A4818))),
-                            ]),
-                          ),
-                      ]),
+                      Text(sub, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 12.5, height: 1.2, color: Color(0xC73B2923))),
+                    ]),
+                  ),
+                ]),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// The companion's ability: a compact green button beside Retreat (Petal Hush, once an encounter).
+class _CompButton extends StatefulWidget {
+  const _CompButton({required this.a, required this.v, required this.busy, required this.onTap});
+  final tr.ActionView a;
+  final tr.EncounterView v;
+  final bool busy;
+  final VoidCallback onTap;
+  @override
+  State<_CompButton> createState() => _CompButtonState();
+}
+
+class _CompButtonState extends State<_CompButton> {
+  bool _down = false;
+  @override
+  Widget build(BuildContext context) {
+    final a = widget.a;
+    final v = widget.v;
+    final enabled = a.can && !widget.busy && !v.success;
+    return Semantics(
+      button: true,
+      enabled: enabled,
+      label: '${_actionLong(a, v)}, once this encounter',
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          onTapDown: enabled ? (_) => setState(() => _down = true) : null,
+          onTapCancel: () => setState(() => _down = false),
+          onTapUp: (_) => setState(() => _down = false),
+          onTap: enabled
+              ? () {
+                  context.read<GameController>().audio.tick();
+                  widget.onTap();
+                }
+              : null,
+          child: Opacity(
+            opacity: enabled ? 1 : 0.55,
+            child: ColorFiltered(
+              colorFilter: enabled ? const ColorFilter.mode(Colors.transparent, BlendMode.dst) : ColorFilter.matrix(_saturate(0.4)),
+              child: Container(
+                constraints: const BoxConstraints(minHeight: 48),
+                transform: Matrix4.translationValues(0, _down ? 2 : 0, 0),
+                padding: const EdgeInsets.fromLTRB(6, 4, 12, 4),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: const Color(0xFF7DB758), width: 2),
+                  gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFF3FBE8), Color(0xFFD2EDB4)]),
+                  boxShadow: const [BoxShadow(color: Color(0xFF5D953F), offset: Offset(0, 3))],
+                ),
+                child: Row(children: [
+                  const VoxelIcon('creature_petalune', size: 38),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      Text(a.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 14.5, height: 1.1, color: EvochiColor.ink)),
+                      Text(_actionSub(a, v), maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 11.5, color: Color(0xB33B2923))),
                     ]),
                   ),
                 ]),
@@ -1371,37 +1851,42 @@ List<double> _saturate(double s) {
   ];
 }
 
-/// "Retreat" / "Not yet": a text button with a running figure.
+/// "Retreat" / "Not yet": a text button with a running figure ([light] on the dark intro card).
 class _RetreatButton extends StatelessWidget {
-  const _RetreatButton({required this.label, required this.enabled, required this.onTap});
+  const _RetreatButton({required this.label, required this.enabled, required this.onTap, this.light = false});
   final String label;
   final bool enabled;
   final VoidCallback onTap;
+  final bool light;
   @override
-  Widget build(BuildContext context) => Center(
-        child: Semantics(
-          button: true,
-          enabled: enabled,
-          label: label,
-          child: ExcludeSemantics(
-            child: GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: enabled ? onTap : null,
-              child: Opacity(
-                opacity: enabled ? 1 : 0.45,
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
-                  child: Row(mainAxisSize: MainAxisSize.min, children: [
-                    const Icon(Icons.directions_run_rounded, size: 20, color: Color(0xFF6B5143)),
-                    const SizedBox(width: 6),
-                    Text(label, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15.5, color: Color(0xFF6B5143))),
-                  ]),
-                ),
+  Widget build(BuildContext context) {
+    final color = light ? const Color(0xFFFFF3DE) : const Color(0xFF6B5143);
+    final shadows = light ? const [Shadow(color: Color(0x99000000), offset: Offset(0, 1), blurRadius: 2)] : null;
+    return Center(
+      child: Semantics(
+        button: true,
+        enabled: enabled,
+        label: label,
+        child: ExcludeSemantics(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: enabled ? onTap : null,
+            child: Opacity(
+              opacity: enabled ? 1 : 0.45,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(Icons.directions_run_rounded, size: 20, color: color, shadows: shadows),
+                  const SizedBox(width: 6),
+                  Text(label, style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15.5, color: color, shadows: shadows)),
+                ]),
               ),
             ),
           ),
         ),
-      );
+      ),
+    );
+  }
 }
 
 /// Older art packs without the battle shots: the creature and your Evochi on a dark stage, with the
@@ -1418,7 +1903,6 @@ class _NoArtEncounter extends StatelessWidget {
     final v = view;
     final c = context.watch<GameController>();
     final pet = c.state.pet;
-    final hollow = v.creature.kind == 'hollow';
     return Scaffold(
       backgroundColor: const Color(0xFF241E2C),
       body: SafeArea(
@@ -1453,7 +1937,7 @@ class _NoArtEncounter extends StatelessWidget {
                 EncCta(label: 'Continue', onTap: onFinish)
               else ...[
                 for (final a in v.actions)
-                  Padding(padding: const EdgeInsets.only(bottom: 10), child: _ActionButton(a: a, v: v, hollow: hollow, busy: busy, onTap: () => onAction(a.id))),
+                  Padding(padding: const EdgeInsets.only(bottom: 10), child: _ActionButton(a: a, v: v, busy: busy, onTap: () => onAction(a.id))),
                 _RetreatButton(label: 'Retreat', enabled: !busy, onTap: onRetreat),
               ],
             ]),

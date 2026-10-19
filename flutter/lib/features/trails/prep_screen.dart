@@ -1,7 +1,9 @@
-// Lumen Trails: encounter prep. The place (with a look-around button), a banner of its scene, the
-// quest card with its checklist (job accepted, the walk, required and optional items, the goal),
-// your team (your Evochi and any companions), the recommended item (with a Change / Make button),
-// the possible rewards, and Prepare & Enter once the hand-in is ready (or what to do first).
+// Lumen Trails: encounter prep, after the UX board. "Encounter Preparation" with a look-around button,
+// the scene banner with its place, the creature's nameplate over it (portrait, name, rarity and kind,
+// level, its meter), the Objective (the goal and the checklist: job accepted, the walk, required and
+// optional items), Recommended (the suggested item with its effect and Change / Make, and the
+// suggested approach), Your Team (your Evochi with its Energy, companions ready to help, or a slot
+// waiting for one), and Begin Encounter once the hand-in is ready (or what to do first).
 // Mirrors `prep` in web/src/screens/encounter.js.
 
 import 'package:flutter/material.dart';
@@ -15,7 +17,6 @@ import '../../game/home/home.dart' as h;
 import '../../game/story/story.dart' as q;
 import '../../game/trails/trails.dart' as tr;
 import '../home/home_widgets.dart';
-import '../shared/sprite.dart';
 import '../shared/widgets.dart';
 import '../village/story_widgets.dart';
 import '../village/village_screen.dart';
@@ -34,6 +35,15 @@ const _placeInfo = <String, _PlaceInfo>{
   'ruins': _PlaceInfo('Mossy Ruins', 'A quiet grove with ancient light.', 'aff_nature'),
   'gate': _PlaceInfo('The Old Gate', 'The broken gate past the bridge.', 'moon'),
 };
+
+const _rarity = {'rare': 'Rare', 'uncommon': 'Uncommon', 'legendary': 'Legendary', 'common': 'Common'};
+
+BoxDecoration _card() => BoxDecoration(
+      color: const Color(0xFFFFFDF9),
+      borderRadius: BorderRadius.circular(16),
+      border: Border.all(color: const Color(0xFFEBDCC8), width: 2),
+      boxShadow: const [BoxShadow(color: Color(0xFFE4D2BC), offset: Offset(0, 2))],
+    );
 
 class PrepScreen extends StatefulWidget {
   const PrepScreen({super.key, required this.questId});
@@ -101,18 +111,36 @@ class _PrepScreenState extends State<PrepScreen> {
     final hollow = cdef.kind == 'hollow';
     final placeLower = place.name.startsWith('The ') ? 'the ${place.name.substring(4)}' : place.name;
     final goalLine = befriend ? 'Calm a wild ${cdef.name} in the ${place.name}.' : 'Restore the ${cdef.name} at $placeLower.';
+    final goalMore = befriend ? 'Earn its trust, and it may join your journey.' : 'Calm the Hollow energy and bring its light back.';
+    final sign = befriend ? '+' : '−';
+    final label = befriend ? 'Calm' : 'Instability';
+    final (apIcon, apName, apText) = befriend
+        ? ('calm', 'Calm', 'Gifts ${cdef.name} loves count 1.5×. A Gentle Nudge makes it curious.')
+        : ('sun', 'Lumen', 'Lumen Glow is 30% stronger against the Hollow.');
+    final maxE = tr.maxEnergy(c.state);
+    final level = c.view.pet?.level.level ?? 1;
     final live = c.state.trails.encounter;
     final resumable = live != null && live.quest == qid && live.done == null;
     final ta = trailsArt;
     final mq = MediaQuery.of(context);
+    final checks = <Widget>[
+      if (v.phase == 'available' || v.phase == 'locked')
+        _CheckRow(done: false, text: v.phase == 'locked' ? (v.lock?.text ?? 'Locked') : 'Accept the job from ${giver.name}')
+      else
+        _CheckRow(done: true, text: 'Job accepted from ${giver.name}'),
+      if (quest.walk != null) _CheckRow(done: walkDone, text: walkDone ? 'Reach ${place.name}' : 'Walk ${fmt(v.resolved)} steps to ${place.name} · ${fmt(v.walk.progress)} so far'),
+      for (final x in needs) _CheckRow(done: x.ok, text: 'Bring ${x.need} × ${catalog[x.id]?.name ?? x.id} (${x.have}/${x.need})'),
+      for (final o in opts) _CheckRow(done: o.have >= o.need, text: 'Bring ${catalog[o.id]?.name ?? o.id} for a better start', optional: true),
+    ];
+    const gap = SizedBox(height: 10);
     return Scaffold(
       backgroundColor: const Color(0xFFF8EEDF),
       body: Semantics(
         label: 'Encounter preparation',
         child: Column(children: [
-          // header: back, the place, look around
+          // header: back, "Encounter Preparation", look around
           Padding(
-            padding: EdgeInsets.fromLTRB(14, mq.padding.top + 10, 14, 10),
+            padding: EdgeInsets.fromLTRB(14, mq.padding.top + 10, 14, 8),
             child: Row(children: [
               Semantics(
                 button: true,
@@ -123,13 +151,8 @@ class _PrepScreenState extends State<PrepScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              VoxelIcon(place.badge, size: 44),
-              const SizedBox(width: 8),
               Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                  Semantics(header: true, child: Text(place.name, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 21, height: 1.1, color: EvochiColor.ink))),
-                  if (place.line.isNotEmpty) Text(place.line, style: const TextStyle(fontFamily: EvochiText.body, fontSize: 12.5, height: 16 / 12.5, color: EvochiColor.textHelper)),
-                ]),
+                child: Semantics(header: true, child: const Text('Encounter Preparation', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 20, height: 1.1, color: EvochiColor.ink))),
               ),
               const SizedBox(width: 8),
               Semantics(
@@ -155,216 +178,174 @@ class _PrepScreenState extends State<PrepScreen> {
           ),
           Expanded(
             child: ListView(padding: EdgeInsets.fromLTRB(14, 0, 14, 24 + mq.padding.bottom), children: [
-              // the banner, with the creature in a disc
-              Container(
-                clipBehavior: Clip.antiAlias,
-                decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), boxShadow: const [BoxShadow(color: Color(0x38281A0A), blurRadius: 14, offset: Offset(0, 6))]),
-                child: AspectRatio(
-                  aspectRatio: 2.05,
-                  child: Stack(fit: StackFit.expand, children: [
-                    if (ta.available && ta.hasScene(e.scene))
-                      Image.asset(ta.scene(e.scene), fit: BoxFit.cover, alignment: const Alignment(0, -0.12), excludeFromSemantics: true)
-                    else
-                      const ColoredBox(color: EvochiColor.panel2),
-                    Positioned(
-                      right: 10,
-                      top: 10,
-                      child: Container(
-                        width: 54,
-                        height: 54,
-                        alignment: Alignment.center,
-                        decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xEBFFFAF0), boxShadow: [BoxShadow(color: Color(0x40000000), blurRadius: 8, offset: Offset(0, 3))]),
-                        child: VoxelIcon('creature_${cdef.id}', size: 46, semantic: cdef.name),
-                      ),
-                    ),
-                  ]),
-                ),
-              ),
-              // the quest card, overlapping the banner
-              Transform.translate(
-                offset: const Offset(0, -38),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  child: Semantics(
-                    container: true,
+              // the banner with its place, and the creature's nameplate over its lower edge
+              LayoutBuilder(builder: (ctx, box) {
+                final bh = box.maxWidth / 2.05;
+                return Stack(clipBehavior: Clip.none, children: [
+                  Positioned(
+                    left: 0,
+                    right: 0,
+                    top: 0,
+                    height: bh,
                     child: Container(
-                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 13),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFDF9),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFEBDCC8), width: 2),
-                        boxShadow: const [BoxShadow(color: Color(0x29281A0A), blurRadius: 14, offset: Offset(0, 6))],
-                      ),
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                        Row(children: [
-                          Container(
-                            width: 42,
-                            height: 42,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: hollow ? const Color(0xFFEEE4FB) : const Color(0xFFE5F2CF),
-                              borderRadius: BorderRadius.circular(12),
-                              border: Border.all(color: hollow ? const Color(0xFFD7C4F2) : const Color(0xFFC5E2A8), width: 1.5),
-                            ),
-                            child: VoxelIcon(befriend ? 'calm' : 'purify', size: 32),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                              Semantics(header: true, child: Text(v.title, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 16.5, color: EvochiColor.ink))),
-                              Text(goalLine, style: const TextStyle(fontFamily: EvochiText.body, fontSize: 13, height: 17 / 13, color: EvochiColor.textHelper)),
+                      clipBehavior: Clip.antiAlias,
+                      decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), boxShadow: const [BoxShadow(color: Color(0x38281A0A), blurRadius: 14, offset: Offset(0, 6))]),
+                      child: Stack(fit: StackFit.expand, children: [
+                        if (ta.available && ta.hasScene(e.scene))
+                          Image.asset(ta.scene(e.scene), fit: BoxFit.cover, alignment: const Alignment(0, -0.12), excludeFromSemantics: true)
+                        else
+                          const ColoredBox(color: EvochiColor.panel2),
+                        Positioned(
+                          left: 10,
+                          top: 10,
+                          child: Container(
+                            padding: const EdgeInsets.fromLTRB(4, 3, 12, 3),
+                            decoration: BoxDecoration(color: const Color(0xEDFFFDF8), borderRadius: BorderRadius.circular(14), boxShadow: const [BoxShadow(color: Color(0x2E000000), blurRadius: 6, offset: Offset(0, 2))]),
+                            child: Row(mainAxisSize: MainAxisSize.min, children: [
+                              VoxelIcon(place.badge, size: 24),
+                              const SizedBox(width: 6),
+                              Text(place.name, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 13.5, color: EvochiColor.ink)),
                             ]),
                           ),
-                        ]),
-                        const SizedBox(height: 10),
-                        if (v.phase == 'available' || v.phase == 'locked')
-                          _CheckRow(done: false, text: v.phase == 'locked' ? (v.lock?.text ?? 'Locked') : 'Accept the job from ${giver.name}')
-                        else
-                          _CheckRow(done: true, text: 'Job accepted from ${giver.name}'),
-                        if (quest.walk != null)
-                          _CheckRow(done: walkDone, text: walkDone ? 'Reach ${place.name}' : 'Walk ${fmt(v.resolved)} steps to ${place.name} · ${fmt(v.walk.progress)} so far'),
-                        for (final x in needs) _CheckRow(done: x.ok, text: 'Bring ${x.need} × ${catalog[x.id]?.name ?? x.id} (${x.have}/${x.need})'),
-                        for (final o in opts) _CheckRow(done: o.have >= o.need, text: 'Bring ${catalog[o.id]?.name ?? o.id} for a better start', optional: true),
-                        _CheckRow(done: v.completed, text: befriend ? 'Gain ${cdef.name}’s trust' : 'Bring its Instability to zero', last: true),
+                        ),
                       ]),
+                    ),
+                  ),
+                  Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    SizedBox(height: bh - 42),
+                    Padding(padding: const EdgeInsets.symmetric(horizontal: 10), child: _Nameplate(cdef: cdef, e: e, level: quest.level)),
+                  ]),
+                ]);
+              }),
+              // the objective
+              const _PrepHead('Objective'),
+              gap,
+              Semantics(
+                container: true,
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(14, 11, 14, 10),
+                  decoration: _card(),
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                    Text('$goalLine $goalMore', style: const TextStyle(fontFamily: EvochiText.body, fontSize: 14.5, height: 20 / 14.5, color: EvochiColor.textSecondary)),
+                    const SizedBox(height: 16),
+                    for (var i = 0; i < checks.length; i++) ...[if (i > 0) const SizedBox(height: 8), checks[i]],
+                  ]),
+                ),
+              ),
+              // recommended: an item and an approach
+              const _PrepHead('Recommended'),
+              gap,
+              IntrinsicHeight(
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Expanded(
+                    child: _RecTile(
+                      kicker: 'Suggested Item',
+                      hollow: hollow,
+                      picture: ItemImage(recId, size: 44),
+                      name: catalog[recId]?.name ?? recId,
+                      pill: fx == null ? null : '$sign${fx.amount} $label',
+                      restore: !befriend,
+                      line: '${have > 0 ? 'You have $have' : 'You have none yet'}${fx != null && fx.liked ? ' · ${cdef.name} loves it' : ''}',
+                      button: have == 0 && recSrc != null
+                          ? _MiniButton(label: recSrc.verb, onTap: () => goHome(context, recSrc.route == 'station' ? recSrc.station! : 'garden'))
+                          : recs.length > 1
+                              ? _MiniButton(label: 'Change', onTap: () => setState(() => _rec = (_rec ?? 0) + 1))
+                              : null,
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(child: _RecTile(kicker: 'Suggested Approach', hollow: hollow, picture: VoxelIcon(apIcon, size: 44), name: apName, line: apText)),
+                ]),
+              ),
+              // your team
+              _PrepHead(
+                'Your Team',
+                trailing: Semantics(
+                  button: true,
+                  label: 'About your team',
+                  child: GestureDetector(
+                    onTap: _teamHelp,
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      alignment: Alignment.center,
+                      decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFBCAD9F)),
+                      child: const Text('?', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white, height: 1)),
                     ),
                   ),
                 ),
               ),
-              Transform.translate(
-                offset: const Offset(0, -28),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                  // your team
-                  _PrepHead(
-                    'Your team',
-                    trailing: Semantics(
-                      button: true,
-                      label: 'About your team',
-                      child: GestureDetector(
-                        onTap: _teamHelp,
-                        child: Container(
-                          width: 22,
-                          height: 22,
-                          alignment: Alignment.center,
-                          decoration: const BoxDecoration(shape: BoxShape.circle, color: Color(0xFFBCAD9F)),
-                          child: const Text('?', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 13, color: Colors.white, height: 1)),
-                        ),
-                      ),
-                    ),
-                  ),
-                  Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    if (pet != null)
-                      Expanded(
-                        child: _TeamCard(
-                          me: true,
-                          warn: !stageOk,
-                          badge: tr.affinityDefs['lumen']!.icon,
-                          picture: PetSprite(stage: pet.stage, palette: pet.paletteId, expr: 'happy', height: 72),
-                          name: pet.name,
-                          notes: ['Lv. ${c.view.pet?.level.level ?? 1}', '${tr.maxEnergy(c.state)} Energy'],
-                          label: '${pet.name}, level ${c.view.pet?.level.level ?? 1}, ${tr.maxEnergy(c.state)} Energy${stageOk ? '' : '. A grown Evochi has more Energy'}',
-                        ),
-                      ),
-                    for (final comp in comps) ...[
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: _TeamCard(
-                          badge: tr.affinityDefs[comp.creature.affinity]!.icon,
-                          picture: VoxelIcon('creature_${comp.id}', size: 72),
-                          name: comp.name,
-                          notes: [comp.creature.companion?.name ?? 'Companion'],
-                          label: '${comp.name}, companion. ${comp.creature.companion?.name ?? ''}',
-                        ),
-                      ),
-                    ],
-                    if (comps.isEmpty) ...[
-                      const SizedBox(width: 8),
-                      const Expanded(child: _TeamCard(ghost: true, name: 'Companion', notes: ['Befriend one to help'], label: 'Companion: befriend one to help')),
-                    ],
-                    if (pet != null && comps.length < 2) const Expanded(child: SizedBox.shrink()),
+              gap,
+              if (pet != null)
+                _TeamRow(
+                  warn: !stageOk,
+                  face: EncFace.pet(pet, size: 46, wearables: false),
+                  name: pet.name,
+                  line: 'Lv. $level · ${stageLabel(pet.stage)}',
+                  label: '${pet.name}, level $level, ${stageLabel(pet.stage)}. Energy $maxE of $maxE${stageOk ? '' : '. A grown Evochi has more Energy'}',
+                  trailing: Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+                    const Text('Energy', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 11, color: EvochiColor.textHelper)),
+                    const SizedBox(height: 2),
+                    const ThinBar(kind: 'energy', frac: 1, width: 92),
+                    const SizedBox(height: 2),
+                    Text('$maxE / $maxE', style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 12, color: EvochiColor.ink)),
                   ]),
-                  if (!stageOk)
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(2, 8, 2, 0),
-                      child: Text('A ${stageLabel(e.recommended.stage)} or older Evochi has more Energy for this one. You can still go.', style: const TextStyle(fontFamily: EvochiText.body, fontSize: 12.5, height: 17 / 12.5, color: Color(0xFF9A5B2C))),
-                    ),
-                  // the recommended item
-                  _PrepHead('Recommended item', sub: '(optional)'),
-                  Semantics(
-                    container: true,
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFFFFFDF9),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: const Color(0xFFEBDCC8), width: 2),
-                        boxShadow: const [BoxShadow(color: Color(0xFFE4D2BC), offset: Offset(0, 2))],
-                      ),
-                      child: Row(children: [
-                        Container(
-                          width: 64,
-                          height: 64,
-                          alignment: Alignment.center,
-                          decoration: BoxDecoration(color: const Color(0xFFF6EADB), borderRadius: BorderRadius.circular(14)),
-                          child: ItemImage(recId, size: 54),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(catalog[recId]?.name ?? recId, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15.5, color: EvochiColor.ink)),
-                            if (fx != null)
-                              Text('${befriend ? '+' : '−'}${fx.amount} ${befriend ? 'Calm' : 'Instability'}${fx.liked ? ' · ${cdef.name} loves it' : ''}',
-                                  style: const TextStyle(fontFamily: EvochiText.body, fontSize: 12.5, height: 17 / 12.5, color: EvochiColor.textHelper)),
-                            Text.rich(TextSpan(style: const TextStyle(fontFamily: EvochiText.body, fontSize: 12.5, height: 17 / 12.5, color: EvochiColor.textHelper), children: [
-                              const TextSpan(text: 'You have: '),
-                              TextSpan(text: '$have', style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 13, color: EvochiColor.ink)),
-                            ])),
-                          ]),
-                        ),
-                        if (have == 0 && recSrc != null)
-                          _MiniButton(label: recSrc.verb, onTap: () => goHome(context, recSrc.route == 'station' ? recSrc.station! : 'garden'))
-                        else if (recs.length > 1)
-                          _MiniButton(label: 'Change', onTap: () => setState(() => _rec = (_rec ?? 0) + 1)),
-                      ]),
+                ),
+              for (final comp in comps) ...[
+                const SizedBox(height: 8),
+                _TeamRow(
+                  face: EncFace.creature(comp.id, size: 46),
+                  name: comp.name,
+                  line: '${comp.creature.companion?.name ?? 'Companion'} · once per encounter',
+                  label: '${comp.name}, ${comp.creature.companion?.name ?? 'companion'}, once per encounter. Ready',
+                  trailing: Container(
+                    padding: const EdgeInsets.fromLTRB(10, 2, 10, 2),
+                    decoration: BoxDecoration(color: const Color(0xFFE5F2CF), borderRadius: BorderRadius.circular(10)),
+                    child: const Text('Ready', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 12, color: Color(0xFF3E7D33))),
+                  ),
+                ),
+              ],
+              if (comps.isEmpty) ...[
+                const SizedBox(height: 8),
+                const _TeamRow(ghost: true, face: EncFace.question(size: 46), name: 'Companion', line: 'Befriend one to help in encounters', label: 'Companion: befriend one to help in encounters'),
+              ],
+              if (!stageOk)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(2, 10, 2, 0),
+                  child: Text('A ${stageLabel(e.recommended.stage)} or older Evochi has more Energy for this one. You can still go.', style: const TextStyle(fontFamily: EvochiText.body, fontSize: 12.5, height: 17 / 12.5, color: Color(0xFF9A5B2C))),
+                ),
+              const SizedBox(height: 18),
+              // the call to action
+              if (resumable)
+                EncCta(label: 'Continue the encounter', big: true, gold: true, trailing: const _Chevron(), onTap: _resume)
+              else if (ready)
+                EncCta(label: 'Begin Encounter', big: true, gold: true, trailing: const _Chevron(), onTap: () => _travel(c, qid))
+              else if (v.phase == 'available')
+                EncCta(label: 'Talk to ${giver.name}', big: true, alt: true, onTap: () => openPlace(context, giver.location, npc: quest.giver))
+              else if (n.kind == 'walk')
+                EncCta(label: 'Go for a walk', big: true, onTap: () => goWalk(context))
+              else if (going != null && src != null)
+                EncCta(label: '${src.verb} ${catalog[going.id]?.name ?? going.id} in your ${src.place}', big: true, onTap: () => goHome(context, src.route == 'station' ? src.station! : 'garden'))
+              else if (v.completed)
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(color: const Color(0xFFE5F2CF), borderRadius: BorderRadius.circular(14)),
+                  child: Text(befriend ? '${cdef.name} is your companion.' : '${cdef.name} was restored.', textAlign: TextAlign.center, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF3E7D33))),
+                ),
+              const SizedBox(height: 4),
+              Center(
+                child: Semantics(
+                  button: true,
+                  label: 'Quest details',
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => showStoryQuest(context, qid),
+                    child: const Padding(
+                      padding: EdgeInsets.fromLTRB(10, 6, 10, 6),
+                      child: Text('Quest details', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 14, color: EvochiColor.textHelper, decoration: TextDecoration.underline, decorationColor: EvochiColor.textHelper)),
                     ),
                   ),
-                  // rewards
-                  _PrepHead('Possible rewards'),
-                  RewardTiles(rewardTilesFor(v.rewards, cdef, e.goal)),
-                  const SizedBox(height: 18),
-                  // the call to action
-                  if (resumable)
-                    EncCta(label: 'Continue the encounter', big: true, leading: const _Peaks(), onTap: _resume)
-                  else if (ready)
-                    EncCta(label: 'Prepare & Enter', big: true, leading: const _Peaks(), onTap: () => _travel(c, qid))
-                  else if (v.phase == 'available')
-                    EncCta(label: 'Talk to ${giver.name}', big: true, alt: true, onTap: () => openPlace(context, giver.location, npc: quest.giver))
-                  else if (n.kind == 'walk')
-                    EncCta(label: 'Go for a walk', big: true, onTap: () => goWalk(context))
-                  else if (going != null && src != null)
-                    EncCta(label: '${src.verb} ${catalog[going.id]?.name ?? going.id} in your ${src.place}', big: true, onTap: () => goHome(context, src.route == 'station' ? src.station! : 'garden'))
-                  else if (v.completed)
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(color: const Color(0xFFE5F2CF), borderRadius: BorderRadius.circular(14)),
-                      child: Text(befriend ? '${cdef.name} is your companion.' : '${cdef.name} was restored.', textAlign: TextAlign.center, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15, color: Color(0xFF3E7D33))),
-                    ),
-                  const SizedBox(height: 4),
-                  Center(
-                    child: Semantics(
-                      button: true,
-                      label: 'Quest details',
-                      child: GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: () => showStoryQuest(context, qid),
-                        child: const Padding(
-                          padding: EdgeInsets.fromLTRB(10, 6, 10, 6),
-                          child: Text('Quest details', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 14, color: EvochiColor.textHelper, decoration: TextDecoration.underline, decorationColor: EvochiColor.textHelper)),
-                        ),
-                      ),
-                    ),
-                  ),
-                ]),
+                ),
               ),
             ]),
           ),
@@ -374,60 +355,225 @@ class _PrepScreenState extends State<PrepScreen> {
   }
 }
 
-/// A section heading ("Your team ?", "Recommended item (optional)").
+/// The creature's nameplate over the banner: its portrait, name, rarity and kind, the quest's level,
+/// and its meter as it starts (Calm empty, Instability full).
+class _Nameplate extends StatelessWidget {
+  const _Nameplate({required this.cdef, required this.e, required this.level});
+  final tr.Creature cdef;
+  final tr.EncounterDef e;
+  final int level;
+  @override
+  Widget build(BuildContext context) {
+    final hollow = cdef.kind == 'hollow';
+    final befriend = e.goal == 'befriend';
+    final kind = '${_rarity[cdef.rarity] ?? ''} · ${hollow ? 'Hollow' : tr.affinityDefs[cdef.affinity]!.name}';
+    final value = befriend ? '0 / ${e.meter}' : '${e.meter} / ${e.meter}';
+    return Semantics(
+      container: true,
+      label: '${cdef.name}, $kind, level $level. ${befriend ? 'Calm' : 'Instability'} $value',
+      child: ExcludeSemantics(
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(9, 9, 12, 11),
+          decoration: BoxDecoration(
+            color: hollow ? null : const Color(0xFFFFFDF9),
+            gradient: hollow ? const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFCF8FF), Color(0xFFF2EAFC)]) : null,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: hollow ? const Color(0xFFD6C4F0) : const Color(0xFFEBDCC8), width: 2),
+            boxShadow: const [BoxShadow(color: Color(0x29281A0A), blurRadius: 14, offset: Offset(0, 6))],
+          ),
+          child: Row(children: [
+            EncFace.creature(cdef.id, size: 52, hollow: hollow),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+                Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      Text(cdef.name, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 17, height: 1.15, color: EvochiColor.ink)),
+                      Text(kind, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 12, color: EvochiColor.textHelper)),
+                    ]),
+                  ),
+                  const SizedBox(width: 10),
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text('Lv. $level', style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 13, color: EvochiColor.textSecondary)),
+                  ),
+                ]),
+                const SizedBox(height: 6),
+                Row(children: [
+                  Expanded(child: ThinBar(kind: befriend ? 'calm' : 'inst', frac: befriend ? 0 : 1)),
+                  const SizedBox(width: 8),
+                  Text(value, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 12.5, color: EvochiColor.ink)),
+                ]),
+              ]),
+            ),
+          ]),
+        ),
+      ),
+    );
+  }
+}
+
+/// A section heading ("Objective", "Recommended", "Your Team ?").
 class _PrepHead extends StatelessWidget {
-  const _PrepHead(this.text, {this.sub, this.trailing});
+  const _PrepHead(this.text, {this.trailing});
   final String text;
-  final String? sub;
   final Widget? trailing;
   @override
   Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.fromLTRB(2, 18, 2, 8),
+        padding: const EdgeInsets.fromLTRB(2, 18, 2, 0),
         child: Row(children: [
           Semantics(header: true, child: Text(text, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 17, color: Color(0xFF4A2D45)))),
-          if (sub != null) ...[const SizedBox(width: 6), Text(sub!, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w700, fontSize: 14, color: EvochiColor.textHelper))],
           if (trailing != null) ...[const SizedBox(width: 6), trailing!],
         ]),
       );
 }
 
-/// One line of the quest checklist: a tick box (dashed when optional), the text, an "optional" pill.
+/// A recommendation tile: a small kicker, a picture on a soft tile, a name, an effect pill, a line
+/// and an optional button.
+class _RecTile extends StatelessWidget {
+  const _RecTile({required this.kicker, required this.hollow, required this.picture, required this.name, required this.line, this.pill, this.restore = false, this.button});
+  final String kicker;
+  final bool hollow;
+  final Widget picture;
+  final String name;
+  final String line;
+  final String? pill;
+  final bool restore;
+  final Widget? button;
+  @override
+  Widget build(BuildContext context) => Semantics(
+        container: true,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(8, 10, 8, 12),
+          decoration: _card(),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            Text(kicker, textAlign: TextAlign.center, style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 11.5, color: hollow ? const Color(0xFF7B52C2) : const Color(0xFF5E9A3E))),
+            const SizedBox(height: 5),
+            Container(
+              width: 56,
+              height: 56,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(color: hollow ? const Color(0xFFF1E9FC) : const Color(0xFFEEF7E2), borderRadius: BorderRadius.circular(16)),
+              child: picture,
+            ),
+            const SizedBox(height: 5),
+            Text(name, textAlign: TextAlign.center, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15, height: 1.15, color: EvochiColor.ink)),
+            if (pill != null) ...[
+              const SizedBox(height: 3),
+              Container(
+                padding: const EdgeInsets.fromLTRB(9, 1, 9, 1),
+                decoration: BoxDecoration(color: restore ? const Color(0xFFEEE4FB) : const Color(0xFFE5F2CF), borderRadius: BorderRadius.circular(10)),
+                child: Text(pill!, style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 12, color: restore ? const Color(0xFF5B3AA0) : const Color(0xFF3E7D33))),
+              ),
+            ],
+            const SizedBox(height: 3),
+            Text(line, textAlign: TextAlign.center, style: const TextStyle(fontFamily: EvochiText.body, fontSize: 12, height: 16 / 12, color: EvochiColor.textHelper)),
+            if (button != null) ...[const SizedBox(height: 7), button!],
+          ]),
+        ),
+      );
+}
+
+/// A team row: a round face, a name and a line, and something on the right (Energy, "Ready"); a
+/// dashed [ghost] row waits for a companion.
+class _TeamRow extends StatelessWidget {
+  const _TeamRow({this.warn = false, this.ghost = false, required this.face, required this.name, required this.line, required this.label, this.trailing});
+  final bool warn;
+  final bool ghost;
+  final Widget face;
+  final String name;
+  final String line;
+  final String label;
+  final Widget? trailing;
+  @override
+  Widget build(BuildContext context) {
+    final row = Container(
+      padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
+      decoration: ghost
+          ? null
+          : BoxDecoration(
+              color: const Color(0xFFFFFDF9),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: warn ? const Color(0xFFF0C58A) : const Color(0xFFEBDCC8), width: 2),
+              boxShadow: const [BoxShadow(color: Color(0xFFE4D2BC), offset: Offset(0, 2))],
+            ),
+      child: Row(children: [
+        face,
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+            Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15.5, height: 1.15, color: EvochiColor.ink)),
+            Text(line, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w700, fontSize: 12, color: EvochiColor.textHelper)),
+          ]),
+        ),
+        if (trailing != null) ...[const SizedBox(width: 10), trailing!],
+      ]),
+    );
+    return Semantics(
+      label: label,
+      child: ExcludeSemantics(child: ghost ? CustomPaint(foregroundPainter: const _DashedRow(), child: row) : row),
+    );
+  }
+}
+
+/// The ghost row's dashed outline.
+class _DashedRow extends CustomPainter {
+  const _DashedRow();
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = const Color(0xFFEBDCC8)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2;
+    final path = Path()..addRRect(RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(16)).deflate(1));
+    const dash = 6.0, gap = 4.0;
+    for (final metric in path.computeMetrics()) {
+      var d = 0.0;
+      while (d < metric.length) {
+        canvas.drawPath(metric.extractPath(d, d + dash), paint);
+        d += dash + gap;
+      }
+    }
+  }
+
+  @override
+  bool shouldRepaint(_DashedRow old) => false;
+}
+
+/// One line of the checklist: a tick box (dashed when optional), the text, an "optional" pill.
 class _CheckRow extends StatelessWidget {
-  const _CheckRow({required this.done, required this.text, this.optional = false, this.last = false});
+  const _CheckRow({required this.done, required this.text, this.optional = false});
   final bool done;
   final String text;
   final bool optional;
-  final bool last;
   @override
   Widget build(BuildContext context) => Semantics(
         label: '$text${done ? ', done' : ''}${optional ? ', optional' : ''}',
         child: ExcludeSemantics(
-          child: Padding(
-            padding: EdgeInsets.only(bottom: last ? 0 : 8),
-            child: Row(children: [
-              Container(
-                width: 22,
-                height: 22,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(6),
-                  color: done ? null : const Color(0xFFFBF5EC),
-                  gradient: done ? const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF8FDA6E), Color(0xFF5FB447)]) : null,
-                  border: optional && !done ? null : Border.all(color: done ? const Color(0xFF4E9B3A) : const Color(0xFFDCCAB4), width: 2),
-                ),
-                child: done ? const Icon(Icons.check_rounded, size: 16, color: Colors.white) : (optional ? CustomPaint(size: const Size(22, 22), painter: _DashedBox()) : null),
+          child: Row(children: [
+            Container(
+              width: 22,
+              height: 22,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(6),
+                color: done ? null : const Color(0xFFFBF5EC),
+                gradient: done ? const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF8FDA6E), Color(0xFF5FB447)]) : null,
+                border: optional && !done ? null : Border.all(color: done ? const Color(0xFF4E9B3A) : const Color(0xFFDCCAB4), width: 2),
               ),
-              const SizedBox(width: 10),
-              Expanded(child: Text(text, style: TextStyle(fontFamily: EvochiText.body, fontSize: 14, height: 18 / 14, color: done ? EvochiColor.textSecondary : EvochiColor.textHelper))),
-              if (optional)
-                Container(
-                  margin: const EdgeInsets.only(left: 8),
-                  padding: const EdgeInsets.fromLTRB(7, 1, 7, 1),
-                  decoration: BoxDecoration(color: const Color(0xFFF3E8DA), borderRadius: BorderRadius.circular(8)),
-                  child: const Text('optional', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 11, color: EvochiColor.textHelper)),
-                ),
-            ]),
-          ),
+              child: done ? const Icon(Icons.check_rounded, size: 16, color: Colors.white) : (optional ? CustomPaint(size: const Size(22, 22), painter: _DashedBox()) : null),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Text(text, style: TextStyle(fontFamily: EvochiText.body, fontSize: 14, height: 18 / 14, color: done ? EvochiColor.textSecondary : EvochiColor.textHelper))),
+            if (optional)
+              Container(
+                margin: const EdgeInsets.only(left: 8),
+                padding: const EdgeInsets.fromLTRB(7, 1, 7, 1),
+                decoration: BoxDecoration(color: const Color(0xFFF3E8DA), borderRadius: BorderRadius.circular(8)),
+                child: const Text('optional', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 11, color: EvochiColor.textHelper)),
+              ),
+          ]),
         ),
       );
 }
@@ -456,81 +602,7 @@ class _DashedBox extends CustomPainter {
   bool shouldRepaint(_DashedBox old) => false;
 }
 
-/// A team card: a badge top-left, a picture, a name and a line or two. [me] frames your Evochi in
-/// gold ([warn] in orange when a grown one is recommended); [ghost] is the dashed "Befriend one".
-class _TeamCard extends StatelessWidget {
-  const _TeamCard({this.me = false, this.warn = false, this.ghost = false, this.badge, this.picture, required this.name, required this.notes, required this.label});
-  final bool me;
-  final bool warn;
-  final bool ghost;
-  final String? badge;
-  final Widget? picture;
-  final String name;
-  final List<String> notes; // "Lv. 3", "100 Energy", a companion's ability
-  final String label;
-  @override
-  Widget build(BuildContext context) => Semantics(
-        label: label,
-        child: ExcludeSemantics(
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(10, 8, 10, 10),
-            decoration: BoxDecoration(
-              color: ghost ? const Color(0x99FFFDF9) : const Color(0xFFFFFDF9),
-              borderRadius: BorderRadius.circular(16),
-              border: ghost ? null : Border.all(color: warn ? const Color(0xFFEBA36A) : (me ? const Color(0xFFF0C234) : const Color(0xFFEBDCC8)), width: 2),
-              boxShadow: ghost
-                  ? null
-                  : [
-                      if (me) const BoxShadow(color: Color(0x59F0C234), spreadRadius: 2),
-                      const BoxShadow(color: Color(0xFFE4D2BC), offset: Offset(0, 2)),
-                    ],
-            ),
-            child: Stack(clipBehavior: Clip.none, children: [
-              Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                SizedBox(
-                  height: 72,
-                  width: double.infinity,
-                  child: ghost
-                      ? const Center(child: Text('?', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 34, color: Color(0xFFD6C5B2))))
-                      : Center(child: picture),
-                ),
-                const SizedBox(height: 4),
-                Text(name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 14, color: EvochiColor.ink)),
-                for (final l in notes) Text(l, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w700, fontSize: 11.5, height: 1.2, color: EvochiColor.textHelper)),
-              ]),
-              if (ghost) Positioned.fill(child: CustomPaint(painter: _DashedCard())),
-              if (badge != null) Positioned(left: -4, top: -2, child: VoxelIcon(badge!, size: 24)),
-            ]),
-          ),
-        ),
-      );
-}
-
-/// The ghost card's dashed outline (drawn over the padding box).
-class _DashedCard extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = const Color(0xFFEBDCC8)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
-    final r = RRect.fromRectAndRadius(Rect.fromLTWH(-10, -8, size.width + 20, size.height + 18), const Radius.circular(16)).deflate(1);
-    final path = Path()..addRRect(r);
-    const dash = 6.0, gap = 4.0;
-    for (final metric in path.computeMetrics()) {
-      var d = 0.0;
-      while (d < metric.length) {
-        canvas.drawPath(metric.extractPath(d, d + dash), paint);
-        d += dash + gap;
-      }
-    }
-  }
-
-  @override
-  bool shouldRepaint(_DashedCard old) => false;
-}
-
-/// "Change" / "Make": the small cream button on the recommended item card.
+/// "Change" / "Make": the small cream button on the recommended item tile.
 class _MiniButton extends StatelessWidget {
   const _MiniButton({required this.label, required this.onTap});
   final String label;
@@ -545,50 +617,46 @@ class _MiniButton extends StatelessWidget {
             onTap();
           },
           child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 8, 14, 8),
+            padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
               border: Border.all(color: const Color(0xFFE2CBAE), width: 2),
               gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFF6EA), Color(0xFFF1E0CA)]),
               boxShadow: const [BoxShadow(color: Color(0xFFD5BC9C), offset: Offset(0, 3))],
             ),
-            child: Text(label, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 14, color: EvochiColor.ink)),
+            child: Text(label, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 13, color: EvochiColor.ink)),
           ),
         ),
       );
 }
 
-/// Two green peaks with a snowcap, on the Prepare & Enter button.
-class _Peaks extends StatelessWidget {
-  const _Peaks();
+/// The chevron on Begin Encounter (the web's arrow path, stroked).
+class _Chevron extends StatelessWidget {
+  const _Chevron();
   @override
-  Widget build(BuildContext context) => const SizedBox(width: 38, height: 28, child: CustomPaint(painter: _PeaksPainter()));
+  Widget build(BuildContext context) => const SizedBox(width: 22, height: 22, child: CustomPaint(painter: _ChevronPainter()));
 }
 
-class _PeaksPainter extends CustomPainter {
-  const _PeaksPainter();
+class _ChevronPainter extends CustomPainter {
+  const _ChevronPainter();
   @override
   void paint(Canvas canvas, Size size) {
-    final sx = size.width / 32;
-    final sy = size.height / 24;
-    final peaks = Path()
-      ..moveTo(2 * sx, 21 * sy)
-      ..lineTo(12 * sx, 5 * sy)
-      ..lineTo(18 * sx, 14 * sy)
-      ..lineTo(21 * sx, 10 * sy)
-      ..lineTo(30 * sx, 21 * sy)
-      ..close();
-    canvas.drawPath(peaks, Paint()..color = const Color(0xFF2F6B3A));
-    final cap = Path()
-      ..moveTo(12 * sx, 5 * sy)
-      ..lineTo(15 * sx, 9.6 * sy)
-      ..lineTo(12.8 * sx, 8.7 * sy)
-      ..lineTo(11 * sx, 10.4 * sy)
-      ..lineTo(9.6 * sx, 8.9 * sy)
-      ..close();
-    canvas.drawPath(cap, Paint()..color = const Color(0xFFE9F6DC));
+    final s = size.width / 24;
+    final p = Path()
+      ..moveTo(9 * s, 5 * s)
+      ..lineTo(16 * s, 12 * s)
+      ..lineTo(9 * s, 19 * s);
+    canvas.drawPath(
+      p,
+      Paint()
+        ..color = const Color(0xFF4A2E0C)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3 * s
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
   }
 
   @override
-  bool shouldRepaint(_PeaksPainter old) => false;
+  bool shouldRepaint(_ChevronPainter old) => false;
 }

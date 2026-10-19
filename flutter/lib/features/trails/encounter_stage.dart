@@ -1,8 +1,9 @@
 // Lumen Trails: the battle shot. Your Evochi from behind in the foreground, the wild one facing it on
-// a 2:3 backdrop with a foreground layer for depth, camera "shots" (wide / pet / wild / close / face),
-// shakes, punches, a flash, a Hollow aura, the nameplates, the intro title and the result ribbon, the
-// canvas effects (stage_fx.dart) on two layers and the few widget effects a turn throws around
-// (floating numbers, a "?" bubble, Petalune swooping in).
+// a 2:3 backdrop with a foreground layer for depth, camera "shots" (wide / pet / wild / close / face,
+// and the hero shot the intro card sits under), shakes, punches, a flash, a Hollow aura, the
+// nameplates (portrait, meter, the goal pill with the turn, status chips) and the announcements under
+// them, the reward toasts, the canvas effects (stage_fx.dart) on two layers and the few widget effects a
+// turn throws around (floating number bubbles, a "?" bubble, Petalune swooping in, the speech bubble).
 //
 // The stage is driven imperatively through [EncounterStage] (a ChangeNotifier the screen pokes from
 // its timelines), so camera moves and effects never restart when the state re-renders. Everything
@@ -22,7 +23,9 @@ import '../../core/services/asset_manifest.dart';
 import '../../game/trails/trails.dart' as tr;
 import '../shared/sprite.dart';
 import '../shared/widgets.dart';
+import 'encounter_icons.dart';
 import 'stage_fx.dart';
+import 'trails_widgets.dart';
 
 // your Evochi's frame width (share of the shot's width) per stage, and how far right its face may reach
 const petWidthByStage = {1: 0.44, 2: 0.52, 3: 0.68};
@@ -43,6 +46,7 @@ class ShotGeometry {
     required this.scene,
     required this.creature,
     required this.ar,
+    required this.large,
     required this.wildLeft,
     required this.wildTop,
     required this.wildWidth,
@@ -70,6 +74,7 @@ class ShotGeometry {
   final BattleScene scene;
   final BattleCreature creature;
   final double ar; // the backdrop's width / height
+  final bool large; // a large creature (the Sentinel): the hero shot keeps it whole
   // the wild one
   final double wildLeft, wildTop, wildWidth, wildAr;
   final double wildCx, wildCy; // its centre of mass (effects aim here)
@@ -127,6 +132,7 @@ ShotGeometry shotGeometry(tr.EncounterView v, Pet pet) {
     scene: b,
     creature: cb,
     ar: w / hh,
+    large: c.size == 'large',
     wildLeft: wl / w,
     wildTop: wt / hh,
     wildWidth: (cb.w * s) / w,
@@ -226,6 +232,33 @@ class FxItem {
   int get ms => span.ms;
 }
 
+/// A status chip (the board's mini-library of effects): its icon id, name and what it means.
+class StageStatus {
+  const StageStatus(this.id, this.name, this.text);
+  final String id; // hollowed | waking | unsteady | flicker | wary | trust | soothed | charged | tired | bloom
+  final String name;
+  final String text;
+}
+
+/// An announcement: a dark pill under the goal row (the board's Encounter Announcements).
+class StageAnn {
+  StageAnn(this.id, this.text, this.tone);
+  final int id;
+  final String text;
+  final String tone; // good | love | wary | hollow | calm | meh
+  bool out = false;
+}
+
+/// A reward toast at the top of the shot: an icon (or an item) and a line.
+class StageToast {
+  StageToast(this.id, this.text, {this.icon, this.itemId});
+  final int id;
+  final String text;
+  final String? icon;
+  final String? itemId;
+  bool out = false;
+}
+
 /// The live visual state of the stage, poked by the screen's timelines.
 class EncounterStage extends ChangeNotifier {
   EncounterStage({required this.reducedMotion});
@@ -249,6 +282,10 @@ class EncounterStage extends ChangeNotifier {
   String meterText = '';
   double energy = 0;
   String energyText = '';
+  String turnText = 'Turn 1'; // the goal pill's turn ("Done" once won)
+  List<StageStatus> wildChips = const [], petChips = const [];
+  final List<StageAnn> anns = [];
+  final List<StageToast> toasts = [];
   final List<FxItem> fx = [];
 
   /// The clock everything inside the world reads (ticked by the view, frozen by [hitstop]).
@@ -382,7 +419,12 @@ class EncounterStage extends ChangeNotifier {
     _tick();
   }
 
-  Offset _petTarget() => !petIn ? const Offset(-0.75, 0.14) : (shot == 'wild' ? const Offset(-0.07, 0.04) : Offset.zero);
+  // the hero shot pushes your Evochi off to the side whatever else holds (the web's !important)
+  Offset _petTarget() => shot == 'hero'
+      ? const Offset(-0.82, 0.20)
+      : !petIn
+          ? const Offset(-0.75, 0.14)
+          : (shot == 'wild' ? const Offset(-0.07, 0.04) : Offset.zero);
 
   /// Your Evochi slides to where the shot and [petIn] put it (a running slide is not restarted).
   void _retargetPet([int? ms]) {
@@ -490,6 +532,54 @@ class EncounterStage extends ChangeNotifier {
 
   void buddy() => addFx((id, span) => FxItem(id: id, kind: 'buddy', x: 0.14, y: 0.46, span: span), 1900);
 
+  /// A speech bubble over the creature after the win (a heart for a new friend, light for a restored
+  /// one); it stays until the stage goes.
+  void speech(Offset p, String goal) => addFx((id, span) => FxItem(id: id, kind: 'speech', x: p.dx, y: p.dy, span: span, cls: goal), 600000);
+
+  /// A short announcement under the goal row (at most three; each leaves after 1.9 s).
+  void announce(String text, [String tone = 'calm']) {
+    if (text.isEmpty) return;
+    final a = StageAnn(++_ids, text, tone);
+    anns.add(a);
+    while (anns.length > 3) {
+      anns.removeAt(0);
+    }
+    _tick();
+    _after(1900, () {
+      a.out = true;
+      _tick();
+    });
+    _after(2350, () {
+      anns.remove(a);
+      _tick();
+    });
+  }
+
+  /// A reward toast at the top of the shot (it leaves after 2.3 s).
+  void toast(String text, {String? icon, String? itemId}) {
+    final t = StageToast(++_ids, text, icon: icon, itemId: itemId);
+    toasts.add(t);
+    _tick();
+    _after(2300, () {
+      t.out = true;
+      _tick();
+    });
+    _after(2750, () {
+      toasts.remove(t);
+      _tick();
+    });
+  }
+
+  /// The status chips under the wild one's plate and over your Evochi's, and the turn in the goal pill.
+  void setStatus(List<StageStatus> wild, List<StageStatus> pet, String turn) {
+    String sig(List<StageStatus> l) => l.map((x) => x.id).join(',');
+    if (sig(wild) == sig(wildChips) && sig(pet) == sig(petChips) && turn == turnText) return;
+    wildChips = wild;
+    petChips = pet;
+    turnText = turn;
+    _tick();
+  }
+
   void setMeter(double frac, String text) {
     meter = frac.clamp(0.0, 1.0);
     meterText = text;
@@ -561,6 +651,11 @@ CamPose camPose(String shot, ShotGeometry g) {
       return CamPose(1.55, 0.5 - g.wildCx, 0.46 - g.wildCy, 1300);
     case 'face':
       return CamPose(2.3, 0.5 - g.face.dx, 0.48 - g.face.dy, 1400);
+    case 'hero':
+      // the intro card's shot: the wild one big in the upper half (a large one stays whole)
+      final hs = g.large ? 1.0 : 1.18;
+      final hk = g.large ? 0.0 : 1.0;
+      return CamPose(hs, (0.5 - g.wildCx) * hk, (0.34 - g.wildCy) * hk, 1200);
     default:
       return const CamPose(1, 0, 0, 1000);
   }
@@ -570,6 +665,7 @@ CamPose camPose(String shot, ShotGeometry g) {
 CamPose fgPose(String shot) => switch (shot) {
       'wild' => const CamPose(1.09, 0.02, 0.01),
       'pet' => const CamPose(1.08, -0.01, 0.01),
+      'hero' => const CamPose(1.1, 0.02, 0.02),
       _ => const CamPose(1, 0, 0),
     };
 
@@ -589,6 +685,49 @@ ColorFilter _filter(double b, double s) {
 }
 
 const _whiteSilhouette = ColorFilter.mode(Colors.white, BlendMode.srcIn);
+
+List<double> _mul3(List<double> a, List<double> b) => [
+      for (var r = 0; r < 3; r++)
+        for (var c = 0; c < 3; c++) a[r * 3] * b[c] + a[r * 3 + 1] * b[3 + c] + a[r * 3 + 2] * b[6 + c],
+    ];
+
+List<double> _sepiaM(double amount) {
+  final a = 1 - amount;
+  return [0.393 + 0.607 * a, 0.769 - 0.769 * a, 0.189 - 0.189 * a, 0.349 - 0.349 * a, 0.686 + 0.314 * a, 0.168 - 0.168 * a, 0.272 - 0.272 * a, 0.534 - 0.534 * a, 0.131 + 0.869 * a];
+}
+
+List<double> _satM(double s) => [0.213 + 0.787 * s, 0.715 - 0.715 * s, 0.072 - 0.072 * s, 0.213 - 0.213 * s, 0.715 + 0.285 * s, 0.072 - 0.072 * s, 0.213 - 0.213 * s, 0.715 - 0.715 * s, 0.072 + 0.928 * s];
+
+List<double> _briM(double b) => [b, 0.0, 0.0, 0.0, b, 0.0, 0.0, 0.0, b];
+
+List<double> _hueM(double deg) {
+  final th = deg * math.pi / 180;
+  final cs = math.cos(th);
+  final sn = math.sin(th);
+  return [
+    0.213 + cs * 0.787 - sn * 0.213, 0.715 - cs * 0.715 - sn * 0.715, 0.072 - cs * 0.072 + sn * 0.928, //
+    0.213 - cs * 0.213 + sn * 0.143, 0.715 + cs * 0.285 + sn * 0.140, 0.072 - cs * 0.072 - sn * 0.283, //
+    0.213 - cs * 0.213 - sn * 0.787, 0.715 - cs * 0.715 + sn * 0.715, 0.072 + cs * 0.928 + sn * 0.072,
+  ];
+}
+
+/// CSS filter functions applied left to right (sepia(), saturate(), brightness(), hue-rotate()), as
+/// one colour matrix.
+ColorFilter _cssChain(List<List<double>> steps) {
+  var m = const <double>[1, 0, 0, 0, 1, 0, 0, 0, 1];
+  for (final step in steps) {
+    m = _mul3(step, m);
+  }
+  return ColorFilter.matrix(<double>[m[0], m[1], m[2], 0, 0, m[3], m[4], m[5], 0, 0, m[6], m[7], m[8], 0, 0, 0, 0, 0, 1, 0]);
+}
+
+// the hit flash: two hard frames of a warm gold tint (wFlash), never a white silhouette
+final _hitTintA = _cssChain([_sepiaM(0.75), _satM(2.4), _briM(1.18), _hueM(-8)]);
+final _hitTintB = _cssChain([_sepiaM(0.45), _satM(1.8), _briM(1.1), _hueM(-8)]);
+// creatures whose sprite is dark: a hit brightens them instead of tinting them gold (wFlashDark)
+const _darkCreatures = {'hollow_sprout'};
+final _hitDarkA = _cssChain([_briM(2.4), _satM(0.55), _sepiaM(0.2)]);
+final _hitDarkB = _cssChain([_briM(1.8), _satM(0.7)]);
 
 /// The gold "!" badge (over the wild one at the intro, over your Evochi when it flinches).
 class _Bang extends StatelessWidget {
@@ -630,9 +769,6 @@ class StageProps {
     required this.petLevel,
     required this.phase,
     required this.panelHeight,
-    required this.title,
-    required this.titleSub,
-    required this.titleShown,
     required this.onSkip,
   });
   final tr.EncounterView view;
@@ -640,10 +776,7 @@ class StageProps {
   final Pet pet;
   final int petLevel;
   final String phase; // intro | card | play | outro | result
-  final double panelHeight; // the panel's height (the view ends 20px above its top)
-  final String title;
-  final String titleSub;
-  final bool titleShown;
+  final double panelHeight; // the panel's height (the view ends 20px above its top; full height on the card)
   final VoidCallback onSkip;
 }
 
@@ -702,9 +835,9 @@ class _EncounterStageViewState extends State<EncounterStageView> with TickerProv
     final intro = p.phase == 'intro';
     final hollowKind = p.view.creature.kind == 'hollow';
     return LayoutBuilder(builder: (ctx, box) {
-      final sw = box.maxWidth;
       final sh = box.maxHeight;
-      final bottom = math.max(0.0, p.panelHeight - 20);
+      // the intro card sits over the shot, which then fills the screen
+      final bottom = p.phase == 'card' ? 0.0 : math.max(0.0, p.panelHeight - 20);
       final ph = bottom + 20;
       return Stack(clipBehavior: Clip.hardEdge, children: [
         // the view: the visible part of the shot ends where the panel begins (it overlaps a little)
@@ -735,26 +868,6 @@ class _EncounterStageViewState extends State<EncounterStageView> with TickerProv
           bottom: 0,
           height: intro ? ph + sh * 0.02 : 0,
           child: const ColoredBox(color: Color(0xFF120E18)),
-        ),
-        // the intro title sits in the lower letterbox, like a film's caption, clear of the shot
-        Positioned(
-          left: sw * 0.06,
-          width: sw * 0.88,
-          top: sh - ph / 2 - 60,
-          height: 120,
-          child: IgnorePointer(
-            child: Center(
-              child: _IntroTitle(
-                key: ValueKey('${p.title}|${p.titleShown}|$intro'),
-                shown: p.titleShown && intro,
-                title: p.title,
-                sub: p.titleSub,
-                hollow: hollowKind,
-                boss: p.view.boss,
-                reducedMotion: st.reducedMotion,
-              ),
-            ),
-          ),
         ),
         // skip
         Positioned(
@@ -823,7 +936,7 @@ class _View extends StatelessWidget {
         animation: stage,
         builder: (ctx, _) {
           final st = stage;
-          final hidePlates = p.phase == 'intro' || p.phase == 'result';
+          final hidePlates = p.phase == 'intro' || p.phase == 'card' || p.phase == 'result';
           return Stack(clipBehavior: Clip.hardEdge, children: [
             Positioned(
               left: left,
@@ -913,32 +1026,54 @@ class _View extends StatelessWidget {
                 ),
               ),
             ),
-            // the wild one's plate
+            // under the intro card the lower shot darkens, so the big title reads
+            Positioned(
+              left: 0,
+              right: 0,
+              bottom: 0,
+              height: vh * 0.66,
+              child: IgnorePointer(
+                child: AnimatedOpacity(
+                  duration: const Duration(milliseconds: 700),
+                  opacity: p.phase == 'card' ? 1 : 0,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: hollowKind ? const [Color(0x00140A22), Color(0x66140A22), Color(0xE60E081A)] : const [Color(0x0010180A), Color(0x5210180A), Color(0xD60C1208)],
+                        stops: const [0, 0.34, 1],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            // the wild one's plate, with the goal, the turn and its status chips under it, and the
+            // announcements under those
             Positioned(
               left: 14,
               right: 14,
               top: safeTop + 12,
               child: _PlateFade(hidden: hidePlates, dy: -14, child: _WildPlate(stage: st, view: p.view)),
             ),
-            // your Evochi's plate
+            // your Evochi's plate, its status chips over it
             Positioned(
               left: 12,
               bottom: 34,
               width: math.min(vw * 0.66, 270),
-              child: _PlateFade(hidden: hidePlates, dy: p.phase == 'intro' ? 14 : -14, child: _PetPlate(stage: st, pet: p.pet, level: p.petLevel)),
+              child: _PlateFade(hidden: hidePlates, dy: p.phase == 'intro' || p.phase == 'card' ? 14 : -14, child: _PetPlate(stage: st, pet: p.pet, level: p.petLevel)),
             ),
-            // the result ribbon and the last line as a caption
+            // the reward toasts
             Positioned(
-              left: 26,
-              right: 26,
-              top: safeTop + 16,
-              child: IgnorePointer(child: _Ribbon(shown: p.phase == 'result', view: p.view, hollow: hollowKind)),
-            ),
-            Positioned(
-              left: 14,
-              right: 14,
-              bottom: 32,
-              child: IgnorePointer(child: _Caption(shown: p.phase == 'result', text: p.view.log.isEmpty ? '' : p.view.log.last.text, names: [p.view.creature.name, p.pet.name])),
+              left: 0,
+              right: 0,
+              top: safeTop + 14,
+              child: IgnorePointer(
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  for (final t in st.toasts) _RewardToast(key: ValueKey('rt-${t.id}'), toast: t, rm: st.reducedMotion),
+                ]),
+              ),
             ),
           ]);
         },
@@ -1197,6 +1332,7 @@ class _WildBody extends StatelessWidget {
             clock: st.clock,
             rm: rm,
             idleKind: st.wildMood == 'wary' && st.wildAnim == null ? 'shiver' : 'wild',
+            dark: _darkCreatures.contains(props.view.creature.id),
             child: body,
           ),
         ),
@@ -1297,12 +1433,13 @@ class _PetBody extends StatelessWidget {
 /// function eased within each segment. The transform origin is 50% / 92%. With reduced motion the
 /// bodies hold still, like the web.
 class _AnimatedBody extends StatelessWidget {
-  const _AnimatedBody({required this.anim, required this.clock, required this.rm, required this.idleKind, required this.child});
+  const _AnimatedBody({required this.anim, required this.clock, required this.rm, required this.idleKind, required this.child, this.dark = false});
   final StageAnim? anim;
   final StageClock clock;
   final bool rm;
   final String idleKind; // wild | shiver | pet
   final Widget child;
+  final bool dark; // a dark sprite: the hit flash brightens it rather than tinting it gold
 
   @override
   Widget build(BuildContext context) {
@@ -1342,6 +1479,7 @@ class _AnimatedBody extends StatelessWidget {
       builder: (_, c) {
         final t = a.span.t(clock);
         var dx = 0.0, dy = 0.0, sx = 1.0, sy = 1.0, rot = 0.0, op = 1.0, bright = 1.0, sat = 1.0, white = 0.0;
+        ColorFilter? tint;
         switch (a.name) {
           case 'hit':
             // wHit .6s cubic-bezier(.2,.8,.3,1.1): knocked back and squashed, then it settles
@@ -1352,13 +1490,12 @@ class _AnimatedBody extends StatelessWidget {
             rot = _kf(t, st, [0, 4, 0, 0, 0], cv) * _deg;
             sx = _kf(t, st, [1, 1.16, .94, 1.02, 1], cv);
             sy = _kf(t, st, [1, .84, 1.07, .98, 1], cv);
-            // wFlash .5s steps(1, end): two hard white frames
+            // wFlash .5s steps(1, end): two hard frames of a warm gold tint
             final fm = t * a.ms;
             if (fm < 70) {
-              white = 1;
+              tint = dark ? _hitDarkA : _hitTintA;
             } else if (fm >= 130 && fm < 190) {
-              white = 1;
-              op = 0.75;
+              tint = dark ? _hitDarkB : _hitTintB;
             }
           case 'look':
             // wLook 1.5s ease-in-out
@@ -1480,6 +1617,7 @@ class _AnimatedBody extends StatelessWidget {
             sy = _kf(t, st, [1, 1, .95, 1, 1], cv);
         }
         Widget w = c!;
+        if (tint != null) w = ColorFiltered(colorFilter: tint, child: w);
         if (bright != 1 || sat != 1) w = ColorFiltered(colorFilter: _filter(bright, sat), child: w);
         if (white >= 1) {
           w = ColorFiltered(colorFilter: _whiteSilhouette, child: c);
@@ -1505,23 +1643,24 @@ class _AnimatedBody extends StatelessWidget {
 }
 
 // ------------------------------------------------------------------------ effects ----
-/// The few effects the canvas does not draw: floating numbers, the "?" bubble, Petalune swooping
-/// in, and the reduced-motion item toss.
+/// The few effects the canvas does not draw: floating number bubbles, the "?" bubble, Petalune
+/// swooping in, the speech bubble after a win, and the reduced-motion item toss.
 class _FxLayer extends StatelessWidget {
   const _FxLayer({required this.stage, required this.bw, required this.bh, required this.vh});
   final EncounterStage stage;
   final double bw, bh, vh;
   @override
   Widget build(BuildContext context) => Stack(clipBehavior: Clip.none, children: [
-        for (final f in stage.fx) _FxWidget(key: ValueKey('fx-${f.id}'), fx: f, clock: stage.clock, bw: bw, bh: bh, vh: vh),
+        for (final f in stage.fx) _FxWidget(key: ValueKey('fx-${f.id}'), fx: f, clock: stage.clock, bw: bw, bh: bh, vh: vh, rm: stage.reducedMotion),
       ]);
 }
 
 class _FxWidget extends StatelessWidget {
-  const _FxWidget({super.key, required this.fx, required this.clock, required this.bw, required this.bh, required this.vh});
+  const _FxWidget({super.key, required this.fx, required this.clock, required this.bw, required this.bh, required this.vh, required this.rm});
   final FxItem fx;
   final StageClock clock;
   final double bw, bh, vh;
+  final bool rm;
 
   bool _has(String word) => fx.cls.split(' ').contains(word);
 
@@ -1532,7 +1671,8 @@ class _FxWidget extends StatelessWidget {
     final y = f.y * bh;
     switch (f.kind) {
       case 'float':
-        // encFloat 1.4s cubic-bezier(.2,.8,.3,1): pops in big, settles, rises and fades
+        // encFloat 1.4s cubic-bezier(.2,.8,.3,1): a bubble with an icon and a little tail pops in big,
+        // settles, rises and fades
         final violet = _has('violet');
         final bad = _has('bad');
         final energy = _has('energy');
@@ -1543,7 +1683,45 @@ class _FxWidget extends StatelessWidget {
                 : violet
                     ? const [Color(0xFFCDB2F5), Color(0xFF8B5FD2)]
                     : const [Color(0xFFA8E07E), Color(0xFF57A845)];
+        final ic = f.text.contains('Calm')
+            ? 'leaf'
+            : f.text.contains('Instab')
+                ? 'hollow'
+                : f.text.contains('Energy')
+                    ? 'bolt'
+                    : null;
         const cv = Cubic(0.2, 0.8, 0.3, 1);
+        final bubble = Stack(clipBehavior: Clip.none, children: [
+          Container(
+            padding: const EdgeInsets.fromLTRB(3, 3, 12, 3),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.white, width: 2.5),
+              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: colors),
+              boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 8, offset: Offset(0, 3))],
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              if (ic != null) ...[
+                Container(width: 24, height: 24, padding: const EdgeInsets.all(3), decoration: const BoxDecoration(shape: BoxShape.circle, color: Colors.white), child: EncIcon(ic, size: 18)),
+                const SizedBox(width: 5),
+              ],
+              Text(
+                // the icon names the meter, so the long word can go: "−21 ✦" rather than "−21 Instability"
+                f.text.endsWith(' Instability') ? f.text.substring(0, f.text.length - ' Instability'.length) : f.text,
+                style: TextStyle(
+                  fontFamily: EvochiText.game,
+                  fontWeight: FontWeight.w900,
+                  fontSize: 18,
+                  height: 1.2,
+                  color: energy ? const Color(0xFF5A3A10) : Colors.white,
+                  shadows: energy ? null : const [Shadow(color: Color(0x40000000), offset: Offset(0, 1), blurRadius: 1)],
+                ),
+              ),
+            ]),
+          ),
+          // the tail, in the bubble's lower colour, hanging under its left side
+          Positioned(left: 18.5, bottom: -6.5, child: CustomPaint(size: const Size(13, 10), painter: _TailPainter(colors.last, tip: 0.15))),
+        ]);
         return Positioned(
           left: x,
           top: y,
@@ -1556,26 +1734,36 @@ class _FxWidget extends StatelessWidget {
               final sc = _kf(t, [0, .12, .24, 1], [0.4, 1.28, 1, 0.9], cv);
               return Opacity(opacity: op, child: FractionalTranslation(translation: Offset(-0.5, ty), child: Transform.scale(scale: sc, child: child)));
             },
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(11, 3, 11, 3),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(color: Colors.white, width: 2.5),
-                gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: colors),
-                boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 8, offset: Offset(0, 3))],
-              ),
-              child: Text(
-                f.text,
-                style: TextStyle(
-                  fontFamily: EvochiText.game,
-                  fontWeight: FontWeight.w900,
-                  fontSize: 16,
-                  color: energy ? const Color(0xFF5A3A10) : Colors.white,
-                  shadows: energy ? null : const [Shadow(color: Color(0x40000000), offset: Offset(0, 1), blurRadius: 1)],
-                ),
-              ),
-            ),
+            child: bubble,
           ),
+        );
+      case 'speech':
+        // a speech bubble over the creature after the win: speechIn .6s, then a slow bob
+        final box = Stack(clipBehavior: Clip.none, children: [
+          Container(
+            width: 48,
+            height: 44,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 10, offset: Offset(0, 4))]),
+            child: EncIcon(f.cls == 'befriend' ? 'trust' : 'sun', size: 30),
+          ),
+          Positioned(left: 17, bottom: -8, child: CustomPaint(size: const Size(14, 10), painter: _TailPainter(Colors.white, tip: 0.5))),
+        ]);
+        return Positioned(
+          left: x - 24,
+          top: y - 22,
+          child: rm
+              ? box
+              : AnimatedBuilder(
+                  animation: clock,
+                  builder: (_, child) {
+                    final e = f.span.elapsed(clock);
+                    final k = const Cubic(0.2, 1.6, 0.4, 1).transform((e / 0.6).clamp(0.0, 1.0));
+                    final bob = e < 0.6 ? 0.0 : -5 * Curves.easeInOut.transform(_tri(((e - 0.6) % 2.4) / 2.4));
+                    return Transform.translate(offset: Offset(0, 10 * (1 - k) + bob), child: Transform.scale(scale: k, child: child));
+                  },
+                  child: box,
+                ),
         );
       case 'proj':
         // the reduced-motion toss: the item along an arc, turning over
@@ -1656,6 +1844,25 @@ class _FxWidget extends StatelessWidget {
   }
 }
 
+/// A bubble's tail: a triangle from its top edge down to a tip at [tip] of its width.
+class _TailPainter extends CustomPainter {
+  const _TailPainter(this.color, {required this.tip});
+  final Color color;
+  final double tip;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final p = Path()
+      ..moveTo(0, 0)
+      ..lineTo(size.width, 0)
+      ..lineTo(size.width * tip, size.height)
+      ..close();
+    canvas.drawPath(p, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_TailPainter old) => old.color != color || old.tip != tip;
+}
+
 // ------------------------------------------------------------------------- plates ----
 /// A plate fades and slides out of the way during the intro and the result.
 class _PlateFade extends StatelessWidget {
@@ -1679,28 +1886,14 @@ class _PlateFade extends StatelessWidget {
       );
 }
 
-BoxDecoration _plateDecoration() => BoxDecoration(
-      gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFFCF6), Color(0xFFFBF1E3)]),
-      border: Border.all(color: const Color(0xFFEBD8C1), width: 2),
+BoxDecoration _plateDecoration({bool hollow = false}) => BoxDecoration(
+      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: hollow ? const [Color(0xFFFCF8FF), Color(0xFFEFE6FA)] : const [Color(0xFFFFFCF6), Color(0xFFFBF1E3)]),
+      border: Border.all(color: hollow ? const Color(0xFFD6C4F0) : const Color(0xFFEBD8C1), width: 2),
       borderRadius: BorderRadius.circular(16),
-      boxShadow: const [BoxShadow(color: Color(0xF2D0B89C), offset: Offset(0, 4)), BoxShadow(color: Color(0x471E1208), blurRadius: 22, offset: Offset(0, 10))],
+      boxShadow: hollow
+          ? const [BoxShadow(color: Color(0xF2AA8CD2), offset: Offset(0, 4)), BoxShadow(color: Color(0x59140824), blurRadius: 22, offset: Offset(0, 10))]
+          : const [BoxShadow(color: Color(0xF2D0B89C), offset: Offset(0, 4)), BoxShadow(color: Color(0x471E1208), blurRadius: 22, offset: Offset(0, 10))],
     );
-
-class _Badge extends StatelessWidget {
-  const _Badge({required this.icon, required this.bg, required this.ring, this.size = 42});
-  final String icon;
-  final Color bg;
-  final Color ring;
-  final double size;
-  @override
-  Widget build(BuildContext context) => Container(
-        width: size,
-        height: size,
-        alignment: Alignment.center,
-        decoration: BoxDecoration(shape: BoxShape.circle, color: bg, border: Border.all(color: ring, width: 2), boxShadow: const [BoxShadow(color: Color(0x14000000), offset: Offset(0, 2))]),
-        child: VoxelIcon(icon, size: size * 0.81),
-      );
-}
 
 /// A meter: a rounded bar with its label inside the fill and the value to the right.
 class StageMeter extends StatelessWidget {
@@ -1775,7 +1968,9 @@ class StageMeter extends StatelessWidget {
 
 const rarityNames = {'rare': 'Rare', 'uncommon': 'Uncommon', 'legendary': 'Legendary', 'common': 'Common'};
 
-/// The wild one's nameplate: badge, rarity line, name, affinity tile, and its Calm / Instability meter.
+/// The wild one's nameplate (after the redesign board): its portrait, name, the meter's label and value,
+/// a thin bar and the affinity; under it the goal pill with the turn and the status chips, and under
+/// those the announcements.
 class _WildPlate extends StatelessWidget {
   const _WildPlate({required this.stage, required this.view});
   final EncounterStage stage;
@@ -1785,44 +1980,258 @@ class _WildPlate extends StatelessWidget {
     final c = view.creature;
     final hollow = c.kind == 'hollow';
     final a = tr.affinityDefs[c.affinity]!;
-    final sub = c.boss ? 'Legendary · Story boss' : '${rarityNames[c.rarity] ?? ''}${hollow ? ' · Hollow' : ' · ${a.name}'}';
-    return Semantics(
+    final befriend = view.goal == 'befriend';
+    final aff = VoxelIcon(a.icon, size: 26);
+    final card = Semantics(
       container: true,
-      label: '${c.name}, $sub. ${view.meterLabel} ${stage.meterText}',
+      label: '${c.name}. ${view.meterLabel} ${stage.meterText}',
       child: ExcludeSemantics(
         child: Container(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
-          decoration: _plateDecoration(),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Row(children: [
-              hollow ? const _Badge(icon: 'moon', bg: Color(0xFF3F2E62), ring: Color(0xFF8E5BD6)) : _Badge(icon: a.icon, bg: const Color(0xFFE5F2CF), ring: const Color(0xFF9ACB76)),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Text(sub, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 12.5, color: EvochiColor.textHelper)),
-                  Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 20, height: 1.1, color: EvochiColor.ink)),
+          padding: const EdgeInsets.fromLTRB(9, 9, 12, 11),
+          decoration: _plateDecoration(hollow: hollow),
+          child: Row(children: [
+            EncFace.creature(c.id, size: 54, hollow: hollow),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+                Row(children: [
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+                      Text(c.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 19, height: 1.1, color: EvochiColor.ink)),
+                      Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+                        Expanded(child: Text(view.meterLabel, style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 13, color: hollow ? const Color(0xFF8455CE) : const Color(0xFF4E8C36)))),
+                        const SizedBox(width: 8),
+                        Text(stage.meterText, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 14, color: EvochiColor.ink)),
+                      ]),
+                    ]),
+                  ),
+                  const SizedBox(width: 10),
+                  Container(
+                    width: 34,
+                    height: 34,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: hollow ? const Color(0xFFEEE8F4) : const Color(0xFFE8F3DA),
+                      border: Border.all(color: hollow ? const Color(0xFFDCCFEA) : const Color(0xFFCFE5B5), width: 1.5),
+                    ),
+                    child: hollow ? Opacity(opacity: 0.8, child: ColorFiltered(colorFilter: const ColorFilter.matrix(_grey70), child: aff)) : aff,
+                  ),
                 ]),
-              ),
-              const SizedBox(width: 10),
-              Container(
-                width: 40,
-                height: 40,
-                alignment: Alignment.center,
-                decoration: BoxDecoration(
-                  color: hollow ? const Color(0xFFEEE8F4) : const Color(0xFFE8F3DA),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: hollow ? const Color(0xFFDCCFEA) : const Color(0xFFCFE5B5), width: 1.5),
-                ),
-                child: hollow ? Opacity(opacity: 0.8, child: ColorFiltered(colorFilter: const ColorFilter.matrix(_grey70), child: VoxelIcon(a.icon, size: 32))) : VoxelIcon(a.icon, size: 32),
-              ),
-            ]),
-            const SizedBox(height: 8),
-            StageMeter(kind: view.goal == 'befriend' ? 'calm' : 'inst', label: view.meterLabel, frac: stage.meter, value: stage.meterText),
+                const SizedBox(height: 5),
+                ThinBar(kind: befriend ? 'calm' : 'inst', frac: stage.meter),
+              ]),
+            ),
           ]),
         ),
       ),
     );
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+      card,
+      const SizedBox(height: 7),
+      // the persistent goal, the turn, and the wild one's status chips
+      SizedBox(
+        height: 32,
+        child: Row(children: [
+          Expanded(child: Align(alignment: Alignment.centerLeft, child: _GoalPill(goal: befriend ? 'Earn its trust' : 'Restore its light', turn: stage.turnText))),
+          for (final x in stage.wildChips) Padding(padding: const EdgeInsets.only(left: 5), child: _StatusChip(key: ValueKey('wc-${x.id}'), status: x, stage: stage)),
+        ]),
+      ),
+      const SizedBox(height: 7),
+      // the announcements
+      Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        for (final x in stage.anns) Padding(padding: const EdgeInsets.only(bottom: 6), child: _Announcement(key: ValueKey('ann-${x.id}'), ann: x)),
+      ]),
+    ]);
   }
+}
+
+/// "Earn its trust | Turn 3": the goal pill under the wild one's plate.
+class _GoalPill extends StatelessWidget {
+  const _GoalPill({required this.goal, required this.turn});
+  final String goal;
+  final String turn;
+  @override
+  Widget build(BuildContext context) => Semantics(
+        label: 'Goal: $goal. $turn',
+        child: ExcludeSemantics(
+          child: Container(
+            height: 30,
+            padding: const EdgeInsets.fromLTRB(4, 0, 11, 0),
+            decoration: BoxDecoration(
+              color: const Color(0xF2FFFDF8),
+              borderRadius: BorderRadius.circular(15),
+              border: Border.all(color: const Color(0xFFEBDCC8), width: 1.5),
+              boxShadow: const [BoxShadow(color: Color(0xE6D0B89C), offset: Offset(0, 2)), BoxShadow(color: Color(0x2E1E1208), blurRadius: 10, offset: Offset(0, 4))],
+            ),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const EncIcon('target', size: 22),
+              const SizedBox(width: 6),
+              Flexible(child: Text(goal, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 13, color: EvochiColor.ink))),
+              Container(
+                margin: const EdgeInsets.only(left: 9),
+                padding: const EdgeInsets.only(left: 8),
+                decoration: const BoxDecoration(border: Border(left: BorderSide(color: Color(0xFFE6D5C0), width: 1.5))),
+                child: Text(turn, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 13, color: EvochiColor.textHelper)),
+              ),
+            ]),
+          ),
+        ),
+      );
+}
+
+const _chipColors = <String, (Color, Color, Color)>{
+  'hollowed': (Color(0xFFF3EAFE), Color(0xFFCDB4F2), Color(0xFFB79AE2)),
+  'unsteady': (Color(0xFFF3EAFE), Color(0xFFCDB4F2), Color(0xFFB79AE2)),
+  'flicker': (Color(0xFFF3EAFE), Color(0xFFCDB4F2), Color(0xFFB79AE2)),
+  'waking': (Color(0xFFF3EAFE), Color(0xFFCDB4F2), Color(0xFFB79AE2)),
+  'trust': (Color(0xFFFDEDF2), Color(0xFFF4BFD0), Color(0xFFE3A0B6)),
+  'bloom': (Color(0xFFFDEDF2), Color(0xFFF4BFD0), Color(0xFFE3A0B6)),
+  'soothed': (Color(0xFFE4F8F3), Color(0xFFA8E3D5), Color(0xFF86CDBC)),
+  'wary': (Color(0xFFE7F2FD), Color(0xFFA9CDEE), Color(0xFF8AB5DD)),
+  'charged': (Color(0xFFFFF6D8), Color(0xFFF2D27F), Color(0xFFDDB75A)),
+  'tired': (Color(0xFFFDE9E6), Color(0xFFF2B5AE), Color(0xFFDE958C)),
+};
+
+/// A status chip: its icon on a tinted tile; it pops in when it first appears, and a tap announces
+/// what it means.
+class _StatusChip extends StatelessWidget {
+  const _StatusChip({super.key, required this.status, required this.stage});
+  final StageStatus status;
+  final EncounterStage stage;
+  @override
+  Widget build(BuildContext context) {
+    final (bg, edge, shade) = _chipColors[status.id] ?? (const Color(0xF2FFFDF8), const Color(0xFFEBDCC8), const Color(0xE6D0B89C));
+    return Semantics(
+      button: true,
+      label: '${status.name}: ${status.text}',
+      child: GestureDetector(
+        onTap: () => stage.announce('${status.name}: ${status.text}', 'calm'),
+        child: ExcludeSemantics(
+          child: TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0, end: 1),
+            duration: const Duration(milliseconds: 550),
+            curve: const Cubic(0.2, 1.7, 0.4, 1),
+            builder: (_, t, child) => Transform.rotate(angle: -20 * _deg * (1 - t), child: Transform.scale(scale: t, child: child)),
+            child: Container(
+              width: 30,
+              height: 30,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: bg,
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: edge, width: 1.5),
+                boxShadow: [BoxShadow(color: shade, offset: const Offset(0, 2))],
+              ),
+              child: EncIcon(status.id, size: 20),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+const _annIcon = {'good': 'spark', 'love': 'trust', 'wary': 'wary', 'hollow': 'hollow', 'calm': 'leaf', 'meh': 'tired'};
+const _annTile = {'good': Color(0x47FFD25A), 'hollow': Color(0x52B48CFF), 'love': Color(0x4DF58CA6), 'calm': Color(0x4D7CC456), 'wary': Color(0x4D8EC2F0)};
+
+/// An announcement: a dark pill with an icon, sliding in from the left and fading out to it.
+class _Announcement extends StatelessWidget {
+  const _Announcement({super.key, required this.ann});
+  final StageAnn ann;
+  @override
+  Widget build(BuildContext context) {
+    final pill = Container(
+      constraints: const BoxConstraints(maxWidth: 290),
+      padding: const EdgeInsets.fromLTRB(5, 5, 12, 5),
+      decoration: BoxDecoration(
+        color: ann.tone == 'hollow' ? const Color(0xE6301852) : const Color(0xDB221828),
+        borderRadius: BorderRadius.circular(14),
+        boxShadow: const [BoxShadow(color: Color(0x47000000), blurRadius: 12, offset: Offset(0, 4))],
+      ),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
+        Container(
+          width: 26,
+          height: 26,
+          padding: const EdgeInsets.all(4),
+          decoration: BoxDecoration(color: _annTile[ann.tone] ?? const Color(0x24FFFFFF), borderRadius: BorderRadius.circular(9)),
+          child: EncIcon(_annIcon[ann.tone] ?? 'spark', size: 18),
+        ),
+        const SizedBox(width: 7),
+        Flexible(child: Text(ann.text, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 13.5, height: 1.2, color: Color(0xFFFFF7EA)))),
+      ]),
+    );
+    return Semantics(
+      liveRegion: true,
+      label: ann.text,
+      child: ExcludeSemantics(
+        // annIn .4s cubic-bezier(.2,1.4,.4,1), then out over .4s
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0, end: 1),
+          duration: const Duration(milliseconds: 400),
+          curve: const Cubic(0.2, 1.4, 0.4, 1),
+          builder: (_, t, child) => TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: ann.out ? 1.0 : 0.0),
+            duration: const Duration(milliseconds: 400),
+            builder: (_, o, c2) => Opacity(
+              opacity: (t.clamp(0.0, 1.0) * (1 - o)).clamp(0.0, 1.0),
+              child: Transform.translate(offset: Offset(-16 * (1 - t) - 12 * o, 0), child: Transform.scale(scale: 0.9 + 0.1 * t, alignment: Alignment.centerLeft, child: c2)),
+            ),
+            child: child,
+          ),
+          child: pill,
+        ),
+      ),
+    );
+  }
+}
+
+/// Your Evochi's plate: its face, name and level, the Energy bar, and its status chips above it.
+class _PetPlate extends StatelessWidget {
+  const _PetPlate({required this.stage, required this.pet, required this.level});
+  final EncounterStage stage;
+  final Pet pet;
+  final int level;
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+        if (stage.petChips.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(left: 4, bottom: 6),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              for (var i = 0; i < stage.petChips.length; i++) ...[
+                if (i > 0) const SizedBox(width: 5),
+                _StatusChip(key: ValueKey('pc-${stage.petChips[i].id}'), status: stage.petChips[i], stage: stage),
+              ],
+            ]),
+          ),
+        Semantics(
+          container: true,
+          label: '${pet.name}, level $level. Energy ${stage.energyText}',
+          child: ExcludeSemantics(
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(7, 7, 12, 9),
+              decoration: _plateDecoration(),
+              child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
+                EncFace.pet(pet, size: 46),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+                    Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
+                      Expanded(child: Text(pet.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 17, height: 1.1, color: EvochiColor.ink))),
+                      const SizedBox(width: 6),
+                      Text('Lv. $level', style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 13, color: EvochiColor.textSecondary)),
+                    ]),
+                    const SizedBox(height: 2),
+                    const Text('Energy', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 12, color: EvochiColor.textSecondary)),
+                    const SizedBox(height: 1),
+                    StageMeter(kind: 'energy', label: 'Energy', frac: stage.energy, value: stage.energyText, labelInside: false),
+                  ]),
+                ),
+              ]),
+            ),
+          ),
+        ),
+      ]);
 }
 
 // grayscale(0.7)
@@ -1833,189 +2242,119 @@ const _grey70 = <double>[
   0, 0, 0, 1, 0,
 ];
 
-/// Your Evochi's plate: swirl badge, name and level, the Energy bar.
-class _PetPlate extends StatelessWidget {
-  const _PetPlate({required this.stage, required this.pet, required this.level});
-  final EncounterStage stage;
-  final Pet pet;
-  final int level;
+// ------------------------------------------------------------------ reward toasts ----
+/// A reward toast (the board's Reward Toast): a dark gold-rimmed pill with the reward's picture and a
+/// line, three sparkles twinkling on its edges; it drops in, and rises away when it leaves.
+class _RewardToast extends StatefulWidget {
+  const _RewardToast({super.key, required this.toast, required this.rm});
+  final StageToast toast;
+  final bool rm;
   @override
-  Widget build(BuildContext context) => Semantics(
-        container: true,
-        label: '${pet.name}, level $level. Energy ${stage.energyText}',
-        child: ExcludeSemantics(
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(8, 8, 12, 10),
-            decoration: _plateDecoration(),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
-              const _Badge(icon: 'swirl', bg: Color(0xFFFBE0CC), ring: Color(0xFFEE9A78)),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-                  Row(crossAxisAlignment: CrossAxisAlignment.baseline, textBaseline: TextBaseline.alphabetic, children: [
-                    Expanded(child: Text(pet.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 17, height: 1.1, color: EvochiColor.ink))),
-                    const SizedBox(width: 6),
-                    Text('Lv. $level', style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 13, color: EvochiColor.textSecondary)),
-                  ]),
-                  const SizedBox(height: 2),
-                  const Text('Energy', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 12, color: EvochiColor.textSecondary)),
-                  const SizedBox(height: 1),
-                  StageMeter(kind: 'energy', label: 'Energy', frac: stage.energy, value: stage.energyText, labelInside: false),
-                ]),
-              ),
-            ]),
-          ),
-        ),
-      );
+  State<_RewardToast> createState() => _RewardToastState();
 }
 
-// ------------------------------------------------------------- title, ribbon, caption ----
-class _IntroTitle extends StatelessWidget {
-  const _IntroTitle({super.key, required this.shown, required this.title, required this.sub, required this.hollow, required this.boss, required this.reducedMotion});
-  final bool shown;
-  final String title;
-  final String sub;
-  final bool hollow;
-  final bool boss;
-  final bool reducedMotion;
+class _RewardToastState extends State<_RewardToast> with SingleTickerProviderStateMixin {
+  late final AnimationController _tw = AnimationController(vsync: this, duration: const Duration(milliseconds: 1200));
+
+  @override
+  void initState() {
+    super.initState();
+    if (!widget.rm) _tw.repeat();
+  }
+
+  @override
+  void dispose() {
+    _tw.dispose();
+    super.dispose();
+  }
+
+  Widget _sparkle(double delay) => AnimatedBuilder(
+        animation: _tw,
+        builder: (_, __) {
+          // twinkle 1.2s ease-in-out: small and dim, big and bright, back
+          final t = ((_tw.value - delay / 1.2) % 1.0 + 1.0) % 1.0;
+          final k = Curves.easeInOut.transform(t < 0.5 ? t * 2 : 2 - t * 2);
+          return Opacity(opacity: 0.4 + 0.6 * k, child: Transform.scale(scale: 0.4 + 0.8 * k, child: const SizedBox(width: 13, height: 13, child: CustomPaint(painter: _ToastSparkPainter()))));
+        },
+      );
+
   @override
   Widget build(BuildContext context) {
-    if (!shown) return const SizedBox.shrink();
-    final pill = Column(mainAxisSize: MainAxisSize.min, children: [
-      Container(
-        padding: const EdgeInsets.fromLTRB(22, 9, 22, 9),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: hollow ? const [Color(0xFF2E2244), Color(0xFF241A36)] : const [Color(0xFFFFFCF6), Color(0xFFFBEFD9)]),
-          border: Border.all(color: hollow ? const Color(0xFFA98BDA) : const Color(0xFFE8B956), width: 2.5),
-          boxShadow: hollow
-              ? const [BoxShadow(color: Color(0xFF6E4FA3), offset: Offset(0, 4)), BoxShadow(color: Color(0xA6AA6EFF), blurRadius: 30)]
-              : const [BoxShadow(color: EvochiColor.primaryShadow, offset: Offset(0, 4)), BoxShadow(color: Color(0x59000000), blurRadius: 26, offset: Offset(0, 12))],
-        ),
-        child: Text(
-          title,
-          textAlign: TextAlign.center,
-          style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: boss ? 24 : 21, height: 1.15, letterSpacing: boss ? 0.3 : 0, color: hollow ? const Color(0xFFEDE2FB) : EvochiColor.ink),
-        ),
+    final t = widget.toast;
+    final w = MediaQuery.of(context).size.width;
+    final pill = Container(
+      constraints: BoxConstraints(maxWidth: math.max(0.0, w - 28)),
+      padding: const EdgeInsets.fromLTRB(8, 8, 18, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(18),
+        gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF5E3D1C), Color(0xFF3B2410)]),
+        border: Border.all(color: const Color(0xFFE7B54C), width: 2),
+        boxShadow: const [BoxShadow(color: Color(0x40FFD66E), spreadRadius: 3), BoxShadow(color: Color(0x66000000), blurRadius: 24, offset: Offset(0, 10))],
       ),
-      if (sub.isNotEmpty) ...[
-        const SizedBox(height: 8),
+      child: Row(mainAxisSize: MainAxisSize.min, children: [
         Container(
-          padding: const EdgeInsets.fromLTRB(14, 4, 14, 4),
-          decoration: BoxDecoration(color: const Color(0xD1281C18), borderRadius: BorderRadius.circular(10)),
-          child: Text(sub, textAlign: TextAlign.center, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 13.5, color: Color(0xFFFFF6E6))),
+          width: 42,
+          height: 42,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), gradient: const RadialGradient(colors: [Color(0xFFFFF3C9), Color(0xFFE7B54C)])),
+          child: t.itemId != null ? ItemImage(t.itemId!, size: 34) : VoxelIcon(t.icon ?? 'star', size: 34),
         ),
-      ],
+        const SizedBox(width: 10),
+        Flexible(child: Text(t.text, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 16, height: 1.2, color: Color(0xFFFFE9A8)))),
+      ]),
+    );
+    final body = Stack(clipBehavior: Clip.none, children: [
+      pill,
+      Positioned(left: -6, top: -6, child: _sparkle(0)),
+      Positioned(right: 14, top: -9, child: _sparkle(0.4)),
+      Positioned(right: -6, bottom: -4, child: _sparkle(0.8)),
     ]);
     return Semantics(
       liveRegion: true,
-      label: '$title. $sub',
+      label: t.text,
       child: ExcludeSemantics(
+        // rtIn .55s cubic-bezier(.2,1.5,.4,1); out: fade and rise over .4s
         child: TweenAnimationBuilder<double>(
           tween: Tween(begin: 0, end: 1),
-          duration: Duration(milliseconds: reducedMotion ? 200 : 800),
-          curve: popCurve,
-          builder: (_, t, child) => Opacity(opacity: t.clamp(0.0, 1.0), child: Transform.translate(offset: Offset(0, 18 * (1 - t)), child: Transform.scale(scale: 0.86 + 0.14 * t, child: child))),
-          child: pill,
+          duration: Duration(milliseconds: widget.rm ? 1 : 550),
+          curve: const Cubic(0.2, 1.5, 0.4, 1),
+          builder: (_, k, child) => TweenAnimationBuilder<double>(
+            tween: Tween(begin: 0.0, end: t.out ? 1.0 : 0.0),
+            duration: const Duration(milliseconds: 400),
+            builder: (_, o, c2) => Opacity(
+              opacity: (k.clamp(0.0, 1.0) * (1 - o)).clamp(0.0, 1.0),
+              child: Transform.translate(offset: Offset(0, -20 * (1 - k) - 14 * o), child: Transform.scale(scale: 0.85 + 0.15 * k, child: c2)),
+            ),
+            child: child,
+          ),
+          child: body,
         ),
       ),
     );
   }
 }
 
-/// "Success!" / "Restored!" over the shot, cream with gold ends.
-class _Ribbon extends StatelessWidget {
-  const _Ribbon({required this.shown, required this.view, required this.hollow});
-  final bool shown;
-  final tr.EncounterView view;
-  final bool hollow;
+class _ToastSparkPainter extends CustomPainter {
+  const _ToastSparkPainter();
   @override
-  Widget build(BuildContext context) {
-    final befriend = view.goal == 'befriend';
-    final text = befriend ? 'Success!' : 'Restored!';
-    final sub = befriend ? '${view.creature.name} trusts you!' : '${view.creature.name} remembers its light.';
-    return AnimatedOpacity(
-      duration: const Duration(milliseconds: 500),
-      opacity: shown ? 1 : 0,
-      child: AnimatedSlide(
-        duration: const Duration(milliseconds: 600),
-        curve: popCurve,
-        offset: shown ? Offset.zero : const Offset(0, -0.3),
-        child: AnimatedScale(
-          duration: const Duration(milliseconds: 600),
-          curve: popCurve,
-          scale: shown ? 1 : 0.9,
-          child: Semantics(
-            liveRegion: shown,
-            label: shown ? '$text $sub' : null,
-            child: ExcludeSemantics(
-              child: Stack(clipBehavior: Clip.none, children: [
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.fromLTRB(18, 10, 18, 12),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(8),
-                    gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFF9EA), Color(0xFFFBEBCB)]),
-                    border: Border.all(color: const Color(0xFFE5BF73), width: 2.5),
-                    boxShadow: const [BoxShadow(color: Color(0xFFD3A44C), offset: Offset(0, 4)), BoxShadow(color: Color(0x521E1208), blurRadius: 24, offset: Offset(0, 12))],
-                  ),
-                  child: Column(children: [
-                    Text(text,
-                        style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 27, height: 1.1, color: hollow ? const Color(0xFF5B3AA0) : const Color(0xFF3E7D33), shadows: const [Shadow(color: Colors.white, offset: Offset(0, 2))])),
-                    const SizedBox(height: 2),
-                    Text(sub, textAlign: TextAlign.center, style: const TextStyle(fontFamily: EvochiText.body, fontWeight: FontWeight.w700, fontSize: 15, color: EvochiColor.textSecondary)),
-                  ]),
-                ),
-                const Positioned(left: -12, top: -8, bottom: -8, child: _RibbonEnd()),
-                const Positioned(right: -12, top: -8, bottom: -8, child: _RibbonEnd()),
-              ]),
-            ),
-          ),
-        ),
-      ),
-    );
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+    final p = Path()
+      ..moveTo(w * 0.5, 0)
+      ..lineTo(w * 0.6, h * 0.4)
+      ..lineTo(w, h * 0.5)
+      ..lineTo(w * 0.6, h * 0.6)
+      ..lineTo(w * 0.5, h)
+      ..lineTo(w * 0.4, h * 0.6)
+      ..lineTo(0, h * 0.5)
+      ..lineTo(w * 0.4, h * 0.4)
+      ..close();
+    canvas.drawPath(p, Paint()..color = const Color(0xFFFFF3C4));
   }
-}
 
-class _RibbonEnd extends StatelessWidget {
-  const _RibbonEnd();
   @override
-  Widget build(BuildContext context) => Container(
-        width: 18,
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(9),
-          gradient: const LinearGradient(colors: [Color(0xFFD69A35), Color(0xFFF9D883), Color(0xFFE2AA45)], stops: [0, 0.45, 1]),
-          boxShadow: const [BoxShadow(color: Color(0xFFB47E22), offset: Offset(0, 3))],
-        ),
-      );
-}
-
-/// The last log line as a caption card on the shot (names in bold).
-class _Caption extends StatelessWidget {
-  const _Caption({required this.shown, required this.text, required this.names});
-  final bool shown;
-  final String text;
-  final List<String> names;
-  @override
-  Widget build(BuildContext context) => AnimatedOpacity(
-        duration: const Duration(milliseconds: 500),
-        opacity: shown ? 1 : 0,
-        child: AnimatedSlide(
-          duration: const Duration(milliseconds: 600),
-          curve: popCurve,
-          offset: shown ? Offset.zero : const Offset(0, 0.3),
-          child: Container(
-            padding: const EdgeInsets.fromLTRB(14, 11, 14, 11),
-            decoration: BoxDecoration(
-              color: const Color(0xF5FFFDF9),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFFEBDCC8), width: 2),
-              boxShadow: const [BoxShadow(color: Color(0xE6D0B89C), offset: Offset(0, 4)), BoxShadow(color: Color(0x401E1208), blurRadius: 22, offset: Offset(0, 10))],
-            ),
-            child: logText(text, names, fontSize: 15, height: 21 / 15),
-          ),
-        ),
-      );
+  bool shouldRepaint(_ToastSparkPainter old) => false;
 }
 
 /// A log line with the names in bold, like the board.

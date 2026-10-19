@@ -1,5 +1,7 @@
 // Canvas effects for the encounter stage: particles, trails, rings, rays and glows on two layers (one
-// behind the creatures, one in front), drawn from soft pre-rendered sprites with additive light.
+// behind the creatures, one in front), drawn from soft pre-rendered sprites with additive light, and the
+// encounter board's effect library (Lumen Wisps, Flower Petals, Healing Sparkles, Golden Pulse, Hollow
+// Shards, Violet Crackle, Dust Burst).
 //
 // Positions are fractions of the world box (the backdrop), like [ShotGeometry]; sizes and speeds are
 // in units of 1% of the world's width ("u"), so an effect looks the same on any phone. One clock,
@@ -26,6 +28,9 @@ const Map<String, List<Color>> fxPalettes = {
   'white': [Color(0xFFFFFFFF), Color(0xFFFFFFFF), Color(0xFFFFFFFF)],
   'red': [Color(0xFFFFFFFF), Color(0xFFFFD0C4), Color(0xFFF06A5A)],
   'green': [Color(0xFFFFFFFF), Color(0xFFDDF5C8), Color(0xFF7AC24F)],
+  'leaf': [Color(0xFFF2FFE0), Color(0xFF9FDB6A), Color(0xFF4E9E3A)],
+  'crystal': [Color(0xFFF3E9FF), Color(0xFF8B5BD8), Color(0xFF3A2368)],
+  'rock': [Color(0xFFE9DFCB), Color(0xFFB5A58A), Color(0xFF7D6E58)],
 };
 
 List<Color> _pal(String name) => fxPalettes[name] ?? fxPalettes['white']!;
@@ -90,6 +95,15 @@ ui.Image _sprite(String shape, String pal) {
   const h = s / 2;
   const c = Offset(h, h);
   const box = Rect.fromLTWH(0, 0, s, s);
+  const u = s / 64; // the web's sprites are 64 px: its absolute pixel sizes scale by this
+  Path poly(List<Offset> pts) {
+    final p = Path()..moveTo(pts.first.dx, pts.first.dy);
+    for (final q in pts.skip(1)) {
+      p.lineTo(q.dx, q.dy);
+    }
+    return p..close();
+  }
+
   final rec = ui.PictureRecorder();
   final g = Canvas(rec, box);
   final paint = Paint();
@@ -166,6 +180,68 @@ ui.Image _sprite(String shape, String pal) {
     case 'smoke':
       paint.shader = ui.Gradient.radial(c, h, [_withA(core, 0.6), _withA(mid, 0.5), _withA(edge, 0)], [0, 0.45, 1]);
       g.drawRect(box, paint);
+    case 'leaf':
+      // a leaf with a soft glow and a vein (Lumen Wisps, Soothe)
+      g.translate(h, h);
+      g.drawRect(const Rect.fromLTWH(-h, -h, s, s), Paint()..shader = ui.Gradient.radial(Offset.zero, h, [_withA(mid, 0.55), _withA(edge, 0)]));
+      paint.shader = ui.Gradient.linear(const Offset(-h * 0.6, -h * 0.4), const Offset(h * 0.6, h * 0.4), [core, mid, edge], [0, 0.45, 1]);
+      final p = Path()
+        ..moveTo(-h * 0.62, h * 0.05)
+        ..cubicTo(-h * 0.3, -h * 0.55, h * 0.38, -h * 0.5, h * 0.62, -h * 0.05)
+        ..cubicTo(h * 0.3, h * 0.42, -h * 0.32, h * 0.42, -h * 0.62, h * 0.05);
+      g.drawPath(p, paint);
+      final vein = Path()
+        ..moveTo(-h * 0.55, h * 0.04)
+        ..quadraticBezierTo(0, -h * 0.08, h * 0.55, -h * 0.05);
+      g.drawPath(
+        vein,
+        Paint()
+          ..color = _withA(core, 0.85)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = s * 0.025,
+      );
+    case 'sparkle':
+      // a four-point twinkle with long thin rays (Healing Sparkles)
+      g.translate(h, h);
+      g.drawRect(const Rect.fromLTWH(-h, -h, s, s), Paint()..shader = ui.Gradient.radial(Offset.zero, h * 0.55, [_withA(mid, 0.8), _withA(edge, 0)]));
+      g.drawPath(
+        poly([
+          for (var i = 0; i < 8; i++)
+            Offset(math.cos((i / 8) * _tau - math.pi / 2) * (i.isOdd ? h * 0.11 : h * 0.96), math.sin((i / 8) * _tau - math.pi / 2) * (i.isOdd ? h * 0.11 : h * 0.96)),
+        ]),
+        Paint()..color = core,
+      );
+    case 'plus':
+      // a rounded plus (Soothe's recovery)
+      g.translate(h, h);
+      g.drawRect(const Rect.fromLTWH(-h, -h, s, s), Paint()..shader = ui.Gradient.radial(Offset.zero, h, [_withA(mid, 0.5), _withA(edge, 0)]));
+      const w = h * 0.32;
+      const l = h * 0.72;
+      final outer = Paint()..color = edge;
+      final inner = Paint()..color = core;
+      g.drawRRect(RRect.fromLTRBR(-w / 2 - 2 * u, -l / 2 - 2 * u, w / 2 + 2 * u, l / 2 + 2 * u, const Radius.circular(w / 2)), outer);
+      g.drawRRect(RRect.fromLTRBR(-l / 2 - 2 * u, -w / 2 - 2 * u, l / 2 + 2 * u, w / 2 + 2 * u, const Radius.circular(w / 2)), outer);
+      g.drawRRect(RRect.fromLTRBR(-w / 2, -l / 2, w / 2, l / 2, const Radius.circular(w / 2)), inner);
+      g.drawRRect(RRect.fromLTRBR(-l / 2, -w / 2, l / 2, w / 2, const Radius.circular(w / 2)), inner);
+    case 'crystal':
+      // a faceted Hollow shard (Hollow Shards)
+      g.translate(h, h);
+      g.drawRect(const Rect.fromLTWH(-h, -h, s, s), Paint()..shader = ui.Gradient.radial(Offset.zero, h, [_withA(mid, 0.55), _withA(mid, 0)]));
+      g.drawPath(poly(const [Offset(0, -h * 0.85), Offset(h * 0.3, -h * 0.2), Offset(h * 0.18, h * 0.7), Offset(-h * 0.2, h * 0.62), Offset(-h * 0.32, -h * 0.1)]), Paint()..color = edge);
+      g.drawPath(poly(const [Offset(0, -h * 0.85), Offset(h * 0.3, -h * 0.2), Offset(h * 0.18, h * 0.7), Offset(0, h * 0.1)]), Paint()..color = mid);
+      g.drawLine(
+        const Offset(-h * 0.04, -h * 0.7),
+        const Offset(-h * 0.2, 0),
+        Paint()
+          ..color = _withA(core, 0.9)
+          ..strokeWidth = s * 0.03,
+      );
+    case 'rock':
+      // a chunk of stone (Dust Burst)
+      g.translate(h, h);
+      g.drawPath(poly(const [Offset(-h * 0.7, h * 0.1), Offset(-h * 0.45, -h * 0.55), Offset(h * 0.15, -h * 0.72), Offset(h * 0.68, -h * 0.25), Offset(h * 0.6, h * 0.45), Offset(-h * 0.1, h * 0.65)]), Paint()..color = edge);
+      g.drawPath(poly(const [Offset(-h * 0.45, -h * 0.55), Offset(h * 0.15, -h * 0.72), Offset(h * 0.68, -h * 0.25), Offset(h * 0.05, -h * 0.05), Offset(-h * 0.55, 0)]), Paint()..color = mid);
+      g.drawPath(poly(const [Offset(-h * 0.3, -h * 0.45), Offset(h * 0.12, -h * 0.58), Offset(h * 0.05, -h * 0.35)]), Paint()..color = _withA(core, 0.8));
     default: // glow
       paint.shader = ui.Gradient.radial(c, h, [core, mid, _withA(edge, 0.55), _withA(edge, 0)], [0, 0.22, 0.55, 1]);
       g.drawRect(box, paint);
@@ -321,6 +397,9 @@ class FxComet extends _Mover {
 
   /// The thrown thing itself (set late if it was still loading when the comet left).
   ui.Image? img;
+
+  /// A Lumen Wisp: a glowing leaf rides the head, swaying as it flies.
+  bool leaf = false;
   double t = 0, x, y, px, py, rot = 0;
 
   @override
@@ -366,11 +445,21 @@ class FxComet extends _Mover {
     g.scale(s * sx / _spriteSize, s / _spriteSize);
     g.drawImage(sp, _spriteOrigin, paint);
     g.restore();
-    if (img == null) {
+    if (img == null && !leaf) {
       g.scale(s * 0.5 / _spriteSize, s * 0.5 / _spriteSize);
       g.drawImage(sp, _spriteOrigin, paint);
     }
     g.restore();
+    if (leaf) {
+      final q = s * 1.1;
+      paint.blendMode = BlendMode.srcOver;
+      g.save();
+      g.translate(x, y);
+      g.rotate(ang + math.sin(t * 12) * 0.5);
+      g.scale(q / _spriteSize, q / _spriteSize);
+      g.drawImage(_sprite('leaf', 'leaf'), _spriteOrigin, paint);
+      g.restore();
+    }
     final im = img;
     if (im != null) {
       // the thrown thing itself, turning over as it flies
@@ -531,6 +620,168 @@ class _Dissolve extends _Mover {
   }
 }
 
+/// Runs [fn] once [ms] have passed on the effects clock (a staggered spawn).
+class _Delayed extends _Mover {
+  _Delayed(this.ms, this.fn) : super('front');
+  final double ms;
+  final void Function(StageFx fx) fn;
+  double t = 0;
+
+  @override
+  void tick(double dt, StageFx fx) {
+    t += dt * 1000;
+    if (t >= ms) {
+      dead = true;
+      fn(fx);
+    }
+  }
+}
+
+/// Golden Pulse: spiral arcs of light winding out around a point.
+class _GoldenPulse extends _Mover {
+  _GoldenPulse(String layer, this.x, this.y, this.r0, this.r1, this.ms, this.pal, this.arms, this.squash, this.width)
+      : rot = _rnd(0, _tau),
+        super(layer);
+  final double x, y, r0, r1, ms, squash, width;
+  final int arms;
+  final String pal;
+  double t = 0, rot;
+
+  @override
+  void tick(double dt, StageFx fx) {
+    t += (dt * 1000) / ms;
+    rot += dt * 7;
+    if (t >= 1) dead = true;
+  }
+
+  @override
+  void draw(Canvas g, StageFx fx) {
+    final colors = _pal(pal);
+    final k = _easeOut(_clamp01(t));
+    final rr = (r0 + (r1 - r0) * k) * fx.u;
+    final a = math.pow(1 - k, 1.2).toDouble();
+    if (a <= 0.002) return;
+    final glow = fx._stroke
+      ..blendMode = BlendMode.plus
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, width * fx.u);
+    final line = fx._stroke2..blendMode = BlendMode.plus;
+    g.save();
+    g.translate(x, y);
+    g.scale(1, squash);
+    const span = 2.1;
+    const n = 14;
+    for (var i = 0; i < arms; i++) {
+      final a0 = rot + (i / arms) * _tau;
+      for (var j = 0; j < n; j++) {
+        final t0 = j / n;
+        final t1 = (j + 1) / n;
+        final rA = rr * (0.55 + 0.45 * t0);
+        final rB = rr * (0.55 + 0.45 * t1);
+        final aa = a0 + span * t0;
+        final ab = a0 + span * t1;
+        final al = a * (0.25 + 0.75 * t1);
+        final lw = math.max(0.5, width * fx.u * (0.35 + 0.65 * t1));
+        final p0 = Offset(math.cos(aa) * rA, math.sin(aa) * rA);
+        final p1 = Offset(math.cos(ab) * rB, math.sin(ab) * rB);
+        glow
+          ..strokeWidth = lw
+          ..color = _withA(colors[2], al);
+        g.drawLine(p0, p1, glow);
+        line
+          ..strokeWidth = lw
+          ..color = _withA(j > n - 4 ? colors[0] : colors[1], al);
+        g.drawLine(p0, p1, line);
+      }
+    }
+    g.restore();
+  }
+}
+
+/// Violet Crackle: a jagged bolt between two points that flickers and re-forms every 60 ms.
+class _Crackle extends _Mover {
+  _Crackle(String layer, this.ax, this.ay, this.bx, this.by, this.ms, this.pal, this.width, this.jag, this.segs, this.branches, this.alpha) : super(layer);
+  final double ax, ay, bx, by, ms, width, jag, alpha;
+  final int segs, branches;
+  final String pal;
+  double t = 0, next = 0;
+  Path? bolt;
+  final Path forks = Path();
+
+  void _reform(StageFx fx) {
+    final dx = bx - ax;
+    final dy = by - ay;
+    final len = math.max(1e-6, math.sqrt(dx * dx + dy * dy));
+    final nx = -dy / len;
+    final ny = dx / len;
+    final pts = <Offset>[Offset(ax, ay)];
+    for (var i = 1; i < segs; i++) {
+      final f = i / segs;
+      final off = _rnd(-jag, jag) * fx.u * math.sin(f * math.pi);
+      pts.add(Offset(ax + dx * f + nx * off, ay + dy * f + ny * off));
+    }
+    pts.add(Offset(bx, by));
+    final p = Path()..moveTo(ax, ay);
+    for (final q in pts.skip(1)) {
+      p.lineTo(q.dx, q.dy);
+    }
+    bolt = p;
+    forks.reset();
+    for (var k = 0; k < branches; k++) {
+      final i = 1 + (_random.nextDouble() * (segs - 2)).floor();
+      final st = pts[i];
+      final ang = math.atan2(dy, dx) + _rnd(-1.1, 1.1);
+      final l = _rnd(2, 5) * fx.u;
+      forks
+        ..moveTo(st.dx, st.dy)
+        ..lineTo(st.dx + math.cos(ang) * l * 0.5 + _rnd(-1, 1) * fx.u, st.dy + math.sin(ang) * l * 0.5 + _rnd(-1, 1) * fx.u)
+        ..lineTo(st.dx + math.cos(ang) * l, st.dy + math.sin(ang) * l);
+    }
+  }
+
+  @override
+  void tick(double dt, StageFx fx) {
+    t += (dt * 1000) / ms;
+    next -= dt;
+    if (bolt == null || next <= 0) {
+      _reform(fx);
+      next = 0.06;
+    }
+    if (t >= 1) dead = true;
+  }
+
+  @override
+  void draw(Canvas g, StageFx fx) {
+    final b = bolt;
+    if (b == null) return;
+    final colors = _pal(pal);
+    final k = _clamp01(t);
+    final flick = 0.65 + 0.35 * _random.nextDouble();
+    final al = alpha * flick * (k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85);
+    if (al <= 0.002) return;
+    final w = width * fx.u;
+    // the glow (the canvas shadow) and the coloured stroke, then the white-hot core
+    final glow = fx._stroke
+      ..blendMode = BlendMode.plus
+      ..strokeWidth = w * 2.6
+      ..color = _withA(colors[2], al * 0.55)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, w * 2);
+    g.drawPath(b, glow);
+    g.drawPath(forks, glow);
+    final line = fx._stroke2
+      ..blendMode = BlendMode.plus
+      ..strokeWidth = w * 2.6
+      ..color = _withA(colors[1], al * 0.55);
+    g.drawPath(b, line);
+    g.drawPath(forks, line);
+    line
+      ..strokeWidth = w
+      ..color = _withA(colors[0], al);
+    g.drawPath(b, line);
+    line.strokeWidth = w * 0.6;
+    g.drawPath(forks, line);
+  }
+}
+
 class _Ambient {
   _Ambient(this.kind, this.region);
   final String kind;
@@ -550,6 +801,15 @@ class StageFx extends ChangeNotifier {
   final List<FxParticle> _ps = [];
   final List<_Mover> _movers = [];
   final Paint _paint = Paint()..filterQuality = FilterQuality.low;
+  // strokes for the movers' lines (golden pulse arcs, crackle bolts): a blurred glow and a crisp line
+  final Paint _stroke = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round;
+  final Paint _stroke2 = Paint()
+    ..style = PaintingStyle.stroke
+    ..strokeCap = StrokeCap.round
+    ..strokeJoin = StrokeJoin.round;
   _Ambient? _ambient;
   double _freezeLeft = 0; // ms
   double? _last;
@@ -958,9 +1218,98 @@ class StageFx extends ChangeNotifier {
     _ensureTicking();
   }
 
+  // ---------------------------------------------------------------- the effect library
+  // The board's names: Lumen Wisps, Flower Petals, Healing Sparkles, Golden Pulse, Hollow Shards,
+  // Violet Crackle, Dust Burst.
+
+  /// Golden Pulse: spiral arcs of light winding out around a point (Lumen Glow lands).
+  void goldenPulse(Offset p, {double r0 = 4, double r1 = 26, double ms = 700, String pal = 'gold', int arms = 3, String layer = 'front', double squash = 0.62, double width = 1.6}) {
+    final c = px(p);
+    _movers.add(_GoldenPulse(layer, c.dx, c.dy, r0, r1, ms, pal, arms, squash, width));
+    // a few sparks thrown off the ends of the arms
+    burst(p, 10, shape: 'sparkle', pal: pal, speed: 34, vary: 0.5, drag: 2.6, size: 2.6, sizeK: 'spark', life: 0.7, spin: 3, layer: layer);
+    _ensureTicking();
+  }
+
+  /// Violet Crackle: a jagged bolt between two points that flickers and re-forms every other frame.
+  void crackle(Offset a, Offset b, {double ms = 260, String pal = 'violet', double width = 0.9, double jag = 3.2, int segs = 9, int branches = 2, String layer = 'front', double alpha = 1}) {
+    final pa = px(a);
+    final pb = px(b);
+    _movers.add(_Crackle(layer, pa.dx, pa.dy, pb.dx, pb.dy, math.max(1.0, ms), pal, width, jag, math.max(2, segs), branches, alpha));
+    _ensureTicking();
+  }
+
+  /// Violet Crackle around a body: short bolts between points on a ring ([r] in percent of the
+  /// width), fired over ms.
+  void crackleAround(Offset p, {double r = 14, int n = 5, double ms = 600, String pal = 'violet'}) {
+    for (var i = 0; i < n; i++) {
+      _movers.add(_Delayed((i / n) * ms * 0.7, (fx) {
+        final a0 = _rnd(0, _tau);
+        final a1 = a0 + _rnd(0.7, 1.6);
+        final ar = fx.w / fx.h;
+        final q0 = Offset(p.dx + math.cos(a0) * r * 0.9 / 100, p.dy + math.sin(a0) * r * 0.75 * ar / 100);
+        final q1 = Offset(p.dx + math.cos(a1) * r / 100, p.dy + math.sin(a1) * r * 0.75 * ar / 100);
+        fx.crackle(q0, q1, ms: _rnd(160, 260), pal: pal, width: 0.7, jag: 2.2, segs: 7, branches: 1);
+      }));
+    }
+    _ensureTicking();
+  }
+
+  /// Hollow Shards: dark crystals breaking off and spinning away, with violet light behind them.
+  void hollowShards(Offset p, {int n = 10, double scale = 1}) {
+    burst(p, n, shape: 'crystal', pal: 'crystal', blend: BlendMode.srcOver, speed: 70 * scale, vary: 0.6, drag: 2.4, size: 3.6 * scale, sizeK: 'hold', alphaK: 'hold', life: 0.9, gravity: 60, spin: 9);
+    burst(p, (n * 0.8).round(), shape: 'glow', pal: 'violet', speed: 40 * scale, vary: 0.7, drag: 2, size: 2.4 * scale, sizeK: 'shrink', life: 0.8, gravity: -8, turb: 20);
+  }
+
+  /// Dust Burst: chunks of stone thrown up and falling, with dust puffs at the ground.
+  void dustBurst(Offset p, {int n = 9, double scale = 1, Offset? ground}) {
+    burst(p, n, shape: 'rock', pal: 'rock', blend: BlendMode.srcOver, speed: 62 * scale, vary: 0.6, angle: -math.pi / 2, spread: 1.25, drag: 0.9, size: 2.6 * scale, sizeK: 'hold', alphaK: 'hold', life: 0.95, gravity: 190, spin: 8);
+    dust(ground ?? p, n: (n * 0.9).round(), scale: 1.1 * scale);
+  }
+
+  /// Healing Sparkles: twinkles, little plus signs and leaves rising around a body (Soothe). [w] and
+  /// [h] are percent of the world.
+  void healing(Offset p, {int n = 14, double w = 22, double h = 16, String pal = 'teal'}) {
+    for (var i = 0; i < n; i++) {
+      final q = Offset(p.dx + _rnd(-w / 2, w / 2) / 100, p.dy + _rnd(-h / 2, h / 2) / 100);
+      switch (i % 3) {
+        case 0:
+          emit(q, shape: 'sparkle', pal: 'white', size: _rnd(2.2, 3.6), sizeK: 'pop', alphaK: 'inout', life: _rnd(0.8, 1.2), speed: _rnd(4, 9), angle: -math.pi / 2, spread: 0.4, gravity: -6, spin: _rnd(-2, 2));
+        case 1:
+          emit(q, shape: 'plus', pal: 'green', blend: BlendMode.srcOver, size: _rnd(2.4, 3.4), sizeK: 'pop', alphaK: 'hold', life: _rnd(0.9, 1.3), speed: _rnd(8, 14), angle: -math.pi / 2, spread: 0.3, drag: 1, gravity: -4, rot: 0.0);
+        default:
+          emit(q, shape: 'leaf', pal: 'leaf', blend: BlendMode.srcOver, size: _rnd(2.6, 3.8), sizeK: 'hold', alphaK: 'hold', life: _rnd(1.1, 1.5), speed: _rnd(6, 12), angle: -math.pi / 2, spread: 0.6, drag: 1, gravity: -3, turb: 26, spin: _rnd(-3, 3));
+      }
+    }
+    burst(p, 6, shape: 'glow', pal: pal, speed: 10, vary: 0.6, drag: 1, size: 3, sizeK: 'grow', alphaK: 'inout', life: 1.1, gravity: -6);
+  }
+
+  /// Lumen Wisps: glowing leaves that wind from a to b on soft curves, leaving little trails.
+  void wisps(Offset a, Offset b, {int n = 5, double ms = 520}) {
+    for (var i = 0; i < n; i++) {
+      final bow = _rnd(-14, 14);
+      _movers.add(_Delayed(i * 50.0, (fx) {
+        final c = fx.comet(
+          Offset(a.dx + _rnd(-2, 2) / 100, a.dy + _rnd(-3, 3) / 100),
+          Offset(b.dx + _rnd(-3, 3) / 100, b.dy + _rnd(-3, 3) / 100),
+          ms: ms * _rnd(0.8, 1.1),
+          pal: 'green',
+          size: 3.2,
+          bow: bow,
+          trail: 2,
+          ease: 'inout',
+          sparks: false,
+        );
+        c.leaf = true;
+      }));
+    }
+    _ensureTicking();
+  }
+
   // ---------------------------------------------------------------- ambient
-  /// Slow motes in the air: 'gold' over the grove, 'hollow' (violet embers near the wild one), 'won'
-  /// (brighter gold), null off. [region] in fractions of the world.
+  /// The air: 'gold' (Flower Petals drifting across the shot and gold motes), 'hollow' (violet embers,
+  /// dark wisps and floating crystals near the wild one), 'won' (petals, brighter motes and twinkles),
+  /// null off. [region] in fractions of the world.
   void setAmbient(String? kind, [Rect? region]) {
     if (kind == null) {
       _ambient = null;
@@ -977,9 +1326,22 @@ class StageFx extends ChangeNotifier {
       a.left = 0.22;
       emit(p, shape: 'glow', pal: 'violet', size: _rnd(1.2, 2.6), sizeK: 'shrink', alphaK: 'inout', life: _rnd(1.6, 2.6), speed: _rnd(2, 5), angle: -math.pi / 2, spread: 0.6, gravity: -5, turb: 14, layer: _random.nextDouble() < 0.5 ? 'back' : 'front', alpha: 0.95);
       if (_random.nextDouble() < 0.3) emit(p, shape: 'smoke', pal: 'dark', blend: BlendMode.srcOver, size: _rnd(5, 9), sizeK: 'bloom', alphaK: 'inout', life: _rnd(2, 3), speed: 2, angle: -math.pi / 2, gravity: -3, alpha: 0.35, layer: 'back');
+      // now and then a floating crystal of the Hollow
+      if (_random.nextDouble() < 0.12) {
+        emit(Offset(p.dx, p.dy + 0.06), shape: 'crystal', pal: 'crystal', blend: BlendMode.srcOver, size: _rnd(1.4, 2.2), sizeK: 'hold', alphaK: 'inout', life: _rnd(2, 3), speed: _rnd(2, 4), angle: -math.pi / 2, spread: 0.4, gravity: -3, turb: 8, spin: _rnd(-1.5, 1.5), layer: 'front', alpha: 0.85);
+      }
     } else {
-      a.left = 0.45;
-      emit(p, shape: 'glow', pal: 'gold', size: _rnd(0.9, 2.0), sizeK: 'hold', alphaK: 'inout', life: _rnd(3.5, 6), speed: _rnd(1, 3), angle: -math.pi / 2, spread: 1.2, turb: 10, turbW: _rnd(0.6, 1.5), layer: _random.nextDouble() < 0.6 ? 'back' : 'front', alpha: a.kind == 'won' ? 0.95 : 0.7);
+      // Flower Petals drifting down across the shot, a few gold motes, and twinkles after a win
+      a.left = a.kind == 'won' ? 0.18 : 0.3;
+      final roll = _random.nextDouble();
+      if (roll < 0.45) {
+        emit(Offset(_rnd(-5, 95) / 100, _rnd(-4, 30) / 100),
+            shape: 'petal', pal: 'pink', blend: BlendMode.srcOver, size: _rnd(1.6, 2.6), sizeK: 'hold', alphaK: 'inout', life: _rnd(4, 6.5), speed: _rnd(3, 6), angle: _rnd(0.3, 1.0), gravity: 1.2, turb: 16, turbW: _rnd(1, 2.2), spin: _rnd(-2.5, 2.5), layer: _random.nextDouble() < 0.55 ? 'front' : 'back', alpha: 0.95);
+      } else if (a.kind == 'won' && roll < 0.8) {
+        emit(p, shape: 'sparkle', pal: 'gold', size: _rnd(1.8, 3.2), sizeK: 'pop', alphaK: 'soft', life: _rnd(0.9, 1.5), layer: 'front', alpha: 1);
+      } else {
+        emit(p, shape: 'glow', pal: 'gold', size: _rnd(0.9, 2.0), sizeK: 'hold', alphaK: 'inout', life: _rnd(3.5, 6), speed: _rnd(1, 3), angle: -math.pi / 2, spread: 1.2, turb: 10, turbW: _rnd(0.6, 1.5), layer: _random.nextDouble() < 0.6 ? 'back' : 'front', alpha: a.kind == 'won' ? 0.95 : 0.7);
+      }
     }
   }
 }

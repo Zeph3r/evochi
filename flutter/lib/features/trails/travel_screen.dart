@@ -1,5 +1,6 @@
-// Lumen Trails: the trip to an encounter. The scene pans in slowly while three lines of the journey
-// fade in one after another; then Continue (or Skip at any time) arrives at the encounter.
+// Lumen Trails: the trip to an encounter. The scene pans in slowly while motes rise from it (gold to
+// a wild one, violet to the Hollow) and three lines of the journey fade in one after another; then
+// Continue (or Skip at any time) arrives at the encounter.
 // Mirrors `travel` in web/src/screens/trails.js.
 
 import 'dart:async';
@@ -37,8 +38,10 @@ class TravelScreen extends StatefulWidget {
   State<TravelScreen> createState() => _TravelScreenState();
 }
 
-class _TravelScreenState extends State<TravelScreen> with SingleTickerProviderStateMixin {
+class _TravelScreenState extends State<TravelScreen> with TickerProviderStateMixin {
   late final AnimationController _pan = AnimationController(vsync: this, duration: const Duration(seconds: 9));
+  // the entry motes: travelMote 4.2s ease-in-out, each one a little later
+  late final AnimationController _motes = AnimationController(vsync: this, duration: const Duration(milliseconds: 4200));
   Timer? _timer;
   int _i = 0;
   bool _cta = false;
@@ -53,7 +56,10 @@ class _TravelScreenState extends State<TravelScreen> with SingleTickerProviderSt
     _reduce = MediaQuery.of(context).disableAnimations;
     if (_started) return;
     _started = true;
-    if (!_reduce) _pan.forward();
+    if (!_reduce) {
+      _pan.forward();
+      _motes.repeat();
+    }
     _timer = Timer(Duration(milliseconds: _reduce ? 1000 : 2200), _step);
   }
 
@@ -76,12 +82,38 @@ class _TravelScreenState extends State<TravelScreen> with SingleTickerProviderSt
   void dispose() {
     _timer?.cancel();
     _pan.dispose();
+    _motes.dispose();
     super.dispose();
+  }
+
+  /// One rising mote of light (18 of them, spread across the scene, in a few sizes).
+  Widget _mote(int i, Size screen, bool hollow) {
+    final t = (_motes.value + i * 0.37 / 4.2) % 1.0;
+    final m = Curves.easeInOut.transform(t);
+    final op = t < 0.2 ? 0.95 * Curves.easeInOut.transform(t / 0.2) : 0.95 * (1 - Curves.easeInOut.transform((t - 0.2) / 0.8));
+    final d = 7 * (0.6 + ((i * 7) % 5) / 6);
+    return Positioned(
+      left: screen.width * (6 + (i * 37) % 88) / 100 + 14 * m,
+      bottom: screen.height * 0.16 + screen.height * 0.46 * m,
+      child: Opacity(
+        opacity: op.clamp(0.0, 1.0),
+        child: Container(
+          width: d,
+          height: d,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: hollow ? const Color(0xFFE0CCFF) : const Color(0xFFFFE9A0),
+            boxShadow: [BoxShadow(color: hollow ? const Color(0xCCAA6EFF) : const Color(0xBFFFDC78), blurRadius: 10, spreadRadius: 3)],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final e = tr.encounterDefs[widget.questId] ?? tr.encounterDefs['eq01']!;
+    final hollow = e.goal != 'befriend';
     final ta = trailsArt;
     final mq = MediaQuery.of(context);
     return Scaffold(
@@ -110,6 +142,16 @@ class _TravelScreenState extends State<TravelScreen> with SingleTickerProviderSt
             ),
           ),
         ),
+        // motes of light rising toward the encounter (not with reduced motion)
+        if (!_reduce)
+          Positioned.fill(
+            child: IgnorePointer(
+              child: AnimatedBuilder(
+                animation: _motes,
+                builder: (ctx, _) => Stack(clipBehavior: Clip.hardEdge, children: [for (var i = 0; i < 18; i++) _mote(i, mq.size, hollow)]),
+              ),
+            ),
+          ),
         SafeArea(
           child: Column(children: [
             Padding(

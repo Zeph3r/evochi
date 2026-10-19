@@ -1,12 +1,14 @@
 // Lumen Trails: shared UI. Navigation (the Guild Board, trail places, encounter prep), creature and
 // affinity tags, the Guild rank card, discovery rows, the Journey > Daily discoveries panel, the Home
 // discovery chip, the glinting clue on place plates, the discovery and "Found it!" cards, the creature
-// card, the EvoDex friends panel, the Village's Trail Guild row and trail places, and the encounter
-// pieces the prep and result share (the big call to action, reward tiles). No sixth tab: the board
-// opens from the Village and Journey > Daily; encounters start from a quest's prep screen.
+// card, the EvoDex friends panel, the Village's Trail Guild row and trail places, the Journey's calls to
+// a waiting encounter, and the encounter pieces the prep and the encounter share (the big call to
+// action, reward tiles, round portraits, thin meter bars). No sixth tab: the board opens from the
+// Village and Journey > Daily; encounters start from a quest's prep screen.
 // Mirrors the shared bits of web/src/screens/trails.js and encounter.js.
 
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -14,10 +16,12 @@ import 'package:provider/provider.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/models/catalog.dart';
+import '../../core/models/game_state.dart';
 import '../../core/services/asset_manifest.dart';
 import '../../game/story/story.dart' as q;
 import '../../game/trails/trails.dart' as tr;
 import '../home/home_widgets.dart';
+import '../shared/sprite.dart';
 import '../shared/widgets.dart';
 import '../village/story_widgets.dart';
 import '../village/village_screen.dart';
@@ -211,13 +215,15 @@ class _MiniChip extends StatelessWidget {
 }
 
 // ----------------------------------------------------------- encounter pieces ----
-/// The big green (or gold, [alt]) call to action of the encounter and prep screens.
+/// The big green call to action of the encounter and prep screens; [alt] is the amber one ("Talk to
+/// Pip"), [gold] the bright gold "Begin Encounter".
 class EncCta extends StatefulWidget {
-  const EncCta({super.key, required this.label, required this.onTap, this.big = false, this.alt = false, this.leading, this.trailing, this.semanticLabel});
+  const EncCta({super.key, required this.label, required this.onTap, this.big = false, this.alt = false, this.gold = false, this.leading, this.trailing, this.semanticLabel});
   final String label;
   final VoidCallback onTap;
   final bool big;
-  final bool alt; // gold: "Talk to Pip"
+  final bool alt; // amber: "Talk to Pip"
+  final bool gold; // gold: "Begin Encounter"
   final Widget? leading;
   final Widget? trailing;
   final String? semanticLabel;
@@ -231,7 +237,8 @@ class _EncCtaState extends State<EncCta> {
   @override
   Widget build(BuildContext context) {
     final alt = widget.alt;
-    final fg = alt ? const Color(0xFF4E3010) : const Color(0xFF1F4A22);
+    final gold = widget.gold;
+    final fg = gold ? const Color(0xFF4A2E0C) : (alt ? const Color(0xFF4E3010) : const Color(0xFF1F4A22));
     return Semantics(
       button: true,
       label: widget.semanticLabel ?? widget.label,
@@ -254,16 +261,20 @@ class _EncCtaState extends State<EncCta> {
             padding: const EdgeInsets.symmetric(horizontal: 18),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: alt ? const Color(0xFFA86F1F) : const Color(0xFF5A9C42), width: 2.5),
+              border: Border.all(color: gold ? const Color(0xFFD99A2B) : (alt ? const Color(0xFFA86F1F) : const Color(0xFF5A9C42)), width: 2.5),
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: alt ? const [Color(0xFFFFF0B8), Color(0xFFF9CF6A), Color(0xFFEFB247)] : const [Color(0xFFD2F4B0), Color(0xFF98D872), Color(0xFF71BD50)],
-                stops: const [0, 0.5, 1],
+                colors: gold
+                    ? const [Color(0xFFFFF1B0), Color(0xFFFFD45E), Color(0xFFF5B53A)]
+                    : alt
+                        ? const [Color(0xFFFFF0B8), Color(0xFFF9CF6A), Color(0xFFEFB247)]
+                        : const [Color(0xFFD2F4B0), Color(0xFF98D872), Color(0xFF71BD50)],
+                stops: gold ? const [0, 0.52, 1] : const [0, 0.5, 1],
               ),
               boxShadow: [
-                BoxShadow(color: alt ? const Color(0xFFB87A2A) : const Color(0xFF4A8834), offset: Offset(0, _down ? 1 : 4)),
-                BoxShadow(color: alt ? const Color(0x38784614) : const Color(0x40285A14), blurRadius: 16, offset: const Offset(0, 8)),
+                BoxShadow(color: gold ? const Color(0xFFBC7E1F) : (alt ? const Color(0xFFB87A2A) : const Color(0xFF4A8834)), offset: Offset(0, _down ? 1 : 4)),
+                BoxShadow(color: gold ? const Color(0x4D78460A) : (alt ? const Color(0x38784614) : const Color(0x40285A14)), blurRadius: 16, offset: const Offset(0, 8)),
               ],
             ),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
@@ -336,6 +347,291 @@ class RewardTiles extends StatelessWidget {
       );
     }
     return Wrap(spacing: 8, runSpacing: 8, children: [for (final t in tiles) tile(t)]);
+  }
+}
+
+/// A round portrait (the encounter's nameplates, prep's nameplate and team rows): a creature's icon on
+/// a soft disc (violet for the Hollow), your Evochi's face cropped from its sprite, or a "?" for a
+/// companion not yet found.
+class EncFace extends StatelessWidget {
+  const EncFace.creature(String this.creature, {super.key, this.size = 54, this.hollow = false})
+      : pet = null,
+        question = false,
+        wearables = false;
+  const EncFace.pet(Pet this.pet, {super.key, this.size = 46, this.wearables = true})
+      : creature = null,
+        hollow = false,
+        question = false;
+  const EncFace.question({super.key, this.size = 46})
+      : creature = null,
+        pet = null,
+        hollow = false,
+        question = true,
+        wearables = false;
+  final String? creature;
+  final Pet? pet;
+  final double size;
+  final bool hollow;
+  final bool question;
+  final bool wearables; // your Evochi with what it wears (the encounter) or without (prep)
+
+  @override
+  Widget build(BuildContext context) {
+    final (inner, outer, ring) = question
+        ? (const Color(0xFFEFE4D6), const Color(0xFFEFE4D6), const Color(0xFFD9C7B1))
+        : pet != null
+            ? (const Color(0xFFFFF6EC), const Color(0xFFFBDCC6), const Color(0xFFEE9A78))
+            : hollow
+                ? (const Color(0xFF5E468A), const Color(0xFF33244F), const Color(0xFF9B6BE8))
+                : (const Color(0xFFF6FCEC), const Color(0xFFD7ECBE), const Color(0xFF9ACB76));
+    final p = pet;
+    final Widget face;
+    if (question) {
+      face = const Center(child: Text('?', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 22, height: 1, color: Color(0xFFA8937F))));
+    } else if (p != null) {
+      // its face from the front sprite: 150% of the disc, anchored left and a little below the top
+      face = Stack(clipBehavior: Clip.none, children: [
+        Positioned(
+          left: -0.06 * size,
+          top: -0.04 * size,
+          width: 1.5 * size,
+          height: 1.5 * size,
+          child: FittedBox(
+            fit: BoxFit.cover,
+            alignment: const Alignment(-1, -0.56),
+            clipBehavior: Clip.hardEdge,
+            child: PetSprite(stage: p.stage, palette: p.paletteId, expr: 'happy', overlays: wearables ? p.equipped.values.toList() : const [], height: 90),
+          ),
+        ),
+      ]);
+    } else {
+      face = Center(child: VoxelIcon('creature_${creature ?? ''}', size: 50));
+    }
+    return SizedBox(
+      width: size,
+      height: size,
+      child: Stack(fit: StackFit.expand, children: [
+        DecoratedBox(
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            // radial-gradient(circle at 50% 35%) out to the farthest corner
+            gradient: RadialGradient(center: const Alignment(0, -0.3), radius: 0.82, colors: [inner, outer]),
+            border: Border.all(color: ring, width: question ? 2.0 : 2.5),
+            boxShadow: question ? null : const [BoxShadow(color: Color(0x14000000), offset: Offset(0, 2))],
+          ),
+        ),
+        ClipOval(child: face),
+      ]),
+    );
+  }
+}
+
+/// A thin meter bar (12px): Calm (green), Instability (magenta) or Energy (gold).
+class ThinBar extends StatelessWidget {
+  const ThinBar({super.key, required this.kind, required this.frac, this.width});
+  final String kind; // calm | inst | energy
+  final double frac;
+  final double? width;
+  @override
+  Widget build(BuildContext context) {
+    final track = switch (kind) {
+      'inst' => const Color(0xFF4C3F60),
+      'energy' => const Color(0xFF5E4A36),
+      _ => const Color(0xFF6E6A50),
+    };
+    final (fills, stops) = switch (kind) {
+      'inst' => (const [Color(0xFFF6C3F8), Color(0xFFDA6FE9), Color(0xFFA13ED0)], const [0.0, 0.5, 1.0]),
+      'energy' => (const [Color(0xFFFFE8A0), Color(0xFFF7C548), Color(0xFFE9A535)], const [0.0, 0.55, 1.0]),
+      _ => (const [Color(0xFFC3F2A4), Color(0xFF74C95A), Color(0xFF4FA544)], const [0.0, 0.55, 1.0]),
+    };
+    return Container(
+      width: width,
+      height: 12,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(color: track, borderRadius: BorderRadius.circular(6)),
+      child: TweenAnimationBuilder<double>(
+        tween: Tween(begin: frac, end: frac),
+        duration: const Duration(milliseconds: 700),
+        curve: const Cubic(0.3, 0.8, 0.3, 1),
+        builder: (_, t, __) => FractionallySizedBox(
+          alignment: Alignment.centerLeft,
+          widthFactor: t.clamp(0.0, 1.0),
+          heightFactor: 1,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(6),
+              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: fills, stops: stops),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------- Journey: the calls ----
+/// The trail jobs whose encounter is waiting, at the top of the Journey's Story tab under "Main
+/// Quests" (the UX board's Trail Discovery). Mirrors `disturbanceCards` in web/src/screens/village.js.
+class DisturbanceCards extends StatelessWidget {
+  const DisturbanceCards({super.key});
+  @override
+  Widget build(BuildContext context) {
+    final c = context.watch<GameController>();
+    final ids = [for (final v in c.storyView.encounters) if (tr.encounterDefs.containsKey(v.id)) v.id];
+    if (ids.isEmpty) return const SizedBox.shrink();
+    return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      const SectionHead('Main Quests'),
+      for (final id in ids) Padding(padding: const EdgeInsets.only(bottom: 8), child: _DisturbCard(questId: id)),
+      const SizedBox(height: 2),
+    ]);
+  }
+}
+
+class _DisturbCard extends StatefulWidget {
+  const _DisturbCard({required this.questId});
+  final String questId;
+  @override
+  State<_DisturbCard> createState() => _DisturbCardState();
+}
+
+class _DisturbCardState extends State<_DisturbCard> with SingleTickerProviderStateMixin {
+  late final AnimationController _motes = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600));
+  bool _rm = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _rm = MediaQuery.of(context).disableAnimations;
+    if (_rm) {
+      _motes.stop();
+    } else if (!_motes.isAnimating) {
+      _motes.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _motes.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final e = tr.encounterDefs[widget.questId]!;
+    final cdef = tr.creatureDefs[e.creature]!;
+    final hollow = cdef.kind == 'hollow';
+    final befriend = e.goal == 'befriend';
+    final place = tr.trailPlaceNames[e.place] ?? e.place; // "the Mossy Ruins"
+    final placeCap = tr.placeTitle(e.place); // "The Mossy Ruins"
+    final (title, text) = cdef.boss
+        ? ('$placeCap: a presence awakens', 'Something ancient sleeps in the gate past the bridge. Its light is fading.')
+        : befriend
+            ? ('Something stirs in $place', 'A rare ${cdef.name} was seen near the arch. It seems cautious, but curious. Go and say hello.')
+            : ('$placeCap: disturbance detected', 'Strange Hollow energy has been detected in $placeCap. Investigate the source.');
+    final shown = title.startsWith('the ') ? 'The ${title.substring(4)}' : title;
+    final ta = trailsArt;
+    final glow = hollow ? const Color(0xF2B478FF) : const Color(0xF2FFDC78);
+    final icon = VoxelIcon('creature_${cdef.id}', size: 54);
+    Widget mote(int i) {
+      final x = (8 + (i * 41) % 84) / 100;
+      return AnimatedBuilder(
+        animation: _motes,
+        builder: (_, child) {
+          // moteUp 2.6s linear, each one a little later
+          final t = ((_motes.value + i * 0.29 / 2.6) % 1.0);
+          final op = t < 0.15 ? t / 0.15 : 1 - (t - 0.15) / 0.85;
+          return Positioned(
+            left: 76 * x,
+            bottom: -6 + 84 * t,
+            child: Transform.translate(offset: Offset(6 * t, 0), child: Opacity(opacity: op.clamp(0.0, 1.0), child: child)),
+          );
+        },
+        child: Container(
+          width: 5,
+          height: 5,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: hollow ? const Color(0xFFD9C2FF) : const Color(0xFFFFE58A),
+            boxShadow: [BoxShadow(color: hollow ? const Color(0xD9B482FF) : const Color(0xCCFFDC78), blurRadius: 6, spreadRadius: 2)],
+          ),
+        ),
+      );
+    }
+
+    return Semantics(
+      button: true,
+      label: '$shown. $text',
+      child: GestureDetector(
+        onTap: () {
+          context.read<GameController>().audio.tick();
+          openPrep(context, widget.questId);
+        },
+        child: ExcludeSemantics(
+          child: Container(
+            padding: const EdgeInsets.fromLTRB(10, 10, 12, 10),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: hollow ? const [Color(0xFFFCF9FF), Color(0xFFF1E9FC)] : const [Color(0xFFFFFCF2), Color(0xFFFFF3DA)]),
+              border: Border.all(color: hollow ? const Color(0xFFA57BE0) : const Color(0xFFEAB64C), width: 2.5),
+              boxShadow: [
+                BoxShadow(color: hollow ? const Color(0x2EA57BE0) : const Color(0x2EF4B84E), spreadRadius: 4),
+                BoxShadow(color: hollow ? const Color(0xFF8A62C8) : const Color(0xFFD8A040), offset: const Offset(0, 4)),
+              ],
+            ),
+            child: Row(children: [
+              // the scene, the creature's silhouette with a glow, motes rising
+              ClipRRect(
+                borderRadius: BorderRadius.circular(14),
+                child: SizedBox(
+                  width: 76,
+                  height: 76,
+                  child: Stack(clipBehavior: Clip.hardEdge, children: [
+                    Positioned.fill(
+                      child: ta.available && ta.hasScene(e.scene) ? Image.asset(ta.scene(e.scene), fit: BoxFit.cover, excludeFromSemantics: true) : const ColoredBox(color: EvochiColor.panel2),
+                    ),
+                    Positioned(
+                      left: 11,
+                      bottom: 3,
+                      width: 54,
+                      child: Stack(clipBehavior: Clip.none, alignment: Alignment.bottomCenter, children: [
+                        ImageFiltered(imageFilter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3), child: ColorFiltered(colorFilter: ColorFilter.mode(glow, BlendMode.srcIn), child: icon)),
+                        ColorFiltered(
+                          colorFilter: ColorFilter.matrix(<double>[
+                            hollow ? 0.25 : 0.28, 0, 0, 0, 0, //
+                            0, hollow ? 0.25 : 0.28, 0, 0, 0, //
+                            0, 0, hollow ? 0.25 : 0.28, 0, 0, //
+                            0, 0, 0, 1, 0,
+                          ]),
+                          child: icon,
+                        ),
+                      ]),
+                    ),
+                    if (!_rm) for (var i = 0; i < 9; i++) mote(i),
+                  ]),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Container(
+                    padding: const EdgeInsets.fromLTRB(8, 1, 8, 1),
+                    decoration: BoxDecoration(color: hollow ? const Color(0xFFE7D8FB) : const Color(0xFFFCE3A8), borderRadius: BorderRadius.circular(8)),
+                    child: Text(befriend ? 'Encounter ready' : 'Hollow detected',
+                        style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 11, color: hollow ? const Color(0xFF5B3AA0) : const Color(0xFF8A5A12))),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(shown, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15.5, height: 1.2, color: EvochiColor.ink)),
+                  const SizedBox(height: 2),
+                  Text(text, style: const TextStyle(fontFamily: EvochiText.body, fontSize: 12.5, height: 17 / 12.5, color: EvochiColor.textHelper)),
+                ]),
+              ),
+              const SizedBox(width: 12),
+              const SizedBox(width: 14, child: Text('›', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 24, color: Color(0xFFB49A7E)))),
+            ]),
+          ),
+        ),
+      ),
+    );
   }
 }
 

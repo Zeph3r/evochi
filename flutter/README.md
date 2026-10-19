@@ -182,63 +182,96 @@ logic it is **uncompiled here**: every file passes the syntax check and its impo
 - **Screens** live in `lib/features/trails/`:
   - `guild_screen.dart`: the Guild Board (rank, lore, today's discoveries, trail jobs, friends).
   - `trail_place_screen.dart`: the Mossy Ruins and the Old Gate (scene, residents, the clue glint).
-  - `prep_screen.dart`: the place header with a look-around button, the scene banner, the quest card
-    with its checklist, your team, the recommended item (Change / Make), rewards, and Prepare & Enter
-    (or Talk to / Go for a walk / Make X / Continue the encounter for a live one after a relaunch).
-  - `travel_screen.dart`: the trip (three lines over the panning scene), then the encounter with its
-    intro.
+  - `prep_screen.dart` (after the encounter UX board): "Encounter Preparation" with a look-around
+    button, the scene banner with its place, the creature's nameplate over it (portrait, name, rarity
+    and kind, the quest's level, its starting meter), the Objective card (the goal and the checklist),
+    Recommended (the suggested item with its effect pill and Change / Make, and the suggested
+    approach), Your Team (your Evochi with its Energy, companions marked Ready, or a dashed slot), and
+    Begin Encounter (or Talk to / Go for a walk / Make X / Continue the encounter after a relaunch).
+  - `travel_screen.dart`: the trip (three lines over the panning scene, motes rising: gold to a wild
+    one, violet to the Hollow), then the encounter with its intro.
   - `encounter_stage.dart`: the battle shot. `shotGeometry` is a verbatim port of the web's (fractions
     of the 2:3 backdrop; your Evochi's width per stage, its face kept left of the wild one). The
     stage is a widget tree driven imperatively through `EncounterStage` (a `ChangeNotifier` holding
     the camera shot, the sprite states and expressions, one-shot reactions, shakes, punches, flashes,
-    the letterbox/aura/eye flags and the few widget effects), so camera moves and effects never
-    restart when the state re-renders. Everything that moves inside the world reads one `StageClock`
-    (a `Ticker` the view hands the stage), and `hitstop(ms)` holds that clock and the effects still,
-    like the web pausing every running animation; a reaction fired right after a hit-stop plays
-    through it. Layers, bottom to top: backdrop, aura, back effects, the wild one, your Evochi (the
-    untrimmed battle frame plus equipped wearables, `BattleSprite` in `shared/sprite.dart`), the
-    foreground layer (parallax), front effects, widget effects (numbers, the "?" bubble, Petalune),
-    grade, flash, dust, plates, ribbon and caption; the title and the skip pill sit over the
-    letterbox. Camera shots: wide, pet (1.16), wild (1.13, with the foreground at 1.09 and your Evochi
-    nudged), close (1.55) and face (2.3) as a transform on the clock (1 s eased; 0.34 s for the
-    'fast' beats of a turn; a cut when instant), plus the camera punch toward the wild one or your
-    Evochi. The sprite reactions mirror the web's keyframes with their timing function eased per
-    segment (hit with its two hard white-silhouette frames, perk, munch, the wild lunge, pop with the
-    born fade-in, dissolve to white, look, skitter, tilt, surge, flicker, joy; cast, lunge, rest,
-    toss, hurt, flinch, hop).
+    the letterbox/aura/eye flags, the status chips, announcements, reward toasts and the few widget
+    effects), so camera moves and effects never restart when the state re-renders. Everything that
+    moves inside the world reads one `StageClock` (a `Ticker` the view hands the stage), and
+    `hitstop(ms)` holds that clock and the effects still, like the web pausing every running
+    animation; a reaction fired right after a hit-stop plays through it. Layers, bottom to top:
+    backdrop, aura, back effects, the wild one, your Evochi (the untrimmed battle frame plus equipped
+    wearables, `BattleSprite` in `shared/sprite.dart`), the foreground layer (parallax), front
+    effects, widget effects (number bubbles beside the head with an icon and a tail, the "?" bubble, Petalune, the
+    speech bubble after a win), grade, flash, dust, the intro card's darkening, the plates, and the
+    reward toasts; the skip pill sits over the letterbox. The plates follow the redesign board: a
+    round portrait (the creature's icon; your Evochi's face cropped from its sprite), name, the
+    meter's label and value over a thin bar (Instability is magenta), the affinity; under the wild
+    one's plate the goal pill with the turn and the tappable status chips (Hollowed, Waking,
+    Unsteady, Flickering, Wary, Curious, Soothed; Lumen Charged, Tired and Petalune is with you over
+    your Evochi's), and under those the announcements (at most three, each gone after 1.9 s).
+    Camera shots: wide, pet (1.16), wild (1.13, with the foreground at 1.09 and your Evochi nudged),
+    close (1.55), face (2.3) and the intro card's hero shot (1.18 on a small creature, your Evochi
+    pushed off to the side) as a transform on the clock (1 s eased; 0.34 s for the 'fast' beats of a
+    turn; a cut when instant), plus the camera punch toward the wild one or your Evochi. The sprite
+    reactions mirror the web's keyframes with their timing function eased per segment (hit with its
+    two hard frames of gold tint, or of brightening on the dark Hollow Sprout, perk, munch, the wild lunge, pop with the born fade-in, dissolve to
+    white, look, skitter, tilt, surge, flicker, joy; cast, lunge, rest, toss, hurt, flinch, hop).
+  - `encounter_icons.dart`: the encounter's small icons (the web's `SI` set: leaf, spark, hollow,
+    sun, bolt, trust, soothed, bloom, charged, unsteady, flicker, waking, wary, tired, target), drawn
+    from the same SVG path data through a small path parser.
   - `stage_fx.dart`: `StageFx`, the port of the web's canvas effects engine: particles drawn from
-    pre-rendered soft sprites (glow, dot, puff, star, shard, petal, heart, smoke) with additive light
-    on two `CustomPaint` layers (`StageFxPainter`, back and front), movers (comets with an optional
-    spinning item head and `onArrive`, shockwave rings, turning rays, the vignette pulse, the
-    dissolve emitter, petal streams that orbit their target), the ambient motes (gold over the grove,
-    violet Hollow embers around the wild one, brighter gold once won) and `freeze(ms)` for the
-    hit-stop. Positions are fractions of the world box; sizes and speeds are in 1% of its width.
-  - `encounter_screen.dart`: the phases (intro, card, play, outro, result), the intros on the same shot
-    (rare, hollow and the Sentinel's awakening, 8.2 s, with the eye flashes, embers, rings, shards,
-    smoke and pulses), `_runTurn` (the web's four beats and timings: wind-up, action, impact fired by
-    the projectile's arrival with a timer fallback, recovery; hit-stops of 100/80/60 ms, punches,
-    shakes; the number pops before the meter tweens over 380 ms; x0.35 and no canvas effects with
-    reduced motion), the finish choreography (the Hollow dissolves into motes under turning rays and
-    the restored creature pops back in; a befriended one bounces under hearts and confetti), the
-    idle life between turns (a blink every 2.4-5 s, the wild one glancing about), the panel (log
-    card with history, the action grid with cost chips, retreat), the goal card, the result (rewards
-    row, EvoDex card, Continue) and the item picker. The panel is measured after each frame and the
-    view ends 20px above it, like the web.
+    pre-rendered soft sprites (glow, dot, puff, star, shard, petal, heart, smoke, leaf, sparkle, plus,
+    crystal, rock) with additive light on two `CustomPaint` layers (`StageFxPainter`, back and front),
+    movers (comets with an optional spinning item head or a swaying leaf and `onArrive`, shockwave
+    rings, turning rays, the vignette pulse, the dissolve emitter, petal streams that orbit their
+    target), the board's effect library (Golden Pulse spiral arcs, Violet Crackle bolts that re-form
+    every 60 ms and `crackleAround`, Hollow Shards, Dust Burst, Healing Sparkles, Lumen Wisps), the
+    air (Flower Petals and gold motes; violet embers and floating crystals around a Hollow one;
+    twinkles once won) and `freeze(ms)` for the hit-stop. Positions are fractions of the world box;
+    sizes and speeds are in 1% of its width.
+  - `encounter_screen.dart`: the phases (intro, card, play, outro, result). The intros play on the same
+    shot (rare 2.7 s, hollow 3 s, the Sentinel's awakening 6.3 s with falling stones, eye flashes,
+    crackle, Hollow Shards and a Dust Burst) and end on the hero shot under the intro card ("A Wild /
+    Petalune / Appeared!" in outlined game type, the goal pill, a line about the creature, gold Begin
+    Encounter, Not yet); Begin brings your Evochi in and pulls back to the wide shot. `_runTurn` keeps
+    the web's four beats and timings (wind-up, action, impact fired by the projectile's arrival with a
+    timer fallback, recovery; hit-stops of 100/80/60 ms, punches, shakes; the number pops before the
+    meter tweens over 380 ms; x0.35 and no canvas effects with reduced motion) with the board's
+    effects (gold light for you in every encounter: Golden Pulse and bouncy stars on Lumen Glow,
+    Hollow Shards on a Hollow one; Lumen Wisps and a Dust Burst for Gentle Nudge; Healing Sparkles for
+    Soothe; crackle for surges; the drain as two Violet Crackle bolts). The log card shows a headline
+    and a line in the web's words (`_youLine`, `_wildLine`, `_currentLog`, `_finalLog`), and
+    announcements pop under the goal row. The finish sheds Hollow Shards and crackle before the
+    dissolve and spins a Golden Pulse at the rebirth (or bounces a befriended one under healing
+    sparkles, hearts and confetti). The result card ("Petalune / Is Calmed!", "… / Is Restored!",
+    the rewards in a wrapping grid, the turns, Continue) comes with reward toasts one after another, a
+    speech bubble over the creature and the won air. Also: the idle life between turns (a blink every
+    2.4-5 s, the wild one glancing about), the action grid with each move's cost ("−24 Energy", "+30
+    Energy", "N available"), Petal Hush as a compact button beside Retreat, and the item picker. The
+    panel is measured after each frame and the view ends 20px above it, like the web (full height
+    under the intro card).
   - `trails_widgets.dart`: navigation, tags, the rank card, discovery rows and cards, the clue glint,
-    the creature card, the friends panel, the trail quest rows, `EncCta` and the reward tiles.
+    the creature card, the friends panel, the trail quest rows, `EncCta` (green, amber and gold), the
+    reward tiles, `EncFace` (round portraits), `ThinBar`, and `DisturbanceCards`: the Journey > Story
+    tab's "Main Quests" call to a waiting encounter (the scene, the creature's glowing silhouette,
+    motes rising; tap for prep).
 - **Audio:** `AudioService.setMusic(name)` crossfades the loop (null = the meadow ambience,
   `enc_wild_loop` / `enc_boss_loop` for encounters, `'none'` for silence) and `play` has the new
   cues (`enc_rumble`, `enc_awaken`, `enc_glow`, `enc_whoosh`, `enc_soothe`, `enc_surge`).
 - **Art:** the manifest's `trails` block (`TrailsArt`: scenes, creatures, `battle`, `battleCreatures`)
   and each form's `chars.sNN.battle` entry (`BattleEntry`), served from `assets/art/trails/` and
   `assets/art/chars/`. Art packs without the battle shots fall back to a plain stage.
-- **Simplified relative to the web:** CSS filter effects (brightness, saturate) are colour
-  matrices and the white-silhouette flash is a `srcIn` colour filter; the eye glow's `screen` blend is
-  a canvas blend; the Hollow silhouette's rim is a radial glow rather than an alpha-shaped shadow; the
-  implicit fades inside the world (the aura's opacity, the eye glows, the sprite-state crossfade) are
-  not held by a hit-stop; the canvas sprites are 96 px `ui.Image`s rather than 64 px canvases; there is
-  no slow-motion capture hook. Everything else (timings, shots, numbers, texts, effects) follows the
-  web.
+- **Simplified relative to the web:** CSS filter effects (brightness, saturate, the hit's sepia /
+  hue-rotate gold tint) are single colour matrices (the browser clamps between filter steps), and the
+  dissolve's white silhouette is a `srcIn` colour filter; canvas shadows (the star sprite, rings, the
+  Golden Pulse and crackle glow) are blurred strokes; the big titles' outline is a stroked copy of the
+  text rather than eight shifted text-shadows; the eye glow's `screen` blend is a canvas blend; the
+  Hollow silhouette's rim is a radial glow rather than an alpha-shaped shadow; the implicit fades
+  inside the world (the aura's opacity, the eye glows, the sprite-state crossfade) are not held by a
+  hit-stop; the canvas sprites are 96 px `ui.Image`s rather than 64 px canvases; the meter bars skip
+  their inset highlights, and the log history's divider is solid, not dashed; the 740px-high phone
+  adjustments of the encounter CSS are not ported; there is no slow-motion capture hook. Everything
+  else (timings, shots, numbers, texts, effects) follows the web.
 - **Tests:** `test/trails_test.dart` mirrors `../web/test/trails.test.mjs` (the catalog guard, the
   deterministic day board and old-save migration, a discovery's begin/walk/inspect, Guild ranks, the
   three trail jobs end to end including startEncounter gating, the liked-treat/retreat refund case,

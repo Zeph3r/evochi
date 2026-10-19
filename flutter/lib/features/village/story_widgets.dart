@@ -1,7 +1,7 @@
 // Village Tales: shared story UI. Quest details, the reward cards (story items, or Home Tales gifts
-// and unlocks, or a new companion), the Journey > Story tab (Chapter 1, Home Tales, Lumen Trails, side
-// stories), the Bag > Quest Pouch and the Home story chip (Quest Bible §8). Mirrors
-// web/src/screens/village.js.
+// and unlocks, or a new companion), the Journey > Story tab (a waiting encounter's call under Main
+// Quests, Chapter 1, Home Tales, Lumen Trails, side stories), the Bag > Quest Pouch and the Home story
+// chip (Quest Bible §8). Mirrors web/src/screens/village.js.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -639,6 +639,8 @@ class StoryTab extends StatelessWidget {
     final st = c.storyView;
     final done = st.quests.where((v) => v.completed).length;
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      // a waiting encounter calls first (the UX board's Trail Discovery)
+      const DisturbanceCards(),
       Semantics(
         label: q.chapterName,
         child: ClipRRect(
