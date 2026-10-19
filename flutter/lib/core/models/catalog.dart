@@ -3,6 +3,8 @@
 // they are never sold: acquisition 'story', no price, no shop, not tradable, not sellable.
 // Home Tales adds seeds (the Market's Garden shelf), harvests (ingredients) and homemade meals and
 // brews (consumables with acquisition 'home', never sold), mirroring web/src/game/catalog.js.
+// Lumen Trails adds Lumen Shards (found on discoveries, acquisition 'trail'), the Lantern Tonic and the
+// Ancient Relic (a story decoration from the Sentinel's gate).
 
 enum ItemCategory { wearable, consumable, decoration, seed, ingredient }
 
@@ -35,6 +37,7 @@ class CatalogItem {
     this.recovery = false,
     this.treat = false,
     this.growth = 0,
+    this.lantern = false,
     this.kind,
     this.crop,
     this.stages = const [1, 2, 3],
@@ -47,7 +50,7 @@ class CatalogItem {
   final String rarity;
   final String desc;
   final String? shop; // wearables | care | habitats | garden; null = not in the Market
-  final String acquisition; // shop | story | home
+  final String acquisition; // shop | story | home | trail
   final String? originQuest; // story rewards: the quest that grants it
   final bool tradable;
   final bool sellable;
@@ -59,6 +62,7 @@ class CatalogItem {
   final bool recovery;
   final bool treat; // a homemade treat: Bond once a day, even at full vitality
   final double growth; // > 0: a garden item (Sprout Tonic), used on a bed, never given to the pet
+  final bool lantern; // Lantern Tonic: steadies the Hollow in encounters
   final String? kind; // consumables: meal | potion | garden
   final String? crop; // seeds: the crop they grow
   final List<int> stages;
@@ -210,12 +214,24 @@ const catalog = <String, CatalogItem>{
       id: 'moonlight_draught', name: 'Moonlight Draught', category: ItemCategory.consumable, kind: 'potion', rarity: 'rare', stackable: true, shop: null,
       acquisition: 'home', vitality: 20, recovery: true,
       desc: 'A deep-blue draught full of tiny stars. Restores 20 vitality (12h cooldown, like a Healing Herb).'),
+  // ---- Lumen Trails: found on discoveries, brewed for encounters, earned from the guardians
+  'lumen_shard': CatalogItem(
+      id: 'lumen_shard', name: 'Lumen Shard', category: ItemCategory.ingredient, rarity: 'uncommon', stackable: true, shop: null, acquisition: 'trail',
+      desc: 'A sliver of trail-light, cool to the touch. The Trail Guild trades them for nothing: they are for brewing Lantern Tonic.'),
+  'lantern_tonic': CatalogItem(
+      id: 'lantern_tonic', name: 'Lantern Tonic', category: ItemCategory.consumable, kind: 'potion', rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'home', vitality: 12, lantern: true,
+      desc: 'Lumen in a bottle. Restores 12 vitality, and in an encounter it steadies the Hollow like nothing else.'),
+  'ancient_relic': CatalogItem(
+      id: 'ancient_relic', name: 'Ancient Relic', category: ItemCategory.decoration, decor: 'side', rarity: 'legendary',
+      desc: "A stone tablet from the Sentinel's gate, its three trail grooves glowing softly. A piece of the Lumen Trails for your nest.",
+      shop: null, acquisition: 'story', originQuest: 'eq03', tradable: false, sellable: false),
 };
 
 /// Can this item be bought in the Market (and rolled as a quest cosmetic)? Story items never can.
 bool isShopItem(String id) => catalog[id]?.forSale ?? false;
 
-const storySource = {'vq01': 'Village Tales, Quest 01', 'vq02': 'Village Tales, Quest 02', 'vq03': 'Village Tales, Quest 03'};
+const storySource = {'vq01': 'Village Tales, Quest 01', 'vq02': 'Village Tales, Quest 02', 'vq03': 'Village Tales, Quest 03', 'eq03': 'Lumen Trails, Quest 03'};
 
 CatalogItem item(String id) {
   final it = catalog[id];

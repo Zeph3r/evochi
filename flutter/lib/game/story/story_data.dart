@@ -1,6 +1,7 @@
 // Village Tales, Chapter 1: The Light of Sunlit Village (Quest Bible v1.0, October 2026).
 // The cast, places, quest materials and the quests: the three chapter quests, the Home Tales (the
-// Cottage and its rooms) and the optional side stories. Mirrors web/src/game/story.js.
+// Cottage and its rooms), the optional side stories and the Lumen Trails encounter quests.
+// Mirrors web/src/game/story.js.
 
 /// Manual (unverified) entries count toward story walks. Chapter 1 rewards are cosmetic and can't be
 /// traded or sold, and manual entry is how players without a step sensor take part. Turn this off
@@ -49,7 +50,7 @@ class QuestMaterial {
   final String id;
   final String name;
   final String quest;
-  final String usedBy; // an npc id, 'waystone' or 'cottage'
+  final String usedBy; // an npc id, 'waystone', 'cottage', 'ruins' or 'gate'
   final int max;
   final String desc;
 }
@@ -71,6 +72,12 @@ const questMaterials = <String, QuestMaterial>{
       'A droplet jar holding one luminous petal. Care, gathered a little every day.'),
   'q_sturdy_timber': QuestMaterial('q_sturdy_timber', 'Sturdy Timber', 'hq01', 'npc_bram', 1,
       'Straight oak planks, tied with twine. Exactly what an old roof needs.'),
+  'q_mossy_clue': QuestMaterial('q_mossy_clue', 'Mossy Clue', 'eq01', 'ruins', 1,
+      'A pressed flower and a tuft of green fur, found on the path to the Mossy Ruins. Something small went this way.'),
+  'q_lumen_trace': QuestMaterial('q_lumen_trace', 'Lumen Trace', 'eq02', 'ruins', 1,
+      'A jar of faintly glowing dust swept from the ruin stones. It hums when you walk.'),
+  'q_old_trail_map': QuestMaterial('q_old_trail_map', "Alder's Old Map", 'eq03', 'gate', 1,
+      'A brittle map of the north road. Alder has marked the bridge, and a gate beyond it that no one has opened in living memory.'),
 };
 
 /// Story titles by id (display names).
@@ -78,18 +85,21 @@ const titles = {
   'first_lightkeeper': 'First Lightkeeper',
   'friend_of_small_things': 'Friend of Small Things',
   'grove_friend': 'Grove Friend',
+  'friend_of_petalune': 'Friend of Petalune',
+  'trailwarden': 'Trailwarden',
 };
 
 const chapterName = 'Village Tales, Chapter 1';
 const chapterTitle = 'The Light of Sunlit Village';
 
 class StoryRewards {
-  const StoryRewards({this.items = const [], this.coins = 0, this.titles = const [], this.gifts = const {}, this.unlocks = const []});
+  const StoryRewards({this.items = const [], this.coins = 0, this.titles = const [], this.gifts = const {}, this.unlocks = const [], this.companion});
   final List<String> items; // story cosmetics (acquisition 'story'), granted once
   final int coins;
   final List<String> titles;
   final Map<String, int> gifts; // ordinary inventory items (seeds, harvests)
   final List<String> unlocks; // display only: what the quest opens (Cottage, Kitchen, Apothecary)
+  final String? companion; // display only: the creature the encounter befriends (granted by the encounter engine)
 }
 
 class StoryWalk {
@@ -116,9 +126,11 @@ class TurnIn {
     this.flags = const [],
     this.consumeItems = const {},
     this.requireStage = 0,
+    this.encounter,
+    this.optionalItems = const {},
   });
   final String id;
-  final String npc; // an npc id, 'waystone' or 'cottage'
+  final String npc; // an npc id, 'waystone', 'cottage', 'ruins' or 'gate'
   final String from;
   final String to;
   final String label;
@@ -128,6 +140,8 @@ class TurnIn {
   final List<String> flags;
   final Map<String, int> consumeItems; // ordinary inventory items (harvests, homemade food)
   final int requireStage; // 0 = any; 2 = a Juvenile (or Elder) Evochi
+  final String? encounter; // Lumen Trails: the creature this hand-in is played against (the encounter is the hand-in)
+  final Map<String, int> optionalItems; // recommended for the encounter, never required
 }
 
 /// An item an objective counts (e.g. "Grow and harvest 3 Sunberries").
@@ -138,11 +152,12 @@ class ObjectiveCount {
 }
 
 class Objective {
-  const Objective(this.id, this.text, this.doneAt, {this.count});
+  const Objective(this.id, this.text, this.doneAt, {this.count, this.optional = false});
   final String id;
   final String text;
   final String doneAt;
   final ObjectiveCount? count;
+  final bool optional; // never blocks the quest (an encounter's recommended item)
 }
 
 class StoryQuest {
@@ -163,6 +178,7 @@ class StoryQuest {
     this.skills = const {},
     this.stage = 0,
     this.acceptPhase,
+    this.discoveries = 0,
   });
   final String id;
   final int n;
@@ -176,10 +192,11 @@ class StoryQuest {
   final List<TurnIn> turnIns;
   final List<Objective> objectives;
   final StoryRewards rewards;
-  final String line; // chapter | home | side
+  final String line; // chapter | home | side | trail
   final Map<String, int> skills; // Cozy Skill levels needed to accept (e.g. cooking: 2)
   final int stage; // 0 = any; 2 = needs a Juvenile Evochi to accept
   final String? acceptPhase; // the phase a walk-less quest starts in
+  final int discoveries; // Trail Guild discoveries completed before the quest is offered
 }
 
 const storyQuests = <String, StoryQuest>{
@@ -394,6 +411,105 @@ const storyQuests = <String, StoryQuest>{
     ],
     rewards: StoryRewards(coins: 200, titles: ['grove_friend']),
   ),
+
+  // ---- Lumen Trails: encounter quests from the Trail Guild. The hand-in is the encounter itself,
+  // played at the place (`encounter` names the creature; `optionalItems` are recommended, never required).
+  'eq01': StoryQuest(
+    id: 'eq01',
+    n: 1,
+    line: 'trail',
+    title: 'The Forest Guardian',
+    level: 3,
+    dependsOn: ['vq01'],
+    discoveries: 2,
+    giver: 'npc_pip',
+    summary: 'The Guild has spotted an unusual Evochi near the Mossy Ruins. Follow the clue, bring something tasty, and see if it will trust you.',
+    phases: ['locked', 'available', 'accepted_walk', 'ruins_ready', 'completed'],
+    walk: StoryWalk(type: 'incremental', nominal: 1500, days: 1, phase: 'accepted_walk', ready: 'ruins_ready', grant: {'q_mossy_clue': 1}),
+    turnIns: [
+      TurnIn(
+          id: 'calm_petalune',
+          npc: 'ruins',
+          from: 'ruins_ready',
+          to: 'completed',
+          consume: {'q_mossy_clue': 1},
+          encounter: 'petalune',
+          optionalItems: {'sunberry_tart': 1},
+          flags: ['petalune_befriended'],
+          label: 'Befriend the Forest Guardian'),
+    ],
+    objectives: [
+      Objective('talk', 'Talk to Pip at the Trail Guild', 'accepted_walk'),
+      Objective('walk', 'Walk {resolved_steps} new steps to follow the clue', 'ruins_ready'),
+      Objective('tart', 'Optional: bring a Sunberry Tart (better results)', 'completed', optional: true, count: ObjectiveCount('sunberry_tart', 1)),
+      Objective('calm', 'Travel to the Mossy Ruins and calm the Evochi', 'completed'),
+    ],
+    rewards: StoryRewards(coins: 150, gifts: {'seed_glowleaf': 2, 'lumen_shard': 1}, companion: 'petalune', titles: ['friend_of_petalune']),
+  ),
+  'eq02': StoryQuest(
+    id: 'eq02',
+    n: 2,
+    line: 'trail',
+    title: 'Tangled Lumen',
+    level: 4,
+    dependsOn: ['eq01', 'hq01'],
+    giver: 'npc_mira',
+    summary: 'A plant spirit in the ruins is tangled in unstable Lumen. Mira thinks fresh Glowleaf and a steady heart can restore it.',
+    phases: ['locked', 'available', 'accepted_walk', 'ruins_ready', 'completed'],
+    walk: StoryWalk(type: 'incremental', nominal: 2000, days: 1, phase: 'accepted_walk', ready: 'ruins_ready', grant: {'q_lumen_trace': 1}),
+    turnIns: [
+      TurnIn(
+          id: 'restore_sprout',
+          npc: 'ruins',
+          from: 'ruins_ready',
+          to: 'completed',
+          consume: {'q_lumen_trace': 1},
+          consumeItems: {'glowleaf': 2},
+          encounter: 'hollow_sprout',
+          optionalItems: {'meadow_tea': 1},
+          flags: ['sprout_restored'],
+          label: 'Restore the Hollow Sprout'),
+    ],
+    objectives: [
+      Objective('talk', 'Talk to Mira', 'accepted_walk'),
+      Objective('walk', 'Walk {resolved_steps} new steps to gather a Lumen Trace', 'ruins_ready'),
+      Objective('glow', 'Grow and harvest 2 Glowleaf (Farming Lv 3)', 'completed', count: ObjectiveCount('glowleaf', 2)),
+      Objective('restore', 'Travel to the Mossy Ruins and restore the sprout', 'completed'),
+    ],
+    rewards: StoryRewards(coins: 180, gifts: {'lumen_shard': 2, 'seed_moonshroom': 1}, unlocks: ['Lantern Tonic recipe']),
+  ),
+  'eq03': StoryQuest(
+    id: 'eq03',
+    n: 3,
+    line: 'trail',
+    title: 'The Forgotten Sentinel',
+    level: 6,
+    dependsOn: ['vq03', 'eq02'],
+    giver: 'npc_alder',
+    summary: "The Waystone's map shows a gate beyond the old bridge. A guardian sleeps there, tangled in Hollow. Bring a Lantern Tonic and a steady Evochi.",
+    phases: ['locked', 'available', 'accepted_walk', 'gate_ready', 'completed'],
+    walk: StoryWalk(type: 'incremental', nominal: 3000, days: 1, phase: 'accepted_walk', ready: 'gate_ready', grant: {'q_old_trail_map': 1}),
+    turnIns: [
+      TurnIn(
+          id: 'restore_sentinel',
+          npc: 'gate',
+          from: 'gate_ready',
+          to: 'completed',
+          consume: {'q_old_trail_map': 1},
+          consumeItems: {'lantern_tonic': 1},
+          encounter: 'sentinel',
+          optionalItems: {'glowleaf_tonic': 1},
+          flags: ['sentinel_restored'],
+          label: 'Restore the Forgotten Sentinel'),
+    ],
+    objectives: [
+      Objective('talk', 'Talk to Alder', 'accepted_walk'),
+      Objective('walk', 'Walk {resolved_steps} new steps along the north road', 'gate_ready'),
+      Objective('tonic', 'Brew a Lantern Tonic in your Apothecary (Alchemy Lv 3)', 'completed', count: ObjectiveCount('lantern_tonic', 1)),
+      Objective('restore', 'Cross the old bridge and restore the Sentinel', 'completed'),
+    ],
+    rewards: StoryRewards(coins: 300, items: ['ancient_relic'], gifts: {'lumen_shard': 3}, titles: ['trailwarden'], unlocks: ['The Fading Paths']),
+  ),
 };
 
 /// Village Tales, Chapter 1.
@@ -405,5 +521,8 @@ const homeOrder = ['hq01', 'hq02'];
 /// Side stories: optional, never on the main path.
 const sideOrder = ['sq01', 'sq02'];
 
+/// Lumen Trails: the Trail Guild's encounter quests.
+const trailOrder = ['eq01', 'eq02', 'eq03'];
+
 /// Every quest, in the order progress is applied and markers are computed.
-const allQuests = [...questOrder, ...homeOrder, ...sideOrder];
+const allQuests = [...questOrder, ...homeOrder, ...sideOrder, ...trailOrder];

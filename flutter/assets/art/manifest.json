@@ -800,6 +800,392 @@
      115.0,
      92.3
     ]
+   },
+   "battle": {
+    "w": 456,
+    "h": 500,
+    "anchors": {
+     "head_top": [
+      239.4,
+      18.8
+     ],
+     "neck": [
+      302.5,
+      376.5
+     ],
+     "back": [
+      113.2,
+      289.2
+     ],
+     "ground": [
+      233.7,
+      453.8
+     ],
+     "face": [
+      366.7,
+      283.2
+     ],
+     "hand": [
+      191.2,
+      329.8
+     ],
+     "body_top": [
+      240.2,
+      11.3
+     ]
+    },
+    "expressions": [
+     "default",
+     "blink",
+     "happy",
+     "determined",
+     "surprised",
+     "sleepy",
+     "excited"
+    ],
+    "atlas": {
+     "amber": {
+      "file": "chars/s01_amber_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        456,
+        500
+       ],
+       [
+        456,
+        0,
+        456,
+        500
+       ],
+       [
+        912,
+        0,
+        456,
+        500
+       ],
+       [
+        1368,
+        0,
+        456,
+        500
+       ],
+       [
+        0,
+        500,
+        456,
+        500
+       ],
+       [
+        456,
+        500,
+        456,
+        500
+       ],
+       [
+        912,
+        500,
+        456,
+        500
+       ]
+      ]
+     },
+     "forest": {
+      "file": "chars/s01_forest_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        456,
+        500
+       ],
+       [
+        456,
+        0,
+        456,
+        500
+       ],
+       [
+        912,
+        0,
+        456,
+        500
+       ],
+       [
+        1368,
+        0,
+        456,
+        500
+       ],
+       [
+        0,
+        500,
+        456,
+        500
+       ],
+       [
+        456,
+        500,
+        456,
+        500
+       ],
+       [
+        912,
+        500,
+        456,
+        500
+       ]
+      ]
+     },
+     "coral": {
+      "file": "chars/s01_coral_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        456,
+        500
+       ],
+       [
+        456,
+        0,
+        456,
+        500
+       ],
+       [
+        912,
+        0,
+        456,
+        500
+       ],
+       [
+        1368,
+        0,
+        456,
+        500
+       ],
+       [
+        0,
+        500,
+        456,
+        500
+       ],
+       [
+        456,
+        500,
+        456,
+        500
+       ],
+       [
+        912,
+        500,
+        456,
+        500
+       ]
+      ]
+     },
+     "ocean": {
+      "file": "chars/s01_ocean_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        456,
+        500
+       ],
+       [
+        456,
+        0,
+        456,
+        500
+       ],
+       [
+        912,
+        0,
+        456,
+        500
+       ],
+       [
+        1368,
+        0,
+        456,
+        500
+       ],
+       [
+        0,
+        500,
+        456,
+        500
+       ],
+       [
+        456,
+        500,
+        456,
+        500
+       ],
+       [
+        912,
+        500,
+        456,
+        500
+       ]
+      ]
+     },
+     "amethyst": {
+      "file": "chars/s01_amethyst_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        456,
+        500
+       ],
+       [
+        456,
+        0,
+        456,
+        500
+       ],
+       [
+        912,
+        0,
+        456,
+        500
+       ],
+       [
+        1368,
+        0,
+        456,
+        500
+       ],
+       [
+        0,
+        500,
+        456,
+        500
+       ],
+       [
+        456,
+        500,
+        456,
+        500
+       ],
+       [
+        912,
+        500,
+        456,
+        500
+       ]
+      ]
+     },
+     "obsidian": {
+      "file": "chars/s01_obsidian_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        456,
+        500
+       ],
+       [
+        456,
+        0,
+        456,
+        500
+       ],
+       [
+        912,
+        0,
+        456,
+        500
+       ],
+       [
+        1368,
+        0,
+        456,
+        500
+       ],
+       [
+        0,
+        500,
+        456,
+        500
+       ],
+       [
+        456,
+        500,
+        456,
+        500
+       ],
+       [
+        912,
+        500,
+        456,
+        500
+       ]
+      ]
+     }
+    },
+    "overlays": {
+     "file": "chars/s01_battle_overlays.webp",
+     "rects": {
+      "leaf_scarf": [
+       0,
+       0,
+       456,
+       500
+      ],
+      "blue_scarf": [
+       456,
+       0,
+       456,
+       500
+      ],
+      "tiny_crown": [
+       912,
+       0,
+       456,
+       500
+      ],
+      "golden_crest_crown": [
+       1368,
+       0,
+       456,
+       500
+      ],
+      "explorer_hat": [
+       0,
+       500,
+       456,
+       500
+      ],
+      "butterfly_clip": [
+       456,
+       500,
+       456,
+       500
+      ],
+      "red_backpack": [
+       912,
+       500,
+       456,
+       500
+      ],
+      "explorer_pack": [
+       1368,
+       500,
+       456,
+       500
+      ],
+      "reward_windtrail_mantle": [
+       0,
+       1000,
+       456,
+       500
+      ]
+     }
+    }
    }
   },
   "s02": {
@@ -1602,6 +1988,392 @@
      101.0,
      177.0
     ]
+   },
+   "battle": {
+    "w": 620,
+    "h": 550,
+    "anchors": {
+     "head_top": [
+      416.6,
+      88.7
+     ],
+     "neck": [
+      439.5,
+      368.5
+     ],
+     "back": [
+      278.9,
+      298.4
+     ],
+     "ground": [
+      301.9,
+      509.4
+     ],
+     "face": [
+      526.6,
+      247.6
+     ],
+     "tail": [
+      72.5,
+      254.6
+     ],
+     "body_top": [
+      294.4,
+      37.6
+     ]
+    },
+    "expressions": [
+     "default",
+     "blink",
+     "happy",
+     "determined",
+     "surprised",
+     "sleepy",
+     "excited"
+    ],
+    "atlas": {
+     "amber": {
+      "file": "chars/s02_amber_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        620,
+        550
+       ],
+       [
+        620,
+        0,
+        620,
+        550
+       ],
+       [
+        1240,
+        0,
+        620,
+        550
+       ],
+       [
+        1860,
+        0,
+        620,
+        550
+       ],
+       [
+        0,
+        550,
+        620,
+        550
+       ],
+       [
+        620,
+        550,
+        620,
+        550
+       ],
+       [
+        1240,
+        550,
+        620,
+        550
+       ]
+      ]
+     },
+     "forest": {
+      "file": "chars/s02_forest_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        620,
+        550
+       ],
+       [
+        620,
+        0,
+        620,
+        550
+       ],
+       [
+        1240,
+        0,
+        620,
+        550
+       ],
+       [
+        1860,
+        0,
+        620,
+        550
+       ],
+       [
+        0,
+        550,
+        620,
+        550
+       ],
+       [
+        620,
+        550,
+        620,
+        550
+       ],
+       [
+        1240,
+        550,
+        620,
+        550
+       ]
+      ]
+     },
+     "coral": {
+      "file": "chars/s02_coral_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        620,
+        550
+       ],
+       [
+        620,
+        0,
+        620,
+        550
+       ],
+       [
+        1240,
+        0,
+        620,
+        550
+       ],
+       [
+        1860,
+        0,
+        620,
+        550
+       ],
+       [
+        0,
+        550,
+        620,
+        550
+       ],
+       [
+        620,
+        550,
+        620,
+        550
+       ],
+       [
+        1240,
+        550,
+        620,
+        550
+       ]
+      ]
+     },
+     "ocean": {
+      "file": "chars/s02_ocean_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        620,
+        550
+       ],
+       [
+        620,
+        0,
+        620,
+        550
+       ],
+       [
+        1240,
+        0,
+        620,
+        550
+       ],
+       [
+        1860,
+        0,
+        620,
+        550
+       ],
+       [
+        0,
+        550,
+        620,
+        550
+       ],
+       [
+        620,
+        550,
+        620,
+        550
+       ],
+       [
+        1240,
+        550,
+        620,
+        550
+       ]
+      ]
+     },
+     "amethyst": {
+      "file": "chars/s02_amethyst_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        620,
+        550
+       ],
+       [
+        620,
+        0,
+        620,
+        550
+       ],
+       [
+        1240,
+        0,
+        620,
+        550
+       ],
+       [
+        1860,
+        0,
+        620,
+        550
+       ],
+       [
+        0,
+        550,
+        620,
+        550
+       ],
+       [
+        620,
+        550,
+        620,
+        550
+       ],
+       [
+        1240,
+        550,
+        620,
+        550
+       ]
+      ]
+     },
+     "obsidian": {
+      "file": "chars/s02_obsidian_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        620,
+        550
+       ],
+       [
+        620,
+        0,
+        620,
+        550
+       ],
+       [
+        1240,
+        0,
+        620,
+        550
+       ],
+       [
+        1860,
+        0,
+        620,
+        550
+       ],
+       [
+        0,
+        550,
+        620,
+        550
+       ],
+       [
+        620,
+        550,
+        620,
+        550
+       ],
+       [
+        1240,
+        550,
+        620,
+        550
+       ]
+      ]
+     }
+    },
+    "overlays": {
+     "file": "chars/s02_battle_overlays.webp",
+     "rects": {
+      "leaf_scarf": [
+       0,
+       0,
+       620,
+       550
+      ],
+      "blue_scarf": [
+       620,
+       0,
+       620,
+       550
+      ],
+      "tiny_crown": [
+       1240,
+       0,
+       620,
+       550
+      ],
+      "golden_crest_crown": [
+       1860,
+       0,
+       620,
+       550
+      ],
+      "explorer_hat": [
+       0,
+       550,
+       620,
+       550
+      ],
+      "butterfly_clip": [
+       620,
+       550,
+       620,
+       550
+      ],
+      "red_backpack": [
+       1240,
+       550,
+       620,
+       550
+      ],
+      "explorer_pack": [
+       1860,
+       550,
+       620,
+       550
+      ],
+      "reward_windtrail_mantle": [
+       0,
+       1100,
+       620,
+       550
+      ]
+     }
+    }
    }
   },
   "s03": {
@@ -2404,6 +3176,392 @@
      122.0,
      292.0
     ]
+   },
+   "battle": {
+    "w": 958,
+    "h": 588,
+    "anchors": {
+     "head_top": [
+      749.7,
+      153.7
+     ],
+     "neck": [
+      686.6,
+      361.3
+     ],
+     "back": [
+      508.9,
+      265.7
+     ],
+     "ground": [
+      508.9,
+      527.6
+     ],
+     "face": [
+      896.5,
+      273.7
+     ],
+     "tail": [
+      176.3,
+      195.8
+     ],
+     "body_top": [
+      469.9,
+      10.0
+     ]
+    },
+    "expressions": [
+     "default",
+     "blink",
+     "happy",
+     "determined",
+     "surprised",
+     "sleepy",
+     "excited"
+    ],
+    "atlas": {
+     "amber": {
+      "file": "chars/s03_amber_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        958,
+        588
+       ],
+       [
+        958,
+        0,
+        958,
+        588
+       ],
+       [
+        1916,
+        0,
+        958,
+        588
+       ],
+       [
+        2874,
+        0,
+        958,
+        588
+       ],
+       [
+        0,
+        588,
+        958,
+        588
+       ],
+       [
+        958,
+        588,
+        958,
+        588
+       ],
+       [
+        1916,
+        588,
+        958,
+        588
+       ]
+      ]
+     },
+     "forest": {
+      "file": "chars/s03_forest_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        958,
+        588
+       ],
+       [
+        958,
+        0,
+        958,
+        588
+       ],
+       [
+        1916,
+        0,
+        958,
+        588
+       ],
+       [
+        2874,
+        0,
+        958,
+        588
+       ],
+       [
+        0,
+        588,
+        958,
+        588
+       ],
+       [
+        958,
+        588,
+        958,
+        588
+       ],
+       [
+        1916,
+        588,
+        958,
+        588
+       ]
+      ]
+     },
+     "coral": {
+      "file": "chars/s03_coral_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        958,
+        588
+       ],
+       [
+        958,
+        0,
+        958,
+        588
+       ],
+       [
+        1916,
+        0,
+        958,
+        588
+       ],
+       [
+        2874,
+        0,
+        958,
+        588
+       ],
+       [
+        0,
+        588,
+        958,
+        588
+       ],
+       [
+        958,
+        588,
+        958,
+        588
+       ],
+       [
+        1916,
+        588,
+        958,
+        588
+       ]
+      ]
+     },
+     "ocean": {
+      "file": "chars/s03_ocean_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        958,
+        588
+       ],
+       [
+        958,
+        0,
+        958,
+        588
+       ],
+       [
+        1916,
+        0,
+        958,
+        588
+       ],
+       [
+        2874,
+        0,
+        958,
+        588
+       ],
+       [
+        0,
+        588,
+        958,
+        588
+       ],
+       [
+        958,
+        588,
+        958,
+        588
+       ],
+       [
+        1916,
+        588,
+        958,
+        588
+       ]
+      ]
+     },
+     "amethyst": {
+      "file": "chars/s03_amethyst_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        958,
+        588
+       ],
+       [
+        958,
+        0,
+        958,
+        588
+       ],
+       [
+        1916,
+        0,
+        958,
+        588
+       ],
+       [
+        2874,
+        0,
+        958,
+        588
+       ],
+       [
+        0,
+        588,
+        958,
+        588
+       ],
+       [
+        958,
+        588,
+        958,
+        588
+       ],
+       [
+        1916,
+        588,
+        958,
+        588
+       ]
+      ]
+     },
+     "obsidian": {
+      "file": "chars/s03_obsidian_battle.webp",
+      "rects": [
+       [
+        0,
+        0,
+        958,
+        588
+       ],
+       [
+        958,
+        0,
+        958,
+        588
+       ],
+       [
+        1916,
+        0,
+        958,
+        588
+       ],
+       [
+        2874,
+        0,
+        958,
+        588
+       ],
+       [
+        0,
+        588,
+        958,
+        588
+       ],
+       [
+        958,
+        588,
+        958,
+        588
+       ],
+       [
+        1916,
+        588,
+        958,
+        588
+       ]
+      ]
+     }
+    },
+    "overlays": {
+     "file": "chars/s03_battle_overlays.webp",
+     "rects": {
+      "leaf_scarf": [
+       0,
+       0,
+       958,
+       588
+      ],
+      "blue_scarf": [
+       958,
+       0,
+       958,
+       588
+      ],
+      "tiny_crown": [
+       1916,
+       0,
+       958,
+       588
+      ],
+      "golden_crest_crown": [
+       2874,
+       0,
+       958,
+       588
+      ],
+      "explorer_hat": [
+       0,
+       588,
+       958,
+       588
+      ],
+      "butterfly_clip": [
+       958,
+       588,
+       958,
+       588
+      ],
+      "red_backpack": [
+       1916,
+       588,
+       958,
+       588
+      ],
+      "explorer_pack": [
+       2874,
+       588,
+       958,
+       588
+      ],
+      "reward_windtrail_mantle": [
+       0,
+       1176,
+       958,
+       588
+      ]
+     }
+    }
    }
   }
  },
@@ -2643,7 +3801,13 @@
   "meadow_tea": "items/meadow_tea.webp",
   "sprout_tonic": "items/sprout_tonic.webp",
   "moonlight_draught": "items/moonlight_draught.webp",
-  "q_sturdy_timber": "items/q_sturdy_timber.webp"
+  "q_sturdy_timber": "items/q_sturdy_timber.webp",
+  "lumen_shard": "items/lumen_shard.webp",
+  "lantern_tonic": "items/lantern_tonic.webp",
+  "ancient_relic": "items/ancient_relic.webp",
+  "q_mossy_clue": "items/q_mossy_clue.webp",
+  "q_lumen_trace": "items/q_lumen_trace.webp",
+  "q_old_trail_map": "items/q_old_trail_map.webp"
  },
  "icons": {
   "bag": "icons/bag.webp",
@@ -2681,7 +3845,27 @@
   "skill_farming": "icons/skill_farming.webp",
   "skill_cooking": "icons/skill_cooking.webp",
   "skill_alchemy": "icons/skill_alchemy.webp",
-  "home_map": "icons/home_map.webp"
+  "home_map": "icons/home_map.webp",
+  "creature_petalune": "icons/creature_petalune.webp",
+  "creature_hollow_sprout": "icons/creature_hollow_sprout.webp",
+  "creature_sentinel": "icons/creature_sentinel.webp",
+  "discover": "icons/discover.webp",
+  "encounter": "icons/encounter.webp",
+  "hollow": "icons/hollow.webp",
+  "calm": "icons/calm.webp",
+  "energy": "icons/energy.webp",
+  "trail": "icons/trail.webp",
+  "aff_nature": "icons/aff_nature.webp",
+  "aff_ember": "icons/aff_ember.webp",
+  "aff_water": "icons/aff_water.webp",
+  "aff_stone": "icons/aff_stone.webp",
+  "aff_celestial": "icons/aff_celestial.webp",
+  "trail_badge": "icons/trail_badge.webp",
+  "sun": "icons/sun.webp",
+  "purify": "icons/purify.webp",
+  "nudge": "icons/nudge.webp",
+  "moon": "icons/moon.webp",
+  "swirl": "icons/swirl.webp"
  },
  "titles": {
   "title_bag": {
@@ -2736,7 +3920,15 @@
   "play_boing": "sfx/play_boing.mp3",
   "purchase": "sfx/purchase.mp3",
   "reward_chime": "sfx/reward_chime.mp3",
-  "ui_tap": "sfx/ui_tap.mp3"
+  "ui_tap": "sfx/ui_tap.mp3",
+  "enc_awaken": "sfx/enc_awaken.mp3",
+  "enc_boss_loop": "ambient/enc_boss_loop.mp3",
+  "enc_glow": "sfx/enc_glow.mp3",
+  "enc_rumble": "sfx/enc_rumble.mp3",
+  "enc_soothe": "sfx/enc_soothe.mp3",
+  "enc_surge": "sfx/enc_surge.mp3",
+  "enc_whoosh": "sfx/enc_whoosh.mp3",
+  "enc_wild_loop": "ambient/enc_wild_loop.mp3"
  },
  "thumbs": {
   "file": "chars/thumbs.webp",
@@ -4632,6 +5824,306 @@
    "w": 780,
    "h": 540,
    "restored": "home/cottage_restored.webp"
+  }
+ },
+ "trails": {
+  "scenes": {
+   "mossy_ruins": {
+    "file": "trails/mossy_ruins.webp",
+    "w": 780,
+    "h": 867,
+    "anchors": {
+     "wild": [
+      556.7,
+      628.0
+     ],
+     "pet": [
+      104.6,
+      786.5
+     ],
+     "clue": [
+      -32.1,
+      651.8
+     ],
+     "arch": [
+      390.0,
+      406.0
+     ]
+    }
+   },
+   "mossy_ruins_hollow": {
+    "file": "trails/mossy_ruins_hollow.webp",
+    "w": 780,
+    "h": 867,
+    "anchors": {
+     "wild": [
+      556.7,
+      628.0
+     ],
+     "pet": [
+      104.6,
+      786.5
+     ],
+     "clue": [
+      -32.1,
+      651.8
+     ],
+     "arch": [
+      390.0,
+      406.0
+     ]
+    }
+   },
+   "sentinel_gate": {
+    "file": "trails/sentinel_gate.webp",
+    "w": 780,
+    "h": 867,
+    "anchors": {
+     "wild": [
+      390.0,
+      559.1
+     ],
+     "pet": [
+      89.8,
+      772.3
+     ],
+     "clue": [
+      733.3,
+      669.2
+     ],
+     "arch": [
+      390.0,
+      362.7
+     ]
+    }
+   }
+  },
+  "creatures": {
+   "petalune": {
+    "w": 182,
+    "h": 206,
+    "states": {
+     "neutral": "trails/creature_petalune_neutral.webp",
+     "wary": "trails/creature_petalune_wary.webp",
+     "happy": "trails/creature_petalune_happy.webp"
+    },
+    "anchors": {
+     "ground": [
+      81.2,
+      180.4
+     ],
+     "top": [
+      81.2,
+      27.2
+     ],
+     "face": [
+      61.9,
+      117.0
+     ]
+    }
+   },
+   "hollow_sprout": {
+    "w": 171,
+    "h": 210,
+    "states": {
+     "hollow": "trails/creature_hollow_sprout_hollow.webp",
+     "restored": "trails/creature_hollow_sprout_restored.webp"
+    },
+    "anchors": {
+     "ground": [
+      84.8,
+      187.0
+     ],
+     "top": [
+      84.8,
+      13.5
+     ],
+     "face": [
+      65.7,
+      137.9
+     ]
+    }
+   },
+   "sentinel": {
+    "w": 351,
+    "h": 326,
+    "states": {
+     "hollow": "trails/creature_sentinel_hollow.webp",
+     "waking": "trails/creature_sentinel_waking.webp",
+     "restored": "trails/creature_sentinel_restored.webp"
+    },
+    "anchors": {
+     "ground": [
+      185.2,
+      287.3
+     ],
+     "top": [
+      185.2,
+      17.0
+     ],
+     "face": [
+      166.1,
+      81.7
+     ]
+    }
+   }
+  },
+  "battle": {
+   "mossy_ruins": {
+    "file": "trails/mossy_ruins_battle.webp",
+    "fg": "trails/mossy_ruins_battle_fg.webp",
+    "w": 878,
+    "h": 1316,
+    "anchors": {
+     "pet": [
+      174.8,
+      1223.6
+     ],
+     "pet_top": [
+      167.7,
+      658.2
+     ],
+     "wild": [
+      486.2,
+      939.8
+     ],
+     "wild_top": [
+      487.0,
+      546.1
+     ]
+    }
+   },
+   "mossy_ruins_hollow": {
+    "file": "trails/mossy_ruins_hollow_battle.webp",
+    "fg": "trails/mossy_ruins_hollow_battle_fg.webp",
+    "w": 878,
+    "h": 1316,
+    "anchors": {
+     "pet": [
+      174.8,
+      1223.6
+     ],
+     "pet_top": [
+      167.7,
+      658.2
+     ],
+     "wild": [
+      486.2,
+      939.8
+     ],
+     "wild_top": [
+      487.0,
+      546.1
+     ]
+    }
+   },
+   "sentinel_gate": {
+    "file": "trails/sentinel_gate_battle.webp",
+    "fg": "trails/sentinel_gate_battle_fg.webp",
+    "w": 878,
+    "h": 1316,
+    "anchors": {
+     "pet": [
+      176.3,
+      1224.1
+     ],
+     "pet_top": [
+      200.6,
+      658.2
+     ],
+     "wild": [
+      491.8,
+      947.8
+     ],
+     "wild_top": [
+      483.5,
+      40.8
+     ]
+    }
+   }
+  },
+  "battleCreatures": {
+   "petalune": {
+    "w": 390,
+    "h": 418,
+    "states": {
+     "neutral": "trails/creature_petalune_neutral_battle.webp",
+     "wary": "trails/creature_petalune_wary_battle.webp",
+     "happy": "trails/creature_petalune_happy_battle.webp"
+    },
+    "anchors": {
+     "ground": [
+      170.6,
+      384.4
+     ],
+     "top": [
+      170.6,
+      45.0
+     ],
+     "face": [
+      110.7,
+      231.5
+     ]
+    }
+   },
+   "hollow_sprout": {
+    "w": 356,
+    "h": 434,
+    "states": {
+     "hollow": "trails/creature_hollow_sprout_hollow_battle.webp",
+     "restored": "trails/creature_hollow_sprout_restored_battle.webp"
+    },
+    "anchors": {
+     "ground": [
+      175.2,
+      402.4
+     ],
+     "top": [
+      175.2,
+      18.3
+     ],
+     "face": [
+      116.0,
+      281.4
+     ]
+    }
+   },
+   "sentinel": {
+    "w": 734,
+    "h": 648,
+    "states": {
+     "dormant": "trails/creature_sentinel_dormant_battle.webp",
+     "hollow": "trails/creature_sentinel_hollow_battle.webp",
+     "waking": "trails/creature_sentinel_waking_battle.webp",
+     "restored": "trails/creature_sentinel_restored_battle.webp"
+    },
+    "anchors": {
+     "ground": [
+      395.0,
+      634.9
+     ],
+     "top": [
+      395.0,
+      35.2
+     ],
+     "face": [
+      344.4,
+      138.5
+     ],
+     "eye_l": [
+      297.1,
+      137.0
+     ],
+     "eye_r": [
+      403.9,
+      132.5
+     ],
+     "chest": [
+      334.3,
+      359.7
+     ]
+    }
+   }
   }
  }
 }

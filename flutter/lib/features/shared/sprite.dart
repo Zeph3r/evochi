@@ -101,6 +101,77 @@ class _PetSpriteState extends State<PetSprite> {
   }
 }
 
+/// Your Evochi as the encounter sees it (from behind): the untrimmed battle frame for an expression
+/// with the equipped wearables drawn over it at the same frame size, so it can be placed by its
+/// anchors. [width] is the frame's width on screen (the height follows the frame's aspect). The last
+/// frame stays up while the next one loads, so expression changes never flash.
+class BattleSprite extends StatefulWidget {
+  const BattleSprite({super.key, required this.stage, required this.palette, this.expr = 'default', this.overlays = const [], required this.width});
+  final int stage;
+  final String palette;
+  final String expr;
+  final List<String> overlays;
+  final double width;
+
+  @override
+  State<BattleSprite> createState() => _BattleSpriteState();
+}
+
+class _BattleSpriteState extends State<BattleSprite> {
+  ui.Image? _img;
+  ui.Image? _ov;
+  Rect? _src;
+  List<Rect> _ovRects = const [];
+  int _req = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(BattleSprite old) {
+    super.didUpdateWidget(old);
+    if (old.stage != widget.stage || old.palette != widget.palette || old.expr != widget.expr || old.overlays.join('+') != widget.overlays.join('+')) _load();
+  }
+
+  Future<void> _load() async {
+    final e = AssetManifest.instance!.char(widget.stage).battle;
+    if (e == null) return;
+    final req = ++_req;
+    final src = e.frame(widget.palette, widget.expr);
+    final img = await AtlasCache.load(e.atlasFile(widget.palette));
+    ui.Image? ov;
+    final rects = <Rect>[];
+    if (widget.overlays.isNotEmpty) {
+      for (final o in widget.overlays) {
+        final r = e.overlay(o);
+        if (r != null) rects.add(r);
+      }
+      if (rects.isNotEmpty) ov = await AtlasCache.load(e.overlaysFile);
+    }
+    if (!mounted || req != _req) return;
+    setState(() {
+      _img = img;
+      _ov = ov;
+      _src = src;
+      _ovRects = rects;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final e = AssetManifest.instance!.char(widget.stage).battle;
+    final aspect = e == null ? 1.0 : e.w / e.h;
+    return SizedBox(
+      width: widget.width,
+      height: widget.width / aspect,
+      child: _img == null || _src == null ? const SizedBox.shrink() : CustomPaint(painter: _SpritePainter(_img!, _src!, _ov, _ovRects, false)),
+    );
+  }
+}
+
 class _SpritePainter extends CustomPainter {
   _SpritePainter(this.img, this.src, this.ov, this.ovRects, this.silhouette);
   final ui.Image img;
@@ -124,5 +195,13 @@ class _SpritePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_SpritePainter old) => old.img != img || old.src != src || old.ov != ov || old.silhouette != silhouette;
+  bool shouldRepaint(_SpritePainter old) =>
+      old.img != img || old.src != src || old.ov != ov || old.silhouette != silhouette || old.ovRects.length != ovRects.length || !_sameRects(old.ovRects, ovRects);
+
+  static bool _sameRects(List<Rect> a, List<Rect> b) {
+    for (var i = 0; i < a.length && i < b.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
 }

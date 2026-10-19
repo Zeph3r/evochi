@@ -14,6 +14,9 @@ const defaultStoryFlags = {
   'waystone_restored': false,
   'cottage_restored': false, // Home Tales: opens the Kitchen
   'apothecary_unlocked': false, // Home Tales: opens the Apothecary
+  'petalune_befriended': false, // Lumen Trails: The Forest Guardian
+  'sprout_restored': false, // Lumen Trails: Tangled Lumen (opens the Lantern Tonic recipe)
+  'sentinel_restored': false, // Lumen Trails: The Forgotten Sentinel
 };
 
 class QuestState {

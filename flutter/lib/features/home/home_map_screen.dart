@@ -1,5 +1,6 @@
 // Home Tales: the Home Map. The nest (your Evochi), the Garden, the Cottage and the Village Gate on
-// one plate, the starter-seed gift on the first visit, a quest strip and a row per place.
+// one plate, the starter-seed gift on the first visit, a quest strip and a row per place. A befriended
+// companion visits by the nest, and a discovery's clue glints here when one is ready (Lumen Trails).
 // Mirrors `homemap` in web/src/screens/homeland.js.
 
 import 'dart:async';
@@ -13,6 +14,7 @@ import '../../game/home/home.dart' as h;
 import '../../game/story/story.dart' as q;
 import '../shared/sprite.dart';
 import '../shared/widgets.dart';
+import '../trails/trails_widgets.dart';
 import '../village/village_screen.dart';
 import 'home_widgets.dart';
 
@@ -113,6 +115,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
     final pet = c.state.pet;
     final petDead = c.view.pet?.dead ?? true;
     final hq = homeQuestFor(st);
+    final friend = c.trailsView.companions.firstOrNull; // the first companion visits by the nest
     final readyDishes = hv.kitchen ? h.recipeOrder.where((r) => h.recipeView(c.state, r).ready).length : 0;
     final gardenSub = hv.ripe > 0
         ? '${hv.ripe} bed${hv.ripe > 1 ? 's' : ''} ready to harvest'
@@ -167,6 +170,18 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                           ),
                         ),
                       ),
+                    if (friend != null && trailsArt.available)
+                      Positioned(
+                        left: (ha.mapAnchor('nest').dx + 150) / size.width * b.maxWidth,
+                        top: (ha.mapAnchor('nest').dy - 40) / size.height * b.maxHeight,
+                        child: FractionalTranslation(
+                          translation: const Offset(-0.5, -0.8),
+                          child: Semantics(
+                            label: '${friend.name} is visiting',
+                            child: CreatureImage(friend.id, height: b.maxWidth * 0.1 * trailsArt.creatureSize(friend.id).height / trailsArt.creatureSize(friend.id).width),
+                          ),
+                        ),
+                      ),
                     for (final p in _mapPins)
                       Positioned(
                         left: at(p.$1).dx,
@@ -176,6 +191,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
                           child: _MapPin(id: p.$1, label: p.$2, state: _pinState(p.$1, hv, st)),
                         ),
                       ),
+                    ClueGlint(place: 'homemap', width: b.maxWidth, height: b.maxHeight),
                   ]);
                 }),
               ),

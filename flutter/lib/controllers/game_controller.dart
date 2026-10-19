@@ -19,6 +19,7 @@ import '../data/repositories/game_repository.dart';
 import '../game/engine.dart' as g;
 import '../game/home/home.dart' as h;
 import '../game/story/story.dart' as story;
+import '../game/trails/trails.dart' as tr;
 
 class Toast {
   const Toast(this.message, {this.icon, this.kind = 'ok'});
@@ -49,6 +50,7 @@ class GameController extends ChangeNotifier {
   g.GameView? _view;
   story.StoryStatus? _story;
   h.HomeStatus? _home;
+  tr.TrailsStatus? _trails;
   int _viewAt = 0;
 
   /// Cross-route navigation requests (pushed Village screens can't reach the tab shell directly).
@@ -66,6 +68,7 @@ class GameController extends ChangeNotifier {
       _view = g.derive(state, n);
       _story = null;
       _home = null;
+      _trails = null;
       _viewAt = n;
     }
     return _view!;
@@ -87,10 +90,26 @@ class GameController extends ChangeNotifier {
     return _home ??= h.homeStatus(state, _viewAt);
   }
 
-  /// Something new at home (badge on Explore Home): a ripe bed, the starter gift, or the Cottage ready.
+  /// Lumen Trails: today's discoveries, guild rank, companions and the live encounter (cached with
+  /// [view]; screens that show walking progress read [tr.discoveryView] with [now] directly).
+  tr.TrailsStatus get trailsView {
+    view;
+    return _trails ??= tr.trailsStatus(state, _viewAt);
+  }
+
+  /// Something new at home (badge on Explore Home): a ripe bed, the starter gift, the Cottage ready,
+  /// or a discovery to inspect on the Home Map, in the Garden or at the Cottage.
   bool get homeAttention {
     final hv = h.homeStatus(state, now);
-    return hv.ripe > 0 || !hv.starterSeeds || storyView.cottageReady;
+    final clue = trailsView.ready.any((d) => const {'homemap', 'garden', 'cottage'}.contains(d.place));
+    return hv.ripe > 0 || !hv.starterSeeds || storyView.cottageReady || clue;
+  }
+
+  /// The Trail Guild has something for you (the dot on its Village row): a discovery to inspect, an
+  /// encounter ready, or today's board not started yet.
+  bool get guildAttention {
+    final t = trailsView;
+    return t.ready.isNotEmpty || storyView.encounters.isNotEmpty || (t.foundToday == 0 && t.walking.isEmpty);
   }
 
   /// Switch the main tab from anywhere (closes pushed screens first; see MainShell).
@@ -132,6 +151,7 @@ class GameController extends ChangeNotifier {
     _view = null;
     _story = null;
     _home = null;
+    _trails = null;
     repo.save(s);
     _applySettings();
     notifyListeners();
@@ -182,13 +202,25 @@ class GameController extends ChangeNotifier {
       'tonic_used': const Toast('This bed already had a Sprout Tonic', icon: 'potion', kind: 'warn'),
       'already_ripe': const Toast('Already ripe - harvest it!', icon: 'skill_farming'),
       'station_locked': const Toast('That room is not open yet', icon: 'lock', kind: 'warn'),
-      'recipe_locked': Toast('Reach ${h.skillDefs[r.info['skill']]?.name ?? 'your skill'} Lv ${r.info['need'] ?? 2} to learn this recipe', icon: 'lock', kind: 'warn'),
+      'recipe_locked': r.info['flag'] == 'sprout_restored'
+          ? const Toast('Restore the Hollow Sprout (Tangled Lumen) to learn this recipe', icon: 'lock', kind: 'warn')
+          : Toast('Reach ${h.skillDefs[r.info['skill']]?.name ?? 'your skill'} Lv ${r.info['need'] ?? 2} to learn this recipe', icon: 'lock', kind: 'warn'),
       'missing_ingredients': const Toast('Some ingredients are missing', icon: 'skill_farming', kind: 'warn'),
       'use_in_garden': const Toast('Use this on a garden bed', icon: 'skill_farming', kind: 'warn'),
+      'discovery_not_ready': Toast('Walk ${fmtSteps(r.info['need'])} more steps first', icon: 'steps', kind: 'warn'),
+      'not_posted': const Toast("That discovery is not on today's board", icon: 'discover', kind: 'warn'),
+      'no_energy': Toast('Not enough Energy (${r.info['need'] ?? 0} needed). Soothe to rest, or use an item', icon: 'energy', kind: 'warn'),
+      'encounter_busy': const Toast('Finish or retreat from the current encounter first', icon: 'encounter', kind: 'warn'),
+      'encounter_over': const Toast('This encounter is over', icon: 'encounter'),
+      'companion_used': const Toast('Petalune already helped this time', icon: 'creature_petalune', kind: 'warn'),
+      'no_companion': const Toast('No companion can help here', icon: 'encounter', kind: 'warn'),
     };
     _toasts.add(m[r.error] ?? const Toast('Something went wrong - please try again', icon: 'warning', kind: 'err'));
     audio.play('error_bonk', volume: 0.5);
   }
+
+  /// "1,250" for a step count carried in an error's info (0 when missing).
+  static String fmtSteps(Object? n) => story.fmtN(n is num ? n.round() : 0);
 
   /// "You still need 2 more Sunberries" for a refused hand-in (null when nothing is listed).
   static String? _missingText(Object? missing) {
@@ -259,6 +291,19 @@ class GameController extends ChangeNotifier {
         toast('Sprout Tonic! +50% growth', icon: 'item:sprout_tonic');
       case 'skill_up':
         audio.play('level_up'); // the Skill-up card itself is shown by SkillUpListener
+      case 'discovery_ready':
+        toast('Discovery ready: inspect ${tr.trailPlaceNames[e.data['place']] ?? 'its place'}', icon: 'discover');
+        audio.play('reward_chime', volume: 0.6);
+      case 'discovery_begun':
+        toast('Discovery begun: ${e.data['title']}. Your next steps count', icon: 'discover');
+      case 'guild_rank':
+        toast('Trail Guild rank up: ${e.data['name']}!', icon: 'trail_badge');
+        audio.play('level_up');
+      case 'companion_joined':
+        final id = e.data['creature'] as String?;
+        toast('${tr.creatureDefs[id]?.name ?? 'A new friend'} joined you as a companion!', icon: id == null ? 'encounter' : 'creature_$id');
+      case 'encounter_retreat':
+        toast('You slipped away. Items used are back in your Bag', icon: 'bag');
       case 'story_completed':
         analytics.track('story_quest_completed', {'quest': e.data['questId']});
       case 'sync_failed':
@@ -312,13 +357,22 @@ class GameController extends ChangeNotifier {
     await sync();
   }
 
-  /// A simulated walk "just happened": it never reaches back before a story quest was accepted, or
-  /// before the latest planting, so a demo walk right after either always counts in full.
+  /// A simulated walk "just happened": it never reaches back before a story quest was accepted,
+  /// before the latest planting, or before a discovery was begun today, so a demo walk right after
+  /// any of them always counts in full.
   static int _demoNotBefore(GameState s) {
     final active = s.story.activeQuestId;
     final since = active == null ? 0 : (s.story.questStates[active]?.acceptedAt ?? 0);
     final planted = s.home.plots.values.fold<int>(0, (a, p) => p != null && p.plantedAt > a ? p.plantedAt : a);
-    return since > planted ? since : planted;
+    final today = dayKey(DateTime.now().millisecondsSinceEpoch + s.clockOffset, g.zoneOf(s));
+    var begun = 0;
+    final day = s.trails.days[today];
+    if (day != null) {
+      for (final x in day.states.values) {
+        if (x.foundAt == null && x.acceptedAt > begun) begun = x.acceptedAt;
+      }
+    }
+    return [since, planted, begun].reduce((a, b) => a > b ? a : b);
   }
 
   void addManualSteps(int steps) {
@@ -387,6 +441,28 @@ class GameController extends ChangeNotifier {
       final v = h.skillLevel(xp);
       if (!v.maxed) s.home.skills[k] = xp + v.need - v.into;
     }
+    _commit(s);
+  }
+
+  /// Lumen Trails: Chapter 1's first quest done, level 3 and two discoveries found, so Pip has a
+  /// Guild job. Returns how many discoveries it found (0: the Trails were already open).
+  int trailsReady() {
+    final r = run((s, n) => tr.playtestTrailsReady(s, n));
+    return r.events.isEmpty ? 0 : ((r.events.first.data['found'] as int?) ?? 0);
+  }
+
+  /// Begin, walk and inspect up to [max] of today's discoveries. Returns how many were found.
+  int finishDiscoveries(int max) {
+    final (s, n) = tr.playtestFinishDiscoveries(state, now, max);
+    if (n > 0) _commit(s);
+    return n;
+  }
+
+  /// +3 Lumen Shards and a Lantern Tonic.
+  void grantTrailItems() {
+    final s = state.copy();
+    g.grantItem(s, 'lumen_shard', 3, 'playtest', now);
+    g.grantItem(s, 'lantern_tonic', 1, 'playtest', now);
     _commit(s);
   }
 

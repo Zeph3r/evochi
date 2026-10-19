@@ -70,7 +70,11 @@ class _StationScreenState extends State<StationScreen> {
       return;
     }
     if (!r.known) {
-      c.toast('Reach ${h.skillDefs[r.skill]!.name} Lv ${r.level} to learn this recipe', icon: 'lock', kind: 'warn');
+      if (r.needsStory) {
+        c.toast('Restore the Hollow Sprout (${q.storyQuests[h.recipeQuest(r.def)]!.title}) to learn this recipe', icon: 'lock', kind: 'warn');
+      } else {
+        c.toast('Reach ${h.skillDefs[r.skill]!.name} Lv ${r.level} to learn this recipe', icon: 'lock', kind: 'warn');
+      }
       return;
     }
     if (!r.ready) {
@@ -387,7 +391,8 @@ class _RecipeCard extends StatelessWidget {
             ),
             const SizedBox(width: 8),
             if (!r.known)
-              Tag('Lv ${r.level}', tone: TagTone.neutral, icon: 'lock')
+              // a story recipe (the Lantern Tonic) waits on its quest once the level is reached
+              Tag(r.needsStory && h.skillView(c.state, r.skill).level >= r.level ? 'Story' : 'Lv ${r.level}', tone: TagTone.neutral, icon: 'lock')
             else
               EvochiButton(label: verb, small: true, expand: false, tone: r.ready ? ButtonTone.green : ButtonTone.cream, semanticLabel: '$verb ${r.name}', onPressed: onTap),
           ]),

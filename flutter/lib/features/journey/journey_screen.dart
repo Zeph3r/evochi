@@ -1,5 +1,6 @@
 // S08 Journey: today's steps, sync status, quests and the week (style guide §14-15, §18), plus
-// Village Tales (Story) and the Home Tales skills chart (Skills).
+// the Trail Guild's daily discoveries (Daily), Village Tales (Story) and the Home Tales skills chart
+// (Skills).
 
 import 'dart:math' as math;
 
@@ -18,6 +19,7 @@ import '../home/skills_screen.dart';
 import '../nest/sheets.dart';
 import '../settings/settings_screen.dart';
 import '../shared/widgets.dart';
+import '../trails/trails_widgets.dart';
 import '../village/story_widgets.dart';
 
 class JourneyScreen extends StatefulWidget {
@@ -211,9 +213,9 @@ class _JourneyScreenState extends State<JourneyScreen> {
           sliver: SliverList.list(children: [
             _JourneyTabs(
               tab: tab,
-              dailyDot: v.quests.any((q) => q.def.period == 'day' && q.eligible && !q.claimed),
+              dailyDot: v.quests.any((q) => q.def.period == 'day' && q.eligible && !q.claimed) || (c.state.player != null && c.trailsView.ready.isNotEmpty),
               weeklyDot: v.quests.any((q) => q.def.period == 'week' && q.eligible && !q.claimed),
-              storyDot: c.storyView.turnIns.isNotEmpty,
+              storyDot: c.storyView.turnIns.isNotEmpty || c.storyView.encounters.isNotEmpty,
               onTab: (t) {
                 c.audio.play('ui_tap', volume: 0.3);
                 setState(() => c.journeyTab = t);
@@ -234,6 +236,8 @@ class _JourneyScreenState extends State<JourneyScreen> {
               if (tab == 'daily') ...[
                 const _SectionHead('Daily quests'),
                 for (final q in v.quests.where((q) => q.def.period == 'day')) _QuestRow(q: q, onClaim: () => _claim(c, q.def.id)),
+                const SizedBox(height: 4),
+                const DiscoveriesPanel(),
               ] else ...[
                 const _SectionHead('This week'),
                 for (final q in v.quests.where((q) => q.def.period == 'week')) _QuestRow(q: q, onClaim: () => _claim(c, q.def.id)),

@@ -13,6 +13,7 @@ import '../../controllers/game_controller.dart';
 import '../../game/home/home.dart' as h;
 import '../../game/story/story.dart' as q;
 import '../shared/widgets.dart';
+import '../trails/trails_widgets.dart';
 import '../village/story_widgets.dart';
 import '../village/village_screen.dart';
 import 'home_widgets.dart';
@@ -214,6 +215,8 @@ class _CottageView extends StatelessWidget {
               ),
             ),
           ),
+          // a discovery's clue (Lumen Trails), once the cottage stands restored
+          if (restored && !animating) ClueGlint(place: 'cottage', width: b.maxWidth, height: b.maxHeight),
         ]);
       }),
     );

@@ -153,6 +153,79 @@ passes the syntax check and its imports resolve, but `flutter analyze` / `flutte
 - **Tests:** `test/home_test.dart` mirrors `../web/test/home.test.mjs`. It adds a save round-trip
   check and a check for the playtest shortcut.
 
+## Lumen Trails
+
+The Trail Guild's daily discoveries, the trail jobs (encounter quests) and the encounters themselves,
+ported from the web build (where they are played and tested end to end). Like the rest of the game
+logic it is **uncompiled here**: every file passes the syntax check and its imports resolve, but
+`flutter analyze` / `flutter test` have not run.
+
+- **What it is:**
+  - **Discoveries:** three authored, deterministic picks a day (per account and day; never two at the
+    same place). Begin one, walk, then inspect the glinting clue at its place for coins, items and
+    Guild XP. Guild ranks: Wanderer, Trail Friend, Pathfinder, Lightkeeper, Trailwarden.
+  - **Trail jobs:** `eq01` The Forest Guardian (befriend Petalune at the Mossy Ruins), `eq02` Tangled
+    Lumen (restore the Hollow Sprout; Glowleaf required) and `eq03` The Forgotten Sentinel (a boss
+    with a second phase at the Old Gate; Lantern Tonic required). They live in the story engine
+    (line `trail`); the encounter is the hand-in.
+  - **Encounters:** a seeded, turn-based state machine. Befriend fills Calm to 100; Restore brings
+    Instability to 0. Lumen Glow (x1.3 on the Hollow, x1.25 more once the Sentinel wakes), Gentle Nudge
+    (makes a wild one curious), Soothe (+30 Energy), items (liked ones x1.5) and a befriended
+    Petalune's Petal Hush once per encounter. Your Evochi never faints; Retreat returns every item used.
+- **Rules** live in `lib/game/trails/trails.dart` and mirror `../web/src/game/trails.js` exactly: the
+  FNV-1a + mulberry32 RNG (the same stream for the same seed, so an attempt replays the same way on
+  both clients), the `encounter_turn` events (`you`, `wild`, `mood`, `drain`, `kind`, `item`, and a
+  final one with `final: true` on the winning move before `encounter_won`), and `completeEncounter`,
+  which runs the quest's hand-in and emits `companion_joined`.
+- **State** is `GameState.trails` (`lib/core/models/trails_state.dart`), the same JSON as the web save
+  (`state.trails`). Old saves get a fresh one on load.
+- **Screens** live in `lib/features/trails/`:
+  - `guild_screen.dart`: the Guild Board (rank, lore, today's discoveries, trail jobs, friends).
+  - `trail_place_screen.dart`: the Mossy Ruins and the Old Gate (scene, residents, the clue glint).
+  - `prep_screen.dart`: the place header with a look-around button, the scene banner, the quest card
+    with its checklist, your team, the recommended item (Change / Make), rewards, and Prepare & Enter
+    (or Talk to / Go for a walk / Make X / Continue the encounter for a live one after a relaunch).
+  - `travel_screen.dart`: the trip (three lines over the panning scene), then the encounter with its
+    intro.
+  - `encounter_stage.dart`: the battle shot. `shotGeometry` is a verbatim port of the web's (fractions
+    of the 2:3 backdrop; your Evochi's width per stage, its face kept left of the wild one). The
+    stage is a widget tree driven imperatively through `EncounterStage` (a `ChangeNotifier` holding
+    the camera shot, the sprite states and expressions, one-shot reactions, shakes, flashes, the
+    letterbox/aura/eye flags and the list of live effects), so camera moves and effects never restart
+    when the state re-renders. Layers, bottom to top: backdrop, aura, the wild one, your Evochi (the
+    untrimmed battle frame plus equipped wearables, `BattleSprite` in `shared/sprite.dart`), the
+    foreground layer (parallax), effects, grade, flash, dust, plates, ribbon and caption; the title
+    and the skip pill sit over the letterbox. Camera shots: wide, pet (1.07), wild (1.13, with the
+    foreground at 1.09 and your Evochi nudged), close (1.55) and face (2.3) as a tweened transform of
+    the world.
+  - `encounter_screen.dart`: the phases (intro, card, play, outro, result), the intros on the same shot
+    (rare, hollow and the Sentinel's awakening, 8.2 s), `_runTurn` (the web's timings; x0.35 with
+    reduced motion), the finish choreography, the panel (log card with history, the action grid with
+    cost chips, retreat), the goal card, the result (rewards row, EvoDex card, Continue) and the item
+    picker. The panel is measured after each frame and the view ends 20px above it, like the web.
+  - `trails_widgets.dart`: navigation, tags, the rank card, discovery rows and cards, the clue glint,
+    the creature card, the friends panel, the trail quest rows, `EncCta` and the reward tiles.
+- **Audio:** `AudioService.setMusic(name)` crossfades the loop (null = the meadow ambience,
+  `enc_wild_loop` / `enc_boss_loop` for encounters, `'none'` for silence) and `play` has the new
+  cues (`enc_rumble`, `enc_awaken`, `enc_glow`, `enc_whoosh`, `enc_soothe`, `enc_surge`).
+- **Art:** the manifest's `trails` block (`TrailsArt`: scenes, creatures, `battle`, `battleCreatures`)
+  and each form's `chars.sNN.battle` entry (`BattleEntry`), served from `assets/art/trails/` and
+  `assets/art/chars/`. Art packs without the battle shots fall back to a plain stage.
+- **Simplified relative to the web:** CSS filter effects (drop-shadow glows, brightness) are
+  approximated with colour matrices and soft radial glows; the eye glow's `screen` blend is a canvas
+  blend; the Hollow silhouette's rim is a radial glow rather than an alpha-shaped shadow; the
+  `camDrift` / breathing loops share one 16 s clock; there is no slow-motion capture hook. Everything
+  else (timings, shots, numbers, texts) follows the web.
+- **Tests:** `test/trails_test.dart` mirrors `../web/test/trails.test.mjs` (the catalog guard, the
+  deterministic day board and old-save migration, a discovery's begin/walk/inspect, Guild ranks, the
+  three trail jobs end to end including startEncounter gating, the liked-treat/retreat refund case,
+  and the dialogue sanity check).
+- **Asset sync:** `python3 <scratchpad>/sync_flutter_assets.py` copies the art (icons, items, `home/`,
+  `trails/`, the battle atlases and overlays under `chars/`) and the audio from
+  `../web/public/assets`, and merges the manifest keys (`home`, `trails`, `chars.sNN.battle`, new
+  `icons`, `items` and `audio` entries). Flutter keeps loops under `assets/audio/ambient/` and
+  one-shots under `assets/audio/sfx/`.
+
 ## Accounts and cloud
 
 `data/remote/remote_sync.dart` defines the server boundary: pull/push snapshot, server-confirmed

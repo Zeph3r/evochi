@@ -1,6 +1,7 @@
 // Village Tales: shared story UI. Quest details, the reward cards (story items, or Home Tales gifts
-// and unlocks), the Journey > Story tab (Chapter 1, Home Tales, side stories), the Bag > Quest Pouch
-// and the Home story chip (Quest Bible §8). Mirrors web/src/screens/village.js.
+// and unlocks, or a new companion), the Journey > Story tab (Chapter 1, Home Tales, Lumen Trails, side
+// stories), the Bag > Quest Pouch and the Home story chip (Quest Bible §8). Mirrors
+// web/src/screens/village.js.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -13,8 +14,10 @@ import '../../game/engine.dart' as g;
 import '../../game/home/home.dart' as h;
 import '../../game/story/story.dart' as q;
 import '../home/home_widgets.dart';
+import '../../game/trails/trails.dart' as tr;
 import '../pet/pet_screens.dart';
 import '../shared/widgets.dart';
+import '../trails/trails_widgets.dart';
 import 'village_screen.dart';
 
 VillageArt get villageArt => art.village;
@@ -34,14 +37,21 @@ const speakers = <String, Speaker>{
   'waystone': Speaker('The Waystone', '', Color(0xFF6E8A7E)),
 };
 
-String npcLabel(String id) => id == 'waystone' ? 'the Waystone' : (id == 'cottage' ? 'your Cottage' : q.npcs[id]!.name);
+String npcLabel(String id) => switch (id) {
+      'waystone' => 'the Waystone',
+      'cottage' => 'your Cottage',
+      'ruins' || 'gate' => tr.trailPlaceNames[id]!,
+      _ => q.npcs[id]!.name,
+    };
 
 const _unlockIcon = {'Cottage': 'home_map', 'Kitchen': 'skill_cooking', 'Apothecary': 'skill_alchemy'};
 
-/// "Village Tales, Chapter 1 · Quest 01", "Home Tales · Quest 01" or "Side story · optional".
+/// "Village Tales, Chapter 1 · Quest 01", "Home Tales · Quest 01", "Lumen Trails · Trail job 01" or
+/// "Side story · optional".
 String questLead(q.StoryQuestView v) {
   final n = v.n.toString().padLeft(2, '0');
   if (v.line == 'home') return 'Home Tales · Quest $n';
+  if (v.line == 'trail') return 'Lumen Trails · Trail job $n';
   if (v.line == 'side') return 'Side story · optional';
   return '${q.chapterName} · Quest $n';
 }
@@ -85,6 +95,8 @@ String nextText(q.StoryQuestView v) {
       return _gatherText(n.needs);
     case 'grow':
       return 'Visit once your Evochi has grown into a ${stageLabel(n.stage)}';
+    case 'encounter':
+      return 'Travel to ${tr.trailPlaceNames[n.place] ?? 'the trail'}: ${(n.label ?? '').toLowerCase()}';
     case 'handin':
       if (n.npc == 'waystone') return 'Restore the Waystone in the Square';
       if (n.npc == 'cottage') return 'Restore the Cottage on your Home Map';
@@ -99,7 +111,7 @@ Widget storyStatusTag(q.StoryQuestView v) {
   if (v.completed) return const Tag('Complete', tone: TagTone.ok);
   if (v.phase == 'locked') return Tag('Lv ${v.level}', tone: TagTone.neutral, icon: 'lock');
   if (v.phase == 'available') return const Tag('New', tone: TagTone.stage);
-  if (v.next.kind == 'handin') return const Tag('Ready', tone: TagTone.ok);
+  if (v.next.kind == 'handin' || v.next.kind == 'encounter') return const Tag('Ready', tone: TagTone.ok);
   if (v.next.kind == 'grow') return const Tag('Needs a Juvenile', tone: TagTone.warn);
   if (v.paused) return const Tag('Paused', tone: TagTone.warn);
   return const Tag('In progress');
@@ -199,6 +211,7 @@ class RewardChips extends StatelessWidget {
         for (final id in r.items) _Chip(image: ItemImage(id, size: 30), label: item(id).name, story: true),
         if (r.coins > 0) _Chip(image: const VoxelIcon('coin', size: 30), label: '${r.coins}'),
         for (final e in r.gifts.entries) _Chip(image: ItemImage(e.key, size: 30), label: '${e.value} × ${item(e.key).name}'),
+        if (r.companion != null) _Chip(image: VoxelIcon('creature_${r.companion}', size: 30), label: '${tr.creatureDefs[r.companion]?.name ?? 'A friend'} joins you', story: true),
         for (final u in r.unlocks) _Chip(image: VoxelIcon(_unlockIcon[u] ?? 'star', size: 30), label: 'Unlocks $u', story: true),
         for (final t in r.titles) _Chip(image: const VoxelIcon('crown', size: 30), label: 'Title: ${q.titles[t]}'),
       ]);
@@ -320,6 +333,10 @@ Widget? _questGo(BuildContext context, BuildContext sheet, GameController c, q.S
   if (n.kind == 'grow') {
     return button('Check on your Evochi', () => Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const PetDetailsScreen())), tone: ButtonTone.cream);
   }
+  if (n.kind == 'encounter' || (n.encounter != null && n.kind == 'gather')) {
+    final ready = n.kind == 'encounter';
+    return button(ready ? 'Prepare & Travel' : 'Encounter prep', () => openPrep(context, v.id), tone: ready ? ButtonTone.green : ButtonTone.gold);
+  }
   if (n.place == 'cottage') return button('Go to your Cottage', () => goHome(context, 'cottage'));
   if (v.phase == 'locked' && (v.lock?.needSkills.isNotEmpty ?? false)) return button('Open Skills', () => goHome(context, 'skills'), tone: ButtonTone.cream);
   if (const {'talk', 'handin', 'locked', 'gather', 'grow'}.contains(n.kind)) {
@@ -351,11 +368,14 @@ class _ObjectiveRow extends StatelessWidget {
                 height: 24,
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(8),
-                  border: Border.all(color: o.done ? const Color(0xFF5C9340) : (now ? const Color(0xFFF0B952) : const Color(0xFFD8C3AA)), width: 2),
+                  // optional objectives (an encounter's recommended item) get a lighter, open box
+                  border: Border.all(
+                      color: o.done ? const Color(0xFF5C9340) : (now ? const Color(0xFFF0B952) : (o.optional ? const Color(0xFFE6D8C6) : const Color(0xFFD8C3AA))),
+                      width: o.optional && !o.done ? 1.5 : 2),
                   color: o.done ? EvochiColor.steps : EvochiColor.canvas,
                   boxShadow: now ? const [BoxShadow(color: EvochiColor.gold100, spreadRadius: 2)] : null,
                 ),
-                child: o.done ? const Icon(Icons.check_rounded, size: 16, color: EvochiColor.ink) : null,
+                child: o.done ? const Icon(Icons.check_rounded, size: 16, color: EvochiColor.ink) : (o.optional && o.ready ? const Icon(Icons.check_rounded, size: 14, color: EvochiColor.textHelper) : null),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -363,7 +383,7 @@ class _ObjectiveRow extends StatelessWidget {
                   o.text,
                   style: EvochiText.bodyText.copyWith(
                     fontWeight: now ? FontWeight.w900 : FontWeight.w700,
-                    color: o.done ? EvochiColor.textHelper : (now ? EvochiColor.ink : EvochiColor.textSecondary),
+                    color: o.done || o.optional ? EvochiColor.textHelper : (now ? EvochiColor.ink : EvochiColor.textSecondary),
                     decoration: o.done ? TextDecoration.lineThrough : null,
                   ),
                 ),
@@ -482,6 +502,40 @@ Future<void> showStoryReward(BuildContext context, String qid, {bool backToVilla
   if (backToVillage && context.mounted) returnToVillage(context);
 }
 
+/// The gold-framed panel with a tab on its top edge ("NEW COMPANION").
+class _UnlockFrame extends StatelessWidget {
+  const _UnlockFrame({required this.label, required this.child});
+  final String label;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) => Stack(clipBehavior: Clip.none, alignment: Alignment.topCenter, children: [
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.fromLTRB(14, 20, 14, 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(18),
+            border: Border.all(color: const Color(0xFFE8B956), width: 3),
+            gradient: const RadialGradient(center: Alignment(0, -0.3), radius: 0.9, colors: [Color(0xFFFFF6DA), Color(0xFFFFF9F0)]),
+            boxShadow: const [BoxShadow(color: Color(0xFFFFF1C9), spreadRadius: 4), BoxShadow(color: Color(0xFFD9A84A), offset: Offset(0, 4))],
+          ),
+          child: Center(child: child),
+        ),
+        Positioned(
+          top: -13,
+          child: Container(
+            height: 26,
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            decoration: BoxDecoration(borderRadius: BorderRadius.circular(9), border: Border.all(color: const Color(0xFFE8B956), width: 2), color: const Color(0xFFFFF9F0)),
+            child: Row(mainAxisSize: MainAxisSize.min, children: [
+              const VoxelIcon('star', size: 16),
+              const SizedBox(width: 4),
+              Text(label, style: EvochiText.tag.copyWith(color: EvochiColor.gold900, fontSize: 12, letterSpacing: 0.4)),
+            ]),
+          ),
+        ),
+      ]);
+}
+
 /// Reward card for quests that pay out gifts, unlocks and titles instead of one story item.
 Future<void> _homeRewardCard(BuildContext context, q.StoryQuest quest, {required bool backToVillage}) async {
   final r = quest.rewards;
@@ -504,7 +558,16 @@ Future<void> _homeRewardCard(BuildContext context, q.StoryQuest quest, {required
               const SizedBox(height: 8),
               Text(questLead(q.questView(c.state, quest.id, c.now)), style: EvochiText.caption, textAlign: TextAlign.center),
               Text(quest.title, style: EvochiText.section, textAlign: TextAlign.center),
-              if (r.unlocks.isNotEmpty) ...[
+              if (r.companion != null) ...[
+                const SizedBox(height: 16),
+                _UnlockFrame(
+                  label: 'NEW COMPANION',
+                  child: Column(mainAxisSize: MainAxisSize.min, children: [
+                    VoxelIcon('creature_${r.companion}', size: 96),
+                    Text(tr.creatureDefs[r.companion]?.name ?? '', style: EvochiText.cardTitle),
+                  ]),
+                ),
+              ] else if (r.unlocks.isNotEmpty) ...[
                 const SizedBox(height: 16),
                 Stack(clipBehavior: Clip.none, alignment: Alignment.topCenter, children: [
                   Container(
@@ -607,6 +670,9 @@ class StoryTab extends StatelessWidget {
       const SizedBox(height: 6),
       const SectionHead('Home Tales'),
       for (final v in st.home) StoryQuestCard(v: v),
+      const SizedBox(height: 6),
+      const SectionHead('Lumen Trails', trailing: Tag('Encounters')),
+      for (final v in st.trail) StoryQuestCard(v: v),
       const SizedBox(height: 6),
       const SectionHead('Side stories', trailing: Tag('Optional')),
       for (final v in st.side) StoryQuestCard(v: v),
@@ -785,6 +851,7 @@ class PouchDetail extends StatelessWidget {
     final m = q.questMaterials[id]!;
     final who = npcLabel(m.usedBy);
     final place = q.placeOf(m.usedBy);
+    final trail = q.trailPlaceIds.contains(m.usedBy);
     return GameCard(
       padding: const EdgeInsets.all(10),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
@@ -809,7 +876,12 @@ class PouchDetail extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 8),
-        EvochiButton(label: 'Go to ${who.replaceFirst('the ', '')}', small: true, onPressed: () => openPlace(context, place)),
+        EvochiButton(
+          label: 'Go to ${who.replaceFirst('the ', '')}',
+          small: true,
+          // trail materials are used at the ruins or the gate: their encounter prep
+          onPressed: () => trail ? openPrep(context, m.quest) : openPlace(context, place),
+        ),
       ]),
     );
   }

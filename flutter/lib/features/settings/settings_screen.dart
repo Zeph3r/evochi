@@ -304,6 +304,42 @@ class SettingsScreen extends StatelessWidget {
                     },
                   ),
                 ]),
+                const SizedBox(height: 12),
+                const Text('Lumen Trails', style: EvochiText.cardTitle),
+                const Text('Discoveries, the Trail Guild and encounters.', style: EvochiText.caption),
+                const SizedBox(height: 8),
+                Wrap(spacing: 6, runSpacing: 6, children: [
+                  EvochiButton(
+                    label: 'Skip to Lumen Trails',
+                    small: true,
+                    expand: false,
+                    tone: ButtonTone.cream,
+                    onPressed: () {
+                      final n = c.trailsReady();
+                      c.toast(n > 0 ? 'Level 3, two discoveries done: Pip has a Guild job for you' : 'Lumen Trails are already open', icon: 'trail_badge');
+                    },
+                  ),
+                  EvochiButton(
+                    label: "Finish today's discoveries",
+                    small: true,
+                    expand: false,
+                    tone: ButtonTone.cream,
+                    onPressed: () {
+                      final n = c.finishDiscoveries(3);
+                      c.toast(n > 0 ? '$n discover${n == 1 ? 'y' : 'ies'} found' : 'Nothing left to find today', icon: 'discover');
+                    },
+                  ),
+                  EvochiButton(
+                    label: '+3 Lumen Shards, +1 Lantern Tonic',
+                    small: true,
+                    expand: false,
+                    tone: ButtonTone.cream,
+                    onPressed: () {
+                      c.grantTrailItems();
+                      c.toast('Shards and a Lantern Tonic added', icon: 'item:lumen_shard');
+                    },
+                  ),
+                ]),
               ]),
             ),
             const SizedBox(height: 8),

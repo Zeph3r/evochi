@@ -15,6 +15,7 @@ import '../core/utils/ids.dart';
 import 'bond/bond.dart';
 import 'evolution/evolution.dart';
 import 'story/story.dart' as story;
+import 'trails/trails.dart' as trails;
 import 'vitality/vitality.dart';
 import 'xp/step_aggregation.dart';
 import 'xp/xp.dart';
@@ -400,8 +401,9 @@ ActionResult syncSteps(GameState state, List<StepSample> samples, int now, {Stri
   s.steps.lastSync = now;
   s.steps.lastSource = source;
   if (s.audit.length > 200) s.audit = s.audit.sublist(s.audit.length - 200);
-  // story walks advance from the same de-duplicated samples (account-level, so even without a pet)
-  final storyEvents = story.applyStoryProgress(s, now);
+  // story walks and Trail Guild discoveries advance from the same de-duplicated samples
+  // (account-level, so even without a pet)
+  final storyEvents = [...story.applyStoryProgress(s, now), ...trails.applyTrailProgress(s, now)];
   final events = <GameEvent>[];
   final pet = s.pet;
   if (pet == null) return _ok(s, [...storyEvents, GameEvent('synced', {'added': merged.added})]);

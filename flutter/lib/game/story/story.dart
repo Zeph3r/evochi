@@ -1,4 +1,5 @@
-// Village Tales rules (Quest Bible v1.0 §9): Chapter 1, the Home Tales and the side stories.
+// Village Tales rules (Quest Bible v1.0 §9): Chapter 1, the Home Tales, the side stories and the Lumen
+// Trails encounter quests (whose hand-in is the encounter itself, played in lib/game/trails).
 // Mirrors web/src/game/story.js.
 //
 // Story progression belongs to the player account, not to a pet: it lives in `state.story`, survives
@@ -62,6 +63,7 @@ class LockReason {
     required this.text,
     this.needSkills = const {},
     this.needStage,
+    this.needDiscoveries = 0,
   });
   final int level;
   final bool needLevel;
@@ -69,6 +71,7 @@ class LockReason {
   final String text;
   final Map<String, int> needSkills; // skill -> level still needed (Home Tales)
   final int? needStage; // the Evochi stage still needed (side stories)
+  final int needDiscoveries; // Trail Guild discoveries still needed (Lumen Trails)
 }
 
 /// Why a quest can't be accepted yet, or null.
@@ -78,11 +81,13 @@ LockReason? lockReason(GameState s, String qid) {
   final lv = accountLevel(s);
   final skills = {for (final e in q.skills.entries) if (hm.skillLevel(s.home.skills[e.key] ?? 0).level < e.value) e.key: e.value};
   final stage = q.stage > 0 && (s.pet?.stage ?? 0) < q.stage;
-  if (missing.isEmpty && lv >= q.level && skills.isEmpty && !stage) return null;
+  final disc = q.discoveries > 0 ? math.max(0, q.discoveries - s.trails.stat('discoveries')) : 0;
+  if (missing.isEmpty && lv >= q.level && skills.isEmpty && !stage && disc == 0) return null;
   final parts = <String>[
     if (lv < q.level) 'reach level ${q.level}',
     if (missing.isNotEmpty) 'finish "${storyQuests[missing.first]!.title}"',
     for (final e in skills.entries) 'reach ${hm.skillDefs[e.key]!.name} Lv ${e.value}',
+    if (disc > 0) 'complete $disc more Trail Guild discover${disc == 1 ? 'y' : 'ies'}',
     if (stage) 'your Evochi grows into a Juvenile',
   ];
   return LockReason(
@@ -91,6 +96,7 @@ LockReason? lockReason(GameState s, String qid) {
     needQuest: missing.isEmpty ? null : missing.first,
     needSkills: skills,
     needStage: stage ? q.stage : null,
+    needDiscoveries: disc,
     text: 'Unlocks when ${parts.first.startsWith('your') ? '' : 'you '}${parts.join(' and ')}',
   );
 }
@@ -351,18 +357,22 @@ g.ActionResult storyTick(GameState state, int now) {
 
 // --------------------------------------------------------------------- views ----
 class NextStep {
-  const NextStep(this.kind, {this.npc, this.place, this.turnIn, this.label, this.needs = const [], this.stage = 0});
-  final String kind; // locked | talk | walk | gather | grow | handin | done
+  const NextStep(this.kind, {this.npc, this.place, this.turnIn, this.label, this.needs = const [], this.stage = 0, this.encounter});
+  final String kind; // locked | talk | walk | gather | grow | encounter | handin | done
   final String? npc;
-  final String? place; // a place id, 'waystone' or 'cottage'
+  final String? place; // a place id, 'waystone', 'cottage', 'ruins' or 'gate'
   final String? turnIn;
   final String? label;
   final List<ItemNeed> needs; // gather / handin: the inventory items the hand-in takes
   final int stage; // grow: the Evochi stage the hand-in needs
+  final String? encounter; // encounter (and gather before one): the creature at the place
 }
 
-/// Where a villager (or the Waystone, or your Cottage) is found.
-String placeOf(String npc) => npc == 'waystone' || npc == 'cottage' ? npc : npcs[npc]!.location;
+/// Trail places: hand-ins that happen at the Mossy Ruins or the Old Gate (encounters).
+const trailPlaceIds = {'ruins', 'gate'};
+
+/// Where a villager (or the Waystone, your Cottage, the ruins or the gate) is found.
+String placeOf(String npc) => npc == 'waystone' || npc == 'cottage' || trailPlaceIds.contains(npc) ? npc : npcs[npc]!.location;
 
 /// Where to go next for a quest.
 NextStep nextStep(GameState s, String qid) {
@@ -376,8 +386,9 @@ NextStep nextStep(GameState s, String qid) {
   if (t == null) return const NextStep('done');
   final place = placeOf(t.npc);
   final needs = itemNeeds(s, t);
-  if (needs.any((x) => !x.ok)) return NextStep('gather', npc: t.npc, place: place, turnIn: t.id, label: t.label, needs: needs);
+  if (needs.any((x) => !x.ok)) return NextStep('gather', npc: t.npc, place: place, turnIn: t.id, label: t.label, needs: needs, encounter: t.encounter);
   if (!_stageOk(s, t)) return NextStep('grow', npc: t.npc, place: place, turnIn: t.id, label: t.label, stage: t.requireStage);
+  if (t.encounter != null) return NextStep('encounter', npc: t.npc, place: place, turnIn: t.id, label: t.label, needs: needs, encounter: t.encounter);
   return NextStep('handin', npc: t.npc, place: place, turnIn: t.id, label: t.label, needs: needs);
 }
 
@@ -406,10 +417,11 @@ class WalkView {
 }
 
 class ObjectiveView {
-  const ObjectiveView(this.id, this.text, this.done, {this.item, this.need = 0, this.have = 0, this.ready = false});
+  const ObjectiveView(this.id, this.text, this.done, {this.item, this.need = 0, this.have = 0, this.ready = false, this.optional = false});
   final String id;
   final String text;
   final bool done;
+  final bool optional; // never blocks the quest
   final String? item; // counted objectives: the inventory item ("Grow and harvest 3 Sunberries")
   final int need;
   final int have; // capped at [need]
@@ -455,7 +467,7 @@ class StoryQuestView {
   String get summary => quest.summary;
   String get giver => quest.giver;
   StoryRewards get rewards => quest.rewards;
-  String get line => quest.line; // chapter | home | side
+  String get line => quest.line; // chapter | home | side | trail
   bool get hasWalk => quest.walk != null;
   List<String> get dependsOn => quest.dependsOn;
   bool get completed => phase == 'completed';
@@ -494,10 +506,10 @@ StoryQuestView questView(GameState s, String qid, int now) {
     final text = fill(o.text, {'resolved_steps': fmtN(resolved)});
     final c = o.count;
     if (c == null) {
-      objectives.add(ObjectiveView(o.id, text, done));
+      objectives.add(ObjectiveView(o.id, text, done, optional: o.optional));
     } else {
       final have = math.min(c.n, g.ownedQty(s, c.itemId));
-      objectives.add(ObjectiveView(o.id, text, done, item: c.itemId, need: c.n, have: done ? c.n : have, ready: done || have >= c.n));
+      objectives.add(ObjectiveView(o.id, text, done, item: c.itemId, need: c.n, have: done ? c.n : have, ready: done || have >= c.n, optional: o.optional));
     }
   }
   return StoryQuestView(
@@ -509,7 +521,7 @@ StoryQuestView questView(GameState s, String qid, int now) {
     resolved: resolved,
     walk: walk,
     objectives: objectives,
-    current: objectives.where((o) => !o.done && !(o.ready && o.item != null)).firstOrNull?.id ?? objectives.where((o) => !o.done).firstOrNull?.id,
+    current: objectives.where((o) => !o.done && !o.optional && !(o.ready && o.item != null)).firstOrNull?.id ?? objectives.where((o) => !o.done && !o.optional).firstOrNull?.id,
     next: nextStep(s, qid),
     tracked: st?.tracked ?? false,
     paused: st != null && qw != null && phase == qw.phase && s.steps.connection == 'none',
@@ -523,6 +535,7 @@ class StoryStatus {
     required this.quests,
     required this.home,
     required this.side,
+    required this.trail,
     required this.flags,
     required this.pouch,
     required this.titles,
@@ -533,6 +546,7 @@ class StoryStatus {
   final List<StoryQuestView> quests; // Chapter 1
   final List<StoryQuestView> home; // Home Tales
   final List<StoryQuestView> side; // side stories (optional)
+  final List<StoryQuestView> trail; // Lumen Trails (encounter quests)
   final Map<String, bool> flags;
   final Map<String, int> pouch;
   final List<String> titles;
@@ -540,10 +554,13 @@ class StoryStatus {
   final String? activeQuestId;
   final List<StoryQuestView> offers; // available quests the player hasn't opened yet
 
-  List<StoryQuestView> get all => [...quests, ...home, ...side];
+  List<StoryQuestView> get all => [...quests, ...home, ...side, ...trail];
 
   /// Hand-ins waiting in the Village (the Cottage hand-in happens on the Home Map, so it isn't one).
   List<StoryQuestView> get turnIns => all.where((v) => v.next.kind == 'handin' && v.next.npc != 'cottage').toList();
+
+  /// Encounters ready to play (the quest's walk and gathering are done).
+  List<StoryQuestView> get encounters => all.where((v) => v.next.kind == 'encounter').toList();
   List<StoryQuestView> get actives => all.where((v) => v.accepted && !v.completed).toList();
   StoryQuestView? get active => actives.where((v) => v.id == activeQuestId).firstOrNull ?? actives.firstOrNull;
   List<StoryQuestView> get unseenDone => all.where((v) => v.completed && !v.seenCompletion).toList();
@@ -573,16 +590,18 @@ StoryStatus storyStatus(GameState s, int now) {
   final quests = [for (final id in questOrder) questView(s, id, now)];
   final homeQuests = [for (final id in homeOrder) questView(s, id, now)];
   final side = [for (final id in sideOrder) questView(s, id, now)];
+  final trail = [for (final id in trailOrder) questView(s, id, now)];
   return StoryStatus(
     quests: quests,
     home: homeQuests,
     side: side,
+    trail: trail,
     flags: {...defaultStoryFlags, ...s.story.flags},
     pouch: Map.of(s.story.questPouch),
     titles: List.of(s.story.titleUnlocks),
     level: accountLevel(s),
     activeQuestId: s.story.activeQuestId,
-    offers: [...quests, ...homeQuests, ...side].where((v) => v.phase == 'available' && s.story.offersSeen[v.id] != true).toList(),
+    offers: [...quests, ...homeQuests, ...side, ...trail].where((v) => v.phase == 'available' && s.story.offersSeen[v.id] != true).toList(),
   );
 }
 

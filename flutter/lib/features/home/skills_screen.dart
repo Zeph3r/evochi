@@ -41,7 +41,13 @@ const _count = {'farming': ('harvests', 'harvest'), 'cooking': ('cooked', 'dish'
 /// A milestone's story requirement: the quest that opens a recipe's room, or the quest itself.
 (String, bool, String)? _storyReq(GameController c, h.SkillMilestone m) {
   if (m.kind == 'recipe') {
-    final st = h.stationDefs[h.recipeDefs[m.id]!.station]!;
+    final r = h.recipeDefs[m.id]!;
+    final st = h.stationDefs[r.station]!;
+    // a story recipe (the Lantern Tonic) is taught by its own quest
+    if (r.flag != null) {
+      final quest = h.recipeQuest(r);
+      return (quest, h.storyFlag(c.state, r.flag!), 'Story: ${q.storyQuests[quest]!.title}');
+    }
     return (st.quest, h.stationOpen(c.state, st.id), '${st.name}: ${q.storyQuests[st.quest]!.title}');
   }
   if (m.kind == 'quest') {
@@ -68,10 +74,13 @@ class _SkillsPanelState extends State<SkillsPanel> {
     }
     if (m.kind == 'recipe') {
       final r = h.recipeDefs[m.id]!;
-      if (h.stationOpen(context.read<GameController>().state, r.station)) {
-        goHome(context, r.station);
-      } else {
+      final state = context.read<GameController>().state;
+      if (!h.stationOpen(state, r.station)) {
         showStoryQuest(context, h.stationDefs[r.station]!.quest);
+      } else if (r.flag != null && !h.storyFlag(state, r.flag!)) {
+        showStoryQuest(context, h.recipeQuest(r));
+      } else {
+        goHome(context, r.station);
       }
       return;
     }

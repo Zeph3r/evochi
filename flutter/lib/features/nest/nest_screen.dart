@@ -18,6 +18,7 @@ import '../settings/settings_screen.dart';
 import '../shared/scene_scaffold.dart';
 import '../shared/scene_view.dart';
 import '../shared/widgets.dart';
+import '../trails/trails_widgets.dart';
 import '../village/story_widgets.dart';
 import '../village/village_screen.dart';
 import 'sheets.dart';
@@ -156,7 +157,8 @@ class _NestScreenState extends State<NestScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               ..._banner(context, c),
-              if (chip) const StoryChip(),
+              // the tracked story quest, or else today's discovery (both only on taller screens)
+              if (chip) const StoryChip() else if (screenH >= 640) const DiscoveryChip(),
               _IdCard(),
               const SizedBox(height: 8),
               _StepsCard(),

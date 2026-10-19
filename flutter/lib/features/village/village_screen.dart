@@ -1,7 +1,8 @@
 // Village Tales: Sunlit Village Square, the three interiors, the Waystone and villager dialogue
-// (Quest Bible §8), including the Home Tales and side-story conversations. No sixth tab: the Village
-// opens from Home (Visit Village), story quests live in Journey > Story and quest items in Bag > Quest
-// Pouch. Mirrors web/src/screens/village.js.
+// (Quest Bible §8), including the Home Tales, side-story and Lumen Trails conversations. The Square also
+// has the Trail Guild Board and, once a trail job reaches them, the trail places. No sixth tab: the
+// Village opens from Home (Visit Village), story quests live in Journey > Story and quest items in
+// Bag > Quest Pouch. Mirrors web/src/screens/village.js.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -15,6 +16,7 @@ import '../../game/story/story.dart' as q;
 import '../home/home_widgets.dart';
 import '../nest/sheets.dart';
 import '../shared/widgets.dart';
+import '../trails/trails_widgets.dart';
 import 'npc_puppet.dart';
 import 'story_widgets.dart';
 
@@ -264,6 +266,9 @@ class _VillageScreenState extends State<VillageScreen> {
                       children: [for (final p in _pins) _PlaceCard(id: p.id)],
                     ),
                     const SizedBox(height: 10),
+                    const GuildBoardRow(),
+                    const TrailPlacesSection(),
+                    const SizedBox(height: 10),
                     Semantics(
                       button: true,
                       label: 'Evochi Market. Story rewards are never sold here.',
@@ -502,6 +507,8 @@ class _PlaceScreenState extends State<PlaceScreen> {
   }
 
   void _choose(GameController c, q.Choice ch, Map<String, q.ConvNode> nodes) {
+    final met = ch.act;
+    if (met != null && met.kind == 'met') c.run((s, n) => q.markNpcMet(s, met.npc!), quiet: true); // a one-time scene was seen
     if (ch.leave) {
       c.audio.play('ui_tap', volume: 0.4);
       Navigator.of(context).maybePop();
@@ -509,8 +516,10 @@ class _PlaceScreenState extends State<PlaceScreen> {
     }
     if (ch.goto != null) {
       final to = ch.goto!;
-      if (to == 'journey') {
+      if (to == 'journey' || to == 'discover') {
         c.goTab('journey', journey: 'daily');
+      } else if (to.startsWith('prep:')) {
+        openPrep(context, to.substring(5));
       } else if (const {'garden', 'cottage', 'kitchen', 'apothecary'}.contains(to)) {
         goHome(context, to);
       } else {
@@ -524,12 +533,12 @@ class _PlaceScreenState extends State<PlaceScreen> {
     }
     if (ch.reward != null) {
       _node = null;
-      // Home Tales and side stories stay where they are; Chapter 1 returns to the Square
+      // Home Tales, side stories and trail jobs stay where they are; Chapter 1 returns to the Square
       showStoryReward(context, ch.reward!, backToVillage: q.storyQuests[ch.reward!]!.line == 'chapter');
       return;
     }
     final act = ch.act;
-    if (act != null) {
+    if (act != null && act.kind != 'met') {
       final r = act.kind == 'accept'
           ? c.run((s, n) => q.acceptStoryQuest(s, act.quest, n))
           : c.run((s, n) => q.storyHandIn(s, act.quest, act.turnIn!, n));
@@ -668,6 +677,7 @@ class _PlaceScreenState extends State<PlaceScreen> {
                                 height: stageH * 0.46,
                                 child: NpcImage(line.speaker, expression: line.expression ?? 'happy', height: stageH * 0.46),
                               ),
+                            ClueGlint(place: widget.placeId, width: w, height: stageH),
                             Positioned.fill(
                               child: IgnorePointer(
                                 child: AnimatedOpacity(

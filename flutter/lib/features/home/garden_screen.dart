@@ -15,6 +15,7 @@ import '../../core/services/asset_manifest.dart';
 import '../../game/engine.dart' as g;
 import '../../game/home/home.dart' as h;
 import '../shared/widgets.dart';
+import '../trails/trails_widgets.dart';
 import '../village/village_screen.dart';
 import 'home_widgets.dart';
 
@@ -259,6 +260,8 @@ class _GardenPlate extends StatelessWidget {
                       onTap: () => onBed(p),
                     ),
                   ),
+                // a discovery's clue (Lumen Trails), on the plate's top 86% that's shown
+                ClueGlint(place: 'garden', width: w, height: hPlate * 0.86),
               ]),
             ),
           ),

@@ -127,13 +127,14 @@ const stationDefs = <String, StationDef>{
 };
 
 class RecipeDef {
-  const RecipeDef(this.id, this.station, this.makes, this.needs, this.level, this.xp);
+  const RecipeDef(this.id, this.station, this.makes, this.needs, this.level, this.xp, {this.flag});
   final String id;
   final String station;
   final String makes;
   final Map<String, int> needs;
   final int level;
   final int xp;
+  final String? flag; // a story flag the recipe also needs (the Lantern Tonic: Tangled Lumen)
 }
 
 const recipeDefs = <String, RecipeDef>{
@@ -145,8 +146,12 @@ const recipeDefs = <String, RecipeDef>{
   'meadow_tea': RecipeDef('meadow_tea', 'apothecary', 'meadow_tea', {'glowleaf': 1, 'meadow_carrot': 1}, 1, 15),
   'sprout_tonic': RecipeDef('sprout_tonic', 'apothecary', 'sprout_tonic', {'glowleaf': 1, 'golden_wheat': 1}, 2, 20),
   'moonlight_draught': RecipeDef('moonlight_draught', 'apothecary', 'moonlight_draught', {'moonshroom': 2, 'glowleaf': 1}, 4, 40),
+  'lantern_tonic': RecipeDef('lantern_tonic', 'apothecary', 'lantern_tonic', {'lumen_shard': 1, 'glowleaf': 1, 'sunberry': 2}, 3, 30, flag: 'sprout_restored'),
 };
-const recipeOrder = ['sunberry_tart', 'carrot_stew', 'golden_bun', 'moonshroom_pie', 'glowleaf_tonic', 'meadow_tea', 'sprout_tonic', 'moonlight_draught'];
+const recipeOrder = ['sunberry_tart', 'carrot_stew', 'golden_bun', 'moonshroom_pie', 'glowleaf_tonic', 'meadow_tea', 'sprout_tonic', 'moonlight_draught', 'lantern_tonic'];
+
+/// The story quest that teaches a recipe: its room's quest, or Tangled Lumen for the Lantern Tonic.
+String recipeQuest(RecipeDef r) => r.flag == 'sprout_restored' ? 'eq02' : stationDefs[r.station]!.quest;
 
 /// The minigame result: 'perfect' doubles the batch and gives +50% skill XP; anything else is a
 /// normal batch.
@@ -191,7 +196,7 @@ List<SkillMilestone> skillMilestones(String skill) {
     final station = skill == 'cooking' ? 'kitchen' : 'apothecary';
     for (final r in recipeOrder) {
       final def = recipeDefs[r]!;
-      if (def.station == station) add(def.level, 'recipe', r, item(def.makes).name, quest: stationDefs[station]!.quest);
+      if (def.station == station) add(def.level, 'recipe', r, item(def.makes).name, quest: recipeQuest(def));
     }
     if (skill == 'cooking') add(2, 'quest', 'hq02', "Mira's Mortar (opens the Apothecary)", story: true);
   }
@@ -227,7 +232,9 @@ class SkillView {
 
 SkillView skillView(GameState s, String id) => SkillView(skillDefs[id]!, skillXp(s, id), skillLevel(skillXp(s, id)));
 
-bool stationOpen(GameState s, String station) => s.story.flags[stationDefs[station]!.flag] == true;
+bool storyFlag(GameState s, String f) => s.story.flags[f] == true;
+
+bool stationOpen(GameState s, String station) => storyFlag(s, stationDefs[station]!.flag);
 
 bool plotUnlocked(GameState s, String plotId) {
   final p = plotDefs.where((x) => x.id == plotId).firstOrNull;
@@ -366,12 +373,13 @@ class NeedHave {
 }
 
 class RecipeView {
-  RecipeView({required this.def, required this.open, required this.known, required this.have, required this.ready});
+  RecipeView({required this.def, required this.open, required this.known, required this.have, required this.ready, this.needsStory = false});
   final RecipeDef def;
   final bool open; // its room is open
-  final bool known; // the skill level is high enough
+  final bool known; // the skill level is high enough (and its story flag, if any, is set)
   final Map<String, NeedHave> have;
   final bool ready; // open, known and every ingredient in the Bag
+  final bool needsStory; // the recipe waits on a story flag (the Lantern Tonic until the sprout is restored)
   String get id => def.id;
   String get station => def.station;
   String get makes => def.makes;
@@ -386,13 +394,15 @@ RecipeView recipeView(GameState s, String rid) {
   final st = stationDefs[r.station]!;
   final lv = skillLevel(skillXp(s, st.skill)).level;
   final open = stationOpen(s, r.station);
-  final known = lv >= r.level;
+  final flagOk = r.flag == null || storyFlag(s, r.flag!);
+  final known = lv >= r.level && flagOk;
   return RecipeView(
     def: r,
     open: open,
     known: known,
     have: {for (final e in r.needs.entries) e.key: NeedHave(e.value, g.ownedQty(s, e.key))},
     ready: open && known && hasIngredients(s, r.needs),
+    needsStory: !flagOk,
   );
 }
 
@@ -478,7 +488,7 @@ g.ActionResult craft(GameState state, String recipeId, String quality, int now) 
   if (r == null) return _fail(state, 'unknown_recipe');
   final v = recipeView(state, recipeId);
   if (!v.open) return _fail(state, 'station_locked', {'station': r.station});
-  if (!v.known) return _fail(state, 'recipe_locked', {'need': r.level, 'skill': v.skill});
+  if (!v.known) return _fail(state, 'recipe_locked', {'need': r.level, 'skill': v.skill, 'flag': v.needsStory ? r.flag : null});
   if (!hasIngredients(state, r.needs)) return _fail(state, 'missing_ingredients');
   final q = craftQualities[quality] ?? craftQualities['good']!;
   final s = state.copy();

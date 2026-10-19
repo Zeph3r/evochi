@@ -1,4 +1,5 @@
-// S11 EvoDex: forms, turnaround, colourways and the Hall of Memories.
+// S11 EvoDex: forms, turnaround, colourways, the friends of the trail (Lumen Trails) and the Hall of
+// Memories.
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -10,6 +11,7 @@ import '../../controllers/game_controller.dart';
 import '../nest/sheets.dart';
 import '../shared/sprite.dart';
 import '../shared/widgets.dart';
+import '../trails/trails_widgets.dart';
 
 const _desc = {
   1: 'A small, scaly egg creature with the spirit of a lizard. Curious, cheerful and already full of adventurous energy.',
@@ -178,6 +180,8 @@ class _EvoDexScreenState extends State<EvoDexScreen> {
                 const Text('Each new egg you raise in a different colour adds it to your EvoDex.', style: EvochiText.caption),
               ]),
             ),
+            const SizedBox(height: 10),
+            const FriendsPanel(),
             const SizedBox(height: 10),
             GameCard(
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [

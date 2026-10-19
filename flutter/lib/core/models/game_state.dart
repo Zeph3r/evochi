@@ -5,9 +5,11 @@ import 'dart:convert';
 
 import 'home_state.dart';
 import 'story_state.dart';
+import 'trails_state.dart';
 
 export 'home_state.dart';
 export 'story_state.dart';
+export 'trails_state.dart';
 
 const int schemaVersion = 1;
 
@@ -367,6 +369,7 @@ class GameState {
     Map<String, bool>? flags,
     StoryState? story,
     HomeState? home,
+    TrailsState? trails,
     this.clockOffset = 0,
     this.configVersion = '1.0.0',
     this.savedAtMs = 0,
@@ -381,7 +384,8 @@ class GameState {
         audit = audit ?? [],
         flags = flags ?? {},
         story = story ?? StoryState(),
-        home = home ?? HomeState();
+        home = home ?? HomeState(),
+        trails = trails ?? TrailsState();
 
   Player? player;
   Onboarding onboarding;
@@ -397,6 +401,7 @@ class GameState {
   final Map<String, bool> flags;
   final StoryState story; // Village Tales: account-level, survives pets (see story_state.dart)
   final HomeState home; // Home Tales: garden, skills, starter gift; account-level too (home_state.dart)
+  final TrailsState trails; // Lumen Trails: discoveries, guild XP, companions, the live encounter (trails_state.dart)
   int clockOffset; // playtest tools only
   final int createdAt;
   String tzHint;
@@ -424,6 +429,7 @@ class GameState {
       flags: _m(j['flags']).map((k, v) => MapEntry(k, v == true)),
       story: StoryState.fromJson(j['story']),
       home: HomeState.fromJson(j['home']),
+      trails: TrailsState.fromJson(j['trails']),
       clockOffset: _i(_m(j['debug'])['clockOffset']),
       configVersion: (j['configVersion'] as String?) ?? '1.0.0',
       savedAtMs: _i(j['savedAtMs']),
@@ -447,6 +453,7 @@ class GameState {
         'flags': flags,
         'story': story.toJson(),
         'home': home.toJson(),
+        'trails': trails.toJson(),
         'debug': {'clockOffset': clockOffset},
         'tzHint': tzHint,
         'createdAt': createdAt,
