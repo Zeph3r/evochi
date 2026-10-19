@@ -1,6 +1,7 @@
 // Lumen Trails: the encounter. The battle shot (your Evochi from behind in the foreground, the wild
 // one facing it), the intro cinematics on that same shot (the Sentinel's awakening is a story beat of
-// its own), turn choreography with camera moves and ability effects, and the result.
+// its own), turn choreography with camera moves, hit-stops, punches and canvas effects, and the
+// result.
 //
 // The stage (encounter_stage.dart) is one live widget tree driven imperatively through an
 // [EncounterStage], so camera moves and effects never restart when the state re-renders; the panel
@@ -19,6 +20,7 @@ import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/models/catalog.dart';
 import '../../core/models/game_state.dart';
+import '../../core/services/asset_manifest.dart';
 import '../../game/story/story.dart' as q;
 import '../../game/trails/trails.dart' as tr;
 import '../shared/sprite.dart';
@@ -79,6 +81,10 @@ class _EncounterScreenState extends State<EncounterScreen> {
   final _timers = <Timer>[];
   bool _leaving = false;
   bool _rm = false;
+  String? _amb; // the ambient motes the effects are showing (gold | hollow | won)
+  Timer? _idleTimer; // between turns your Evochi blinks and the wild one glances about
+  bool _idleOn = false;
+  final _rand = math.Random();
 
   late GameController _c;
 
@@ -112,9 +118,16 @@ class _EncounterScreenState extends State<EncounterScreen> {
   void _music(String? name) => _c.audio.setMusic(name);
   void _sfx(String name, double vol) => _c.audio.play(name, volume: vol);
 
+  void _stopIdle() {
+    _idleTimer?.cancel();
+    _idleTimer = null;
+    _idleOn = false;
+  }
+
   @override
   void dispose() {
     _clearTimers();
+    _stopIdle();
     _stage?.dispose();
     _c.audio.setMusic(null);
     super.dispose();
@@ -143,6 +156,38 @@ class _EncounterScreenState extends State<EncounterScreen> {
       s.phase2 = v.phase2;
       s.hollow = v.creature.kind == 'hollow' && !v.success;
     });
+    // the air: motes over the grove, Hollow embers around the wild one
+    final fx = st.effects;
+    final g = _geom;
+    if (fx != null && g != null) {
+      final kind = v.success ? 'won' : (v.creature.kind == 'hollow' ? 'hollow' : 'gold');
+      if (_amb != kind) {
+        _amb = kind;
+        fx.setAmbient(kind, kind == 'hollow' ? Rect.fromLTWH(g.wildCx - 0.14, g.wildHeadY - 0.04, 0.28, g.wildBottom - g.wildHeadY + 0.04) : const Rect.fromLTWH(0.04, 0.10, 0.92, 0.62));
+      }
+    }
+  }
+
+  /// Between turns your Evochi blinks and the wild one glances about, so the shot is never dead still.
+  void _scheduleIdle() {
+    _idleTimer?.cancel();
+    _idleTimer = Timer(Duration(milliseconds: 2400 + _rand.nextInt(2600)), () {
+      final st = _stage;
+      final v = tr.encounterView(_c.state, _c.now);
+      if (!mounted || st == null || v == null || _leaving) {
+        _idleOn = false;
+        return;
+      }
+      final quiet = !_busy && !_holdPet && (_phase == 'play' || _phase == 'card');
+      if (quiet && _petExpr(v) == 'default') {
+        st.update((s) => s.petExpr = 'blink');
+        _later(150, () {
+          if (!_busy && !_holdPet) st.update((s) => s.petExpr = _petExpr(v));
+        });
+      }
+      if (quiet && v.done == null && _rand.nextDouble() < 0.55) st.retriggerWild('look', 1500);
+      _scheduleIdle();
+    });
   }
 
   /// After each frame (the web's `mount`): measure the panel, sync the stage, start the intro or the
@@ -155,6 +200,10 @@ class _EncounterScreenState extends State<EncounterScreen> {
     final st = _stage!;
     if (!_init) {
       _init = true;
+      if (!_idleOn) {
+        _idleOn = true;
+        _scheduleIdle();
+      }
       if (_phase == 'intro' && !_introStarted) {
         _introStarted = true;
         _playIntro(v);
@@ -222,6 +271,9 @@ class _EncounterScreenState extends State<EncounterScreen> {
       _later(1400, done);
       return;
     }
+    final fx = st.effects;
+    final w = g.wild;
+    final eyes = g.wildEyesAbs;
     if (v.intro == 'boss') {
       // the Sentinel's awakening: dark and still, a rumble, its eyes light one after the other, the
       // ruins shake, your Evochi flinches, and the music turns before the encounter begins
@@ -243,16 +295,27 @@ class _EncounterScreenState extends State<EncounterScreen> {
       _later(1500, () {
         _sfx('enc_awaken', 0.9);
         st.update((s) => s.eyeL = true);
+        if (eyes != null) fx?.flashAt(eyes[0], size: 14, life: 1.2, pal: 'violet', alphaK: 'inout', sizeK: 'grow');
       });
-      _later(2300, () => st.update((s) => s.eyeR = true));
-      _later(3300, () => st.update((s) {
-            s.wildState = 'hollow';
-            s.lit = true;
-          }));
+      _later(2300, () {
+        st.update((s) => s.eyeR = true);
+        if (eyes != null) fx?.flashAt(eyes[1], size: 14, life: 1.2, pal: 'violet', alphaK: 'inout', sizeK: 'grow');
+      });
+      _later(3300, () {
+        st.update((s) {
+          s.wildState = 'hollow';
+          s.lit = true;
+        });
+        fx?.embers(w, 18, pal: 'violet', w: 26, h: 24, life: 1.6);
+      });
       _later(3850, () {
         st.doShake(big: true);
         st.doFlash('violet');
-        st.burst('ring violet', g.wild, n: 1, life: 1400);
+        st.punch(big: true);
+        fx?.ring(w, r0: 4, r1: 48, ms: 800, pal: 'violet', width: 3);
+        fx?.shards(w, 20, pal: 'violet', scale: 1.3);
+        fx?.smoke(Offset(w.dx, g.wildBottom), n: 8, scale: 1.3);
+        fx?.pulse(pal: 'dark', ms: 900, alpha: 0.6);
         st.setShot('wide');
         st.update((s) => s.petIn = true);
       });
@@ -281,7 +344,10 @@ class _EncounterScreenState extends State<EncounterScreen> {
       st.update((s) => s.silhouette = true);
       _later(500, () {
         _sfx('enc_surge', 0.6);
-        st.burst('ring violet', g.wild, n: 1, life: 1400);
+        fx?.ring(w, r0: 3, r1: 40, ms: 800, pal: 'violet', width: 2.6);
+        fx?.embers(w, 20, pal: 'violet', w: 22, h: 20, life: 1.6);
+        fx?.smoke(Offset(w.dx, g.wildBottom), n: 6, scale: 1.1);
+        fx?.pulse(pal: 'dark', ms: 900, alpha: 0.45);
         st.doShake();
       });
       _later(1500, () => st.update((s) => s.silhouette = false));
@@ -289,6 +355,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
       _later(900, () {
         st.retriggerWild('bang', 1600);
         _sfx('pet_chirp', 0.45);
+        fx?.burst(Offset(w.dx, g.wildHeadY), 8, shape: 'star', pal: 'gold', speed: 30, vary: 0.5, drag: 2.5, size: 2.2, sizeK: 'spark', life: 0.7, spin: 6, gravity: 20);
       });
     }
     _later(hollow ? 2000 : 1700, () {
@@ -327,6 +394,29 @@ class _EncounterScreenState extends State<EncounterScreen> {
   }
 
   // ------------------------------------------------------------------ a turn, choreographed ----
+  /// A value eased (ease-out cubic) over [ms] on the stage's wall clock, like the web's `tween`.
+  void _tween(int ms, void Function(double k) fn) {
+    final st = _stage;
+    if (st == null) return;
+    final c = st.clock;
+    final t0 = c.wall;
+    late VoidCallback step;
+    step = () {
+      if (!mounted) {
+        c.removeListener(step);
+        return;
+      }
+      final k = ((c.wall - t0) * 1000 / math.max(1, ms)).clamp(0.0, 1.0);
+      fn(1 - math.pow(1 - k, 3).toDouble());
+      if (k >= 1) c.removeListener(step);
+    };
+    c.addListener(step);
+    step();
+  }
+
+  // Every move has the same four beats: a wind-up, the action, the impact (a hit-stop, a flash on the
+  // one that was hit, a camera punch, shards from the point of contact) and the recovery, with the
+  // number popping first and the meter following it. The wild one's reply has the same shape.
   void _runTurn(String actionId, String? itemId) {
     if (_busy) return;
     final c = _c;
@@ -351,6 +441,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
     final mid = (before.meter + sign * you).clamp(0, before.max).toDouble();
     final cost = math.max(0, a.energy);
     final hollow = before.creature.kind == 'hollow';
+    final pal = hollow ? 'violet' : 'gold';
     final youLine = after.log.length > before.log.length ? after.log[before.log.length].text : '';
     final wildLine = after.log.isNotEmpty ? after.log.last.text : '';
     // the panel: lock the buttons, show your line; the plates: pay the Energy at once
@@ -364,84 +455,171 @@ class _EncounterScreenState extends State<EncounterScreen> {
     });
     _syncStage(before);
     st.update((s) => s.petExpr = 'determined');
-    final w = gm.wild;
-    final p = gm.petHead;
+    final fx = st.effects;
+    final w = gm.wild; // the wild one's body
+    final wf = gm.wildFace ?? Offset(w.dx, gm.wildHeadY + 0.06); // its face
+    final wc = Offset(w.dx - gm.wildWidth * 0.28, w.dy + 0.03); // its near side, where a nudge lands
+    final wg = Offset(w.dx - 0.03, gm.wildBottom); // the ground at its feet
+    final p = gm.petHead; // your Evochi's head
+    final pg = Offset(gm.petCx, gm.petFeetY); // the ground at its feet
+    void meterTo(double to, int dur) {
+      final from = _dispMeter ?? before.meter.toDouble();
+      _tween(ms(dur), (t) {
+        if (_dispMeter == null) return;
+        _dispMeter = from + (to - from) * t;
+        _syncStage(before);
+      });
+    }
+
+    void energyTo(double to, int dur) {
+      final from = _dispEnergy ?? before.energy.toDouble();
+      _tween(ms(dur), (t) {
+        if (_dispEnergy == null) return;
+        _dispEnergy = from + (to - from) * t;
+        _syncStage(before);
+      });
+    }
+
+    // 3. the impact on the wild one: the visuals fire the moment the projectile lands (or on the beat
+    // for the moves without one); the number and the meter follow on the beat
+    var landedOnce = false;
+    void landed() {
+      if (landedOnce) return;
+      landedOnce = true;
+      switch (a.kind) {
+        case 'light':
+          st.hitstop(ms(100));
+          st.retriggerWild('hit', 600);
+          fx?.flashAt(wf, size: 28, life: 0.3, pal: pal);
+          fx?.ring(wf, r0: 2, r1: 28, ms: 420, pal: pal, width: 2.4);
+          fx?.shards(wf, 24, pal: pal, scale: 1);
+          if (hollow) _later(ms(70), () => fx?.ring(wf, r0: 4, r1: 38, ms: 620, pal: 'gold', width: 1.2, alpha: 0.7));
+          st.punch();
+          _later(ms(100), () => st.doShake());
+          _sfx('reward_chime', 0.35);
+        case 'physical':
+          st.hitstop(ms(80));
+          st.retriggerWild('hit', 600);
+          fx?.dust(wg, n: 10);
+          fx?.burst(wc, 7, shape: 'star', pal: 'gold', speed: 50, vary: 0.5, drag: 3, size: 3, sizeK: 'spark', life: 0.6, spin: 7, gravity: 50);
+          fx?.ring(wc, r0: 1, r1: 16, ms: 320, pal: 'white', width: 1.6, alpha: 0.8);
+          st.punch();
+          _later(ms(80), () => st.doShake());
+          _sfx('play_boing', 0.5);
+        case 'item':
+          st.hitstop(ms(60));
+          st.retriggerWild('munch', 800);
+          fx?.burst(wf, 11, shape: 'star', pal: 'gold', speed: 40, vary: 0.5, drag: 3, size: 3.2, sizeK: 'spark', life: 0.65, spin: 7, gravity: 40);
+          fx?.flashAt(wf, size: 18, life: 0.25, pal: 'gold');
+          fx?.ring(wf, r0: 1, r1: 16, ms: 320, pal: 'white', width: 1.4, alpha: 0.75);
+          if (you >= 20) _later(ms(320), () => fx?.hearts(wf, n: 4));
+          _sfx('pet_chirp', 0.45);
+        case 'companion':
+          st.retriggerWild('perk', 700);
+          fx?.hearts(wf, n: 3);
+          fx?.ring(wf, r0: 3, r1: 22, ms: 600, pal: 'pink', width: 1.4, alpha: 0.7, blend: BlendMode.srcOver);
+        default:
+          if (you != 0) {
+            st.retriggerWild('perk', 700);
+            fx?.hearts(wf, n: 2, pal: 'teal');
+          }
+      }
+    }
+
     var impact = 900;
+    var replyGap = 800;
     // 1-2. your move
     switch (a.kind) {
       case 'light':
-        st.setShot('pet');
-        st.retriggerPet('cast', 900);
+        // motes gather into your Evochi as it brightens, then the light leaves it as a comet
+        st.setShot('pet', speed: 'fast');
+        st.retriggerPet('cast', 720);
         _sfx('enc_glow', 0.7);
-        _later(ms(380), () {
-          st.projectile(hollow ? 'orb violet' : 'orb', p, w, ms(520), arc: -6);
-          st.setShot('wild');
+        fx?.converge(p, 24, r: 19, pal: pal, life: 0.44 * k, size: 2.6);
+        fx?.halo(p, size: 26, life: 0.5, pal: pal, layer: 'front', alpha: 0.9);
+        _later(ms(440), () {
+          st.setShot('wild', speed: 'fast');
+          fx?.flashAt(p, size: 30, life: 0.28, pal: pal);
+          if (fx != null) {
+            fx.comet(p, wf, ms: ms(210).toDouble(), pal: pal, size: 7.5, bow: -9, trail: 4, onArrive: landed);
+          } else {
+            _later(ms(230), landed);
+          }
         });
-        impact = ms(900);
+        impact = ms(680);
       case 'physical':
-        st.setShot('pet');
-        st.retriggerPet('lunge', 800);
+        // a crouch, a hop into it, dust where it lands
+        st.setShot('pet', speed: 'fast');
+        st.retriggerPet('lunge', 900);
         _sfx('enc_whoosh', 0.6);
-        _later(ms(300), () => st.setShot('wild'));
-        impact = ms(420);
+        _later(ms(190), () {
+          st.setShot('wild', speed: 'fast');
+          fx?.dust(pg, n: 5, scale: 0.8);
+        });
+        impact = ms(320);
       case 'restore':
-        st.setShot('pet');
+        // it settles; rings of calm spread from it and its energy climbs back
+        st.setShot('pet', speed: 'fast');
         st.retriggerPet('rest', 1300);
         st.update((s) => s.petExpr = 'sleepy');
         _sfx('enc_soothe', 0.6);
-        st.burst('ring teal', gm.pet, n: 1, life: 1200);
+        fx?.halo(p, size: 54, life: 1.3, pal: 'teal', layer: 'front', alpha: 0.55);
+        for (var i = 0; i < 3; i++) {
+          _later(ms(120 + i * 230), () => fx?.ring(p, r0: 4, r1: 40, ms: 1000, pal: 'teal', width: 1.6, alpha: 0.7));
+        }
+        fx?.embers(p, 20, pal: 'teal', w: 30, h: 20, life: 1.5, size: 2.2);
         for (var i = 0; i < 5; i++) {
-          _later(ms(i * 120), () => st.rise(Offset(gm.petCx + (i - 2) * 0.04, gm.petCy - 0.04), 'heart', 1300));
+          _later(ms(200 + i * 160), () => fx?.hearts(Offset(p.dx + (i - 2) * 0.04, p.dy - 0.02), n: 1, pal: 'teal', spread: 3));
         }
         _later(ms(650), () {
-          _dispEnergy = math.min(before.energyMax, before.energy + 30).toDouble();
-          _syncStage(before);
-          st.floatText(Offset(p.dx, p.dy + 0.04), '+30 Energy', 'energy');
+          st.floatText(Offset(p.dx, p.dy + 0.02), '+30 Energy', 'energy');
+          energyTo(math.min(before.energyMax, before.energy + 30).toDouble(), 520);
         });
-        _later(ms(900), () => st.setShot('wide'));
+        _later(ms(950), () => st.setShot('wide'));
         impact = ms(1150);
+        replyGap = 650;
       case 'item':
-        st.setShot('pet');
+        // a toss: the item spins over in an arc with a sparkle behind it
+        st.setShot('pet', speed: 'fast');
+        st.retriggerPet('toss', 600);
         _sfx('enc_whoosh', 0.5);
-        _later(ms(200), () {
-          st.projectile('toss', p, Offset(w.dx, w.dy + 0.04), ms(700), arc: -18, itemId: itemId);
-          st.setShot('wild');
+        final imPath = itemId == null ? null : art.item(itemId);
+        if (imPath != null) AtlasCache.load(imPath);
+        _later(ms(230), () {
+          st.setShot('wild', speed: 'fast');
+          if (fx != null) {
+            final m = fx.comet(Offset(p.dx, p.dy - 0.02), Offset(wf.dx, wf.dy + 0.02),
+                ms: ms(600).toDouble(), pal: 'gold', size: 3, bow: -24, trail: 1, ease: 'inout', img: imPath == null ? null : AtlasCache.peek(imPath), imgSize: 11, spin: 9, onArrive: landed);
+            if (imPath != null && m.img == null) AtlasCache.load(imPath).then((i) => m.img = i);
+          } else {
+            st.projectile('toss', p, Offset(wf.dx, wf.dy + 0.02), ms(600), arc: -20, itemId: itemId);
+            _later(ms(600), landed);
+          }
         });
-        impact = ms(920);
+        impact = ms(830);
       case 'companion':
+        // Petalune swoops in and a stream of petals winds across to the wild one
         st.setShot('wide');
         st.buddy();
         _sfx('enc_soothe', 0.6);
-        for (var i = 0; i < 9; i++) {
-          _later(ms(200 + i * 60), () => st.projectile('petal', Offset(0.04, 0.64 + (i % 3) * 0.06), Offset(w.dx + ((i % 3) * 3 - 3) / 100, w.dy + (i % 2) * 0.04), ms(760), arc: -10 - (i % 4) * 4));
-        }
-        impact = ms(1050);
+        _later(ms(260), () => fx?.stream(const Offset(0.10, 0.42), wf, 48, pal: 'pink', ms: ms(650).toDouble(), size: 4));
+        _later(ms(520), () => st.setShot('wild', speed: 'fast'));
+        impact = ms(1100);
+        replyGap = 900;
     }
-    // 3. impact on the wild one
     _later(impact, () {
-      _dispMeter = mid;
-      _syncStage(before);
-      switch (a.kind) {
-        case 'light':
-          st.burst(hollow ? 'spark violet' : 'spark', w, n: 9);
-          st.doFlash(hollow ? 'violet' : 'gold');
-          _sfx('reward_chime', 0.35);
-        case 'physical':
-          st.burst('boop', Offset(w.dx - 0.03, w.dy + 0.02), n: 6, inner: 'spark');
-          _sfx('play_boing', 0.5);
-        case 'item':
-          st.burst('boop', w, n: 6, inner: you >= 20 ? 'heart' : 'spark');
-          _sfx('pet_chirp', 0.45);
-        default:
-          st.burst('boop soft', w, n: 5, inner: a.kind == 'companion' ? 'heart' : 'spark');
-      }
-      if (a.kind != 'restore' || you != 0) st.retriggerWild(a.kind == 'restore' ? 'perk' : 'hit', 700);
-      if (you != 0) st.floatText(Offset(w.dx, gm.wildHeadY + 0.02), '${sign > 0 ? '+' : '−'}$you $label', hollow ? 'good violet' : 'good');
+      if (a.kind != 'light' && a.kind != 'item') landed();
+      // the number pops, then the meter follows it
+      _later(a.kind == 'restore' ? 0 : ms(110), () {
+        landed();
+        if (you != 0) st.floatText(Offset(wf.dx, gm.wildHeadY + 0.02), '${sign > 0 ? '+' : '−'}$you $label', hollow ? 'good violet' : 'good');
+        meterTo(mid, 380);
+      });
     });
     // 4. the reply (or the finish)
-    final replyAt = impact + ms(650);
+    final replyAt = impact + ms(replyGap);
     if (after.success) {
-      _later(replyAt - ms(250), () => _finishChoreo(before, after));
+      _later(replyAt - ms(200), () => _finishChoreo(before, after));
       return;
     }
     _later(replyAt, () {
@@ -453,40 +631,73 @@ class _EncounterScreenState extends State<EncounterScreen> {
         case 'wary':
           st.retriggerWild('skitter', 900);
           _sfx('enc_whoosh', 0.35);
+          fx?.dust(wg, n: 5, scale: 0.8);
         case 'curious':
           st.retriggerWild('tilt', 900);
           st.bubble(Offset(w.dx + 0.06, gm.wildHeadY - 0.02), '?');
         case 'surging' || 'waking':
+          // the Hollow swells in it
           _sfx('enc_surge', 0.6);
-          st.burst('ring violet', w, n: 1, life: 1200);
           st.retriggerWild('surge', 900);
-          st.doShake(big: mood == 'waking');
-          if (mood == 'waking') st.doFlash('violet');
+          fx?.ring(w, r0: 4, r1: 42, ms: 700, pal: 'violet', width: 2.6);
+          fx?.embers(w, 26, pal: 'violet', w: 26, h: 24, life: 1.5);
+          fx?.smoke(wg, n: 6);
+          fx?.pulse(pal: 'dark', ms: 850, alpha: mood == 'waking' ? 0.6 : 0.4);
+          _later(ms(300), () => st.doShake(big: mood == 'waking'));
+          if (mood == 'waking') {
+            st.doFlash('violet');
+            st.punch(big: true);
+          }
         case 'flickering':
           st.retriggerWild('flicker', 900);
+          fx?.embers(w, 8, pal: 'violet', life: 1.0);
         default:
-          st.burst('boop soft', w, n: 4, inner: 'spark');
+          st.retriggerWild('look', 1400);
       }
       if (wild != 0) {
-        _dispMeter = after.meter.toDouble();
-        _syncStage(before);
-        st.floatText(Offset(w.dx, gm.wildHeadY + 0.02), '${(wild > 0) == (sign > 0) ? '+' : '−'}${wild.abs()} $label', bad ? 'bad' : 'good');
+        _later(ms(120), () {
+          st.floatText(Offset(w.dx, gm.wildHeadY + 0.02), '${(wild > 0) == (sign > 0) ? '+' : '−'}${wild.abs()} $label', bad ? 'bad' : 'good');
+          meterTo(after.meter.toDouble(), 380);
+        });
       }
       if (drain != 0) {
-        _later(ms(320), () {
-          st.projectile('lash', w, gm.petHead, ms(300), arc: 4);
-          _later(ms(300), () {
+        // it comes at you: a crouch, a lunge toward the camera, a lash of Hollow across your Evochi
+        _later(ms(260), () {
+          st.retriggerWild('lunge', 900);
+          var hurtOnce = false;
+          void hurt() {
+            if (hurtOnce) return;
+            hurtOnce = true;
+            st.hitstop(ms(80));
             st.update((s) => s.petExpr = 'surprised');
-            st.retriggerPet('hurt', 700);
-            st.doShake();
-            _dispEnergy = after.energy.toDouble();
-            _syncStage(before);
+            st.retriggerPet('hurt', 750);
+            fx?.flashAt(p, size: 32, life: 0.3, pal: 'violet');
+            fx?.shards(p, 12, pal: 'violet', scale: 0.8);
+            fx?.smoke(Offset(p.dx, p.dy + 0.06), n: 6, scale: 0.9);
+            st.punch(at: 'pet');
+            _later(ms(80), () => st.doShake());
+            _sfx('enc_surge', 0.35);
+          }
+
+          _later(ms(150), () {
+            st.setShot('pet', speed: 'fast');
+            _sfx('enc_whoosh', 0.5);
+            fx?.smoke(wf, n: 4, scale: 0.7);
+            if (fx != null) {
+              fx.comet(wf, p, ms: ms(200).toDouble(), pal: 'violet', size: 6.5, bow: 7, trail: 4, onArrive: hurt);
+            } else {
+              _later(ms(200), hurt);
+            }
+          });
+          _later(ms(440), () {
+            hurt();
             st.floatText(Offset(p.dx, p.dy + 0.04), '$drain Energy', 'bad');
+            energyTo(after.energy.toDouble(), 380);
           });
         });
       }
     });
-    _later(replyAt + ms(drain != 0 ? 1500 : 1100), () {
+    _later(replyAt + ms(drain != 0 ? 1700 : 1100), () {
       st.setShot('wide');
       setState(() {
         _busy = false;
@@ -498,43 +709,92 @@ class _EncounterScreenState extends State<EncounterScreen> {
     });
   }
 
+  // the last turn: the Hollow dissolves into motes of light and the creature comes back in a burst,
+  // or a befriended one bounces with hearts; then the outro and the result card
   void _finishChoreo(tr.EncounterView before, tr.EncounterView after) {
     final st = _stage;
     final gm = _geom;
     if (st == null || gm == null) return;
+    final fx = st.effects;
     final w = gm.wild;
+    final wf = gm.wildFace ?? Offset(w.dx, gm.wildHeadY + 0.06);
+    final p = gm.petHead;
+    final restore = before.goal != 'befriend';
+    final wildH = gm.wildWidth * gm.ar / gm.wildAr; // its frame's height, as a fraction of the backdrop's
+    final box = Rect.fromLTWH(gm.wildLeft + gm.wildWidth * 0.15, gm.wildHeadY, gm.wildWidth * 0.7, gm.wildTop + wildH * gm.wildGy - gm.wildHeadY);
     setState(() => _log = (after.log.isEmpty ? '' : after.log.last.text, 'wild'));
-    _dispMeter = after.meter.toDouble();
-    _syncStage(before);
-    st.update((s) {
-      s.wildState = after.stateKey;
-      s.hollow = false;
-      s.phase2 = false;
-      s.won = true;
+    final from = _dispMeter ?? before.meter.toDouble();
+    _tween(350, (t) {
+      if (_dispMeter == null) return;
+      _dispMeter = from + (after.meter - from) * t;
+      _syncStage(before);
     });
     _music('none');
-    _sfx('evolve_fanfare', 0.8);
     st.setShot('wild');
-    st.doFlash('gold');
-    st.burst('spark big', w, n: 12, life: 1400);
-    st.retriggerWild('joy', 1800);
-    for (var i = 0; i < 6; i++) {
-      _later(300 + i * 160, () => st.rise(Offset(w.dx + (i - 2.5) * 0.05, w.dy - 0.06), 'heart', 1500, big: true));
+    void done(int ms) => _later(ms, () {
+          setState(() {
+            _busy = false;
+            _dispMeter = null;
+            _dispEnergy = null;
+            _holdPet = false;
+            _holdWild = false;
+            _phase = 'outro';
+          });
+        });
+    void confetti() {
+      fx?.burst(w, 26, shape: 'petal', pal: 'pink', blend: BlendMode.srcOver, speed: 62, vary: 0.6, drag: 1.9, size: 2.6, sizeK: 'hold', alphaK: 'hold', life: 1.7, gravity: 42, spin: 7, angle: -math.pi / 2, spread: 1.3);
+      fx?.burst(w, 14, shape: 'star', pal: 'gold', speed: 70, vary: 0.6, drag: 2, size: 2.6, sizeK: 'spark', life: 1.2, gravity: 50, spin: 6, angle: -math.pi / 2, spread: 1.4);
     }
+
+    void revealed() => st.update((s) {
+          s.wildState = after.stateKey;
+          s.hollow = false;
+          s.phase2 = false;
+          s.won = true;
+        });
+    if (restore && fx != null && !_rm) {
+      _sfx('enc_glow', 0.6);
+      st.retriggerWild('dissolve', 580);
+      fx.dissolve(box, n: 72, ms: 520, pal: 'gold');
+      fx.rays(w, n: 9, r: 58, ms: 2400, pal: 'gold', alpha: 0.5);
+      fx.halo(w, size: 64, life: 1.3, pal: 'gold', layer: 'back', alpha: 0.9);
+      _later(580, () {
+        revealed();
+        st.retriggerWild('pop', 700);
+        _sfx('evolve_fanfare', 0.8);
+        st.doFlash('gold');
+        st.punch(big: true);
+        fx.ring(w, r0: 4, r1: 52, ms: 720, pal: 'gold', width: 3);
+        fx.shards(w, 30, pal: 'gold', scale: 1.4);
+        confetti();
+        _later(100, () => st.doShake());
+        _syncStage(after);
+      });
+      _later(1250, () {
+        st.update((s) => s.petExpr = 'excited');
+        st.retriggerPet('hop', 1200);
+        fx.hearts(p, n: 3, spread: 4);
+      });
+      done(1900);
+      return;
+    }
+    revealed();
+    _sfx('evolve_fanfare', 0.8);
+    st.doFlash('gold');
+    fx?.halo(w, size: 56, life: 1.4, pal: 'gold', layer: 'back', alpha: 0.9);
+    fx?.rays(w, n: 8, r: 52, ms: 2200, pal: 'gold', alpha: 0.45);
+    fx?.ring(w, r0: 4, r1: 46, ms: 700, pal: 'gold', width: 2.6);
+    fx?.shards(w, 20, pal: 'gold', scale: 1.1);
+    fx?.hearts(wf, n: 7, spread: 9);
+    confetti();
+    st.retriggerWild('joy', 1800);
+    _syncStage(after);
     _later(900, () {
       st.update((s) => s.petExpr = 'excited');
       st.retriggerPet('hop', 1200);
+      fx?.hearts(p, n: 3, spread: 4);
     });
-    _later(1300, () {
-      setState(() {
-        _busy = false;
-        _dispMeter = null;
-        _dispEnergy = null;
-        _holdPet = false;
-        _holdWild = false;
-        _phase = 'outro';
-      });
-    });
+    done(1400);
   }
 
   // ------------------------------------------------------------------ actions ----
@@ -613,6 +873,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
               Navigator.pop(d);
               _leaving = true;
               _clearTimers();
+              _stopIdle();
               final r = c.run((s, n) => tr.encounterAct(s, 'retreat', null, n));
               if (r.ok) {
                 _phase = null;
@@ -637,6 +898,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
       return;
     }
     _clearTimers();
+    _stopIdle();
     _phase = null;
     _seed = null;
     _music(null);
@@ -677,6 +939,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
       _introStarted = false;
       _titleShown = false;
       _ribbon = false;
+      _amb = null;
       _phase ??= widget.fresh ? 'intro' : 'play';
       // the first frame already looks like the intro's opening (no flash of the wide shot)
       final introPending = _phase == 'intro' && !_rm;
@@ -692,6 +955,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
     final hasArt = trailsArt.hasBattle(v.scene, v.creature.id) && art.char(pet.stage).battle != null;
     if (!hasArt) return _NoArtEncounter(view: v, onAction: _onAction, onRetreat: _confirmRetreat, onFinish: () => _finish(v.quest), busy: _busy);
     _geom = shotGeometry(v, pet);
+    _stage!.geometry = _geom; // the camera needs it (the first one snaps it to the opening shot)
     WidgetsBinding.instance.addPostFrameCallback((_) => _afterBuild(v));
     final phase = _phase!;
     final intro = _intros[v.intro] ?? _intros['standard']!;

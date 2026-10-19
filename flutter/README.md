@@ -190,19 +190,40 @@ logic it is **uncompiled here**: every file passes the syntax check and its impo
   - `encounter_stage.dart`: the battle shot. `shotGeometry` is a verbatim port of the web's (fractions
     of the 2:3 backdrop; your Evochi's width per stage, its face kept left of the wild one). The
     stage is a widget tree driven imperatively through `EncounterStage` (a `ChangeNotifier` holding
-    the camera shot, the sprite states and expressions, one-shot reactions, shakes, flashes, the
-    letterbox/aura/eye flags and the list of live effects), so camera moves and effects never restart
-    when the state re-renders. Layers, bottom to top: backdrop, aura, the wild one, your Evochi (the
+    the camera shot, the sprite states and expressions, one-shot reactions, shakes, punches, flashes,
+    the letterbox/aura/eye flags and the few widget effects), so camera moves and effects never
+    restart when the state re-renders. Everything that moves inside the world reads one `StageClock`
+    (a `Ticker` the view hands the stage), and `hitstop(ms)` holds that clock and the effects still,
+    like the web pausing every running animation; a reaction fired right after a hit-stop plays
+    through it. Layers, bottom to top: backdrop, aura, back effects, the wild one, your Evochi (the
     untrimmed battle frame plus equipped wearables, `BattleSprite` in `shared/sprite.dart`), the
-    foreground layer (parallax), effects, grade, flash, dust, plates, ribbon and caption; the title
-    and the skip pill sit over the letterbox. Camera shots: wide, pet (1.07), wild (1.13, with the
-    foreground at 1.09 and your Evochi nudged), close (1.55) and face (2.3) as a tweened transform of
-    the world.
+    foreground layer (parallax), front effects, widget effects (numbers, the "?" bubble, Petalune),
+    grade, flash, dust, plates, ribbon and caption; the title and the skip pill sit over the
+    letterbox. Camera shots: wide, pet (1.16), wild (1.13, with the foreground at 1.09 and your Evochi
+    nudged), close (1.55) and face (2.3) as a transform on the clock (1 s eased; 0.34 s for the
+    'fast' beats of a turn; a cut when instant), plus the camera punch toward the wild one or your
+    Evochi. The sprite reactions mirror the web's keyframes with their timing function eased per
+    segment (hit with its two hard white-silhouette frames, perk, munch, the wild lunge, pop with the
+    born fade-in, dissolve to white, look, skitter, tilt, surge, flicker, joy; cast, lunge, rest,
+    toss, hurt, flinch, hop).
+  - `stage_fx.dart`: `StageFx`, the port of the web's canvas effects engine: particles drawn from
+    pre-rendered soft sprites (glow, dot, puff, star, shard, petal, heart, smoke) with additive light
+    on two `CustomPaint` layers (`StageFxPainter`, back and front), movers (comets with an optional
+    spinning item head and `onArrive`, shockwave rings, turning rays, the vignette pulse, the
+    dissolve emitter, petal streams that orbit their target), the ambient motes (gold over the grove,
+    violet Hollow embers around the wild one, brighter gold once won) and `freeze(ms)` for the
+    hit-stop. Positions are fractions of the world box; sizes and speeds are in 1% of its width.
   - `encounter_screen.dart`: the phases (intro, card, play, outro, result), the intros on the same shot
-    (rare, hollow and the Sentinel's awakening, 8.2 s), `_runTurn` (the web's timings; x0.35 with
-    reduced motion), the finish choreography, the panel (log card with history, the action grid with
-    cost chips, retreat), the goal card, the result (rewards row, EvoDex card, Continue) and the item
-    picker. The panel is measured after each frame and the view ends 20px above it, like the web.
+    (rare, hollow and the Sentinel's awakening, 8.2 s, with the eye flashes, embers, rings, shards,
+    smoke and pulses), `_runTurn` (the web's four beats and timings: wind-up, action, impact fired by
+    the projectile's arrival with a timer fallback, recovery; hit-stops of 100/80/60 ms, punches,
+    shakes; the number pops before the meter tweens over 380 ms; x0.35 and no canvas effects with
+    reduced motion), the finish choreography (the Hollow dissolves into motes under turning rays and
+    the restored creature pops back in; a befriended one bounces under hearts and confetti), the
+    idle life between turns (a blink every 2.4-5 s, the wild one glancing about), the panel (log
+    card with history, the action grid with cost chips, retreat), the goal card, the result (rewards
+    row, EvoDex card, Continue) and the item picker. The panel is measured after each frame and the
+    view ends 20px above it, like the web.
   - `trails_widgets.dart`: navigation, tags, the rank card, discovery rows and cards, the clue glint,
     the creature card, the friends panel, the trail quest rows, `EncCta` and the reward tiles.
 - **Audio:** `AudioService.setMusic(name)` crossfades the loop (null = the meadow ambience,
@@ -211,11 +232,13 @@ logic it is **uncompiled here**: every file passes the syntax check and its impo
 - **Art:** the manifest's `trails` block (`TrailsArt`: scenes, creatures, `battle`, `battleCreatures`)
   and each form's `chars.sNN.battle` entry (`BattleEntry`), served from `assets/art/trails/` and
   `assets/art/chars/`. Art packs without the battle shots fall back to a plain stage.
-- **Simplified relative to the web:** CSS filter effects (drop-shadow glows, brightness) are
-  approximated with colour matrices and soft radial glows; the eye glow's `screen` blend is a canvas
-  blend; the Hollow silhouette's rim is a radial glow rather than an alpha-shaped shadow; the
-  `camDrift` / breathing loops share one 16 s clock; there is no slow-motion capture hook. Everything
-  else (timings, shots, numbers, texts) follows the web.
+- **Simplified relative to the web:** CSS filter effects (brightness, saturate) are colour
+  matrices and the white-silhouette flash is a `srcIn` colour filter; the eye glow's `screen` blend is
+  a canvas blend; the Hollow silhouette's rim is a radial glow rather than an alpha-shaped shadow; the
+  implicit fades inside the world (the aura's opacity, the eye glows, the sprite-state crossfade) are
+  not held by a hit-stop; the canvas sprites are 96 px `ui.Image`s rather than 64 px canvases; there is
+  no slow-motion capture hook. Everything else (timings, shots, numbers, texts, effects) follows the
+  web.
 - **Tests:** `test/trails_test.dart` mirrors `../web/test/trails.test.mjs` (the catalog guard, the
   deterministic day board and old-save migration, a discovery's begin/walk/inspect, Guild ranks, the
   three trail jobs end to end including startEncounter gating, the liked-treat/retreat refund case,

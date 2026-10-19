@@ -1,17 +1,20 @@
 // Lumen Trails: the battle shot. Your Evochi from behind in the foreground, the wild one facing it on
 // a 2:3 backdrop with a foreground layer for depth, camera "shots" (wide / pet / wild / close / face),
-// shakes, a flash, a Hollow aura, the nameplates, the intro title and the result ribbon, and the
-// one-shot effects a turn throws around (orbs, bursts, floating numbers, hearts, petals, a lash).
+// shakes, punches, a flash, a Hollow aura, the nameplates, the intro title and the result ribbon, the
+// canvas effects (stage_fx.dart) on two layers and the few widget effects a turn throws around
+// (floating numbers, a "?" bubble, Petalune swooping in).
 //
 // The stage is driven imperatively through [EncounterStage] (a ChangeNotifier the screen pokes from
-// its timelines), so camera moves and effects never restart when the state re-renders. Geometry is
-// expressed in fractions of the backdrop, so it lines up at any size. Mirrors the stage half of
-// web/src/screens/encounter.js and the "encounter: the battle shot" CSS.
+// its timelines), so camera moves and effects never restart when the state re-renders. Everything
+// that moves inside the world reads one [StageClock], which the hit-stop holds still for a few
+// frames. Geometry is expressed in fractions of the backdrop, so it lines up at any size. Mirrors
+// the stage half of web/src/screens/encounter.js and the "encounter: the battle shot" CSS.
 
 import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import '../../app/theme.dart';
 import '../../core/models/game_state.dart';
@@ -19,6 +22,7 @@ import '../../core/services/asset_manifest.dart';
 import '../../game/trails/trails.dart' as tr;
 import '../shared/sprite.dart';
 import '../shared/widgets.dart';
+import 'stage_fx.dart';
 
 // your Evochi's frame width (share of the shot's width) per stage, and how far right its face may reach
 const petWidthByStage = {1: 0.44, 2: 0.52, 3: 0.68};
@@ -26,7 +30,11 @@ const faceMaxX = 0.38;
 // lift your Evochi off the scene's mark a little, so its card below covers only its feet
 const petLift = 0.075;
 const camCurve = Cubic(0.3, 0.75, 0.25, 1);
+// the beats of a turn move the camera quickly
+const fastCurve = Cubic(0.2, 0.7, 0.2, 1);
+const punchCurve = Cubic(0.1, 0.7, 0.2, 1);
 const popCurve = Cubic(0.2, 1.3, 0.4, 1);
+const _deg = math.pi / 180;
 
 // ---------------------------------------------------------------------- geometry ----
 /// Where everything sits on the battle shot, in fractions of the backdrop (so it lines up at any size).
@@ -43,7 +51,9 @@ class ShotGeometry {
     required this.wildCy,
     required this.wildFace,
     required this.wildEyes,
+    required this.wildEyesAbs,
     required this.wildHeadY,
+    required this.wildBottom,
     required this.wildGy,
     required this.petLeft,
     required this.petTop,
@@ -65,7 +75,9 @@ class ShotGeometry {
   final double wildCx, wildCy; // its centre of mass (effects aim here)
   final Offset? wildFace; // backdrop fractions (the 'face' camera shot)
   final List<Offset>? wildEyes; // sprite-local fractions (the Sentinel's eye glows)
+  final List<Offset>? wildEyesAbs; // the same in backdrop fractions (the eye flashes)
   final double wildHeadY; // top of its head (floating numbers sit above it)
+  final double wildBottom; // the ground at its feet
   final double wildGy; // its ground line, sprite-local
   // your Evochi
   final double petLeft, petTop, petWidth, petAr;
@@ -97,6 +109,7 @@ ShotGeometry shotGeometry(tr.EncounterView v, Pet pet) {
   final wl = aWild.dx - cg.dx * s;
   final wt = aWild.dy - cg.dy * s;
   Offset local(Offset p) => Offset(p.dx / cb.w, p.dy / cb.h);
+  Offset abs(Offset p) => Offset((wl + p.dx * s) / w, (wt + p.dy * s) / hh);
   // your Evochi: a set width per stage, feet on the scene's mark, its face kept left of the wild one
   final p = art.char(pet.stage).battle!;
   final pg = p.anchor('ground');
@@ -109,6 +122,7 @@ ShotGeometry shotGeometry(tr.EncounterView v, Pet pet) {
   final pt = gy - pg.dy * ps;
   final head = p.headTop;
   final back = p.anchor('back');
+  final eyes = cb.hasAnchor('eye_l');
   return ShotGeometry(
     scene: b,
     creature: cb,
@@ -119,9 +133,11 @@ ShotGeometry shotGeometry(tr.EncounterView v, Pet pet) {
     wildAr: cb.w / cb.h,
     wildCx: aWild.dx / w,
     wildCy: (aWild.dy - (cg.dy - ct.dy) * s * 0.55) / hh,
-    wildFace: cb.hasAnchor('face') ? Offset((wl + cb.anchor('face').dx * s) / w, (wt + cb.anchor('face').dy * s) / hh) : null,
-    wildEyes: cb.hasAnchor('eye_l') ? [local(cb.anchor('eye_l')), local(cb.anchor('eye_r'))] : null,
+    wildFace: cb.hasAnchor('face') ? abs(cb.anchor('face')) : null,
+    wildEyes: eyes ? [local(cb.anchor('eye_l')), local(cb.anchor('eye_r'))] : null,
+    wildEyesAbs: eyes ? [abs(cb.anchor('eye_l')), abs(cb.anchor('eye_r'))] : null,
     wildHeadY: (wt + ct.dy * s) / hh,
+    wildBottom: aWild.dy / hh,
     wildGy: cg.dy / cb.h,
     petLeft: pl / w,
     petTop: pt / hh,
@@ -137,44 +153,77 @@ ShotGeometry shotGeometry(tr.EncounterView v, Pet pet) {
   );
 }
 
-// ------------------------------------------------------------------ the controller ----
-/// A one-shot animation on something: its name, a counter so the same one can retrigger, and how
-/// long it runs.
-class StageAnim {
-  const StageAnim(this.name, this.id, this.ms, {this.kind = ''});
-  final String name;
-  final int id;
-  final int ms;
-  final String kind; // flash: white | gold | violet
+// ------------------------------------------------------------------ the clock ----
+/// The stage's animation clock. [seconds] is what every animation inside the world reads; it holds
+/// still during a hit-stop. [wall] never stops (the meters' tweens and whatever starts during a
+/// hit-stop run on it). Notifies once per frame.
+class StageClock extends ChangeNotifier {
+  double seconds = 0;
+  double wall = 0;
+  bool _disposed = false;
+
+  void advance(double dt, {required bool frozen}) {
+    wall += dt;
+    if (!frozen) seconds += dt;
+    if (!_disposed) notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
 }
 
-/// One effect on the vfx layer.
+/// When a one-shot started and how long it runs. Progress reads the frozen clock, except for the
+/// remainder of a hit-stop that was already running when it started (the web pauses only the
+/// animations that were running, so a hit reaction fired right after `hitstop` plays through it).
+class StageSpan {
+  const StageSpan(this.ms, this.start, this.startWall, this.exempt);
+  static const none = StageSpan(0, 0, 0, 0);
+  final int ms;
+  final double start, startWall, exempt; // seconds
+
+  double elapsed(StageClock c) => (c.seconds - start) + math.min(exempt, c.wall - startWall);
+  double t(StageClock c) => ms <= 0 ? 1.0 : (elapsed(c) / (ms / 1000)).clamp(0.0, 1.0);
+}
+
+// ------------------------------------------------------------------ the controller ----
+/// A one-shot animation on something: its name, a counter so the same one can retrigger, and when
+/// it runs.
+class StageAnim {
+  const StageAnim(this.name, this.id, this.span, {this.kind = ''});
+  final String name;
+  final int id;
+  final StageSpan span;
+  final String kind; // flash: white | gold | violet; punch: wild | pet
+  int get ms => span.ms;
+}
+
+/// One effect on the widget layer (the few the canvas does not draw).
 class FxItem {
   FxItem({
     required this.id,
     required this.kind,
     required this.x,
     required this.y,
-    required this.ms,
+    required this.span,
     this.cls = '',
     this.text = '',
     this.to,
     this.arc = 0,
-    this.n = 0,
-    this.inner = '',
     this.itemId,
   });
   final int id;
-  final String kind; // float | proj | burst | rise | bubble | buddy
+  final String kind; // float | proj | bubble | buddy
   final double x, y; // backdrop fractions
-  final int ms;
-  final String cls; // style words: 'good violet', 'orb violet', 'spark big', 'ring teal', 'boop soft', 'heart'
+  final StageSpan span;
+  final String cls; // style words: 'good violet', 'bad', 'energy', 'toss'
   final String text;
   final Offset? to; // proj: where it lands
   final double arc; // proj: lift at mid-flight (% of the view height, negative = up)
-  final int n; // burst: particles
-  final String inner; // burst / rise: dot | spark | heart
   final String? itemId; // proj toss: the item thrown
+  int get ms => span.ms;
 }
 
 /// The live visual state of the stage, poked by the screen's timelines.
@@ -183,7 +232,6 @@ class EncounterStage extends ChangeNotifier {
   final bool reducedMotion;
 
   String shot = 'wide';
-  int cutId = 0; // bumped when the next camera move should be instant
   bool petIn = false; // your Evochi has stepped in from the left
   bool lit = false; // the intro's dark grade has lifted
   bool eyeL = false, eyeR = false; // the Sentinel's eyes
@@ -196,15 +244,51 @@ class EncounterStage extends ChangeNotifier {
   String wildState = '';
   String petExpr = 'default';
   String wildMood = '';
-  StageAnim? wildAnim, petAnim, shake, flash;
+  StageAnim? wildAnim, petAnim, shake, flash, punchAnim;
   double meter = 0; // 0..1
   String meterText = '';
   double energy = 0;
   String energyText = '';
   final List<FxItem> fx = [];
+
+  /// The clock everything inside the world reads (ticked by the view, frozen by [hitstop]).
+  final StageClock clock = StageClock();
+
+  /// The canvas effects (null with reduced motion, and until the view mounts the stage).
+  StageFx? effects;
+
   int _ids = 0;
   final List<Timer> _timers = [];
   bool _disposed = false;
+  Ticker? _ticker;
+  double? _last;
+  double _freezeLeft = 0; // ms
+  bool _fast = false;
+  ShotGeometry? _geometry;
+  // the camera, the foreground's parallax and your Evochi's slide: each a tween on the clock
+  CamPose _camFrom = const CamPose(1, 0, 0), _camTo = const CamPose(1, 0, 0);
+  StageSpan _camSpan = StageSpan.none;
+  Curve _camCurve = camCurve;
+  CamPose _fgFrom = const CamPose(1, 0, 0), _fgTo = const CamPose(1, 0, 0);
+  StageSpan _fgSpan = StageSpan.none;
+  Offset _petFrom = Offset.zero, _petTo = Offset.zero;
+  StageSpan _petSpan = StageSpan.none;
+
+  ShotGeometry? get geometry => _geometry;
+
+  /// The shot's geometry (the camera needs it); the first one snaps the camera to the current shot.
+  set geometry(ShotGeometry? g) {
+    final first = _geometry == null && g != null;
+    _geometry = g;
+    if (first) {
+      _camFrom = _camTo = camPose(shot, g!);
+      _camSpan = StageSpan.none;
+      _fgFrom = _fgTo = fgPose(shot);
+      _fgSpan = StageSpan.none;
+      _petFrom = _petTo = _petTarget();
+      _petSpan = StageSpan.none;
+    }
+  }
 
   void _tick() {
     if (!_disposed) notifyListeners();
@@ -220,25 +304,128 @@ class EncounterStage extends ChangeNotifier {
     return t;
   }
 
-  /// Change the camera shot (instantly when [instant]).
-  void setShot(String name, {bool instant = false}) {
-    if (instant) cutId++;
+  /// A span starting now (exempt from whatever is left of a running hit-stop).
+  StageSpan _span(int ms) => StageSpan(ms, clock.seconds, clock.wall, _freezeLeft / 1000);
+
+  /// Runs [fn] once the clock has passed the end of [span] (a hit-stop stretches the wait).
+  void _expire(StageSpan span, VoidCallback fn, [double? seen]) {
+    final now = clock.seconds;
+    final left = span.ms - span.elapsed(clock) * 1000;
+    if (left > 4 && (seen == null || now > seen)) {
+      _after(left.ceil(), () => _expire(span, fn, now));
+    } else {
+      fn();
+    }
+  }
+
+  // ---------------------------------------------------------------- the clock and the effects
+  /// The view hands the stage its ticker: the clock runs, and the effects engine exists (unless
+  /// motion is reduced). Both pause for a hit-stop.
+  void mount(TickerProvider vsync) {
+    unmount();
+    if (_disposed) return;
+    _last = null;
+    _ticker = vsync.createTicker(_onTick)..start();
+    if (!reducedMotion) effects = StageFx(vsync: vsync);
+  }
+
+  void unmount() {
+    _ticker?.dispose();
+    _ticker = null;
+    effects?.dispose();
+    effects = null;
+  }
+
+  void _onTick(Duration elapsed) {
+    final now = elapsed.inMicroseconds / 1e6;
+    final last = _last ?? now;
+    _last = now;
+    final dt = math.min(0.05, now - last);
+    final frozen = _freezeLeft > 0;
+    if (frozen) _freezeLeft -= dt * 1000;
+    clock.advance(dt, frozen: frozen);
+  }
+
+  /// The hit-stop: for a few frames everything on the shot holds still, then carries on.
+  void hitstop(int ms) {
+    if (ms <= 0) return;
+    _freezeLeft = math.max(_freezeLeft, ms.toDouble());
+    effects?.freeze(ms);
+  }
+
+  // ---------------------------------------------------------------- the camera
+  /// Move the camera to a shot: eased (the default), as a cut ([instant]), or 'fast' for the beats
+  /// of a turn.
+  void setShot(String name, {bool instant = false, String speed = ''}) {
     shot = name;
+    _fast = speed == 'fast';
+    final g = _geometry;
+    if (g != null) {
+      final to = camPose(name, g);
+      final ms = instant ? 0 : (reducedMotion ? 300 : (_fast ? 340 : to.ms));
+      final other = instant ? 0 : (reducedMotion ? 300 : (_fast ? 340 : 1000));
+      _camFrom = camAt(clock);
+      _camTo = to;
+      _camSpan = _span(ms);
+      _camCurve = _fast ? fastCurve : camCurve;
+      _fgFrom = fgAt(clock);
+      _fgTo = fgPose(name);
+      _fgSpan = _span(other);
+      if (instant) {
+        // a cut moves your Evochi too (the web's .cut drops every transition)
+        _petFrom = _petTo = _petTarget();
+        _petSpan = StageSpan.none;
+      } else {
+        _retargetPet(other);
+      }
+    }
     _tick();
   }
 
+  Offset _petTarget() => !petIn ? const Offset(-0.75, 0.14) : (shot == 'wild' ? const Offset(-0.07, 0.04) : Offset.zero);
+
+  /// Your Evochi slides to where the shot and [petIn] put it (a running slide is not restarted).
+  void _retargetPet([int? ms]) {
+    final to = _petTarget();
+    if (to == _petTo) return;
+    _petFrom = petSlideAt(clock);
+    _petTo = to;
+    _petSpan = _span(ms ?? (reducedMotion ? 300 : (_fast ? 340 : 1000)));
+  }
+
+  CamPose camAt(StageClock c) => CamPose.lerp(_camFrom, _camTo, _camCurve.transform(_camSpan.t(c)));
+  CamPose fgAt(StageClock c) => CamPose.lerp(_fgFrom, _fgTo, _camCurve.transform(_fgSpan.t(c)));
+  Offset petSlideAt(StageClock c) => Offset.lerp(_petFrom, _petTo, _camCurve.transform(_petSpan.t(c)))!;
+
+  /// The camera jolts in toward the wild one (or your Evochi) and eases back.
+  void punch({String at = 'wild', bool big = false}) {
+    if (reducedMotion) return;
+    final ms = big ? 720 : 520;
+    final a = StageAnim(big ? 'big' : 'punch', ++_ids, _span(ms), kind: at);
+    punchAnim = a;
+    _tick();
+    _expire(a.span, () {
+      if (punchAnim?.id == a.id) {
+        punchAnim = null;
+        _tick();
+      }
+    });
+  }
+
+  // ---------------------------------------------------------------- the sprites
   /// Change several fields at once, then repaint.
   void update(void Function(EncounterStage s) fn) {
     fn(this);
+    if (_geometry != null) _retargetPet();
     _tick();
   }
 
   void retriggerWild(String name, int ms) {
-    wildAnim = StageAnim(name, ++_ids, ms);
+    final a = StageAnim(name, ++_ids, _span(ms));
+    wildAnim = a;
     _tick();
-    final id = _ids;
-    _after(ms, () {
-      if (wildAnim?.id == id) {
+    _expire(a.span, () {
+      if (wildAnim?.id == a.id) {
         wildAnim = null;
         _tick();
       }
@@ -246,11 +433,11 @@ class EncounterStage extends ChangeNotifier {
   }
 
   void retriggerPet(String name, int ms) {
-    petAnim = StageAnim(name, ++_ids, ms);
+    final a = StageAnim(name, ++_ids, _span(ms));
+    petAnim = a;
     _tick();
-    final id = _ids;
-    _after(ms, () {
-      if (petAnim?.id == id) {
+    _expire(a.span, () {
+      if (petAnim?.id == a.id) {
         petAnim = null;
         _tick();
       }
@@ -259,11 +446,11 @@ class EncounterStage extends ChangeNotifier {
 
   void doShake({bool big = false}) {
     if (reducedMotion) return;
-    shake = StageAnim(big ? 'large' : 'small', ++_ids, big ? 900 : 450);
+    final a = StageAnim(big ? 'large' : 'small', ++_ids, _span(big ? 900 : 450));
+    shake = a;
     _tick();
-    final id = _ids;
-    _after(big ? 900 : 450, () {
-      if (shake?.id == id) {
+    _expire(a.span, () {
+      if (shake?.id == a.id) {
         shake = null;
         _tick();
       }
@@ -271,42 +458,37 @@ class EncounterStage extends ChangeNotifier {
   }
 
   void doFlash([String kind = 'white']) {
-    flash = StageAnim('flash', ++_ids, 600, kind: kind);
+    final a = StageAnim('flash', ++_ids, _span(600), kind: kind);
+    flash = a;
     _tick();
-    final id = _ids;
     _after(600, () {
-      if (flash?.id == id) {
+      if (flash?.id == a.id) {
         flash = null;
         _tick();
       }
     });
   }
 
-  void addFx(FxItem Function(int id) make) {
-    final added = make(++_ids);
+  // ---------------------------------------------------------------- widget effects
+  void addFx(FxItem Function(int id, StageSpan span) make, int ms) {
+    final added = make(++_ids, _span(ms));
     fx.add(added);
     _tick();
-    _after(added.ms, () {
+    _expire(added.span, () {
       fx.remove(added);
       _tick();
     });
   }
 
-  void floatText(Offset at, String text, String cls) => addFx((id) => FxItem(id: id, kind: 'float', x: at.dx, y: at.dy, ms: 1500, text: text, cls: cls));
+  void floatText(Offset at, String text, String cls) => addFx((id, span) => FxItem(id: id, kind: 'float', x: at.dx, y: at.dy, span: span, text: text, cls: cls), 1500);
 
-  /// Something travels from [a] to [b] along an arc.
+  /// Something travels from [a] to [b] along an arc (the reduced-motion stand-in for a comet).
   void projectile(String cls, Offset a, Offset b, int ms, {double arc = 0, String? itemId}) =>
-      addFx((id) => FxItem(id: id, kind: 'proj', x: a.dx, y: a.dy, to: b, ms: ms + 80, cls: cls, arc: arc, itemId: itemId));
+      addFx((id, span) => FxItem(id: id, kind: 'proj', x: a.dx, y: a.dy, to: b, span: span, cls: cls, arc: arc, itemId: itemId), ms + 80);
 
-  void burst(String cls, Offset p, {int n = 8, String inner = 'dot', int life = 1100}) =>
-      addFx((id) => FxItem(id: id, kind: 'burst', x: p.dx, y: p.dy, ms: life, cls: cls, n: n, inner: inner));
+  void bubble(Offset p, String text) => addFx((id, span) => FxItem(id: id, kind: 'bubble', x: p.dx, y: p.dy, span: span, text: text), 1300);
 
-  void rise(Offset p, String inner, int life, {bool big = false}) =>
-      addFx((id) => FxItem(id: id, kind: 'rise', x: p.dx, y: p.dy, ms: life, inner: inner, cls: big ? 'heart' : ''));
-
-  void bubble(Offset p, String text) => addFx((id) => FxItem(id: id, kind: 'bubble', x: p.dx, y: p.dy, ms: 1300, text: text));
-
-  void buddy() => addFx((id) => FxItem(id: id, kind: 'buddy', x: 0.06, y: 0.70, ms: 1900));
+  void buddy() => addFx((id, span) => FxItem(id: id, kind: 'buddy', x: 0.14, y: 0.46, span: span), 1900);
 
   void setMeter(double frac, String text) {
     meter = frac.clamp(0.0, 1.0);
@@ -331,19 +513,22 @@ class EncounterStage extends ChangeNotifier {
   void dispose() {
     _disposed = true;
     clearTimers();
+    unmount();
+    clock.dispose();
     super.dispose();
   }
 }
 
 // ------------------------------------------------------------------------ helpers ----
-/// Piecewise-linear keyframes: [stops] in 0..1 with a value each.
-double _kf(double t, List<double> stops, List<double> values) {
+/// Keyframes: [stops] in 0..1 with a value each, [curve] eased within each segment (like a CSS
+/// animation's timing function).
+double _kf(double t, List<double> stops, List<double> values, [Curve curve = Curves.linear]) {
   if (t <= stops.first) return values.first;
   for (var i = 1; i < stops.length; i++) {
     if (t <= stops[i]) {
       final a = stops[i - 1];
       final b = stops[i];
-      final f = b == a ? 1.0 : (t - a) / (b - a);
+      final f = b == a ? 1.0 : curve.transform(((t - a) / (b - a)).clamp(0.0, 1.0));
       return values[i - 1] + (values[i] - values[i - 1]) * f;
     }
   }
@@ -365,19 +550,13 @@ class CamPose {
   int get hashCode => Object.hash(scale, tx, ty);
 }
 
-class CamTween extends Tween<CamPose> {
-  CamTween({super.begin, super.end});
-  @override
-  CamPose lerp(double t) => CamPose.lerp(begin!, end!, t);
-}
-
 /// The camera for a shot (port of the `.enc-cam` rules).
 CamPose camPose(String shot, ShotGeometry g) {
   switch (shot) {
     case 'wild':
       return CamPose(1.13, (0.5 - g.wildCx) * 0.4, (0.5 - g.wildCy) * 0.3, 1000);
     case 'pet':
-      return CamPose(1.07, (0.5 - g.petCx) * 0.3, (0.5 - g.petCy) * 0.2, 700);
+      return CamPose(1.16, (0.5 - g.petCx) * 0.4, (0.5 - g.petCy) * 0.45, 700);
     case 'close':
       return CamPose(1.55, 0.5 - g.wildCx, 0.46 - g.wildCy, 1300);
     case 'face':
@@ -390,7 +569,7 @@ CamPose camPose(String shot, ShotGeometry g) {
 /// The foreground layer's parallax for a shot (about 85% / 70% of the world).
 CamPose fgPose(String shot) => switch (shot) {
       'wild' => const CamPose(1.09, 0.02, 0.01),
-      'pet' => const CamPose(1.04, 0, 0),
+      'pet' => const CamPose(1.08, -0.01, 0.01),
       _ => const CamPose(1, 0, 0),
     };
 
@@ -398,90 +577,18 @@ Matrix4 _poseMatrix(CamPose p, double w, double h) => Matrix4.identity()
   ..scale(p.scale, p.scale)
   ..translate(p.tx * w, p.ty * h);
 
-ColorFilter _brightness(double b) => ColorFilter.matrix(<double>[b, 0, 0, 0, 0, 0, b, 0, 0, 0, 0, 0, b, 0, 0, 0, 0, 0, 1, 0]);
-
-const _heartColor = Color(0xFFF58CA6);
-const _sparkFill = Color(0xFFFFF6C9);
-const _sparkEdge = Color(0xFFF4B84E);
-
-/// The four-point spark the bursts throw (the web's SPARK svg).
-class _Spark extends StatelessWidget {
-  const _Spark({this.size = 24});
-  final double size;
-  @override
-  Widget build(BuildContext context) => SizedBox(width: size, height: size, child: CustomPaint(painter: _SparkPainter()));
+/// brightness(b) saturate(s) as a colour matrix.
+ColorFilter _filter(double b, double s) {
+  const lr = 0.213, lg = 0.715, lb = 0.072;
+  return ColorFilter.matrix(<double>[
+    b * (lr + (1 - lr) * s), b * (lg - lg * s), b * (lb - lb * s), 0, 0, //
+    b * (lr - lr * s), b * (lg + (1 - lg) * s), b * (lb - lb * s), 0, 0, //
+    b * (lr - lr * s), b * (lg - lg * s), b * (lb + (1 - lb) * s), 0, 0, //
+    0, 0, 0, 1, 0,
+  ]);
 }
 
-class _SparkPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final s = size.width / 24;
-    final p = Path()
-      ..moveTo(12 * s, 1.5 * s)
-      ..lineTo(14.4 * s, 9.6 * s)
-      ..lineTo(22.5 * s, 12 * s)
-      ..lineTo(14.4 * s, 14.4 * s)
-      ..lineTo(12 * s, 22.5 * s)
-      ..lineTo(9.6 * s, 14.4 * s)
-      ..lineTo(1.5 * s, 12 * s)
-      ..lineTo(9.6 * s, 9.6 * s)
-      ..close();
-    canvas.drawPath(p, Paint()..color = _sparkFill);
-    canvas.drawPath(
-      p,
-      Paint()
-        ..color = _sparkEdge
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2 * s
-        ..strokeJoin = StrokeJoin.round,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_SparkPainter old) => false;
-}
-
-/// A little heart (the web's HEART svg).
-class _Heart extends StatelessWidget {
-  const _Heart({this.size = 26});
-  final double size;
-  @override
-  Widget build(BuildContext context) => SizedBox(width: size, height: size, child: CustomPaint(painter: _HeartPainter()));
-}
-
-class _HeartPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    final s = size.width / 24;
-    final p = Path()
-      ..moveTo(12 * s, 21 * s)
-      ..cubicTo(12 * s, 21 * s, 4.5 * s, 16.4 * s, 2.6 * s, 11.7 * s)
-      ..cubicTo(1.2 * s, 8.2 * s, 3.4 * s, 4.6 * s, 7 * s, 4.6 * s)
-      ..cubicTo(9.1 * s, 4.6 * s, 10.6 * s, 5.8 * s, 12 * s, 7.6 * s)
-      ..cubicTo(13.4 * s, 5.8 * s, 14.9 * s, 4.6 * s, 17 * s, 4.6 * s)
-      ..cubicTo(20.6 * s, 4.6 * s, 22.8 * s, 8.2 * s, 21.4 * s, 11.7 * s)
-      ..cubicTo(19.5 * s, 16.4 * s, 12 * s, 21 * s, 12 * s, 21 * s)
-      ..close();
-    canvas.drawPath(p, Paint()..color = _heartColor);
-    canvas.drawPath(
-      p,
-      Paint()
-        ..color = Colors.white
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.6 * s
-        ..strokeJoin = StrokeJoin.round,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_HeartPainter old) => false;
-}
-
-Widget _innerWidget(String inner, double size) => switch (inner) {
-      'heart' => _Heart(size: size),
-      'spark' => _Spark(size: size),
-      _ => const SizedBox.shrink(),
-    };
+const _whiteSilhouette = ColorFilter.mode(Colors.white, BlendMode.srcIn);
 
 /// The gold "!" badge (over the wild one at the intro, over your Evochi when it flinches).
 class _Bang extends StatelessWidget {
@@ -549,15 +656,13 @@ class EncounterStageView extends StatefulWidget {
 }
 
 class _EncounterStageViewState extends State<EncounterStageView> with TickerProviderStateMixin {
-  // idle loops: breathing, drift, the aura's pulse and the eye glow all read this one 16 s clock
-  late final AnimationController _idle = AnimationController(vsync: this, duration: const Duration(seconds: 16));
-  late final AnimationController _tremble = AnimationController(vsync: this, duration: const Duration(milliseconds: 160));
+  // the dust falling while the ruins tremble lives outside the world, on its own loop
   late final AnimationController _dust = AnimationController(vsync: this, duration: const Duration(milliseconds: 1700));
 
   @override
   void initState() {
     super.initState();
-    if (!widget.stage.reducedMotion) _idle.repeat();
+    widget.stage.mount(this);
     widget.stage.addListener(_onStage);
   }
 
@@ -566,6 +671,8 @@ class _EncounterStageViewState extends State<EncounterStageView> with TickerProv
     super.didUpdateWidget(old);
     if (old.stage != widget.stage) {
       old.stage.removeListener(_onStage);
+      old.stage.unmount();
+      widget.stage.mount(this);
       widget.stage.addListener(_onStage);
     }
   }
@@ -573,10 +680,8 @@ class _EncounterStageViewState extends State<EncounterStageView> with TickerProv
   void _onStage() {
     final st = widget.stage;
     if (st.trembling && !st.reducedMotion) {
-      if (!_tremble.isAnimating) _tremble.repeat();
       if (!_dust.isAnimating) _dust.repeat();
     } else {
-      if (_tremble.isAnimating) _tremble.stop();
       if (_dust.isAnimating) _dust.stop();
     }
   }
@@ -584,8 +689,7 @@ class _EncounterStageViewState extends State<EncounterStageView> with TickerProv
   @override
   void dispose() {
     widget.stage.removeListener(_onStage);
-    _idle.dispose();
-    _tremble.dispose();
+    widget.stage.unmount();
     _dust.dispose();
     super.dispose();
   }
@@ -611,7 +715,7 @@ class _EncounterStageViewState extends State<EncounterStageView> with TickerProv
           right: 0,
           top: 0,
           bottom: bottom,
-          child: ClipRect(child: _View(stage: st, props: p, idle: _idle, tremble: _tremble, dust: _dust, safeTop: safeTop, hollowKind: hollowKind)),
+          child: ClipRect(child: _View(stage: st, props: p, dust: _dust, safeTop: safeTop, hollowKind: hollowKind)),
         ),
         // letterbox bands during the intro
         AnimatedPositioned(
@@ -687,14 +791,12 @@ class _EncounterStageViewState extends State<EncounterStageView> with TickerProv
   }
 }
 
-/// The view: the world (camera, shake, drift, backdrop, aura, sprites, foreground, effects), then
-/// the grade, the flash, the dust, the plates, the ribbon and the caption.
+/// The view: the world (camera, shake, punch, drift, backdrop, aura, sprites, foreground, effects),
+/// then the grade, the flash, the dust, the plates, the ribbon and the caption.
 class _View extends StatelessWidget {
-  const _View({required this.stage, required this.props, required this.idle, required this.tremble, required this.dust, required this.safeTop, required this.hollowKind});
+  const _View({required this.stage, required this.props, required this.dust, required this.safeTop, required this.hollowKind});
   final EncounterStage stage;
   final StageProps props;
-  final AnimationController idle;
-  final AnimationController tremble;
   final AnimationController dust;
   final double safeTop;
   final bool hollowKind;
@@ -728,7 +830,7 @@ class _View extends StatelessWidget {
               top: top,
               width: bw,
               height: bh,
-              child: _World(stage: st, props: p, bw: bw, bh: bh, vh: vh, idle: idle, tremble: tremble, hollowKind: hollowKind),
+              child: _World(stage: st, props: p, bw: bw, bh: bh, vh: vh, hollowKind: hollowKind),
             ),
             // grade: a dark vignette on the sleeping Sentinel, a violet edge while the Hollow holds
             Positioned.fill(
@@ -755,16 +857,16 @@ class _View extends StatelessWidget {
                 ]),
               ),
             ),
-            // flash
+            // flash (outside the world: a hit-stop does not hold it)
             if (st.flash != null)
               Positioned.fill(
                 child: IgnorePointer(
                   child: TweenAnimationBuilder<double>(
                     key: ValueKey(st.flash!.id),
                     tween: Tween(begin: 0, end: 1),
-                    duration: const Duration(milliseconds: 600),
+                    duration: const Duration(milliseconds: 420),
                     builder: (_, t, __) => Opacity(
-                      opacity: _kf(t, [0, 0.15, 1], [0, 0.85, 0]),
+                      opacity: _kf(t, [0, 0.12, 1], [0, 0.8, 0], Curves.easeOut),
                       child: DecoratedBox(
                         decoration: BoxDecoration(
                           color: st.flash!.kind == 'white' ? Colors.white : null,
@@ -845,15 +947,13 @@ class _View extends StatelessWidget {
   }
 }
 
-/// The world: camera, shake and drift around the backdrop, the aura, the wild one, your Evochi, the
-/// foreground layer and the effects.
+/// The world: camera, shake, punch and drift around the backdrop, the aura, the back effects, the
+/// wild one, your Evochi, the foreground layer, the front effects and the widget effects.
 class _World extends StatelessWidget {
-  const _World({required this.stage, required this.props, required this.bw, required this.bh, required this.vh, required this.idle, required this.tremble, required this.hollowKind});
+  const _World({required this.stage, required this.props, required this.bw, required this.bh, required this.vh, required this.hollowKind});
   final EncounterStage stage;
   final StageProps props;
   final double bw, bh, vh;
-  final AnimationController idle;
-  final AnimationController tremble;
   final bool hollowKind;
 
   @override
@@ -861,11 +961,9 @@ class _World extends StatelessWidget {
     final st = stage;
     final g = props.geometry;
     final rm = st.reducedMotion;
-    final cam = camPose(st.shot, g);
-    final fg = fgPose(st.shot);
-    final wildBody = _WildBody(stage: st, props: props, width: g.wildWidth * bw, idle: idle, hollowKind: hollowKind);
-    final petIn = st.petIn;
-    final petSlide = !petIn ? const Offset(-0.75, 0.14) : (st.shot == 'wild' ? const Offset(-0.07, 0.04) : Offset.zero);
+    final clock = st.clock;
+    final fx = st.effects;
+    fx?.resize(bw, bh);
     final layers = Stack(clipBehavior: Clip.none, children: [
       Positioned.fill(child: Image.asset(g.scene.file, fit: BoxFit.fill, excludeFromSemantics: true, gaplessPlayback: true, filterQuality: FilterQuality.medium)),
       // the Hollow's aura (gold once it's restored or befriended)
@@ -879,10 +977,10 @@ class _World extends StatelessWidget {
             duration: const Duration(milliseconds: 1000),
             opacity: st.hollow || st.won ? 1 : 0,
             child: AnimatedBuilder(
-              animation: idle,
+              animation: clock,
               builder: (_, __) {
                 final period = st.won ? 1.8 : (st.phase2 ? 1.2 : 2.6);
-                final pulse = rm ? 1.0 : 0.55 + 0.45 * (0.5 - 0.5 * math.cos(2 * math.pi * ((idle.value * 16) % period) / period));
+                final pulse = rm ? 1.0 : 0.55 + 0.45 * (0.5 - 0.5 * math.cos(2 * math.pi * (clock.seconds % period) / period));
                 return Opacity(
                   opacity: pulse,
                   child: DecoratedBox(
@@ -897,44 +995,42 @@ class _World extends StatelessWidget {
           ),
         ),
       ),
+      // the light behind the creatures
+      if (fx != null) Positioned.fill(child: IgnorePointer(child: CustomPaint(painter: StageFxPainter(fx, layer: 'back'), size: Size.infinite, willChange: true))),
       // the wild one
-      Positioned(left: g.wildLeft * bw, top: g.wildTop * bh, width: g.wildWidth * bw, child: wildBody),
+      Positioned(left: g.wildLeft * bw, top: g.wildTop * bh, width: g.wildWidth * bw, child: _WildBody(stage: st, props: props, width: g.wildWidth * bw, hollowKind: hollowKind)),
       // your Evochi, sliding in from off-left (and a touch right/down on the wild shot)
       Positioned(
         left: g.petLeft * bw,
         top: g.petTop * bh,
         width: g.petWidth * bw,
-        child: TweenAnimationBuilder<Offset>(
-          key: ValueKey('pet-slide-${st.cutId}'),
-          tween: Tween(begin: petSlide, end: petSlide),
-          duration: rm ? const Duration(milliseconds: 300) : const Duration(milliseconds: 1000),
-          curve: camCurve,
-          builder: (_, off, child) => FractionalTranslation(translation: off, child: child),
-          child: _PetBody(stage: st, props: props, width: g.petWidth * bw, idle: idle, hollowKind: hollowKind),
+        child: AnimatedBuilder(
+          animation: clock,
+          builder: (_, child) => FractionalTranslation(translation: st.petSlideAt(clock), child: child),
+          child: _PetBody(stage: st, props: props, width: g.petWidth * bw, hollowKind: hollowKind),
         ),
       ),
       // the foreground layer, scaled a touch more than the backdrop for parallax
       Positioned.fill(
         child: IgnorePointer(
-          child: TweenAnimationBuilder<CamPose>(
-            key: ValueKey('fg-${st.cutId}'),
-            tween: CamTween(begin: fg, end: fg),
-            duration: rm ? const Duration(milliseconds: 300) : const Duration(milliseconds: 1000),
-            curve: camCurve,
-            builder: (_, pose, child) => Transform(origin: Offset(bw * 0.85, bh * 0.7), transform: _poseMatrix(pose, bw, bh), child: child),
+          child: AnimatedBuilder(
+            animation: clock,
+            builder: (_, child) => Transform(origin: Offset(bw * 0.85, bh * 0.7), transform: _poseMatrix(st.fgAt(clock), bw, bh), child: child),
             child: Image.asset(g.scene.fg, fit: BoxFit.fill, excludeFromSemantics: true, gaplessPlayback: true, filterQuality: FilterQuality.medium),
           ),
         ),
       ),
-      // effects
-      Positioned.fill(child: IgnorePointer(child: _FxLayer(stage: st, bw: bw, bh: bh, vh: vh, hollowKind: hollowKind))),
+      // the light in front of them
+      if (fx != null) Positioned.fill(child: IgnorePointer(child: CustomPaint(painter: StageFxPainter(fx, layer: 'front'), size: Size.infinite, willChange: true))),
+      // the widget effects (numbers, the "?" bubble, Petalune)
+      Positioned.fill(child: IgnorePointer(child: _FxLayer(stage: st, bw: bw, bh: bh, vh: vh))),
     ]);
-    // drift (a slow 16 s push-in and back), shake, then the camera
+    // drift (a slow 16 s push-in and back), the punch, the shake, then the camera
     Widget world = AnimatedBuilder(
-      animation: idle,
+      animation: clock,
       builder: (_, child) {
         if (rm) return child!;
-        final t = _tri(idle.value);
+        final t = Curves.easeInOut.transform(_tri((clock.seconds % 32) / 32));
         return Transform(
           alignment: Alignment.center,
           transform: Matrix4.identity()
@@ -945,39 +1041,63 @@ class _World extends StatelessWidget {
       },
       child: layers,
     );
-    world = _ShakeLayer(stage: st, tremble: tremble, child: world);
-    return TweenAnimationBuilder<CamPose>(
-      key: ValueKey('cam-${st.cutId}'),
-      tween: CamTween(begin: cam, end: cam),
-      duration: rm ? const Duration(milliseconds: 300) : Duration(milliseconds: cam.ms),
-      curve: camCurve,
-      builder: (_, pose, child) => Transform(alignment: Alignment.center, transform: _poseMatrix(pose, bw, bh), child: child),
+    world = _PunchLayer(stage: st, geometry: g, bw: bw, bh: bh, child: world);
+    world = _ShakeLayer(stage: st, child: world);
+    return AnimatedBuilder(
+      animation: clock,
+      builder: (_, child) => Transform(alignment: Alignment.center, transform: _poseMatrix(st.camAt(clock), bw, bh), child: child),
       child: world,
+    );
+  }
+}
+
+/// The camera punch: a jolt in toward the point of impact (the wild one or your Evochi), easing back.
+class _PunchLayer extends StatelessWidget {
+  const _PunchLayer({required this.stage, required this.geometry, required this.bw, required this.bh, required this.child});
+  final EncounterStage stage;
+  final ShotGeometry geometry;
+  final double bw, bh;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    final a = stage.punchAnim;
+    if (a == null) return child;
+    final g = geometry;
+    final origin = a.kind == 'pet' ? Offset(g.petCx * bw, g.petCy * bh) : Offset(g.wildCx * bw, g.wildCy * bh);
+    final amp = a.name == 'big' ? 0.13 : 0.06;
+    final clock = stage.clock;
+    return AnimatedBuilder(
+      animation: clock,
+      builder: (_, c) {
+        final k = 1 - punchCurve.transform(a.span.t(clock));
+        final s = 1 + amp * k;
+        return Transform(origin: origin, transform: Matrix4.identity()..scale(s, s), child: c);
+      },
+      child: child,
     );
   }
 }
 
 /// Small and large shakes, and the Sentinel's continuous tremble.
 class _ShakeLayer extends StatelessWidget {
-  const _ShakeLayer({required this.stage, required this.tremble, required this.child});
+  const _ShakeLayer({required this.stage, required this.child});
   final EncounterStage stage;
-  final AnimationController tremble;
   final Widget child;
   @override
   Widget build(BuildContext context) {
     final sh = stage.shake;
+    final clock = stage.clock;
     Widget w = child;
     if (sh != null) {
       final big = sh.name == 'large';
-      w = TweenAnimationBuilder<double>(
-        key: ValueKey('shake-${sh.id}'),
-        tween: Tween(begin: 0, end: 1),
-        duration: Duration(milliseconds: sh.ms),
-        curve: big ? const Cubic(0.3, 0.6, 0.4, 1) : Curves.linear,
-        builder: (_, t, c) {
-          final dx = big ? _kf(t, [0, .1, .22, .36, .5, .66, .82, 1], [0, -12, 11, -8, 6, -4, 2, 0]) : _kf(t, [0, .2, .4, .6, .8, 1], [0, -5, 5, -3, 2, 0]);
-          final dy = big ? _kf(t, [0, .1, .22, .36, .5, .66, .82, 1], [0, 6, -7, -5, 5, 2, -2, 0]) : _kf(t, [0, .2, .4, .6, .8, 1], [0, 3, -2, -3, 2, 0]);
-          final rot = big ? _kf(t, [0, .1, .22, .36, 1], [0, -0.6, 0.5, 0, 0]) * math.pi / 180 : 0.0;
+      w = AnimatedBuilder(
+        animation: clock,
+        builder: (_, c) {
+          final t = sh.span.t(clock);
+          final curve = big ? const Cubic(0.3, 0.6, 0.4, 1) : Curves.linear;
+          final dx = big ? _kf(t, [0, .1, .22, .36, .5, .66, .82, 1], [0, -12, 11, -8, 6, -4, 2, 0], curve) : _kf(t, [0, .2, .4, .6, .8, 1], [0, -5, 5, -3, 2, 0]);
+          final dy = big ? _kf(t, [0, .1, .22, .36, .5, .66, .82, 1], [0, 6, -7, -5, 5, 2, -2, 0], curve) : _kf(t, [0, .2, .4, .6, .8, 1], [0, 3, -2, -3, 2, 0]);
+          final rot = big ? _kf(t, [0, .1, .22, .36, 1], [0, -0.6, 0.5, 0, 0], curve) * _deg : 0.0;
           return Transform.translate(offset: Offset(dx, dy), child: Transform.rotate(angle: rot, child: c));
         },
         child: w,
@@ -985,9 +1105,9 @@ class _ShakeLayer extends StatelessWidget {
     }
     if (stage.trembling && !stage.reducedMotion) {
       w = AnimatedBuilder(
-        animation: tremble,
+        animation: clock,
         builder: (_, c) {
-          final t = tremble.value;
+          final t = (clock.seconds / 0.16) % 1.0;
           return Transform.translate(
             offset: Offset(_kf(t, [0, .25, .5, .75, 1], [0, -1.5, 1.5, -1, 0]), _kf(t, [0, .25, .5, .75, 1], [0, 1, -1, -1.5, 0])),
             child: c,
@@ -1016,14 +1136,14 @@ class _GroundShadow extends StatelessWidget {
       );
 }
 
-/// The wild one: its sprite in its current state (crossfading), idle breathing (or a wary shiver),
-/// the one-shot reactions, the Hollow silhouette, the Sentinel's eye glows and the intro "!".
+/// The wild one: its sprite in its current state (crossfading, except when it comes back restored),
+/// idle breathing (or a wary shiver), the one-shot reactions, the Hollow silhouette, the Sentinel's
+/// eye glows and the intro "!".
 class _WildBody extends StatelessWidget {
-  const _WildBody({required this.stage, required this.props, required this.width, required this.idle, required this.hollowKind});
+  const _WildBody({required this.stage, required this.props, required this.width, required this.hollowKind});
   final EncounterStage stage;
   final StageProps props;
   final double width;
-  final AnimationController idle;
   final bool hollowKind;
 
   @override
@@ -1034,10 +1154,9 @@ class _WildBody extends StatelessWidget {
     final cb = g.creature;
     final state = st.wildState.isEmpty ? props.view.stateKey : st.wildState;
     final rm = st.reducedMotion;
-    Widget img = AnimatedSwitcher(
-      duration: const Duration(milliseconds: 500),
-      child: Image.asset(cb.state(state), key: ValueKey(state), width: width, height: height, fit: BoxFit.fill, excludeFromSemantics: true, gaplessPlayback: true, filterQuality: FilterQuality.medium),
-    );
+    final sprite = Image.asset(cb.state(state), key: ValueKey(state), width: width, height: height, fit: BoxFit.fill, excludeFromSemantics: true, gaplessPlayback: true, filterQuality: FilterQuality.medium);
+    // the restored (or befriended) one pops in as a cut, like the web's src swap
+    Widget img = st.won ? sprite : AnimatedSwitcher(duration: const Duration(milliseconds: 500), child: sprite);
     if (st.silhouette) {
       img = ColorFiltered(colorFilter: const ColorFilter.mode(Color(0xFF05030A), BlendMode.srcIn), child: img);
     }
@@ -1062,7 +1181,7 @@ class _WildBody extends StatelessWidget {
             top: eyes[i].dy * height - width * 0.1 / 1.5 / 2,
             width: width * 0.1,
             height: width * 0.1 / 1.5,
-            child: _EyeGlow(on: (i == 0 ? st.eyeL : st.eyeR) && !st.won, pulsing: st.lit && st.eyeR && !st.won, idle: idle, rm: rm),
+            child: _EyeGlow(on: (i == 0 ? st.eyeL : st.eyeR) && !st.won, pulsing: st.lit && st.eyeR && !st.won, clock: st.clock, rm: rm),
           ),
       if (st.wildAnim?.name == 'bang')
         Positioned(left: width / 2 - 20, top: -height * 0.04 - 20, child: const _Bang(size: 40, ms: 1600)),
@@ -1075,10 +1194,9 @@ class _WildBody extends StatelessWidget {
         Positioned.fill(
           child: _AnimatedBody(
             anim: st.wildAnim?.name == 'bang' ? null : st.wildAnim,
-            idle: idle,
+            clock: st.clock,
             rm: rm,
             idleKind: st.wildMood == 'wary' && st.wildAnim == null ? 'shiver' : 'wild',
-            glow: hollowKind ? const Color(0xFFAA6EFF) : const Color(0xFFFFE28C),
             child: body,
           ),
         ),
@@ -1088,10 +1206,10 @@ class _WildBody extends StatelessWidget {
 }
 
 class _EyeGlow extends StatelessWidget {
-  const _EyeGlow({required this.on, required this.pulsing, required this.idle, required this.rm});
+  const _EyeGlow({required this.on, required this.pulsing, required this.clock, required this.rm});
   final bool on;
   final bool pulsing;
-  final AnimationController idle;
+  final StageClock clock;
   final bool rm;
   @override
   Widget build(BuildContext context) {
@@ -1099,9 +1217,9 @@ class _EyeGlow extends StatelessWidget {
     if (on && pulsing && !rm) {
       // lit: a slow glow
       return AnimatedBuilder(
-        animation: idle,
+        animation: clock,
         builder: (_, child) {
-          final t = 0.5 - 0.5 * math.cos(2 * math.pi * ((idle.value * 16) % 2.8) / 2.8);
+          final t = 0.5 - 0.5 * math.cos(2 * math.pi * (clock.seconds % 2.8) / 2.8);
           return Opacity(opacity: 0.45 + 0.4 * t, child: Transform.scale(scale: 1.1 + 0.25 * t, child: child));
         },
         child: eye,
@@ -1138,11 +1256,10 @@ class _EyePainter extends CustomPainter {
 /// Your Evochi: the battle sprite with its expression and wearables, breathing, its one-shot moves,
 /// and the "!" over its head when it flinches.
 class _PetBody extends StatelessWidget {
-  const _PetBody({required this.stage, required this.props, required this.width, required this.idle, required this.hollowKind});
+  const _PetBody({required this.stage, required this.props, required this.width, required this.hollowKind});
   final EncounterStage stage;
   final StageProps props;
   final double width;
-  final AnimationController idle;
   final bool hollowKind;
 
   @override
@@ -1164,10 +1281,9 @@ class _PetBody extends StatelessWidget {
         Positioned.fill(
           child: _AnimatedBody(
             anim: st.petAnim,
-            idle: idle,
+            clock: st.clock,
             rm: st.reducedMotion,
             idleKind: 'pet',
-            glow: hollowKind ? const Color(0xFFCDAAFF) : const Color(0xFFFFE28C),
             child: body,
           ),
         ),
@@ -1176,118 +1292,201 @@ class _PetBody extends StatelessWidget {
   }
 }
 
-/// A sprite body: its idle loop, or the one-shot reaction playing over it (transform, brightness,
-/// opacity and a glow behind, per the web's keyframes). The transform origin is 50% / 92%.
+/// A sprite body: its idle loop, or the one-shot reaction playing over it (transform, brightness and
+/// saturation, opacity, the white silhouette flash), per the web's keyframes with their timing
+/// function eased within each segment. The transform origin is 50% / 92%. With reduced motion the
+/// bodies hold still, like the web.
 class _AnimatedBody extends StatelessWidget {
-  const _AnimatedBody({required this.anim, required this.idle, required this.rm, required this.idleKind, required this.glow, required this.child});
+  const _AnimatedBody({required this.anim, required this.clock, required this.rm, required this.idleKind, required this.child});
   final StageAnim? anim;
-  final AnimationController idle;
+  final StageClock clock;
   final bool rm;
   final String idleKind; // wild | shiver | pet
-  final Color glow;
   final Widget child;
 
   @override
   Widget build(BuildContext context) {
+    if (rm) return child;
     final a = anim;
     if (a == null) {
-      if (rm) return child;
       return AnimatedBuilder(
-        animation: idle,
+        animation: clock,
         builder: (_, c) {
-          final s16 = idle.value * 16;
+          final s = clock.seconds;
           switch (idleKind) {
             case 'shiver':
               // a wary one shivers side to side
-              final t = s16 % 1.0;
+              final t = s % 1.0;
               return FractionalTranslation(translation: Offset(_kf(t, [0, .25, .75, 1], [0, 1.2, -1.2, 0]) / 100, 0), child: c);
             case 'pet':
-              final t = 0.5 - 0.5 * math.cos(2 * math.pi * (s16 % 3.0) / 3.0);
-              return Transform(alignment: const Alignment(0, 0.84), transform: Matrix4.identity()..scale(1 + 0.008 * t, 1 + 0.018 * t), child: c);
-            default:
-              final t = 0.5 - 0.5 * math.cos(2 * math.pi * (s16 % 3.2) / 3.2);
+              // pBreath 2.6s
+              final t = 0.5 - 0.5 * math.cos(2 * math.pi * (s % 2.6) / 2.6);
               return FractionalTranslation(
-                translation: Offset(0, -0.012 * t),
-                child: Transform(alignment: const Alignment(0, 0.84), transform: Matrix4.identity()..scale(1 + 0.01 * t, 1 - 0.005 * t), child: c),
+                translation: Offset(0, -0.008 * t),
+                child: Transform(alignment: const Alignment(0, 0.84), transform: Matrix4.identity()..scale(1 + 0.012 * t, 1 + 0.03 * t), child: c),
+              );
+            default:
+              // wIdle 2.8s: a bigger bob
+              final t = 0.5 - 0.5 * math.cos(2 * math.pi * (s % 2.8) / 2.8);
+              return FractionalTranslation(
+                translation: Offset(0, -0.024 * t),
+                child: Transform(alignment: const Alignment(0, 0.84), transform: Matrix4.identity()..scale(1 + 0.02 * t, 1 - 0.02 * t), child: c),
               );
           }
         },
         child: child,
       );
     }
-    return TweenAnimationBuilder<double>(
-      key: ValueKey('body-${a.id}'),
-      tween: Tween(begin: 0, end: 1),
-      duration: Duration(milliseconds: a.ms),
-      curve: switch (a.name) {
-        'lunge' => const Cubic(0.5, 0, 0.3, 1),
-        'flinch' => const Cubic(0.3, 0.7, 0.3, 1),
-        'hit' || 'perk' || 'cast' || 'hurt' => Curves.easeOut,
-        _ => Curves.easeInOut,
-      },
-      builder: (_, t, c) {
-        var dx = 0.0, dy = 0.0, sx = 1.0, sy = 1.0, rot = 0.0, op = 1.0, bright = 1.0, glowA = 0.0;
+    return AnimatedBuilder(
+      animation: clock,
+      builder: (_, c) {
+        final t = a.span.t(clock);
+        var dx = 0.0, dy = 0.0, sx = 1.0, sy = 1.0, rot = 0.0, op = 1.0, bright = 1.0, sat = 1.0, white = 0.0;
         switch (a.name) {
           case 'hit':
-            sx = _kf(t, [0, .25, .6, 1], [1, 1.07, 0.97, 1]);
-            sy = _kf(t, [0, .25, .6, 1], [1, 0.92, 1.03, 1]);
-            bright = _kf(t, [0, .25, .6, 1], [1, 1.5, 1, 1]);
+            // wHit .6s cubic-bezier(.2,.8,.3,1.1): knocked back and squashed, then it settles
+            const cv = Cubic(0.2, 0.8, 0.3, 1.1);
+            const st = [0.0, .14, .4, .7, 1.0];
+            dx = _kf(t, st, [0, .10, .06, .015, 0], cv);
+            dy = _kf(t, st, [0, -.01, 0, 0, 0], cv);
+            rot = _kf(t, st, [0, 4, 0, 0, 0], cv) * _deg;
+            sx = _kf(t, st, [1, 1.16, .94, 1.02, 1], cv);
+            sy = _kf(t, st, [1, .84, 1.07, .98, 1], cv);
+            // wFlash .5s steps(1, end): two hard white frames
+            final fm = t * a.ms;
+            if (fm < 70) {
+              white = 1;
+            } else if (fm >= 130 && fm < 190) {
+              white = 1;
+              op = 0.75;
+            }
+          case 'look':
+            // wLook 1.5s ease-in-out
+            const st = [0.0, .35, .7, 1.0];
+            rot = _kf(t, st, [0, -3, 1.5, 0], Curves.easeInOut) * _deg;
+            dx = _kf(t, st, [0, .015, 0, 0], Curves.easeInOut);
+            dy = _kf(t, st, [0, -.01, 0, 0], Curves.easeInOut);
           case 'perk':
-            dy = _kf(t, [0, .4, 1], [0, -0.04, 0]);
+            // wPerk .7s cubic-bezier(.3,.7,.3,1.2)
+            const cv = Cubic(0.3, 0.7, 0.3, 1.2);
+            const st = [0.0, .3, .6, 1.0];
+            dy = _kf(t, st, [0, -.07, 0, 0], cv);
+            sx = _kf(t, st, [1, .97, 1.04, 1], cv);
+            sy = _kf(t, st, [1, 1.05, .96, 1], cv);
+          case 'munch':
+            // wMunch .8s ease-in-out: three chew bounces
+            const st = [0.0, .16, .32, .48, .64, .8, 1.0];
+            sx = _kf(t, st, [1, 1.1, .95, 1.08, .96, 1.05, 1], Curves.easeInOut);
+            sy = _kf(t, st, [1, .9, 1.07, .92, 1.05, .95, 1], Curves.easeInOut);
+          case 'lunge' when idleKind != 'pet':
+            // wLunge .9s cubic-bezier(.3,.7,.3,1): a crouch, then a lunge toward the camera
+            const cv = Cubic(0.3, 0.7, 0.3, 1);
+            const st = [0.0, .17, .33, .44, 1.0];
+            dx = _kf(t, st, [0, .05, -.20, -.16, 0], cv);
+            dy = _kf(t, st, [0, .01, .08, .06, 0], cv);
+            sx = _kf(t, st, [1, .94, 1.24, 1.18, 1], cv);
+            sy = _kf(t, st, [1, 1.05, 1.24, 1.18, 1], cv);
+          case 'pop':
+            // wPop .7s cubic-bezier(.2,1.5,.3,1) with wBorn: a bright, washed-out fade-in
+            sx = sy = _kf(t, [0, 1], [.7, 1], const Cubic(0.2, 1.5, 0.3, 1));
+            bright = _kf(t, [0, 1], [4, 1], Curves.easeOut);
+            sat = _kf(t, [0, 1], [.2, 1], Curves.easeOut);
+          case 'dissolve':
+            // wDissolve .58s ease-in: brightness up, then a white silhouette, then gone
+            const st = [0.0, .3, .55, 1.0];
+            bright = _kf(t, st, [1, 2.8, 2.8, 2.8], Curves.easeIn);
+            white = _kf(t, st, [0, 0, 1, 1], Curves.easeIn);
+            op = _kf(t, st, [1, 1, 1, 0], Curves.easeIn);
           case 'skitter':
-            dx = _kf(t, [0, .3, .55, 1], [0, 0.16, 0.10, 0]);
-            sx = sy = _kf(t, [0, .3, .55, 1], [1, 0.94, 0.96, 1]);
+            // wSkitter .9s ease-in-out
+            const st = [0.0, .3, .55, 1.0];
+            dx = _kf(t, st, [0, .16, .10, 0], Curves.easeInOut);
+            sx = sy = _kf(t, st, [1, .94, .96, 1], Curves.easeInOut);
           case 'tilt':
-            rot = _kf(t, [0, .4, .7, 1], [0, -8, 4, 0]) * math.pi / 180;
-            dy = _kf(t, [0, .4, 1], [0, -0.02, 0]);
+            // wTilt .9s ease-in-out
+            const st = [0.0, .4, .7, 1.0];
+            rot = _kf(t, st, [0, -8, 4, 0], Curves.easeInOut) * _deg;
+            dy = _kf(t, st, [0, -.02, 0, 0], Curves.easeInOut);
           case 'surge':
-            sx = sy = _kf(t, [0, .35, 1], [1, 1.08, 1]);
-            bright = _kf(t, [0, .35, 1], [1, 1.35, 1]);
-            glowA = _kf(t, [0, .35, 1], [0, 1, 0]);
+            // wSurge .9s ease-in-out
+            const st = [0.0, .2, .45, 1.0];
+            sx = _kf(t, st, [1, .96, 1.12, 1], Curves.easeInOut);
+            sy = _kf(t, st, [1, 1.03, 1.08, 1], Curves.easeInOut);
+            bright = _kf(t, st, [1, 1, 1.4, 1], Curves.easeInOut);
           case 'flicker':
+            // wFlicker .9s steps(6)
             final step = (t * 6).floor() / 6;
             op = _kf(step, [0, .2, .4, .6, .8, 1], [1, 0.55, 1, 0.4, 0.9, 1]);
           case 'joy' || 'hop':
-            // three hops in a row (two for your Evochi)
-            final hop = (t * (a.name == 'joy' ? 3 : 2)) % 1.0;
-            dy = _kf(hop, [0, .4, .7, 1], [0, -0.09, 0, 0]);
-            sx = _kf(hop, [0, .4, .7, 1], [1, 0.97, 1.05, 1]);
-            sy = _kf(hop, [0, .4, .7, 1], [1, 1.04, 0.95, 1]);
+            // wJoy: three hops in a row (.6s ease-in-out), two for your Evochi (.5s)
+            final reps = a.name == 'joy' ? 3 : 2;
+            final hop = math.min(0.999999, t * a.ms / (a.name == 'joy' ? 600 : 500)) % 1.0;
+            final cv = a.name == 'joy' ? Curves.easeInOut : const Cubic(0.3, 0.6, 0.3, 1);
+            final done = t * a.ms >= reps * (a.name == 'joy' ? 600 : 500);
+            if (!done) {
+              dy = _kf(hop, [0, .4, .7, 1], [0, -.09, 0, 0], cv);
+              sx = _kf(hop, [0, .4, .7, 1], [1, .97, 1.05, 1], cv);
+              sy = _kf(hop, [0, .4, .7, 1], [1, 1.04, .95, 1], cv);
+            }
           case 'cast':
-            dy = _kf(t, [0, .35, 1], [0, -0.04, 0]);
-            sx = sy = _kf(t, [0, .35, 1], [1, 1.02, 1]);
-            bright = _kf(t, [0, .35, 1], [1, 1.18, 1]);
-            glowA = _kf(t, [0, .35, 1], [0, 1, 0]);
+            // pCast .72s cubic-bezier(.3,.6,.3,1): a crouch, a rise with a glow, a settle
+            const cv = Cubic(0.3, 0.6, 0.3, 1);
+            const st = [0.0, .2, .42, .62, 1.0];
+            dy = _kf(t, st, [0, .04, -.11, -.07, 0], cv);
+            sx = _kf(t, st, [1, 1.09, .94, .99, 1], cv);
+            sy = _kf(t, st, [1, .89, 1.11, 1.04, 1], cv);
+            rot = _kf(t, st, [0, 0, -2, 0, 0], cv) * _deg;
+            bright = _kf(t, st, [1, 1, 1.5, 1.3, 1], cv);
           case 'lunge':
-            dx = _kf(t, [0, .25, .5, 1], [0, -0.03, 0.16, 0]);
-            dy = _kf(t, [0, .25, .5, 1], [0, 0.01, -0.07, 0]);
-            sx = _kf(t, [0, .25, .5, 1], [1, 0.98, 1.03, 1]);
-            sy = _kf(t, [0, .25, .5, 1], [1, 1.02, 0.97, 1]);
+            // pLunge .9s cubic-bezier(.2,.7,.3,1): a crouch, a hop into it, a landing squash
+            const cv = Cubic(0.2, 0.7, 0.3, 1);
+            const st = [0.0, .2, .34, .42, .7, 1.0];
+            dx = _kf(t, st, [0, -.05, .34, .30, .04, 0], cv);
+            dy = _kf(t, st, [0, .02, -.11, -.06, 0, 0], cv);
+            sx = _kf(t, st, [1, 1.06, .94, 1.1, .98, 1], cv);
+            sy = _kf(t, st, [1, .92, 1.08, .9, 1.02, 1], cv);
           case 'rest':
-            dy = _kf(t, [0, .45, 1], [0, 0.02, 0]);
-            sx = _kf(t, [0, .45, 1], [1, 1.02, 1]);
-            sy = _kf(t, [0, .45, 1], [1, 0.96, 1]);
-            glowA = _kf(t, [0, .45, 1], [0, 0.8, 0]);
+            // pRest 1.3s ease-in-out
+            const st = [0.0, .4, .7, 1.0];
+            dy = _kf(t, st, [0, .03, -.01, 0], Curves.easeInOut);
+            sx = _kf(t, st, [1, 1.05, .99, 1], Curves.easeInOut);
+            sy = _kf(t, st, [1, .94, 1.02, 1], Curves.easeInOut);
+          case 'toss':
+            // pToss .6s cubic-bezier(.3,.7,.3,1)
+            const cv = Cubic(0.3, 0.7, 0.3, 1);
+            const st = [0.0, .25, .5, 1.0];
+            dy = _kf(t, st, [0, .02, -.07, 0], cv);
+            sx = _kf(t, st, [1, 1.04, .97, 1], cv);
+            sy = _kf(t, st, [1, .95, 1.05, 1], cv);
+            rot = _kf(t, st, [0, 0, -3, 0], cv) * _deg;
           case 'hurt':
-            dx = _kf(t, [0, .2, .45, 1], [0, -0.05, 0.02, 0]);
-            bright = _kf(t, [0, .2, .45, 1], [1, 1.7, 1, 1]);
+            // pHurt .75s cubic-bezier(.2,.8,.3,1): a recoil with a white-ish flash
+            const cv = Cubic(0.2, 0.8, 0.3, 1);
+            const st = [0.0, .12, .4, .65, 1.0];
+            dx = _kf(t, st, [0, -.15, -.09, .03, 0], cv);
+            dy = _kf(t, st, [0, .03, 0, 0, 0], cv);
+            rot = _kf(t, st, [0, -8, -3, 1, 0], cv) * _deg;
+            sx = _kf(t, st, [1, 1.1, .96, 1, 1], cv);
+            sy = _kf(t, st, [1, .86, 1.04, 1, 1], cv);
+            bright = _kf(t, [0, .12, .24, 1], [1, 2.6, 1, 1], cv);
+            sat = _kf(t, [0, .12, .24, 1], [1, .2, 1, 1], cv);
           case 'flinch':
-            dx = _kf(t, [0, .22, .4, .6, 1], [0, -0.06, -0.07, -0.04, 0]);
-            dy = _kf(t, [0, .22, .4, 1], [0, -0.09, 0, 0]);
-            sx = _kf(t, [0, .22, .4, .6, 1], [1, 1, 1.04, 1, 1]);
-            sy = _kf(t, [0, .22, .4, .6, 1], [1, 1, 0.95, 1, 1]);
+            // pFlinch 1.1s cubic-bezier(.3,.7,.3,1)
+            const cv = Cubic(0.3, 0.7, 0.3, 1);
+            const st = [0.0, .22, .4, .6, 1.0];
+            dx = _kf(t, st, [0, -.06, -.07, -.04, 0], cv);
+            dy = _kf(t, st, [0, -.09, 0, 0, 0], cv);
+            sx = _kf(t, st, [1, 1, 1.04, 1, 1], cv);
+            sy = _kf(t, st, [1, 1, .95, 1, 1], cv);
         }
         Widget w = c!;
-        if (bright != 1) w = ColorFiltered(colorFilter: _brightness(bright), child: w);
-        if (glowA > 0) {
+        if (bright != 1 || sat != 1) w = ColorFiltered(colorFilter: _filter(bright, sat), child: w);
+        if (white >= 1) {
+          w = ColorFiltered(colorFilter: _whiteSilhouette, child: c);
+        } else if (white > 0) {
           w = Stack(clipBehavior: Clip.none, children: [
-            Positioned.fill(
-              child: Opacity(
-                opacity: glowA,
-                child: DecoratedBox(decoration: BoxDecoration(borderRadius: BorderRadius.circular(60), boxShadow: [BoxShadow(color: glow, blurRadius: 36, spreadRadius: -10)])),
-              ),
-            ),
             w,
+            Positioned.fill(child: Opacity(opacity: white, child: ColorFiltered(colorFilter: _whiteSilhouette, child: c))),
           ]);
         }
         w = Transform(
@@ -1306,20 +1505,22 @@ class _AnimatedBody extends StatelessWidget {
 }
 
 // ------------------------------------------------------------------------ effects ----
+/// The few effects the canvas does not draw: floating numbers, the "?" bubble, Petalune swooping
+/// in, and the reduced-motion item toss.
 class _FxLayer extends StatelessWidget {
-  const _FxLayer({required this.stage, required this.bw, required this.bh, required this.vh, required this.hollowKind});
+  const _FxLayer({required this.stage, required this.bw, required this.bh, required this.vh});
   final EncounterStage stage;
   final double bw, bh, vh;
-  final bool hollowKind;
   @override
   Widget build(BuildContext context) => Stack(clipBehavior: Clip.none, children: [
-        for (final f in stage.fx) _FxWidget(key: ValueKey('fx-${f.id}'), fx: f, bw: bw, bh: bh, vh: vh),
+        for (final f in stage.fx) _FxWidget(key: ValueKey('fx-${f.id}'), fx: f, clock: stage.clock, bw: bw, bh: bh, vh: vh),
       ]);
 }
 
 class _FxWidget extends StatelessWidget {
-  const _FxWidget({super.key, required this.fx, required this.bw, required this.bh, required this.vh});
+  const _FxWidget({super.key, required this.fx, required this.clock, required this.bw, required this.bh, required this.vh});
   final FxItem fx;
+  final StageClock clock;
   final double bw, bh, vh;
 
   bool _has(String word) => fx.cls.split(' ').contains(word);
@@ -1331,6 +1532,7 @@ class _FxWidget extends StatelessWidget {
     final y = f.y * bh;
     switch (f.kind) {
       case 'float':
+        // encFloat 1.4s cubic-bezier(.2,.8,.3,1): pops in big, settles, rises and fades
         final violet = _has('violet');
         final bad = _has('bad');
         final energy = _has('energy');
@@ -1341,17 +1543,17 @@ class _FxWidget extends StatelessWidget {
                 : violet
                     ? const [Color(0xFFCDB2F5), Color(0xFF8B5FD2)]
                     : const [Color(0xFFA8E07E), Color(0xFF57A845)];
+        const cv = Cubic(0.2, 0.8, 0.3, 1);
         return Positioned(
           left: x,
           top: y,
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: Duration(milliseconds: f.ms),
-            curve: Curves.easeOut,
-            builder: (_, t, child) {
-              final op = _kf(t, [0, .18, .75, 1], [0, 1, 1, 0]);
-              final ty = _kf(t, [0, .18, .3, 1], [-0.6, -1.1, -1.1, -2.6]);
-              final sc = _kf(t, [0, .18, .3, 1], [0.6, 1.08, 1, 1]);
+          child: AnimatedBuilder(
+            animation: clock,
+            builder: (_, child) {
+              final t = (f.span.elapsed(clock) / 1.4).clamp(0.0, 1.0);
+              final op = _kf(t, [0, .12, .7, 1], [0, 1, 1, 0], cv);
+              final ty = _kf(t, [0, .12, .24, .7, 1], [-0.7, -1.28, -1.16, -1.5, -2.6], cv);
+              final sc = _kf(t, [0, .12, .24, 1], [0.4, 1.28, 1, 0.9], cv);
               return Opacity(opacity: op, child: FractionalTranslation(translation: Offset(-0.5, ty), child: Transform.scale(scale: sc, child: child)));
             },
             child: Container(
@@ -1376,182 +1578,45 @@ class _FxWidget extends StatelessWidget {
           ),
         );
       case 'proj':
+        // the reduced-motion toss: the item along an arc, turning over
         final to = f.to ?? Offset(f.x, f.y);
         final dx = (to.dx - f.x) * bw;
         final dy = (to.dy - f.y) * bh;
         final arcPx = f.arc / 100 * vh;
-        final ms = f.ms - 80;
-        Widget inner;
-        if (_has('orb')) {
-          final violet = _has('violet');
-          inner = Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(
-                colors: violet ? const [Colors.white, Colors.white, Color(0xFFEBDDFF), Color(0xBFB98CFF), Color(0x00AA78FF)] : const [Colors.white, Colors.white, Color(0xFFFFEFA8), Color(0xB3FFCD5A), Color(0x00FFBE3C)],
-                stops: const [0, 0.22, 0.4, 0.62, 0.74],
-              ),
-              boxShadow: [BoxShadow(color: violet ? const Color(0x99BE96FF) : const Color(0x8CFFDC78), blurRadius: 26, spreadRadius: 12)],
-            ),
-          );
-        } else if (_has('lash')) {
-          inner = Container(
-            width: 26,
-            height: 26,
-            decoration: const BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: RadialGradient(colors: [Color(0xFFE9DDFF), Color(0xFFE9DDFF), Color(0xFF8E5BD6), Color(0x005A3296)], stops: [0, 0.18, 0.45, 0.72]),
-              boxShadow: [BoxShadow(color: Color(0x8C7846C8), blurRadius: 18, spreadRadius: 8)],
-            ),
-          );
-        } else if (_has('toss')) {
-          inner = f.itemId == null ? const SizedBox.shrink() : ItemImage(f.itemId!, size: 44);
-        } else {
-          // a petal
-          inner = Container(
-            width: 14,
-            height: 10,
-            decoration: const BoxDecoration(
-              borderRadius: BorderRadius.vertical(top: Radius.elliptical(8, 8), bottom: Radius.elliptical(8, 4)),
-              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFBC6D1), Color(0xFFF28CA6)]),
-            ),
-          );
-        }
-        final spins = _has('toss') || _has('petal');
+        final ms = math.max(1, f.ms - 80);
+        final inner = f.itemId == null ? const SizedBox.shrink() : ItemImage(f.itemId!, size: 44);
         return Positioned(
           left: x,
           top: y,
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: Duration(milliseconds: math.max(1, ms)),
-            curve: Curves.linear,
-            builder: (_, t, child) {
+          child: AnimatedBuilder(
+            animation: clock,
+            builder: (_, child) {
+              final t = (f.span.elapsed(clock) * 1000 / ms).clamp(0.0, 1.0);
               final m = const Cubic(0.45, 0.05, 0.55, 0.95).transform(t);
               final lift = math.sin(t * math.pi) * arcPx;
               return Transform.translate(
                 offset: Offset(dx * m, dy * m + lift),
                 child: FractionalTranslation(
                   translation: const Offset(-0.5, -0.5),
-                  child: spins ? Transform.rotate(angle: t * ms / 700 * 2 * math.pi, child: child) : child,
+                  child: Transform.rotate(angle: t * ms / 700 * 2 * math.pi, child: child),
                 ),
               );
             },
             child: inner,
           ),
         );
-      case 'burst':
-        final ring = _has('ring');
-        final big = _has('big');
-        final boop = _has('boop');
-        final soft = _has('soft');
-        final violet = _has('violet');
-        final teal = _has('teal');
-        if (ring) {
-          final color = teal
-              ? const Color(0xF2AAF0D7)
-              : violet
-                  ? const Color(0xF2CDAFFF)
-                  : const Color(0xF2FFF0C8);
-          final glow = teal
-              ? const Color(0xE67FD9B8)
-              : violet
-                  ? const Color(0xE6AA6EFF)
-                  : const Color(0xCCFFE6A0);
-          return Positioned(
-            left: x - 25,
-            top: y - 25,
-            child: TweenAnimationBuilder<double>(
-              tween: Tween(begin: 0, end: 1),
-              duration: const Duration(milliseconds: 1100),
-              curve: Curves.easeOut,
-              builder: (_, t, __) => Opacity(
-                opacity: 1 - t,
-                child: Transform.scale(
-                  scale: 0.3 + 5.2 * t,
-                  child: Container(
-                    width: 50,
-                    height: 50,
-                    decoration: BoxDecoration(shape: BoxShape.circle, border: Border.all(color: color, width: 4), boxShadow: [BoxShadow(color: glow, blurRadius: 14)]),
-                  ),
-                ),
-              ),
-            ),
-          );
-        }
-        final n = math.max(1, f.n);
-        final dist = big ? 120.0 : 64.0;
-        final size = boop ? (soft ? 18.0 : 24.0) : (big ? 16.0 : 12.0);
-        return Positioned(
-          left: x,
-          top: y,
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: Duration(milliseconds: big ? 1200 : 850),
-            curve: Curves.easeOut,
-            builder: (_, t, __) => Stack(clipBehavior: Clip.none, children: [
-              for (var i = 0; i < n; i++)
-                Builder(builder: (_) {
-                  final a = ((360 / n) * i + (i % 2) * 11) * math.pi / 180;
-                  final d = 0.7 + (i % 3) * 0.25;
-                  final r = dist * d * t;
-                  final sc = 0.4 + 0.6 * t;
-                  return Positioned(
-                    left: math.cos(a) * r - size / 2,
-                    top: math.sin(a) * r - size / 2,
-                    child: Opacity(
-                      opacity: 1 - t,
-                      child: Transform.scale(
-                        scale: sc,
-                        child: boop
-                            ? _innerWidget(f.inner, size)
-                            : Container(
-                                width: size,
-                                height: size,
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: violet ? const Color(0xFFD9C2FF) : const Color(0xFFFFE58A),
-                                  boxShadow: [BoxShadow(color: violet ? const Color(0xE6BE96FF) : const Color(0xE6FFDC78), blurRadius: 8)],
-                                ),
-                              ),
-                      ),
-                    ),
-                  );
-                }),
-            ]),
-          ),
-        );
-      case 'rise':
-        final size = _has('heart') ? 30.0 : 26.0;
-        return Positioned(
-          left: x,
-          top: y,
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: Duration(milliseconds: f.ms),
-            curve: Curves.easeOut,
-            builder: (_, t, child) {
-              final op = _kf(t, [0, .25, 1], [0, 1, 0]);
-              final ty = _kf(t, [0, .25, 1], [-0.5, -0.9, -4.0]);
-              final sc = _kf(t, [0, .25, 1], [0.4, 1.05, 0.9]);
-              return Opacity(opacity: op, child: FractionalTranslation(translation: Offset(-0.5, ty), child: Transform.scale(scale: sc, child: child)));
-            },
-            child: _innerWidget(f.inner, size),
-          ),
-        );
       case 'bubble':
+        // bubblePop 1.3s ease-out
         return Positioned(
           left: x - 17,
           top: y - 17,
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: Duration(milliseconds: f.ms),
-            curve: Curves.easeOut,
-            builder: (_, t, child) {
-              final sc = _kf(t, [0, .18, .3, 1], [0, 1.15, 1, 1]);
-              final op = _kf(t, [0, .1, .8, 1], [0, 1, 1, 0]);
-              final dy = _kf(t, [0, .8, 1], [0, 0, -10]);
+          child: AnimatedBuilder(
+            animation: clock,
+            builder: (_, child) {
+              final t = f.span.t(clock);
+              final sc = _kf(t, [0, .18, .3, 1], [0, 1.15, 1, 1], Curves.easeOut);
+              final op = _kf(t, [0, .1, .8, 1], [0, 1, 1, 0], Curves.easeOut);
+              final dy = _kf(t, [0, .8, 1], [0, 0, -10], Curves.easeOut);
               return Opacity(opacity: op, child: Transform.translate(offset: Offset(0, dy), child: Transform.scale(scale: sc, child: child)));
             },
             child: Container(
@@ -1568,19 +1633,19 @@ class _FxWidget extends StatelessWidget {
           ),
         );
       case 'buddy':
+        // buddyIn 1.9s ease-in-out: Petalune swoops in from the left and away again
         final w = bw * 0.26;
         return Positioned(
           left: x,
           top: y,
-          child: TweenAnimationBuilder<double>(
-            tween: Tween(begin: 0, end: 1),
-            duration: Duration(milliseconds: f.ms),
-            curve: Curves.easeInOut,
-            builder: (_, t, child) {
-              final tx = _kf(t, [0, .2, .75, 1], [-0.9, -0.3, -0.3, -0.9]);
-              final ty = _kf(t, [0, .2, .75, 1], [0.4, -0.4, -0.46, 0.4]);
-              final rot = _kf(t, [0, .2, .75, 1], [-10, 4, -3, 0]) * math.pi / 180;
-              final op = _kf(t, [0, .2, .75, 1], [0, 1, 1, 0]);
+          child: AnimatedBuilder(
+            animation: clock,
+            builder: (_, child) {
+              final t = f.span.t(clock);
+              final tx = _kf(t, [0, .2, .75, 1], [-0.9, -0.3, -0.3, -0.9], Curves.easeInOut);
+              final ty = _kf(t, [0, .2, .75, 1], [0.4, -0.4, -0.46, 0.4], Curves.easeInOut);
+              final rot = _kf(t, [0, .2, .75, 1], [-10, 4, -3, 0], Curves.easeInOut) * _deg;
+              final op = _kf(t, [0, .2, .75, 1], [0, 1, 1, 0], Curves.easeInOut);
               return Opacity(opacity: op, child: FractionalTranslation(translation: Offset(tx, ty), child: Transform.rotate(angle: rot, child: child)));
             },
             child: SizedBox(width: w, height: w, child: VoxelIcon('creature_petalune', size: w)),
