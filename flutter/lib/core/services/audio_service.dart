@@ -5,7 +5,7 @@
 import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' hide AssetManifest;
 
 import 'asset_manifest.dart';
 

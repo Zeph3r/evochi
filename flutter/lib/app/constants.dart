@@ -145,7 +145,7 @@ class GameConfig {
   final int nameMin;
   final int nameMax;
 
-  int get dailyXpCap => xpBase + milestones.fold(0, (a, m) => a + m.xp) + stretchMax;
+  int get dailyXpCap => xpBase + milestones.fold<int>(0, (a, m) => a + m.xp) + stretchMax;
 
   static GameConfig current = defaults();
 

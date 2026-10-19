@@ -1,7 +1,7 @@
 // S00 Splash / restore -> onboarding or the nest.
 
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:flutter/services.dart' hide AssetManifest;
 import 'package:provider/provider.dart';
 
 import 'app/app.dart';

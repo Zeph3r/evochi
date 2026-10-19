@@ -360,7 +360,10 @@ void main() {
       expect(q.questPhase(back, id), 'completed');
     }
     expect(q.npcConversation(back, 'npc_mira', t0 + 7 * dayMs).start, 'VQ03_MIR02');
-    expect(q.npcConversation(back, 'npc_alder', t0 + 7 * dayMs).start, 'VQ03_ALD06');
+    // after the Waystone wakes, Alder shows the map once (the Lumen Trails lead-in), then his usual goodbye
+    expect(q.npcConversation(back, 'npc_alder', t0 + 7 * dayMs).start, 'ALD_MAP00');
+    final seen = must(q.markNpcMet(back, 'waystone_map'));
+    expect(q.npcConversation(seen, 'npc_alder', t0 + 7 * dayMs).start, 'VQ03_ALD06');
     expect(q.npcConversation(back, 'waystone', t0 + 7 * dayMs).start, 'WAY_DONE');
     expect(q.storyStatus(back, t0 + 7 * dayMs).chapterDone, isTrue);
   });

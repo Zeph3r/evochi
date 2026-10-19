@@ -305,7 +305,8 @@ void main() {
     s = must(tr.startEncounter(s, 'eq01', now));
     expect(tr.itemEffect('sunberry_tart', 'befriend', 'petalune')!.amount, 39);
     expect(tr.itemEffect('sunberry_tart', 'befriend', 'petalune')!.liked, isTrue);
-    expect(tr.encounterView(s, now)!.items.map((i) => i.id).toList(), ['sunberry_tart']);
+    // the starter care items (berry snack, healing herb) can be offered too
+    expect(tr.encounterView(s, now)!.items.map((i) => i.id), contains('sunberry_tart'));
     final r = tr.encounterAct(s, 'item', 'sunberry_tart', now);
     final after = must(r);
     expect(g.ownedQty(after, 'sunberry_tart'), 0);
@@ -500,7 +501,7 @@ void main() {
     expect(q.npcConversation(s, 'npc_alder', now + 3 * hourMs).start, 'EQ03_A04');
     // the relic can be placed in the nest like any side decoration
     s = must(g.placeDecoration(s, 'ancient_relic', 'left'));
-    expect(s.nest.placements['left'], 'ancient_relic');
+    expect(s.placements['left'], 'ancient_relic');
   });
 
   test('story lines stay well-formed with the new quests', () {
