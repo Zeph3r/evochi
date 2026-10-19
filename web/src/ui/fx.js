@@ -19,6 +19,9 @@ export const PAL = {
   white: ['#FFFFFF', '#FFFFFF', '#FFFFFF'],
   red: ['#FFFFFF', '#FFD0C4', '#F06A5A'],
   green: ['#FFFFFF', '#DDF5C8', '#7AC24F'],
+  leaf: ['#F2FFE0', '#9FDB6A', '#4E9E3A'],
+  crystal: ['#F3E9FF', '#8B5BD8', '#3A2368'],
+  rock: ['#E9DFCB', '#B5A58A', '#7D6E58'],
 };
 
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -157,9 +160,120 @@ function sprite(shape, pal) {
     r.addColorStop(1, hexA(edge, 0));
     g.fillStyle = r;
     g.fillRect(0, 0, S, S);
+  } else if (shape === 'leaf') {
+    // a leaf with a soft glow and a vein (Lumen Wisps, Soothe)
+    g.translate(h, h);
+    const glow = g.createRadialGradient(0, 0, 0, 0, 0, h);
+    glow.addColorStop(0, hexA(mid, 0.55));
+    glow.addColorStop(1, hexA(edge, 0));
+    g.fillStyle = glow;
+    g.fillRect(-h, -h, S, S);
+    const r = g.createLinearGradient(-h * 0.6, -h * 0.4, h * 0.6, h * 0.4);
+    r.addColorStop(0, core);
+    r.addColorStop(0.45, mid);
+    r.addColorStop(1, edge);
+    g.fillStyle = r;
+    g.beginPath();
+    g.moveTo(-h * 0.62, h * 0.05);
+    g.bezierCurveTo(-h * 0.3, -h * 0.55, h * 0.38, -h * 0.5, h * 0.62, -h * 0.05);
+    g.bezierCurveTo(h * 0.3, h * 0.42, -h * 0.32, h * 0.42, -h * 0.62, h * 0.05);
+    g.fill();
+    g.strokeStyle = hexA(core, 0.85);
+    g.lineWidth = S * 0.025;
+    g.beginPath();
+    g.moveTo(-h * 0.55, h * 0.04);
+    g.quadraticCurveTo(0, -h * 0.08, h * 0.55, -h * 0.05);
+    g.stroke();
+  } else if (shape === 'sparkle') {
+    // a four-point twinkle with long thin rays (Healing Sparkles)
+    g.translate(h, h);
+    const glow = g.createRadialGradient(0, 0, 0, 0, 0, h * 0.55);
+    glow.addColorStop(0, hexA(mid, 0.8));
+    glow.addColorStop(1, hexA(edge, 0));
+    g.fillStyle = glow;
+    g.fillRect(-h, -h, S, S);
+    g.fillStyle = core;
+    g.beginPath();
+    for (let i = 0; i < 8; i++) {
+      const a = (i / 8) * TAU - Math.PI / 2;
+      const rr = i % 2 ? h * 0.11 : h * 0.96;
+      g.lineTo(Math.cos(a) * rr, Math.sin(a) * rr);
+    }
+    g.closePath();
+    g.fill();
+  } else if (shape === 'plus') {
+    // a rounded plus (Soothe's recovery)
+    g.translate(h, h);
+    const glow = g.createRadialGradient(0, 0, 0, 0, 0, h);
+    glow.addColorStop(0, hexA(mid, 0.5));
+    glow.addColorStop(1, hexA(edge, 0));
+    g.fillStyle = glow;
+    g.fillRect(-h, -h, S, S);
+    const w = h * 0.32;
+    const l = h * 0.72;
+    g.fillStyle = edge;
+    roundRect(g, -w / 2 - 2, -l / 2 - 2, w + 4, l + 4, w / 2);
+    roundRect(g, -l / 2 - 2, -w / 2 - 2, l + 4, w + 4, w / 2);
+    g.fillStyle = core;
+    roundRect(g, -w / 2, -l / 2, w, l, w / 2);
+    roundRect(g, -l / 2, -w / 2, l, w, w / 2);
+  } else if (shape === 'crystal') {
+    // a faceted Hollow shard (Hollow Shards)
+    g.translate(h, h);
+    const glow = g.createRadialGradient(0, 0, 0, 0, 0, h);
+    glow.addColorStop(0, hexA(mid, 0.55));
+    glow.addColorStop(1, hexA(mid, 0));
+    g.fillStyle = glow;
+    g.fillRect(-h, -h, S, S);
+    const pts = [[0, -h * 0.85], [h * 0.3, -h * 0.2], [h * 0.18, h * 0.7], [-h * 0.2, h * 0.62], [-h * 0.32, -h * 0.1]];
+    g.fillStyle = edge;
+    g.beginPath();
+    pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+    g.closePath();
+    g.fill();
+    g.fillStyle = mid;
+    g.beginPath();
+    g.moveTo(0, -h * 0.85); g.lineTo(h * 0.3, -h * 0.2); g.lineTo(h * 0.18, h * 0.7); g.lineTo(0, h * 0.1);
+    g.closePath();
+    g.fill();
+    g.strokeStyle = hexA(core, 0.9);
+    g.lineWidth = S * 0.03;
+    g.beginPath();
+    g.moveTo(-h * 0.04, -h * 0.7); g.lineTo(-h * 0.2, h * 0.0);
+    g.stroke();
+  } else if (shape === 'rock') {
+    // a chunk of stone (Dust Burst)
+    g.translate(h, h);
+    const pts = [[-h * 0.7, h * 0.1], [-h * 0.45, -h * 0.55], [h * 0.15, -h * 0.72], [h * 0.68, -h * 0.25], [h * 0.6, h * 0.45], [-h * 0.1, h * 0.65]];
+    g.fillStyle = edge;
+    g.beginPath();
+    pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+    g.closePath();
+    g.fill();
+    g.fillStyle = mid;
+    g.beginPath();
+    g.moveTo(-h * 0.45, -h * 0.55); g.lineTo(h * 0.15, -h * 0.72); g.lineTo(h * 0.68, -h * 0.25); g.lineTo(h * 0.05, -h * 0.05); g.lineTo(-h * 0.55, h * 0.0);
+    g.closePath();
+    g.fill();
+    g.fillStyle = hexA(core, 0.8);
+    g.beginPath();
+    g.moveTo(-h * 0.3, -h * 0.45); g.lineTo(h * 0.12, -h * 0.58); g.lineTo(h * 0.05, -h * 0.35);
+    g.closePath();
+    g.fill();
   }
   spriteCache.set(key, c);
   return c;
+}
+
+function roundRect(g, x, y, w, h, r) {
+  g.beginPath();
+  g.moveTo(x + r, y);
+  g.arcTo(x + w, y, x + w, y + h, r);
+  g.arcTo(x + w, y + h, x, y + h, r);
+  g.arcTo(x, y + h, x, y, r);
+  g.arcTo(x, y, x + w, y, r);
+  g.closePath();
+  g.fill();
 }
 
 function hexA(hex, a) {
@@ -516,8 +630,17 @@ export class StageFX {
       g.rotate(ang);
       const sx = 1 + Math.min(2.2, v * 0.25);
       g.drawImage(sp, (-s * sx) / 2, -s / 2, s * sx, s);
-      if (!img) g.drawImage(sp, (-s * 0.5) / 2, (-s * 0.5) / 2, s * 0.5, s * 0.5);
+      if (!img && !m.leaf) g.drawImage(sp, (-s * 0.5) / 2, (-s * 0.5) / 2, s * 0.5, s * 0.5);
       g.setTransform(1, 0, 0, 1, 0, 0);
+      if (m.leaf) {
+        const ls = sprite('leaf', 'leaf');
+        const q = s * 1.1;
+        g.globalCompositeOperation = 'source-over';
+        g.setTransform(1, 0, 0, 1, m.x, m.y);
+        g.rotate(ang + Math.sin(m.t * 12) * 0.5);
+        g.drawImage(ls, -q / 2, -q / 2, q, q);
+        g.setTransform(1, 0, 0, 1, 0, 0);
+      }
       if (img && img.complete && img.naturalWidth) {
         // the thrown thing itself, turning over as it flies
         const is = imgSize * fx.u;
@@ -649,6 +772,194 @@ export class StageFX {
     this.movers.push(m);
   }
 
+  // ---------------------------------------------------------------- the effect library
+  // The board's names: Lumen Wisps, Flower Petals, Healing Sparkles, Golden Pulse, Hollow Shards,
+  // Violet Crackle, Dust Burst.
+
+  /** Golden Pulse: spiral arcs of light winding out around a point (Lumen Glow lands). */
+  goldenPulse(p, { r0 = 4, r1 = 26, ms = 700, pal = 'gold', arms = 3, layer = 'front', squash = 0.62, width = 1.6 } = {}) {
+    const [x, y] = this.px(p);
+    const [core, mid, edge] = PAL[pal] || PAL.gold;
+    const m = { layer, dead: false, t: 0, rot: rnd(0, TAU) };
+    m.tick = (dt) => {
+      m.t += (dt * 1000) / ms;
+      m.rot += dt * 7;
+      if (m.t >= 1) m.dead = true;
+    };
+    m.draw = (g, fx) => {
+      const k = easeOut(clamp01(m.t));
+      const R = (r0 + (r1 - r0) * k) * fx.u;
+      const a = (1 - k) ** 1.2;
+      g.globalCompositeOperation = 'lighter';
+      g.setTransform(1, 0, 0, 1, x, y);
+      g.scale(1, squash);
+      for (let i = 0; i < arms; i++) {
+        const a0 = m.rot + (i / arms) * TAU;
+        const span = 2.1;
+        const n = 14;
+        for (let j = 0; j < n; j++) {
+          const t0 = j / n;
+          const t1 = (j + 1) / n;
+          const rA = R * (0.55 + 0.45 * t0);
+          const rB = R * (0.55 + 0.45 * t1);
+          const aa = a0 + span * t0;
+          const ab = a0 + span * t1;
+          g.globalAlpha = a * (0.25 + 0.75 * t1);
+          g.lineWidth = Math.max(0.5, width * fx.u * (0.35 + 0.65 * t1));
+          g.strokeStyle = j > n - 4 ? core : mid;
+          g.shadowColor = edge;
+          g.shadowBlur = width * fx.u * 2;
+          g.beginPath();
+          g.moveTo(Math.cos(aa) * rA, Math.sin(aa) * rA);
+          g.lineTo(Math.cos(ab) * rB, Math.sin(ab) * rB);
+          g.stroke();
+        }
+      }
+      g.shadowBlur = 0;
+      g.globalAlpha = 1;
+      g.setTransform(1, 0, 0, 1, 0, 0);
+    };
+    this.movers.push(m);
+    // a few sparks thrown off the ends of the arms
+    this.burst(p, 10, { shape: 'sparkle', pal, speed: 34, vary: 0.5, drag: 2.6, size: 2.6, sizeK: 'spark', life: 0.7, spin: 3, layer });
+    return m;
+  }
+
+  /** Violet Crackle: a jagged bolt between two points that flickers and re-forms every other frame. */
+  crackle(a, b, { ms = 260, pal = 'violet', width = 0.9, jag = 3.2, segs = 9, branches = 2, layer = 'front', alpha = 1 } = {}) {
+    const [ax, ay] = this.px(a);
+    const [bx, by] = this.px(b);
+    const [core, mid, edge] = PAL[pal] || PAL.violet;
+    const m = { layer, dead: false, t: 0, pts: null, br: [], next: 0 };
+    const reform = (fx) => {
+      const pts = [[ax, ay]];
+      const dx = bx - ax;
+      const dy = by - ay;
+      const len = Math.hypot(dx, dy) || 1;
+      const nx = -dy / len;
+      const ny = dx / len;
+      for (let i = 1; i < segs; i++) {
+        const t = i / segs;
+        const off = rnd(-jag, jag) * fx.u * Math.sin(t * Math.PI);
+        pts.push([ax + dx * t + nx * off, ay + dy * t + ny * off]);
+      }
+      pts.push([bx, by]);
+      m.pts = pts;
+      m.br = [];
+      for (let k = 0; k < branches; k++) {
+        const i = 1 + ((Math.random() * (segs - 2)) | 0);
+        const [sx, sy] = pts[i];
+        const ang = Math.atan2(dy, dx) + rnd(-1.1, 1.1);
+        const l = rnd(2, 5) * fx.u;
+        m.br.push([[sx, sy], [sx + Math.cos(ang) * l * 0.5 + rnd(-1, 1) * fx.u, sy + Math.sin(ang) * l * 0.5 + rnd(-1, 1) * fx.u], [sx + Math.cos(ang) * l, sy + Math.sin(ang) * l]]);
+      }
+    };
+    m.tick = (dt, fx) => {
+      m.t += (dt * 1000) / ms;
+      m.next -= dt;
+      if (!m.pts || m.next <= 0) {
+        reform(fx);
+        m.next = 0.06;
+      }
+      if (m.t >= 1) m.dead = true;
+    };
+    const line = (g, pts) => {
+      g.beginPath();
+      pts.forEach(([x, y], i) => (i ? g.lineTo(x, y) : g.moveTo(x, y)));
+      g.stroke();
+    };
+    m.draw = (g, fx) => {
+      if (!m.pts) return;
+      const k = clamp01(m.t);
+      const flick = 0.65 + 0.35 * Math.random();
+      const al = alpha * flick * (k < 0.15 ? k / 0.15 : 1 - (k - 0.15) / 0.85);
+      g.globalCompositeOperation = 'lighter';
+      g.lineCap = 'round';
+      g.lineJoin = 'round';
+      g.shadowColor = edge;
+      g.shadowBlur = width * fx.u * 4;
+      g.globalAlpha = al * 0.55;
+      g.strokeStyle = mid;
+      g.lineWidth = width * fx.u * 2.6;
+      line(g, m.pts);
+      for (const b of m.br) line(g, b);
+      g.shadowBlur = 0;
+      g.globalAlpha = al;
+      g.strokeStyle = core;
+      g.lineWidth = width * fx.u;
+      line(g, m.pts);
+      g.lineWidth = width * fx.u * 0.6;
+      for (const b of m.br) line(g, b);
+      g.globalAlpha = 1;
+    };
+    this.movers.push(m);
+    return m;
+  }
+
+  /** Violet Crackle around a body: short bolts between points on a ring, fired over ms. */
+  crackleAround(p, { r = 14, n = 5, ms = 600, pal = 'violet' } = {}) {
+    for (let i = 0; i < n; i++) {
+      const delay = (i / n) * ms * 0.7;
+      const m = { layer: 'front', dead: false, t: 0 };
+      m.tick = (dt, fx) => {
+        m.t += dt * 1000;
+        if (m.t >= delay) {
+          m.dead = true;
+          const a0 = rnd(0, TAU);
+          const a1 = a0 + rnd(0.7, 1.6);
+          const q0 = [p[0] + Math.cos(a0) * r * 0.9, p[1] + Math.sin(a0) * r * 0.75 * (fx.w / fx.h)];
+          const q1 = [p[0] + Math.cos(a1) * r, p[1] + Math.sin(a1) * r * 0.75 * (fx.w / fx.h)];
+          fx.crackle(q0, q1, { ms: rnd(160, 260), pal, width: 0.7, jag: 2.2, segs: 7, branches: 1 });
+        }
+      };
+      m.draw = () => {};
+      this.movers.push(m);
+    }
+  }
+
+  /** Hollow Shards: dark crystals breaking off and spinning away, with violet light behind them. */
+  hollowShards(p, n = 10, scale = 1, o = {}) {
+    this.burst(p, n, { shape: 'crystal', pal: 'crystal', blend: 'source-over', speed: 70 * scale, vary: 0.6, drag: 2.4, size: 3.6 * scale, sizeK: 'hold', alphaK: 'hold', life: 0.9, gravity: 60, spin: 9, ...o });
+    this.burst(p, Math.round(n * 0.8), { shape: 'glow', pal: 'violet', speed: 40 * scale, vary: 0.7, drag: 2, size: 2.4 * scale, sizeK: 'shrink', life: 0.8, gravity: -8, turb: 20, ...o });
+  }
+
+  /** Dust Burst: chunks of stone thrown up and falling, with dust puffs at the ground. */
+  dustBurst(p, n = 9, scale = 1, { ground = null } = {}) {
+    this.burst(p, n, { shape: 'rock', pal: 'rock', blend: 'source-over', speed: 62 * scale, vary: 0.6, angle: -Math.PI / 2, spread: 1.25, drag: 0.9, size: 2.6 * scale, sizeK: 'hold', alphaK: 'hold', life: 0.95, gravity: 190, spin: 8 });
+    this.dust(ground || p, Math.round(n * 0.9), { scale: 1.1 * scale });
+  }
+
+  /** Healing Sparkles: twinkles, little plus signs and leaves rising around a body (Soothe). */
+  healing(p, { n = 14, w = 22, h = 16, pal = 'teal' } = {}) {
+    for (let i = 0; i < n; i++) {
+      const q = [p[0] + rnd(-w / 2, w / 2), p[1] + rnd(-h / 2, h / 2)];
+      const kind = i % 3;
+      if (kind === 0) this.emit(q, { shape: 'sparkle', pal: 'white', size: rnd(2.2, 3.6), sizeK: 'pop', alphaK: 'inout', life: rnd(0.8, 1.2), speed: rnd(4, 9), angle: -Math.PI / 2, spread: 0.4, gravity: -6, spin: rnd(-2, 2) });
+      else if (kind === 1) this.emit(q, { shape: 'plus', pal: 'green', blend: 'source-over', size: rnd(2.4, 3.4), sizeK: 'pop', alphaK: 'hold', life: rnd(0.9, 1.3), speed: rnd(8, 14), angle: -Math.PI / 2, spread: 0.3, drag: 1, gravity: -4, rot: 0 });
+      else this.emit(q, { shape: 'leaf', pal: 'leaf', blend: 'source-over', size: rnd(2.6, 3.8), sizeK: 'hold', alphaK: 'hold', life: rnd(1.1, 1.5), speed: rnd(6, 12), angle: -Math.PI / 2, spread: 0.6, drag: 1, gravity: -3, turb: 26, spin: rnd(-3, 3) });
+    }
+    this.burst(p, 6, { shape: 'glow', pal, speed: 10, vary: 0.6, drag: 1, size: 3, sizeK: 'grow', alphaK: 'inout', life: 1.1, gravity: -6 });
+  }
+
+  /** Lumen Wisps: glowing leaves that wind from a to b on soft curves, leaving little trails. */
+  wisps(a, b, { n = 5, ms = 520, pal = 'leaf' } = {}) {
+    for (let i = 0; i < n; i++) {
+      const bow = rnd(-14, 14);
+      const delay = i * 50;
+      const m = { layer: 'front', dead: false, t: 0 };
+      m.tick = (dt, fx) => {
+        m.t += dt * 1000;
+        if (m.t >= delay) {
+          m.dead = true;
+          const c = fx.comet([a[0] + rnd(-2, 2), a[1] + rnd(-3, 3)], [b[0] + rnd(-3, 3), b[1] + rnd(-3, 3)], { ms: ms * rnd(0.8, 1.1), pal: 'green', size: 3.2, bow, trail: 2, ease: 'inout', sparks: false });
+          c.leaf = true;
+        }
+      };
+      m.draw = () => {};
+      this.movers.push(m);
+    }
+  }
+
   // ---------------------------------------------------------------- ambient
   /** Slow motes in the air: 'gold' over the grove, 'hollow' (violet embers near the wild one), null off. */
   setAmbient(kind, region) {
@@ -667,10 +978,19 @@ export class StageFX {
       const p = [R.x + rnd(0, R.w), R.y + rnd(0, R.h)];
       this.emit(p, { shape: 'glow', pal: 'violet', size: rnd(1.2, 2.6), sizeK: 'shrink', alphaK: 'inout', life: rnd(1.6, 2.6), speed: rnd(2, 5), angle: -Math.PI / 2, spread: 0.6, gravity: -5, turb: 14, layer: Math.random() < 0.5 ? 'back' : 'front', alpha: 0.95 });
       if (Math.random() < 0.3) this.emit(p, { shape: 'smoke', pal: 'dark', blend: 'source-over', size: rnd(5, 9), sizeK: 'bloom', alphaK: 'inout', life: rnd(2, 3), speed: 2, angle: -Math.PI / 2, gravity: -3, alpha: 0.35, layer: 'back' });
+      if (Math.random() < 0.12) this.emit([p[0], p[1] + 6], { shape: 'crystal', pal: 'crystal', blend: 'source-over', size: rnd(1.4, 2.2), sizeK: 'hold', alphaK: 'inout', life: rnd(2, 3), speed: rnd(2, 4), angle: -Math.PI / 2, spread: 0.4, gravity: -3, turb: 8, spin: rnd(-1.5, 1.5), layer: 'front', alpha: 0.85 });
     } else {
-      A.left = 0.45;
+      // Flower Petals drifting down across the shot, a few gold motes, and twinkles after a win
+      A.left = A.kind === 'won' ? 0.18 : 0.3;
       const p = [R.x + rnd(0, R.w), R.y + rnd(0, R.h)];
-      this.emit(p, { shape: 'glow', pal: 'gold', size: rnd(0.9, 2.0), sizeK: 'hold', alphaK: 'inout', life: rnd(3.5, 6), speed: rnd(1, 3), angle: -Math.PI / 2, spread: 1.2, turb: 10, turbW: rnd(0.6, 1.5), layer: Math.random() < 0.6 ? 'back' : 'front', alpha: A.kind === 'won' ? 0.95 : 0.7 });
+      const r = Math.random();
+      if (r < 0.45) {
+        this.emit([rnd(-5, 95), rnd(-4, 30)], { shape: 'petal', pal: 'pink', blend: 'source-over', size: rnd(1.6, 2.6), sizeK: 'hold', alphaK: 'inout', life: rnd(4, 6.5), speed: rnd(3, 6), angle: rnd(0.3, 1.0), gravity: 1.2, turb: 16, turbW: rnd(1, 2.2), spin: rnd(-2.5, 2.5), layer: Math.random() < 0.55 ? 'front' : 'back', alpha: 0.95 });
+      } else if (A.kind === 'won' && r < 0.8) {
+        this.emit(p, { shape: 'sparkle', pal: 'gold', size: rnd(1.8, 3.2), sizeK: 'pop', alphaK: 'soft', life: rnd(0.9, 1.5), speed: 0, layer: 'front', alpha: 1 });
+      } else {
+        this.emit(p, { shape: 'glow', pal: 'gold', size: rnd(0.9, 2.0), sizeK: 'hold', alphaK: 'inout', life: rnd(3.5, 6), speed: rnd(1, 3), angle: -Math.PI / 2, spread: 1.2, turb: 10, turbW: rnd(0.6, 1.5), layer: Math.random() < 0.6 ? 'back' : 'front', alpha: A.kind === 'won' ? 0.95 : 0.7 });
+      }
     }
   }
 }

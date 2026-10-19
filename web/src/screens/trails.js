@@ -65,7 +65,7 @@ function discoveryRow(ctx, d, compact = false) {
     : html`<span class="tag ok">${ICON.checkDark}Found</span>`;
   return html`<div class="card disc ${d.phase}" data-k="disc-${d.id}">
     <button class="disc-main" data-act="disc-open" data-arg="${d.id}" aria-label="${d.title}: ${d.phase === 'found' ? 'found' : d.phase === 'ready' ? 'ready to inspect at ' + d.placeName : `walk ${fmt(d.target)} steps, then inspect at ${d.placeName}`}">
-      <img src="${ITEMS[d.icon] ? itemImg(d.icon) : icon(d.icon)}" alt="">
+      <img src="${ITEMS[d.icon] || Q.QUEST_MATERIALS[d.icon] ? itemImg(d.icon) : icon(d.icon)}" alt="">
       <div style="min-width:0;text-align:left"><b class="t">${d.title}</b>
         <div class="small muted">${d.phase === 'found' ? d.found.slice(0, compact ? 60 : 90) + (d.found.length > (compact ? 60 : 90) ? '…' : '') : `Walk ${fmt(d.target)} steps, then inspect ${d.placeName}.`}</div>
         ${d.phase === 'walking' || d.phase === 'ready' ? html`<div class="bar green" style="margin-top:5px"><i style="width:${d.pct * 100}%"></i></div><div class="tiny muted" style="margin-top:2px">${fmt(d.walked)} / ${fmt(d.target)} steps${d.phase === 'ready' ? ' ✓' : ''}</div>` : ''}
@@ -390,6 +390,7 @@ export const travel = {
     return html`<main class="screen travel ${E.scene}" aria-label="Travelling">
       <div class="travel-plate"><img class="plate pan" src="${url(sc.file)}" alt=""></div>
       <div class="travel-fade"></div>
+      <div class="travel-motes ${E.goal === 'befriend' ? 'wild' : 'hollow'}" aria-hidden="true">${Array.from({ length: 18 }, (_, i) => html`<i style="--i:${i};--x:${6 + ((i * 37) % 88)}%;--s:${0.6 + ((i * 7) % 5) / 6}"></i>`)}</div>
       <header class="hud vhud" style="position:absolute;left:0;right:0;top:0"><button class="back-btn" data-act="skip" aria-label="Skip" data-k="t-skip">${ICON.back}</button><h1 class="place-title"><span class="full">${TR.PLACE_NAMES[E.place].replace('the ', 'The ')}</span><span class="short" aria-hidden="true">Travel</span></h1><span style="width:44px"></span></header>
       <div class="travel-bottom">
         <div class="card travel-card"><p class="travel-text in">${lines[0]}</p></div>

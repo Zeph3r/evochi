@@ -204,11 +204,31 @@ sprites are sized by the scene's perspective.
   the title. Everything is skippable, and reduced motion swaps it for a short fade.
 - **Music:** `enc_wild_loop` (encounters), `enc_boss_loop` (the Hollow and the Sentinel), the
   awakening cues `enc_rumble` and `enc_awaken`, and ability cues (`sfx.py`). `audio.setMusic` crossfades.
-- **UI:** after the Encounter UI Redesign board: a cream nameplate with a thick Calm/Instability bar,
-  a pet card, a log card (tap for history), big coloured buttons (sun = Lumen Glow, violet in Hollow
-  encounters; teal = Soothe; orange = Gentle Nudge; cream = Use Item; green = a companion), Retreat;
-  the prep screen (place header, banner, quest checklist, your team, recommended item, possible
-  rewards, Prepare & Enter); the result (Success ribbon, a caption, a rewards row, the EvoDex card).
+- **The flow** (after the Encounter UX Flow board): the Journey's Story tab opens with a highlighted
+  *Main Quests* card for any trail job whose encounter is waiting ("The Mossy Ruins: disturbance
+  detected", the creature as a silhouette, motes rising); the prep screen (*Encounter Preparation*: the
+  place, the creature's nameplate, Objective with the checklist, *Recommended* as two tiles, a Suggested
+  Item and a Suggested Approach, *Your Team*, a gold *Begin Encounter*); the travel screen with entry
+  motes; the intro on the battle shot; the encounter; the result.
+- **UI** (after the Encounter UI Redesign board): the intro ends on a hero shot of the wild one with a
+  big stacked title ("A Wild / Petalune / Appeared!", "The Forgotten / Sentinel / Awakens!"), the goal
+  ("Earn its trust" / "Restore its light"), a line about it and *Begin Encounter*; your Evochi steps in
+  when you begin. Nameplates have a portrait, the meter's label and value and a thin bar; under the wild
+  one's sits the goal with the turn count (always visible) and status chips read from the real state
+  (Hollowed, Waking, Unsteady, Flickering, Wary, Curious, Soothed; on your Evochi: Lumen Charged, Tired,
+  Petalune is with you; tap one for what it means). Short announcements ("It's very effective!",
+  "Hollow energy surged!", "Petalune seems wary.") pop under the goal; the log card has a headline and a
+  line under it in the board's feedback language; the four actions show their cost; Petal Hush sits next
+  to Retreat. The result card: "Petalune / Is Calmed!" or "… / Is Restored!", the rewards as tiles, a
+  green *Continue*, reward toasts ("Friend of Petalune title earned!") and a speech bubble over the
+  creature.
+- **Effect library** (the board's names, in `web/src/ui/fx.js`): Lumen Wisps (leaves winding along a
+  Gentle Nudge or Petal Hush), Flower Petals (ambient in wild encounters, and Petal Hush), Healing
+  Sparkles (Soothe: twinkles, plus signs, leaves), Golden Pulse (where Lumen Glow lands), Hollow Shards
+  (crystals breaking off a Hollow one), Violet Crackle (the Hollow's surges and its lash), Dust Burst
+  (stone chunks and dust on heavy hits and the Sentinel's awakening). Gold light and green leaves are
+  you; violet crystals and crackle are the Hollow. A hit tints light creatures gold and brightens dark
+  ones, never a white silhouette.
 
 ## Asset pack contents
 

@@ -118,6 +118,9 @@ export const journey = {
       ctx.sfx('ui_tap', 0.3);
       ctx.rerender();
     },
+    disturb(ctx, id) {
+      ctx.go('prep', { id });
+    },
     'story-quest'(ctx, id) {
       openStoryQuest(ctx, id);
     },

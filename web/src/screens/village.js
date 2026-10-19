@@ -683,10 +683,34 @@ export const place = {
 };
 
 // ------------------------------------------------------------------ Journey > Story
+// A trail job whose encounter is waiting: the Journey's highlighted call to it (the board's Trail Discovery).
+const DISTURB = {
+  befriend: (C, place) => ({ title: `Something stirs in ${place}`, text: `A rare ${C.name} was seen near the arch. It seems cautious, but curious. Go and say hello.` }),
+  hollow: (C, place) => ({ title: `${place}: disturbance detected`, text: `Strange Hollow energy has been detected in ${place}. Investigate the source.` }),
+  boss: (C, place) => ({ title: `${place}: a presence awakens`, text: 'Something ancient sleeps in the gate past the bridge. Its light is fading.' }),
+};
+
+export function disturbanceCards(ctx) {
+  return (ctx.d.story.encounters || []).filter((v) => TR.ENCOUNTERS[v.id]).map((v) => {
+    const E = TR.ENCOUNTERS[v.id];
+    const C = TR.CREATURES[E.creature];
+    const place = TR.PLACE_NAMES[E.place].replace(/^the /, 'the ');
+    const Place = place.replace(/^the /, 'The ');
+    const d = (C.boss ? DISTURB.boss : E.goal === 'befriend' ? DISTURB.befriend : DISTURB.hollow)(C, E.goal === 'befriend' ? place : Place);
+    const motes = Array.from({ length: 9 }, (_, i) => html`<i style="--i:${i};--x:${8 + ((i * 41) % 84)}%"></i>`);
+    return html`<button class="card disturb ${C.kind}" data-act="disturb" data-arg="${v.id}" data-k="dist-${v.id}" aria-label="${d.title}. ${d.text}">
+      <span class="ds-pic"><img class="bg" src="${url(manifest().trails.scenes[E.scene].file)}" alt=""><img class="cr" src="${icon('creature_' + C.id)}" alt=""><span class="motes" aria-hidden="true">${motes}</span></span>
+      <span class="ds-tx"><span class="ds-kick">${E.goal === 'befriend' ? 'Encounter ready' : 'Hollow detected'}</span><b>${d.title.replace(/^the /, 'The ')}</b><small>${d.text}</small></span>
+      <span class="chev" aria-hidden="true">&rsaquo;</span></button>`;
+  });
+}
+
 export function storyTab(ctx) {
   const st = ctx.d.story;
   const done = st.quests.filter((v) => v.completed).length;
-  return html`<section class="card chapter-card" aria-label="${Q.CHAPTER.name}">
+  const dist = disturbanceCards(ctx);
+  return html`${dist.length ? html`<h2 class="h-sec sec-head" style="margin-top:2px">Main Quests</h2><div class="list">${dist}</div>` : ''}
+    <section class="card chapter-card" aria-label="${Q.CHAPTER.name}">
       <img src="${squareArt(st.flags)}" alt="" class="cover">
       <div class="in"><div class="tiny" style="color:#FFF6E6">${Q.CHAPTER.name}</div><b class="h-card" style="color:#FFF">${Q.CHAPTER.title}</b>
         <div class="row" style="gap:6px;margin-top:6px"><span class="tag small stage">${done} / ${st.quests.length} quests</span>${st.titles.length ? html`<span class="tag small ok">${Q.TITLES[st.titles[0]].name}</span>` : ''}</div></div>
