@@ -1,0 +1,934 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Evochi v7: the encounters (v6 recipe)</title>
+<style>
+@font-face { font-family: 'Nunito'; font-weight: 900; src: url('site/fonts/nunito-latin-900-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Nunito'; font-weight: 800; src: url('site/fonts/nunito-latin-800-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Lato'; font-weight: 700; src: url('site/fonts/lato-latin-700-normal.woff2') format('woff2'); }
+html, body { margin: 0; background: #000; }
+#stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #FFF9F0; font-family: 'Nunito', sans-serif; }
+#stage > * { position: absolute; left: 0; top: 0; }
+#bg { width: 1080px; height: 1920px; }
+#bg.parchment { background: radial-gradient(circle at 50% 38%, #FFF9F0 0%, #F4E2CD 70%, #EED9C2 100%); }
+#bg .grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(201,167,140,0.28) 2px, transparent 2px), linear-gradient(90deg, rgba(201,167,140,0.28) 2px, transparent 2px); background-size: 72px 72px; }
+#bg .shadow { position: absolute; width: 520px; height: 90px; left: 280px; border-radius: 50%; background: radial-gradient(closest-side, rgba(90,62,40,0.32), rgba(90,62,40,0)); }
+#clip { transform-origin: 0 0; width: 780px; height: 1688px; display: none; }
+#vista { width: 1080px; height: 1920px; display: none; overflow: hidden; }
+#vista img.bg { position: absolute; transform-origin: 0 0; }
+#vista img.bg.night { opacity: 0; }
+#vista .pet { position: absolute; transform-origin: 50% 100%; }
+#vista .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(32,27,23,0) 40%, rgba(32,27,23,0.55) 100%); }
+#layers { width: 1080px; height: 1920px; }
+#layers .sprite { position: absolute; transform-origin: 50% 100%; }
+#layers .label { position: absolute; transform: translateX(-50%); font: 800 38px/1 'Nunito', sans-serif; color: #3B2923; background: rgba(255,249,240,0.95); border: 3px solid #E3CBB1; border-radius: 14px; padding: 12px 20px; box-shadow: 0 4px 0 #D8BD9F; white-space: nowrap; }
+#layers .label.gold { background: linear-gradient(#FFE5A2, #F9CA70); border-color: #E3A64A; color: #80531F; }
+#layers .label.pink { background: #FFF0F4; border-color: #E7A8BC; color: #8C3A55; }
+#layers .zz { position: absolute; font: 900 54px/1 'Nunito', sans-serif; color: #FFF9F0; -webkit-text-stroke: 8px #3B2923; paint-order: stroke fill; }
+#layers .ring { position: absolute; width: 700px; height: 700px; left: 190px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,229,162,0.9), rgba(255,229,162,0)); }
+#layers .arrow { position: absolute; font: 900 70px/1 'Nunito', sans-serif; color: #C8832C; transform: translate(-50%, -50%); }
+#layers .lvl { position: absolute; left: 0; width: 1080px; text-align: center; font: 900 190px/1 'Nunito', sans-serif; color: #FFE5A2; paint-order: stroke fill; -webkit-text-stroke: 16px #3B2923; text-shadow: 0 10px 0 rgba(59,41,35,0.5); letter-spacing: -0.03em; }
+#layers .lvl small { display: block; font-size: 46px; -webkit-text-stroke: 9px #3B2923; letter-spacing: 0.08em; margin-top: 10px; color: #FFF9F0; }
+#layers .xpbar { position: absolute; left: 240px; width: 600px; height: 34px; border-radius: 999px; background: rgba(59,41,35,0.18); border: 4px solid #3B2923; overflow: hidden; }
+#layers .xpbar i { display: block; height: 100%; background: linear-gradient(90deg, #B7D98B, #82B75E); border-radius: 999px; }
+#layers .pring { position: absolute; width: 760px; height: 760px; left: 160px; border-radius: 50%; -webkit-mask: radial-gradient(circle, transparent 60%, #000 61%); }
+#layers .log { position: absolute; left: 60px; top: 700px; width: 430px; height: 720px; overflow: hidden; border-radius: 28px; background: rgba(255,249,240,0.92); border: 4px solid #E3CBB1; box-shadow: 0 6px 0 #D8BD9F; }
+#layers .log .rows { position: absolute; left: 0; right: 0; }
+#layers .log .row { height: 64px; display: flex; align-items: center; gap: 14px; padding: 0 22px; font: 700 30px/1 'Lato', sans-serif; color: #684C3C; border-bottom: 2px solid rgba(201,167,140,0.3); white-space: nowrap; }
+#layers .log .row b { font-family: 'Nunito', sans-serif; font-weight: 900; color: #3B2923; width: 72px; }
+#layers .log .row .st { margin-left: auto; color: #3B2923; }
+#layers .log .row .ok { color: #477B3A; font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 34px; }
+#layers .log .row.rest { color: #8E7462; }
+#layers .log .head { position: absolute; left: 0; right: 0; top: 0; height: 70px; display: flex; align-items: center; padding: 0 22px; font: 900 32px/1 'Nunito', sans-serif; color: #3B2923; background: linear-gradient(#FFE5A2, #F9CA70); border-bottom: 4px solid #E3A64A; z-index: 2; }
+#layers .leaf { position: absolute; width: 46px; height: 46px; border-radius: 0 70% 0 70%; opacity: 0.95; box-shadow: inset 0 0 0 3px rgba(59,41,35,0.35); }
+#layers .item { position: absolute; width: 230px; height: 230px; transform-origin: 50% 50%; filter: drop-shadow(0 10px 0 rgba(59,41,35,0.25)); }
+#pills { width: 1080px; height: 1920px; pointer-events: none; }
+#pills .handle { position: absolute; left: 60px; top: 150px; font: 800 34px/1 'Nunito', sans-serif; color: #3B2923; background: rgba(255,249,240,0.95); border: 3px solid #E3CBB1; border-radius: 999px; padding: 14px 26px; box-shadow: 0 4px 0 #D8BD9F; transform-origin: 0 50%; }
+#pills .stamp { position: absolute; right: 60px; top: 146px; font: 900 32px/1 'Nunito', sans-serif; letter-spacing: 0.06em; color: #3B2923; background: linear-gradient(#FFE5A2, #F4B84E); border: 4px solid #C8832C; border-radius: 999px; padding: 16px 28px; box-shadow: 0 6px 0 #C8832C; transform-origin: 100% 50%; }
+#ripples { width: 1080px; height: 1920px; pointer-events: none; }
+.ripple { position: absolute; border-radius: 50%; border: 10px solid rgba(255,255,255,0.95); box-shadow: 0 0 0 4px rgba(59,41,35,0.35), inset 0 0 0 4px rgba(59,41,35,0.25); transform: translate(-50%, -50%); }
+.dot { position: absolute; width: 54px; height: 54px; border-radius: 50%; background: rgba(255,255,255,0.75); box-shadow: 0 0 0 5px rgba(59,41,35,0.3); transform: translate(-50%, -50%); }
+#caps { width: 1080px; height: 1920px; pointer-events: none; }
+.cap { position: absolute; left: 70px; width: 940px; text-align: center; font-weight: 900; color: #FFF9F0; line-height: 1.08; letter-spacing: -0.01em;
+  paint-order: stroke fill; -webkit-text-stroke: 14px #3B2923; text-shadow: 0 8px 0 rgba(59,41,35,0.55), 0 14px 30px rgba(0,0,0,0.35); transform-origin: 50% 50%; text-wrap: balance; }
+.cap .g { color: #FFE5A2; }
+.cap .b { color: #BFE4FA; }
+.cap .p { color: #FFC4D6; }
+.cap .m { color: #C9F0E8; }
+.cap.small { font-size: 54px; font-weight: 800; }
+.cap.mid { font-size: 74px; letter-spacing: -0.015em; }
+.cap.big { font-size: 92px; letter-spacing: -0.02em; }
+.cap.huge { font-size: 118px; letter-spacing: -0.025em; }
+#sparks { width: 1080px; height: 1920px; pointer-events: none; }
+#sparks .star { position: absolute; width: 60px; height: 60px; background: #FFE5A2; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); transform-origin: 50% 50%; filter: drop-shadow(0 0 12px rgba(255,229,162,0.9)); }
+#sparks .glow { position: absolute; width: 20px; height: 20px; border-radius: 50%; background: #FFF9F0; box-shadow: 0 0 18px 8px rgba(255,249,240,0.8); }
+#endcard { width: 1080px; height: 1920px; display: none; }
+#endcard .card { position: absolute; left: 90px; right: 90px; top: 250px; padding: 60px 54px 54px; border-radius: 48px; background: rgba(255,249,240,0.97); border: 5px solid #C9A78C; box-shadow: 0 10px 0 #D8BD9F, 0 40px 80px rgba(40,60,30,0.35); text-align: center; transform-origin: 50% 50%; }
+#endcard .wm { width: 520px; height: auto; display: block; margin: 0 auto 22px; filter: drop-shadow(0 6px 0 rgba(60,35,20,0.22)); }
+#endcard h1 { margin: 0; font: 900 86px/1.06 'Nunito', sans-serif; color: #3B2923; letter-spacing: -0.02em; }
+#endcard .cta { display: inline-block; margin-top: 30px; padding: 26px 56px; border-radius: 28px; border: 5px solid #C8832C; font: 900 62px/1 'Nunito', sans-serif; color: #3B2923;
+  background: linear-gradient(180deg, #FFE5A2 0%, #F9CA70 38%, #F4B84E 70%, #E9A541 100%); box-shadow: inset 0 4px 0 rgba(255,255,255,0.55), inset 0 -6px 0 rgba(200,131,44,0.55), 0 10px 0 #C8832C, 0 18px 30px rgba(120,70,20,0.25); text-shadow: 0 2px 0 rgba(255,255,255,0.35); transform-origin: 50% 50%; }
+#endcard .bio { margin: 26px 0 0; font: 900 46px/1.2 'Nunito', sans-serif; color: #477B3A; }
+#endcard .founder { display: inline-flex; align-items: center; gap: 14px; margin-top: 24px; padding: 12px 24px 12px 14px; border-radius: 999px; background: #FFF0F4; border: 3px solid #E7A8BC; font: 800 32px/1 'Nunito', sans-serif; color: #8C3A55; }
+#endcard .founder img { width: 56px; height: 56px; }
+#endcard .beta { position: absolute; top: -34px; right: 40px; padding: 14px 30px; border-radius: 999px; background: linear-gradient(#FFE5A2, #F4B84E); border: 4px solid #C8832C; font: 900 38px/1 'Nunito', sans-serif; color: #3B2923; box-shadow: 0 6px 0 #C8832C; transform: rotate(6deg); }
+#flash { width: 1080px; height: 1920px; background: #FFF; opacity: 0; pointer-events: none; }
+#vignette { width: 1080px; height: 1920px; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 62%, rgba(32,27,23,0.28) 100%); }
+
+/* v4: the meadow world, HUD, week strip, nest, hearts, Z's, fireflies, mood grid */
+#fx { width: 1080px; height: 1920px; pointer-events: none; }
+#fx > * { position: absolute; }
+.zz { font: 900 58px/1 'Nunito', sans-serif; color: #FFF9F0; -webkit-text-stroke: 8px #3B2923; paint-order: stroke fill; }
+.heart { width: 72px; height: 72px; filter: drop-shadow(0 4px 0 rgba(59,41,35,0.25)); }
+.firefly { width: 12px; height: 12px; border-radius: 50%; background: #FFF3B0; box-shadow: 0 0 14px 6px rgba(255,229,162,0.75); }
+.mote { width: 16px; height: 16px; border-radius: 50%; background: #FFF9F0; box-shadow: 0 0 16px 8px rgba(255,214,110,0.85); }
+.xpchip { font: 900 46px/1 'Nunito', sans-serif; color: #FFE5A2; -webkit-text-stroke: 9px #3B2923; paint-order: stroke fill; transform: translate(-50%, -50%); white-space: nowrap; }
+#layers .gshadow { position: absolute; border-radius: 50%; background: radial-gradient(closest-side, rgba(38,52,20,0.42), rgba(38,52,20,0)); transform: translate(-50%, -50%); }
+#layers .aura { position: absolute; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,236,170,0.95), rgba(255,214,110,0.55) 45%, rgba(255,214,110,0)); transform: translate(-50%, -50%); }
+#layers .prop { position: absolute; transform-origin: 50% 100%; }
+#layers .hud { position: absolute; left: 540px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; padding: 14px 30px 14px 18px; border-radius: 999px;
+  background: rgba(255,249,240,0.96); border: 4px solid #E3CBB1; box-shadow: 0 6px 0 #D8BD9F; font: 900 48px/1 'Nunito', sans-serif; color: #3B2923; white-space: nowrap; }
+#layers .hud img { width: 66px; height: 66px; }
+#layers .hud .of { font: 800 32px/1 'Nunito', sans-serif; color: #8E7462; }
+#layers .hud .bar { width: 190px; height: 24px; border-radius: 999px; background: rgba(59,41,35,0.14); border: 4px solid #3B2923; overflow: hidden; }
+#layers .hud .bar i { display: block; height: 100%; background: linear-gradient(90deg, #B7D98B, #82B75E); }
+#layers .hud.done { background: linear-gradient(#FFF6DA, #FFE7A8); border-color: #E3A64A; box-shadow: 0 6px 0 #C8832C; }
+#layers .hud.done .bar i { background: linear-gradient(90deg, #FFE5A2, #F4B84E); }
+#layers .hud .ok { color: #477B3A; font-size: 46px; }
+#layers .week { position: absolute; left: 0; width: 1080px; display: flex; gap: 12px; justify-content: center; }
+#layers .week .d { width: 118px; height: 132px; border-radius: 26px; background: rgba(255,249,240,0.95); border: 4px solid #E3CBB1; box-shadow: 0 5px 0 #D8BD9F;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font: 900 32px/1 'Nunito', sans-serif; color: #3B2923; transform-origin: 50% 50%; }
+#layers .week .d .c { font-size: 48px; color: rgba(59,41,35,0.18); }
+#layers .week .d.on { background: linear-gradient(#EEF8E2, #D3EBBB); border-color: #82B75E; box-shadow: 0 5px 0 #5E9A48; }
+#layers .week .d.on .c { color: #477B3A; }
+#layers .mood { position: absolute; width: 420px; height: 470px; border-radius: 40px; background: rgba(255,249,240,0.96); border: 5px solid #E3CBB1; box-shadow: 0 8px 0 #D8BD9F, 0 24px 50px rgba(40,50,20,0.25); overflow: hidden; transform-origin: 50% 50%; }
+#layers .mood .n { position: absolute; left: 22px; top: 20px; width: 84px; height: 84px; border-radius: 50%; background: linear-gradient(#FFE5A2, #F4B84E); border: 5px solid #C8832C; box-shadow: 0 5px 0 #C8832C;
+  font: 900 54px/74px 'Nunito', sans-serif; text-align: center; color: #3B2923; }
+#layers .mood .t { position: absolute; left: 0; right: 0; bottom: 26px; text-align: center; font: 900 40px/1 'Nunito', sans-serif; color: #684C3C; }
+#layers .mood img { position: absolute; transform-origin: 50% 100%; }
+/* v6: month grid, split divider; #layers is its own stacking context so z-indexed plates stay under captions */
+#layers { z-index: 0; }
+#layers .hdiv { position: absolute; left: 160px; top: 1075px; width: 760px; height: 5px; border-radius: 3px; background: repeating-linear-gradient(90deg, #C9A78C 0 26px, transparent 26px 46px); }
+#layers .month { position: absolute; left: 91px; top: 1180px; width: 898px; display: grid; grid-template-columns: repeat(6, 138px); gap: 14px; }
+#layers .month .c { height: 96px; border-radius: 22px; background: rgba(255,249,240,0.95); border: 4px solid #E3CBB1; box-shadow: 0 5px 0 #D8BD9F; position: relative;
+  display: flex; align-items: center; justify-content: center; transform-origin: 50% 50%; box-sizing: border-box; }
+#layers .month .c .n { position: absolute; left: 12px; top: 9px; font: 900 22px/1 'Nunito', sans-serif; color: #B49A86; }
+#layers .month .c .m { font: 900 48px/1 'Nunito', sans-serif; margin-top: 8px; }
+#layers .month .c.on { background: linear-gradient(#EEF8E2, #D3EBBB); border-color: #82B75E; box-shadow: 0 5px 0 #5E9A48; }
+#layers .month .c.on .n, #layers .month .c.on .m { color: #477B3A; }
+#layers .month .c.rest { background: linear-gradient(#EEF4FB, #D6E6F5); border-color: #8DB3D9; box-shadow: 0 5px 0 #6E93BA; }
+#layers .month .c.rest .n, #layers .month .c.rest .m { color: #557CA6; }
+#layers .month .c.evo { background: linear-gradient(#FFF6DA, #FFE7A8); border-color: #E3A64A; box-shadow: 0 5px 0 #C8832C; }
+#layers .month .c.evo .n, #layers .month .c.evo .m { color: #B06F1F; }
+#layers .divider { position: absolute; left: 538px; top: 700px; width: 5px; height: 760px; border-radius: 3px; background: repeating-linear-gradient(#C9A78C 0 26px, transparent 26px 46px); }
+
+/* v7: option pills, the Guild job card, falling petals */
+#layers .opts { position: absolute; left: 0; width: 1080px; display: flex; gap: 22px; justify-content: center; }
+#layers .opt { position: relative; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 22px 28px 18px; border-radius: 30px; background: rgba(255,249,240,0.97); border: 5px solid #E3CBB1; box-shadow: 0 8px 0 #D8BD9F, 0 22px 44px rgba(40,50,20,0.28); transform-origin: 50% 50%; min-width: 230px; }
+#layers .opt .n { position: absolute; left: -18px; top: -18px; width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(#FFE5A2, #F4B84E); border: 5px solid #C8832C; box-shadow: 0 5px 0 #C8832C; font: 900 44px/62px 'Nunito', sans-serif; text-align: center; color: #3B2923; }
+#layers .opt img { width: 150px; height: 150px; }
+#layers .opt b { font: 900 46px/1 'Nunito', sans-serif; color: #3B2923; }
+#layers .job { position: absolute; left: 540px; display: flex; align-items: center; gap: 20px; padding: 18px 34px 18px 20px; border-radius: 30px; background: rgba(255,249,240,0.97); border: 5px solid #E3CBB1; box-shadow: 0 8px 0 #D8BD9F, 0 22px 44px rgba(40,50,20,0.28); transform-origin: 50% 50%; white-space: nowrap; }
+#layers .job img { width: 110px; height: 110px; }
+#layers .job small { display: block; font: 900 26px/1 'Nunito', sans-serif; letter-spacing: 0.08em; color: #C8832C; }
+#layers .job b { display: block; margin-top: 6px; font: 900 46px/1.05 'Nunito', sans-serif; color: #3B2923; }
+#layers .job span { display: block; margin-top: 8px; font: 700 32px/1 'Lato', sans-serif; color: #684C3C; }
+#layers .leaves { position: absolute; inset: 0; }
+#layers .leaves .leaf { position: absolute; border-radius: 60% 60% 60% 60% / 80% 80% 40% 40%; background: linear-gradient(#FBC6D1, #F5A3B5); box-shadow: none; opacity: 0.9; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg" class="parchment"><div class="grid"></div><div class="shadow"></div></div>
+  <div id="vista">
+    <img class="bg day" src="wl/vista/day.webp" alt="">
+    <img class="bg night" src="wl/vista/night.webp" alt="">
+    <div class="shade"></div>
+    <img class="pet" data-s="s01" src="site/img/pets/s01-ocean.webp" alt="">
+    <img class="pet" data-s="s02" src="site/img/pets/s02-ocean.webp" alt="">
+    <img class="pet" data-s="s03" src="site/img/pets/s03-ocean.webp" alt="">
+  </div>
+  <img id="clip" alt="">
+  <div id="layers"></div>
+  <div id="fx"></div>
+  <div id="vignette"></div>
+  <div id="ripples"></div>
+  <div id="pills"><div class="handle">@evochigame</div><div class="stamp">EVOLUTION REVEAL · 01</div></div>
+  <div id="caps"></div>
+  <div id="endcard">
+    <div class="card">
+      <span class="beta">BETA</span>
+      <img class="wm" src="site/img/wordmark.webp" alt="Evochi">
+      <h1 id="end-h1">Your steps.<br>Your Evochi.</h1>
+      <div class="cta" id="end-cta">Join the beta waitlist</div>
+      <div class="bio">link in bio</div>
+      <div class="founder"><img src="wl/crown/icon.webp" alt="">First 1,000 get the Founder's Crown</div>
+    </div>
+  </div>
+  <div id="sparks"></div>
+  <div id="flash"></div>
+</div>
+<script>
+const FPS = 30;
+const $ = (s) => document.querySelector(s);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = (k) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
+const easeOut = (k) => 1 - Math.pow(1 - clamp(k, 0, 1), 3);
+const pop = (p, dur = 0.26) => { const k = clamp(p / dur, 0, 1); const c4 = (2 * Math.PI) / 3; return k === 0 ? 0 : k === 1 ? 1 : Math.pow(2, -10 * k) * Math.sin((k * 10 - 0.75) * c4) + 1; };
+const rnd = (i, k) => { const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x); };
+const CLIPS = { tap: { dir: 'clips/tap', n: 186 }, evolve: { dir: 'clips/evolve', n: 282 }, pick: { dir: 'clips2/pick', n: 228 }, hatch: { dir: 'clips2/hatch', n: 216 } };
+const SPR = { s01: { w: 440, h: 500, gx: 165.4 * 14 / 10.5, gy: 334.6 * 14 / 10.5 }, s02: { w: 530, h: 500, gx: 217.0 * 14 / 10.5, gy: 339.0 * 14 / 10.5 }, s03: { w: 774, h: 622, gx: 282.6 * 14 / 10.5, gy: 402.9 * 14 / 10.5 } };
+const HERO = { w: 2880, h: 1440, pets: { s01: { x: 0.50716, y: 0.71892, k: 0.000412 }, s02: { x: 0.62807, y: 0.63675, k: 0.000456 }, s03: { x: 0.76546, y: 0.56385, k: 0.000463 } } };
+const NAMES = { amber: 'Amber', forest: 'Forest', coral: 'Coral', ocean: 'Ocean', amethyst: 'Amethyst', obsidian: 'Obsidian', aurora: 'Aurora' };
+let TURN = null; // turn3/meta.json
+
+// ------------------------------------------------------------------ persistent layers
+const L = {};
+const USED = [];
+function layer(id, html, parent = '#layers') {
+  if (!USED.includes(id)) USED.push(id);
+  if (!L[id]) { const d = document.createElement('div'); d.id = 'L-' + id; d.innerHTML = html; d.style.cssText = 'position:absolute;left:0;top:0;width:1080px;height:1920px'; $(parent).appendChild(d); L[id] = d; }
+  return L[id];
+}
+function showOnly(ids) { for (const k in L) L[k].style.display = ids.includes(k) ? 'block' : 'none'; }
+const bob = (t, ph = 0, amp = 0.016) => amp * Math.sin((t + ph) * 2.4 * Math.PI / 1.0);
+function placeSprite(img, id, x, y, h, sq = 1, dy = 0, rot = 0, flip = false) {
+  const sp = SPR[id]; const k = h / sp.h;
+  img.style.width = sp.w * k + 'px'; img.style.height = sp.h * k + 'px';
+  img.style.left = (x - sp.gx * k) + 'px'; img.style.top = (y - sp.gy * k) + 'px';
+  img.style.transformOrigin = `${sp.gx * k}px ${sp.gy * k}px`;
+  img.style.transform = `translateY(${dy}px) rotate(${rot}deg) scale(${(flip ? -1 : 1) / sq}, ${sq})`;
+}
+const hopAt = (t, t0, dur = 0.5, amp = 90) => { const k = (t - t0) / dur; if (k < 0 || k > 1) return { dy: 0, sq: 1 }; return { dy: -Math.sin(k * Math.PI) * amp, sq: 1 - 0.1 * Math.sin(k * Math.PI) }; };
+// pick the active hop out of a list of hop start times
+function hops(t, times, dur = 0.45, amp = 80) { for (const t0 of times) { const h = hopAt(t, t0, dur, amp); if (h.dy !== 0) return h; } return { dy: 0, sq: 1 }; }
+const blink = (t, ph = 0, every = 2.7) => ((t + ph) % every) < 0.13;
+const tilt = (t, ph = 0) => 2.5 * Math.sin((t + ph) * 1.1);
+async function setSrc(img, src) { if (img.getAttribute('src') !== src) { img.src = src; await img.decode().catch(() => {}); } }
+// place a turntable frame so its ground anchor sits at (x, y)
+function placeTurn(img, k, x, y, h, sq = 1, dy = 0) {
+  const s = h / TURN.h; const [gx, gy] = TURN.frames[k];
+  img.style.width = TURN.w * s + 'px'; img.style.height = TURN.h * s + 'px';
+  img.style.left = (x - gx * s) + 'px'; img.style.top = (y - gy * s) + 'px';
+  img.style.transformOrigin = `${gx * s}px ${gy * s}px`;
+  img.style.transform = `translateY(${dy}px) scale(${1 / sq}, ${sq})`;
+}
+
+// ------------------------------------------------------------------ clips (recorded gameplay)
+let clipSrc = '';
+async function clipFrame(name, ct, cam, t, segT0) {
+  const c = CLIPS[name];
+  const f = clamp(Math.round(ct * FPS), 0, c.n - 1);
+  const src = `${c.dir}/f${String(f).padStart(5, '0')}.jpg`;
+  const el = $('#clip');
+  if (clipSrc !== src) { el.src = src; clipSrc = src; await el.decode().catch(() => {}); }
+  el.style.display = 'block';
+  let s = Math.max(cam.s, 1080 / 780);
+  const since = t - segT0;
+  if (since < 0.18) s *= 1 + 0.045 * (1 - since / 0.18);
+  const d = { x: 6 * Math.sin(t * 1.3) + 3 * Math.sin(t * 2.9 + 1), y: 5 * Math.sin(t * 1.1 + 2) + 3 * Math.sin(t * 2.3), r: 0.35 * Math.sin(t * 0.7) };
+  let left = clamp(cam.ax - cam.fx * s + d.x, 1080 - 780 * s, 0), top = clamp(cam.ay - cam.fy * s + d.y, 1920 - 1688 * s, 0);
+  el.style.transform = `translate(${left}px, ${top}px) rotate(${d.r}deg) scale(${s})`;
+  return { s, left, top };
+}
+function rippleAt(t, at, x, y) {
+  const host = $('#ripples');
+  const age = t - at; if (age < -0.12 || age > 0.55) return;
+  if (age < 0) { const d = document.createElement('div'); d.className = 'dot'; d.style.left = x + 'px'; d.style.top = y + 'px'; host.appendChild(d); return; }
+  const k = age / 0.55; const r = document.createElement('div'); r.className = 'ripple';
+  const size = 60 + 220 * ease(k); r.style.left = x + 'px'; r.style.top = y + 'px'; r.style.width = size + 'px'; r.style.height = size + 'px'; r.style.opacity = String(1 - k); host.appendChild(r);
+  if (age < 0.18) { const d = document.createElement('div'); d.className = 'dot'; d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.opacity = String(1 - age / 0.18); host.appendChild(d); }
+}
+
+// ------------------------------------------------------------------ vista, end card, captions, fx
+function placeVista(t, { night = 0, pets = true, end = false, since = 0, s01Expr = 'happy', hop = true, focus = null, zoom = 1, groundY = null, show = null } = {}) {
+  const v = $('#vista'); v.style.display = 'block';
+  const sc = (end ? 1.333 : 1.2 + 0.05 * clamp(since / 2.6, 0, 1)) * zoom;
+  const W = HERO.w * sc, H = HERO.h * sc;
+  const cx = (focus ? HERO.pets[focus].x : end ? 0.635 : 0.62) * W; const left = clamp(540 - cx, 1080 - W, 0);
+  const top = groundY && focus ? clamp(groundY - HERO.pets[focus].y * H, 1920 - H, 0) : 1920 - H;
+  v.style.background = night > 0.5 ? '#141B33' : '#5FB1E6';
+  for (const im of v.querySelectorAll('img.bg')) { im.style.transform = `translate(${left}px, ${top}px) scale(${sc})`; im.style.width = HERO.w + 'px'; im.style.height = HERO.h + 'px'; }
+  v.querySelector('img.bg.night').style.opacity = String(night);
+  v.querySelectorAll('.pet').forEach((img, i) => {
+    const id = img.dataset.s, p = HERO.pets[id], sp = SPR[id];
+    img.style.display = show ? (show.includes(id) ? 'block' : 'none') : pets ? 'block' : (id === 's01' ? 'block' : 'none');
+    const k = p.k * HERO.h * sc; const w = sp.w * k, h = sp.h * k;
+    const gx = p.x * W + left, gy = p.y * HERO.h * sc + top;
+    const ph = (since * 1.6 + i * 0.33) % 1; const hp = hop ? Math.max(0, Math.sin(ph * Math.PI)) : 0;
+    img.style.width = w + 'px'; img.style.height = h + 'px'; img.style.left = (gx - sp.gx * k) + 'px'; img.style.top = (gy - sp.gy * k) + 'px';
+    img.style.transform = `translateY(${-hp * h * 0.16}px) scale(${1 / (1 - hp * 0.06)}, ${1 - hp * 0.06})`;
+    img.style.filter = night > 0 ? `brightness(${1 - 0.42 * night})` : '';
+    if (id === 's01') { const want = s01Expr === 'happy' ? 'site/img/pets/s01-ocean.webp' : `wl/expr/${s01Expr}.webp`; if (img.getAttribute('src') !== want) img.src = want; }
+  });
+}
+function endcard(t, t0, h1, cta = 'Join the beta waitlist') {
+  const e = $('#endcard'); e.style.display = 'block';
+  $('#end-h1').innerHTML = h1; $('#end-cta').textContent = cta;
+  const p = pop(t - t0, 0.4);
+  e.querySelector('.card').style.transform = `scale(${0.5 + 0.5 * p}) translateY(${(1 - p) * 60}px)`;
+  e.querySelector('.card').style.opacity = String(clamp((t - t0) / 0.15, 0, 1));
+  const c = t - t0; const pulse = c > 0.6 ? 1 + 0.035 * Math.max(0, Math.sin((c - 0.6) * 4.2)) : 1;
+  e.querySelector('.cta').style.transform = `scale(${pulse}) rotate(-1.5deg)`;
+}
+function captions(t, CAPS) {
+  const host = $('#caps'); host.innerHTML = '';
+  for (const c of CAPS) {
+    if (t < c.t0 || t >= c.t1 + 0.12) continue;
+    const el = document.createElement('div'); el.className = 'cap ' + c.cls; el.innerHTML = c.html; el.style.top = c.y + 'px';
+    const pin = pop(t - c.t0, 0.34); const out = t > c.t1 ? 1 - (t - c.t1) / 0.12 : 1; const wob = 1 + 0.005 * Math.sin((t - c.t0) * 3);
+    el.style.transform = `scale(${pin * wob}) rotate(${(c.t0 * 7 % 3) - 1.5 + 0.25 * Math.sin((t - c.t0) * 1.5)}deg)`; el.style.opacity = String(clamp(out, 0, 1));
+    host.appendChild(el);
+  }
+}
+function pills(t, { handle = true, stamp = null, from = 0.2 }) {
+  const h = $('#pills .handle'), s = $('#pills .stamp');
+  const p = pop(t - from, 0.35);
+  h.style.display = handle ? 'block' : 'none'; h.style.transform = `scale(${p}) rotate(-2deg)`;
+  s.style.display = stamp ? 'block' : 'none'; if (stamp) { s.textContent = stamp; s.style.transform = `scale(${pop(t - from - 0.1, 0.35)}) rotate(3deg)`; }
+}
+function sparks(t, at, cx = 540, cy = 980, n = 26) {
+  const host = $('#sparks'); host.innerHTML = '';
+  const age = t - at; if (age < 0 || age > 1.6) return;
+  for (let i = 0; i < n; i++) {
+    const a = rnd(i, 1) * Math.PI * 2, sp = 420 + rnd(i, 2) * 520, sz = 28 + rnd(i, 3) * 44; const d = Math.min(age, 1.2);
+    const x = cx + Math.cos(a) * sp * (1 - Math.pow(1 - d / 1.2, 3)), y = cy + Math.sin(a) * sp * (1 - Math.pow(1 - d / 1.2, 3)) + 140 * d * d;
+    const o = age < 0.1 ? age / 0.1 : clamp(1 - (age - 0.6) / 0.9, 0, 1);
+    const st = document.createElement('div'); st.className = 'star'; st.style.left = (x - sz / 2) + 'px'; st.style.top = (y - sz / 2) + 'px'; st.style.width = sz + 'px'; st.style.height = sz + 'px';
+    st.style.opacity = String(o); st.style.transform = `rotate(${age * 240 * (rnd(i, 4) - 0.5)}deg) scale(${0.6 + 0.4 * Math.sin(age * 9 + i)})`; host.appendChild(st);
+  }
+  for (let i = 0; i < 18; i++) {
+    const x0 = 120 + rnd(i, 5) * 840, y0 = cy - 480 + rnd(i, 6) * 900, ph = rnd(i, 7);
+    const o = clamp(Math.sin((age * 1.8 + ph) * Math.PI), 0, 1) * clamp(1 - (age - 1.0) / 0.6, 0, 1);
+    const g = document.createElement('div'); g.className = 'glow'; g.style.left = x0 + 'px'; g.style.top = (y0 - age * 90) + 'px'; g.style.opacity = String(o * 0.9); g.style.transform = `scale(${0.5 + o})`; host.appendChild(g);
+  }
+}
+function flash(t, at, amt = 0.85) { const o = t >= at && t < at + 0.35 ? amt * (1 - (t - at) / 0.35) : 0; $('#flash').style.opacity = String(o); }
+function leaves(t, el, n = 16) {
+  let host = el.querySelector('.leaves');
+  if (!host) { host = document.createElement('div'); host.className = 'leaves'; host.style.cssText = 'position:absolute;inset:0;pointer-events:none'; el.appendChild(host); for (let i = 0; i < n; i++) { const d = document.createElement('div'); d.className = 'leaf'; d.style.background = ['#DB9942', '#D85F51', '#F4B84E', '#82B75E', '#EC947C'][i % 5]; host.appendChild(d); } }
+  host.querySelectorAll('.leaf').forEach((d, i) => {
+    const sp = 150 + rnd(i, 11) * 120, ph = rnd(i, 12) * 2100, x0 = 40 + rnd(i, 13) * 1000, sz = 34 + rnd(i, 14) * 30;
+    const y = ((t * sp + ph) % 2100) - 120; const x = x0 + 70 * Math.sin(t * 1.3 + i);
+    d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.width = sz + 'px'; d.style.height = sz + 'px';
+    d.style.transform = `rotate(${t * 120 * (rnd(i, 15) - 0.5) * 2 + i * 40}deg) scaleX(${0.6 + 0.4 * Math.sin(t * 3 + i)})`;
+  });
+}
+function resetStage() {
+  $('#bg').style.display = 'none'; $('#clip').style.display = 'none'; $('#vista').style.display = 'none'; $('#endcard').style.display = 'none';
+  $('#ripples').innerHTML = ''; $('#sparks').innerHTML = ''; $('#fx').innerHTML = ''; $('#flash').style.opacity = '0'; USED.length = 0;
+  $('#vista .shade').style.opacity = ''; for (const im of document.querySelectorAll('#vista img.bg')) im.style.filter = '';
+}
+function parchment(shadowTop = 1335) { const bg = $('#bg'); bg.style.display = 'block'; bg.querySelector('.shadow').style.display = shadowTop ? 'block' : 'none'; if (shadowTop) bg.querySelector('.shadow').style.top = shadowTop + 'px'; }
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+// ================================================================== v4: Mochi in the world
+// Every video opens on Mochi already moving in the meadow (no cream cards in the first seconds).
+const CUTS = {};
+const TURN_H = () => Math.floor(TURN.h * (1000 / TURN.w));
+const fmt = (n) => Math.round(n).toLocaleString('en-US');
+
+// sprite for a form + expression (Ocean)
+const S01X = ['surprised', 'sad', 'neutral', 'determined'];
+function S(id, ex = 'happy') {
+  if (id === 's01') return S01X.includes(ex) ? `wl/expr/${ex}.webp` : `wl3/s01/ocean/${ex}.webp`;
+  if (id === 's02') return `wl3/s02/ocean/${ex}.webp`;
+  return `wl3/elder/ocean/${ex}.webp`;
+}
+const HS = { s01: 470, s02: 520, s03: 660 }; // in-world heights (sprite box) at sc 1.5
+
+// the meadow, as a camera: sc = zoom, cx = image x (0..1) at screen centre, gy = where the path sits on screen
+function world(t, { sc = 1.5, cx = 0.5, night = 0, gy = 1500, gf = 0.80, blur = 0 } = {}) {
+  const v = $('#vista'); v.style.display = 'block';
+  const W = HERO.w * sc, H = HERO.h * sc;
+  const left = clamp(540 - cx * W, 1080 - W, 0);
+  const top = clamp(gy - gf * H, 1920 - H, 0);
+  v.style.background = night > 0.5 ? '#141B33' : '#5FB1E6';
+  for (const im of v.querySelectorAll('img.bg')) {
+    im.style.transform = `translate(${left}px, ${top}px) scale(${sc})`; im.style.width = HERO.w + 'px'; im.style.height = HERO.h + 'px';
+    im.style.filter = blur ? `blur(${blur}px)` : '';
+  }
+  v.querySelector('img.bg.night').style.opacity = String(night);
+  v.querySelector('.shade').style.opacity = String(0.55 + 0.45 * night);
+  v.querySelectorAll('.pet').forEach((p) => { p.style.display = 'none'; });
+  return { gy: top + gf * H, left, top, W, H };
+}
+
+// a hop-walk: little bounces with a side-to-side rock, one per step
+function walk(t, rate = 2.4, amp = 26) {
+  const ph = t * rate; const k = ph % 1; const s = Math.sin(k * Math.PI);
+  return { dy: -s * amp, sq: 1 - 0.05 * s + 0.035 * Math.pow(1 - s, 6), rot: 3.2 * Math.sin(ph * Math.PI) };
+}
+
+// Mochi (or any sprite) standing in the world, with a ground shadow and an optional evolution glow
+async function pet(key, o) {
+  const { id = 's01', ex = 'happy', x = 540, y = 1500, h = HS[id], flip = false, dy = 0, sq = 1, rot = 0, glow = 0, night = 0, shadow = 1, src = null, scale = 1, alpha = 1 } = o;
+  const el = layer('pet-' + key, '<div class="gshadow"></div><div class="aura"></div><img class="sprite" alt="">');
+  const img = el.querySelector('img');
+  await setSrc(img, src || S(id, ex));
+  const hh = h * Math.max(0.001, scale);
+  placeSprite(img, id, x, y, hh, sq, dy, rot, flip);
+  img.style.opacity = String(alpha);
+  const bw = SPR[id].w * hh / SPR[id].h * 0.7; const lift = clamp(-dy / 140, 0, 1);
+  const sh = el.querySelector('.gshadow');
+  sh.style.display = shadow ? 'block' : 'none';
+  sh.style.width = bw * (1 - 0.35 * lift) + 'px'; sh.style.height = bw * 0.17 * (1 - 0.35 * lift) + 'px';
+  sh.style.left = x + 'px'; sh.style.top = (y + 6) + 'px'; sh.style.opacity = String(shadow * (1 - 0.4 * lift) * alpha);
+  const au = el.querySelector('.aura');
+  au.style.display = glow > 0 ? 'block' : 'none';
+  if (glow > 0) { const d = hh * 1.9 * (0.9 + 0.1 * Math.sin(t0g * 9)); au.style.width = d + 'px'; au.style.height = d + 'px'; au.style.left = x + 'px'; au.style.top = (y - hh * 0.42) + 'px'; au.style.opacity = String(glow); }
+  const b = (1 - 0.42 * night) * (1 + 0.75 * glow);
+  img.style.filter = glow > 0 ? `brightness(${b}) drop-shadow(0 0 ${26 * glow}px rgba(255,214,110,0.95))` : night > 0 ? `brightness(${b})` : '';
+  return img;
+}
+let t0g = 0; // current time, for the aura pulse
+
+// charge-up before an evolution: glow ramps over `dur`, pulsing faster near the end
+function charge(t, at, dur = 1.0) { const k = clamp((t - (at - dur)) / dur, 0, 1); return k <= 0 ? 0 : clamp(k * (0.75 + 0.25 * Math.sin(t * (10 + 14 * k))), 0, 1); }
+function motes(t, x, y, k, n = 14) {
+  if (k <= 0) return;
+  const host = $('#fx');
+  for (let i = 0; i < n; i++) {
+    const ph = (t * (0.7 + rnd(i, 41) * 0.6) + rnd(i, 42)) % 1;
+    const m = document.createElement('div'); m.className = 'mote';
+    const a = rnd(i, 43) * Math.PI * 2, r = 120 + rnd(i, 44) * 160;
+    m.style.left = (x + Math.cos(a) * r * (1 - ph * 0.6)) + 'px'; m.style.top = (y + 60 - ph * 420 + Math.sin(a) * 40) + 'px';
+    m.style.opacity = String(k * Math.sin(ph * Math.PI)); m.style.transform = `scale(${0.6 + 0.7 * k})`;
+    host.appendChild(m);
+  }
+}
+function hearts(t, at, x, y, n = 5, dur = 1.5) {
+  const age = t - at; if (age < 0 || age > dur) return;
+  const host = $('#fx');
+  for (let i = 0; i < n; i++) {
+    const d = age - i * 0.08; if (d < 0) continue;
+    const h = document.createElement('img'); h.className = 'heart'; h.src = 'site/img/icons/heart.webp';
+    const sz = 58 + rnd(i, 31) * 34;
+    h.style.width = sz + 'px'; h.style.height = sz + 'px';
+    h.style.left = (x - sz / 2 + (rnd(i, 32) - 0.5) * 260 + 26 * Math.sin(d * 5 + i)) + 'px';
+    h.style.top = (y - sz / 2 - d * (240 + rnd(i, 33) * 160)) + 'px';
+    h.style.opacity = String(clamp(d / 0.12, 0, 1) * clamp(1 - (d - dur * 0.5) / (dur * 0.5), 0, 1));
+    h.style.transform = `scale(${pop(d, 0.3)}) rotate(${(rnd(i, 34) - 0.5) * 30}deg)`;
+    host.appendChild(h);
+  }
+}
+function zzz(t, x, y, o = 1) {
+  if (o <= 0) return;
+  const host = $('#fx');
+  ['z', 'z', 'Z'].forEach((c, i) => {
+    const ph = (t * 0.5 + i * 0.33) % 1; const z = document.createElement('div'); z.className = 'zz'; z.textContent = c;
+    z.style.left = (x + i * 62) + 'px'; z.style.top = (y - i * 80 - ph * 60) + 'px'; z.style.fontSize = (50 + i * 10) + 'px';
+    z.style.opacity = String(o * Math.sin(ph * Math.PI) * 0.95); z.style.transform = `rotate(${Math.sin(t * 2 + i) * 10}deg)`;
+    host.appendChild(z);
+  });
+}
+function fireflies(t, o = 1, n = 16) {
+  if (o <= 0) return;
+  const host = $('#fx');
+  for (let i = 0; i < n; i++) {
+    const f = document.createElement('div'); f.className = 'firefly';
+    const x = 80 + rnd(i, 51) * 920 + 60 * Math.sin(t * (0.4 + rnd(i, 52) * 0.5) + i), y = 700 + rnd(i, 53) * 900 + 50 * Math.sin(t * (0.5 + rnd(i, 54) * 0.4) + i * 2);
+    f.style.left = x + 'px'; f.style.top = y + 'px'; f.style.opacity = String(o * (0.35 + 0.65 * Math.max(0, Math.sin(t * (1.5 + rnd(i, 55) * 2) + i * 3))));
+    host.appendChild(f);
+  }
+}
+function xpchip(t, at, x, y, text = '+XP') {
+  const age = t - at; if (age < 0 || age > 1.2) return;
+  const c = document.createElement('div'); c.className = 'xpchip'; c.textContent = text;
+  c.style.left = x + 'px'; c.style.top = (y - age * 120) + 'px';
+  c.style.opacity = String(clamp(1 - (age - 0.7) / 0.5, 0, 1)); c.style.transform = `translate(-50%, -50%) scale(${pop(age, 0.3)})`;
+  $('#fx').appendChild(c);
+}
+// the step counter pill (the game's "Daily Steps" card, simplified)
+function hud(key, { y = 640, steps = 0, goal = 7000, icon = 'steps', text = null, sub = null, p = null, appear = 1 } = {}) {
+  const el = layer('hud-' + key, '<div class="hud"><img alt=""><span class="v"></span><span class="of"></span><span class="bar"><i></i></span></div>');
+  const hd = el.querySelector('.hud');
+  const im = hd.querySelector('img'); const want = `site/img/icons/${icon}.webp`; if (im.getAttribute('src') !== want) im.src = want;
+  const done = text == null && steps >= goal;
+  hd.classList.toggle('done', done);
+  hd.querySelector('.v').innerHTML = text != null ? text : fmt(steps) + (done ? ' <span class="ok">✓</span>' : '');
+  hd.querySelector('.of').textContent = sub != null ? sub : text != null ? '' : `/ ${fmt(goal)} steps`;
+  const fill = p != null ? p : clamp(steps / goal, 0, 1);
+  hd.querySelector('.bar').style.display = p === false ? 'none' : 'block';
+  hd.querySelector('.bar i').style.width = (fill * 100) + '%';
+  hd.style.top = y + 'px';
+  hd.style.transform = `translateX(-50%) scale(${appear})`;
+  hd.style.opacity = String(clamp(appear * 1.5, 0, 1));
+  return hd;
+}
+function weekStrip(key, t, { y = 620, start = 7.7, every = 0.3, labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'], rest = -1 } = {}) {
+  const el = layer('week-' + key, '<div class="week">' + labels.map((d) => `<div class="d"><span>${d}</span><span class="c">✓</span></div>`).join('') + '</div>');
+  el.querySelector('.week').style.top = y + 'px';
+  el.querySelectorAll('.d').forEach((d, i) => {
+    const on = t >= start + i * every; d.classList.toggle('on', on);
+    d.querySelector('.c').textContent = i === rest ? 'z' : '✓';
+    const a = t - (start + i * every); d.style.transform = `scale(${on ? 1 + 0.18 * Math.max(0, 1 - a / 0.25) : 1})`;
+  });
+}
+// a prop image (berry, egg, nest) placed by its bottom centre
+async function prop(key, src, { x = 540, y = 1500, w = 200, rot = 0, sx = 1, sy = 1, alpha = 1, nat = null }) {
+  const el = layer('prop-' + key, '<img class="prop" alt="">');
+  const img = el.querySelector('img'); await setSrc(img, src);
+  const [nw, nh] = nat || [img.naturalWidth || 1, img.naturalHeight || 1];
+  const h = w * nh / nw;
+  img.style.width = w + 'px'; img.style.height = h + 'px'; img.style.left = (x - w / 2) + 'px'; img.style.top = (y - h) + 'px';
+  img.style.transform = `rotate(${rot}deg) scale(${sx}, ${sy})`; img.style.opacity = String(alpha);
+  return img;
+}
+// the nest with something sitting in it: back of the nest, the occupant, then the front rim on top
+const NEST = { w: 457, h: 255, cx: 228, seat: 150 };
+async function nest(t, key, { x = 540, y = 1520, w = 600, egg = null, eggRot = 0, eggSq = 1, eggScale = 1, eggGlow = 0, occupant = null, night = 0 }) {
+  const k = w / NEST.w; const top = y - NEST.h * k; const seatY = top + NEST.seat * k;
+  const nb = await prop(key + '-back', 'wl4/nest.webp', { x, y, w, nat: [NEST.w, NEST.h] });
+  if (egg) {
+    const e = await prop(key + '-egg', `wl4/egg/${egg}.webp`, { x, y: seatY + 34 * k, w: 0.62 * w * eggScale, rot: eggRot, sx: 1 / eggSq, sy: eggSq, nat: [520, 640] });
+    e.style.filter = eggGlow > 0 ? `brightness(${1 + 0.45 * eggGlow}) drop-shadow(0 0 ${40 * eggGlow}px rgba(255,214,110,0.95))` : night ? `brightness(${1 - 0.42 * night})` : '';
+  } else { const L2 = L['prop-' + key + '-egg']; if (L2) L2.style.display = 'none'; }
+  if (occupant) await occupant(seatY + 8 * k);
+  const nf = await prop(key + '-front', 'wl4/nest_front.webp', { x, y, w, nat: [NEST.w, NEST.h] });
+  // keep the draw order: back, egg, occupant, front
+  const host = $('#layers');
+  host.appendChild(L['prop-' + key + '-back']);
+  if (L['prop-' + key + '-egg']) host.appendChild(L['prop-' + key + '-egg']);
+  for (const id of USED) if (id.startsWith('pet-nest')) host.appendChild(L[id]);
+  host.appendChild(L['prop-' + key + '-front']);
+  nb.style.filter = nf.style.filter = night ? `brightness(${1 - 0.42 * night})` : '';
+  return seatY;
+}
+// motion around an evolution: walking before, one big hop right after, walking again from `walkAgain`
+function moveAfterEvo(t, st, evo, at, walkAgain) {
+  if (!evo || t >= walkAgain) return { dy: st.dy, sq: st.sq, rot: st.rot };
+  const hp = hopAt(t, at + 0.08, 0.5, 90); return { dy: hp.dy, sq: hp.sq, rot: 0 };
+}
+const wobble = (t, every = 1.1, ph = 0, amp = 7) => { const k = ((t + ph) % every) / 0.5; return k < 1 ? amp * Math.sin(k * Math.PI * 3) * (1 - k) : 0; };
+
+// ================================================================== v6: the recipe
+// Result first (something viewers haven't seen) -> before -> one mechanic -> proof in motion ->
+// one human line -> a one-word question that loops back into frame 0. Captions <= 7 words.
+CLIPS.village = { dir: '../rd/clips/village', n: 1310 };
+const CROWN = { s02: 'wl/crown/s02_crowned.webp', s03: 'wl/crown/s03_crowned.webp' };
+
+// the Elder spinning in on parchment (the v3 opener that kept 30% of viewers), landing in its crown
+async function elderSpin(t, key, { t0 = 0, spin = 1.8, x = 540, y = 1310, h = 700, sc = 1.15, label = 'Mochi · Elder · level 25' } = {}) {
+  const el = layer(key, `<img class="sprite" alt=""><div class="label gold" style="left:${x}px;top:${y + 80}px">${label}</div>`);
+  const img = el.querySelector('img');
+  const a = t - t0;
+  if (a < spin) {
+    const k = Math.floor((a / spin) * TURN.n) % TURN.n;
+    await setSrc(img, `wl3/turn3/ocean/y${String(k).padStart(2, '0')}.webp`);
+    placeTurn(img, k, x, y, TURN_H() * sc * (0.001 + 0.999 * pop(a + 0.3, 0.35)), 1 + bob(t, 0, 0.01), 0);
+  } else {
+    await setSrc(img, CROWN.s03);
+    const hop = hopAt(a, spin, 0.45, 70);
+    placeSprite(img, 's03', x, y, lerp(TURN_H() * sc * 622 / TURN.h, h, easeOut((a - spin) / 0.4)), hop.sq * (1 + bob(t, 0, 0.01)), hop.dy);
+  }
+  el.querySelector('.label').style.opacity = String(clamp((a - 0.2) / 0.25, 0, 1));
+}
+
+// the crowned Elder standing on parchment (the loop-back frame)
+async function elderStand(t, key, t0, { x = 540, y = 1310, h = 700 } = {}) {
+  const el = layer(key, `<img class="sprite" alt=""><div class="label gold" style="left:${x}px;top:${y + 80}px">Mochi · Elder · level 25</div>`);
+  const img = el.querySelector('img'); await setSrc(img, CROWN.s03);
+  const hop = hops(t, [t0 + 0.15, t0 + 1.25], 0.45, 60);
+  placeSprite(img, 's03', x, y, h * pop(t - t0 + 0.12, 0.3), hop.sq * (1 + bob(t, 0, 0.01)), hop.dy);
+}
+
+// ================================================================== v7: the encounters (v6 recipe)
+// Result first -> before -> one mechanic -> proof in motion (real encounter footage) -> one human line
+// -> a one-word question that loops back into frame 0. Captions <= 7 words. Mochi is the Ocean Juvenile.
+// New cinematics: three Blender plates (the trail up to the ruins, the gate at dusk with the dormant
+// Sentinel in it, the same gate restored at night) and a composed battle shot; the encounter footage is
+// recorded frame-exactly by enc_record.mjs (1080 px wide, with log.json for the action times).
+const PLATE = { trail: { src: 'plates/short_trail.png', w: 1296, h: 2304 }, gate: { src: 'plates/short_gate.png', w: 1296, h: 2304 }, gatelit: { src: 'plates/short_gate_lit.png', w: 1296, h: 2304 } };
+const ENC = { eq01: { dir: 'clips7/eq01', w: 1080, h: 2338 }, eq02: { dir: 'clips7/eq02', w: 1080, h: 2338 }, eq03: { dir: 'clips7/eq03', w: 1080, h: 2338 } };
+const FR = { intro: { s: 1.0, fy: 1180, ay: 960 }, play: { s: 1.0, fy: 1160, ay: 960 }, result: { s: 1.0, fy: 960, ay: 960 } };
+// the handle pill steps aside while the game's own UI is on screen
+const inAny = (t, wins) => wins.some(([a, b]) => t >= a && t < b);
+let META = null;
+async function loadMeta() {
+  if (META) return META;
+  const j = async (u) => { try { return await (await fetch(u)).json(); } catch { return null; } };
+  META = { scenes: await j('plates/scenes.json'), back: await j('v7/mochi_back_s02.json'), cr: await j('v7/creatures_battle.json'), bs: await j('v7/battle_scenes.json'), logs: {} };
+  for (const q of Object.keys(ENC)) { META.logs[q] = await j(`${ENC[q].dir}/log.json`); if (META.logs[q]) ENC[q].n = META.logs[q].frames; }
+  return META;
+}
+// the scene time of the nth event named `what` in a clip's log (e.g. 'act:lumen_glow', 'result')
+const mark = (q, what, nth = 0) => { const ev = (META.logs[q]?.events || []).filter((e) => e.what === what); return ev[Math.min(nth, ev.length - 1)]?.t ?? 0; };
+const lastMark = (q, what) => { const ev = (META.logs[q]?.events || []).filter((e) => e.what === what); return ev.length ? ev[ev.length - 1].t : 0; };
+
+const SHAKE = { x: 0, y: 0 }; // a screen shake added to the next encFrame
+function shakeClip(t, at, dur = 0.5, amp = 10) { const a = t - at; SHAKE.x = 0; SHAKE.y = 0; if (a >= 0 && a < dur) { const k = 1 - a / dur; SHAKE.x = amp * k * Math.sin(a * 83); SHAKE.y = amp * k * 0.7 * Math.sin(a * 61 + 1); } }
+// a recorded encounter frame (1080 px wide): s = extra zoom, (fx, fy) the clip point that sits at (ax, ay)
+async function encFrame(q, ct, { s = 1, fx = 540, fy = 1169, ax = 540, ay = 960, sway = 1 } = {}, t = 0, segT0 = 0) {
+  const c = ENC[q];
+  const f = clamp(Math.round(ct * FPS), 0, (c.n || 1) - 1);
+  const src = `${c.dir}/f${String(f).padStart(5, '0')}.jpg`;
+  const el = $('#clip');
+  if (clipSrc !== src) { el.src = src; clipSrc = src; await el.decode().catch(() => {}); }
+  el.style.display = 'block'; el.style.width = c.w + 'px'; el.style.height = c.h + 'px';
+  const since = t - segT0;
+  let sc = Math.max(s, 1080 / c.w);
+  if (since < 0.18) sc *= 1 + 0.03 * (1 - since / 0.18);
+  const d = { x: sway * (4 * Math.sin(t * 1.3) + 2 * Math.sin(t * 2.9 + 1)), y: sway * (4 * Math.sin(t * 1.1 + 2) + 2 * Math.sin(t * 2.3)) };
+  const left = clamp(ax - fx * sc + d.x, 1080 - c.w * sc, 0), top = clamp(ay - fy * sc + d.y, 1920 - c.h * sc, 0);
+  el.style.transform = `translate(${left + SHAKE.x}px, ${top + SHAKE.y}px) scale(${sc})`;
+  return { s: sc, left, top };
+}
+// a Blender plate as a camera: s = scale (1080/1296 fills the width), (cx, cy) the plate point (0..1) at the frame's centre
+async function plate(key, name, { s = 1080 / 1296, cx = 0.5, cy = 0.5, filter = '', alpha = 1, z = 0 } = {}) {
+  const P = PLATE[name];
+  const el = layer('plate-' + key, '<img alt="" style="position:absolute;max-width:none;transform-origin:0 0">');
+  el.style.zIndex = String(z);
+  const img = el.querySelector('img'); await setSrc(img, P.src);
+  const W = P.w * s, H = P.h * s;
+  const left = clamp(540 - cx * W, 1080 - W, 0), top = clamp(960 - cy * H, 1920 - H, 0);
+  Object.assign(img.style, { left: left + 'px', top: top + 'px', width: W + 'px', height: H + 'px', filter, opacity: String(alpha) });
+  const map = (px, py) => [left + px * s, top + py * s];
+  return { left, top, s, map, anchors: META.scenes?.[name.replace('gatelit', 'gate_lit').replace(/^/, 'short_')]?.anchors || {} };
+}
+// Mochi seen from behind (the battle view), placed by his ground anchor
+async function backPet(key, { ex = 'default', x = 540, y = 1500, h = 420, dy = 0, sq = 1, rot = 0, alpha = 1, night = 0, shadow = 1, z = 2 } = {}) {
+  const B = META.back; const k = h / B.h;
+  const el = layer('back-' + key, '<div class="gshadow"></div><img class="sprite" alt="">');
+  el.style.zIndex = String(z);
+  const img = el.querySelector('img'); await setSrc(img, `v7/mochi_back_s02_${ex}.png`);
+  img.style.width = B.w * k + 'px'; img.style.height = B.h * k + 'px';
+  img.style.left = (x - B.anchors.ground[0] * k) + 'px'; img.style.top = (y - B.anchors.ground[1] * k) + 'px';
+  img.style.transformOrigin = `${B.anchors.ground[0] * k}px ${B.anchors.ground[1] * k}px`;
+  img.style.transform = `translateY(${dy}px) rotate(${rot}deg) scale(${1 / sq}, ${sq})`;
+  img.style.opacity = String(alpha); img.style.filter = night > 0 ? `brightness(${1 - 0.38 * night})` : '';
+  const sh = el.querySelector('.gshadow'); const bw = B.w * k * 0.62;
+  sh.style.display = shadow ? 'block' : 'none'; sh.style.width = bw + 'px'; sh.style.height = bw * 0.18 + 'px'; sh.style.left = x + 'px'; sh.style.top = (y + 4) + 'px'; sh.style.opacity = String(0.9 * alpha);
+  return img;
+}
+// a creature sprite placed by its ground anchor (sprite px), optionally mirrored
+async function creature(key, src, nat, { x = 540, y = 1500, h = 400, flip = false, dy = 0, sq = 1, rot = 0, alpha = 1, filter = '', shadow = 1, z = 2 } = {}) {
+  const k = h / nat.h;
+  const el = layer('cre-' + key, '<div class="gshadow"></div><img class="sprite" alt="">');
+  el.style.zIndex = String(z);
+  const img = el.querySelector('img'); await setSrc(img, src);
+  const gx = flip ? nat.w - nat.gx : nat.gx;
+  img.style.width = nat.w * k + 'px'; img.style.height = nat.h * k + 'px';
+  img.style.left = (x - gx * k) + 'px'; img.style.top = (y - nat.gy * k) + 'px';
+  img.style.transformOrigin = `${gx * k}px ${nat.gy * k}px`;
+  img.style.transform = `translateY(${dy}px) rotate(${rot}deg) scale(${(flip ? -1 : 1) / sq}, ${sq})`;
+  img.style.opacity = String(alpha); img.style.filter = filter;
+  const sh = el.querySelector('.gshadow'); const bw = nat.w * k * 0.6;
+  sh.style.display = shadow ? 'block' : 'none'; sh.style.width = bw + 'px'; sh.style.height = bw * 0.18 + 'px'; sh.style.left = x + 'px'; sh.style.top = (y + 4) + 'px'; sh.style.opacity = String(0.85 * alpha);
+  return img;
+}
+const crNat = (id) => { const c = META.cr[id]; return { w: c.w, h: c.h, gx: c.anchors.ground[0], gy: c.anchors.ground[1], top: c.anchors.top[1] }; };
+// Petalune and the restored Sprout as they stand in the game (the battle views face left; flipped they face right)
+const PET_SRC = { petalune_happy: 'v7/creature_petalune_happy_battle.webp', petalune_wary: 'v7/creature_petalune_wary_battle.webp', sprout_restored: 'v7/creature_hollow_sprout_restored_battle.webp', sprout_hollow: 'v7/creature_hollow_sprout_hollow_battle.webp' };
+
+// the Sentinel's eyes lighting: two soft glows at the plate's eye anchors, k = 0..1
+function eyes(pl, kl, kr, size = 150) {
+  const host = $('#fx');
+  for (const [key, k] of [['eye_l', kl], ['eye_r', kr]]) {
+    if (k <= 0) continue;
+    const [x, y] = pl.map(...pl.anchors[key]);
+    for (const [mul, op] of [[1.0, 0.95], [2.2, 0.45], [4.2, 0.18]]) {
+      const d = document.createElement('div'); const sz = size * pl.s * mul * (0.75 + 0.25 * k);
+      d.style.cssText = `left:${x - sz / 2}px;top:${y - sz / 2}px;width:${sz}px;height:${sz}px;border-radius:50%;opacity:${op * k};mix-blend-mode:screen;background:radial-gradient(closest-side,#FFFFFF 0 ${mul === 1 ? 24 : 6}%,#E9DCFF ${mul === 1 ? 44 : 26}%,rgba(190,150,255,0.75) ${mul === 1 ? 64 : 52}%,rgba(170,120,255,0))`;
+      host.appendChild(d);
+    }
+  }
+}
+// pink petals drifting down across the frame
+function petals(t, n = 10, k = 1) {
+  const host = $('#fx');
+  for (let i = 0; i < n; i++) {
+    const sp = 110 + rnd(i, 61) * 90, ph = rnd(i, 62) * 2100, x0 = 40 + rnd(i, 63) * 1000;
+    const y = ((t * sp + ph) % 2100) - 120; const x = x0 + 90 * Math.sin(t * 1.1 + i);
+    const d = document.createElement('div'); const w = 26 + rnd(i, 64) * 16;
+    d.style.cssText = `left:${x}px;top:${y}px;width:${w}px;height:${w * 0.72}px;border-radius:60% 60% 60% 60% / 80% 80% 40% 40%;background:linear-gradient(#FBC6D1,#F5A3B5);opacity:${0.92 * k};transform:rotate(${t * 140 * (rnd(i, 65) - 0.5) * 2 + i * 40}deg) scaleX(${0.6 + 0.4 * Math.sin(t * 3 + i)})`;
+    host.appendChild(d);
+  }
+}
+// dust shaken loose, falling across the frame
+function dust(t, k, n = 22) {
+  if (k <= 0) return;
+  const host = $('#fx');
+  for (let i = 0; i < n; i++) {
+    const sp = 420 + rnd(i, 51) * 380, ph = rnd(i, 52) * 2100;
+    const y = ((t * sp + ph) % 2100) - 120; const x = 40 + rnd(i, 53) * 1000 + 24 * Math.sin(t * 2 + i);
+    const d = document.createElement('div'); const sz = 5 + rnd(i, 54) * 7;
+    d.style.cssText = `left:${x}px;top:${y}px;width:${sz}px;height:${sz * 0.8}px;border-radius:2px;background:#D9CDB4;opacity:${k * (0.55 + 0.45 * rnd(i, 55))};box-shadow:0 0 3px rgba(0,0,0,0.35);transform:rotate(${t * 200 * (rnd(i, 56) - 0.5)}deg)`;
+    host.appendChild(d);
+  }
+}
+// screen shake for the whole stage (the plate layers only)
+function quake(t, at, dur = 0.5, amp = 10, els = ['#layers', '#fx']) {
+  const a = t - at; let dx = 0, dy = 0;
+  if (a >= 0 && a < dur) { const k = 1 - a / dur; dx = amp * k * Math.sin(a * 83) ; dy = amp * k * 0.7 * Math.sin(a * 61 + 1); }
+  for (const s of els) $(s).style.transform = dx || dy ? `translate(${dx}px, ${dy}px)` : '';
+}
+function tremble(t, on, amp = 2.5) {
+  for (const s of ['#layers', '#fx']) $(s).style.transform = on ? `translate(${amp * Math.sin(t * 71)}px, ${amp * 0.7 * Math.sin(t * 53 + 1)}px)` : '';
+}
+// a soft violet / mint pulse at a plate point
+function glowAt(x, y, size, k, col = '170,120,255') {
+  if (k <= 0) return; const host = $('#fx');
+  const d = document.createElement('div');
+  d.style.cssText = `left:${x - size / 2}px;top:${y - size / 2}px;width:${size}px;height:${size}px;border-radius:50%;opacity:${k};mix-blend-mode:screen;background:radial-gradient(closest-side,rgba(${col},0.75),rgba(${col},0))`;
+  host.appendChild(d);
+}
+// numbered option pills (the question's answers), popping in one after another
+function options(key, t, t0, items, { y = 1430 } = {}) {
+  const el = layer('opts-' + key, '<div class="opts">' + items.map((it, i) => `<div class="opt"><span class="n">${i + 1}</span>${it.img ? `<img src="${it.img}" alt="">` : ''}<b>${it.label}</b></div>`).join('') + '</div>');
+  const row = el.querySelector('.opts'); row.style.top = y + 'px';
+  el.querySelectorAll('.opt').forEach((o, i) => { const p = pop(t - t0 - i * 0.14, 0.4); o.style.transform = `scale(${p}) rotate(${(i - (items.length - 1) / 2) * 2.5}deg)`; o.style.opacity = String(clamp(p * 2, 0, 1)); });
+  $('#layers').appendChild(el);
+}
+// the Trail Guild job card dropping in
+function jobcard(key, t, t0, { y = 760 } = {}) {
+  const el = layer('job-' + key, `<div class="job"><img src="v7/trail_badge.webp" alt=""><div><small>TRAIL GUILD JOB</small><b>The Forest Guardian</b><span>1,500 steps to the Mossy Ruins</span></div></div>`);
+  const c = el.querySelector('.job'); const p = pop(t - t0, 0.45);
+  c.style.top = (y - (1 - clamp((t - t0) / 0.45, 0, 1)) * 120) + 'px'; c.style.transform = `translateX(-50%) scale(${0.6 + 0.4 * p}) rotate(-2deg)`; c.style.opacity = String(clamp((t - t0) / 0.15, 0, 1));
+}
+// a warm / violet grade over the shot
+function grade(key, css, alpha = 1) {
+  const el = layer('grade-' + key, `<div style="position:absolute;inset:0;pointer-events:none;${css}"></div>`);
+  el.style.zIndex = '4'; el.firstElementChild.style.opacity = String(alpha);
+}
+
+// ---- shared shots -------------------------------------------------------------------------------------
+// Petalune at Mochi's nest (frame 0 of "watch" and "week2"): Mochi in the nest, Petalune on the grass beside it
+async function nestFriend(t, { night = 0, t0 = 0, hopsAt = [], petEx = 'happy', fire = true } = {}) {
+  const w = world(t, { sc: 1.9, cx: 0.52, gy: 1560, night });
+  const hp = hops(t, hopsAt, 0.45, 60);
+  await nest(t, 'nf', { x: 720, y: w.gy + 40, w: 600, night, occupant: async (seat) => {
+    await pet('nest-f', { id: 's02', ex: blink(t, 0.3) ? 'blink' : petEx, x: 720, y: seat + 6, h: 470 * pop(t - t0 + 0.4, 0.3), dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.012)), shadow: 0, night: night * 0.6 });
+  } });
+  const ph = hops(t, hopsAt.map((x) => x + 0.25), 0.45, 50);
+  await creature('petalune', PET_SRC.petalune_happy, crNat('petalune'), { x: 250, y: w.gy + 30, h: 400 * pop(t - t0 + 0.3, 0.3), flip: true, dy: ph.dy, sq: ph.sq * (1 + bob(t, 0.5, 0.012)), filter: night > 0 ? `brightness(${1 - 0.38 * night})` : '' });
+  if (fire) fireflies(t, night, 14);
+  return w;
+}
+// Mochi walking up a plate's path, away from the camera (the back view), between two plate points
+async function walkUp(t, pl, key, { from, to, hFrom, hTo, k, night = 0, ex = 'default', rate = 2.3 }) {
+  const st = walk(t, rate, 20);
+  const [x, y] = pl.map(lerp(from[0], to[0], k), lerp(from[1], to[1], k));
+  const h = lerp(hFrom, hTo, k) * pl.s;
+  await backPet(key, { ex, x, y, h, dy: st.dy * (h / 420), sq: st.sq, rot: st.rot * 0.5, night });
+  return { x, y, h };
+}
+// the composed battle shot: the ruins backdrop, the (restored) Sprout facing Mochi, Mochi from behind
+async function battleShot(t, { wild = 'sprout_restored', petEx = 'excited', hopsAt = [], warm = 1, s = 1.46, cy = 0.6 } = {}) {
+  const B = META.bs.mossy_ruins;
+  const el = layer('bs', '<img class="bg" alt="" style="position:absolute;max-width:none"><img class="fg" alt="" style="position:absolute;max-width:none;filter:blur(1px)">');
+  const bg = el.querySelector('.bg'), fg = el.querySelector('.fg');
+  await setSrc(bg, 'v7/mossy_ruins_battle.webp'); await setSrc(fg, 'v7/mossy_ruins_battle_fg.webp');
+  const W = B.w * s, H = B.h * s; const left = clamp(540 - 0.5 * W, 1080 - W, 0), top = clamp(960 - cy * H, 1920 - H, 0);
+  for (const im of [bg, fg]) Object.assign(im.style, { left: left + 'px', top: top + 'px', width: W + 'px', height: H + 'px' });
+  fg.style.zIndex = '5';
+  const A = B.anchors; const wx = left + A.wild[0] * s, wy = top + A.wild[1] * s; const wh = (A.wild[1] - A.wild_top[1]) * s;
+  const nat = crNat('hollow_sprout'); const designH = wh * 0.95;
+  const hw = hops(t, hopsAt, 0.5, 50);
+  await creature('bs-wild', PET_SRC[wild], nat, { x: wx, y: wy, h: designH, dy: hw.dy, sq: hw.sq * (1 + bob(t, 0.3, 0.012)), z: 3 });
+  const px = Math.max(330, left + A.pet[0] * s + 60), py = top + (A.pet[1] - 0.075 * B.h) * s;
+  const hp = hops(t, hopsAt.map((x) => x + 0.2), 0.45, 55);
+  await backPet('bs-pet', { ex: petEx, x: px, y: py, h: 0.44 * W * META.back.h / META.back.w, dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.012)), z: 3 });
+  grade('bs', 'background:radial-gradient(ellipse at 60% 45%, rgba(255,214,120,0.28), rgba(255,180,80,0) 55%), linear-gradient(rgba(255,200,120,0.12), rgba(120,70,20,0.22))', warm);
+  return { wx, wy, px, py };
+}
+
+// ---- 1. "watch": she followed us home -> the trail -> something watching -> you don't fight it -> the snack -> trust -> tart, stew or bun?
+CUTS.watch = {
+  TOTAL: 17.0, handle: true, handleFn: (t) => !inAny(t, [[5.0, 14.4]]),
+  CAPS: [
+    { t0: -0.5, t1: 2.6, cls: 'huge', y: 250, html: 'she <span class="g">followed</span><br>us home.' },
+    { t0: 2.6, t1: 5.0, cls: 'big', y: 250, html: 'the trail ended<br>at <span class="g">old ruins</span>' },
+    { t0: 5.0, t1: 7.2, cls: 'big', y: 250, html: 'something was<br><span class="g">watching</span> us' },
+    { t0: 7.2, t1: 9.6, cls: 'big', y: 250, html: "you don't<br><span class=\"g\">fight</span> it." },
+    { t0: 9.6, t1: 12.0, cls: 'big', y: 250, html: 'it has a<br><span class="g">favourite snack</span>.' },
+    { t0: 12.0, t1: 14.4, cls: 'big', y: 250, html: 'and then<br>she <span class="g">trusted</span> us.' },
+    { t0: 14.4, t1: 17.0, cls: 'big', y: 250, html: '<span class="g">tart</span>, stew or bun?' },
+  ],
+  async draw(t) {
+    if (t < 2.6) {
+      await nestFriend(t, { night: 0.45, t0: -0.3, hopsAt: [0.6, 1.9] });
+      hearts(t, 1.0, 420, 1180, 4);
+    } else if (t < 5.0) {
+      const k = (t - 2.6) / 2.4;
+      const pl = await plate('tr', 'trail', { s: 0.90 + 0.06 * k, cx: 0.5, cy: 0.62 - 0.05 * k });
+      await walkUp(t, pl, 'tr', { from: [700, 2130], to: [640, 1800], hFrom: 560, hTo: 360, k: easeOut(k * 1.05) });
+      hud('tr', { y: 640, steps: lerp(1420, 1500, clamp(k * 1.6, 0, 1)), goal: 1500 });
+      petals(t, 10);
+    } else if (t < 7.2) {
+      await encFrame('eq01', 0.25 + (t - 5.0), FR.intro, t, 5.0);
+    } else if (t < 9.6) {
+      await encFrame('eq01', mark('eq01', 'act:lumen_glow', 0) - 0.1 + (t - 7.2), FR.play, t, 7.2);
+    } else if (t < 12.0) {
+      await encFrame('eq01', mark('eq01', 'act:item:sunberry_tart') + 0.05 + (t - 9.6), FR.play, t, 9.6);
+    } else if (t < 13.5) {
+      await encFrame('eq01', lastMark('eq01', 'act:lumen_glow') + 0.55 + (t - 12.0), FR.play, t, 12.0);
+    } else if (t < 14.4) {
+      await encFrame('eq01', mark('eq01', 'result') + 0.5 + (t - 13.5), FR.result, t, 13.5);
+    } else {
+      await nestFriend(t, { night: 0.45, t0: 14.4, hopsAt: [14.6, 16.2] });
+      options('w', t, 14.9, [{ label: 'tart', img: 'v7/sunberry_tart.webp' }, { label: 'stew', img: 'v7/carrot_stew.webp' }, { label: 'bun', img: 'v7/golden_bun.webp' }], { y: 940 });
+    }
+  },
+};
+
+// ---- 2. "hurt": nobody gets hurt -> he just gets tired -> he sits down -> a sprout that forgot the sun -> bring it back -> nobody loses -> your name for Soothe?
+CUTS.hurt = {
+  TOTAL: 17.5, handle: true, handleFn: (t) => !inAny(t, [[2.4, 14.8]]),
+  CAPS: [
+    { t0: -0.5, t1: 2.4, cls: 'huge', y: 250, html: 'nobody gets <span class="g">hurt</span><br>in my battles.' },
+    { t0: 2.4, t1: 4.8, cls: 'big', y: 250, html: 'he just<br>gets <span class="g">tired</span>.' },
+    { t0: 4.8, t1: 7.6, cls: 'big', y: 250, html: 'so he <span class="g">sits down</span><br>for a bit.' },
+    { t0: 7.6, t1: 10.4, cls: 'big', y: 250, html: "it's a sprout that<br><span class=\"g\">forgot the sun</span>." },
+    { t0: 10.4, t1: 13.2, cls: 'big', y: 250, html: 'so you<br><span class="g">bring it back</span>.' },
+    { t0: 13.2, t1: 14.8, cls: 'big', y: 250, html: 'nobody faints.<br>nobody <span class="g">loses</span>.' },
+    { t0: 14.8, t1: 17.5, cls: 'big', y: 250, html: "it's called <span class=\"g\">Soothe</span>.<br>your name for it?" },
+  ],
+  async draw(t) {
+    if (t < 2.4) {
+      const b = await battleShot(t, { hopsAt: [0.5, 1.7] });
+      hearts(t, 0.8, b.wx, b.wy - 320, 5);
+      sparks(t, 0.1, b.wx, b.wy - 260, 16);
+    } else if (t < 4.8) {
+      await encFrame('eq02', mark('eq02', 'act:lumen_glow', 0) + 1.35 + (t - 2.4), FR.play, t, 2.4);
+    } else if (t < 7.6) {
+      await encFrame('eq02', mark('eq02', 'act:soothe', 0) - 0.05 + (t - 4.8), FR.play, t, 4.8);
+    } else if (t < 10.4) {
+      await encFrame('eq02', mark('eq02', 'act:lumen_glow', 1) + 0.15 + (t - 7.6), FR.play, t, 7.6);
+    } else if (t < 11.8) {
+      await encFrame('eq02', mark('eq02', 'act:petal_hush') + 0.05 + (t - 10.4), FR.play, t, 10.4);
+    } else if (t < 13.2) {
+      await encFrame('eq02', lastMark('eq02', 'act:lumen_glow') + 0.6 + (t - 11.8), FR.play, t, 11.8);
+    } else if (t < 14.8) {
+      await encFrame('eq02', mark('eq02', 'result') + 0.45 + (t - 13.2), FR.result, t, 13.2);
+    } else {
+      const b = await battleShot(t, { hopsAt: [15.0, 16.4] });
+      hearts(t, 15.2, b.wx, b.wy - 320, 4);
+    }
+  },
+};
+
+// ---- 3. "gate": I woke something up -> asleep in the gate -> a long time -> it remembers you -> a guardian that forgot -> help it remember -> what was it guarding?
+CUTS.gate = {
+  TOTAL: 18.0, handle: true, handleFn: (t) => !inAny(t, [[8.6, 15.6]]),
+  CAPS: [
+    { t0: -0.5, t1: 2.4, cls: 'huge', y: 250, html: 'I <span class="g">woke</span><br>something up.' },
+    { t0: 2.4, t1: 5.0, cls: 'big', y: 250, html: 'it was asleep<br>in the <span class="g">old gate</span>' },
+    { t0: 5.0, t1: 8.6, cls: 'big', y: 250, html: 'for a very<br><span class="g">long time</span>.' },
+    { t0: 8.6, t1: 10.6, cls: 'huge', y: 250, html: 'and it<br><span class="g">remembers</span> you.' },
+    { t0: 10.6, t1: 13.4, cls: 'big', y: 250, html: 'a guardian that<br><span class="g">forgot its light</span>.' },
+    { t0: 13.4, t1: 15.6, cls: 'big', y: 250, html: 'so you help it<br><span class="g">remember</span>.' },
+    { t0: 15.6, t1: 18.0, cls: 'big', y: 250, html: 'what was it<br><span class="g">guarding</span>?' },
+  ],
+  async draw(t) {
+    if (t < 2.4 || t >= 15.6) {
+      const t0 = t < 2.4 ? -0.3 : 15.6; const a = t - t0;
+      const pl = await plate('gl', 'gatelit', { s: 0.93 + 0.03 * clamp(a / 2.6, 0, 1), cx: 0.5, cy: 0.56 });
+      const [sx, sy] = pl.map(...pl.anchors.chest);
+      glowAt(sx, sy, 520 * pl.s, 0.35 + 0.15 * Math.sin(t * 2.2), '120,255,200');
+      for (const e of ['eye_l', 'eye_r']) { const [x, y] = pl.map(...pl.anchors[e]); glowAt(x, y, 150 * pl.s, 0.55 + 0.2 * Math.sin(t * 2.2 + 1), '170,255,220'); }
+      motes(t, sx, sy + 200, 0.5, 14);
+      const hp = hops(t, [t0 + 0.5, t0 + 1.9], 0.45, 50);
+      const [mx, my] = pl.map(640, 2080);
+      await backPet('gl', { ex: 'default', x: mx, y: my, h: 330 * pl.s, dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.012)), night: 0.3 });
+    } else if (t < 5.0) {
+      const k = (t - 2.4) / 2.6;
+      const pl = await plate('g', 'gate', { s: 0.90 + 0.05 * k, cx: 0.5, cy: 0.60 - 0.04 * k });
+      await walkUp(t, pl, 'g', { from: [690, 2190], to: [650, 1930], hFrom: 380, hTo: 290, k: easeOut(k * 1.02), night: 0.25 });
+    } else if (t < 8.6) {
+      const k = (t - 5.0) / 3.6;
+      const pl = await plate('g', 'gate', { s: 0.95 + 0.42 * ease(k), cx: 0.5, cy: 0.60 - 0.27 * ease(k) });
+      const [mx, my] = pl.map(650, 1930);
+      if (k < 0.55) await backPet('g', { ex: 'default', x: mx, y: my, h: 290 * pl.s, sq: 1 + bob(t, 0, 0.01), night: 0.25, alpha: clamp(1 - (k - 0.4) / 0.15, 0, 1) });
+      // the rumble: a tremble from 5.4, dust, then the eyes
+      const on = t >= 5.4;
+      tremble(t, on, 2.2 + 2.0 * clamp((t - 5.4) / 3, 0, 1));
+      dust(t, clamp((t - 5.6) / 0.6, 0, 1) * 0.9, 24);
+      const kl = clamp((t - 6.0) / 1.3, 0, 1), kr = clamp((t - 6.9) / 1.1, 0, 1);
+      eyes(pl, kl, kr, 150);
+      if (t >= 8.2) { const [sx, sy] = pl.map(...pl.anchors.chest); glowAt(sx, sy - 100 * pl.s, 700 * pl.s, clamp((t - 8.2) / 0.4, 0, 1) * 0.5); }
+      grade('dark', 'background:radial-gradient(ellipse at 50% 32%, rgba(20,10,36,0.05), rgba(8,4,16,0.6) 75%)', 1 - 0.7 * k);
+      if (t >= 5.4 && t < 5.55) flash(t, 5.4, 0.12);
+    } else if (t < 10.6) {
+      tremble(t, false);
+      shakeClip(t, 8.6 + 0.13, 0.7, 14);
+      await encFrame('eq03', 3.72 + (t - 8.6), FR.intro, t, 8.6);
+      SHAKE.x = SHAKE.y = 0;
+    } else if (t < 11.9) {
+      await encFrame('eq03', mark('eq03', 'act:item:lantern_tonic') - 0.05 + (t - 10.6), FR.play, t, 10.6);
+    } else if (t < 13.4) {
+      await encFrame('eq03', mark('eq03', 'act:lumen_glow', 1) + 0.55 + (t - 11.9), FR.play, t, 11.9);
+    } else if (t < 14.6) {
+      await encFrame('eq03', lastMark('eq03', 'act:lumen_glow') + 0.6 + (t - 13.4), FR.play, t, 13.4);
+    } else {
+      await encFrame('eq03', mark('eq03', 'result') + 0.45 + (t - 14.6), FR.result, t, 14.6);
+    }
+  },
+};
+
+// ---- 4. "week2": Mochi's Walk, week 2 (the series): he made a friend -> Juvenile -> the Guild job -> the ruins -> the ruins found us -> the tart -> week 3: should he go?
+const W2DAY = (t) => (t < 2.6 ? 14 : t < 5.0 ? 8 : t < 7.4 ? 9 : t < 12.2 ? 11 : t < 14.8 ? 12 : 14);
+CUTS.week2 = {
+  TOTAL: 17.5, handle: true, handleFn: (t) => !inAny(t, [[9.8, 14.8]]), stampFn: (t) => (inAny(t, [[9.8, 14.8]]) ? null : `WEEK 2 · DAY ${W2DAY(t)}`),
+  CAPS: [
+    { t0: -0.5, t1: 2.6, cls: 'huge', y: 250, html: 'week 2:<br>he made a <span class="g">friend</span>.' },
+    { t0: 2.6, t1: 5.0, cls: 'big', y: 250, html: "he's a <span class=\"g\">Juvenile</span> now.<br>he walks further." },
+    { t0: 5.0, t1: 7.4, cls: 'big', y: 250, html: 'the Guild had<br>a <span class="g">job</span> for us' },
+    { t0: 7.4, t1: 9.8, cls: 'big', y: 250, html: 'day 11:<br>we found the <span class="g">ruins</span>' },
+    { t0: 9.8, t1: 12.2, cls: 'big', y: 250, html: 'and the ruins<br>found <span class="g">us</span>.' },
+    { t0: 12.2, t1: 14.8, cls: 'big', y: 250, html: 'day 12:<br>she liked the <span class="g">tart</span>.' },
+    { t0: 14.8, t1: 17.5, cls: 'big', y: 250, html: 'week 3: the gate.<br>should he <span class="g">go</span>?' },
+  ],
+  async draw(t) {
+    if (t < 2.6) {
+      await nestFriend(t, { night: 0, t0: -0.3, hopsAt: [0.6, 1.9], fire: false });
+      hearts(t, 1.0, 420, 1180, 4);
+    } else if (t < 7.4) {
+      const w = world(t, { sc: 1.5, cx: 0.26 + (t - 2.6) * 0.03 });
+      const st = walk(t, 2.4, 26);
+      await pet('wk', { id: 's02', ex: blink(t, 0.5) ? 'blink' : 'happy', x: 500, y: w.gy, h: 560, flip: true, dy: st.dy, sq: st.sq, rot: st.rot });
+      if (t < 5.0) {
+        const steps = lerp(5200, 8900, clamp((t - 2.6) / 2.1, 0, 1));
+        hud('wk', { y: 640, steps, goal: 7000 });
+        xpchip(t, 3.3, 700, 1000, '+15 XP'); xpchip(t, 4.1, 620, 980, 'Lv 11');
+      } else {
+        jobcard('wk', t, 5.1, { y: 640 });
+        hud('wk', { y: 900, steps: lerp(0, 1500, clamp((t - 5.6) / 1.5, 0, 1)), goal: 1500, appear: pop(t - 5.5, 0.3) });
+      }
+    } else if (t < 9.8) {
+      const k = (t - 7.4) / 2.4;
+      const pl = await plate('tr', 'trail', { s: 0.90 + 0.06 * k, cx: 0.5, cy: 0.62 - 0.05 * k });
+      await walkUp(t, pl, 'tr', { from: [700, 2130], to: [640, 1800], hFrom: 560, hTo: 360, k: easeOut(k * 1.05) });
+      petals(t, 10);
+    } else if (t < 11.0) {
+      await encFrame('eq01', 0.3 + (t - 9.8), FR.intro, t, 9.8);
+    } else if (t < 12.2) {
+      await encFrame('eq01', mark('eq01', 'act:gentle_nudge') + 0.95 + (t - 11.0), FR.play, t, 11.0);
+    } else if (t < 13.5) {
+      await encFrame('eq01', mark('eq01', 'act:item:sunberry_tart') + 0.05 + (t - 12.2), FR.play, t, 12.2);
+    } else if (t < 14.8) {
+      await encFrame('eq01', mark('eq01', 'result') + 0.4 + (t - 13.5), FR.result, t, 13.5);
+    } else {
+      await nestFriend(t, { night: 0, t0: 14.8, hopsAt: [15.0, 16.6], fire: false });
+      options('yn', t, 15.3, [{ label: 'yes' }, { label: 'no' }], { y: 980 });
+    }
+  },
+};
+const CUT = CUTS[new URLSearchParams(location.search).get('cut') || 'watch'];
+window.__total = CUT.TOTAL;
+window.seek = async function (t) {
+  if (!TURN) TURN = await (await fetch('wl3/turn3/meta.json')).json();
+  await loadMeta();
+  t = Math.min(t, CUT.TOTAL - 0.001); t0g = t;
+  resetStage();
+  await CUT.draw(t);
+  showOnly(USED);
+  pills(t, { handle: CUT.handleFn ? CUT.handleFn(t) : CUT.handle, stamp: CUT.stampFn ? CUT.stampFn(t) : null });
+  captions(t, CUT.CAPS);
+  return true;
+};
+</script>
+</body>
+</html>

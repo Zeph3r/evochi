@@ -1,0 +1,16 @@
+"She followed us home" (the first encounter: Petalune, befriended)
+Length: 17 s. Ending: question with three numbered answers ("tart, stew or bun?"). Post: Sat 11:00.
+
+Why this video exists:
+Result first: frame 0 is Petalune asleep beside Mochi's nest at dusk, which nobody has seen. Then the trail up to the ruins (a new cinematic), the game's own intro ("something was watching us"), the one mechanic in six words ("you don't fight it"), the snack as proof, the trust as the human line, and a question with three answers that loops back into the opening frame.
+
+VOICE-OVER (optional; the captions carry the lines, so the video works muted)
+Record in a plain, warm dev-diary voice. No announcer energy. Leave the pauses in.
+
+  0.0s -   2.6s   She followed us home.
+  2.6s -   5.0s   The trail ended at some old ruins.
+  5.0s -   7.2s   Something was watching us.
+  7.2s -   9.6s   You don't fight it.
+  9.6s -  12.0s   It has a favourite snack.
+ 12.0s -  14.4s   And then she trusted us.
+ 14.4s -  17.0s   Tart, stew or bun?

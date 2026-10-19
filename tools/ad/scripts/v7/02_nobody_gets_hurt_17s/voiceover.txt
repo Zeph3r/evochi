@@ -1,0 +1,16 @@
+"Nobody gets hurt in my battles" (the design hook: the Hollow Sprout, restored)
+Length: 17.5 s. Ending: one-word question ("your name for Soothe?"). Post: Fri 12:00.
+
+Why this video exists:
+The contradiction hook. Frame 0 is the restored Sprout glowing green beside Mochi (the result), the caption says nobody gets hurt, and the next three seconds show a tendril hitting Mochi and resolve it: he just gets tired, so he sits down. The Hollow line is the lore in seven words, the restoration is the proof, "nobody faints, nobody loses" is the human line, and the question asks for one word.
+
+VOICE-OVER (optional; the captions carry the lines, so the video works muted)
+Record in a plain, warm dev-diary voice. No announcer energy. Leave the pauses in.
+
+  0.0s -   2.4s   Nobody gets hurt in my battles.
+  2.4s -   4.8s   He just gets tired.
+  4.8s -   7.6s   So he sits down for a bit.
+  7.6s -  10.4s   It's a sprout that forgot the sun.
+ 10.4s -  13.2s   So you bring it back.
+ 13.2s -  14.8s   Nobody faints. Nobody loses.
+ 14.8s -  17.5s   It's called Soothe. What would you call it?

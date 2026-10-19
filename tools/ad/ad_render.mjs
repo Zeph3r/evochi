@@ -28,8 +28,21 @@ const end = t1 ?? total;
 const first = Math.round(t0 * FPS), last = Math.round(end * FPS);
 const started = Date.now();
 for (let f = first; f < last; f += step) {
+  const out = path.join(OUT, `f${String(f).padStart(5, '0')}.png`);
+  if (process.argv.includes('--resume') && fs.existsSync(out)) continue;
   await p.evaluate((t) => window.seek(t), f / FPS);
-  await p.screenshot({ path: path.join(OUT, `f${String(f).padStart(5, '0')}.png`), type: 'png', optimizeForSpeed: true, captureBeyondViewport: false, clip: { x: 0, y: 0, width: 1080, height: 1920 } });
+  for (let attempt = 0; ; attempt++) {
+    try {
+      await p.screenshot({ path: out, type: 'png', optimizeForSpeed: true, captureBeyondViewport: false, clip: { x: 0, y: 0, width: 1080, height: 1920 } });
+      break;
+    } catch (e) {
+      // a transient capture failure under load: wait and try again
+      if (attempt >= 4) throw e;
+      console.log('retry frame', f, e.message.split('\n')[0]);
+      await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+      await p.evaluate((t) => window.seek(t), f / FPS);
+    }
+  }
   if ((f - first) % 90 === 0) console.log('frame', f, '/', last, ((Date.now() - started) / 1000).toFixed(0) + 's');
 }
 await b.close();

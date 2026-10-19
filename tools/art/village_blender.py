@@ -394,6 +394,11 @@ if __name__ == '__main__':
             VS2.SCENES.update(trail_scenes.SCENES)
         except ImportError as e:
             print('trail scenes unavailable:', e, flush=True)
+        try:
+            import shorts_scenes              # cinematic plates for the Shorts
+            VS2.SCENES.update(shorts_scenes.SCENES)
+        except ImportError as e:
+            print('shorts scenes unavailable:', e, flush=True)
         if names == ['all']:
             names = list(VS2.SCENES)
     raw_dir = raw_dir or out

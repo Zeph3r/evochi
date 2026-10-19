@@ -1,0 +1,1036 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Evochi v4: Mochi in the world, character-first hooks</title>
+<style>
+@font-face { font-family: 'Nunito'; font-weight: 900; src: url('site/fonts/nunito-latin-900-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Nunito'; font-weight: 800; src: url('site/fonts/nunito-latin-800-normal.woff2') format('woff2'); }
+@font-face { font-family: 'Lato'; font-weight: 700; src: url('site/fonts/lato-latin-700-normal.woff2') format('woff2'); }
+html, body { margin: 0; background: #000; }
+#stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #FFF9F0; font-family: 'Nunito', sans-serif; }
+#stage > * { position: absolute; left: 0; top: 0; }
+#bg { width: 1080px; height: 1920px; }
+#bg.parchment { background: radial-gradient(circle at 50% 38%, #FFF9F0 0%, #F4E2CD 70%, #EED9C2 100%); }
+#bg .grid { position: absolute; inset: 0; background-image: linear-gradient(rgba(201,167,140,0.28) 2px, transparent 2px), linear-gradient(90deg, rgba(201,167,140,0.28) 2px, transparent 2px); background-size: 72px 72px; }
+#bg .shadow { position: absolute; width: 520px; height: 90px; left: 280px; border-radius: 50%; background: radial-gradient(closest-side, rgba(90,62,40,0.32), rgba(90,62,40,0)); }
+#clip { transform-origin: 0 0; width: 780px; height: 1688px; display: none; }
+#vista { width: 1080px; height: 1920px; display: none; overflow: hidden; }
+#vista img.bg { position: absolute; transform-origin: 0 0; }
+#vista img.bg.night { opacity: 0; }
+#vista .pet { position: absolute; transform-origin: 50% 100%; }
+#vista .shade { position: absolute; inset: 0; background: linear-gradient(180deg, rgba(32,27,23,0) 40%, rgba(32,27,23,0.55) 100%); }
+#layers { width: 1080px; height: 1920px; }
+#layers .sprite { position: absolute; transform-origin: 50% 100%; }
+#layers .label { position: absolute; transform: translateX(-50%); font: 800 38px/1 'Nunito', sans-serif; color: #3B2923; background: rgba(255,249,240,0.95); border: 3px solid #E3CBB1; border-radius: 14px; padding: 12px 20px; box-shadow: 0 4px 0 #D8BD9F; white-space: nowrap; }
+#layers .label.gold { background: linear-gradient(#FFE5A2, #F9CA70); border-color: #E3A64A; color: #80531F; }
+#layers .label.pink { background: #FFF0F4; border-color: #E7A8BC; color: #8C3A55; }
+#layers .zz { position: absolute; font: 900 54px/1 'Nunito', sans-serif; color: #FFF9F0; -webkit-text-stroke: 8px #3B2923; paint-order: stroke fill; }
+#layers .ring { position: absolute; width: 700px; height: 700px; left: 190px; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,229,162,0.9), rgba(255,229,162,0)); }
+#layers .arrow { position: absolute; font: 900 70px/1 'Nunito', sans-serif; color: #C8832C; transform: translate(-50%, -50%); }
+#layers .lvl { position: absolute; left: 0; width: 1080px; text-align: center; font: 900 190px/1 'Nunito', sans-serif; color: #FFE5A2; paint-order: stroke fill; -webkit-text-stroke: 16px #3B2923; text-shadow: 0 10px 0 rgba(59,41,35,0.5); letter-spacing: -0.03em; }
+#layers .lvl small { display: block; font-size: 46px; -webkit-text-stroke: 9px #3B2923; letter-spacing: 0.08em; margin-top: 10px; color: #FFF9F0; }
+#layers .xpbar { position: absolute; left: 240px; width: 600px; height: 34px; border-radius: 999px; background: rgba(59,41,35,0.18); border: 4px solid #3B2923; overflow: hidden; }
+#layers .xpbar i { display: block; height: 100%; background: linear-gradient(90deg, #B7D98B, #82B75E); border-radius: 999px; }
+#layers .pring { position: absolute; width: 760px; height: 760px; left: 160px; border-radius: 50%; -webkit-mask: radial-gradient(circle, transparent 60%, #000 61%); }
+#layers .log { position: absolute; left: 60px; top: 700px; width: 430px; height: 720px; overflow: hidden; border-radius: 28px; background: rgba(255,249,240,0.92); border: 4px solid #E3CBB1; box-shadow: 0 6px 0 #D8BD9F; }
+#layers .log .rows { position: absolute; left: 0; right: 0; }
+#layers .log .row { height: 64px; display: flex; align-items: center; gap: 14px; padding: 0 22px; font: 700 30px/1 'Lato', sans-serif; color: #684C3C; border-bottom: 2px solid rgba(201,167,140,0.3); white-space: nowrap; }
+#layers .log .row b { font-family: 'Nunito', sans-serif; font-weight: 900; color: #3B2923; width: 72px; }
+#layers .log .row .st { margin-left: auto; color: #3B2923; }
+#layers .log .row .ok { color: #477B3A; font-family: 'Nunito', sans-serif; font-weight: 900; font-size: 34px; }
+#layers .log .row.rest { color: #8E7462; }
+#layers .log .head { position: absolute; left: 0; right: 0; top: 0; height: 70px; display: flex; align-items: center; padding: 0 22px; font: 900 32px/1 'Nunito', sans-serif; color: #3B2923; background: linear-gradient(#FFE5A2, #F9CA70); border-bottom: 4px solid #E3A64A; z-index: 2; }
+#layers .leaf { position: absolute; width: 46px; height: 46px; border-radius: 0 70% 0 70%; opacity: 0.95; box-shadow: inset 0 0 0 3px rgba(59,41,35,0.35); }
+#layers .item { position: absolute; width: 230px; height: 230px; transform-origin: 50% 50%; filter: drop-shadow(0 10px 0 rgba(59,41,35,0.25)); }
+#pills { width: 1080px; height: 1920px; pointer-events: none; }
+#pills .handle { position: absolute; left: 60px; top: 150px; font: 800 34px/1 'Nunito', sans-serif; color: #3B2923; background: rgba(255,249,240,0.95); border: 3px solid #E3CBB1; border-radius: 999px; padding: 14px 26px; box-shadow: 0 4px 0 #D8BD9F; transform-origin: 0 50%; }
+#pills .stamp { position: absolute; right: 60px; top: 146px; font: 900 32px/1 'Nunito', sans-serif; letter-spacing: 0.06em; color: #3B2923; background: linear-gradient(#FFE5A2, #F4B84E); border: 4px solid #C8832C; border-radius: 999px; padding: 16px 28px; box-shadow: 0 6px 0 #C8832C; transform-origin: 100% 50%; }
+#ripples { width: 1080px; height: 1920px; pointer-events: none; }
+.ripple { position: absolute; border-radius: 50%; border: 10px solid rgba(255,255,255,0.95); box-shadow: 0 0 0 4px rgba(59,41,35,0.35), inset 0 0 0 4px rgba(59,41,35,0.25); transform: translate(-50%, -50%); }
+.dot { position: absolute; width: 54px; height: 54px; border-radius: 50%; background: rgba(255,255,255,0.75); box-shadow: 0 0 0 5px rgba(59,41,35,0.3); transform: translate(-50%, -50%); }
+#caps { width: 1080px; height: 1920px; pointer-events: none; }
+.cap { position: absolute; left: 70px; width: 940px; text-align: center; font-weight: 900; color: #FFF9F0; line-height: 1.08; letter-spacing: -0.01em;
+  paint-order: stroke fill; -webkit-text-stroke: 14px #3B2923; text-shadow: 0 8px 0 rgba(59,41,35,0.55), 0 14px 30px rgba(0,0,0,0.35); transform-origin: 50% 50%; text-wrap: balance; }
+.cap .g { color: #FFE5A2; }
+.cap .b { color: #BFE4FA; }
+.cap .p { color: #FFC4D6; }
+.cap .m { color: #C9F0E8; }
+.cap.small { font-size: 54px; font-weight: 800; }
+.cap.mid { font-size: 74px; letter-spacing: -0.015em; }
+.cap.big { font-size: 92px; letter-spacing: -0.02em; }
+.cap.huge { font-size: 118px; letter-spacing: -0.025em; }
+#sparks { width: 1080px; height: 1920px; pointer-events: none; }
+#sparks .star { position: absolute; width: 60px; height: 60px; background: #FFE5A2; clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); transform-origin: 50% 50%; filter: drop-shadow(0 0 12px rgba(255,229,162,0.9)); }
+#sparks .glow { position: absolute; width: 20px; height: 20px; border-radius: 50%; background: #FFF9F0; box-shadow: 0 0 18px 8px rgba(255,249,240,0.8); }
+#endcard { width: 1080px; height: 1920px; display: none; }
+#endcard .card { position: absolute; left: 90px; right: 90px; top: 250px; padding: 60px 54px 54px; border-radius: 48px; background: rgba(255,249,240,0.97); border: 5px solid #C9A78C; box-shadow: 0 10px 0 #D8BD9F, 0 40px 80px rgba(40,60,30,0.35); text-align: center; transform-origin: 50% 50%; }
+#endcard .wm { width: 520px; height: auto; display: block; margin: 0 auto 22px; filter: drop-shadow(0 6px 0 rgba(60,35,20,0.22)); }
+#endcard h1 { margin: 0; font: 900 86px/1.06 'Nunito', sans-serif; color: #3B2923; letter-spacing: -0.02em; }
+#endcard .cta { display: inline-block; margin-top: 30px; padding: 26px 56px; border-radius: 28px; border: 5px solid #C8832C; font: 900 62px/1 'Nunito', sans-serif; color: #3B2923;
+  background: linear-gradient(180deg, #FFE5A2 0%, #F9CA70 38%, #F4B84E 70%, #E9A541 100%); box-shadow: inset 0 4px 0 rgba(255,255,255,0.55), inset 0 -6px 0 rgba(200,131,44,0.55), 0 10px 0 #C8832C, 0 18px 30px rgba(120,70,20,0.25); text-shadow: 0 2px 0 rgba(255,255,255,0.35); transform-origin: 50% 50%; }
+#endcard .bio { margin: 26px 0 0; font: 900 46px/1.2 'Nunito', sans-serif; color: #477B3A; }
+#endcard .founder { display: inline-flex; align-items: center; gap: 14px; margin-top: 24px; padding: 12px 24px 12px 14px; border-radius: 999px; background: #FFF0F4; border: 3px solid #E7A8BC; font: 800 32px/1 'Nunito', sans-serif; color: #8C3A55; }
+#endcard .founder img { width: 56px; height: 56px; }
+#endcard .beta { position: absolute; top: -34px; right: 40px; padding: 14px 30px; border-radius: 999px; background: linear-gradient(#FFE5A2, #F4B84E); border: 4px solid #C8832C; font: 900 38px/1 'Nunito', sans-serif; color: #3B2923; box-shadow: 0 6px 0 #C8832C; transform: rotate(6deg); }
+#flash { width: 1080px; height: 1920px; background: #FFF; opacity: 0; pointer-events: none; }
+#vignette { width: 1080px; height: 1920px; pointer-events: none; background: radial-gradient(ellipse at 50% 50%, rgba(0,0,0,0) 62%, rgba(32,27,23,0.28) 100%); }
+
+/* v4: the meadow world, HUD, week strip, nest, hearts, Z's, fireflies, mood grid */
+#fx { width: 1080px; height: 1920px; pointer-events: none; }
+#fx > * { position: absolute; }
+.zz { font: 900 58px/1 'Nunito', sans-serif; color: #FFF9F0; -webkit-text-stroke: 8px #3B2923; paint-order: stroke fill; }
+.heart { width: 72px; height: 72px; filter: drop-shadow(0 4px 0 rgba(59,41,35,0.25)); }
+.firefly { width: 12px; height: 12px; border-radius: 50%; background: #FFF3B0; box-shadow: 0 0 14px 6px rgba(255,229,162,0.75); }
+.mote { width: 16px; height: 16px; border-radius: 50%; background: #FFF9F0; box-shadow: 0 0 16px 8px rgba(255,214,110,0.85); }
+.xpchip { font: 900 46px/1 'Nunito', sans-serif; color: #FFE5A2; -webkit-text-stroke: 9px #3B2923; paint-order: stroke fill; transform: translate(-50%, -50%); white-space: nowrap; }
+#layers .gshadow { position: absolute; border-radius: 50%; background: radial-gradient(closest-side, rgba(38,52,20,0.42), rgba(38,52,20,0)); transform: translate(-50%, -50%); }
+#layers .aura { position: absolute; border-radius: 50%; background: radial-gradient(closest-side, rgba(255,236,170,0.95), rgba(255,214,110,0.55) 45%, rgba(255,214,110,0)); transform: translate(-50%, -50%); }
+#layers .prop { position: absolute; transform-origin: 50% 100%; }
+#layers .hud { position: absolute; left: 540px; transform: translateX(-50%); display: flex; align-items: center; gap: 16px; padding: 14px 30px 14px 18px; border-radius: 999px;
+  background: rgba(255,249,240,0.96); border: 4px solid #E3CBB1; box-shadow: 0 6px 0 #D8BD9F; font: 900 48px/1 'Nunito', sans-serif; color: #3B2923; white-space: nowrap; }
+#layers .hud img { width: 66px; height: 66px; }
+#layers .hud .of { font: 800 32px/1 'Nunito', sans-serif; color: #8E7462; }
+#layers .hud .bar { width: 190px; height: 24px; border-radius: 999px; background: rgba(59,41,35,0.14); border: 4px solid #3B2923; overflow: hidden; }
+#layers .hud .bar i { display: block; height: 100%; background: linear-gradient(90deg, #B7D98B, #82B75E); }
+#layers .hud.done { background: linear-gradient(#FFF6DA, #FFE7A8); border-color: #E3A64A; box-shadow: 0 6px 0 #C8832C; }
+#layers .hud.done .bar i { background: linear-gradient(90deg, #FFE5A2, #F4B84E); }
+#layers .hud .ok { color: #477B3A; font-size: 46px; }
+#layers .week { position: absolute; left: 0; width: 1080px; display: flex; gap: 12px; justify-content: center; }
+#layers .week .d { width: 118px; height: 132px; border-radius: 26px; background: rgba(255,249,240,0.95); border: 4px solid #E3CBB1; box-shadow: 0 5px 0 #D8BD9F;
+  display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; font: 900 32px/1 'Nunito', sans-serif; color: #3B2923; transform-origin: 50% 50%; }
+#layers .week .d .c { font-size: 48px; color: rgba(59,41,35,0.18); }
+#layers .week .d.on { background: linear-gradient(#EEF8E2, #D3EBBB); border-color: #82B75E; box-shadow: 0 5px 0 #5E9A48; }
+#layers .week .d.on .c { color: #477B3A; }
+#layers .mood { position: absolute; width: 420px; height: 470px; border-radius: 40px; background: rgba(255,249,240,0.96); border: 5px solid #E3CBB1; box-shadow: 0 8px 0 #D8BD9F, 0 24px 50px rgba(40,50,20,0.25); overflow: hidden; transform-origin: 50% 50%; }
+#layers .mood .n { position: absolute; left: 22px; top: 20px; width: 84px; height: 84px; border-radius: 50%; background: linear-gradient(#FFE5A2, #F4B84E); border: 5px solid #C8832C; box-shadow: 0 5px 0 #C8832C;
+  font: 900 54px/74px 'Nunito', sans-serif; text-align: center; color: #3B2923; }
+#layers .mood .t { position: absolute; left: 0; right: 0; bottom: 26px; text-align: center; font: 900 40px/1 'Nunito', sans-serif; color: #684C3C; }
+#layers .mood img { position: absolute; transform-origin: 50% 100%; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg" class="parchment"><div class="grid"></div><div class="shadow"></div></div>
+  <div id="vista">
+    <img class="bg day" src="wl/vista/day.webp" alt="">
+    <img class="bg night" src="wl/vista/night.webp" alt="">
+    <div class="shade"></div>
+    <img class="pet" data-s="s01" src="site/img/pets/s01-ocean.webp" alt="">
+    <img class="pet" data-s="s02" src="site/img/pets/s02-ocean.webp" alt="">
+    <img class="pet" data-s="s03" src="site/img/pets/s03-ocean.webp" alt="">
+  </div>
+  <img id="clip" alt="">
+  <div id="layers"></div>
+  <div id="fx"></div>
+  <div id="vignette"></div>
+  <div id="ripples"></div>
+  <div id="pills"><div class="handle">@evochigame</div><div class="stamp">EVOLUTION REVEAL · 01</div></div>
+  <div id="caps"></div>
+  <div id="endcard">
+    <div class="card">
+      <span class="beta">BETA</span>
+      <img class="wm" src="site/img/wordmark.webp" alt="Evochi">
+      <h1 id="end-h1">Your steps.<br>Your Evochi.</h1>
+      <div class="cta" id="end-cta">Join the beta waitlist</div>
+      <div class="bio">link in bio</div>
+      <div class="founder"><img src="wl/crown/icon.webp" alt="">First 1,000 get the Founder's Crown</div>
+    </div>
+  </div>
+  <div id="sparks"></div>
+  <div id="flash"></div>
+</div>
+<script>
+const FPS = 30;
+const $ = (s) => document.querySelector(s);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const lerp = (a, b, k) => a + (b - a) * k;
+const ease = (k) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
+const easeOut = (k) => 1 - Math.pow(1 - clamp(k, 0, 1), 3);
+const pop = (p, dur = 0.26) => { const k = clamp(p / dur, 0, 1); const c4 = (2 * Math.PI) / 3; return k === 0 ? 0 : k === 1 ? 1 : Math.pow(2, -10 * k) * Math.sin((k * 10 - 0.75) * c4) + 1; };
+const rnd = (i, k) => { const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x); };
+const CLIPS = { tap: { dir: 'clips/tap', n: 186 }, evolve: { dir: 'clips/evolve', n: 282 }, pick: { dir: 'clips2/pick', n: 228 }, hatch: { dir: 'clips2/hatch', n: 216 } };
+const SPR = { s01: { w: 440, h: 500, gx: 165.4 * 14 / 10.5, gy: 334.6 * 14 / 10.5 }, s02: { w: 530, h: 500, gx: 217.0 * 14 / 10.5, gy: 339.0 * 14 / 10.5 }, s03: { w: 774, h: 622, gx: 282.6 * 14 / 10.5, gy: 402.9 * 14 / 10.5 } };
+const HERO = { w: 2880, h: 1440, pets: { s01: { x: 0.50716, y: 0.71892, k: 0.000412 }, s02: { x: 0.62807, y: 0.63675, k: 0.000456 }, s03: { x: 0.76546, y: 0.56385, k: 0.000463 } } };
+const NAMES = { amber: 'Amber', forest: 'Forest', coral: 'Coral', ocean: 'Ocean', amethyst: 'Amethyst', obsidian: 'Obsidian', aurora: 'Aurora' };
+let TURN = null; // turn3/meta.json
+
+// ------------------------------------------------------------------ persistent layers
+const L = {};
+const USED = [];
+function layer(id, html, parent = '#layers') {
+  if (!USED.includes(id)) USED.push(id);
+  if (!L[id]) { const d = document.createElement('div'); d.id = 'L-' + id; d.innerHTML = html; d.style.cssText = 'position:absolute;left:0;top:0;width:1080px;height:1920px'; $(parent).appendChild(d); L[id] = d; }
+  return L[id];
+}
+function showOnly(ids) { for (const k in L) L[k].style.display = ids.includes(k) ? 'block' : 'none'; }
+const bob = (t, ph = 0, amp = 0.016) => amp * Math.sin((t + ph) * 2.4 * Math.PI / 1.0);
+function placeSprite(img, id, x, y, h, sq = 1, dy = 0, rot = 0, flip = false) {
+  const sp = SPR[id]; const k = h / sp.h;
+  img.style.width = sp.w * k + 'px'; img.style.height = sp.h * k + 'px';
+  img.style.left = (x - sp.gx * k) + 'px'; img.style.top = (y - sp.gy * k) + 'px';
+  img.style.transformOrigin = `${sp.gx * k}px ${sp.gy * k}px`;
+  img.style.transform = `translateY(${dy}px) rotate(${rot}deg) scale(${(flip ? -1 : 1) / sq}, ${sq})`;
+}
+const hopAt = (t, t0, dur = 0.5, amp = 90) => { const k = (t - t0) / dur; if (k < 0 || k > 1) return { dy: 0, sq: 1 }; return { dy: -Math.sin(k * Math.PI) * amp, sq: 1 - 0.1 * Math.sin(k * Math.PI) }; };
+// pick the active hop out of a list of hop start times
+function hops(t, times, dur = 0.45, amp = 80) { for (const t0 of times) { const h = hopAt(t, t0, dur, amp); if (h.dy !== 0) return h; } return { dy: 0, sq: 1 }; }
+const blink = (t, ph = 0, every = 2.7) => ((t + ph) % every) < 0.13;
+const tilt = (t, ph = 0) => 2.5 * Math.sin((t + ph) * 1.1);
+async function setSrc(img, src) { if (img.getAttribute('src') !== src) { img.src = src; await img.decode().catch(() => {}); } }
+// place a turntable frame so its ground anchor sits at (x, y)
+function placeTurn(img, k, x, y, h, sq = 1, dy = 0) {
+  const s = h / TURN.h; const [gx, gy] = TURN.frames[k];
+  img.style.width = TURN.w * s + 'px'; img.style.height = TURN.h * s + 'px';
+  img.style.left = (x - gx * s) + 'px'; img.style.top = (y - gy * s) + 'px';
+  img.style.transformOrigin = `${gx * s}px ${gy * s}px`;
+  img.style.transform = `translateY(${dy}px) scale(${1 / sq}, ${sq})`;
+}
+
+// ------------------------------------------------------------------ clips (recorded gameplay)
+let clipSrc = '';
+async function clipFrame(name, ct, cam, t, segT0) {
+  const c = CLIPS[name];
+  const f = clamp(Math.round(ct * FPS), 0, c.n - 1);
+  const src = `${c.dir}/f${String(f).padStart(5, '0')}.jpg`;
+  const el = $('#clip');
+  if (clipSrc !== src) { el.src = src; clipSrc = src; await el.decode().catch(() => {}); }
+  el.style.display = 'block';
+  let s = Math.max(cam.s, 1080 / 780);
+  const since = t - segT0;
+  if (since < 0.18) s *= 1 + 0.045 * (1 - since / 0.18);
+  const d = { x: 6 * Math.sin(t * 1.3) + 3 * Math.sin(t * 2.9 + 1), y: 5 * Math.sin(t * 1.1 + 2) + 3 * Math.sin(t * 2.3), r: 0.35 * Math.sin(t * 0.7) };
+  let left = clamp(cam.ax - cam.fx * s + d.x, 1080 - 780 * s, 0), top = clamp(cam.ay - cam.fy * s + d.y, 1920 - 1688 * s, 0);
+  el.style.transform = `translate(${left}px, ${top}px) rotate(${d.r}deg) scale(${s})`;
+  return { s, left, top };
+}
+function rippleAt(t, at, x, y) {
+  const host = $('#ripples');
+  const age = t - at; if (age < -0.12 || age > 0.55) return;
+  if (age < 0) { const d = document.createElement('div'); d.className = 'dot'; d.style.left = x + 'px'; d.style.top = y + 'px'; host.appendChild(d); return; }
+  const k = age / 0.55; const r = document.createElement('div'); r.className = 'ripple';
+  const size = 60 + 220 * ease(k); r.style.left = x + 'px'; r.style.top = y + 'px'; r.style.width = size + 'px'; r.style.height = size + 'px'; r.style.opacity = String(1 - k); host.appendChild(r);
+  if (age < 0.18) { const d = document.createElement('div'); d.className = 'dot'; d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.opacity = String(1 - age / 0.18); host.appendChild(d); }
+}
+
+// ------------------------------------------------------------------ vista, end card, captions, fx
+function placeVista(t, { night = 0, pets = true, end = false, since = 0, s01Expr = 'happy', hop = true, focus = null, zoom = 1, groundY = null, show = null } = {}) {
+  const v = $('#vista'); v.style.display = 'block';
+  const sc = (end ? 1.333 : 1.2 + 0.05 * clamp(since / 2.6, 0, 1)) * zoom;
+  const W = HERO.w * sc, H = HERO.h * sc;
+  const cx = (focus ? HERO.pets[focus].x : end ? 0.635 : 0.62) * W; const left = clamp(540 - cx, 1080 - W, 0);
+  const top = groundY && focus ? clamp(groundY - HERO.pets[focus].y * H, 1920 - H, 0) : 1920 - H;
+  v.style.background = night > 0.5 ? '#141B33' : '#5FB1E6';
+  for (const im of v.querySelectorAll('img.bg')) { im.style.transform = `translate(${left}px, ${top}px) scale(${sc})`; im.style.width = HERO.w + 'px'; im.style.height = HERO.h + 'px'; }
+  v.querySelector('img.bg.night').style.opacity = String(night);
+  v.querySelectorAll('.pet').forEach((img, i) => {
+    const id = img.dataset.s, p = HERO.pets[id], sp = SPR[id];
+    img.style.display = show ? (show.includes(id) ? 'block' : 'none') : pets ? 'block' : (id === 's01' ? 'block' : 'none');
+    const k = p.k * HERO.h * sc; const w = sp.w * k, h = sp.h * k;
+    const gx = p.x * W + left, gy = p.y * HERO.h * sc + top;
+    const ph = (since * 1.6 + i * 0.33) % 1; const hp = hop ? Math.max(0, Math.sin(ph * Math.PI)) : 0;
+    img.style.width = w + 'px'; img.style.height = h + 'px'; img.style.left = (gx - sp.gx * k) + 'px'; img.style.top = (gy - sp.gy * k) + 'px';
+    img.style.transform = `translateY(${-hp * h * 0.16}px) scale(${1 / (1 - hp * 0.06)}, ${1 - hp * 0.06})`;
+    img.style.filter = night > 0 ? `brightness(${1 - 0.42 * night})` : '';
+    if (id === 's01') { const want = s01Expr === 'happy' ? 'site/img/pets/s01-ocean.webp' : `wl/expr/${s01Expr}.webp`; if (img.getAttribute('src') !== want) img.src = want; }
+  });
+}
+function endcard(t, t0, h1, cta = 'Join the beta waitlist') {
+  const e = $('#endcard'); e.style.display = 'block';
+  $('#end-h1').innerHTML = h1; $('#end-cta').textContent = cta;
+  const p = pop(t - t0, 0.4);
+  e.querySelector('.card').style.transform = `scale(${0.5 + 0.5 * p}) translateY(${(1 - p) * 60}px)`;
+  e.querySelector('.card').style.opacity = String(clamp((t - t0) / 0.15, 0, 1));
+  const c = t - t0; const pulse = c > 0.6 ? 1 + 0.035 * Math.max(0, Math.sin((c - 0.6) * 4.2)) : 1;
+  e.querySelector('.cta').style.transform = `scale(${pulse}) rotate(-1.5deg)`;
+}
+function captions(t, CAPS) {
+  const host = $('#caps'); host.innerHTML = '';
+  for (const c of CAPS) {
+    if (t < c.t0 || t >= c.t1 + 0.12) continue;
+    const el = document.createElement('div'); el.className = 'cap ' + c.cls; el.innerHTML = c.html; el.style.top = c.y + 'px';
+    const pin = pop(t - c.t0, 0.34); const out = t > c.t1 ? 1 - (t - c.t1) / 0.12 : 1; const wob = 1 + 0.005 * Math.sin((t - c.t0) * 3);
+    el.style.transform = `scale(${pin * wob}) rotate(${(c.t0 * 7 % 3) - 1.5 + 0.25 * Math.sin((t - c.t0) * 1.5)}deg)`; el.style.opacity = String(clamp(out, 0, 1));
+    host.appendChild(el);
+  }
+}
+function pills(t, { handle = true, stamp = null, from = 0.2 }) {
+  const h = $('#pills .handle'), s = $('#pills .stamp');
+  const p = pop(t - from, 0.35);
+  h.style.display = handle ? 'block' : 'none'; h.style.transform = `scale(${p}) rotate(-2deg)`;
+  s.style.display = stamp ? 'block' : 'none'; if (stamp) { s.textContent = stamp; s.style.transform = `scale(${pop(t - from - 0.1, 0.35)}) rotate(3deg)`; }
+}
+function sparks(t, at, cx = 540, cy = 980, n = 26) {
+  const host = $('#sparks'); host.innerHTML = '';
+  const age = t - at; if (age < 0 || age > 1.6) return;
+  for (let i = 0; i < n; i++) {
+    const a = rnd(i, 1) * Math.PI * 2, sp = 420 + rnd(i, 2) * 520, sz = 28 + rnd(i, 3) * 44; const d = Math.min(age, 1.2);
+    const x = cx + Math.cos(a) * sp * (1 - Math.pow(1 - d / 1.2, 3)), y = cy + Math.sin(a) * sp * (1 - Math.pow(1 - d / 1.2, 3)) + 140 * d * d;
+    const o = age < 0.1 ? age / 0.1 : clamp(1 - (age - 0.6) / 0.9, 0, 1);
+    const st = document.createElement('div'); st.className = 'star'; st.style.left = (x - sz / 2) + 'px'; st.style.top = (y - sz / 2) + 'px'; st.style.width = sz + 'px'; st.style.height = sz + 'px';
+    st.style.opacity = String(o); st.style.transform = `rotate(${age * 240 * (rnd(i, 4) - 0.5)}deg) scale(${0.6 + 0.4 * Math.sin(age * 9 + i)})`; host.appendChild(st);
+  }
+  for (let i = 0; i < 18; i++) {
+    const x0 = 120 + rnd(i, 5) * 840, y0 = cy - 480 + rnd(i, 6) * 900, ph = rnd(i, 7);
+    const o = clamp(Math.sin((age * 1.8 + ph) * Math.PI), 0, 1) * clamp(1 - (age - 1.0) / 0.6, 0, 1);
+    const g = document.createElement('div'); g.className = 'glow'; g.style.left = x0 + 'px'; g.style.top = (y0 - age * 90) + 'px'; g.style.opacity = String(o * 0.9); g.style.transform = `scale(${0.5 + o})`; host.appendChild(g);
+  }
+}
+function flash(t, at, amt = 0.85) { const o = t >= at && t < at + 0.35 ? amt * (1 - (t - at) / 0.35) : 0; $('#flash').style.opacity = String(o); }
+function leaves(t, el, n = 16) {
+  let host = el.querySelector('.leaves');
+  if (!host) { host = document.createElement('div'); host.className = 'leaves'; host.style.cssText = 'position:absolute;inset:0;pointer-events:none'; el.appendChild(host); for (let i = 0; i < n; i++) { const d = document.createElement('div'); d.className = 'leaf'; d.style.background = ['#DB9942', '#D85F51', '#F4B84E', '#82B75E', '#EC947C'][i % 5]; host.appendChild(d); } }
+  host.querySelectorAll('.leaf').forEach((d, i) => {
+    const sp = 150 + rnd(i, 11) * 120, ph = rnd(i, 12) * 2100, x0 = 40 + rnd(i, 13) * 1000, sz = 34 + rnd(i, 14) * 30;
+    const y = ((t * sp + ph) % 2100) - 120; const x = x0 + 70 * Math.sin(t * 1.3 + i);
+    d.style.left = x + 'px'; d.style.top = y + 'px'; d.style.width = sz + 'px'; d.style.height = sz + 'px';
+    d.style.transform = `rotate(${t * 120 * (rnd(i, 15) - 0.5) * 2 + i * 40}deg) scaleX(${0.6 + 0.4 * Math.sin(t * 3 + i)})`;
+  });
+}
+function resetStage() {
+  $('#bg').style.display = 'none'; $('#clip').style.display = 'none'; $('#vista').style.display = 'none'; $('#endcard').style.display = 'none';
+  $('#ripples').innerHTML = ''; $('#sparks').innerHTML = ''; $('#fx').innerHTML = ''; $('#flash').style.opacity = '0'; USED.length = 0;
+  $('#vista .shade').style.opacity = ''; for (const im of document.querySelectorAll('#vista img.bg')) im.style.filter = '';
+}
+function parchment(shadowTop = 1335) { const bg = $('#bg'); bg.style.display = 'block'; bg.querySelector('.shadow').style.display = shadowTop ? 'block' : 'none'; if (shadowTop) bg.querySelector('.shadow').style.top = shadowTop + 'px'; }
+const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+
+// ================================================================== v4: Mochi in the world
+// Every video opens on Mochi already moving in the meadow (no cream cards in the first seconds).
+const CUTS = {};
+const TURN_H = () => Math.floor(TURN.h * (1000 / TURN.w));
+const fmt = (n) => Math.round(n).toLocaleString('en-US');
+
+// sprite for a form + expression (Ocean)
+const S01X = ['surprised', 'sad', 'neutral', 'determined'];
+function S(id, ex = 'happy') {
+  if (id === 's01') return S01X.includes(ex) ? `wl/expr/${ex}.webp` : `wl3/s01/ocean/${ex}.webp`;
+  if (id === 's02') return `wl3/s02/ocean/${ex}.webp`;
+  return `wl3/elder/ocean/${ex}.webp`;
+}
+const HS = { s01: 470, s02: 520, s03: 660 }; // in-world heights (sprite box) at sc 1.5
+
+// the meadow, as a camera: sc = zoom, cx = image x (0..1) at screen centre, gy = where the path sits on screen
+function world(t, { sc = 1.5, cx = 0.5, night = 0, gy = 1500, gf = 0.80, blur = 0 } = {}) {
+  const v = $('#vista'); v.style.display = 'block';
+  const W = HERO.w * sc, H = HERO.h * sc;
+  const left = clamp(540 - cx * W, 1080 - W, 0);
+  const top = clamp(gy - gf * H, 1920 - H, 0);
+  v.style.background = night > 0.5 ? '#141B33' : '#5FB1E6';
+  for (const im of v.querySelectorAll('img.bg')) {
+    im.style.transform = `translate(${left}px, ${top}px) scale(${sc})`; im.style.width = HERO.w + 'px'; im.style.height = HERO.h + 'px';
+    im.style.filter = blur ? `blur(${blur}px)` : '';
+  }
+  v.querySelector('img.bg.night').style.opacity = String(night);
+  v.querySelector('.shade').style.opacity = String(0.55 + 0.45 * night);
+  v.querySelectorAll('.pet').forEach((p) => { p.style.display = 'none'; });
+  return { gy: top + gf * H, left, top, W, H };
+}
+
+// a hop-walk: little bounces with a side-to-side rock, one per step
+function walk(t, rate = 2.4, amp = 26) {
+  const ph = t * rate; const k = ph % 1; const s = Math.sin(k * Math.PI);
+  return { dy: -s * amp, sq: 1 - 0.05 * s + 0.035 * Math.pow(1 - s, 6), rot: 3.2 * Math.sin(ph * Math.PI) };
+}
+
+// Mochi (or any sprite) standing in the world, with a ground shadow and an optional evolution glow
+async function pet(key, o) {
+  const { id = 's01', ex = 'happy', x = 540, y = 1500, h = HS[id], flip = false, dy = 0, sq = 1, rot = 0, glow = 0, night = 0, shadow = 1, src = null, scale = 1, alpha = 1 } = o;
+  const el = layer('pet-' + key, '<div class="gshadow"></div><div class="aura"></div><img class="sprite" alt="">');
+  const img = el.querySelector('img');
+  await setSrc(img, src || S(id, ex));
+  const hh = h * Math.max(0.001, scale);
+  placeSprite(img, id, x, y, hh, sq, dy, rot, flip);
+  img.style.opacity = String(alpha);
+  const bw = SPR[id].w * hh / SPR[id].h * 0.7; const lift = clamp(-dy / 140, 0, 1);
+  const sh = el.querySelector('.gshadow');
+  sh.style.display = shadow ? 'block' : 'none';
+  sh.style.width = bw * (1 - 0.35 * lift) + 'px'; sh.style.height = bw * 0.17 * (1 - 0.35 * lift) + 'px';
+  sh.style.left = x + 'px'; sh.style.top = (y + 6) + 'px'; sh.style.opacity = String(shadow * (1 - 0.4 * lift) * alpha);
+  const au = el.querySelector('.aura');
+  au.style.display = glow > 0 ? 'block' : 'none';
+  if (glow > 0) { const d = hh * 1.9 * (0.9 + 0.1 * Math.sin(t0g * 9)); au.style.width = d + 'px'; au.style.height = d + 'px'; au.style.left = x + 'px'; au.style.top = (y - hh * 0.42) + 'px'; au.style.opacity = String(glow); }
+  const b = (1 - 0.42 * night) * (1 + 0.75 * glow);
+  img.style.filter = glow > 0 ? `brightness(${b}) drop-shadow(0 0 ${26 * glow}px rgba(255,214,110,0.95))` : night > 0 ? `brightness(${b})` : '';
+  return img;
+}
+let t0g = 0; // current time, for the aura pulse
+
+// charge-up before an evolution: glow ramps over `dur`, pulsing faster near the end
+function charge(t, at, dur = 1.0) { const k = clamp((t - (at - dur)) / dur, 0, 1); return k <= 0 ? 0 : clamp(k * (0.75 + 0.25 * Math.sin(t * (10 + 14 * k))), 0, 1); }
+function motes(t, x, y, k, n = 14) {
+  if (k <= 0) return;
+  const host = $('#fx');
+  for (let i = 0; i < n; i++) {
+    const ph = (t * (0.7 + rnd(i, 41) * 0.6) + rnd(i, 42)) % 1;
+    const m = document.createElement('div'); m.className = 'mote';
+    const a = rnd(i, 43) * Math.PI * 2, r = 120 + rnd(i, 44) * 160;
+    m.style.left = (x + Math.cos(a) * r * (1 - ph * 0.6)) + 'px'; m.style.top = (y + 60 - ph * 420 + Math.sin(a) * 40) + 'px';
+    m.style.opacity = String(k * Math.sin(ph * Math.PI)); m.style.transform = `scale(${0.6 + 0.7 * k})`;
+    host.appendChild(m);
+  }
+}
+function hearts(t, at, x, y, n = 5, dur = 1.5) {
+  const age = t - at; if (age < 0 || age > dur) return;
+  const host = $('#fx');
+  for (let i = 0; i < n; i++) {
+    const d = age - i * 0.08; if (d < 0) continue;
+    const h = document.createElement('img'); h.className = 'heart'; h.src = 'site/img/icons/heart.webp';
+    const sz = 58 + rnd(i, 31) * 34;
+    h.style.width = sz + 'px'; h.style.height = sz + 'px';
+    h.style.left = (x - sz / 2 + (rnd(i, 32) - 0.5) * 260 + 26 * Math.sin(d * 5 + i)) + 'px';
+    h.style.top = (y - sz / 2 - d * (240 + rnd(i, 33) * 160)) + 'px';
+    h.style.opacity = String(clamp(d / 0.12, 0, 1) * clamp(1 - (d - dur * 0.5) / (dur * 0.5), 0, 1));
+    h.style.transform = `scale(${pop(d, 0.3)}) rotate(${(rnd(i, 34) - 0.5) * 30}deg)`;
+    host.appendChild(h);
+  }
+}
+function zzz(t, x, y, o = 1) {
+  if (o <= 0) return;
+  const host = $('#fx');
+  ['z', 'z', 'Z'].forEach((c, i) => {
+    const ph = (t * 0.5 + i * 0.33) % 1; const z = document.createElement('div'); z.className = 'zz'; z.textContent = c;
+    z.style.left = (x + i * 62) + 'px'; z.style.top = (y - i * 80 - ph * 60) + 'px'; z.style.fontSize = (50 + i * 10) + 'px';
+    z.style.opacity = String(o * Math.sin(ph * Math.PI) * 0.95); z.style.transform = `rotate(${Math.sin(t * 2 + i) * 10}deg)`;
+    host.appendChild(z);
+  });
+}
+function fireflies(t, o = 1, n = 16) {
+  if (o <= 0) return;
+  const host = $('#fx');
+  for (let i = 0; i < n; i++) {
+    const f = document.createElement('div'); f.className = 'firefly';
+    const x = 80 + rnd(i, 51) * 920 + 60 * Math.sin(t * (0.4 + rnd(i, 52) * 0.5) + i), y = 700 + rnd(i, 53) * 900 + 50 * Math.sin(t * (0.5 + rnd(i, 54) * 0.4) + i * 2);
+    f.style.left = x + 'px'; f.style.top = y + 'px'; f.style.opacity = String(o * (0.35 + 0.65 * Math.max(0, Math.sin(t * (1.5 + rnd(i, 55) * 2) + i * 3))));
+    host.appendChild(f);
+  }
+}
+function xpchip(t, at, x, y, text = '+XP') {
+  const age = t - at; if (age < 0 || age > 1.2) return;
+  const c = document.createElement('div'); c.className = 'xpchip'; c.textContent = text;
+  c.style.left = x + 'px'; c.style.top = (y - age * 120) + 'px';
+  c.style.opacity = String(clamp(1 - (age - 0.7) / 0.5, 0, 1)); c.style.transform = `translate(-50%, -50%) scale(${pop(age, 0.3)})`;
+  $('#fx').appendChild(c);
+}
+// the step counter pill (the game's "Daily Steps" card, simplified)
+function hud(key, { y = 640, steps = 0, goal = 7000, icon = 'steps', text = null, sub = null, p = null, appear = 1 } = {}) {
+  const el = layer('hud-' + key, '<div class="hud"><img alt=""><span class="v"></span><span class="of"></span><span class="bar"><i></i></span></div>');
+  const hd = el.querySelector('.hud');
+  const im = hd.querySelector('img'); const want = `site/img/icons/${icon}.webp`; if (im.getAttribute('src') !== want) im.src = want;
+  const done = text == null && steps >= goal;
+  hd.classList.toggle('done', done);
+  hd.querySelector('.v').innerHTML = text != null ? text : fmt(steps) + (done ? ' <span class="ok">✓</span>' : '');
+  hd.querySelector('.of').textContent = sub != null ? sub : text != null ? '' : `/ ${fmt(goal)} steps`;
+  const fill = p != null ? p : clamp(steps / goal, 0, 1);
+  hd.querySelector('.bar').style.display = p === false ? 'none' : 'block';
+  hd.querySelector('.bar i').style.width = (fill * 100) + '%';
+  hd.style.top = y + 'px';
+  hd.style.transform = `translateX(-50%) scale(${appear})`;
+  hd.style.opacity = String(clamp(appear * 1.5, 0, 1));
+  return hd;
+}
+function weekStrip(key, t, { y = 620, start = 7.7, every = 0.3, labels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'], rest = -1 } = {}) {
+  const el = layer('week-' + key, '<div class="week">' + labels.map((d) => `<div class="d"><span>${d}</span><span class="c">✓</span></div>`).join('') + '</div>');
+  el.querySelector('.week').style.top = y + 'px';
+  el.querySelectorAll('.d').forEach((d, i) => {
+    const on = t >= start + i * every; d.classList.toggle('on', on);
+    d.querySelector('.c').textContent = i === rest ? 'z' : '✓';
+    const a = t - (start + i * every); d.style.transform = `scale(${on ? 1 + 0.18 * Math.max(0, 1 - a / 0.25) : 1})`;
+  });
+}
+// a prop image (berry, egg, nest) placed by its bottom centre
+async function prop(key, src, { x = 540, y = 1500, w = 200, rot = 0, sx = 1, sy = 1, alpha = 1, nat = null }) {
+  const el = layer('prop-' + key, '<img class="prop" alt="">');
+  const img = el.querySelector('img'); await setSrc(img, src);
+  const [nw, nh] = nat || [img.naturalWidth || 1, img.naturalHeight || 1];
+  const h = w * nh / nw;
+  img.style.width = w + 'px'; img.style.height = h + 'px'; img.style.left = (x - w / 2) + 'px'; img.style.top = (y - h) + 'px';
+  img.style.transform = `rotate(${rot}deg) scale(${sx}, ${sy})`; img.style.opacity = String(alpha);
+  return img;
+}
+// the nest with something sitting in it: back of the nest, the occupant, then the front rim on top
+const NEST = { w: 457, h: 255, cx: 228, seat: 150 };
+async function nest(t, key, { x = 540, y = 1520, w = 600, egg = null, eggRot = 0, eggSq = 1, eggScale = 1, eggGlow = 0, occupant = null, night = 0 }) {
+  const k = w / NEST.w; const top = y - NEST.h * k; const seatY = top + NEST.seat * k;
+  const nb = await prop(key + '-back', 'wl4/nest.webp', { x, y, w, nat: [NEST.w, NEST.h] });
+  if (egg) {
+    const e = await prop(key + '-egg', `wl4/egg/${egg}.webp`, { x, y: seatY + 34 * k, w: 0.62 * w * eggScale, rot: eggRot, sx: 1 / eggSq, sy: eggSq, nat: [520, 640] });
+    e.style.filter = eggGlow > 0 ? `brightness(${1 + 0.45 * eggGlow}) drop-shadow(0 0 ${40 * eggGlow}px rgba(255,214,110,0.95))` : night ? `brightness(${1 - 0.42 * night})` : '';
+  } else { const L2 = L['prop-' + key + '-egg']; if (L2) L2.style.display = 'none'; }
+  if (occupant) await occupant(seatY + 8 * k);
+  const nf = await prop(key + '-front', 'wl4/nest_front.webp', { x, y, w, nat: [NEST.w, NEST.h] });
+  // keep the draw order: back, egg, occupant, front
+  const host = $('#layers');
+  host.appendChild(L['prop-' + key + '-back']);
+  if (L['prop-' + key + '-egg']) host.appendChild(L['prop-' + key + '-egg']);
+  for (const id of USED) if (id.startsWith('pet-nest')) host.appendChild(L[id]);
+  host.appendChild(L['prop-' + key + '-front']);
+  nb.style.filter = nf.style.filter = night ? `brightness(${1 - 0.42 * night})` : '';
+  return seatY;
+}
+// motion around an evolution: walking before, one big hop right after, walking again from `walkAgain`
+function moveAfterEvo(t, st, evo, at, walkAgain) {
+  if (!evo || t >= walkAgain) return { dy: st.dy, sq: st.sq, rot: st.rot };
+  const hp = hopAt(t, at + 0.08, 0.5, 90); return { dy: hp.dy, sq: hp.sq, rot: 0 };
+}
+const wobble = (t, every = 1.1, ph = 0, amp = 7) => { const k = ((t + ph) % every) / 0.5; return k < 1 ? amp * Math.sin(k * Math.PI * 3) * (1 - k) : 0; };
+
+// ---- 1. "care": "I made a little creature that grows when I walk. I thought I was taking care of him.
+//         Turns out, he's helping me take care of myself too." (the user's favourite)
+CUTS.care = {
+  TOTAL: 19.0, handle: true,
+  CAPS: [
+    { t0: -0.12, t1: 3.6, cls: 'mid', y: 290, html: 'I made a little creature<br>that <span class="g">grows when I walk</span>' },
+    { t0: 3.6, t1: 7.4, cls: 'big', y: 290, html: 'I thought I was<br><span class="g">taking care of him</span>' },
+    { t0: 7.4, t1: 10.6, cls: 'huge', y: 300, html: 'turns out…' },
+    { t0: 10.6, t1: 15.0, cls: 'mid', y: 290, html: "he's helping me<br><span class=\"g\">take care of myself</span> too" },
+    { t0: 15.0, t1: 19.0, cls: 'big', y: 290, html: 'how many steps did<br><span class="g">you</span> get today?' },
+  ],
+  async draw(t) {
+    if (t < 3.6) {
+      const w = world(t, { sc: 1.5, cx: 0.30 + t * 0.034 });
+      const st = walk(t, 2.4, 26);
+      await pet('a', { id: 's01', ex: blink(t, 0.5) ? 'blink' : 'happy', x: 500, y: w.gy, flip: true, dy: st.dy, sq: st.sq, rot: st.rot });
+      const steps = lerp(3214, 4980, t / 3.6);
+      hud('a', { steps, appear: pop(t + 0.3, 0.3) });
+      xpchip(t, 2.5, 700, 1000, '+15 XP');
+    } else if (t < 7.4) {
+      const w = world(t, { sc: 1.75, cx: 0.44 + (t - 3.6) * 0.004, gy: 1520 });
+      const ex = t < 4.05 ? (blink(t, 0.2) ? 'blink' : 'curious') : t < 5.7 ? 'happy' : t < 6.7 ? 'excited' : 'happy';
+      const hp = hops(t, [4.1, 4.65, 5.95, 6.45], 0.45, 80);
+      await pet('b', { id: 's01', ex, x: 470, y: w.gy, h: 470, dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.012)), rot: t < 4.05 ? tilt(t) : 0 });
+      rippleAt(t, 4.0, 500, 1250);
+      hearts(t, 4.15, 470, 1050, 4);
+      // a berry drops in, he eats it
+      if (t >= 5.1 && t < 6.75) {
+        const k = clamp((t - 5.1) / 0.55, 0, 1); const land = k >= 1; const bounce = land ? hopAt(t, 5.65, 0.3, 30).dy : 0;
+        const eat = clamp((t - 6.45) / 0.3, 0, 1);
+        await prop('berry', 'site/img/items/berry-snack.webp', { x: 780, y: lerp(-100, w.gy + 10, k * k) + bounce, w: 210, rot: (1 - k) * 40, sx: 1 - eat, sy: 1 - eat });
+      }
+      hearts(t, 6.7, 520, 1000, 6);
+    } else if (t < 10.6) {
+      const w = world(t, { sc: 1.5, cx: 0.36 + (t - 7.4) * 0.03 });
+      const evo = t >= 9.95; const id = evo ? 's02' : 's01';
+      const st = walk(t, 2.4, 24);
+      const k = charge(t, 9.95, 0.9);
+      const hp = evo ? hopAt(t, 10.05, 0.5, 90) : { dy: 0, sq: 1 };
+      await pet('c', { id, ex: evo ? 'happy' : (blink(t, 0.3) ? 'blink' : 'happy'), x: 520, y: w.gy, flip: true, dy: evo ? hp.dy : st.dy, sq: evo ? hp.sq : st.sq, rot: evo ? 0 : st.rot, glow: evo ? 0 : k, scale: evo ? pop(t - 9.95, 0.4) : 1 });
+      motes(t, 520, w.gy - 200, evo ? 0 : k);
+      weekStrip('c', t, { y: 610, start: 7.75, every: 0.3 });
+      const lv = clamp(Math.floor(1 + (t - 7.6) * 3.6), 1, 10);
+      hud('c', { y: 790, icon: 'xp', text: `Lv ${evo ? 10 : Math.min(lv, 9)}`, sub: evo ? 'Juvenile!' : '', p: evo ? 1 : clamp((t - 7.6) / 2.35, 0, 1) });
+      if (evo) { flash(t, 9.95, 0.85); sparks(t, 9.97, 520, w.gy - 220); }
+    } else if (t < 15.0) {
+      const night = 0.42;
+      const w = world(t, { sc: 1.5, cx: 0.50 + (t - 10.6) * 0.03, night });
+      const st = walk(t, 2.2, 24);
+      await pet('d', { id: 's02', ex: blink(t, 0.7) ? 'blink' : 'happy', x: 520, y: w.gy, flip: true, dy: st.dy, sq: st.sq, rot: st.rot, night });
+      const steps = t < 12.5 ? lerp(6180, 7000, (t - 10.6) / 1.9) : lerp(7000, 8214, (t - 12.5) / 2.5);
+      hud('d', { steps });
+      if (t >= 12.5) { sparks(t, 12.52, 540, 700, 16); }
+      fireflies(t, 0.6, 10);
+    } else {
+      const night = 0.42;
+      const w = world(t, { sc: 1.9, cx: 0.55, night, gy: 1500 });
+      const ex = blink(t, 0.4, 2.4) ? 'blink' : t < 16.2 ? 'happy' : 'curious';
+      const hp = hops(t, [15.1, 15.6], 0.45, 70);
+      await pet('e', { id: 's02', ex, x: 540, y: w.gy, h: 600, dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.012)), rot: t > 16.2 ? tilt(t, 1) : 0, night: night * 0.6 });
+      fireflies(t, 0.7, 12);
+    }
+  },
+};
+
+// ---- 2. "evolves": analyst hook + the user's "when I was a kid" lines; opens and ends on an evolution
+CUTS.evolves = {
+  TOTAL: 18.0, handle: true,
+  CAPS: [
+    { t0: -0.12, t1: 3.0, cls: 'mid', y: 290, html: 'I made a virtual pet<br>that <span class="g">evolves</span> when I walk' },
+    { t0: 3.0, t1: 6.6, cls: 'mid', y: 290, html: 'when I was a kid,<br>I loved raising <span class="g">virtual pets</span>' },
+    { t0: 6.6, t1: 10.0, cls: 'mid', y: 290, html: "now I'm making one<br>that <span class=\"g\">grows alongside you</span>" },
+    { t0: 10.0, t1: 14.2, cls: 'mid', y: 290, html: 'every walk helps him<br>become <span class="g">something new</span>' },
+    { t0: 14.6, t1: 18.0, cls: 'big', y: 290, html: 'what would you<br><span class="g">name</span> yours?' },
+  ],
+  async draw(t) {
+    if (t < 3.0) {
+      const w = world(t, { sc: 1.5, cx: 0.34 + t * 0.03 });
+      const evo = t >= 0.95; const id = evo ? 's03' : 's02';
+      const st = walk(t, evo ? 2.0 : 2.6, evo ? 22 : 26);
+      const k = evo ? 0 : clamp(0.85 + t * 0.3, 0, 1) * (0.8 + 0.2 * Math.sin(t * 22));
+      const m = moveAfterEvo(t, st, evo, 0.95, 1.6);
+      await pet('a', { id, ex: evo ? (blink(t, 0.8) ? 'blink' : 'happy') : 'excited', x: 520, y: w.gy, flip: true, ...m, glow: k, scale: evo ? pop(t - 0.95, 0.4) : 1 });
+      motes(t, 520, w.gy - 200, k);
+      hud('a', { icon: 'xp', text: evo ? 'Lv 25' : 'Lv 24', sub: evo ? 'Elder!' : '', p: evo ? 1 : clamp(0.82 + t * 0.2, 0, 1), y: 640 });
+      if (evo) { flash(t, 0.95, 0.9); sparks(t, 0.97, 520, w.gy - 260); }
+    } else if (t < 6.6) {
+      await clipFrame('hatch', (t - 3.0) * 0.92, { s: 1.55, fx: 390, fy: 640, ax: 540, ay: 1000 }, t, 3.0);
+      flash(t, 3.0 + 0.78 / 0.92, 0.7); sparks(t, 3.0 + 0.8 / 0.92, 540, 980);
+    } else if (t < 10.0) {
+      const w = world(t, { sc: 1.5, cx: 0.26 + (t - 6.6) * 0.04 });
+      const st = walk(t, 2.4, 26);
+      await pet('c', { id: 's01', ex: blink(t, 0.5) ? 'blink' : 'happy', x: 500, y: w.gy, flip: true, dy: st.dy, sq: st.sq, rot: st.rot });
+      // days tick by: each one fills the bar and rolls over
+      const dk = (t - 6.6) / 0.42; const day = 1 + Math.floor(dk); const p = dk % 1;
+      hud('c', { steps: 7000 * Math.min(1, p * 1.15), text: `day ${day}`, sub: `${fmt(7000 * Math.min(1, p * 1.15))} steps`, p: Math.min(1, p * 1.15) });
+    } else if (t < 14.2) {
+      await clipFrame('evolve', 1.2 + (t - 10.0) * 0.74, { s: 1.5, fx: 390, fy: 820, ax: 540, ay: 960 }, t, 10.0);
+      flash(t, 10.0 + 1.85 / 0.74, 0.75);
+    } else {
+      const w = world(t, { sc: 1.85, cx: 0.52, gy: 1510 });
+      const evo = t >= 14.6; const id = evo ? 's03' : 's02';
+      const k = evo ? 0 : clamp((t - 14.2) / 0.35, 0, 1) * (0.8 + 0.2 * Math.sin(t * 24));
+      const hp = evo ? hops(t, [14.7, 15.5], 0.5, 90) : { dy: 0, sq: 1 };
+      const ex = !evo ? 'excited' : blink(t, 0.3, 2.4) ? 'blink' : t < 16.0 ? 'happy' : 'curious';
+      await pet('e', { id, ex, x: 540, y: w.gy, h: evo ? 680 : 520, dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.01)), rot: t > 16.0 ? tilt(t, 2) : 0, glow: k, scale: evo ? pop(t - 14.6, 0.4) : 1 });
+      motes(t, 540, w.gy - 220, k);
+      if (evo) { flash(t, 14.6, 0.9); sparks(t, 14.62, 540, w.gy - 300); }
+    }
+  },
+};
+
+// ---- 3. "week1": Mochi's Walk, week 1 (a weekly series: the same Mochi, one week older each episode)
+CUTS.week1 = {
+  TOTAL: 20.0, handle: true, stampFn: (t) => `WEEK 1 · DAY ${t < 1.8 ? 1 : t < 3.6 ? 2 : t < 6.6 ? 3 : t < 8.5 ? 4 : t < 10.4 ? 5 : t < 13.6 ? 6 : 7}`,
+  CAPS: [
+    { t0: -0.12, t1: 3.2, cls: 'mid', y: 290, html: 'this little guy<br>started as an <span class="g">egg</span>.' },
+    { t0: 3.2, t1: 6.6, cls: 'big', y: 290, html: "here's <span class=\"g\">7 days</span><br>of walking" },
+    { t0: 6.6, t1: 10.4, cls: 'big', y: 290, html: 'he grows with<br><span class="g">every step</span>' },
+    { t0: 10.4, t1: 13.6, cls: 'mid', y: 290, html: 'day 6: <span class="b">rest day</span>.<br>he napped. no penalty.' },
+    { t0: 13.6, t1: 16.6, cls: 'huge', y: 290, html: 'day 7:<br><span class="g">level 10</span>' },
+    { t0: 16.6, t1: 20.0, cls: 'mid', y: 290, html: 'week 2 is next friday.<br>what does he <span class="g">become</span>?' },
+  ],
+  async draw(t) {
+    if (t < 6.6) {
+      const night = 0;
+      const w = world(t, { sc: 1.7, cx: 0.50, gy: 1460 });
+      const hatched = t >= 4.4;
+      const egg = t < 1.8 ? 'egg' : t < 3.6 ? 'egg_crack1' : 'egg_crack2';
+      const k = t < 3.6 ? 0 : charge(t, 4.4, 0.8);
+      const every = t < 1.8 ? 1.0 : t < 3.6 ? 0.7 : 0.38;
+      const rot = hatched ? 0 : wobble(t, every, 0.15, t < 3.6 ? 7 : 11);
+      if (t >= 1.8 && t < 1.95) flash(t, 1.8, 0.35);
+      await nest(t, 'n1', { x: 540, y: w.gy + 60, w: 640, egg: hatched ? null : egg, eggRot: rot, eggGlow: k, occupant: hatched ? async (seat) => {
+        const hp = hops(t, [4.75, 5.5, 6.1], 0.45, 80);
+        await pet('nest-a', { id: 's01', ex: t < 5.3 ? 'excited' : blink(t, 0.4) ? 'blink' : 'happy', x: 540, y: seat, h: 430, dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.012)), shadow: 0, scale: pop(t - 4.4, 0.4) });
+      } : null });
+      if (!hatched && k > 0) {
+        const el = layer('eggglow', '<div class="aura" style="position:absolute"></div>');
+        const au = el.querySelector('.aura'); const d = 980 * (0.85 + 0.15 * Math.sin(t * 12)); au.style.width = d + 'px'; au.style.height = d + 'px'; au.style.left = '540px'; au.style.top = (w.gy - 200) + 'px'; au.style.opacity = String(k);
+        $('#layers').insertBefore(el, $('#layers').firstChild);
+      }
+      motes(t, 540, w.gy - 200, k);
+      hud('a', { steps: t < 1.8 ? 2140 : t < 3.6 ? 5870 : 7450, appear: pop(t + 0.3, 0.3) });
+      if (hatched) { flash(t, 4.4, 0.9); sparks(t, 4.42, 540, w.gy - 260); hearts(t, 4.9, 540, w.gy - 330, 5); }
+    } else if (t < 10.4) {
+      const d5 = t >= 8.5; const t0 = d5 ? 8.5 : 6.6;
+      const w = world(t, { sc: 1.5, cx: (d5 ? 0.44 : 0.24) + (t - t0) * 0.034 });
+      if (t < t0 + 0.14) flash(t, t0, 0.3);
+      const st = walk(t, 2.4, 26);
+      await pet('b', { id: 's01', ex: blink(t, 0.5) ? 'blink' : 'happy', x: 500, y: w.gy, flip: true, dy: st.dy, sq: st.sq, rot: st.rot });
+      const goal = d5 ? 11030 : 8912; const steps = lerp(0, goal, clamp((t - t0) / 1.55, 0, 1));
+      hud('b', { steps });
+      xpchip(t, t0 + 1.0, 700, 1020, d5 ? 'Lv 6' : 'Lv 4');
+    } else if (t < 13.6) {
+      const night = clamp((t - 10.4) / 0.4, 0, 1) * 0.85;
+      const w = world(t, { sc: 1.7, cx: 0.50, gy: 1460, night });
+      if (t < 10.55) flash(t, 10.4, 0.25);
+      await nest(t, 'n2', { x: 540, y: w.gy + 60, w: 640, night, occupant: async (seat) => {
+        await pet('nest-b', { id: 's01', ex: 'sleepy', x: 540, y: seat, h: 430, sq: 1 + 0.02 * Math.sin(t * 2.2), shadow: 0, night: night * 0.6 });
+      } });
+      zzz(t, 640, w.gy - 400, clamp((t - 10.6) / 0.3, 0, 1));
+      fireflies(t, night, 14);
+      hud('c', { icon: 'heart', text: 'rest day', sub: 'streak safe', p: false });
+    } else if (t < 16.6) {
+      const w = world(t, { sc: 1.5, cx: 0.50 + (t - 13.6) * 0.032 });
+      if (t < 13.74) flash(t, 13.6, 0.3);
+      const evo = t >= 14.6; const id = evo ? 's02' : 's01';
+      const st = walk(t, evo ? 2.2 : 2.7, 26);
+      const k = evo ? 0 : charge(t, 14.6, 0.9);
+      const m = moveAfterEvo(t, st, evo, 14.6, 15.25);
+      await pet('d', { id, ex: evo ? (blink(t, 0.4) ? 'blink' : 'happy') : 'excited', x: 520, y: w.gy, flip: true, ...m, glow: k, scale: evo ? pop(t - 14.6, 0.4) : 1 });
+      motes(t, 520, w.gy - 200, k);
+      hud('d', evo ? { icon: 'xp', text: 'Lv 10', sub: 'Juvenile!', p: 1 } : { steps: lerp(5200, 7000, clamp((t - 13.6) / 0.9, 0, 1)) });
+      if (evo) { flash(t, 14.6, 0.9); sparks(t, 14.62, 520, w.gy - 240); }
+    } else {
+      const w = world(t, { sc: 1.9, cx: 0.55, gy: 1500 });
+      const ex = blink(t, 0.4, 2.4) ? 'blink' : t < 17.6 ? 'happy' : 'curious';
+      const hp = hops(t, [16.7, 17.2], 0.45, 70);
+      await pet('e', { id: 's02', ex, x: 540, y: w.gy, h: 600, dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.012)), rot: t > 17.6 ? tilt(t, 1) : 0 });
+    }
+  },
+};
+
+// ---- 4. "missB": the live "I miss the games" video with only the first 4.2 s changed (A/B test).
+// Same captions, same body (4.2-22 s copied from comp_v3.html), new opening: Mochi evolving in the meadow.
+CUTS.missB = {
+  TOTAL: 22.0, handle: true,
+  CAPS: [
+    { t0: -0.12, t1: 4.2, cls: 'mid', y: 300, html: 'I miss the games where<br>you <span class="g">actually cared</span><br>about your little creature' },
+    { t0: 4.2, t1: 7.0, cls: 'big', y: 300, html: "so I'm <span class=\"g\">making one</span>." },
+    { t0: 7.0, t1: 10.2, cls: 'big', y: 300, html: 'it hatches from an egg<br><span class="g">you</span> pick' },
+    { t0: 10.2, t1: 13.4, cls: 'big', y: 300, html: 'it <span class="g">grows</span> when you walk' },
+    { t0: 13.4, t1: 16.0, cls: 'big', y: 300, html: 'it gets <span class="b">sleepy</span><br>when you stop…' },
+    { t0: 16.0, t1: 18.8, cls: 'big', y: 300, html: '…and <span class="g">so happy</span><br>when you\'re back' },
+    { t0: 18.8, t1: 22.0, cls: 'big', y: 300, html: 'what was <span class="g">yours</span> called?' },
+  ],
+  async draw(t) {
+    if (t < 4.2) {
+      const w = world(t, { sc: 1.5, cx: 0.32 + t * 0.03, gy: 1540 });
+      const evo = t >= 0.9; const id = evo ? 's02' : 's01';
+      const walking = !evo || (t > 1.5 && t < 2.9);
+      const st = walk(t, 2.6, 26);
+      const k = evo ? 0 : clamp(0.8 + t * 0.3, 0, 1) * (0.8 + 0.2 * Math.sin(t * 22));
+      const facing = t < 2.9; // walks right, then turns to the camera
+      let m = moveAfterEvo(t, st, evo, 0.9, 1.5);
+      if (t >= 2.9) { const hp = hopAt(t, 3.25, 0.5, 90); m = { dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.012)), rot: tilt(t) }; }
+      await pet('a', { id, ex: !evo ? 'excited' : t < 2.9 ? (blink(t, 0.6) ? 'blink' : 'happy') : (blink(t, 0.2, 2.2) ? 'blink' : 'curious'), x: 520, y: w.gy, flip: facing, ...m, glow: k, scale: evo ? pop(t - 0.9, 0.4) : 1 });
+      motes(t, 520, w.gy - 200, k);
+      if (evo) { flash(t, 0.9, 0.9); sparks(t, 0.92, 520, w.gy - 240); }
+      return;
+    }
+    // ---- from here on: identical to CUTS.miss in comp_v3.html
+    if (t < 7.0) {
+      parchment(1335);
+      const el = layer('build', '<img class="sprite" alt=""><div class="label" style="left:540px;top:1430px"></div>');
+      const img = el.querySelector('img'); const lab = el.querySelector('.label');
+      const kk = clamp(Math.floor(((t - 4.2) / 2.0) * 40), 0, 39);
+      await setSrc(img, t < 6.25 ? `wl/build/b${String(kk).padStart(3, '0')}.webp` : 'wl/expr/happy.webp');
+      const hop = hopAt(t, 6.3, 0.5, 80);
+      placeSprite(img, 's01', 540, 1340, 700, hop.sq * (1 + bob(t, 0, 0.012)), hop.dy);
+      lab.textContent = t < 6.2 ? `${Math.round(74856 * clamp((t - 4.2) / 2.0, 0, 1)).toLocaleString('en-US')} of 74,856 voxels` : 'Mochi';
+      lab.className = 'label' + (t >= 6.2 ? ' gold' : '');
+    } else if (t < 10.2) {
+      await clipFrame('hatch', t - 7.0, { s: 1.55, fx: 390, fy: 620, ax: 540, ay: 960 }, t, 7.0);
+      flash(t, 7.9, 0.7); sparks(t, 7.95, 540, 900);
+    } else if (t < 13.4) {
+      parchment(1335);
+      const el = layer('forms', '<img class="sprite" data-s="s01" src="site/img/pets/s01-ocean.webp" alt=""><img class="sprite" data-s="s02" src="wl/forms/s02.webp" alt=""><img class="sprite" data-s="s03" src="wl/forms/s03.webp" alt=""><div class="arrow" style="left:400px;top:1250px">›</div><div class="arrow" style="left:700px;top:1210px">›</div><div class="label" style="left:200px;top:1420px">day 1</div><div class="label" style="left:540px;top:1420px">level 10</div><div class="label gold" style="left:880px;top:1420px">level 25</div>');
+      const xs = { s01: 200, s02: 520, s03: 860 }, hs = { s01: 330, s02: 400, s03: 440 }, at = { s01: 10.2, s02: 10.9, s03: 11.6 };
+      el.querySelectorAll('.sprite').forEach((img, i) => { const id = img.dataset.s; const p = pop(t - at[id], 0.4); const hop = hopAt(t, at[id] + 0.4, 0.5); placeSprite(img, id, xs[id], 1340, hs[id] * Math.max(0.001, p), hop.sq * (1 + bob(t, i * 0.3, 0.012)), hop.dy); });
+      el.querySelectorAll('.arrow').forEach((a, i) => { a.style.opacity = String(clamp((t - (10.9 + i * 0.7)) / 0.25, 0, 1)); });
+      el.querySelectorAll('.label').forEach((a, i) => { a.style.opacity = String(clamp((t - (10.5 + i * 0.7)) / 0.25, 0, 1)); });
+      sparks(t, 11.75, 860, 1200);
+    } else if (t < 18.8) {
+      const awake = t >= 16.0;
+      const night = t < 16.0 ? 1 : Math.max(0, 1 - (t - 16.0) / 1.0);
+      placeVista(t, { night, pets: false, since: awake ? t - 16.0 : 0, s01Expr: awake ? 'happy' : 'sleepy', hop: awake, focus: 's01' });
+      const el = layer('zz', '<div class="zz" style="left:640px;top:1010px">z</div><div class="zz" style="left:700px;top:930px">z</div><div class="zz" style="left:770px;top:840px">Z</div>');
+      el.querySelectorAll('.zz').forEach((z, i) => { const ph = (t * 0.5 + i * 0.33) % 1; z.style.opacity = String(awake ? 0 : Math.sin(ph * Math.PI) * 0.95); z.style.transform = `translateY(${-ph * 60}px) rotate(${Math.sin(t * 2 + i) * 10}deg)`; });
+      flash(t, 16.0, 0.8); sparks(t, 16.02, 540, 1250);
+    } else {
+      parchment(1335);
+      const el = layer('ask', '<img class="sprite" alt="">');
+      const img = el.querySelector('img');
+      await setSrc(img, blink(t, 1.3, 2.6) ? 'wl3/s01/ocean/blink.webp' : t < 19.7 ? 'wl3/s01/ocean/happy.webp' : 'wl3/s01/ocean/curious.webp');
+      const hop = hops(t, [18.85, 19.35], 0.45, 70);
+      placeSprite(img, 's01', 540, 1340, 760, hop.sq * (1 + bob(t, 0, 0.012)), hop.dy, t >= 19.7 ? tilt(t, 2) : 0);
+    }
+  },
+};
+
+// ---- 5. "part": "You used to take care of little virtual pets. Somewhere along the way, you grew up.
+//         But that little part of you never really went away." Then Mochi wakes and walks the meadow.
+CUTS.part = {
+  TOTAL: 18.0, handle: true,
+  CAPS: [
+    { t0: -0.12, t1: 3.6, cls: 'mid', y: 290, html: 'you used to take care of<br>little <span class="g">virtual pets</span>' },
+    { t0: 3.6, t1: 6.8, cls: 'mid', y: 290, html: 'somewhere along the way,<br>you <span class="b">grew up</span>.' },
+    { t0: 6.8, t1: 10.6, cls: 'mid', y: 290, html: 'but that little part of you<br><span class="g">never really went away</span>.' },
+    { t0: 10.6, t1: 14.4, cls: 'mid', y: 290, html: 'this is <span class="g">Mochi</span>.<br>he grows when you walk.' },
+    { t0: 14.4, t1: 18.0, cls: 'mid', y: 290, html: '<span class="g">Tamagotchi</span>, Neopets<br>or Nintendogs?' },
+  ],
+  async draw(t) {
+    if (t < 10.6) {
+      // night, slowly pushing in; sunrise from 6.8; he wakes at 8.6
+      const night = t < 6.8 ? 1 : clamp(1 - (t - 6.8) / 1.6, 0, 1);
+      const sc = lerp(1.6, 1.85, easeOut(t / 10.6));
+      const w = world(t, { sc, cx: 0.50, gy: 1440, night });
+      const awake = t >= 8.6;
+      const ex = !awake ? 'sleepy' : t < 9.0 ? (blink(t, 0, 0.3) ? 'blink' : 'curious') : blink(t, 0.6) ? 'blink' : 'happy';
+      await nest(t, 'n', { x: 540, y: w.gy + 70, w: 600 * sc / 1.6, night, occupant: async (seat) => {
+        const hp = hops(t, [9.05, 9.6, 10.15], 0.45, 80);
+        await pet('nest-a', { id: 's01', ex, x: 540, y: seat, h: 400 * sc / 1.6, dy: hp.dy, sq: awake ? hp.sq * (1 + bob(t, 0, 0.012)) : 1 + 0.02 * Math.sin(t * 2.2), shadow: 0, night: night * 0.55, rot: t >= 8.6 && t < 9.0 ? tilt(t) : 0 });
+      } });
+      zzz(t, 650, w.gy - 420, clamp((8.6 - t) / 0.3, 0, 1));
+      fireflies(t, night, 18);
+      if (awake) { sparks(t, 9.05, 540, w.gy - 250, 14); hearts(t, 9.6, 540, w.gy - 330, 4); }
+    } else if (t < 14.4) {
+      const w = world(t, { sc: 1.5, cx: 0.42 + (t - 10.6) * 0.034 });
+      const st = walk(t, 2.4, 26);
+      await pet('b', { id: 's01', ex: blink(t, 0.5) ? 'blink' : 'happy', x: 500, y: w.gy, flip: true, dy: st.dy, sq: st.sq, rot: st.rot });
+      hud('b', { steps: lerp(1240, 5310, (t - 10.6) / 3.8), appear: pop(t - 10.7, 0.3) });
+      xpchip(t, 12.6, 700, 1020, '+XP');
+    } else {
+      const w = world(t, { sc: 1.9, cx: 0.55, gy: 1500 });
+      const ex = blink(t, 0.4, 2.4) ? 'blink' : t < 15.6 ? 'happy' : 'curious';
+      const hp = hops(t, [14.5, 15.0], 0.45, 70);
+      await pet('c', { id: 's01', ex, x: 540, y: w.gy, h: 560, dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.012)), rot: t > 15.6 ? tilt(t, 1) : 0 });
+    }
+  },
+};
+
+// ---- 6. "moods": goal hit / rest day / poked / snack / came back, then "which one are you today?"
+CUTS.moods = {
+  TOTAL: 15.5, handle: true,
+  CAPS: [
+    { t0: -0.12, t1: 2.6, cls: 'huge', y: 290, html: 'Mochi has<br><span class="g">moods</span>.' },
+    { t0: 2.6, t1: 4.6, cls: 'big', y: 300, html: 'goal hit:' },
+    { t0: 4.6, t1: 6.6, cls: 'big', y: 300, html: '<span class="b">rest day</span>:' },
+    { t0: 6.6, t1: 8.6, cls: 'big', y: 300, html: 'you poked him:' },
+    { t0: 8.6, t1: 10.6, cls: 'big', y: 300, html: 'snack time:' },
+    { t0: 10.6, t1: 12.6, cls: 'big', y: 300, html: 'you came back:' },
+    { t0: 12.6, t1: 15.5, cls: 'big', y: 210, html: 'which one are<br><span class="g">you</span> today?' },
+  ],
+  async draw(t) {
+    const cut = (a) => { if (t < a + 0.12) flash(t, a, 0.25); };
+    if (t < 2.6) {
+      const w = world(t, { sc: 1.85, cx: 0.48 + t * 0.006, gy: 1500 });
+      const hp = hops(t, [0.0, 0.55, 1.1, 1.65, 2.2], 0.45, 85);
+      await pet('a', { id: 's01', ex: blink(t, 0.5) ? 'blink' : 'excited', x: 540, y: w.gy, h: 520, dy: hp.dy, sq: hp.sq, rot: 4 * Math.sin(t * 5.7) });
+      sparks(t, 0.05, 540, w.gy - 280, 12);
+    } else if (t < 4.6) {
+      cut(2.6);
+      const w = world(t, { sc: 1.85, cx: 0.40, gy: 1500 });
+      const done = t >= 3.0;
+      const hp = done ? hops(t, [3.05, 3.55, 4.05], 0.45, 95) : { dy: 0, sq: 1 };
+      await pet('b', { id: 's01', ex: done ? 'excited' : 'determined', x: 540, y: w.gy, h: 520, dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.012)) });
+      hud('b', { y: 640, steps: lerp(6400, 7000, clamp((t - 2.6) / 0.4, 0, 1)) });
+      if (done) sparks(t, 3.02, 540, 900, 18);
+    } else if (t < 6.6) {
+      cut(4.6);
+      const night = 0.7;
+      const w = world(t, { sc: 1.85, cx: 0.55, gy: 1440, night });
+      await nest(t, 'n', { x: 540, y: w.gy + 70, w: 690, night, occupant: async (seat) => {
+        await pet('nest-c', { id: 's01', ex: 'sleepy', x: 540, y: seat, h: 470, sq: 1 + 0.02 * Math.sin(t * 2.2), shadow: 0, night: night * 0.55 });
+      } });
+      zzz(t, 660, w.gy - 470, 1);
+      fireflies(t, 0.8, 12);
+    } else if (t < 8.6) {
+      cut(6.6);
+      const w = world(t, { sc: 1.85, cx: 0.62, gy: 1500 });
+      const ex = t < 6.95 ? 'default' : t < 7.5 ? 'surprised' : 'happy';
+      const sq = t >= 6.95 && t < 7.25 ? 1 - 0.14 * Math.sin(((t - 6.95) / 0.3) * Math.PI) : 1;
+      const hp = hops(t, [7.55, 8.05], 0.45, 80);
+      await pet('d', { id: 's01', ex, x: 540, y: w.gy, h: 520, dy: hp.dy, sq: sq * hp.sq * (1 + bob(t, 0, 0.012)), rot: t >= 6.95 && t < 7.5 ? -5 : 0 });
+      rippleAt(t, 6.9, 560, 1240);
+      hearts(t, 7.55, 540, 1040, 5);
+    } else if (t < 10.6) {
+      cut(8.6);
+      const w = world(t, { sc: 1.85, cx: 0.34, gy: 1500 });
+      const k = clamp((t - 8.7) / 0.5, 0, 1);
+      const eat = clamp((t - 9.75) / 0.25, 0, 1);
+      const hp = hops(t, [9.25, 9.7, 10.15], 0.42, 85);
+      await pet('e', { id: 's01', ex: t < 9.2 ? 'curious' : blink(t, 0.4) ? 'blink' : 'excited', x: 450, y: w.gy, h: 520, dy: hp.dy, sq: hp.sq, rot: t < 9.2 ? tilt(t) * 2 : 0 });
+      if (t >= 8.7 && eat < 1) {
+        const bounce = k >= 1 ? hopAt(t, 9.2, 0.3, 30).dy : 0;
+        await prop('berry', 'site/img/items/berry-snack.webp', { x: 790, y: lerp(-100, w.gy + 10, k * k) + bounce, w: 230, rot: (1 - k) * 40, sx: 1 - eat, sy: 1 - eat });
+      }
+      hearts(t, 9.9, 470, 1000, 5);
+    } else if (t < 12.6) {
+      cut(10.6);
+      const w = world(t, { sc: 1.85, cx: 0.70, gy: 1500 });
+      const seen = t >= 11.2;
+      const hp = seen ? hops(t, [11.25, 11.7, 12.15], 0.42, 100) : { dy: 0, sq: 1 };
+      await pet('f', { id: 's01', ex: !seen ? (blink(t, 0.1, 0.5) ? 'blink' : 'curious') : 'excited', x: 540, y: w.gy, h: 520, dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.012)), rot: !seen ? tilt(t * 3) * 2 : 4 * Math.sin(t * 7) });
+      hearts(t, 11.25, 540, 1000, 8, 1.4);
+    } else {
+      cut(12.6);
+      world(t, { sc: 1.85, cx: 0.5, gy: 1500, blur: 10 });
+      const el = layer('grid', [1, 2, 3, 4].map((n) => `<div class="mood" data-n="${n}"><img alt=""><div class="n">${n}</div><div class="t"></div></div>`).join(''));
+      const cells = [
+        { x: 90, y: 560, ex: 'excited', t: 'goal hit' }, { x: 570, y: 560, ex: 'sleepy', t: 'rest day' },
+        { x: 90, y: 1070, ex: 'surprised', t: 'poked' }, { x: 570, y: 1070, ex: 'happy', t: 'you came back' },
+      ];
+      const cards = el.querySelectorAll('.mood');
+      for (let i = 0; i < 4; i++) {
+        const c = cells[i], card = cards[i];
+        card.style.left = c.x + 'px'; card.style.top = c.y + 'px';
+        card.style.transform = `scale(${pop(t - 12.65 - i * 0.12, 0.38)}) rotate(${[-1.5, 1.2, 1.4, -1.2][i]}deg)`;
+        card.querySelector('.t').textContent = c.t;
+        const img = card.querySelector('img'); await setSrc(img, blink(t, i * 0.7, 2.6) ? S('s01', 'blink') : S('s01', c.ex));
+        const hp = hops(t, [13.4 + i * 0.35, 14.8 + i * 0.2], 0.42, 40);
+        placeSprite(img, 's01', 210, 375, 330, hp.sq * (1 + bob(t, i * 0.4, 0.012)), hp.dy);
+      }
+    }
+  },
+};
+
+// ================================================================== v5: hook-first recuts of "care"
+// Feedback on v4 #1: 82% swiped away in the first second. Each cut opens on Mochi big in frame, already
+// mid-event, with a short hook fully on screen at frame 0; the twist lands by ~10s; the last second
+// leads back into the first so the loop replays cleanly.
+
+// ---- A "grows": payoff first. Frame 0 is an evolution already charging.
+CUTS.grows = {
+  TOTAL: 13.5, handle: true,
+  CAPS: [
+    { t0: -0.5, t1: 2.6, cls: 'big', y: 250, html: 'he only grows<br>when <span class="g">I go outside</span>' },
+    { t0: 2.6, t1: 5.8, cls: 'big', y: 250, html: 'so every day,<br>we <span class="g">go for a walk</span>' },
+    { t0: 5.8, t1: 8.6, cls: 'big', y: 250, html: 'I thought I was<br><span class="g">taking care of him</span>' },
+    { t0: 8.6, t1: 11.6, cls: 'big', y: 250, html: "turns out he's<br><span class=\"g\">taking care of me</span>" },
+    { t0: 11.6, t1: 13.5, cls: 'big', y: 250, html: 'what would you<br><span class="g">name</span> him?' },
+  ],
+  async draw(t) {
+    if (t < 2.6) {
+      const w = world(t, { sc: 1.95, cx: 0.5, gy: 1520 });
+      const evo = t >= 0.85;
+      const k = evo ? 0 : clamp(0.55 + t * 0.55, 0, 1) * (0.78 + 0.22 * Math.sin(t * 26));
+      const hp = evo ? hops(t, [0.95, 1.7], 0.48, 95) : { dy: 0, sq: 1 };
+      await pet('a', { id: evo ? 's02' : 's01', ex: evo ? (t < 2.0 ? 'excited' : 'happy') : 'excited', x: 540, y: w.gy, h: evo ? 700 : 620,
+        dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.012)), glow: k, scale: evo ? pop(t - 0.85, 0.4) : 1 });
+      motes(t, 540, w.gy - 260, k, 18);
+      hud('a', { y: 640, icon: 'xp', text: evo ? 'Lv 10' : 'Lv 9', sub: evo ? 'Juvenile!' : '', p: evo ? 1 : clamp(0.86 + t * 0.15, 0, 1) });
+      if (evo) { flash(t, 0.85, 0.9); sparks(t, 0.87, 540, w.gy - 320, 30); }
+      hearts(t, 1.25, 540, w.gy - 420, 6);
+    } else if (t < 5.8) {
+      const w = world(t, { sc: 1.55, cx: 0.32 + (t - 2.6) * 0.035 });
+      const st = walk(t, 2.5, 26);
+      await pet('b', { id: 's02', ex: blink(t, 0.4) ? 'blink' : 'happy', x: 520, y: w.gy, flip: true, dy: st.dy, sq: st.sq, rot: st.rot });
+      const steps = Math.min(7000, lerp(1240, 7300, (t - 2.6) / 2.9));
+      hud('b', { y: 640, steps, goal: 7000 });
+      xpchip(t, 3.3, 720, 1020, '+15 XP'); xpchip(t, 4.2, 360, 1000, '+15 XP');
+      if (t >= 5.3) sparks(t, 5.32, 540, 640, 16);
+    } else if (t < 8.6) {
+      const night = clamp((t - 5.8) / 1.2, 0, 1) * 0.4;
+      const w = world(t, { sc: 1.55, cx: 0.48 + (t - 5.8) * 0.03, night });
+      const st = walk(t, 2.3, 24);
+      await pet('c', { id: 's02', ex: blink(t, 0.6) ? 'blink' : 'happy', x: 520, y: w.gy, flip: true, dy: st.dy, sq: st.sq, rot: st.rot, night });
+      weekStrip('c', t, { y: 620, start: 6.0, every: 0.3 });
+      fireflies(t, night * 1.4, 10);
+    } else {
+      const night = 0.4;
+      const w = world(t, { sc: 2.0, cx: 0.55, night, gy: 1520 });
+      const ex = t < 11.6 ? (blink(t, 0.3, 2.2) ? 'blink' : 'happy') : (blink(t, 0.1, 2.2) ? 'blink' : 'curious');
+      const hp = hops(t, [8.7, 9.2, 10.4], 0.45, 70);
+      // the last half second starts charging again: the loop runs straight into the opening evolution
+      const k = clamp((t - 12.9) / 0.6, 0, 1) * (0.78 + 0.22 * Math.sin(t * 26));
+      await pet('d', { id: 's02', ex, x: 540, y: w.gy, h: 700, dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.012)), rot: t > 11.6 ? tilt(t, 1) : 0, night: night * 0.5, glow: k });
+      motes(t, 540, w.gy - 260, k, 14);
+      hearts(t, 8.75, 540, w.gy - 460, 6); hearts(t, 10.45, 540, w.gy - 460, 5);
+      fireflies(t, 0.6, 12);
+    }
+  },
+};
+
+// ---- B "steps": a number in frame 0. The counter is already racing.
+CUTS.steps = {
+  TOTAL: 13.5, handle: true,
+  CAPS: [
+    { t0: -0.5, t1: 2.9, cls: 'big', y: 250, html: 'this pet made me<br>walk <span class="g">10,000 steps</span>' },
+    { t0: 2.9, t1: 5.6, cls: 'big', y: 250, html: 'every step<br>helps him <span class="g">grow</span>' },
+    { t0: 5.6, t1: 8.4, cls: 'big', y: 250, html: 'I thought I was<br><span class="g">taking care of him</span>' },
+    { t0: 8.4, t1: 11.4, cls: 'big', y: 250, html: 'he was<br><span class="g">taking care of me</span>' },
+    { t0: 11.4, t1: 13.5, cls: 'big', y: 250, html: 'how many steps did<br><span class="g">you</span> get today?' },
+  ],
+  async draw(t) {
+    if (t < 2.9) {
+      const w = world(t, { sc: 1.7, cx: 0.34 + t * 0.03, gy: 1540 });
+      const st = walk(t, 3.0, 30);
+      const done = t >= 2.55;
+      const hp = done ? hopAt(t, 2.6, 0.45, 90) : null;
+      await pet('a', { id: 's01', ex: done ? 'excited' : (blink(t, 0.5) ? 'blink' : 'happy'), x: 520, y: w.gy, h: 540, flip: true,
+        dy: hp && hp.dy ? hp.dy : st.dy, sq: hp && hp.dy ? hp.sq : st.sq, rot: done ? 0 : st.rot });
+      const steps = Math.min(10000, lerp(2140, 10600, t / 2.75));
+      hud('a', { y: 700, steps, goal: 10000, appear: 1.45 });
+      xpchip(t, 0.5, 760, 1000, '+15 XP'); xpchip(t, 1.2, 330, 980, '+15 XP'); xpchip(t, 1.9, 740, 960, '+15 XP');
+      if (done) { sparks(t, 2.57, 540, 700, 24); hearts(t, 2.65, 520, w.gy - 380, 5); }
+    } else if (t < 5.6) {
+      const w = world(t, { sc: 1.9, cx: 0.5, gy: 1520 });
+      const evo = t >= 4.6;
+      const k = evo ? 0 : charge(t, 4.6, 1.2);
+      const hp = evo ? hopAt(t, 4.7, 0.5, 95) : { dy: 0, sq: 1 };
+      await pet('b', { id: evo ? 's02' : 's01', ex: evo ? 'happy' : 'excited', x: 540, y: w.gy, h: evo ? 690 : 600,
+        dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.012)), glow: k, scale: evo ? pop(t - 4.6, 0.4) : 1 });
+      motes(t, 540, w.gy - 260, k, 18);
+      hud('b', { y: 640, icon: 'xp', text: evo ? 'Lv 10' : 'Lv 9', sub: evo ? 'Juvenile!' : '', p: evo ? 1 : clamp((t - 2.9) / 1.7, 0, 1) });
+      if (evo) { flash(t, 4.6, 0.9); sparks(t, 4.62, 540, w.gy - 320, 30); }
+    } else if (t < 8.4) {
+      const night = clamp((t - 5.6) / 1.2, 0, 1) * 0.4;
+      const w = world(t, { sc: 1.55, cx: 0.4 + (t - 5.6) * 0.03, night });
+      const st = walk(t, 2.3, 24);
+      await pet('c', { id: 's02', ex: blink(t, 0.6) ? 'blink' : 'happy', x: 520, y: w.gy, flip: true, dy: st.dy, sq: st.sq, rot: st.rot, night });
+      weekStrip('c', t, { y: 620, start: 5.8, every: 0.3 });
+      fireflies(t, night * 1.4, 10);
+    } else {
+      const night = 0.4;
+      const w = world(t, { sc: 2.0, cx: 0.55, night, gy: 1520 });
+      const ex = t < 11.4 ? (blink(t, 0.3, 2.2) ? 'blink' : 'happy') : (blink(t, 0.1, 2.2) ? 'blink' : 'curious');
+      const hp = hops(t, [8.5, 9.0, 10.2], 0.45, 70);
+      await pet('d', { id: 's02', ex, x: 540, y: w.gy, h: 700, dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.012)), rot: t > 11.4 ? tilt(t, 1) : 0, night: night * 0.5 });
+      hearts(t, 8.55, 540, w.gy - 460, 6); hearts(t, 10.25, 540, w.gy - 460, 5);
+      fireflies(t, 0.6, 12);
+      // the counter resets for tomorrow: the loop lands back on the racing counter
+      if (t >= 12.8) hud('d', { y: 700, steps: 0, goal: 10000, appear: 1.45 * pop(t - 12.8, 0.3) });
+    }
+  },
+};
+
+// ---- C "pov": an emotion in frame 0. He's sad; you go outside; he blooms.
+CUTS.pov = {
+  TOTAL: 14.0, handle: true,
+  CAPS: [
+    { t0: -0.5, t1: 2.4, cls: 'big', y: 250, html: 'POV: you didn\'t<br><span class="b">walk today</span>' },
+    { t0: 2.4, t1: 5.4, cls: 'big', y: 250, html: 'so you lace up<br>and <span class="g">go outside</span>' },
+    { t0: 5.4, t1: 8.2, cls: 'big', y: 250, html: 'and he <span class="g">evolves</span><br>because of you' },
+    { t0: 8.2, t1: 10.4, cls: 'big', y: 250, html: 'you thought you were<br><span class="g">taking care of him</span>' },
+    { t0: 10.4, t1: 12.4, cls: 'big', y: 250, html: 'he was<br><span class="g">taking care of you</span>' },
+    { t0: 12.4, t1: 14.0, cls: 'big', y: 250, html: 'would you<br><span class="g">walk for him?</span>' },
+  ],
+  async draw(t) {
+    if (t < 5.4) {
+      // dusk with nothing walked -> a tap -> daylight and a walk
+      const night = t < 2.4 ? 0.5 : clamp(0.5 - (t - 2.4) / 0.6, 0, 0.5);
+      const w = world(t, { sc: t < 2.4 ? 2.0 : 1.6, cx: t < 2.4 ? 0.5 : 0.36 + (t - 2.4) * 0.03, night, gy: 1520 });
+      if (t < 2.4) {
+        const sag = 0.02 * Math.sin(t * 2.2);
+        await pet('a', { id: 's01', ex: t > 1.6 && t < 1.75 ? 'blink' : 'sad', x: 540, y: w.gy, h: 640, sq: 0.97 + sag, rot: -3 + 2 * Math.sin(t * 1.3), night: night * 0.6 });
+        hud('a', { y: 680, steps: 312, goal: 7000, appear: 1.3 });
+      } else {
+        const perk = t < 3.1;
+        const st = walk(t, 2.6, 26);
+        const hp = perk ? hopAt(t, 2.75, 0.45, 100) : null;
+        await pet('b', { id: 's01', ex: t < 2.7 ? 'surprised' : perk ? 'excited' : (blink(t, 0.4) ? 'blink' : 'happy'), x: perk ? 540 : 520, y: w.gy, h: perk ? 600 : 480,
+          flip: !perk, dy: perk ? (hp.dy || 0) : st.dy, sq: perk ? (hp.dy ? hp.sq : 1) : st.sq, rot: perk ? 0 : st.rot, night: night * 0.6 });
+        rippleAt(t, 2.42, 540, 1180);
+        hearts(t, 2.8, 540, w.gy - 420, 6);
+        const steps = t < 3.1 ? 312 : Math.min(7000, lerp(312, 7400, (t - 3.1) / 2.1));
+        hud('b', { y: 680, steps, goal: 7000, appear: 1.3 - 0.3 * clamp((t - 2.4) / 0.5, 0, 1) });
+        if (t >= 5.1) sparks(t, 5.12, 540, 680, 18);
+      }
+    } else if (t < 8.2) {
+      const w = world(t, { sc: 1.95, cx: 0.5, gy: 1520 });
+      const evo = t >= 7.0;
+      const k = evo ? 0 : charge(t, 7.0, 1.4);
+      const hp = evo ? hops(t, [7.1, 7.75], 0.48, 95) : { dy: 0, sq: 1 };
+      await pet('c', { id: evo ? 's02' : 's01', ex: evo ? 'excited' : 'happy', x: 540, y: w.gy, h: evo ? 700 : 600,
+        dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.012)), glow: k, scale: evo ? pop(t - 7.0, 0.4) : 1 });
+      motes(t, 540, w.gy - 260, k, 18);
+      hud('c', { y: 640, icon: 'xp', text: evo ? 'Lv 10' : 'Lv 9', sub: evo ? 'Juvenile!' : '', p: evo ? 1 : clamp((t - 5.4) / 1.6, 0, 1) });
+      if (evo) { flash(t, 7.0, 0.9); sparks(t, 7.02, 540, w.gy - 320, 30); }
+    } else {
+      // evening falls again by the end, so the loop drops back into the quiet opening
+      const night = 0.25 + 0.25 * clamp((t - 12.4) / 1.4, 0, 1);
+      const w = world(t, { sc: 2.0, cx: 0.55, night, gy: 1520 });
+      const ex = t < 12.4 ? (blink(t, 0.3, 2.2) ? 'blink' : 'happy') : (blink(t, 0.1, 2.2) ? 'blink' : 'curious');
+      const hp = hops(t, [8.3, 8.8, 10.5], 0.45, 70);
+      await pet('d', { id: 's02', ex, x: 540, y: w.gy, h: 700, dy: hp.dy, sq: hp.sq * (1 + bob(t, 0, 0.012)), rot: t > 12.4 ? tilt(t, 1) : 0, night: night * 0.6 });
+      hearts(t, 8.35, 540, w.gy - 460, 6); hearts(t, 10.55, 540, w.gy - 460, 6);
+      fireflies(t, night * 1.4, 12);
+    }
+  },
+};
+
+const CUT = CUTS[new URLSearchParams(location.search).get('cut') || 'care'];
+window.__total = CUT.TOTAL;
+window.seek = async function (t) {
+  if (!TURN) TURN = await (await fetch('wl3/turn3/meta.json')).json();
+  t = Math.min(t, CUT.TOTAL - 0.001); t0g = t;
+  resetStage();
+  await CUT.draw(t);
+  showOnly(USED);
+  pills(t, { handle: CUT.handle, stamp: CUT.stampFn ? CUT.stampFn(t) : null });
+  captions(t, CUT.CAPS);
+  return true;
+};
+</script>
+</body>
+</html>

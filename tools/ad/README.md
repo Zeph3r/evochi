@@ -100,3 +100,46 @@ python3 v4_pack.py VIDEO_DIR OUT_DIR
 Music cues (total, riser, reveal, groove back, end): care 19 8.6 9.95 10.6 15.0 · evolves 18 13.0 14.6 15.3
 16.9 · week1 20 13.6 14.6 15.3 16.6 · part 18 7.0 8.6 9.6 14.4 · moods 15.5 11.8 12.6 13.2 14.6. `missB`
 reuses `music_miss.wav` and the live video's sound cues from 4.2 s on, so the opening is the only change.
+
+## v5 and v6: hook-first, then the recipe
+
+`comp_v5.html` adds three hook-first re-cuts of "care" (`grows`, `steps`, `pov`: Mochi big in frame and
+already mid-event at frame 0, the twist by 10 s, the last second leading back into the first).
+`comp_v6.html` is the recipe the later batches follow: **result first (something viewers haven't seen)
+→ before → one mechanic → proof in motion → one human line → a one-word question that loops back into
+frame 0; captions of seven words or fewer, fully on screen at frame 0.** Cuts: `now` (the crowned Elder
+spinning in, then day 1 to day 30), `village` (the lit Square, then Mira's ask and 2,000 steps) and
+`day30` (a split screen, then a month fills in). `mix_v6.py` lays the meadow ambience, the marimba bed
+and the game's sounds and encodes.
+
+## v7: the encounters
+
+Four Shorts about the encounters, cut to the v6 recipe (`comp_v7.html`: `watch`, `hurt`, `gate`, `week2`).
+
+- **Footage:** `enc_record.mjs` records an encounter from the web build frame-exactly at 1080 px wide:
+  timers, rAF, Date and every CSS animation follow one virtual clock, so each JPEG is exactly 1/30 s
+  after the last. It stages Mochi (Ocean Juvenile), the quest ready for its encounter and the items, plays
+  the attempt (the player ids were chosen so the seeded replies match the scripts: a skitter, a head tilt,
+  the lash, the Sentinel's phase-two wake) and writes `log.json` with the scene time of every action, sound
+  cue and phase change. The cuts place their windows by those marks (`mark('eq01', 'act:lumen_glow')`).
+- **Plates:** `tools/art/shorts_scenes.py` renders the cinematic plates in Blender (portrait, 1296x2304):
+  `short_trail` (the trail up to the ruins), `short_gate` (dusk, the dormant Sentinel modelled into the
+  gateway) and `short_gate_lit` (night, restored, the trail beyond glowing). Anchors (eyes, chest, path) are
+  projected to pixels, so the eye glows and Mochi's walk sit on the plate.
+- **Sound:** `mix_v7.py` reads each clip's `log.json` and lays the game's own sounds at the recorded times,
+  plus the marimba bed (`ad_music.py`) and the meadow ambience; `gate` ducks the music for the awakening.
+- **Pack:** `v7_pack.py` writes the per-video folders, the README posting plan and the results tracker.
+
+```bash
+python3 -m http.server 8765 -d ../../web/dist &                      # the game, for the recorder
+node enc_record.mjs CLIPS/eq01 eq01 && node enc_record.mjs CLIPS/eq02 eq02 && node enc_record.mjs CLIPS/eq03 eq03
+<bpy-python> ../art/village_blender.py ../../assets/shorts short_trail short_gate short_gate_lit --meta scenes.json --raw /tmp/shorts_raw   # ~45 min on 2 cores
+# the comp folder needs: clips7 -> CLIPS, plates -> ../../assets/shorts, v7/ (the creature + back-view sprites, items, icons, manifest excerpts)
+node ad_render.mjs FRAMES/watch --cut watch --comp comp_v7.html
+python3 ad_music.py music_watch.wav 17 11.4 12.55 13.2 14.4
+python3 mix_v7.py watch FRAMES/watch ../../web/public/assets/audio music_watch.wav CLIPS evochi_v7_01_she_followed_us_home_17s.mp4
+python3 v7_pack.py VIDEO_DIR OUT_DIR
+```
+
+Music cues (total, riser, reveal, groove back, end): watch 17 11.4 12.55 13.2 14.4 · hurt 17.5 11.0 12.35 13.0 14.8 ·
+gate 18 13.0 14.3 15.0 15.6 · week2 17.5 12.6 13.75 14.3 14.8.

@@ -1,0 +1,16 @@
+"I woke something up" (the Sentinel's awakening: the story boss)
+Length: 18 s. Ending: open question ("what was it guarding?"). Post: Tue 18:00.
+
+Why this video exists:
+The cinematic one, and the answer to the yes/no that video 04 asks. Frame 0 is the restored guardian lit mint at night (the result). Then the gate at dusk with the Sentinel slumped in it like rubble, the rumble, the dust, its eyes lighting one by one (a new Blender plate with the Sentinel modelled into the scene), the game's own awakening with Mochi's flinch, the Lantern Tonic and the phase-two lash, the restoration, and the question. The marimba steps aside for the awakening: only the rumble and the sting.
+
+VOICE-OVER (optional; the captions carry the lines, so the video works muted)
+Record in a plain, warm dev-diary voice. No announcer energy. Leave the pauses in.
+
+  0.0s -   2.4s   I woke something up.
+  2.4s -   5.0s   It was asleep in the old gate.
+  5.0s -   8.6s   For a very long time.
+  8.6s -  10.6s   And it remembers you.
+ 10.6s -  13.4s   It's a guardian that forgot its light.
+ 13.4s -  15.6s   So you help it remember.
+ 15.6s -  18.0s   What do you think it was guarding?
