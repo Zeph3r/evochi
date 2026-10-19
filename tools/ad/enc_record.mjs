@@ -155,8 +155,9 @@ for (let i = 0; i < 60 * FPS; i++) {
   const u = await ui();
   if (u.route !== 'encounter') break;
   if (u.phase === 'card' && !began) {
+    // hold the title card 1.8 s: the Begin button has faded in by 1.1 s, so the card reads complete
     idle++;
-    if (idle >= 18) { await click('[data-k="begin"]'); began = true; idle = 0; await mark('begin'); }
+    if (idle >= 54) { await click('[data-k="begin"]'); began = true; idle = 0; await mark('begin'); }
   } else if (u.phase === 'play' && !u.busy && !u.done && moves.length) {
     idle++;
     if (idle >= 15) {

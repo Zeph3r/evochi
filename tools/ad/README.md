@@ -146,3 +146,20 @@ python3 v7_pack.py VIDEO_DIR OUT_DIR
 
 Music cues (total, riser, reveal, groove back, end): watch 17 11.4 12.55 13.2 14.4 · hurt 17.5 11.0 12.35 13.0 14.8 ·
 gate 18 13.0 14.3 15.0 15.6 · week2 17.5 12.6 13.75 14.3 14.8.
+
+### Week 43: seven 14 s Shorts (the first week's data)
+
+Short (14 s), walking in the title, a result or a POV at frame 0, a question that loops. `comp_wk.html`
+is `comp_v7.html` plus seven cuts: `watch14`, `hurt14`, `gate14`, `week2_14` and `waits` (new: the nest
+at night, one more walk, asleep), with `now14` and `day30_14` re-timed from the v6 cuts in `comp_v6.html`.
+The encounter footage is from the redesigned screens: the intro plays in a band (rows 164..1534, framed
+by `FR.hero`), the title card is full-bleed (`FR.card`; the recorder now holds it 1.8 s so Begin has
+faded in), and captions over the game's own UI get a soft dark band. `mix_wk.py --music CUT` prints the
+music cues; `wk_pack.py` writes one folder per day with the MP4, post copy and captions.
+
+```bash
+node ad_render.mjs FRAMES/watch14 --cut watch14 --comp comp_wk.html     # comp folder: wkclips -> CLIPS
+python3 ad_music.py music_watch14.wav $(python3 mix_wk.py --music watch14)
+python3 mix_wk.py watch14 FRAMES/watch14 ../../web/public/assets/audio music_watch14.wav CLIPS evochi_wk43_01_she_followed_me_home.mp4
+python3 wk_pack.py VIDEO_DIR OUT_DIR
+```
