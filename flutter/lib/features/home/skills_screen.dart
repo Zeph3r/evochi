@@ -10,6 +10,7 @@ import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../game/home/home.dart' as h;
 import '../../game/story/story.dart' as q;
+import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import '../village/story_widgets.dart';
 import '../village/village_screen.dart';
@@ -21,17 +22,21 @@ class SkillsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Scaffold(
         backgroundColor: EvochiColor.panel,
-        body: SafeArea(
-          bottom: false,
-          child: Column(children: [
-            PlaceHeader(title: 'Skills', short: 'Skills', backLabel: 'Back', onBack: () => Navigator.of(context).maybePop()),
-            Expanded(
-              child: ListView(
-                padding: EdgeInsets.fromLTRB(14, 6, 14, 20 + MediaQuery.of(context).padding.bottom),
-                children: [SkillsPanel(initial: initial)],
+        // the explorer's journal, like Journey > Skills
+        body: KitPage(
+          material: KitMaterial.journal,
+          child: SafeArea(
+            bottom: false,
+            child: Column(children: [
+              PlaceHeader(title: 'Skills', short: 'Skills', backLabel: 'Back', onBack: () => Navigator.of(context).maybePop()),
+              Expanded(
+                child: ListView(
+                  padding: EdgeInsets.fromLTRB(14, 6, 14, 20 + MediaQuery.of(context).padding.bottom),
+                  children: [SkillsPanel(initial: initial)],
+                ),
               ),
-            ),
-          ]),
+            ]),
+          ),
         ),
       );
 }
@@ -219,25 +224,19 @@ class _SkillTab extends StatelessWidget {
         excludeSemantics: true,
         child: GestureDetector(
           onTap: onTap,
-          child: Container(
+          // the journal's leather bookmark tabs
+          child: KitTab(
+            selected: selected,
+            style: KitTabStyle.leather,
             height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: selected ? const Color(0xFFF0B952) : const Color(0xFFE2CDB4), width: 2),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: selected ? const [Color(0xFFFFF4D6), Color(0xFFFFE1A1)] : const [Color(0xFFFBF2E7), Color(0xFFEFE0CD)],
-              ),
-            ),
+            radius: BorderRadius.circular(12),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               VoxelIcon(skill.icon, size: 24),
               const SizedBox(width: 3),
               Flexible(
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text(skill.name, style: EvochiText.tag.copyWith(color: selected ? EvochiColor.ink : EvochiColor.textSecondary)),
+                  child: Text(skill.name, style: KitTab.label(EvochiText.tag, selected)),
                 ),
               ),
               LvChip('${skill.level}'),

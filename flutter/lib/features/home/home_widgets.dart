@@ -17,6 +17,7 @@ import '../../core/utils/ids.dart';
 import '../../game/engine.dart' as g;
 import '../../game/home/home.dart' as h;
 import '../../game/story/story.dart' as q;
+import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import '../village/story_widgets.dart';
 import '../village/village_screen.dart';
@@ -103,20 +104,15 @@ Color skillColor(String skill) => Color(h.skillDefs[skill]!.color);
 // ------------------------------------------------------------- small widgets ----
 const homeChevron = Text('›', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 24, color: EvochiColor.textHelper));
 
+/// A section head: a leaf, the title, an optional [trailing] chip, then a stitched rule to the end of the
+/// line (and an optional [end] after it).
 class SectionHead extends StatelessWidget {
-  const SectionHead(this.text, {super.key, this.trailing});
+  const SectionHead(this.text, {super.key, this.trailing, this.end});
   final String text;
   final Widget? trailing;
+  final Widget? end;
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(top: 4, bottom: 8),
-        child: Row(children: [
-          Container(width: 6, height: 18, decoration: BoxDecoration(color: EvochiColor.primary, borderRadius: BorderRadius.circular(3))),
-          const SizedBox(width: 8),
-          Semantics(header: true, child: Text(text, style: EvochiText.section)),
-          if (trailing != null) ...[const SizedBox(width: 6), trailing!],
-        ]),
-      );
+  Widget build(BuildContext context) => KitSectionHead(text, trailing: trailing, end: end);
 }
 
 /// A card that opens something (strips, rows).
@@ -166,22 +162,18 @@ class SkillBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final v = value.isNaN ? 0.0 : value.clamp(0.0, 1.0).toDouble();
+    // the kit's carved groove, filled in the skill's colour
     return Semantics(
       label: semantic,
       value: '${(v * 100).round()}%',
       child: Container(
         height: height,
-        decoration: BoxDecoration(color: const Color(0xFFDCCFC0), borderRadius: BorderRadius.circular(height / 2)),
+        decoration: Kit.groove(height / 2),
         alignment: Alignment.centerLeft,
         child: FractionallySizedBox(
           widthFactor: v,
           heightFactor: 1,
-          child: Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(height / 2),
-              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color.lerp(color, Colors.white, 0.35)!, color]),
-            ),
-          ),
+          child: Container(decoration: Kit.barFill([Color.lerp(color, Colors.white, 0.35)!, color], height / 2)),
         ),
       ),
     );
@@ -344,16 +336,7 @@ class QtyPick extends StatelessWidget {
                         opacity: can ? 1 : 0.45,
                         child: Container(
                           padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: on ? const Color(0xFFF0B952) : const Color(0xFFE2CDB4), width: 2),
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: on ? const [Color(0xFFFFF4D6), Color(0xFFFFE1A1)] : const [Color(0xFFFFFBF4), Color(0xFFF2E3D0)],
-                            ),
-                            boxShadow: [BoxShadow(color: on ? const Color(0xFFDDA03E) : const Color(0xFFD6BEA2), offset: const Offset(0, 2))],
-                          ),
+                          decoration: Kit.slot(selected: on, radius: 12),
                           child: ExcludeSemantics(
                             child: Column(mainAxisSize: MainAxisSize.min, children: [
                               Text('x$n', style: EvochiText.button.copyWith(fontSize: 17)),
@@ -450,7 +433,7 @@ Future<void> showSkillUp(BuildContext context, String skill, int level, List<h.S
             Container(
               margin: const EdgeInsets.only(bottom: 6),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-              decoration: BoxDecoration(color: EvochiColor.inset, borderRadius: BorderRadius.circular(12)),
+              decoration: Kit.inset(),
               child: Row(children: [
                 milestoneImage(m),
                 const SizedBox(width: 10),

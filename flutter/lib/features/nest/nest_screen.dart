@@ -15,6 +15,7 @@ import '../home/home_widgets.dart';
 import '../onboarding/onboarding_screens.dart' show EvolutionStrip;
 import '../pet/pet_screens.dart';
 import '../settings/settings_screen.dart';
+import '../shared/kit.dart';
 import '../shared/scene_scaffold.dart';
 import '../shared/scene_view.dart';
 import '../shared/widgets.dart';
@@ -281,12 +282,7 @@ class _NestHud extends StatelessWidget {
                 child: Container(
                   height: 36,
                   padding: const EdgeInsets.fromLTRB(6, 0, 10, 0),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFFE7D3BC), width: 2),
-                    color: const Color(0xFFFFF9F0),
-                    boxShadow: const [BoxShadow(color: Color(0xFFCDB396), offset: Offset(0, 3))],
-                  ),
+                  decoration: Kit.parchment(radius: 10),
                   child: const Row(mainAxisSize: MainAxisSize.min, children: [
                     VoxelIcon('pin', size: 24),
                     SizedBox(width: 4),
@@ -344,11 +340,15 @@ class _ExploreHomeButton extends StatelessWidget {
             Container(
               height: 44,
               padding: const EdgeInsets.fromLTRB(6, 0, 12, 0),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF5C9340), width: 2),
-                gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFD5EDB4), Color(0xFFA6D27D)]),
-                boxShadow: const [BoxShadow(color: Color(0xFF4F7E37), offset: Offset(0, 3)), BoxShadow(color: Color(0x333C2314), blurRadius: 8, offset: Offset(0, 4))],
+              decoration: KitDecoration(
+                base: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFF4E8436), width: 2.5),
+                  gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFC6E59C), Color(0xFF8DC164)]),
+                  boxShadow: const [BoxShadow(color: Color(0x33283C14), blurRadius: 8, offset: Offset(0, 4)), BoxShadow(color: Color(0xFF3E6E2B), offset: Offset(0, 3))],
+                ),
+                inset: 2.5,
+                top: const KitBand(2, Color(0x66FFFFFF)),
               ),
               child: const Row(mainAxisSize: MainAxisSize.min, children: [
                 VoxelIcon('home_map', size: 28),
@@ -380,16 +380,11 @@ class _VisitVillageButton extends StatelessWidget {
             Container(
               height: 44,
               padding: const EdgeInsets.fromLTRB(6, 0, 12, 0),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF8D5D3B), width: 2),
-                gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFE3B98B), Color(0xFFC69469)]),
-                boxShadow: const [BoxShadow(color: Color(0xFF6E4529), offset: Offset(0, 3)), BoxShadow(color: Color(0x333C2314), blurRadius: 8, offset: Offset(0, 4))],
-              ),
+              decoration: Kit.wood(radius: 12, width: 300, y: -0.2),
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 const VoxelIcon('habitats', size: 28),
                 const SizedBox(width: 6),
-                Text(short ? 'Village' : 'Visit Village', style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15, color: EvochiColor.ink)),
+                Text(short ? 'Village' : 'Visit Village', style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15, color: KitColor.signInk, shadows: kitSignShadow)),
               ]),
             ),
             if (attention) const Positioned(top: -6, right: -6, child: BadgeDot()),
@@ -405,6 +400,7 @@ class _IdCard extends StatelessWidget {
     final pet = c.state.pet!;
     final pv = c.view.pet!;
     return GameCard(
+      paper: KitPaper.nameplate,
       padding: const EdgeInsets.fromLTRB(14, 12, 10, 10),
       child: IntrinsicHeight(
         child: Row(children: [
@@ -421,7 +417,7 @@ class _IdCard extends StatelessWidget {
               Wrap(spacing: 6, runSpacing: 4, children: [Tag(stageLabel(pet.stage), tone: TagTone.stage), statusTag(pv.status)]),
             ]),
           ),
-          const VerticalDivider(color: Color(0xFFE8D5BF), thickness: 1.5, width: 20),
+          const VerticalDivider(color: Color(0x66C49660), thickness: 1.5, width: 20),
           Expanded(
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
               Text.rich(TextSpan(style: EvochiText.number, children: [
@@ -454,13 +450,20 @@ class _StepsCard extends StatelessWidget {
     final c = context.watch<GameController>();
     final v = c.view;
     final conn = c.state.steps.connection;
-    return GameCard(
-      padding: const EdgeInsets.all(10),
+    // a light-wood board on the diorama: a parchment medallion, dark lettering, a groove ringed in wood ink
+    return Container(
+      padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
+      decoration: Kit.wood(radius: 14, width: 340, y: 0, edge: 4),
       child: Row(children: [
         Container(
           width: 50,
           height: 50,
-          decoration: const BoxDecoration(color: Color(0xFFEEE3D4), shape: BoxShape.circle),
+          decoration: const BoxDecoration(
+            color: Color(0xFFFFF4DC),
+            image: kitGrain,
+            shape: BoxShape.circle,
+            boxShadow: [BoxShadow(color: KitColor.woodEdge, spreadRadius: 2)],
+          ),
           alignment: Alignment.center,
           child: const VoxelIcon('steps', size: 36),
         ),
@@ -473,19 +476,19 @@ class _StepsCard extends StatelessWidget {
               onTap: () => TabNav.of(context).go('journey'),
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Row(children: [
-                  const Text('Daily Steps', style: EvochiText.caption),
+                  Text('Daily Steps', style: WoodPlaque.text(EvochiText.caption)),
                   if (v.todayUnverified) ...[const SizedBox(width: 6), const Tag('Unverified', tone: TagTone.warn)],
                 ]),
                 FittedBox(
                   fit: BoxFit.scaleDown,
                   alignment: Alignment.centerLeft,
-                  child: Text.rich(TextSpan(style: EvochiText.number.copyWith(fontSize: 21), children: [
+                  child: Text.rich(TextSpan(style: WoodPlaque.text(EvochiText.number.copyWith(fontSize: 21)), children: [
                     TextSpan(text: fmt(v.todaySteps)),
                     TextSpan(text: ' / ${fmt(v.goal)} steps', style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
                   ])),
                 ),
                 const SizedBox(height: 4),
-                ProgressBarX(value: v.todaySteps / v.goal, height: 12, tone: 'green'),
+                ProgressBarX(value: v.todaySteps / v.goal, height: 12, tone: 'green', ring: KitColor.woodInk),
               ]),
             ),
           ),
@@ -654,7 +657,7 @@ class MemorialView extends StatelessWidget {
 
 Widget _kv(List<(String, String)> rows) => Container(
       padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(color: const Color(0xFFFBF1E4), borderRadius: BorderRadius.circular(12)),
+      decoration: Kit.inset(),
       child: Column(children: [
         for (final r in rows)
           Padding(

@@ -13,6 +13,7 @@ import '../../game/engine.dart' as g;
 import '../../game/home/home.dart' as h;
 import '../home/home_widgets.dart';
 import '../nest/sheets.dart';
+import '../shared/kit.dart';
 import '../shared/scene_scaffold.dart';
 import '../shared/scene_view.dart';
 import '../shared/widgets.dart';
@@ -35,6 +36,17 @@ List<String> _listFor(String cat) =>
       ItemCategory.seed => ('Seed', 'skill_farming'),
       ItemCategory.ingredient => ('Ingredient', 'skill_cooking'),
     };
+
+/// The stall's shelf cards and the featured card (`.prod`, `.shop-feature`).
+const _shelf = KitPaper(Color(0xFFFFFAEE), Color(0xFFF5E3C0), Color(0xFFA87542), Color(0xFF7A5230), Color(0x61C49660));
+
+/// A price on a light-wood tag.
+Widget _priceTag({required double height, required Widget child, EdgeInsets padding = const EdgeInsets.symmetric(horizontal: 6)}) => Container(
+      height: height,
+      padding: padding,
+      decoration: Kit.wood(radius: 9, border: 2, width: 240, edge: 2, drop: false),
+      child: child,
+    );
 
 const _tints = [
   [Color(0xFFFFF5D9), Color(0xFFF8E2B0)],
@@ -72,7 +84,7 @@ class _ShopScreenState extends State<ShopScreen> {
             ],
             Container(
               padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(color: const Color(0xFFFBF1E4), borderRadius: BorderRadius.circular(12)),
+              decoration: Kit.inset(),
               child: Column(children: [
                 Row(children: [const Expanded(child: Text('Price', style: EvochiText.bodyText)), Text('${fmt(it.price * n)} EvoCoins', style: EvochiText.cardTitle)]),
                 Row(children: [const Expanded(child: Text('Balance after', style: EvochiText.bodyText)), Text('${fmt(c.balance - it.price * n)} EvoCoins', style: EvochiText.cardTitle)]),
@@ -187,9 +199,14 @@ class _ShopScreenState extends State<ShopScreen> {
     if (_tryOn && it.category == ItemCategory.wearable) equipped[it.slot!] = id;
     final reduce = MediaQuery.of(context).disableAnimations;
     final w = MediaQuery.of(context).size.width;
+    // a market stall: wooden tabs, a wood-framed lower sheet under a striped awning, shelf cards with
+    // prices on light-wood tags
     return Scaffold(
       backgroundColor: const Color(0xFFC9A27A),
-      body: SceneScaffold(
+      body: KitPage(
+        material: KitMaterial.market,
+        paper: false,
+        child: SceneScaffold(
         controller: _scene,
         onPetTap: () => _scene.react('pet'),
         petLabel: pet.name,
@@ -238,24 +255,19 @@ class _ShopScreenState extends State<ShopScreen> {
                           _sel = null;
                           _tryOn = false;
                         }),
-                        child: Container(
+                        // wooden plaques; the chosen one lifts and lights up
+                        child: KitTab(
+                          selected: _cat == cat.$1,
                           height: w < 400 ? 54 : 46,
-                          decoration: BoxDecoration(
-                            borderRadius: const BorderRadius.vertical(top: Radius.circular(12), bottom: Radius.circular(6)),
-                            border: Border.all(color: _cat == cat.$1 ? const Color(0xFFF0B952) : const Color(0xFFE2CDB4), width: 2),
-                            gradient: LinearGradient(
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                              colors: _cat == cat.$1 ? const [Color(0xFFFFF4D6), Color(0xFFFFE1A1)] : const [Color(0xFFFBF2E7), Color(0xFFEFE0CD)],
-                            ),
-                          ),
+                          padding: EdgeInsets.zero,
+                          radius: const BorderRadius.vertical(top: Radius.circular(12), bottom: Radius.circular(6)),
                           child: Flex(
                             direction: w < 400 ? Axis.vertical : Axis.horizontal,
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               VoxelIcon(cat.$3, size: 22),
                               const SizedBox(width: 3, height: 1),
-                              Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text(cat.$2, style: EvochiText.tag.copyWith(fontSize: 12.5)))),
+                              Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text(cat.$2, style: KitTab.label(EvochiText.tag.copyWith(fontSize: 12.5), _cat == cat.$1)))),
                             ],
                           ),
                         ),
@@ -273,6 +285,7 @@ class _ShopScreenState extends State<ShopScreen> {
             child: SizedBox(
               width: w * (w < 360 ? 0.62 : 0.56),
               child: GameCard(
+                paper: _shelf,
                 padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
                 child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
                   Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -286,8 +299,9 @@ class _ShopScreenState extends State<ShopScreen> {
                     Container(
                       width: 52,
                       height: 52,
-                      decoration: BoxDecoration(color: const Color(0xFFFFF6E8), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFECD9C1))),
-                      child: ItemImage(id, size: 46),
+                      alignment: Alignment.center,
+                      decoration: Kit.slot(radius: 10),
+                      child: ItemImage(id, size: 44),
                     ),
                   ]),
                   if (w >= 360) Text(it.desc, maxLines: 3, overflow: TextOverflow.ellipsis, style: EvochiText.caption.copyWith(color: EvochiColor.textSecondary, fontSize: 12.5)),
@@ -305,18 +319,19 @@ class _ShopScreenState extends State<ShopScreen> {
                     Tag(tg),
                     Tag(it.rarity[0].toUpperCase() + it.rarity.substring(1), tone: TagTone.ok, icon: 'care'),
                   ]),
-                  Container(
-                    margin: const EdgeInsets.symmetric(vertical: 7),
-                    height: 36,
-                    padding: const EdgeInsets.symmetric(horizontal: 10),
-                    decoration: BoxDecoration(color: const Color(0xFFF1E4D4), borderRadius: BorderRadius.circular(10)),
-                    child: Row(children: [
-                      const VoxelIcon('coin', size: 28),
-                      const SizedBox(width: 8),
-                      Text(fmt(it.price), style: EvochiText.number.copyWith(fontSize: 19)),
-                      const Spacer(),
-                      if (it.isStackable && own > 0) Text('Owned x$own', style: EvochiText.caption),
-                    ]),
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 7),
+                    child: _priceTag(
+                      height: 36,
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      child: Row(children: [
+                        const VoxelIcon('coin', size: 28),
+                        const SizedBox(width: 8),
+                        Text(fmt(it.price), style: WoodPlaque.text(EvochiText.number.copyWith(fontSize: 19))),
+                        const Spacer(),
+                        if (it.isStackable && own > 0) Text('Owned x$own', style: WoodPlaque.text(EvochiText.caption)),
+                      ]),
+                    ),
                   ),
                   Row(children: [
                     if (it.category == ItemCategory.wearable) ...[
@@ -354,10 +369,15 @@ class _ShopScreenState extends State<ShopScreen> {
             ),
           ),
         ),
-        panel: Container(
-          margin: const EdgeInsets.symmetric(horizontal: 8),
-          padding: const EdgeInsets.fromLTRB(10, 10, 10, 8),
-          decoration: BoxDecoration(color: EvochiColor.panel, borderRadius: BorderRadius.circular(18), border: Border.all(color: const Color(0xFFEFD9C0), width: 2)),
+        // the stall: a wood-framed sheet with the red and cream awning along its top
+        panel: Padding(
+          padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
+          child: Stack(clipBehavior: Clip.none, fit: StackFit.passthrough, children: [
+          FramedWindow(
+          border: 13,
+          padding: const EdgeInsets.fromLTRB(6, 24, 6, 4),
+          sheet: Kit.sheet(colors: const [Color(0xFFFFF6E2), Color(0xFFF1DDB6)]),
+          shadow: const BoxShadow(color: Color(0x40321C0A), blurRadius: 14, offset: Offset(0, -4)),
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
               const Icon(Icons.grid_view_rounded, color: Color(0xFF4A3A32), size: 20),
@@ -394,17 +414,33 @@ class _ShopScreenState extends State<ShopScreen> {
                           });
                           c.analytics.track('item_previewed', {'item': pid});
                         },
+                        // a shelf card; the chosen one gets a gold ring
                         child: Container(
                           padding: const EdgeInsets.all(6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFFBF5),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: pid == id ? const Color(0xFFF2BE55) : const Color(0xFFEADAC6), width: 2),
+                          decoration: KitDecoration(
+                            base: BoxDecoration(
+                              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [_shelf.top, _shelf.bottom]),
+                              image: kitGrain,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(color: pid == id ? const Color(0xFFC47F1E) : _shelf.edge, width: 2),
+                              boxShadow: pid == id
+                                  ? const [BoxShadow(color: Color(0x8CFFBE46), blurRadius: 14), BoxShadow(color: Color(0xFF7A5230), offset: Offset(0, 3)), BoxShadow(color: KitColor.goldRing, spreadRadius: 3)]
+                                  : const [BoxShadow(color: Color(0x2E3C230C), blurRadius: 10, offset: Offset(0, 6)), BoxShadow(color: Color(0xFF7A5230), offset: Offset(0, 3))],
+                            ),
+                            inset: 2,
                           ),
                           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                             Expanded(
                               child: Container(
-                                decoration: BoxDecoration(borderRadius: BorderRadius.circular(10), gradient: RadialGradient(colors: tint)),
+                                decoration: KitDecoration(
+                                  base: BoxDecoration(
+                                    borderRadius: BorderRadius.circular(10),
+                                    gradient: RadialGradient(colors: tint),
+                                    border: Border.all(color: const Color(0x5996693C), width: 2),
+                                  ),
+                                  inset: 2,
+                                  shadow: const BoxShadow(color: Color(0x26643C14), blurRadius: 6, offset: Offset(0, 2)),
+                                ),
                                 alignment: Alignment.center,
                                 child: Stack(children: [
                                   Center(child: ItemImage(pid, size: 62)),
@@ -417,11 +453,9 @@ class _ShopScreenState extends State<ShopScreen> {
                             const SizedBox(height: 2),
                             Tag(ptg, icon: ptgi),
                             const SizedBox(height: 4),
-                            Container(
+                            _priceTag(
                               height: 28,
-                              padding: const EdgeInsets.symmetric(horizontal: 6),
-                              decoration: BoxDecoration(color: const Color(0xFFF3E8DA), borderRadius: BorderRadius.circular(8)),
-                              child: Row(children: [const VoxelIcon('coin', size: 20), const SizedBox(width: 4), Text(fmt(p.price), style: EvochiText.number.copyWith(fontSize: 15))]),
+                              child: Row(children: [const VoxelIcon('coin', size: 20), const SizedBox(width: 4), Text(fmt(p.price), style: WoodPlaque.text(EvochiText.number.copyWith(fontSize: 15)))]),
                             ),
                           ]),
                         ),
@@ -431,7 +465,12 @@ class _ShopScreenState extends State<ShopScreen> {
               ],
             ),
           ]),
+          ),
+          // the awning hangs over the frame's top edge
+          const Positioned(left: 7, right: 7, top: 3, height: 30, child: ShopAwning()),
+          ]),
         ),
+      ),
       ),
     );
   }

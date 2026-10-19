@@ -21,6 +21,7 @@ import '../../core/services/asset_manifest.dart';
 import '../../game/story/story.dart' as q;
 import '../../game/trails/trails.dart' as tr;
 import '../home/home_widgets.dart';
+import '../shared/kit.dart';
 import '../shared/sprite.dart';
 import '../shared/widgets.dart';
 import '../village/story_widgets.dart';
@@ -89,7 +90,16 @@ class TrailTag extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         height: 24,
         padding: const EdgeInsets.symmetric(horizontal: 8),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8), border: Border.all(color: edge, width: 1.5)),
+        decoration: KitDecoration(
+          base: BoxDecoration(
+            color: bg,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: edge, width: 1.5),
+            boxShadow: const [BoxShadow(color: Color(0x385A3719), offset: Offset(0, 1.5))],
+          ),
+          inset: 1.5,
+          top: const KitBand(1, Color(0x99FFFFFF)),
+        ),
         child: Row(mainAxisSize: MainAxisSize.min, children: [
           if (icon != null) ...[VoxelIcon(icon!, size: 16), const SizedBox(width: 4)],
           Text(text, style: EvochiText.tag.copyWith(color: fg, fontSize: 12)),
@@ -254,28 +264,37 @@ class _EncCtaState extends State<EncCta> {
             context.read<GameController>().audio.tick();
             widget.onTap();
           },
+          // `.enc-cta`: a dark outline, a gloss strip under the label, a hard edge it sinks into
           child: AnimatedContainer(
             duration: const Duration(milliseconds: 60),
             constraints: BoxConstraints(minHeight: widget.big ? 62 : 56),
             transform: Matrix4.translationValues(0, _down ? 3 : 0, 0),
             padding: const EdgeInsets.symmetric(horizontal: 18),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: gold ? const Color(0xFFD99A2B) : (alt ? const Color(0xFFA86F1F) : const Color(0xFF5A9C42)), width: 2.5),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: gold
-                    ? const [Color(0xFFFFF1B0), Color(0xFFFFD45E), Color(0xFFF5B53A)]
-                    : alt
-                        ? const [Color(0xFFFFF0B8), Color(0xFFF9CF6A), Color(0xFFEFB247)]
-                        : const [Color(0xFFD2F4B0), Color(0xFF98D872), Color(0xFF71BD50)],
-                stops: gold ? const [0, 0.52, 1] : const [0, 0.5, 1],
+            decoration: KitDecoration(
+              base: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: gold || alt ? const Color(0xFF8A5414) : const Color(0xFF2F5E20), width: 2.5),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: gold
+                      ? const [Color(0xFFFFF1B0), Color(0xFFFFD45E), Color(0xFFF5B53A)]
+                      : alt
+                          ? const [Color(0xFFFFF0B8), Color(0xFFF9CF6A), Color(0xFFEFB247)]
+                          : const [Color(0xFFD2F4B0), Color(0xFF98D872), Color(0xFF71BD50)],
+                  stops: gold ? const [0, 0.52, 1] : const [0, 0.5, 1],
+                ),
+                boxShadow: [
+                  if (!_down) BoxShadow(color: gold || alt ? const Color(0x47784614) : const Color(0x47285A14), blurRadius: 16, offset: const Offset(0, 8)),
+                  BoxShadow(color: gold || alt ? const Color(0xFF6E3F0E) : const Color(0xFF24481A), offset: Offset(0, _down ? 1 : 4)),
+                ],
               ),
-              boxShadow: [
-                BoxShadow(color: gold ? const Color(0xFFBC7E1F) : (alt ? const Color(0xFFB87A2A) : const Color(0xFF4A8834)), offset: Offset(0, _down ? 1 : 4)),
-                BoxShadow(color: gold ? const Color(0x4D78460A) : (alt ? const Color(0x38784614) : const Color(0x40285A14)), blurRadius: 16, offset: const Offset(0, 8)),
-              ],
+              inset: 2.5,
+              bottom: _down ? null : KitBand(3, gold || alt ? const Color(0x59C8821E) : const Color(0x593C7828)),
+              shadow: _down ? const BoxShadow(color: Color(0x4D281405), blurRadius: 4, offset: Offset(0, 2)) : null,
+              glossTop: _down ? const Color(0x44FFFFFF) : const Color(0x99FFFFFF),
+              glossBottom: const Color(0x00FFFFFF),
+              glossSmall: true,
             ),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               if (widget.leading != null) ...[widget.leading!, const SizedBox(width: 10)],
@@ -329,7 +348,7 @@ class RewardTiles extends StatelessWidget {
             child: Container(
               width: 78,
               padding: const EdgeInsets.fromLTRB(4, 8, 4, 7),
-              decoration: BoxDecoration(color: const Color(0xFFFBF4EA), borderRadius: BorderRadius.circular(14), border: Border.all(color: const Color(0xFFEFE0CC), width: 1.5)),
+              decoration: Kit.slot(radius: 14),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 t.item != null ? ItemImage(t.item!, size: 46) : VoxelIcon(t.icon ?? 'star', size: 46),
                 const SizedBox(height: 2),
@@ -673,9 +692,11 @@ void beginDiscoveryAction(GameController c, String id) {
 
 /// One of today's discoveries: what to do, progress, rewards, and its button.
 class DiscoveryRow extends StatelessWidget {
-  const DiscoveryRow(this.d, {super.key, this.compact = false});
+  const DiscoveryRow(this.d, {super.key, this.compact = false, this.pinned = false, this.tilt = 0});
   final tr.DiscoveryView d;
   final bool compact;
+  final bool pinned; // the Guild's notice board pins it up, a hair off straight
+  final double tilt;
   @override
   Widget build(BuildContext context) {
     final c = context.read<GameController>();
@@ -696,6 +717,8 @@ class DiscoveryRow extends StatelessWidget {
       child: Opacity(
         opacity: found ? 0.8 : 1,
         child: GameCard(
+          pinned: pinned,
+          tilt: tilt,
           padding: const EdgeInsets.fromLTRB(6, 8, 10, 8),
           child: Row(children: [
             Expanded(
@@ -803,7 +826,7 @@ class DiscoveryChip extends StatelessWidget {
           },
           child: ExcludeSemantics(
             child: GameCard(
-              color: const Color(0xF5FFF6E8),
+              paper: KitPaper.meadow,
               padding: const EdgeInsets.fromLTRB(6, 6, 10, 6),
               child: Row(children: [
                 const VoxelIcon('discover', size: 34),
@@ -923,7 +946,7 @@ Future<void> showDiscovery(BuildContext context, String id) {
     final d = tr.discoveryView(cc.state, id, cc.now);
     final found = d.phase == 'found';
     return Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-      Center(child: Container(width: 44, height: 5, margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: const Color(0xFFDCC6AE), borderRadius: BorderRadius.circular(3)))),
+      Center(child: Container(width: 44, height: 5, margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: const Color(0xFFC49A68), borderRadius: BorderRadius.circular(3)))),
       Row(children: [
         const VoxelIcon('discover', size: 48),
         const SizedBox(width: 10),
@@ -940,7 +963,7 @@ Future<void> showDiscovery(BuildContext context, String id) {
         const SizedBox(height: 10),
         Container(
           padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: EvochiColor.inset, borderRadius: BorderRadius.circular(12)),
+          decoration: Kit.inset(),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Walk ${fmt(d.target)} steps, then inspect ${d.placeName}', style: EvochiText.cardTitle.copyWith(fontSize: 14)),
             const SizedBox(height: 6),
@@ -1017,7 +1040,7 @@ void inspectClue(BuildContext context, String id) {
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(color: EvochiColor.inset, borderRadius: BorderRadius.circular(12)),
+            decoration: Kit.inset(),
             child: Text('Guild rank up: ${rank.data['name']}!', style: EvochiText.cardTitle.copyWith(fontSize: 14), textAlign: TextAlign.center),
           ),
         ],
@@ -1065,7 +1088,7 @@ Future<void> showCreatureCard(BuildContext context, String id) {
           const SizedBox(height: 10),
           Container(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-            decoration: BoxDecoration(color: EvochiColor.inset, borderRadius: BorderRadius.circular(12)),
+            decoration: Kit.inset(),
             child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
               kv('Found', def.home),
               if (comp != null) kv('Companion since', shortDate(comp.since)),
@@ -1101,12 +1124,7 @@ class FriendCard extends StatelessWidget {
         child: ExcludeSemantics(
           child: Container(
             padding: const EdgeInsets.fromLTRB(4, 8, 4, 8),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFEADAC6), width: 2),
-              gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFFBF6), Color(0xFFF6EBDD)]),
-              boxShadow: const [BoxShadow(color: Color(0xFFDCC6AC), offset: Offset(0, 2))],
-            ),
+            decoration: Kit.slot(radius: 12),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               CreatureFace(id, size: 64, dim: !known),
               const SizedBox(height: 2),
@@ -1286,10 +1304,11 @@ class TrailPlacesSection extends StatelessWidget {
         crossAxisCount: 2,
         shrinkWrap: true,
         physics: const NeverScrollableScrollPhysics(),
-        mainAxisSpacing: 8,
+        clipBehavior: Clip.none,
+        mainAxisSpacing: 10,
         crossAxisSpacing: 8,
         childAspectRatio: 1.02,
-        children: cards,
+        children: [for (var i = 0; i < cards.length; i++) Pinned(tilt: i.isEven ? -0.7 : 0.6, child: cards[i])],
       ),
     ]);
   }
@@ -1316,15 +1335,14 @@ class _TrailPlaceCard extends StatelessWidget {
           },
           child: Container(
             clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE6D3BD), width: 2),
-              color: EvochiColor.canvas,
-              boxShadow: const [BoxShadow(color: EvochiColor.cardBevel, offset: Offset(0, 3))],
-            ),
+            decoration: Kit.card(flat: true),
             child: Stack(children: [
               Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                SizedBox(height: 84, child: Image.asset(trailsArt.scene(scene), fit: BoxFit.cover, alignment: const Alignment(0, 0.2))),
+                Container(
+                  height: 84,
+                  foregroundDecoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFCFA676), width: 2))),
+                  child: Image.asset(trailsArt.scene(scene), fit: BoxFit.cover, alignment: const Alignment(0, 0.2)),
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
                   child: Row(children: [
@@ -1390,7 +1408,7 @@ class TrailPlate extends StatelessWidget {
               height: 48,
               child: IgnorePointer(
                 child: DecoratedBox(
-                  decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x00F8EBDD), EvochiColor.panel])),
+                  decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x00F9ECD4), KitColor.pageTop])),
                 ),
               ),
             ),

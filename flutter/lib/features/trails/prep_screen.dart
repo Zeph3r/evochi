@@ -17,6 +17,7 @@ import '../../game/home/home.dart' as h;
 import '../../game/story/story.dart' as q;
 import '../../game/trails/trails.dart' as tr;
 import '../home/home_widgets.dart';
+import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import '../village/story_widgets.dart';
 import '../village/village_screen.dart';
@@ -37,6 +38,9 @@ const _placeInfo = <String, _PlaceInfo>{
 };
 
 const _rarity = {'rare': 'Rare', 'uncommon': 'Uncommon', 'legendary': 'Legendary', 'common': 'Common'};
+
+/// A team row that needs a grown Evochi: card stock with an amber edge.
+const _warnPaper = KitPaper(Color(0xFFFFF8E8), Color(0xFFF6E6C8), Color(0xFFD99A4E), Color(0xFFB4874F), Color(0x61C49660));
 
 BoxDecoration _card() => BoxDecoration(
       color: const Color(0xFFFFFDF9),
@@ -135,24 +139,30 @@ class _PrepScreenState extends State<PrepScreen> {
     const gap = SizedBox(height: 10);
     return Scaffold(
       backgroundColor: const Color(0xFFF8EEDF),
-      body: Semantics(
+      body: KitPage(
+        material: KitMaterial.plain,
+        child: Semantics(
         label: 'Encounter preparation',
         child: Column(children: [
-          // header: back, "Encounter Preparation", look around
+          // header: a light-wood Back square, "Encounter Preparation" on a wooden plaque, look around
           Padding(
             padding: EdgeInsets.fromLTRB(14, mq.padding.top + 10, 14, 8),
             child: Row(children: [
-              Semantics(
-                button: true,
-                label: 'Back',
-                child: GestureDetector(
-                  onTap: () => Navigator.of(context).maybePop(),
-                  child: const SizedBox(width: 40, height: 40, child: Icon(Icons.chevron_left_rounded, size: 30, color: EvochiColor.textSecondary)),
-                ),
-              ),
+              BackSquareButton(onTap: () => Navigator.of(context).maybePop()),
               const SizedBox(width: 8),
               Expanded(
-                child: Semantics(header: true, child: const Text('Encounter Preparation', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 20, height: 1.1, color: EvochiColor.ink))),
+                child: Semantics(
+                  header: true,
+                  child: WoodPlaque(
+                    height: 42,
+                    nails: false,
+                    padding: const EdgeInsets.symmetric(horizontal: 12),
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Text('Encounter Preparation', style: WoodPlaque.text(const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 19, height: 1.1))),
+                    ),
+                  ),
+                ),
               ),
               const SizedBox(width: 8),
               Semantics(
@@ -164,12 +174,7 @@ class _PrepScreenState extends State<PrepScreen> {
                     width: 44,
                     height: 44,
                     alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: const Color(0xFFE2CBAE), width: 2),
-                      gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFF6EA), Color(0xFFF1E0CA)]),
-                      boxShadow: const [BoxShadow(color: Color(0xFFD5BC9C), offset: Offset(0, 3))],
-                    ),
+                    decoration: Kit.parchment(radius: 12, drop: false),
                     child: const VoxelIcon('trail', size: 30),
                   ),
                 ),
@@ -350,6 +355,7 @@ class _PrepScreenState extends State<PrepScreen> {
             ]),
           ),
         ]),
+        ),
       ),
     );
   }
@@ -372,15 +378,10 @@ class _Nameplate extends StatelessWidget {
       container: true,
       label: '${cdef.name}, $kind, level $level. ${befriend ? 'Calm' : 'Instability'} $value',
       child: ExcludeSemantics(
+        // `.prep-plate`: card stock (lavender for the Hollow)
         child: Container(
           padding: const EdgeInsets.fromLTRB(9, 9, 12, 11),
-          decoration: BoxDecoration(
-            color: hollow ? null : const Color(0xFFFFFDF9),
-            gradient: hollow ? const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFCF8FF), Color(0xFFF2EAFC)]) : null,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: hollow ? const Color(0xFFD6C4F0) : const Color(0xFFEBDCC8), width: 2),
-            boxShadow: const [BoxShadow(color: Color(0x29281A0A), blurRadius: 14, offset: Offset(0, 6))],
-          ),
+          decoration: Kit.card(paper: hollow ? KitPaper.hollow : KitPaper.cream, radius: 16),
           child: Row(children: [
             EncFace.creature(cdef.id, size: 52, hollow: hollow),
             const SizedBox(width: 10),
@@ -446,7 +447,7 @@ class _RecTile extends StatelessWidget {
         container: true,
         child: Container(
           padding: const EdgeInsets.fromLTRB(8, 10, 8, 12),
-          decoration: _card(),
+          decoration: Kit.card(radius: 16),
           child: Column(mainAxisSize: MainAxisSize.min, children: [
             Text(kicker, textAlign: TextAlign.center, style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 11.5, color: hollow ? const Color(0xFF7B52C2) : const Color(0xFF5E9A3E))),
             const SizedBox(height: 5),
@@ -490,14 +491,7 @@ class _TeamRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final row = Container(
       padding: const EdgeInsets.fromLTRB(8, 8, 12, 8),
-      decoration: ghost
-          ? null
-          : BoxDecoration(
-              color: const Color(0xFFFFFDF9),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: warn ? const Color(0xFFF0C58A) : const Color(0xFFEBDCC8), width: 2),
-              boxShadow: const [BoxShadow(color: Color(0xFFE4D2BC), offset: Offset(0, 2))],
-            ),
+      decoration: ghost ? null : Kit.card(paper: warn ? _warnPaper : KitPaper.cream, radius: 16),
       child: Row(children: [
         face,
         const SizedBox(width: 10),
@@ -611,19 +605,17 @@ class _MiniButton extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
         button: true,
         label: label,
-        child: GestureDetector(
+        // `.rec-tile .mini`: parchment with a wood edge, sinking when pressed
+        child: KitPress(
           onTap: () {
             context.read<GameController>().audio.tick();
             onTap();
           },
-          child: Container(
+          builder: (_, down) => AnimatedContainer(
+            duration: const Duration(milliseconds: 60),
+            transform: Matrix4.translationValues(0, down ? 2 : 0, 0),
             padding: const EdgeInsets.fromLTRB(12, 6, 12, 6),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2CBAE), width: 2),
-              gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFF6EA), Color(0xFFF1E0CA)]),
-              boxShadow: const [BoxShadow(color: Color(0xFFD5BC9C), offset: Offset(0, 3))],
-            ),
+            decoration: Kit.parchment(radius: 12, depth: down ? 1 : 3, drop: false),
             child: Text(label, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 13, color: EvochiColor.ink)),
           ),
         ),

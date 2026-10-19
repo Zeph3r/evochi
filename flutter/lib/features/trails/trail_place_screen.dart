@@ -10,6 +10,7 @@ import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../game/trails/trails.dart' as tr;
 import '../home/home_widgets.dart';
+import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import '../village/story_widgets.dart';
 import '../village/village_screen.dart';
@@ -50,7 +51,9 @@ class TrailPlaceScreen extends StatelessWidget {
     final ta = trailsArt;
     return Scaffold(
       backgroundColor: EvochiColor.panel,
-      body: SafeArea(
+      body: KitPage(
+        material: KitMaterial.plain,
+        child: SafeArea(
         bottom: false,
         child: Column(children: [
           PlaceHeader(title: name, short: name.replaceFirst('The ', ''), backLabel: 'Back', onBack: () => Navigator.of(context).maybePop()),
@@ -122,7 +125,7 @@ class TrailPlaceScreen extends StatelessWidget {
                                 child: Container(
                                   height: 36,
                                   padding: const EdgeInsets.only(left: 4, right: 10),
-                                  decoration: BoxDecoration(color: const Color(0xFFF6EBDD), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0xFFE5D3BE), width: 1.5)),
+                                  decoration: Kit.parchment(radius: 10, depth: 2, drop: false),
                                   child: Row(mainAxisSize: MainAxisSize.min, children: [
                                     CreatureFace(f, size: 26),
                                     const SizedBox(width: 4),
@@ -147,6 +150,7 @@ class TrailPlaceScreen extends StatelessWidget {
             ]),
           ),
         ]),
+        ),
       ),
     );
   }

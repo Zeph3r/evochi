@@ -12,6 +12,7 @@ import '../../game/engine.dart' as g;
 import '../../game/home/home.dart' as h;
 import '../home/home_widgets.dart';
 import '../nest/sheets.dart';
+import '../shared/kit.dart';
 import '../shared/scene_scaffold.dart';
 import '../shared/scene_view.dart';
 import '../shared/widgets.dart';
@@ -92,8 +93,12 @@ class _BagScreenState extends State<BagScreen> {
     if (sel != null && item(sel).category == ItemCategory.wearable) equipped[item(sel).slot!] = sel; // try-on preview
     final reduce = MediaQuery.of(context).disableAnimations;
     final cols = MediaQuery.of(context).size.width >= 370 ? 4 : 3;
+    // a traveller's satchel: a canvas sheet in a stitched frame, fabric tabs, cloth pockets
     return Scaffold(
-      body: SceneScaffold(
+      body: KitPage(
+        material: KitMaterial.satchel,
+        paper: false,
+        child: SceneScaffold(
         controller: _scene,
         onPetTap: () => _scene.react('pet'),
         petLabel: pet.name,
@@ -129,16 +134,33 @@ class _BagScreenState extends State<BagScreen> {
                   _sel = id ?? _owned(c, 'wearable').where((x) => item(x).slot == slot).firstOrNull;
                   if (_sel == null) c.toast('No ${_slotUi[slot]!.toLowerCase()} items yet - find some in the Market', icon: 'shop', kind: 'warn');
                 }),
+                // an equipment slot: a parchment box with a dark wood edge (lit gold while chosen)
                 child: Container(
                   width: 60,
                   height: 74,
                   padding: const EdgeInsets.only(top: 4),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: active ? const Color(0xFFF2B544) : const Color(0xFFE2CDB4), width: 2),
-                    color: active ? const Color(0xFFFFF0C8) : const Color(0xF0FFFAF3),
-                    boxShadow: [BoxShadow(color: active ? const Color(0xFFD99B33) : const Color(0xFFCDB396), offset: const Offset(0, 3))],
-                  ),
+                  decoration: active
+                      ? KitDecoration(
+                          base: BoxDecoration(
+                            gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFF6DE), Color(0xFFFFE8B0)]),
+                            image: kitGrain,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFF2B544), width: 2.5),
+                            boxShadow: const [BoxShadow(color: Color(0x99FFBE46), blurRadius: 14), BoxShadow(color: Color(0xFFD99B33), offset: Offset(0, 3)), BoxShadow(color: Color(0xFFF7CD70), spreadRadius: 2)],
+                          ),
+                          inset: 2.5,
+                        )
+                      : KitDecoration(
+                          base: BoxDecoration(
+                            gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFF8E6), Color(0xFFEFD8AE)]),
+                            image: kitGrain,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: KitColor.woodEdge, width: 2.5),
+                            boxShadow: const [BoxShadow(color: Color(0x40321C0A), blurRadius: 12, offset: Offset(0, 6)), BoxShadow(color: KitColor.woodEdge, offset: Offset(0, 3))],
+                          ),
+                          inset: 2.5,
+                          shadow: const BoxShadow(color: Color(0x336E461E), blurRadius: 5, offset: Offset(0, 2)),
+                        ),
                   child: Column(children: [
                     if (id != null) ItemImage(id, size: 44) else Opacity(opacity: 0.35, child: VoxelIcon(slot == 'head' ? 'wearables' : (slot == 'back' ? 'bag' : 'care'), size: 40)),
                     Text(_slotUi[slot]!, style: EvochiText.tag.copyWith(fontSize: 12)),
@@ -150,7 +172,21 @@ class _BagScreenState extends State<BagScreen> {
 
           final narrow = b.maxWidth < 370;
           return Stack(children: [
-            Positioned(left: b.maxWidth * 0.45 - 30, top: 6, child: const Tag('Preview')),
+            // a parchment tag with a tail pointing at the try-on
+            Positioned(
+              left: b.maxWidth * 0.45 - 34,
+              top: 2,
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                Container(
+                  height: 28,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  alignment: Alignment.center,
+                  decoration: Kit.parchment(radius: 9),
+                  child: Text('Preview', style: EvochiText.tag.copyWith(color: EvochiColor.ink, fontWeight: FontWeight.w900)),
+                ),
+                const KitTail(width: 12, height: 7),
+              ]),
+            ),
             if (narrow) ...[
               Positioned(left: 10, bottom: 96, child: slotBox('head')),
               Positioned(left: 10, bottom: 14, child: slotBox('back')),
@@ -185,11 +221,16 @@ class _BagScreenState extends State<BagScreen> {
                 ),
             ]),
           ),
-          const SizedBox(height: 8),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 6),
-            padding: const EdgeInsets.all(8),
-            decoration: BoxDecoration(color: EvochiColor.panel, borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFEFD9C0), width: 2)),
+          const SizedBox(height: 10),
+          // the satchel: a canvas sheet in the stitched cloth frame
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 3),
+            child: FramedWindow(
+            variant: FrameVariant.cloth,
+            border: 13,
+            padding: const EdgeInsets.fromLTRB(4, 6, 4, 6), // tight, so 360 px phones keep their room
+            sheet: Kit.sheet(weave: true, colors: const [Color(0xFFEFDDBA), Color(0xFFE2C99E)]),
+            shadow: const BoxShadow(color: Color(0x40321C0A), blurRadius: 14, offset: Offset(0, -4)),
             child: Column(children: [
               if (_pouch) ...[
                 PouchGrid(selected: _selQ, cols: cols, onSelect: (id) => setState(() => _selQ = id)),
@@ -236,7 +277,9 @@ class _BagScreenState extends State<BagScreen> {
               if (!_pouch && sel != null) ...[const SizedBox(height: 8), _Detail(id: sel, scene: _scene)],
             ]),
           ),
+          ),
         ]),
+      ),
       ),
     );
   }
@@ -257,22 +300,16 @@ class _TabChip extends StatelessWidget {
         excludeSemantics: true,
         child: GestureDetector(
           onTap: onTap,
-          child: Container(
+          // a stitched fabric tab
+          child: KitTab(
+            selected: selected,
+            style: KitTabStyle.cloth,
             height: 48,
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(12), bottom: Radius.circular(6)),
-              border: Border.all(color: selected ? const Color(0xFFF0B952) : const Color(0xFFE2CDB4), width: 2),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: selected ? const [Color(0xFFFFF4D6), Color(0xFFFFE1A1)] : const [Color(0xFFFBF2E7), Color(0xFFEFE0CD)],
-              ),
-            ),
+            radius: const BorderRadius.vertical(top: Radius.circular(12), bottom: Radius.circular(6)),
             child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
               VoxelIcon(icon, size: 24),
               const SizedBox(width: 3),
-              Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text(label, style: EvochiText.tag.copyWith(color: selected ? EvochiColor.ink : EvochiColor.textSecondary)))),
+              Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text(label, style: KitTab.label(EvochiText.tag, selected, style: KitTabStyle.cloth)))),
             ]),
           ),
         ),
@@ -295,13 +332,10 @@ class _ItemTile extends StatelessWidget {
       label: '${it.name}${qty > 1 ? ', $qty owned' : ''}${marked ? ', in use' : ''}',
       child: GestureDetector(
         onTap: onTap,
+        // a cloth pocket with a stitched seam
         child: Container(
           padding: const EdgeInsets.all(4),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: selected ? const Color(0xFFF2BE55) : (it.isStory ? const Color(0xFFE8B956) : const Color(0xFFEADAC6)), width: 2),
-            color: selected ? const Color(0xFFFFF7E4) : (it.isStory ? const Color(0xFFFFF6DE) : const Color(0xFFFFFBF6)),
-          ),
+          decoration: Kit.slot(selected: selected, radius: 12, cloth: true),
           child: Stack(children: [
             Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Expanded(child: ItemImage(id, size: 62)),
@@ -313,8 +347,13 @@ class _ItemTile extends StatelessWidget {
                 top: 0,
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                  decoration: BoxDecoration(color: const Color(0xFF5E4B40), borderRadius: BorderRadius.circular(7)),
-                  child: Text('x$qty', style: EvochiText.tag.copyWith(color: Colors.white, fontSize: 11)),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF4E3018),
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(color: const Color(0xFFF2D49E), width: 1.5),
+                    boxShadow: const [BoxShadow(color: Color(0x4D000000), offset: Offset(0, 1))],
+                  ),
+                  child: Text('x$qty', style: EvochiText.tag.copyWith(color: Colors.white, fontSize: 11.5)),
                 ),
               ),
             if (marked) const Positioned(left: 0, top: 0, child: Icon(Icons.check_circle, color: EvochiColor.steps, size: 20)),
@@ -435,12 +474,13 @@ class _Detail extends StatelessWidget {
         ];
     }
     return GameCard(
-      padding: const EdgeInsets.all(10),
+      paper: satchelPaper,
+      padding: const EdgeInsets.all(8),
       child: Row(crossAxisAlignment: CrossAxisAlignment.center, children: [
         Container(
           width: 76,
           height: 76,
-          decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFF2BE55), width: 2), color: const Color(0xFFFFF9EF)),
+          decoration: Kit.well(),
           alignment: Alignment.center,
           child: ItemImage(id, size: 66),
         ),

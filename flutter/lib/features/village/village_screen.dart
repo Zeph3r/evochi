@@ -15,6 +15,7 @@ import '../../controllers/game_controller.dart';
 import '../../game/story/story.dart' as q;
 import '../home/home_widgets.dart';
 import '../nest/sheets.dart';
+import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import 'npc_puppet.dart';
@@ -55,7 +56,8 @@ void openPlace(BuildContext context, String id, {String? npc}) {
 /// Back to the Square after a reward.
 void returnToVillage(BuildContext context) => openVillage(context);
 
-/// The paper title bar used by the Village and Home screens: Back, the place name, EvoCoins.
+/// The title bar used by the Village, Home and trail screens: a light-wood Back square, the place name on
+/// a nailed wooden plaque, EvoCoins on dark wood.
 class PlaceHeader extends StatelessWidget {
   const PlaceHeader({super.key, required this.title, required this.short, required this.onBack, required this.backLabel});
   final String title;
@@ -76,19 +78,11 @@ class PlaceHeader extends StatelessWidget {
             header: true,
             label: title,
             child: ExcludeSemantics(
-              child: Container(
+              child: WoodPlaque(
                 height: 42,
-                alignment: Alignment.center,
-                padding: const EdgeInsets.symmetric(horizontal: 10),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE2CDB4), width: 2),
-                  gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFF9F0), Color(0xFFF3E4D1)]),
-                  boxShadow: const [BoxShadow(color: Color(0xFFCDB396), offset: Offset(0, 3))],
-                ),
                 child: FittedBox(
                   fit: BoxFit.scaleDown,
-                  child: Text(narrow ? short : title, style: EvochiText.section.copyWith(fontWeight: FontWeight.w900, fontSize: 19)),
+                  child: Text(narrow ? short : title, style: WoodPlaque.text(EvochiText.section.copyWith(fontWeight: FontWeight.w900, fontSize: 19))),
                 ),
               ),
             ),
@@ -178,9 +172,12 @@ class _VillageScreenState extends State<VillageScreen> {
     final nu = st.nextUp;
     final lit = st.flag('lamp_lit');
     final restored = st.flag('waystone_restored');
+    // a notice board: the papers are pinned up, a hair off straight
     return Scaffold(
       backgroundColor: EvochiColor.panel,
-      body: SafeArea(
+      body: KitPage(
+        material: KitMaterial.board,
+        child: SafeArea(
         bottom: false,
         child: Column(children: [
           PlaceHeader(title: 'Sunlit Village', short: 'Village', backLabel: 'Back to your nest', onBack: () => Navigator.of(context).maybePop()),
@@ -218,6 +215,7 @@ class _VillageScreenState extends State<VillageScreen> {
                         child: GestureDetector(
                           onTap: () => showStoryQuest(context, nu.id),
                           child: GameCard(
+                            pinned: true,
                             padding: const EdgeInsets.fromLTRB(8, 10, 12, 10),
                             child: Row(children: [
                               SizedBox(width: 54, height: 60, child: NpcImage(nu.giver, expression: nu.next.kind == 'handin' ? 'happy' : 'neutral', height: 60)),
@@ -237,6 +235,7 @@ class _VillageScreenState extends State<VillageScreen> {
                       )
                     else
                       const GameCard(
+                        pinned: true,
                         padding: EdgeInsets.fromLTRB(8, 10, 12, 10),
                         child: Row(children: [
                           VoxelIcon('star', size: 44),
@@ -250,20 +249,17 @@ class _VillageScreenState extends State<VillageScreen> {
                         ]),
                       ),
                     const SizedBox(height: 14),
-                    Row(children: [
-                      Container(width: 6, height: 18, decoration: BoxDecoration(color: EvochiColor.primary, borderRadius: BorderRadius.circular(3))),
-                      const SizedBox(width: 8),
-                      Semantics(header: true, child: const Text('Places', style: EvochiText.section)),
-                    ]),
-                    const SizedBox(height: 8),
+                    const KitSectionHead('Places', padding: EdgeInsets.zero),
+                    const SizedBox(height: 10),
                     GridView.count(
                       crossAxisCount: 2,
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
-                      mainAxisSpacing: 8,
+                      clipBehavior: Clip.none,
+                      mainAxisSpacing: 10,
                       crossAxisSpacing: 8,
                       childAspectRatio: 1.02,
-                      children: [for (final p in _pins) _PlaceCard(id: p.id)],
+                      children: [for (var i = 0; i < _pins.length; i++) _PlaceCard(id: _pins[i].id, tilt: i.isEven ? -0.7 : 0.6)],
                     ),
                     const SizedBox(height: 10),
                     const GuildBoardRow(),
@@ -295,6 +291,7 @@ class _VillageScreenState extends State<VillageScreen> {
             ]),
           ),
         ]),
+        ),
       ),
     );
   }
@@ -317,26 +314,29 @@ class _PinButton extends StatelessWidget {
             c.audio.play('ui_tap', volume: 0.4);
             openPlace(context, pin.id);
           },
+          // a parchment map pin with a dark wood edge (gold-edged when something waits there)
           child: Stack(clipBehavior: Clip.none, children: [
-            Container(
-              constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: const Color(0xF2FFF9F0),
-                border: Border.all(color: mark != null ? const Color(0xFFF0B952) : const Color(0xFFE2CDB4), width: 2),
-                boxShadow: const [BoxShadow(color: Color(0xFFCDB396), offset: Offset(0, 3)), BoxShadow(color: Color(0x40281910), blurRadius: 10, offset: Offset(0, 4))],
+            Column(mainAxisSize: MainAxisSize.min, children: [
+              Container(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: Kit.parchment(
+                  radius: 12,
+                  edge: mark != null ? const Color(0xFFC98A2C) : KitColor.woodEdge,
+                  colors: const [Color(0xFFFFF9EA), Color(0xFFF2DDB6)],
+                ),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Text(pin.label, style: EvochiText.cardTitle.copyWith(fontSize: 13, fontWeight: FontWeight.w900)),
+                  if (lock != null)
+                    Row(mainAxisSize: MainAxisSize.min, children: [
+                      const VoxelIcon('lock', size: 13),
+                      const SizedBox(width: 2),
+                      Text(lock, style: EvochiText.tag.copyWith(fontSize: 11)),
+                    ]),
+                ]),
               ),
-              child: Column(mainAxisSize: MainAxisSize.min, children: [
-                Text(pin.label, style: EvochiText.cardTitle.copyWith(fontSize: 13, fontWeight: FontWeight.w900)),
-                if (lock != null)
-                  Row(mainAxisSize: MainAxisSize.min, children: [
-                    const VoxelIcon('lock', size: 13),
-                    const SizedBox(width: 2),
-                    Text(lock, style: EvochiText.tag.copyWith(fontSize: 11)),
-                  ]),
-              ]),
-            ),
+              KitTail(color: const Color(0xFFF2DDB6), edge: mark != null ? const Color(0xFFC98A2C) : KitColor.woodEdge),
+            ]),
             if (mark != null) Positioned(top: -12, right: -10, child: PinMark(mark)),
           ]),
         ),
@@ -345,9 +345,11 @@ class _PinButton extends StatelessWidget {
   }
 }
 
+/// A place on the notice board: card stock pinned up a hair off straight ([tilt], degrees).
 class _PlaceCard extends StatelessWidget {
-  const _PlaceCard({required this.id});
+  const _PlaceCard({required this.id, this.tilt = 0});
   final String id;
+  final double tilt;
   @override
   Widget build(BuildContext context) {
     final c = context.watch<GameController>();
@@ -361,17 +363,18 @@ class _PlaceCard extends StatelessWidget {
       child: ExcludeSemantics(
         child: GestureDetector(
           onTap: () => openPlace(context, id),
-          child: Container(
+          child: Pinned(
+            tilt: tilt,
+            child: Container(
             clipBehavior: Clip.antiAlias,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: const Color(0xFFE6D3BD), width: 2),
-              color: EvochiColor.canvas,
-              boxShadow: const [BoxShadow(color: EvochiColor.cardBevel, offset: Offset(0, 3))],
-            ),
+            decoration: Kit.card(flat: true),
             child: Stack(children: [
               Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                SizedBox(height: 84, child: Image.asset(thumb, fit: BoxFit.cover, alignment: const Alignment(0, -0.16))),
+                Container(
+                  height: 84,
+                  foregroundDecoration: const BoxDecoration(border: Border(bottom: BorderSide(color: Color(0xFFCFA676), width: 2))),
+                  child: Image.asset(thumb, fit: BoxFit.cover, alignment: const Alignment(0, -0.16)),
+                ),
                 Padding(
                   padding: const EdgeInsets.fromLTRB(8, 6, 8, 0),
                   child: Row(children: [
@@ -387,6 +390,7 @@ class _PlaceCard extends StatelessWidget {
               ]),
               if (mark != null) const Positioned(top: 6, right: 6, child: BadgeDot()),
             ]),
+          ),
           ),
         ),
       ),
@@ -597,7 +601,9 @@ class _PlaceScreenState extends State<PlaceScreen> {
     const overlap = 64.0;
     return Scaffold(
       backgroundColor: EvochiColor.panel,
-      body: SafeArea(
+      body: KitPage(
+        material: KitMaterial.board,
+        child: SafeArea(
         bottom: false,
         child: Column(children: [
           PlaceHeader(title: _place.name, short: _place.short, backLabel: 'Back to the Square', onBack: () => Navigator.of(context).maybePop()),
@@ -648,7 +654,7 @@ class _PlaceScreenState extends State<PlaceScreen> {
                                     gradient: LinearGradient(
                                       begin: Alignment.topCenter,
                                       end: Alignment.bottomCenter,
-                                      colors: [Color(0x00F8EBDD), Color(0x00F8EBDD), Color(0x80F8EBDD), Color(0xFFF8EBDD)],
+                                      colors: [Color(0x00F9ECD4), Color(0x00F9ECD4), Color(0x80F9ECD4), KitColor.pageTop],
                                       stops: [0, 0.8, 0.92, 1],
                                     ),
                                   ),
@@ -738,6 +744,7 @@ class _PlaceScreenState extends State<PlaceScreen> {
             }),
           ),
         ]),
+        ),
       ),
     );
   }
@@ -924,8 +931,9 @@ class _SpeechBox extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    const paper = Color(0xFFFFF9F0);
-    const edge = Color(0xFFE2CDB4);
+    // parchment with a dark wood edge, a lit inner rule, and a hard edge under it
+    const paper = Color(0xFFFFF9EA);
+    const edge = KitColor.woodEdge;
     return Semantics(
       liveRegion: true,
       label: '${speaker.name}: $text',
@@ -937,14 +945,19 @@ class _SpeechBox extends StatelessWidget {
             Container(
               margin: const EdgeInsets.only(top: 22),
               padding: const EdgeInsets.fromLTRB(16, 22, 16, 18),
-              decoration: BoxDecoration(
-                color: paper,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(color: edge, width: 2.5),
-                boxShadow: const [
-                  BoxShadow(color: Color(0xFFCDB396), offset: Offset(0, 4)),
-                  BoxShadow(color: Color(0x3D28190A), blurRadius: 26, offset: Offset(0, 12)),
-                ],
+              decoration: KitDecoration(
+                base: BoxDecoration(
+                  gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [paper, Color(0xFFF7E8CA)]),
+                  image: kitGrain,
+                  borderRadius: BorderRadius.circular(18),
+                  border: Border.all(color: edge, width: 2.5),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x4728190A), blurRadius: 26, offset: Offset(0, 12)),
+                    BoxShadow(color: edge, offset: Offset(0, 4)),
+                  ],
+                ),
+                inset: 2.5,
+                ring: const KitBand(2, Color(0xB3FFFCF0)),
               ),
               child: ExcludeSemantics(
                 child: ConstrainedBox(
@@ -985,11 +998,16 @@ class _SpeechBox extends StatelessWidget {
                 Flexible(
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: speaker.color,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: Colors.white, width: 2),
-                      boxShadow: const [BoxShadow(color: Color(0x38000000), offset: Offset(0, 3)), BoxShadow(color: Color(0x2E28190A), blurRadius: 10, offset: Offset(0, 4))],
+                    // the name tag: the speaker's colour, a dark wood outline, a lit top edge
+                    decoration: KitDecoration(
+                      base: BoxDecoration(
+                        color: speaker.color,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: KitColor.woodInk, width: 2),
+                        boxShadow: const [BoxShadow(color: Color(0x3328190A), blurRadius: 10, offset: Offset(0, 4)), BoxShadow(color: KitColor.woodShadow, offset: Offset(0, 3))],
+                      ),
+                      inset: 2,
+                      top: const KitBand(2, Color(0x66FFFFFF)),
                     ),
                     child: Text.rich(
                       TextSpan(children: [
@@ -1031,24 +1049,18 @@ class _ChoiceButton extends StatelessWidget {
       button: true,
       label: choice.label,
       child: ExcludeSemantics(
-        child: GestureDetector(
+        child: KitPress(
           onTap: () {
             context.read<GameController>().audio.tick();
             onTap();
           },
-          child: Container(
+          // a kit button: gold for the main choice, cream for the rest
+          builder: (_, down) => AnimatedContainer(
+            duration: const Duration(milliseconds: 60),
             constraints: const BoxConstraints(minHeight: 50),
+            transform: Matrix4.translationValues(0, down ? 3 : 0, 0),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: primary ? EvochiColor.primaryShadow : const Color(0xFFCDB396), width: 2),
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: primary ? const [EvochiColor.gold100, EvochiColor.primary] : const [Color(0xFFFFFBF4), Color(0xFFEEDCC6)],
-              ),
-              boxShadow: [BoxShadow(color: primary ? EvochiColor.primaryShadow : const Color(0xFFCDB396), offset: const Offset(0, 4))],
-            ),
+            decoration: Kit.button(primary ? KitButtonPalette.gold : KitButtonPalette.cream, pressed: down, radius: 12),
             child: Row(children: [
               if (give.isNotEmpty) ...[
                 Container(

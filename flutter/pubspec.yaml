@@ -39,6 +39,7 @@ flutter:
     - assets/audio/sfx/
     - assets/audio/ambient/
     - assets/config/
+    - assets/ui/ # game-native kit textures (tools/ui_textures.py): wood, paper grain, canvas, window frames
   fonts:
     - family: Nunito
       fonts:

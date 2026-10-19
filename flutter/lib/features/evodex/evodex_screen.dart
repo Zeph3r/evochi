@@ -9,6 +9,7 @@ import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../nest/sheets.dart';
+import '../shared/kit.dart';
 import '../shared/sprite.dart';
 import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
@@ -38,15 +39,18 @@ class _EvoDexScreenState extends State<EvoDexScreen> {
     final sel = (_stage != null && unlocked(_stage!)) ? _stage! : (s.pet?.stage ?? 1);
     final evo = c.view.pet?.evolution;
     final found = palettes.where((p) => s.unlocks.containsKey('palette:${p.id}')).length;
+    // a collector's binder: every card has ring holes down its left edge
     return Scaffold(
       backgroundColor: EvochiColor.panel,
-      body: CustomScrollView(slivers: [
+      body: KitPage(
+        material: KitMaterial.binder,
+        child: CustomScrollView(slivers: [
         SliverToBoxAdapter(
           child: SizedBox(
             height: 150,
             child: Stack(fit: StackFit.expand, children: [
               Image.asset(art.thumb('cliffs'), fit: BoxFit.cover),
-              const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment(0, 0.3), end: Alignment.bottomCenter, colors: [Color(0x00F8EBDD), EvochiColor.panel]))),
+              const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment(0, 0.3), end: Alignment.bottomCenter, colors: [Color(0x00FAEED8), Color(0xFFFAEED8)]))),
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
@@ -79,13 +83,10 @@ class _EvoDexScreenState extends State<EvoDexScreen> {
                       label: unlocked(st) ? stageLabel(st) : 'Undiscovered form',
                       child: GestureDetector(
                         onTap: unlocked(st) ? () => setState(() => _stage = st) : null,
+                        // a sleeve in the binder page; the one on show gets the gold ring
                         child: Container(
                           padding: const EdgeInsets.all(10),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFBF1E4),
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: sel == st && unlocked(st) ? const Color(0xFFF8D27C) : const Color(0xFFEADAC6), width: 2),
-                          ),
+                          decoration: Kit.slot(selected: sel == st && unlocked(st), radius: 14),
                           child: Row(children: [
                             Container(
                               width: 104,
@@ -145,11 +146,7 @@ class _EvoDexScreenState extends State<EvoDexScreen> {
                             onTap: () => setState(() => _view = view),
                             child: Container(
                               padding: const EdgeInsets.all(4),
-                              decoration: BoxDecoration(
-                                color: view == _view ? const Color(0xFFFFF4D6) : const Color(0xFFFFF9F0),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(color: view == _view ? const Color(0xFFF2BE55) : const Color(0xFFE6D3BD), width: 1.5),
-                              ),
+                              decoration: Kit.slot(selected: view == _view, radius: 10),
                               child: Column(children: [
                                 SizedBox(height: 40, child: PetSprite(stage: sel, palette: pal, view: view, height: 38)),
                                 Text(view, style: EvochiText.tag.copyWith(fontSize: 10)),
@@ -209,6 +206,7 @@ class _EvoDexScreenState extends State<EvoDexScreen> {
           ]),
         ),
       ]),
+      ),
     );
   }
 }

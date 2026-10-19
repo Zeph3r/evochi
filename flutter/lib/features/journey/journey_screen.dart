@@ -18,6 +18,7 @@ import '../../game/xp/xp.dart';
 import '../home/skills_screen.dart';
 import '../nest/sheets.dart';
 import '../settings/settings_screen.dart';
+import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import '../village/story_widgets.dart';
@@ -107,7 +108,7 @@ class _JourneyScreenState extends State<JourneyScreen> {
             ]),
           ),
         ]),
-        const Divider(height: 24, color: Color(0xFFEEDDC9)),
+        const Divider(height: 24, color: Color(0x40C49660)),
         Row(children: [
           VoxelIcon(conn == 'none' ? 'warning' : 'steps', size: 28),
           const SizedBox(width: 8),
@@ -186,15 +187,18 @@ class _JourneyScreenState extends State<JourneyScreen> {
           ]),
         ),
     ];
+    // an explorer's journal: ruled pages, leather bookmark tabs, entries with a margin rule
     return Scaffold(
       backgroundColor: EvochiColor.panel,
-      body: CustomScrollView(slivers: [
+      body: KitPage(
+        material: KitMaterial.journal,
+        child: CustomScrollView(slivers: [
         SliverToBoxAdapter(
           child: SizedBox(
             height: 150,
             child: Stack(fit: StackFit.expand, children: [
               Image.asset(art.thumb('meadow'), fit: BoxFit.cover, alignment: const Alignment(0, -0.3)),
-              const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment(0, 0.3), end: Alignment.bottomCenter, colors: [Color(0x00F8EBDD), EvochiColor.panel]))),
+              const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment(0, 0.3), end: Alignment.bottomCenter, colors: [Color(0x00FBF0DA), Color(0xFFFBF0DA)]))),
               SafeArea(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
@@ -208,7 +212,9 @@ class _JourneyScreenState extends State<JourneyScreen> {
             ]),
           ),
         ),
-        SliverPadding(
+        DecoratedSliver(
+          decoration: const RuledPaper(),
+          sliver: SliverPadding(
           padding: EdgeInsets.fromLTRB(14, 0, 14, navInset(context) + 12),
           sliver: SliverList.list(children: [
             _JourneyTabs(
@@ -247,7 +253,9 @@ class _JourneyScreenState extends State<JourneyScreen> {
             ],
           ]),
         ),
+        ),
       ]),
+      ),
     );
   }
 }
@@ -290,17 +298,12 @@ class _JourneyTabs extends StatelessWidget {
               child: GestureDetector(
                 onTap: () => onTab(t.$1),
                 child: Stack(clipBehavior: Clip.none, children: [
-                  Container(
+                  // leather bookmark tabs; the open one lifts and lights up
+                  KitTab(
+                    selected: tab == t.$1,
+                    style: KitTabStyle.leather,
                     height: 48,
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: tab == t.$1 ? const Color(0xFFF0B952) : const Color(0xFFE2CDB4), width: 2),
-                      gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: tab == t.$1 ? const [Color(0xFFFFF4D6), Color(0xFFFFE1A1)] : const [Color(0xFFFBF2E7), Color(0xFFEFE0CD)],
-                      ),
-                    ),
+                    radius: BorderRadius.circular(12),
                     padding: const EdgeInsets.symmetric(horizontal: 3),
                     child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
                       VoxelIcon(t.$3, size: 24),
@@ -308,7 +311,7 @@ class _JourneyTabs extends StatelessWidget {
                       Flexible(
                         child: FittedBox(
                           fit: BoxFit.scaleDown,
-                          child: Text(t.$2, style: EvochiText.tag.copyWith(color: tab == t.$1 ? EvochiColor.ink : EvochiColor.textSecondary)),
+                          child: Text(t.$2, style: KitTab.label(EvochiText.tag, tab == t.$1)),
                         ),
                       ),
                     ]),
@@ -327,14 +330,7 @@ class _SectionHead extends StatelessWidget {
   const _SectionHead(this.text);
   final String text;
   @override
-  Widget build(BuildContext context) => Padding(
-        padding: const EdgeInsets.only(bottom: 8),
-        child: Row(children: [
-          Container(width: 6, height: 18, decoration: BoxDecoration(color: EvochiColor.primary, borderRadius: BorderRadius.circular(3))),
-          const SizedBox(width: 8),
-          Semantics(header: true, child: Text(text, style: EvochiText.section)),
-        ]),
-      );
+  Widget build(BuildContext context) => KitSectionHead(text, padding: const EdgeInsets.only(bottom: 8));
 }
 
 class _QuestRow extends StatelessWidget {
@@ -348,6 +344,7 @@ class _QuestRow extends StatelessWidget {
           opacity: q.claimed ? 0.72 : 1,
           child: GameCard(
             padding: const EdgeInsets.all(10),
+            rule: const Color(0xFFC0634A), // the journal entry's margin rule
             child: Row(children: [
               VoxelIcon(q.def.icon, size: 40),
               const SizedBox(width: 10),

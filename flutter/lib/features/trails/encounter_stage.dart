@@ -21,6 +21,7 @@ import '../../app/theme.dart';
 import '../../core/models/game_state.dart';
 import '../../core/services/asset_manifest.dart';
 import '../../game/trails/trails.dart' as tr;
+import '../shared/kit.dart';
 import '../shared/sprite.dart';
 import '../shared/widgets.dart';
 import 'encounter_icons.dart';
@@ -1886,13 +1887,20 @@ class _PlateFade extends StatelessWidget {
       );
 }
 
-BoxDecoration _plateDecoration({bool hollow = false}) => BoxDecoration(
-      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: hollow ? const [Color(0xFFFCF8FF), Color(0xFFEFE6FA)] : const [Color(0xFFFFFCF6), Color(0xFFFBF1E3)]),
-      border: Border.all(color: hollow ? const Color(0xFFD6C4F0) : const Color(0xFFEBD8C1), width: 2),
-      borderRadius: BorderRadius.circular(16),
-      boxShadow: hollow
-          ? const [BoxShadow(color: Color(0xF2AA8CD2), offset: Offset(0, 4)), BoxShadow(color: Color(0x59140824), blurRadius: 22, offset: Offset(0, 10))]
-          : const [BoxShadow(color: Color(0xF2D0B89C), offset: Offset(0, 4)), BoxShadow(color: Color(0x471E1208), blurRadius: 22, offset: Offset(0, 10))],
+/// A nameplate over the shot (`.enc-plate`): parchment with a dark wood edge, a lit inner rule and a
+/// hard edge under it (plum-edged lavender for the Hollow).
+Decoration _plateDecoration({bool hollow = false}) => KitDecoration(
+      base: BoxDecoration(
+        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: hollow ? const [Color(0xFFFCF8FF), Color(0xFFEEE3FA)] : const [Color(0xFFFFF9EA), Color(0xFFF4E3C2)]),
+        image: kitGrain,
+        border: Border.all(color: hollow ? const Color(0xFF6E4E8C) : KitColor.woodEdge, width: 2.5),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: hollow
+            ? const [BoxShadow(color: Color(0x59140824), blurRadius: 22, offset: Offset(0, 10)), BoxShadow(color: Color(0xFF6E4E8C), offset: Offset(0, 4))]
+            : const [BoxShadow(color: Color(0x4D1E1208), blurRadius: 22, offset: Offset(0, 10)), BoxShadow(color: KitColor.woodEdge, offset: Offset(0, 4))],
+      ),
+      inset: 2.5,
+      ring: const KitBand(2, Color(0xB3FFFCF0)),
     );
 
 /// A meter: a rounded bar with its label inside the fill and the value to the right.

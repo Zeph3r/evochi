@@ -18,6 +18,12 @@ pipeline and how to build.
   and `flutter test` in `flutter/`, then play Explore Home → Garden, the Cottage restoration, a daily
   discovery and the first encounter, and compare with the web build. See the "Home Tales" and
   "Lumen Trails" sections of `flutter/README.md` for the files.
+- **Flutter: the game-native kit** (`lib/features/shared/kit.dart`, the 9-slice frames in `assets/ui/`)
+  is also uncompiled. Run `dart format lib` (some `KitPage` wraps are indented 2 spaces off), then
+  `flutter analyze`; the spots most likely to need a touch are the typed record pattern in `Tag`,
+  `DecoratedSliver` in Journey, and `SnackBar(clipBehavior:)` / `Dialog(surfaceTintColor:)`. Compare
+  each screen with `node tools/ui_tour.mjs OUT` on the web build. Settings, Pet, onboarding, Cottage,
+  Garden and Home Map only pick up the kit through the shared widgets so far.
 - The web build is the reference. Run `cd web && node build.mjs`, serve `web/dist`, and play. Web
   tests: `npm test` (65 pass). Phone-size playthroughs (Home Tales: walk → plant → harvest → Bram →
   cottage → cook → Mira → Apothecary; Lumen Trails: discovery → Guild → Pip → prep → travel →

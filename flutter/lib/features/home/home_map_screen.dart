@@ -12,6 +12,7 @@ import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../game/home/home.dart' as h;
 import '../../game/story/story.dart' as q;
+import '../shared/kit.dart';
 import '../shared/sprite.dart';
 import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
@@ -262,12 +263,7 @@ class _NameChip extends StatelessWidget {
   Widget build(BuildContext context) => Container(
         margin: const EdgeInsets.only(top: 2),
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 3),
-        decoration: BoxDecoration(
-          color: const Color(0xF5FFF9F0),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(color: const Color(0xFFE2CDB4), width: 2),
-          boxShadow: const [BoxShadow(color: Color(0xFFCDB396), offset: Offset(0, 2))],
-        ),
+        decoration: Kit.parchment(radius: 10, depth: 2, drop: false),
         child: Text(name, style: EvochiText.tag.copyWith(color: EvochiColor.ink, fontWeight: FontWeight.w900)),
       );
 }
@@ -294,15 +290,11 @@ class _MapPin extends StatelessWidget {
             }
           },
           child: Stack(clipBehavior: Clip.none, children: [
+            // a parchment map pin with a dark wood edge (gold-edged when something waits there)
             Container(
               constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(12),
-                color: const Color(0xF2FFF9F0),
-                border: Border.all(color: mark != null ? const Color(0xFFF0B952) : const Color(0xFFE2CDB4), width: 2),
-                boxShadow: const [BoxShadow(color: Color(0xFFCDB396), offset: Offset(0, 3)), BoxShadow(color: Color(0x40281910), blurRadius: 10, offset: Offset(0, 4))],
-              ),
+              decoration: Kit.parchment(radius: 12, edge: mark != null ? const Color(0xFFC98A2C) : KitColor.woodEdge, colors: const [Color(0xFFFFF9EA), Color(0xFFF2DDB6)]),
               child: Column(mainAxisSize: MainAxisSize.min, children: [
                 Text(label, style: EvochiText.cardTitle.copyWith(fontSize: 13, fontWeight: FontWeight.w900)),
                 if (lock != null)

@@ -24,6 +24,7 @@ import '../../core/models/catalog.dart';
 import '../../core/services/asset_manifest.dart';
 import '../../game/story/story.dart' as q;
 import '../../game/trails/trails.dart' as tr;
+import '../shared/kit.dart';
 import '../shared/sprite.dart';
 import '../shared/widgets.dart';
 import '../village/story_widgets.dart';
@@ -1229,15 +1230,11 @@ class _EncounterScreenState extends State<EncounterScreen> {
           child: GestureDetector(
             onTap: () => setState(() => _logOpen = !_logOpen),
             child: ExcludeSemantics(
+              // `.enc-log`: card stock
               child: Container(
                 constraints: const BoxConstraints(minHeight: 58),
                 padding: const EdgeInsets.fromLTRB(10, 8, 34, 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFFFFFDF9),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: const Color(0xFFEBDCC8), width: 2),
-                  boxShadow: const [BoxShadow(color: Color(0xFFE4D2BC), offset: Offset(0, 2))],
-                ),
+                decoration: Kit.card(radius: 16),
                 child: Stack(clipBehavior: Clip.none, children: [
                   Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
                     if (_logOpen && hist.isNotEmpty) ...[
@@ -1331,14 +1328,10 @@ class _EncounterScreenState extends State<EncounterScreen> {
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
       Semantics(
         container: true,
+        // `.rs-card`: card stock
         child: Container(
           padding: const EdgeInsets.fromLTRB(12, 14, 12, 12),
-          decoration: BoxDecoration(
-            color: const Color(0xFFFFFDF9),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: const Color(0xFFEBDCC8), width: 2),
-            boxShadow: const [BoxShadow(color: Color(0xFFE4D2BC), offset: Offset(0, 2))],
-          ),
+          decoration: Kit.card(radius: 20),
           child: Column(children: [
             // "Petalune / Is Calmed!"
             Semantics(
@@ -1373,8 +1366,9 @@ class _EncounterScreenState extends State<EncounterScreen> {
   }
 }
 
-/// The cream panel under the shot (24px top corners, a shadow up); [bare] for the intro card, which
-/// sits on the darkened shot itself.
+/// The action panel under the shot: a WINDOW rising from the bottom, parchment in the carved wood frame
+/// (top and sides only, `.enc-panel`); the frame takes the old side padding, so the actions keep their
+/// width. [bare] for the intro card, which sits on the darkened shot itself.
 class _Panel extends StatelessWidget {
   const _Panel({super.key, required this.child, this.bare = false});
   final Widget child;
@@ -1385,15 +1379,16 @@ class _Panel extends StatelessWidget {
     if (bare) {
       return Padding(padding: EdgeInsets.fromLTRB(22, 0, 22, 14 + mq.padding.bottom), child: child);
     }
-    return Container(
+    return ConstrainedBox(
       constraints: BoxConstraints(maxHeight: mq.size.height * 0.74),
-      padding: EdgeInsets.fromLTRB(14, 12, 14, 8 + mq.padding.bottom),
-      decoration: const BoxDecoration(
-        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFBF3E7), Color(0xFFF6EADA)], stops: [0, 0.6]),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [BoxShadow(color: Color(0x47140C06), blurRadius: 20, offset: Offset(0, -8))],
+      child: FramedWindow(
+        border: 11,
+        openBottom: true,
+        padding: EdgeInsets.fromLTRB(3, 8, 3, 8 + mq.padding.bottom),
+        sheet: Kit.sheet(colors: const [Color(0xFFFBF1DC), Color(0xFFF2E0BF)], radius: 4),
+        shadow: const BoxShadow(color: Color(0x52140C06), blurRadius: 14, offset: Offset(0, -6)),
+        child: SingleChildScrollView(child: child),
       ),
-      child: SingleChildScrollView(child: child),
     );
   }
 }
@@ -1670,14 +1665,14 @@ class _ResultTiles extends StatelessWidget {
                         width: 58,
                         height: 58,
                         alignment: Alignment.center,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(14),
-                          color: t.hl ? null : const Color(0xFFFBF4EA),
-                          gradient: t.hl
-                              ? LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: restore ? const [Color(0xFFFFF6DA), Color(0xFFF8E2A6)] : const [Color(0xFFEAF7D9), Color(0xFFCFEBB0)])
-                              : null,
-                          border: Border.all(color: t.hl ? (restore ? const Color(0xFFE5BF73) : const Color(0xFF9ACB76)) : const Color(0xFFEFE0CC), width: 1.5),
-                        ),
+                        decoration: t.hl
+                            ? BoxDecoration(
+                                borderRadius: BorderRadius.circular(14),
+                                gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: restore ? const [Color(0xFFFFF6DA), Color(0xFFF8E2A6)] : const [Color(0xFFEAF7D9), Color(0xFFCFEBB0)]),
+                                border: Border.all(color: restore ? const Color(0xFFC98A2C) : const Color(0xFF6E9A4E), width: 2),
+                                boxShadow: [BoxShadow(color: restore ? const Color(0xFFB4874F) : const Color(0xFF6E9A4E), offset: const Offset(0, 2))],
+                              )
+                            : Kit.slot(radius: 14),
                         child: t.item != null ? ItemImage(t.item!, size: 48) : VoxelIcon(t.icon ?? 'star', size: 48),
                       ),
                       const SizedBox(height: 2),
@@ -1719,13 +1714,15 @@ class _ActionButton extends StatelessWidget {
       'companion' => 'creature_petalune',
       _ => a.icon,
     };
-    final (colors, border, shadow) = switch (style) {
-      'sun' => (const [Color(0xFFFFF4CC), Color(0xFFFFE39A), Color(0xFFF8C75A)], const Color(0xFFE3AA3A), const Color(0xFFCF952C)),
-      'teal' => (const [Color(0xFFE6FCF4), Color(0xFFB2EDD9), Color(0xFF82DBC1)], const Color(0xFF45AF8D), const Color(0xFF369073)),
-      'orange' => (const [Color(0xFFFFE6CC), Color(0xFFFDC48E), Color(0xFFF6A262)], const Color(0xFFE1813F), const Color(0xFFC4672B)),
-      'green' => (const [Color(0xFFF3FBE8), Color(0xFFD2EDB4), Color(0xFFB3DB8C)], const Color(0xFF7DB758), const Color(0xFF5D953F)),
-      _ => (const [Color(0xFFFFFEFA), Color(0xFFF7EDDF), Color(0xFFEDDCC6)], const Color(0xFFD6BFA2), const Color(0xFFC2A988)),
+    // (gradient, outline, hard edge, inner shade, drop)
+    final (colors, border, edge, shade, drop) = switch (style) {
+      'sun' => (const [Color(0xFFFFF4CC), Color(0xFFFFE39A), Color(0xFFF8C75A)], const Color(0xFF9A6414), const Color(0xFF7A4A0E), const Color(0x59C8821E), const Color(0x40965F14)),
+      'teal' => (const [Color(0xFFE6FCF4), Color(0xFFB2EDD9), Color(0xFF82DBC1)], const Color(0xFF23705A), const Color(0xFF1C5A48), const Color(0x4D288C6E), const Color(0x381E6E50)),
+      'orange' => (const [Color(0xFFFFE6CC), Color(0xFFFDC48E), Color(0xFFF6A262)], const Color(0xFF9A4A1C), const Color(0xFF7A3812), const Color(0x4DC86428), const Color(0x40964614)),
+      'green' => (const [Color(0xFFF3FBE8), Color(0xFFD2EDB4), Color(0xFFB3DB8C)], const Color(0xFF3B6E28), const Color(0xFF2C5520), const Color(0x4D508C32), const Color(0x383C6414)),
+      _ => (const [Color(0xFFFFF9EC), Color(0xFFF4E3C4), Color(0xFFE9D3AA)], const Color(0xFF8F6A42), const Color(0xFF7A5A36), const Color(0x4DAA8250), const Color(0x2E78501E)),
     };
+    final cream = style == 'cream';
     final enabled = a.can && !busy && !v.success;
     final sub = _actionSub(a, v);
     return Semantics(
@@ -1733,26 +1730,40 @@ class _ActionButton extends StatelessWidget {
       enabled: enabled,
       label: _actionLong(a, v),
       child: ExcludeSemantics(
-        child: GestureDetector(
+        child: KitPress(
           onTap: enabled
               ? () {
                   context.read<GameController>().audio.tick();
                   onTap();
                 }
               : null,
-          child: AnimatedOpacity(
+          builder: (_, down) => AnimatedOpacity(
             duration: const Duration(milliseconds: 250),
             opacity: enabled ? 1 : (busy ? 0.8 : 0.55),
             child: ColorFiltered(
               colorFilter: enabled ? const ColorFilter.mode(Colors.transparent, BlendMode.dst) : ColorFilter.matrix(_saturate(busy ? 0.75 : 0.4)),
-              child: Container(
+              child: AnimatedContainer(
+                duration: const Duration(milliseconds: 60),
                 constraints: BoxConstraints(minHeight: a.kind == 'companion' ? 60 : 66),
+                transform: Matrix4.translationValues(0, down ? 3 : 0, 0),
                 padding: const EdgeInsets.fromLTRB(8, 8, 8, 9),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(color: border, width: 2.5),
-                  gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: colors, stops: const [0, 0.5, 1]),
-                  boxShadow: [BoxShadow(color: shadow, offset: const Offset(0, 4)), BoxShadow(color: shadow.withAlpha(56), blurRadius: 12, offset: const Offset(0, 7))],
+                decoration: KitDecoration(
+                  base: BoxDecoration(
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: border, width: 2.5),
+                    gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: colors, stops: cream ? const [0, 0.6, 1] : const [0, 0.5, 1]),
+                    image: cream ? kitGrain : null,
+                    boxShadow: [
+                      if (!down) BoxShadow(color: drop, blurRadius: 12, offset: const Offset(0, 7)),
+                      BoxShadow(color: down ? const Color(0x993C1E05) : edge, offset: Offset(0, down ? 1 : 4)),
+                    ],
+                  ),
+                  inset: 2.5,
+                  bottom: down ? null : KitBand(3, shade),
+                  shadow: down ? const BoxShadow(color: Color(0x403C1E05), blurRadius: 4, offset: Offset(0, 2)) : null,
+                  glossTop: down ? const Color(0x44FFFFFF) : const Color(0x99FFFFFF),
+                  glossBottom: const Color(0x00FFFFFF),
+                  glossSmall: true,
                 ),
                 child: Row(children: [
                   SizedBox(width: 42, height: 42, child: VoxelIcon(icon, size: 42)),
@@ -1815,11 +1826,19 @@ class _CompButtonState extends State<_CompButton> {
                 constraints: const BoxConstraints(minHeight: 48),
                 transform: Matrix4.translationValues(0, _down ? 2 : 0, 0),
                 padding: const EdgeInsets.fromLTRB(6, 4, 12, 4),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(color: const Color(0xFF7DB758), width: 2),
-                  gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFF3FBE8), Color(0xFFD2EDB4)]),
-                  boxShadow: const [BoxShadow(color: Color(0xFF5D953F), offset: Offset(0, 3))],
+                // `.enc-comp`: a green outline, a gloss strip, a hard edge
+                decoration: KitDecoration(
+                  base: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFF3B6E28), width: 2.5),
+                    gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFF3FBE8), Color(0xFFD2EDB4)]),
+                    boxShadow: [BoxShadow(color: const Color(0xFF2C5520), offset: Offset(0, _down ? 1 : 3))],
+                  ),
+                  inset: 2.5,
+                  bottom: _down ? null : const KitBand(2, Color(0x4D508C32)),
+                  glossTop: const Color(0x99FFFFFF),
+                  glossBottom: const Color(0x00FFFFFF),
+                  glossSmall: true,
                 ),
                 child: Row(children: [
                   const VoxelIcon('creature_petalune', size: 38),
@@ -1917,7 +1936,7 @@ class _NoArtEncounter extends StatelessWidget {
                 top: 12,
                 child: Container(
                   padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(color: const Color(0xFFFFFCF6), borderRadius: BorderRadius.circular(16), border: Border.all(color: const Color(0xFFEBD8C1), width: 2)),
+                  decoration: Kit.card(paper: KitPaper.plate, radius: 16),
                   child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                     Text(v.creature.name, style: EvochiText.cardTitle.copyWith(fontWeight: FontWeight.w900)),
                     const SizedBox(height: 6),

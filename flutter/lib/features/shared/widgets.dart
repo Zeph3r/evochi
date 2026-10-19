@@ -1,4 +1,9 @@
-// Reusable Evochi components built from the theme tokens (style guide §06-07, §25 "UI components").
+// Reusable Evochi components built from the theme tokens (style guide §06-07, §25 "UI components"),
+// dressed in the game-native kit (kit.dart, after web/src/kit.css): card stock, outlined glossy buttons
+// that sink, stamped tags, wooden signs, a carved groove for progress, a wooden nav bar, and carved
+// window frames around sheets and dialogs.
+
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -8,6 +13,7 @@ import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/services/asset_manifest.dart';
 import '../../game/vitality/vitality.dart';
+import 'kit.dart';
 
 AssetManifest get art => AssetManifest.instance!;
 
@@ -51,9 +57,18 @@ class TitleImage extends StatelessWidget {
       );
 }
 
-enum ButtonTone { gold, green, cream, danger }
+enum ButtonTone { gold, green, cream, danger, plum }
 
-/// Chunky bevelled game button. Debounces repeat taps (style guide §23 "Fast repeated tap").
+KitButtonPalette buttonPalette(ButtonTone t) => switch (t) {
+      ButtonTone.gold => KitButtonPalette.gold,
+      ButtonTone.green => KitButtonPalette.green,
+      ButtonTone.cream => KitButtonPalette.cream,
+      ButtonTone.danger => KitButtonPalette.danger,
+      ButtonTone.plum => KitButtonPalette.plum,
+    };
+
+/// Chunky game button: a dark outline, a gloss strip under the label, and a hard edge it sinks into
+/// (3 px) while pressed. Debounces repeat taps (style guide §23 "Fast repeated tap").
 class EvochiButton extends StatefulWidget {
   const EvochiButton({
     super.key,
@@ -86,26 +101,20 @@ class _EvochiButtonState extends State<EvochiButton> {
   @override
   Widget build(BuildContext context) {
     final enabled = widget.onPressed != null;
-    final (top, bottom, edge, fg) = switch (widget.tone) {
-      _ when !enabled => (const Color(0xFFEDE0CF), const Color(0xFFE2D2BE), const Color(0xFFC9B8A4), const Color(0xFF7E7166)),
-      ButtonTone.gold => (EvochiColor.gold100, EvochiColor.primary, EvochiColor.primaryShadow, EvochiColor.ink),
-      ButtonTone.green => (const Color(0xFFC6E59C), EvochiColor.steps, const Color(0xFF5C9340), EvochiColor.ink),
-      ButtonTone.cream => (const Color(0xFFFFFBF4), const Color(0xFFEEDCC6), const Color(0xFFCDB396), EvochiColor.ink),
-      ButtonTone.danger => (const Color(0xFFF4A193), EvochiColor.dead, const Color(0xFFA8463C), Colors.white),
-    };
+    final p = enabled ? buttonPalette(widget.tone) : KitButtonPalette.disabled;
+    final down = _down && enabled;
     final h = widget.large ? 56.0 : (widget.small ? 44.0 : 48.0);
-    final style = EvochiText.button.copyWith(color: fg, fontSize: widget.large ? 20 : (widget.small ? 15 : 17));
+    final style = EvochiText.button.copyWith(
+      color: p.fg,
+      fontSize: widget.large ? 20 : (widget.small ? 15 : 17),
+      shadows: p.textShadow == null ? null : [Shadow(color: p.textShadow!, offset: const Offset(0, 1))],
+    );
     final child = AnimatedContainer(
       duration: const Duration(milliseconds: 60),
       height: h,
-      transform: Matrix4.translationValues(0, _down ? 2 : 0, 0),
+      transform: Matrix4.translationValues(0, down ? 3 : 0, 0),
       padding: EdgeInsets.symmetric(horizontal: widget.small ? 12 : 18),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(widget.large ? 14 : 12),
-        border: Border.all(color: edge, width: 2),
-        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [top, bottom]),
-        boxShadow: [BoxShadow(color: edge, offset: Offset(0, _down ? 1 : 4))],
-      ),
+      decoration: Kit.button(p, pressed: down, small: widget.small, disabled: !enabled, radius: widget.large ? 14 : (widget.small ? 10 : 13)),
       child: Row(
         mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
@@ -140,26 +149,42 @@ class _EvochiButtonState extends State<EvochiButton> {
   }
 }
 
+/// A CARD: printed card stock (grain, an inner double rule, a hard bottom edge). It prints on its
+/// screen's material ([KitScope]): lavender in the Apothecary, with ring holes in the EvoDex binder.
+/// [color] tints it, [paper] picks a stock outright, [rule] adds a margin rule down the left (journal
+/// entries, recipes), and [pinned] / [tilt] pin it to the notice board.
 class GameCard extends StatelessWidget {
-  const GameCard({super.key, required this.child, this.padding = const EdgeInsets.all(12), this.highlight = false, this.color});
+  const GameCard({
+    super.key,
+    required this.child,
+    this.padding = const EdgeInsets.all(12),
+    this.highlight = false,
+    this.color,
+    this.paper,
+    this.rule,
+    this.pinned = false,
+    this.tilt = 0,
+  });
   final Widget child;
   final EdgeInsets padding;
   final bool highlight;
   final Color? color;
+  final KitPaper? paper;
+  final Color? rule;
+  final bool pinned;
+  final double tilt; // degrees
   @override
-  Widget build(BuildContext context) => Container(
-        padding: padding,
-        decoration: BoxDecoration(
-          color: color ?? const Color(0xF5FFF9F0),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: highlight ? const Color(0xFFF2BE55) : EvochiColor.cardEdge, width: highlight ? 2 : 1.5),
-          boxShadow: const [
-            BoxShadow(color: EvochiColor.cardBevel, offset: Offset(0, 3)),
-            BoxShadow(color: Color(0x1F502F19), blurRadius: 18, offset: Offset(0, 6)),
-          ],
-        ),
-        child: child,
-      );
+  Widget build(BuildContext context) {
+    final m = KitScope.of(context);
+    final binder = m == KitMaterial.binder;
+    final stock = paper ?? (color != null ? KitPaper.tint(color!) : KitPaper.of(m));
+    final card = Container(
+      padding: binder ? padding.copyWith(left: math.max(padding.left, 26)) : padding,
+      decoration: Kit.card(paper: stock, highlight: highlight, rule: rule, holes: binder),
+      child: child,
+    );
+    return pinned || tilt != 0 ? Pinned(pin: pinned, tilt: tilt, child: card) : card;
+  }
 }
 
 enum TagTone { stage, ok, warn, danger, neutral, cream, red }
@@ -171,19 +196,32 @@ class Tag extends StatelessWidget {
   final String? icon;
   @override
   Widget build(BuildContext context) {
-    final (bg, fg, edge) = switch (tone) {
-      TagTone.stage => (EvochiColor.gold300, EvochiColor.gold900, const Color(0xFFE3A64A)),
-      TagTone.ok => (EvochiColor.meadow100, EvochiColor.healthy, const Color(0xFFCDE5B0)),
-      TagTone.warn => (const Color(0xFFFFF0D8), EvochiColor.gold900, EvochiColor.sick),
-      TagTone.danger => (const Color(0xFFFBE4E0), const Color(0xFF913B36), EvochiColor.dead),
-      TagTone.neutral => (const Color(0xFFEFE6DB), EvochiColor.textSecondary, const Color(0xFFDCCBB8)),
-      TagTone.cream => (const Color(0xFFF6EBDD), EvochiColor.textSecondary, const Color(0xFFE5D3BE)),
-      TagTone.red => (const Color(0xFFE0654B), Colors.white, const Color(0xFFB8452F)),
+    // a little stamped capsule: a lit top edge and a hard shadow under it; cream and neutral are printed
+    // on grained paper
+    final (Color? bg, Gradient? grad, Color fg, Color edge) = switch (tone) {
+      TagTone.stage => (null, const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFE5A2), Color(0xFFF9CA70)]), EvochiColor.gold900, const Color(0xFFC98A2C)),
+      TagTone.ok => (EvochiColor.meadow100, null, EvochiColor.healthy, const Color(0xFF9CC27A)),
+      TagTone.warn => (const Color(0xFFFFF0D8), null, EvochiColor.gold900, EvochiColor.sick),
+      TagTone.danger => (const Color(0xFFFBE4E0), null, const Color(0xFF913B36), EvochiColor.dead),
+      TagTone.neutral || TagTone.cream => (null, const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFBF0DA), Color(0xFFEEDDBC)]), const Color(0xFF5A3E2A), const Color(0xFFC9A77A)),
+      TagTone.red => (null, const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFF07A5C), Color(0xFFD8573F)]), Colors.white, const Color(0xFFB8452F)),
     };
+    final grain = tone == TagTone.neutral || tone == TagTone.cream;
     return Container(
       height: 24,
       padding: const EdgeInsets.symmetric(horizontal: 8),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8), border: Border.all(color: edge, width: 1.5)),
+      decoration: KitDecoration(
+        base: BoxDecoration(
+          color: bg,
+          gradient: grad,
+          image: grain ? kitGrain : null,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: edge, width: 1.5),
+          boxShadow: const [BoxShadow(color: Color(0x385A3719), offset: Offset(0, 1.5))],
+        ),
+        inset: 1.5,
+        top: const KitBand(1, Color(0x99FFFFFF)),
+      ),
       child: Row(mainAxisSize: MainAxisSize.min, children: [
         if (icon != null) ...[VoxelIcon(icon!, size: 16), const SizedBox(width: 4)],
         Text(text, style: EvochiText.tag.copyWith(color: fg)),
@@ -206,15 +244,16 @@ class CoinPill extends StatelessWidget {
   @override
   Widget build(BuildContext context) => Semantics(
         label: '${fmt(balance)} EvoCoins',
+        // dark wood, with a gold plus
         child: Container(
           height: 36,
           padding: const EdgeInsets.only(right: 4),
-          decoration: BoxDecoration(color: EvochiColor.hudPill, borderRadius: BorderRadius.circular(10)),
+          decoration: Kit.coinPill(),
           child: Row(mainAxisSize: MainAxisSize.min, children: [
             Transform.translate(offset: const Offset(-8, 0), child: const VoxelIcon('coin', size: 32)),
             ConstrainedBox(
               constraints: const BoxConstraints(minWidth: 46),
-              child: Text(fmt(balance), style: EvochiText.number.copyWith(color: Colors.white, fontSize: 15)),
+              child: Text(fmt(balance), style: EvochiText.number.copyWith(color: Colors.white, fontSize: 15, shadows: kitWoodTextShadow)),
             ),
             SizedBox(
               width: 44,
@@ -225,8 +264,16 @@ class CoinPill extends StatelessWidget {
                 icon: Container(
                   width: 26,
                   height: 26,
-                  decoration: BoxDecoration(color: Colors.white24, borderRadius: BorderRadius.circular(7)),
-                  child: const Icon(Icons.add, color: Colors.white, size: 18),
+                  decoration: const KitDecoration(
+                    base: BoxDecoration(
+                      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFE5A2), Color(0xFFF4B84E)]),
+                      borderRadius: BorderRadius.all(Radius.circular(7)),
+                      border: Border.fromBorderSide(BorderSide(color: Color(0xFF7A4512), width: 1.5)),
+                    ),
+                    inset: 1.5,
+                    top: KitBand(1, Color(0x99FFFFFF)),
+                  ),
+                  child: const Icon(Icons.add, color: Color(0xFF5A3410), size: 18),
                 ),
               ),
             ),
@@ -245,18 +292,16 @@ class SquareIconButton extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
         button: true,
         label: badge > 0 ? '$label, $badge ready' : label,
-        child: GestureDetector(
+        child: KitPress(
           onTap: onTap,
-          child: Stack(clipBehavior: Clip.none, children: [
-            Container(
+          builder: (_, down) => Stack(clipBehavior: Clip.none, children: [
+            // a light-wood square that sinks when pressed
+            AnimatedContainer(
+              duration: const Duration(milliseconds: 60),
               width: 46,
               height: 46,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(11),
-                border: Border.all(color: const Color(0xFFE7D3BC), width: 2),
-                gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFF9F0), Color(0xFFF1E2CF)]),
-                boxShadow: const [BoxShadow(color: Color(0xFFCDB396), offset: Offset(0, 3))],
-              ),
+              transform: Matrix4.translationValues(0, down ? 2 : 0, 0),
+              decoration: Kit.wood(radius: 11, width: 300, y: -1, pressed: down),
               alignment: Alignment.center,
               child: VoxelIcon(icon, size: 30),
             ),
@@ -273,18 +318,15 @@ class BackSquareButton extends StatelessWidget {
   Widget build(BuildContext context) => Semantics(
         button: true,
         label: 'Back',
-        child: GestureDetector(
+        child: KitPress(
           onTap: onTap,
-          child: Container(
+          builder: (_, down) => AnimatedContainer(
+            duration: const Duration(milliseconds: 60),
             width: 46,
             height: 46,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFFE2CDB4), width: 2),
-              color: const Color(0xFFFFF9F0),
-              boxShadow: const [BoxShadow(color: Color(0xFFCDB396), offset: Offset(0, 3))],
-            ),
-            child: const Icon(Icons.chevron_left_rounded, color: EvochiColor.ink, size: 30),
+            transform: Matrix4.translationValues(0, down ? 2 : 0, 0),
+            decoration: Kit.wood(radius: 12, width: 300, y: -1, pressed: down),
+            child: const Icon(Icons.chevron_left_rounded, color: KitColor.signInk, size: 30, shadows: kitSignShadow),
           ),
         ),
       );
@@ -300,19 +342,21 @@ class BadgeDot extends StatelessWidget {
       );
 }
 
+/// A progress bar: a dark carved groove ([ring] around it) with a glossy fill.
 class ProgressBarX extends StatelessWidget {
-  const ProgressBarX({super.key, required this.value, this.height = 14, this.tone = 'gold', this.semantic});
+  const ProgressBarX({super.key, required this.value, this.height = 14, this.tone = 'gold', this.semantic, this.ring = const Color(0xFF7A5032)});
   final double value;
   final double height;
   final String tone; // gold | green | amber | red
   final String? semantic;
+  final Color ring;
   @override
   Widget build(BuildContext context) {
-    final colors = switch (tone) {
-      'green' => const [Color(0xFFA8D87E), Color(0xFF6FA44E)],
-      'amber' => const [Color(0xFFF6CD86), EvochiColor.sick],
-      'red' => const [Color(0xFFF29A8C), EvochiColor.dead],
-      _ => const [Color(0xFFFFE29A), Color(0xFFE2A03E)],
+    final (colors, stops) = switch (tone) {
+      'green' => (const [Color(0xFFA8D87E), Color(0xFF82B75E), Color(0xFF6FA44E)], const [0.0, 0.6, 1.0]),
+      'amber' => (const [Color(0xFFF6CD86), EvochiColor.sick], null),
+      'red' => (const [Color(0xFFF29A8C), EvochiColor.dead], null),
+      _ => (const [Color(0xFFFFE29A), Color(0xFFF4B84E), Color(0xFFE2A03E)], const [0.0, 0.55, 1.0]),
     };
     final v = value.isNaN ? 0.0 : value.clamp(0.0, 1.0);
     return Semantics(
@@ -320,7 +364,7 @@ class ProgressBarX extends StatelessWidget {
       value: '${(v * 100).round()}%',
       child: Container(
         height: height,
-        decoration: BoxDecoration(color: tone == 'gold' ? EvochiColor.track : const Color(0xFFC9BEB3), borderRadius: BorderRadius.circular(height / 2)),
+        decoration: Kit.groove(height / 2, ring: ring),
         child: LayoutBuilder(
           builder: (c, b) => Align(
             alignment: Alignment.centerLeft,
@@ -330,10 +374,7 @@ class ProgressBarX extends StatelessWidget {
               curve: Curves.easeOutCubic,
               builder: (c, t, _) => Container(
                 width: b.maxWidth * t,
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(height / 2),
-                  gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: colors),
-                ),
+                decoration: Kit.barFill(colors, height / 2, stops: stops),
               ),
             ),
           ),
@@ -366,48 +407,66 @@ class EvochiNavBar extends StatelessWidget {
   static const tabs = [('home', 'Home'), ('journey', 'Journey'), ('bag', 'Bag'), ('shop', 'Shop'), ('evodex', 'EvoDex')];
   @override
   Widget build(BuildContext context) {
+    final reduce = MediaQuery.of(context).disableAnimations;
+    // a carved wooden bar; the current item is a parchment-gold plaque raised 4 px out of it
     return SafeArea(
       top: false,
       child: Container(
         margin: const EdgeInsets.fromLTRB(6, 0, 6, 6),
         height: 72,
         padding: const EdgeInsets.all(5),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          border: Border.all(color: const Color(0xFFE9D4BB), width: 2),
-          gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFBF2E6), Color(0xFFF1E1CD)]),
-          boxShadow: const [BoxShadow(color: Color(0xFFCFB597), offset: Offset(0, 4)), BoxShadow(color: Color(0x40000000), blurRadius: 22, offset: Offset(0, 8))],
-        ),
+        decoration: Kit.navBar(),
         child: Row(children: [
-          for (final t in tabs)
+          for (var i = 0; i < tabs.length; i++)
             Expanded(
-              child: Semantics(
-                selected: t.$1 == current,
-                button: true,
-                label: '${t.$2}${(badges[t.$1] ?? 0) > 0 ? ', new' : ''}',
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: () => onTab(t.$1),
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 180),
-                    decoration: t.$1 == current
-                        ? BoxDecoration(
-                            borderRadius: BorderRadius.circular(12),
-                            gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFF7DA), Color(0xFFFFE9AE)]),
-                            border: Border.all(color: const Color(0xFFF4C25A), width: 2),
-                            boxShadow: const [BoxShadow(color: Color(0xBFFFC850), blurRadius: 14)],
-                          )
-                        : null,
-                    child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
-                      Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                        AnimatedScale(scale: t.$1 == current ? 1.08 : 1, duration: const Duration(milliseconds: 150), child: VoxelIcon(t.$1, size: 36)),
-                        Text(t.$2, style: EvochiText.tag.copyWith(fontSize: 12.5, color: t.$1 == current ? EvochiColor.ink : EvochiColor.textSecondary)),
-                      ]),
-                      if ((badges[t.$1] ?? 0) > 0) const Positioned(top: 2, right: 10, child: BadgeDot()),
-                    ]),
+              child: Builder(builder: (_) {
+                final t = tabs[i];
+                final on = t.$1 == current;
+                // a carved groove between items, except beside the raised one
+                final groove = i > 0 && !on && tabs[i - 1].$1 != current;
+                return Stack(clipBehavior: Clip.none, children: [
+                  if (groove)
+                    const Positioned(
+                      left: -1,
+                      top: 14,
+                      bottom: 14,
+                      width: 2,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(color: Color(0x73281204), boxShadow: [BoxShadow(color: Color(0x40FFD6A0), offset: Offset(1.5, 0))]),
+                      ),
+                    ),
+                  Positioned.fill(
+                    child: Semantics(
+                      selected: on,
+                      button: true,
+                      label: '${t.$2}${(badges[t.$1] ?? 0) > 0 ? ', new' : ''}',
+                      child: GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () => onTab(t.$1),
+                        child: AnimatedContainer(
+                          duration: reduce ? Duration.zero : const Duration(milliseconds: 150),
+                          transform: Matrix4.translationValues(0, on ? -4 : 0, 0),
+                          decoration: on ? Kit.navCurrent() : null,
+                          child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
+                            Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                              AnimatedScale(scale: on ? 1.08 : 1, duration: const Duration(milliseconds: 150), child: VoxelIcon(t.$1, size: 36)),
+                              Text(
+                                t.$2,
+                                style: EvochiText.tag.copyWith(
+                                  fontSize: 12.5,
+                                  color: on ? KitColor.signInk : KitColor.navText,
+                                  shadows: on ? const [Shadow(color: Color(0x99FFFFFF), offset: Offset(0, 1))] : const [Shadow(color: Color(0xA61E0C00), offset: Offset(0, 1))],
+                                ),
+                              ),
+                            ]),
+                            if ((badges[t.$1] ?? 0) > 0) const Positioned(top: 2, right: 10, child: BadgeDot()),
+                          ]),
+                        ),
+                      ),
+                    ),
                   ),
-                ),
-              ),
+                ]);
+              }),
             ),
         ]),
       ),
@@ -415,27 +474,35 @@ class EvochiNavBar extends StatelessWidget {
   }
 }
 
+/// A bottom sheet: a WINDOW, parchment in a carved wood frame, running down to the screen's edge.
 Future<T?> showEvochiSheet<T>(BuildContext context, {required WidgetBuilder builder}) => showModalBottomSheet<T>(
       context: context,
       isScrollControlled: true,
-      backgroundColor: EvochiColor.canvas,
+      backgroundColor: Colors.transparent,
+      elevation: 0,
       barrierColor: const Color(0x8C201B17),
-      builder: (c) => SafeArea(
-        child: Padding(
-          padding: EdgeInsets.fromLTRB(18, 10, 18, 18 + MediaQuery.of(c).viewInsets.bottom),
-          child: SingleChildScrollView(child: builder(c)),
-        ),
-      ),
+      builder: (c) {
+        final mq = MediaQuery.of(c);
+        final keyboard = mq.viewInsets.bottom;
+        return SafeArea(
+          bottom: false,
+          child: Padding(
+            padding: EdgeInsets.only(bottom: keyboard),
+            child: FramedWindow(
+              padding: EdgeInsets.fromLTRB(10, 8, 10, 10 + (keyboard > 0 ? 0 : mq.padding.bottom)),
+              shadow: const BoxShadow(color: Color(0x4D000000), blurRadius: 18, offset: Offset(0, -6)),
+              child: SingleChildScrollView(child: builder(c)),
+            ),
+          ),
+        );
+      },
     );
 
+/// A dialog: a WINDOW, parchment in a carved wood frame.
 Future<T?> showEvochiDialog<T>(BuildContext context, {required WidgetBuilder builder}) => showDialog<T>(
       context: context,
       barrierColor: const Color(0x8C201B17),
-      builder: (c) => Dialog(
-        backgroundColor: EvochiColor.canvas,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        child: Padding(padding: const EdgeInsets.all(20), child: builder(c)),
-      ),
+      builder: (c) => KitDialog(child: builder(c)),
     );
 
 String stageLabel(int s) => stageLabels[s] ?? '';
@@ -455,24 +522,31 @@ class _ToastListenerState extends State<ToastListener> {
     final ctl = context.read<GameController>();
     ctl.toasts.listen((t) {
       if (!mounted) return;
-      final bg = switch (t.kind) {
-        'warn' => const Color(0xF280531F),
-        'err' => const Color(0xF2913B36),
-        _ => const Color(0xF23A622E),
+      // parchment with a dark edge: green for good news, amber for warnings, rose for errors
+      final deco = switch (t.kind) {
+        'warn' => Kit.toast(const [Color(0xFFFFF6DC), Color(0xFFFBE0A6)], KitColor.plaqueEdge, KitColor.woodShadow),
+        'err' => Kit.toast(const [Color(0xFFFDEDE8), Color(0xFFF4C8BE)], const Color(0xFF7E2A22), const Color(0xFF62201A)),
+        _ => Kit.toast(const [Color(0xFFF3FAE8), Color(0xFFD9EDBF)], const Color(0xFF2F5A21), const Color(0xFF2F5A21)),
       };
       ScaffoldMessenger.maybeOf(context)
         ?..hideCurrentSnackBar()
         ..showSnackBar(SnackBar(
-          backgroundColor: bg,
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          padding: EdgeInsets.zero,
+          clipBehavior: Clip.none,
           duration: const Duration(milliseconds: 2400),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          content: Row(children: [
-            if (t.icon != null) ...[
-              t.icon!.startsWith('item:') ? ItemImage(t.icon!.substring(5), size: 30) : VoxelIcon(t.icon!, size: 28),
-              const SizedBox(width: 8),
-            ],
-            Expanded(child: Text(t.message, style: EvochiText.tag.copyWith(color: Colors.white, fontSize: 14))),
-          ]),
+          content: Container(
+            padding: const EdgeInsets.fromLTRB(8, 8, 14, 8),
+            decoration: deco,
+            child: Row(children: [
+              if (t.icon != null) ...[
+                t.icon!.startsWith('item:') ? ItemImage(t.icon!.substring(5), size: 30) : VoxelIcon(t.icon!, size: 28),
+                const SizedBox(width: 8),
+              ],
+              Expanded(child: Text(t.message, style: EvochiText.tag.copyWith(color: EvochiColor.ink, fontSize: 14))),
+            ]),
+          ),
         ));
     });
   }

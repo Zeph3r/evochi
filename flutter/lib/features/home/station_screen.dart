@@ -15,6 +15,7 @@ import '../../core/models/catalog.dart';
 import '../../game/engine.dart' as g;
 import '../../game/home/home.dart' as h;
 import '../../game/story/story.dart' as q;
+import '../shared/kit.dart';
 import '../shared/sprite.dart';
 import '../shared/widgets.dart';
 import '../village/story_widgets.dart';
@@ -92,10 +93,11 @@ class _StationScreenState extends State<StationScreen> {
       context: context,
       barrierDismissible: false,
       barrierColor: const Color(0x8C201B17),
-      builder: (d) => Dialog(
-        backgroundColor: EvochiColor.canvas,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
-        child: Padding(padding: const EdgeInsets.all(20), child: _Minigame(recipe: h.recipeDefs[rid]!, slow: reduce)),
+      // the Apothecary's windows are framed in plum wood
+      builder: (d) => KitDialog(
+        variant: h.recipeDefs[rid]!.station == 'apothecary' ? FrameVariant.plum : FrameVariant.wood,
+        padding: const EdgeInsets.all(16),
+        child: _Minigame(recipe: h.recipeDefs[rid]!, slow: reduce),
       ),
     );
     if (quality == null || !mounted) return;
@@ -219,9 +221,14 @@ class _StationScreenState extends State<StationScreen> {
     final petDead = c.view.pet?.dead ?? true;
     final mq = MediaQuery.of(context);
     final reduce = mq.disableAnimations;
+    // the Kitchen is a warm recipe book; the Apothecary is plum wood and lavender paper
+    final apothecary = id == 'apothecary';
+    final pageTop = apothecary ? const Color(0xFFF3ECFA) : const Color(0xFFFBEBD2);
     return Scaffold(
       backgroundColor: EvochiColor.panel,
-      body: SafeArea(
+      body: KitPage(
+        material: apothecary ? KitMaterial.apothecary : KitMaterial.kitchen,
+        child: SafeArea(
         bottom: false,
         child: Column(children: [
           PlaceHeader(title: 'Your ${s.name}', short: s.name, backLabel: 'Back', onBack: () => Navigator.of(context).maybePop()),
@@ -254,14 +261,14 @@ class _StationScreenState extends State<StationScreen> {
                           ),
                         ),
                       ),
-                    const Positioned(
+                    Positioned(
                       left: 0,
                       right: 0,
                       bottom: 0,
                       height: 56,
                       child: IgnorePointer(
                         child: DecoratedBox(
-                          decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x00F8EBDD), EvochiColor.panel])),
+                          decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [pageTop.withAlpha(0), pageTop])),
                         ),
                       ),
                     ),
@@ -289,6 +296,7 @@ class _StationScreenState extends State<StationScreen> {
             ]),
           ),
         ]),
+        ),
       ),
     );
   }
@@ -340,19 +348,41 @@ class _RecipeCard extends StatelessWidget {
     final c = context.watch<GameController>();
     final it = item(r.makes);
     final owned = g.ownedQty(c.state, r.makes);
+    final apothecary = KitScope.of(context) == KitMaterial.apothecary;
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Opacity(
         opacity: r.known ? 1 : 0.7,
         child: GameCard(
           highlight: r.ready,
+          // a recipe card: a terracotta margin rule in the kitchen's book
+          rule: apothecary ? null : const Color(0xFFD8705A),
           padding: const EdgeInsets.all(10),
           child: Row(children: [
             Container(
               width: 60,
               height: 60,
               alignment: Alignment.center,
-              decoration: BoxDecoration(color: const Color(0xFFFFF6E8), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFECD9C1))),
+              // a round plate in the kitchen, a jar label in the apothecary
+              decoration: apothecary
+                  ? KitDecoration(
+                      base: BoxDecoration(
+                        gradient: const RadialGradient(center: Alignment(0, -0.2), radius: 0.8, colors: [Color(0xFFFFFFFF), Color(0xFFE6DAF4)]),
+                        borderRadius: const BorderRadius.vertical(top: Radius.circular(12), bottom: Radius.circular(18)),
+                        border: Border.all(color: const Color(0xFF9C7DB8), width: 2),
+                      ),
+                      inset: 2,
+                      shadow: const BoxShadow(color: Color(0x33502878), blurRadius: 5, offset: Offset(0, 2)),
+                    )
+                  : const KitDecoration(
+                      base: BoxDecoration(
+                        gradient: RadialGradient(center: Alignment(0, -0.2), radius: 0.8, colors: [Color(0xFFFFFDF4), Color(0xFFF4DDB4)]),
+                        borderRadius: BorderRadius.all(Radius.circular(30)),
+                        border: Border.fromBorderSide(BorderSide(color: Color(0xFFC98A4E), width: 2)),
+                      ),
+                      inset: 2,
+                      shadow: BoxShadow(color: Color(0x33784614), blurRadius: 5, offset: Offset(0, 2)),
+                    ),
               child: ItemImage(r.makes, size: 52),
             ),
             const SizedBox(width: 10),
@@ -394,7 +424,15 @@ class _RecipeCard extends StatelessWidget {
               // a story recipe (the Lantern Tonic) waits on its quest once the level is reached
               Tag(r.needsStory && h.skillView(c.state, r.skill).level >= r.level ? 'Story' : 'Lv ${r.level}', tone: TagTone.neutral, icon: 'lock')
             else
-              EvochiButton(label: verb, small: true, expand: false, tone: r.ready ? ButtonTone.green : ButtonTone.cream, semanticLabel: '$verb ${r.name}', onPressed: onTap),
+              // the Apothecary's Brew glows plum
+              EvochiButton(
+                label: verb,
+                small: true,
+                expand: false,
+                tone: apothecary ? ButtonTone.plum : (r.ready ? ButtonTone.green : ButtonTone.cream),
+                semanticLabel: '$verb ${r.name}',
+                onPressed: onTap,
+              ),
           ]),
         ),
       ),

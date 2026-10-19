@@ -16,6 +16,7 @@ import '../../game/story/story.dart' as q;
 import '../home/home_widgets.dart';
 import '../../game/trails/trails.dart' as tr;
 import '../pet/pet_screens.dart';
+import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import 'village_screen.dart';
@@ -248,7 +249,7 @@ Future<void> showStoryQuest(BuildContext context, String qid) {
     final v = q.questView(c.state, qid, c.now);
     final go = v.completed ? null : _questGo(context, sheet, c, v);
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-      Center(child: Container(width: 44, height: 5, margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: const Color(0xFFDCC6AE), borderRadius: BorderRadius.circular(3)))),
+      Center(child: Container(width: 44, height: 5, margin: const EdgeInsets.only(bottom: 12), decoration: BoxDecoration(color: const Color(0xFFC49A68), borderRadius: BorderRadius.circular(3)))),
       Row(children: [
         NpcImage(v.giver, expression: v.completed ? 'happy' : 'neutral', height: 72),
         const SizedBox(width: 10),
@@ -279,7 +280,7 @@ Future<void> showStoryQuest(BuildContext context, String qid) {
         const SizedBox(height: 10),
         Container(
           padding: const EdgeInsets.all(10),
-          decoration: BoxDecoration(color: EvochiColor.inset, borderRadius: BorderRadius.circular(12)),
+          decoration: Kit.inset(),
           child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Text('Next: ${nextText(v)}', style: EvochiText.cardTitle.copyWith(fontSize: 14)),
             const SizedBox(height: 6),
@@ -412,11 +413,9 @@ Future<void> showStoryReward(BuildContext context, String qid, {bool backToVilla
     context: context,
     barrierDismissible: false,
     barrierColor: const Color(0x8C201B17),
-    builder: (d) => Dialog(
-      backgroundColor: EvochiColor.canvas,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+    builder: (d) => KitDialog(
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(4),
         child: SingleChildScrollView(
           child: Builder(builder: (d) {
             final c = d.watch<GameController>();
@@ -545,11 +544,9 @@ Future<void> _homeRewardCard(BuildContext context, q.StoryQuest quest, {required
     context: context,
     barrierDismissible: false,
     barrierColor: const Color(0x8C201B17),
-    builder: (d) => Dialog(
-      backgroundColor: EvochiColor.canvas,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+    builder: (d) => KitDialog(
       child: Padding(
-        padding: const EdgeInsets.all(18),
+        padding: const EdgeInsets.all(4),
         child: SingleChildScrollView(
           child: Builder(builder: (d) {
             final c = d.watch<GameController>();
@@ -693,7 +690,9 @@ class StoryQuestCard extends StatelessWidget {
   const StoryQuestCard({super.key, required this.v});
   final q.StoryQuestView v;
   @override
-  Widget build(BuildContext context) => Padding(
+  Widget build(BuildContext context) {
+    final m = KitScope.of(context);
+    return Padding(
         padding: const EdgeInsets.only(bottom: 8),
         child: Semantics(
           button: true,
@@ -703,6 +702,9 @@ class StoryQuestCard extends StatelessWidget {
             child: Opacity(
               opacity: v.completed ? 0.78 : 1,
               child: GameCard(
+                // an entry in the journal (margin rule), or a paper on the notice board (pin)
+                rule: m == KitMaterial.journal ? const Color(0xFFC0634A) : null,
+                pinned: m == KitMaterial.board,
                 padding: const EdgeInsets.fromLTRB(6, 8, 10, 8),
                 child: Row(children: [
                   SizedBox(width: 54, height: 60, child: NpcImage(v.giver, expression: v.completed ? 'happy' : 'neutral', height: 60)),
@@ -724,6 +726,7 @@ class StoryQuestCard extends StatelessWidget {
           ),
         ),
       );
+  }
 }
 
 // ------------------------------------------------------------------- Home chip ----
@@ -743,7 +746,7 @@ class StoryChip extends StatelessWidget {
         child: GestureDetector(
           onTap: () => showStoryQuest(context, v.id),
           child: GameCard(
-            color: const Color(0xF5F0F7E8),
+            paper: KitPaper.meadow,
             padding: const EdgeInsets.fromLTRB(6, 6, 10, 6),
             child: Row(children: [
               NpcImage(q.storyQuests[v.id]!.giver, expression: v.next.kind == 'handin' ? 'happy' : 'neutral', height: 36),
@@ -801,17 +804,10 @@ class PouchGrid extends StatelessWidget {
             label: '${q.questMaterials[id]!.name}, quest item${(pouch[id] ?? 0) > 1 ? ', ${pouch[id]} owned' : ''}',
             child: GestureDetector(
               onTap: () => onSelect(id),
+              // a cloth pocket in the satchel
               child: Container(
                 padding: const EdgeInsets.all(4),
-                decoration: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: id == selected ? const Color(0xFF5E7F4A) : const Color(0xFF7F9871), width: 2),
-                  gradient: LinearGradient(
-                    begin: Alignment.topCenter,
-                    end: Alignment.bottomCenter,
-                    colors: id == selected ? const [Color(0xFFFBFEF7), Color(0xFFE2EDD5)] : const [Color(0xFFF7FBF2), Color(0xFFEAF1E1)],
-                  ),
-                ),
+                decoration: Kit.slot(selected: id == selected, radius: 12, cloth: true),
                 child: Stack(children: [
                   Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Expanded(child: ItemImage(id, size: 62)),
@@ -855,13 +851,14 @@ class PouchDetail extends StatelessWidget {
     final place = q.placeOf(m.usedBy);
     final trail = q.trailPlaceIds.contains(m.usedBy);
     return GameCard(
+      paper: satchelPaper,
       padding: const EdgeInsets.all(10),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
           Container(
             width: 72,
             height: 72,
-            decoration: BoxDecoration(borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF7F9871), width: 2), color: const Color(0xFFF3F8EC)),
+            decoration: Kit.well(edge: const Color(0xFF7F9871), colors: const [Color(0xFFFBFEF7), Color(0xFFE2EDD5)], lip: const Color(0xFFB9CDA8), shade: const Color(0x335E7F4A)),
             alignment: Alignment.center,
             child: ItemImage(id, size: 62),
           ),
@@ -888,6 +885,9 @@ class PouchDetail extends StatelessWidget {
     );
   }
 }
+
+/// The satchel's detail card stock (`#app[data-screen='bag'] .detail`).
+const satchelPaper = KitPaper(Color(0xFFFFF9EA), Color(0xFFF4E2C0), Color(0xFF8C6A44), Color(0xFFB4874F), Color(0x61C49660));
 
 /// "Village Tales, Quest 0N: <title>" under a story reward's description.
 Widget storySourceLine(String itemId) {

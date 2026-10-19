@@ -47,6 +47,7 @@ assets/
   audio/          sfx/ and ambient/
   config/         balance_v1.json (all §15-18 numbers), catalog_v1.json
   fonts/          Nunito + Lato (OFL)
+  ui/             game-native kit textures: wood, paper grain, canvas, 9-slice window frames
 ```
 
 ## Rules engine
@@ -281,6 +282,62 @@ logic it is **uncompiled here**: every file passes the syntax check and its impo
   `../web/public/assets`, and merges the manifest keys (`home`, `trails`, `chars.sNN.battle`, new
   `icons`, `items` and `audio` entries). Flutter keeps loops under `assets/audio/ambient/` and
   one-shots under `assets/audio/sfx/`.
+
+## Game-native kit
+
+The UI is dressed as crafted game props rather than app panels, mirroring the web build's
+`../web/src/kit.css`. Everything lives in `lib/features/shared/kit.dart`; the shared widgets in
+`lib/features/shared/widgets.dart` use it, so most screens pick it up without changes.
+
+- **Window** (`FramedWindow`, `KitDialog`): parchment inside a carved 9-slice frame (wood, plum,
+  leather or cloth), drawn 11–14 px wide. Bottom sheets, dialogs, the Bag's satchel, the Market's
+  stall and the encounter's action panel use it. The encounter panel's frame is open at the bottom.
+- **Card** (`GameCard`, `Kit.card`): printed card stock. Paper grain over a cream-to-parchment
+  gradient, a 2 px edge, an inner double rule and a hard bottom edge.
+- **Slot** (`Kit.slot`): an inset pocket for item tiles and pictures. The selected slot gets a gold
+  ring and glow.
+- **Sign**:
+  - Sub-page titles are nailed wooden plaques (`WoodPlaque`).
+  - Back and square buttons are light wood, and the coin pill is dark wood.
+  - Tabs are plaques (`KitTab`); the selected one lifts 3 px and turns parchment-gold.
+  - The bottom nav is a carved wooden bar with the current item raised 4 px.
+  - Section heads (`KitSectionHead`) have a leaf bullet and a stitched rule.
+- **Buttons**: dark outlines, a gloss strip under the label, and a 3 px sink when pressed. Toasts are
+  parchment with a dark edge. Progress bars sit in a dark carved groove.
+- **Materials per screen**: a screen sets these with `KitPage` / `KitScope`.
+
+  | Material | Screens | Look |
+  | --- | --- | --- |
+  | `journal` | Journey, Skills | Ruled paper, leather bookmark tabs, quest cards with a red margin rule |
+  | `satchel` | Bag | Canvas sheet in a cloth frame, fabric tabs, cloth pockets with a stitch |
+  | `market` | Shop | Wood-framed stall with a scalloped awning, shelf cards, prices on wood tags |
+  | `board` | Village, places, Guild | Notice board: push-pins and a slight tilt |
+  | `kitchen` | Kitchen | Recipe book: recipe margin rule, round plate pictures |
+  | `apothecary` | Apothecary | Lavender card stock, plum section heads, plum Brew buttons, the brewing game in a plum frame |
+  | `binder` | EvoDex | Ring holes down every card |
+
+  The Home id card is a nameplate with a wood edge, and the steps card is a light-wood board.
+
+Flutter has no inset box-shadows, so `KitDecoration` paints them over an ordinary `BoxDecoration`:
+lit and shaded edges, rings, inner shadows, the gloss strip, binder holes and stitches. It also
+delegates clipping and hit-testing to that `BoxDecoration`.
+
+The textures in `assets/ui/` are procedural and ours (CC0). `../tools/ui_textures.py` paints them:
+
+- `wood_light.png`, `wood_mid.png` and `wood_dark.png`: tileable plank grain, 512×128.
+- `paper_grain.png`: a 256 px tileable brown-alpha overlay.
+- `cloth_weave.png`: a 128 px canvas overlay.
+- `frame_wood.png`, `frame_plum.png`, `frame_leather.png` and `frame_cloth.png`: 192 px 9-slice
+  frames with a 56 px slice and a transparent centre.
+
+To regenerate the textures, run the script, then copy its output into both builds:
+
+```bash
+python3 ../tools/ui_textures.py ../web/public/assets/ui   # numpy + Pillow
+cp ../web/public/assets/ui/*.png assets/ui/
+```
+
+If the frame size or slice changes, update `KitTextures.frameSlice` and `KitTextures.frameCenter`.
 
 ## Accounts and cloud
 

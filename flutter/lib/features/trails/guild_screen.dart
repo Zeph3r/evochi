@@ -9,6 +9,7 @@ import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../game/trails/trails.dart' as tr;
 import '../home/home_widgets.dart';
+import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import '../village/story_widgets.dart';
 import '../village/village_screen.dart';
@@ -42,9 +43,12 @@ class _GuildScreenState extends State<GuildScreen> {
       for (final f in t.companions) (f.id, 'Companion'),
       for (final id in t.restored.keys) (id, 'Restored'),
     ];
+    // the notice board: today's discoveries are papers pinned up a hair off straight
     return Scaffold(
       backgroundColor: EvochiColor.panel,
-      body: SafeArea(
+      body: KitPage(
+        material: KitMaterial.board,
+        child: SafeArea(
         bottom: false,
         child: Column(children: [
           PlaceHeader(title: 'Trail Guild Board', short: 'Guild', backLabel: 'Back', onBack: () => Navigator.of(context).maybePop()),
@@ -78,11 +82,9 @@ class _GuildScreenState extends State<GuildScreen> {
                         ]),
                       ),
                     const SizedBox(height: 10),
-                    Row(children: [
-                      const Expanded(child: SectionHead("Today's discoveries")),
-                      Text('Resets in ${resetText(t.msToReset)}', style: EvochiText.caption.copyWith(fontSize: 11)),
-                    ]),
-                    for (final d in t.discoveries) DiscoveryRow(d),
+                    SectionHead("Today's discoveries", end: Text('Resets in ${resetText(t.msToReset)}', style: EvochiText.caption.copyWith(fontSize: 11))),
+                    const SizedBox(height: 4),
+                    for (var i = 0; i < t.discoveries.length; i++) DiscoveryRow(t.discoveries[i], pinned: true, tilt: i.isEven ? -0.5 : 0.45),
                     const SizedBox(height: 4),
                     const SectionHead('Trail jobs', trailing: Tag('Encounters')),
                     for (final v in st.trail) TrailQuestRow(v),
@@ -107,6 +109,7 @@ class _GuildScreenState extends State<GuildScreen> {
             ]),
           ),
         ]),
+        ),
       ),
     );
   }
@@ -128,7 +131,7 @@ class _GuildHead extends StatelessWidget {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [Color(0x73281E14), Color(0x00281E14), Color(0x4DF8EBDD), EvochiColor.panel],
+                colors: [Color(0x73281E14), Color(0x00281E14), Color(0x4DF9ECD4), KitColor.pageTop],
                 stops: [0, 0.55, 0.85, 1],
               ),
             ),
@@ -173,7 +176,7 @@ class _LoreCard extends StatelessWidget {
         container: true,
         label: tr.TrailLore.title,
         child: GameCard(
-          color: const Color(0xFFFBF2E6),
+          paper: KitPaper.lore,
           child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
             Row(children: [
               const Expanded(child: Text(tr.TrailLore.title, style: EvochiText.cardTitle)),
