@@ -26,7 +26,16 @@ Then apply the platform snippets:
 - **iOS:** paste `platform/ios/Info.plist.snippet.xml` into `ios/Runner/Info.plist` and enable the
   **HealthKit** capability in Xcode.
 - **Android:** merge `platform/android/AndroidManifest.snippet.xml`. Set `minSdkVersion 26`, and make
-  `MainActivity` extend `FlutterFragmentActivity`.
+  `MainActivity` extend `FlutterFragmentActivity`. With Flutter 3.27 and Android Studio's bundled Java 21,
+  also raise the template's build tools (Gradle 8.3 can't run on Java 21): `gradle-wrapper.properties` →
+  Gradle 8.10.2, `settings.gradle` → AGP 8.7.3 and Kotlin 2.0.21, `app/build.gradle` → compileSdk and
+  targetSdk 35, Java/Kotlin target 11. Verified on Windows: `flutter build apk --release` builds a working
+  66.6 MB APK.
+- **Windows helpers** (double-click, logs in `logs/`): `1_check.bat` (doctor, platforms, pub get, analyze,
+  test), `2_build_and_run.bat` (Windows debug build in a phone-sized window; waits for Developer Mode),
+  `3_android_licenses.bat` (accept the SDK licenses), `4_android_phone.bat` (release APK → `Evochi.apk`,
+  installed and opened on a phone connected with USB debugging). Run one build at a time: two Gradle
+  builds in the same folder corrupt each other's output.
 
 ## Structure (style guide §21)
 
