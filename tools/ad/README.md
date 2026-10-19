@@ -122,6 +122,9 @@ Four Shorts about the encounters, cut to the v6 recipe (`comp_v7.html`: `watch`,
   the attempt (the player ids were chosen so the seeded replies match the scripts: a skitter, a head tilt,
   the lash, the Sentinel's phase-two wake) and writes `log.json` with the scene time of every action, sound
   cue and phase change. The cuts place their windows by those marks (`mark('eq01', 'act:lumen_glow')`).
+  The canvas effects (`web/src/ui/fx.js`) run on the same clock, and a hit-stop on the stage
+  (`.enc-stage.hitstop`) freezes the CSS animations in the recording too, so the footage is exactly what
+  players see.
 - **Plates:** `tools/art/shorts_scenes.py` renders the cinematic plates in Blender (portrait, 1296x2304):
   `short_trail` (the trail up to the ruins), `short_gate` (dusk, the dormant Sentinel modelled into the
   gateway) and `short_gate_lit` (night, restored, the trail beyond glowing). Anchors (eyes, chest, path) are

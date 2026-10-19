@@ -764,7 +764,7 @@ CUTS.watch = {
     } else if (t < 12.0) {
       await encFrame('eq01', mark('eq01', 'act:item:sunberry_tart') + 0.05 + (t - 9.6), FR.play, t, 9.6);
     } else if (t < 13.5) {
-      await encFrame('eq01', lastMark('eq01', 'act:lumen_glow') + 0.55 + (t - 12.0), FR.play, t, 12.0);
+      await encFrame('eq01', lastMark('eq01', 'act:lumen_glow') + 0.6 + (t - 12.0), FR.play, t, 12.0);
     } else if (t < 14.4) {
       await encFrame('eq01', mark('eq01', 'result') + 0.5 + (t - 13.5), FR.result, t, 13.5);
     } else {
@@ -800,7 +800,7 @@ CUTS.hurt = {
     } else if (t < 11.8) {
       await encFrame('eq02', mark('eq02', 'act:petal_hush') + 0.05 + (t - 10.4), FR.play, t, 10.4);
     } else if (t < 13.2) {
-      await encFrame('eq02', lastMark('eq02', 'act:lumen_glow') + 0.6 + (t - 11.8), FR.play, t, 11.8);
+      await encFrame('eq02', lastMark('eq02', 'act:lumen_glow') + 0.75 + (t - 11.8), FR.play, t, 11.8);
     } else if (t < 14.8) {
       await encFrame('eq02', mark('eq02', 'result') + 0.45 + (t - 13.2), FR.result, t, 13.2);
     } else {
@@ -861,7 +861,7 @@ CUTS.gate = {
     } else if (t < 13.4) {
       await encFrame('eq03', mark('eq03', 'act:lumen_glow', 1) + 0.55 + (t - 11.9), FR.play, t, 11.9);
     } else if (t < 14.6) {
-      await encFrame('eq03', lastMark('eq03', 'act:lumen_glow') + 0.6 + (t - 13.4), FR.play, t, 13.4);
+      await encFrame('eq03', lastMark('eq03', 'act:lumen_glow') + 0.8 + (t - 13.4), FR.play, t, 13.4);
     } else {
       await encFrame('eq03', mark('eq03', 'result') + 0.45 + (t - 14.6), FR.result, t, 14.6);
     }
@@ -905,7 +905,7 @@ CUTS.week2 = {
     } else if (t < 11.0) {
       await encFrame('eq01', 0.3 + (t - 9.8), FR.intro, t, 9.8);
     } else if (t < 12.2) {
-      await encFrame('eq01', mark('eq01', 'act:gentle_nudge') + 0.95 + (t - 11.0), FR.play, t, 11.0);
+      await encFrame('eq01', mark('eq01', 'act:gentle_nudge') + 0.1 + (t - 11.0), FR.play, t, 11.0);
     } else if (t < 13.5) {
       await encFrame('eq01', mark('eq01', 'act:item:sunberry_tart') + 0.05 + (t - 12.2), FR.play, t, 12.2);
     } else if (t < 14.8) {

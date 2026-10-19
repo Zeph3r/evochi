@@ -1,6 +1,7 @@
 // Records an encounter from the web build frame-exactly: the intro cinematic, every turn and the result,
 // at 30 fps and 1080 px wide, for the encounter Shorts (v5). Timers, rAF, Date and CSS animations all
-// follow one virtual clock, so each JPEG is exactly 1/30 s after the last however long capture takes.
+// follow one virtual clock, so each JPEG is exactly 1/30 s after the last however long capture takes
+// (and a hit-stop on the stage freezes them like it does for players).
 //   node enc_record.mjs OUT_DIR eq01|eq02|eq03 [--dpr 2.769]      (web/dist served on :8765)
 // Writes fNNNNN.jpg plus log.json: the scene time of every action, sound cue and phase change.
 import chromium from '@sparticuz/chromium';
@@ -52,11 +53,17 @@ const CLOCK = `(() => {
     const q = [...rafQ.values()]; rafQ.clear();
     for (const cb of q) { try { cb(now); } catch (e) { console.error('raf', e); } }
   };
-  // CSS animations and transitions: paused the moment they appear and seeked to the virtual clock
+  // CSS animations and transitions: paused the moment they appear and seeked to the virtual clock.
+  // During a hit-stop (.enc-stage.hitstop) the shot holds still: every animation's start shifts with the clock.
+  let lastSync = now;
   window.__syncAnims = () => {
     void document.body.offsetWidth;
+    const frozen = !!document.querySelector('.enc-stage.hitstop');
+    const dt = now - lastSync;
+    lastSync = now;
     for (const a of document.getAnimations({ subtree: true })) {
       if (a.__t0 === undefined) { a.__t0 = now; try { a.pause(); } catch {} }
+      else if (frozen) a.__t0 += dt;
       try { a.currentTime = now - a.__t0; } catch {}
     }
   };

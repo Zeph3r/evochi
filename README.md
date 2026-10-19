@@ -178,10 +178,26 @@ sprites are sized by the scene's perspective.
   its moves never restart. Shots: `wide`, `pet` (wind-up), `wild` (push-in with parallax on your
   Evochi and the foreground), `close` and `face` (intros). Hits shake it; the Sentinel's arrival is a
   big shake.
-- **Turns are choreographed:** Lumen Glow (glow, an orb flies, a flash and sparks on impact), Gentle
-  Nudge (a lunge, then stars), Soothe (a teal ring, hearts, +Energy), items (tossed in an arc), Petal
-  Hush (Petalune peeks in, petals swirl). Then the reply: skitter, head tilt, a Hollow surge ring, a
-  flicker, or a Hollow lash at your Evochi (Energy float, flinch). The meters move at the beats.
+- **Turns are choreographed** in four beats, like a fighting game: a wind-up (your Evochi crouches),
+  the action, the impact and the recovery. The impact is a *hit-stop* (everything on the shot holds
+  still for 3 frames: CSS animations, the camera and the particles), a white flash on the one that was
+  hit, a knock-back with squash, a camera punch toward the point of contact, a shockwave ring and
+  shards from it; the number pops first and the meter drains after it. The moves: Lumen Glow (motes
+  gather into your Evochi as it brightens, a comet of light with a trail flies, light bursts), Gentle
+  Nudge (crouch, hop into it, dust and stars), Soothe (teal rings and motes, +Energy counts up),
+  items (the item itself turns over in an arc with sparkles, then three chew bounces), Petal Hush
+  (Petalune swoops in; a stream of petals winds across and swirls around the wild one). The reply:
+  skitter, head tilt, a Hollow surge (ring, embers, a dark vignette pulse), a flicker, or the Hollow
+  comes at you (crouch, lunge toward the camera, a violet lash lands on your Evochi: hit-stop, recoil,
+  shards, −Energy). The finish: the Hollow one flashes white and *dissolves into motes of light* while
+  rays turn behind it, and the restored creature pops back in with a ring, shards and confetti.
+- **Effects engine:** `web/src/ui/fx.js` draws all of that on two canvases inside the shot (one behind
+  the creatures, one in front): soft pre-rendered sprites (glow, star, shard, petal, heart, puff,
+  smoke) with additive light, trails, rings, rays, a vignette pulse, a dissolve emitter and ambient
+  motes (gold over the grove, violet embers around a Hollow one). Positions are percent of the shot
+  and sizes are 1% of its width, so it looks the same on any phone. Reduced motion turns it off.
+- **Idle life:** both creatures breathe, your Evochi blinks (the `blink` battle expression) and the
+  wild one glances about between turns, so the shot is never dead still.
 - **Intros on the same shot:** close on the wild one, then the camera pulls back as your Evochi steps
   in. The Sentinel's awakening is a story beat: the meadow music stops, a rumble, dust falls, its eyes
   light one after the other, the gate shakes, your Evochi flinches, and the boss music begins before

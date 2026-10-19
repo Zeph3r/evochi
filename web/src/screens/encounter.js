@@ -15,6 +15,7 @@ import { icon, itemImg, url, manifest, battleSprite, charEntry, spriteAttr, BLAN
 import { ICON } from '../ui/icons.js';
 import { stageLabel } from '../core/app.js';
 import { openStoryQuest, openStoryReward } from './village.js';
+import { StageFX } from '../ui/fx.js';
 
 const TM = () => manifest().trails;
 const clamp = (x, a, b) => Math.max(a, Math.min(b, x));
@@ -38,8 +39,6 @@ const PLACE_INFO = {
 const RARITY = { rare: 'Rare', uncommon: 'Uncommon', legendary: 'Legendary', common: 'Common' };
 const RUNNER = '<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="14.5" cy="4.2" r="2.2" fill="currentColor"/><path d="M10.2 8.6l3.6-1.1c.7-.2 1.4.1 1.8.7l1.6 2.6 2.6.9M12.6 8.1l-1.7 5 3.2 2.4-.9 5.1M10.9 13.1l-2.4 3.6-3.6.6M9.6 9.4L6.8 11" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const PEAKS = '<svg viewBox="0 0 32 24" aria-hidden="true"><path d="M2 21L12 5l6 9 3-4 9 11z" fill="#2F6B3A"/><path d="M12 5l3 4.6-2.2-.9L11 10.4 9.6 8.9z" fill="#E9F6DC"/></svg>';
-const HEART = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 21s-7.5-4.6-9.4-9.3C1.2 8.2 3.4 4.6 7 4.6c2.1 0 3.6 1.2 5 3 1.4-1.8 2.9-3 5-3 3.6 0 5.8 3.6 4.4 7.1C19.5 16.4 12 21 12 21z" fill="#F58CA6" stroke="#FFF" stroke-width="1.6"/></svg>';
-const SPARK = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 1.5l2.4 8.1 8.1 2.4-8.1 2.4L12 22.5l-2.4-8.1L1.5 12l8.1-2.4z" fill="#FFF6C9" stroke="#F4B84E" stroke-width="1.2" stroke-linejoin="round"/></svg>';
 
 // ------------------------------------------------------------------ the shot
 /** Where everything sits on the battle shot, in percent of the backdrop (so it lines up at any size). */
@@ -58,12 +57,15 @@ function shotGeometry(v, pet) {
   const wl = A.wild[0] - cg[0] * s;
   const wt = A.wild[1] - cg[1] * s;
   const local = (p) => [(p[0] / CB.w) * 100, (p[1] / CB.h) * 100];
+  const abs = (p) => [((wl + p[0] * s) / W) * 100, ((wt + p[1] * s) / Hh) * 100];
   const wild = {
     left: (wl / W) * 100, top: (wt / Hh) * 100, width: ((CB.w * s) / W) * 100, ar: CB.w / CB.h,
     cx: (A.wild[0] / W) * 100, cy: ((A.wild[1] - (cg[1] - ct[1]) * s * 0.55) / Hh) * 100,
-    face: CB.anchors.face ? [((wl + CB.anchors.face[0] * s) / W) * 100, ((wt + CB.anchors.face[1] * s) / Hh) * 100] : null,
+    face: CB.anchors.face ? abs(CB.anchors.face) : null,
     eyes: CB.anchors.eye_l ? [local(CB.anchors.eye_l), local(CB.anchors.eye_r)] : null,
+    eyesAbs: CB.anchors.eye_l ? [abs(CB.anchors.eye_l), abs(CB.anchors.eye_r)] : null,
     headY: ((wt + ct[1] * s) / Hh) * 100,
+    bottom: (A.wild[1] / Hh) * 100,
     gy: (cg[1] / CB.h) * 100,
   };
   // your Evochi: a set width per stage, feet on the scene's mark, its face kept left of the wild one
@@ -118,9 +120,10 @@ function stageHTML(ctx, v, g) {
   const dust = Array.from({ length: 14 }, (_, i) => html`<i style="--i:${i};--x:${(i * 37) % 100}%"></i>`);
   return html`<div class="enc-stage" data-keep="stage:${v.seed}" data-shot="wide" style="--wx:${pct(g.wild.cx / 100)};--wy:${pct(g.wild.cy / 100)};--px:${pct(g.pet.cx / 100)};--py:${pct(g.pet.cy / 100)};--fx:${pct((g.wild.face?.[0] ?? g.wild.cx) / 100)};--fy:${pct((g.wild.face?.[1] ?? g.wild.cy) / 100)}">
     <div class="enc-view">
-      <div class="enc-world" style="--ar:${g.ar}"><div class="enc-cam"><div class="enc-shake"><div class="enc-drift">
+      <div class="enc-world" style="--ar:${g.ar}"><div class="enc-cam"><div class="enc-shake"><div class="enc-punch"><div class="enc-drift">
         <img class="enc-bg" src="${url(g.B.file)}" alt="">
         <div class="enc-aura" style="left:${pct(g.wild.cx / 100)};top:${pct(g.wild.cy / 100)}"></div>
+        <canvas class="enc-fxb" aria-hidden="true"></canvas>
         <div class="enc-wild" style="left:${pct(g.wild.left / 100)};top:${pct(g.wild.top / 100)};width:${pct(g.wild.width / 100)};--gy:${pct(g.wild.gy / 100)}">
           <i class="enc-shadow"></i>
           <div class="w-body"><img class="w-img" src="${wildSrc(C.id, start)}" alt="${C.name}" style="aspect-ratio:${g.wild.ar}">
@@ -132,8 +135,9 @@ function stageHTML(ctx, v, g) {
           <span class="p-bang" aria-hidden="true">!</span>
         </div>` : ''}
         <img class="enc-fg" src="${url(g.B.fg)}" alt="">
+        <canvas class="enc-fxc" aria-hidden="true"></canvas>
         <div class="enc-vfx" aria-hidden="true"></div>
-      </div></div></div></div>
+      </div></div></div></div></div>
       <div class="enc-grade" aria-hidden="true"></div>
       <div class="enc-flash" aria-hidden="true"></div>
       <div class="enc-dust" aria-hidden="true">${dust}</div>
@@ -175,7 +179,8 @@ function clearTimers(u) {
   u.timers = [];
 }
 
-function shot(st, name, instant = false) {
+/** Move the camera to a shot: eased (the default), as a cut, or 'fast' for the beats of a turn. */
+function shot(st, name, instant = false, speed = '') {
   if (!st) return;
   if (instant) {
     st.classList.add('cut');
@@ -183,6 +188,87 @@ function shot(st, name, instant = false) {
     void st.offsetWidth;
     st.classList.remove('cut');
   } else st.dataset.shot = name;
+  if (speed) st.dataset.speed = speed;
+  else delete st.dataset.speed;
+}
+
+// the canvas effects live on the stage element, so they survive re-renders with it
+const fxOf = (st) => st?.__fx || null;
+function ensureFX(ctx, st) {
+  if (!st) return null;
+  if (st.__fx) return st.__fx;
+  if (ctx.app.reducedMotion) return null;
+  const world = st.querySelector('.enc-world');
+  const back = st.querySelector('.enc-fxb');
+  const front = st.querySelector('.enc-fxc');
+  if (!world || !back || !front) return null;
+  st.__fx = new StageFX(world, back, front);
+  st.__fx.start();
+  return st.__fx;
+}
+
+/** The hit-stop: for a few frames everything on the shot holds still, then carries on. */
+function hitstop(st, ms) {
+  if (!st || !ms) return;
+  st.classList.add('hitstop');
+  const anims = st.querySelector('.enc-world')?.getAnimations?.({ subtree: true }) || [];
+  const running = anims.filter((a) => a.playState === 'running');
+  for (const a of running) {
+    try { a.pause(); } catch { /* fine */ }
+  }
+  fxOf(st)?.freeze(ms);
+  setTimeout(() => {
+    st.classList.remove('hitstop');
+    for (const a of running) {
+      try { a.play(); } catch { /* fine */ }
+    }
+  }, ms);
+}
+
+/** The camera jolts in toward the wild one (or your Evochi) and eases back. */
+function punch(st, at = 'wild', big = false) {
+  const el = st?.querySelector('.enc-punch');
+  if (!el) return;
+  el.dataset.at = at;
+  el.classList.remove('on', 'big');
+  void el.offsetWidth;
+  el.classList.add('on');
+  if (big) el.classList.add('big');
+  setTimeout(() => el.classList.remove('on', 'big'), big ? 720 : 520);
+}
+
+const easeOut3 = (t) => 1 - (1 - t) ** 3;
+/** A value eased over ms on the animation clock (so recordings stay frame-exact). */
+function tween(ms, fn, ease = easeOut3) {
+  const t0 = performance.now();
+  const step = (now) => {
+    const k = Math.min(1, (now - t0) / Math.max(1, ms));
+    fn(ease(k));
+    if (k < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+/** Between turns your Evochi blinks and the wild one glances about, so the shot is never dead still. */
+function scheduleIdle(ctx) {
+  const u = ctx.ui('encounter');
+  u.idleTimer = setTimeout(() => {
+    const st = stageEl();
+    const v = ctx.d.trails?.encounter;
+    if (!st || !v || !st.isConnected || ctx.app.route.id !== 'encounter') {
+      u.idleOn = false;
+      return;
+    }
+    const quiet = !u.busy && !u.holdPet && (u.phase === 'play' || u.phase === 'card');
+    if (quiet && petExpr(v) === 'default') {
+      setPet(ctx, st, 'blink');
+      setTimeout(() => {
+        if (!u.busy && !u.holdPet) setPet(ctx, st, petExpr(v));
+      }, 150);
+    }
+    if (quiet && !v.done && Math.random() < 0.55) retrigger(st.querySelector('.enc-wild'), 'look', 1500);
+    scheduleIdle(ctx);
+  }, 2400 + Math.random() * 2600);
 }
 
 function retrigger(el, cls, ms) {
@@ -228,11 +314,6 @@ function projectile(st, cls, a, b, inner, ms, arc = 0) {
   return el;
 }
 
-function burst(st, cls, p, n = 8, inner = '', life = 1100) {
-  const html_ = Array.from({ length: n }, (_, i) => `<i style="--a:${(360 / n) * i + (i % 2) * 11}deg;--d:${0.7 + (i % 3) * 0.25}">${inner}</i>`).join('');
-  vfx(st, 'burst ' + cls, p[0], p[1], html_, life);
-}
-
 function setMeter(plate, frac, val) {
   if (!plate) return;
   const bar = plate.querySelector('.np-bar > i');
@@ -276,6 +357,18 @@ function syncStage(ctx, st, v) {
   if (w && !u.busy) w.dataset.mood = v.done ? 'done' : v.mood || '';
   st.classList.toggle('phase2', !!v.phase2);
   st.classList.toggle('hollow', v.creature.kind === 'hollow' && v.done !== 'success');
+  // the air: motes over the grove, Hollow embers around the wild one
+  const fx = fxOf(st);
+  const g = u.geom;
+  if (fx && g) {
+    const kind = v.done === 'success' ? 'won' : v.creature.kind === 'hollow' ? 'hollow' : 'gold';
+    if (st.dataset.amb !== kind) {
+      st.dataset.amb = kind;
+      fx.setAmbient(kind, kind === 'hollow'
+        ? { x: g.wild.cx - 14, y: g.wild.headY - 4, w: 28, h: g.wild.bottom - g.wild.headY + 4 }
+        : { x: 4, y: 10, w: 92, h: 62 });
+    }
+  }
 }
 
 // ------------------------------------------------------------------ intros (on the same shot)
@@ -309,6 +402,9 @@ function playIntro(ctx, st, v) {
     return;
   }
   st.classList.add('intro-' + v.intro);
+  const fx = ensureFX(ctx, st);
+  const g = u.geom;
+  const W = [g.wild.cx, g.wild.cy];
   if (v.intro === 'boss') {
     // the Sentinel's awakening: dark and still, a rumble, its eyes light one after the other, the ruins
     // shake, your Evochi flinches, and the music turns before the encounter begins
@@ -327,16 +423,25 @@ function playIntro(ctx, st, v) {
     later(u, 1500, () => {
       ctx.sfx('enc_awaken', 0.9);
       st.classList.add('eye-l');
+      if (g.wild.eyesAbs) fx?.flashAt(g.wild.eyesAbs[0], { size: 14, life: 1.2, pal: 'violet', alphaK: 'inout', sizeK: 'grow' });
     });
-    later(u, 2300, () => st.classList.add('eye-r'));
+    later(u, 2300, () => {
+      st.classList.add('eye-r');
+      if (g.wild.eyesAbs) fx?.flashAt(g.wild.eyesAbs[1], { size: 14, life: 1.2, pal: 'violet', alphaK: 'inout', sizeK: 'grow' });
+    });
     later(u, 3300, () => {
       setWild(st, C.id, 'hollow');
       st.classList.add('lit');
+      fx?.embers(W, 18, { pal: 'violet', w: 26, h: 24, life: 1.6 });
     });
     later(u, 3850, () => {
       shake(st, true);
       flash(st, 'violet');
-      burst(st, 'ring violet', [u.geom.wild.cx, u.geom.wild.cy], 1, '', 1400);
+      punch(st, 'wild', true);
+      fx?.ring(W, { r0: 4, r1: 48, ms: 800, pal: 'violet', width: 3 });
+      fx?.shards(W, 20, 'violet', 1.3);
+      fx?.smoke([W[0], g.wild.bottom], 8, { scale: 1.3 });
+      fx?.pulse({ pal: 'dark', ms: 900, alpha: 0.6 });
       shot(st, 'wide');
       st.classList.add('pet-in');
     });
@@ -362,7 +467,10 @@ function playIntro(ctx, st, v) {
     st.classList.add('silhouette');
     later(u, 500, () => {
       ctx.sfx('enc_surge', 0.6);
-      burst(st, 'ring violet', [u.geom.wild.cx, u.geom.wild.cy], 1, '', 1400);
+      fx?.ring(W, { r0: 3, r1: 40, ms: 800, pal: 'violet', width: 2.6 });
+      fx?.embers(W, 20, { pal: 'violet', w: 22, h: 20, life: 1.6 });
+      fx?.smoke([W[0], g.wild.bottom], 6, { scale: 1.1 });
+      fx?.pulse({ pal: 'dark', ms: 900, alpha: 0.45 });
       shake(st, false);
     });
     later(u, 1500, () => st.classList.remove('silhouette'));
@@ -370,6 +478,7 @@ function playIntro(ctx, st, v) {
     later(u, 900, () => {
       retrigger(st.querySelector('.enc-wild'), 'bang', 0);
       ctx.sfx('pet_chirp', 0.45);
+      fx?.burst([W[0], g.wild.headY], 8, { shape: 'star', pal: 'gold', speed: 30, vary: 0.5, drag: 2.5, size: 2.2, sizeK: 'spark', life: 0.7, spin: 6, gravity: 20 });
     });
   }
   later(u, v.intro === 'hollow' ? 2000 : 1700, () => {
@@ -400,6 +509,9 @@ function skipIntro(ctx) {
 }
 
 // ------------------------------------------------------------------ a turn, choreographed
+// Every move has the same four beats: a wind-up, the action, the impact (a hit-stop, a flash on the one
+// that was hit, a camera punch, shards from the point of contact) and the recovery, with the number
+// popping first and the meter following it. The wild one's reply has the same shape.
 function runTurn(ctx, actionId, itemId) {
   const u = ctx.ui('encounter');
   if (u.busy) return;
@@ -418,6 +530,7 @@ function runTurn(ctx, actionId, itemId) {
   const mid = clamp(before.meter + sign * (ev.you || 0), 0, before.max);
   const cost = Math.max(0, A.energy);
   const hollow = before.creature.kind === 'hollow';
+  const pal = hollow ? 'violet' : 'gold';
   u.busy = true;
   u.holdPet = true;
   u.holdWild = true;
@@ -431,81 +544,157 @@ function runTurn(ctx, actionId, itemId) {
   setLog(ctx, youLine, 'you');
   syncStage(ctx, st, before);
   setPet(ctx, st, 'determined');
-  const W = [g.wild.cx, g.wild.cy];
-  const P = g.pet.head;
+  const fx = ensureFX(ctx, st);
+  const W = [g.wild.cx, g.wild.cy];                       // the wild one's body
+  const WF = g.wild.face || [W[0], g.wild.headY + 6];      // its face
+  const WC = [W[0] - g.wild.width * 0.28, W[1] + 3];       // its near side, where a nudge lands
+  const WG = [W[0] - 3, g.wild.bottom];                    // the ground at its feet
+  const P = g.pet.head;                                    // your Evochi's head
+  const PC = [g.pet.cx, g.pet.cy];                         // its body
+  const PG = [g.pet.cx, g.pet.feetY];                      // the ground at its feet
   const petBody = st?.querySelector('.enc-pet');
   const wildBody = st?.querySelector('.enc-wild');
+  const meterTo = (to, ms) => {
+    const from = u.disp?.meter ?? before.meter;
+    tween(ms * k, (t) => {
+      if (!u.disp) return;
+      u.disp.meter = from + (to - from) * t;
+      syncStage(ctx, st, before);
+    });
+  };
+  const energyTo = (to, ms) => {
+    const from = u.disp?.energy ?? before.energy;
+    tween(ms * k, (t) => {
+      if (!u.disp) return;
+      u.disp.energy = from + (to - from) * t;
+      syncStage(ctx, st, before);
+    });
+  };
   let impact = 900;
+  let replyGap = 800;
   // 1-2. your move
   if (A.kind === 'light') {
-    shot(st, 'pet');
-    retrigger(petBody, 'cast', 900);
+    // motes gather into your Evochi as it brightens, then the light leaves it as a comet
+    shot(st, 'pet', false, 'fast');
+    retrigger(petBody, 'cast', 720);
     ctx.sfx('enc_glow', 0.7);
-    later(u, 380 * k, () => {
-      projectile(st, hollow ? 'orb violet' : 'orb', P, W, '<i></i>', 520 * k, -6);
-      shot(st, 'wild');
+    fx?.converge(P, 24, { r: 19, pal, life: 0.44 * k, size: 2.6 });
+    fx?.halo(P, { size: 26, life: 0.5, pal, layer: 'front', alpha: 0.9 });
+    later(u, 440 * k, () => {
+      shot(st, 'wild', false, 'fast');
+      fx?.flashAt(P, { size: 30, life: 0.28, pal });
+      if (fx) fx.comet(P, WF, { ms: 210 * k, pal, size: 7.5, bow: -9, trail: 4, onArrive: () => landed() });
+      else later(u, 230 * k, () => landed());
     });
-    impact = 900 * k;
+    impact = 680 * k;
   } else if (A.kind === 'physical') {
-    shot(st, 'pet');
-    retrigger(petBody, 'lunge', 800);
+    // a crouch, a hop into it, dust where it lands
+    shot(st, 'pet', false, 'fast');
+    retrigger(petBody, 'lunge', 900);
     ctx.sfx('enc_whoosh', 0.6);
-    later(u, 300 * k, () => shot(st, 'wild'));
-    impact = 420 * k;
+    later(u, 190 * k, () => {
+      shot(st, 'wild', false, 'fast');
+      fx?.dust(PG, 5, { scale: 0.8 });
+    });
+    impact = 320 * k;
   } else if (A.kind === 'restore') {
-    shot(st, 'pet');
+    // it settles; rings of calm spread from it and its energy climbs back
+    shot(st, 'pet', false, 'fast');
     retrigger(petBody, 'rest', 1300);
     setPet(ctx, st, 'sleepy');
     ctx.sfx('enc_soothe', 0.6);
-    burst(st, 'ring teal', [g.pet.cx, g.pet.cy], 1, '', 1200);
-    for (let i = 0; i < 5; i++) later(u, i * 120 * k, () => vfx(st, 'rise', g.pet.cx + (i - 2) * 4, g.pet.cy - 4, HEART, 1300));
+    fx?.halo(P, { size: 54, life: 1.3, pal: 'teal', layer: 'front', alpha: 0.55 });
+    for (let i = 0; i < 3; i++) later(u, (120 + i * 230) * k, () => fx?.ring(P, { r0: 4, r1: 40, ms: 1000, pal: 'teal', width: 1.6, alpha: 0.7 }));
+    fx?.embers(P, 20, { pal: 'teal', w: 30, h: 20, life: 1.5, size: 2.2 });
+    for (let i = 0; i < 5; i++) later(u, (200 + i * 160) * k, () => fx?.hearts([P[0] + (i - 2) * 4, P[1] - 2], 1, { pal: 'teal', spread: 3 }));
     later(u, 650 * k, () => {
-      u.disp.energy = Math.min(before.energyMax, before.energy + 30);
-      syncStage(ctx, st, before);
-      floatText(st, g.pet.head[0], g.pet.head[1] + 4, '+30 Energy', 'energy');
+      floatText(st, P[0], P[1] + 2, '+30 Energy', 'energy');
+      energyTo(Math.min(before.energyMax, before.energy + 30), 520);
     });
-    later(u, 900 * k, () => shot(st, 'wide'));
+    later(u, 950 * k, () => shot(st, 'wide'));
     impact = 1150 * k;
+    replyGap = 650;
   } else if (A.kind === 'item') {
-    shot(st, 'pet');
+    // a toss: the item spins over in an arc with a sparkle behind it
+    shot(st, 'pet', false, 'fast');
+    retrigger(petBody, 'toss', 600);
     ctx.sfx('enc_whoosh', 0.5);
-    const it = itemId ? `<img src="${itemImg(itemId)}" alt="">` : '';
-    later(u, 200 * k, () => {
-      projectile(st, 'toss', P, [W[0], W[1] + 4], it, 700 * k, -18);
-      shot(st, 'wild');
+    const im = new Image();
+    if (itemId) im.src = itemImg(itemId);
+    later(u, 230 * k, () => {
+      shot(st, 'wild', false, 'fast');
+      if (fx) fx.comet([P[0], P[1] - 2], [WF[0], WF[1] + 2], { ms: 600 * k, pal: 'gold', size: 3, bow: -24, trail: 1, ease: 'inout', img: im, imgSize: 11, spin: 9, onArrive: () => landed() });
+      else {
+        projectile(st, 'toss', P, [WF[0], WF[1] + 2], itemId ? `<img src="${itemImg(itemId)}" alt="">` : '', 600 * k, -20);
+        later(u, 600 * k, () => landed());
+      }
     });
-    impact = 920 * k;
+    impact = 830 * k;
   } else if (A.kind === 'companion') {
+    // Petalune swoops in and a stream of petals winds across to the wild one
     shot(st, 'wide');
-    vfx(st, 'buddy', 6, 70, `<img src="${icon('creature_petalune')}" alt="">`, 1900);
+    vfx(st, 'buddy', 14, 46, `<img src="${icon('creature_petalune')}" alt="">`, 1900);
     ctx.sfx('enc_soothe', 0.6);
-    for (let i = 0; i < 9; i++) later(u, (200 + i * 60) * k, () => projectile(st, 'petal', [4, 64 + (i % 3) * 6], [W[0] + (i % 3) * 3 - 3, W[1] + (i % 2) * 4], '<i></i>', 760 * k, -10 - (i % 4) * 4));
-    impact = 1050 * k;
+    later(u, 260 * k, () => fx?.stream([10, 42], WF, 48, { pal: 'pink', ms: 650 * k, size: 4 }));
+    later(u, 520 * k, () => shot(st, 'wild', false, 'fast'));
+    impact = 1100 * k;
+    replyGap = 900;
   }
-  // 3. impact on the wild one
-  later(u, impact, () => {
-    u.disp.meter = mid;
-    syncStage(ctx, st, before);
+  // 3. the impact on the wild one: the visuals fire the moment the projectile lands (or on the beat for
+  // the moves without one); the number and the meter follow on the beat
+  let landedOnce = false;
+  const landed = () => {
+    if (landedOnce) return;
+    landedOnce = true;
     if (A.kind === 'light') {
-      burst(st, hollow ? 'spark violet' : 'spark', W, 9, '<i></i>');
-      flash(st, hollow ? 'violet' : 'gold');
+      hitstop(st, 100 * k);
+      retrigger(wildBody, 'hit', 600);
+      fx?.flashAt(WF, { size: 28, life: 0.3, pal });
+      fx?.ring(WF, { r0: 2, r1: 28, ms: 420, pal, width: 2.4 });
+      fx?.shards(WF, 24, pal, 1);
+      if (hollow) later(u, 70 * k, () => fx?.ring(WF, { r0: 4, r1: 38, ms: 620, pal: 'gold', width: 1.2, alpha: 0.7 }));
+      punch(st, 'wild');
+      later(u, 100 * k, () => shake(st, false, rm));
       ctx.sfx('reward_chime', 0.35);
     } else if (A.kind === 'physical') {
-      burst(st, 'boop', [W[0] - 3, W[1] + 2], 6, SPARK);
+      hitstop(st, 80 * k);
+      retrigger(wildBody, 'hit', 600);
+      fx?.dust(WG, 10);
+      fx?.burst(WC, 7, { shape: 'star', pal: 'gold', speed: 50, vary: 0.5, drag: 3, size: 3, sizeK: 'spark', life: 0.6, spin: 7, gravity: 50 });
+      fx?.ring(WC, { r0: 1, r1: 16, ms: 320, pal: 'white', width: 1.6, alpha: 0.8 });
+      punch(st, 'wild');
+      later(u, 80 * k, () => shake(st, false, rm));
       ctx.sfx('play_boing', 0.5);
     } else if (A.kind === 'item') {
-      burst(st, 'boop', W, 6, ev.you >= 20 ? HEART : SPARK);
+      hitstop(st, 60 * k);
+      retrigger(wildBody, 'munch', 800);
+      fx?.burst(WF, 11, { shape: 'star', pal: 'gold', speed: 40, vary: 0.5, drag: 3, size: 3.2, sizeK: 'spark', life: 0.65, spin: 7, gravity: 40 });
+      fx?.flashAt(WF, { size: 18, life: 0.25, pal: 'gold' });
+      fx?.ring(WF, { r0: 1, r1: 16, ms: 320, pal: 'white', width: 1.4, alpha: 0.75 });
+      if (ev.you >= 20) later(u, 320 * k, () => fx?.hearts(WF, 4));
       ctx.sfx('pet_chirp', 0.45);
-    } else {
-      burst(st, 'boop soft', W, 5, A.kind === 'companion' ? HEART : SPARK);
+    } else if (A.kind === 'companion') {
+      retrigger(wildBody, 'perk', 700);
+      fx?.hearts(WF, 3);
+      fx?.ring(WF, { r0: 3, r1: 22, ms: 600, pal: 'pink', width: 1.4, alpha: 0.7, blend: 'source-over' });
+    } else if (ev.you) {
+      retrigger(wildBody, 'perk', 700);
+      fx?.hearts(WF, 2, { pal: 'teal' });
     }
-    if (A.kind !== 'restore' || ev.you) retrigger(wildBody, A.kind === 'restore' ? 'perk' : 'hit', 700);
-    if (ev.you) floatText(st, W[0], g.wild.headY + 2, `${sign > 0 ? '+' : '−'}${ev.you} ${label}`, hollow ? 'good violet' : 'good');
+  };
+  later(u, impact, () => {
+    if (A.kind !== 'light' && A.kind !== 'item') landed();
+    // the number pops, then the meter follows it
+    later(u, A.kind === 'restore' ? 0 : 110 * k, () => {
+      landed();
+      if (ev.you) floatText(st, WF[0], g.wild.headY + 2, `${sign > 0 ? '+' : '−'}${ev.you} ${label}`, hollow ? 'good violet' : 'good');
+      meterTo(mid, 380);
+    });
   });
   // 4. the reply (or the finish)
-  const replyAt = impact + 650 * k;
+  const replyAt = impact + replyGap * k;
   if (after.done === 'success') {
-    later(u, replyAt - 250 * k, () => finishChoreo(ctx, st, before, after));
+    later(u, replyAt - 200 * k, () => finishChoreo(ctx, st, before, after));
     return;
   }
   later(u, replyAt, () => {
@@ -517,40 +706,69 @@ function runTurn(ctx, actionId, itemId) {
     if (mood === 'wary') {
       retrigger(wildBody, 'skitter', 900);
       ctx.sfx('enc_whoosh', 0.35);
+      fx?.dust(WG, 5, { scale: 0.8 });
     } else if (mood === 'curious') {
       retrigger(wildBody, 'tilt', 900);
       vfx(st, 'bubble', W[0] + 6, g.wild.headY - 2, '?', 1300);
     } else if (mood === 'surging' || mood === 'waking') {
+      // the Hollow swells in it
       ctx.sfx('enc_surge', 0.6);
-      burst(st, 'ring violet', W, 1, '', 1200);
       retrigger(wildBody, 'surge', 900);
-      shake(st, mood === 'waking', rm);
-      if (mood === 'waking') flash(st, 'violet');
+      fx?.ring(W, { r0: 4, r1: 42, ms: 700, pal: 'violet', width: 2.6 });
+      fx?.embers(W, 26, { pal: 'violet', w: 26, h: 24, life: 1.5 });
+      fx?.smoke(WG, 6);
+      fx?.pulse({ pal: 'dark', ms: 850, alpha: mood === 'waking' ? 0.6 : 0.4 });
+      later(u, 300 * k, () => shake(st, mood === 'waking', rm));
+      if (mood === 'waking') {
+        flash(st, 'violet');
+        punch(st, 'wild', true);
+      }
     } else if (mood === 'flickering') {
       retrigger(wildBody, 'flicker', 900);
+      fx?.embers(W, 8, { pal: 'violet', life: 1.0 });
     } else {
-      burst(st, 'boop soft', W, 4, SPARK);
+      retrigger(wildBody, 'look', 1400);
     }
     if (ev.wild) {
-      u.disp.meter = after.meter;
-      syncStage(ctx, st, before);
-      floatText(st, W[0], g.wild.headY + 2, `${(ev.wild > 0) === (sign > 0) ? '+' : '−'}${Math.abs(ev.wild)} ${label}`, bad ? 'bad' : 'good');
+      later(u, 120 * k, () => {
+        floatText(st, W[0], g.wild.headY + 2, `${(ev.wild > 0) === (sign > 0) ? '+' : '−'}${Math.abs(ev.wild)} ${label}`, bad ? 'bad' : 'good');
+        meterTo(after.meter, 380);
+      });
     }
     if (ev.drain) {
-      later(u, 320 * k, () => {
-        projectile(st, 'lash', W, g.pet.head, '<i></i>', 300 * k, 4);
-        later(u, 300 * k, () => {
+      // it comes at you: a crouch, a lunge toward the camera, a lash of Hollow across your Evochi
+      later(u, 260 * k, () => {
+        retrigger(wildBody, 'lunge', 900);
+        let hurtOnce = false;
+        const hurt = () => {
+          if (hurtOnce) return;
+          hurtOnce = true;
+          hitstop(st, 80 * k);
           setPet(ctx, st, 'surprised');
-          retrigger(petBody, 'hurt', 700);
-          shake(st, false, rm);
-          u.disp.energy = after.energy;
-          syncStage(ctx, st, before);
-          floatText(st, g.pet.head[0], g.pet.head[1] + 4, `${ev.drain} Energy`, 'bad');
+          retrigger(petBody, 'hurt', 750);
+          fx?.flashAt(P, { size: 32, life: 0.3, pal: 'violet' });
+          fx?.shards(P, 12, 'violet', 0.8);
+          fx?.smoke([P[0], P[1] + 6], 6, { scale: 0.9 });
+          punch(st, 'pet');
+          later(u, 80 * k, () => shake(st, false, rm));
+          ctx.sfx('enc_surge', 0.35);
+        };
+        later(u, 150 * k, () => {
+          shot(st, 'pet', false, 'fast');
+          ctx.sfx('enc_whoosh', 0.5);
+          fx?.smoke(WF, 4, { scale: 0.7 });
+          if (fx) fx.comet(WF, P, { ms: 200 * k, pal: 'violet', size: 6.5, bow: 7, trail: 4, onArrive: hurt });
+          else later(u, 200 * k, hurt);
+        });
+        later(u, 440 * k, () => {
+          hurt();
+          floatText(st, P[0], P[1] + 4, `${ev.drain} Energy`, 'bad');
+          energyTo(after.energy, 380);
         });
       });
     }
   });
-  later(u, replyAt + (ev.drain ? 1500 : 1100) * k, () => {
+  later(u, replyAt + (ev.drain ? 1700 : 1100) * k, () => {
     shot(st, 'wide');
     u.busy = false;
     u.disp = null;
@@ -560,28 +778,30 @@ function runTurn(ctx, actionId, itemId) {
   });
 }
 
+// the last turn: the Hollow dissolves into motes of light and the creature comes back in a burst,
+// or a befriended one bounces with hearts; then the outro and the result card
 function finishChoreo(ctx, st, before, after) {
   const u = ctx.ui('encounter');
   const g = u.geom;
+  const rm = ctx.app.reducedMotion;
+  const fx = fxOf(st);
   const W = [g.wild.cx, g.wild.cy];
+  const WF = g.wild.face || [W[0], g.wild.headY + 6];
+  const P = g.pet.head;
+  const wildBody = st.querySelector('.enc-wild');
+  const restore = before.goal !== 'befriend';
+  const wildH = (g.wild.width * g.ar) / g.wild.ar;
+  const box = { x: g.wild.left + g.wild.width * 0.15, y: g.wild.headY, w: g.wild.width * 0.7, h: g.wild.top + wildH * (g.wild.gy / 100) - g.wild.headY };
   setLog(ctx, after.log[after.log.length - 1]?.text || '', 'wild');
-  u.disp.meter = after.meter;
-  syncStage(ctx, st, before);
-  setWild(st, after.creature.id, after.stateKey);
-  st.classList.remove('hollow', 'phase2');
-  st.classList.add('won');
-  ctx.music('none');
-  ctx.sfx('evolve_fanfare', 0.8);
-  shot(st, 'wild');
-  flash(st, 'gold');
-  burst(st, 'spark big', W, 12, '<i></i>', 1400);
-  retrigger(st.querySelector('.enc-wild'), 'joy', 1800);
-  for (let i = 0; i < 6; i++) later(u, 300 + i * 160, () => vfx(st, 'rise heart', W[0] + (i - 2.5) * 5, W[1] - 6, HEART, 1500));
-  later(u, 900, () => {
-    setPet(ctx, st, 'excited');
-    retrigger(st.querySelector('.enc-pet'), 'hop', 1200);
+  const from = u.disp?.meter ?? before.meter;
+  tween(350, (t) => {
+    if (!u.disp) return;
+    u.disp.meter = from + (after.meter - from) * t;
+    syncStage(ctx, st, before);
   });
-  later(u, 1300, () => {
+  ctx.music('none');
+  shot(st, 'wild');
+  const done = (ms) => later(u, ms, () => {
     u.busy = false;
     u.disp = null;
     u.holdPet = false;
@@ -589,6 +809,57 @@ function finishChoreo(ctx, st, before, after) {
     u.phase = 'outro';
     ctx.rerender();
   });
+  const confetti = () => {
+    fx?.burst(W, 26, { shape: 'petal', pal: 'pink', blend: 'source-over', speed: 62, vary: 0.6, drag: 1.9, size: 2.6, sizeK: 'hold', alphaK: 'hold', life: 1.7, gravity: 42, spin: 7, angle: -Math.PI / 2, spread: 1.3 });
+    fx?.burst(W, 14, { shape: 'star', pal: 'gold', speed: 70, vary: 0.6, drag: 2, size: 2.6, sizeK: 'spark', life: 1.2, gravity: 50, spin: 6, angle: -Math.PI / 2, spread: 1.4 });
+  };
+  if (restore && fx && !rm) {
+    ctx.sfx('enc_glow', 0.6);
+    retrigger(wildBody, 'dissolve', 580);
+    fx.dissolve(box, { n: 72, ms: 520, pal: 'gold' });
+    fx.rays(W, { n: 9, r: 58, ms: 2400, pal: 'gold', alpha: 0.5 });
+    fx.halo(W, { size: 64, life: 1.3, pal: 'gold', layer: 'back', alpha: 0.9 });
+    later(u, 580, () => {
+      setWild(st, after.creature.id, after.stateKey);
+      st.classList.remove('hollow', 'phase2');
+      st.classList.add('won');
+      retrigger(wildBody, 'pop', 700);
+      ctx.sfx('evolve_fanfare', 0.8);
+      flash(st, 'gold');
+      punch(st, 'wild', true);
+      fx.ring(W, { r0: 4, r1: 52, ms: 720, pal: 'gold', width: 3 });
+      fx.shards(W, 30, 'gold', 1.4);
+      confetti();
+      later(u, 100, () => shake(st, false, rm));
+      syncStage(ctx, st, after);
+    });
+    later(u, 1250, () => {
+      setPet(ctx, st, 'excited');
+      retrigger(st.querySelector('.enc-pet'), 'hop', 1200);
+      fx.hearts(P, 3, { spread: 4 });
+    });
+    done(1900);
+    return;
+  }
+  setWild(st, after.creature.id, after.stateKey);
+  st.classList.remove('hollow', 'phase2');
+  st.classList.add('won');
+  ctx.sfx('evolve_fanfare', 0.8);
+  flash(st, 'gold');
+  fx?.halo(W, { size: 56, life: 1.4, pal: 'gold', layer: 'back', alpha: 0.9 });
+  fx?.rays(W, { n: 8, r: 52, ms: 2200, pal: 'gold', alpha: 0.45 });
+  fx?.ring(W, { r0: 4, r1: 46, ms: 700, pal: 'gold', width: 2.6 });
+  fx?.shards(W, 20, 'gold', 1.1);
+  fx?.hearts(WF, 7, { spread: 9 });
+  confetti();
+  retrigger(wildBody, 'joy', 1800);
+  syncStage(ctx, st, after);
+  later(u, 900, () => {
+    setPet(ctx, st, 'excited');
+    retrigger(st.querySelector('.enc-pet'), 'hop', 1200);
+    fx?.hearts(P, 3, { spread: 4 });
+  });
+  done(1400);
 }
 
 function setLog(ctx, text, who) {
@@ -738,9 +1009,18 @@ export const encounter = {
     const bottom = Math.max(0, ph - 20);
     if (view && view.style.bottom !== bottom + 'px') view.style.bottom = bottom + 'px';
     st.style.setProperty('--ph', `${bottom + 20}px`);
+    ensureFX(ctx, st);
     syncStage(ctx, st, v);
     if (!st.dataset.init) {
       st.dataset.init = '1';
+      // every expression ready before it is needed, so a blink or a flinch never waits on a decode
+      const pet = ctx.state.pet;
+      const ov = Object.values(pet.equipped || {});
+      for (const ex of charEntry(pet.stage).battle?.expressions || []) battleSprite(pet.stage, pet.paletteId, ex, ov);
+      if (!u.idleOn) {
+        u.idleOn = true;
+        scheduleIdle(ctx);
+      }
       if (u.phase === 'intro' && !u.introStarted) {
         u.introStarted = true;
         playIntro(ctx, st, v);
@@ -815,6 +1095,8 @@ export const encounter = {
             if (!r.error) {
               const u = c.ui('encounter');
               clearTimers(u);
+              clearTimeout(u.idleTimer);
+              u.idleOn = false;
               u.phase = null;
               u.seed = null;
               c.music(null);
@@ -831,6 +1113,8 @@ export const encounter = {
       if (r.error) return;
       const u = ctx.ui('encounter');
       clearTimers(u);
+      clearTimeout(u.idleTimer);
+      u.idleOn = false;
       u.phase = null;
       u.seed = null;
       ctx.music(null);

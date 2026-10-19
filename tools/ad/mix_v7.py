@@ -54,7 +54,7 @@ if cut == 'watch':
     cues += segment('eq01', 0.25, 2.2, 5.0)
     cues += segment('eq01', g0 - 0.1, 2.4, 7.2)
     cues += segment('eq01', item + 0.05, 2.4, 9.6)
-    cues += segment('eq01', glast + 0.55, 1.5, 12.0)
+    cues += segment('eq01', glast + 0.6, 1.5, 12.0)
     cues += [('pet_chirp', 15.0, -4), ('ui_tap', 15.0, -12), ('ui_tap', 15.14, -12), ('ui_tap', 15.28, -12)]
     duck = None
 elif cut == 'hurt':
@@ -68,7 +68,7 @@ elif cut == 'hurt':
     cues += segment('eq02', so - 0.05, 2.8, 4.8)
     cues += segment('eq02', g[1] + 0.15, 2.8, 7.6)
     cues += segment('eq02', hush + 0.05, 1.4, 10.4)
-    cues += segment('eq02', g[-1] + 0.6, 1.4, 11.8)
+    cues += segment('eq02', g[-1] + 0.75, 1.4, 11.8)
     cues += [('pet_chirp', 15.2, -4)]
     duck = None
 elif cut == 'gate':
@@ -81,7 +81,7 @@ elif cut == 'gate':
     cues += segment('eq03', 3.72, 2.0, 8.6)
     cues += segment('eq03', item - 0.05, 1.3, 10.6)
     cues += segment('eq03', g[1] + 0.55, 1.5, 11.9)
-    cues += segment('eq03', g[-1] + 0.6, 1.2, 13.4)
+    cues += segment('eq03', g[-1] + 0.8, 1.2, 13.4)
     cues += [('pet_chirp', 16.2, -6)]
     duck = (2.2, 10.6)   # the marimba steps aside for the awakening
 elif cut == 'week2':
@@ -91,7 +91,7 @@ elif cut == 'week2':
     res = marks('eq01', 'result')[0]
     cues = [('pet_chirp', 1.0, -4), ('coin', 3.3, -9), ('level_up', 4.1, -6), ('reward_chime', 5.15, -6), ('coin', 6.2, -9), ('coin', 6.7, -9), ('reward_chime', 7.1, -9)]
     cues += segment('eq01', 0.3, 1.2, 9.8)
-    cues += segment('eq01', nudge + 0.95, 1.2, 11.0)
+    cues += segment('eq01', nudge + 0.1, 1.2, 11.0)
     cues += segment('eq01', item + 0.05, 1.3, 12.2)
     cues += [('pet_chirp', 15.1, -4), ('ui_tap', 15.3, -12), ('ui_tap', 15.44, -12)]
     duck = None
