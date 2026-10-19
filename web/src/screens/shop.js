@@ -210,8 +210,9 @@ function purchasedModal(ctx, id, n = 1) {
   ctx.modal({
     center: true,
     label: 'Purchased',
-    render: () => html`<div class="stack center">
-      <img src="${itemImg(id)}" alt="" width="110" height="110" style="margin:0 auto">
+    render: () => html`<div class="stack center bought">
+      <div class="story-banner">Purchased!</div>
+      <div class="buy-pop" aria-hidden="true"><i class="rays"></i>${Array.from({ length: 10 }, (_, i) => html`<i class="spark" style="--a:${i * 36}deg;--d:${78 + (i % 3) * 20}px"></i>`)}${Array.from({ length: 5 }, (_, i) => html`<img class="coin" src="${icon('coin')}" alt="" style="--i:${i}">`)}<img class="item" src="${itemImg(id)}" alt=""></div>
       <h2 class="h-sec">${n > 1 ? `${n} × ${it.name}` : it.name} ${n > 1 ? 'are' : 'is'} yours!</h2>
       <p class="body" style="margin:0">${it.category === 'seed' ? 'They\'re in your Bag\'s Pantry.' : 'It\'s waiting in your Bag.'}</p>
       ${it.category === 'seed' ? html`<button class="btn green block" data-act="plant-now" data-autofocus>Plant now</button>` : ''}

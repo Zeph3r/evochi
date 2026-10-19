@@ -17,10 +17,13 @@
   --nail: radial-gradient(circle at 38% 35%, #FFF1C4 0 18%, #E2B04E 40%, #9A6A1E 72%, #5A3A10 100%);
   --leaf: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M3.5 20.5c0-9.5 6.5-16 17-17-1 10.5-7.5 17-17 17z' fill='%2394C46C' stroke='%233F6E2C' stroke-width='1.7' stroke-linejoin='round'/%3E%3Cpath d='M5 19c4-5 8.5-8.5 12.5-11.5' fill='none' stroke='%233F6E2C' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
   --screen-bg: #F7E9CF;
+  /* the kit's named palette (README "The Evochi Game UI Kit"): use these for new systems */
+  --ui-wood-frame: #8B5939; --ui-parchment: #F8EBD5; --ui-gold: var(--gold-500); --ui-green: var(--meadow-500);
+  --ui-violet: var(--violet-400); --ui-plum: #6E4A78; --ui-cocoa: #473025;
 }
 
 /* ---------------------------------------------------------------- page: parchment, not flat cream */
-#app { background: var(--grain) 0 0 / 256px, linear-gradient(#FAEED8, #F2DFBE); }
+#app { background: linear-gradient(#FAEED8, #F2DFBE); }
 .paper { background: var(--grain) 0 0 / 256px, linear-gradient(#FAEED8 0%, #F3E1C2 100%); }
 .paper-top::after { background: linear-gradient(transparent, #F9ECD4); }
 .guild-head::after { background: linear-gradient(rgba(40,30,20,0.45), rgba(40,30,20,0) 55%, rgba(249,236,212,0.3) 85%, #F9ECD4); }
@@ -101,29 +104,24 @@
   background: var(--wood-m) 0 30% / 300px, #A8693A;
   box-shadow: inset 0 2px 0 rgba(255, 214, 160, 0.4), inset 0 -3px 0 rgba(40, 18, 4, 0.3), 0 3px 0 var(--wood-shadow);
   transition: transform 0.12s ease, box-shadow 0.12s ease; }
-.tab img { filter: drop-shadow(0 1.5px 0 rgba(30, 12, 0, 0.45)); }
 .tab:active { transform: translateY(2px); box-shadow: inset 0 2px 0 rgba(255, 214, 160, 0.3), 0 1px 0 var(--wood-shadow); }
 .tab[aria-selected='true'] { color: #3A200E; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6); border-color: #7A4512; transform: translateY(-3px);
   background: var(--grain) 0 0 / 256px, linear-gradient(#FFF7DC, #FFE19A);
   box-shadow: inset 0 2px 0 #FFFDF2, 0 0 0 2px #F7C65C, 0 4px 0 #7A4512, 0 0 14px rgba(255, 196, 80, 0.55); }
-.tab[aria-selected='true'] img { filter: drop-shadow(0 1px 0 rgba(120, 70, 20, 0.35)); }
 .tab .badge-dot { z-index: 2; }
 
 /* ---------------------------------------------------------------- nav: a carved wooden bar */
 .nav { border: 2.5px solid var(--wood-ink); border-radius: 18px; background: var(--wood-m) 0 0 / 360px, #9A5F33;
   box-shadow: inset 0 2px 0 rgba(255, 214, 160, 0.45), inset 0 -4px 0 rgba(40, 18, 4, 0.3), 0 4px 0 var(--wood-shadow), 0 9px 22px rgba(40, 20, 5, 0.35); }
 .nav button { color: #FFF0D2; text-shadow: 0 1px 0 rgba(30, 12, 0, 0.65); transition: transform 0.15s ease; }
-.nav button img { filter: drop-shadow(0 2px 0 rgba(30, 12, 0, 0.4)); }
 .nav button + button::before { background: rgba(40, 18, 4, 0.45); box-shadow: 1.5px 0 0 rgba(255, 214, 160, 0.25); top: 14px; bottom: 14px; }
 .nav button[aria-current='page'] { color: #3A200E; text-shadow: 0 1px 0 rgba(255, 255, 255, 0.6); transform: translateY(-4px);
   background: var(--grain) 0 0 / 256px, linear-gradient(#FFF7DA, #FFDF96);
   box-shadow: 0 0 0 2.5px var(--wood-ink), inset 0 2px 0 #FFFDF2, 0 4px 0 var(--wood-ink), 0 0 16px rgba(255, 200, 80, 0.65); }
-.nav button[aria-current='page'] img { filter: drop-shadow(0 1.5px 0 rgba(120, 70, 20, 0.35)); }
 
 /* ---------------------------------------------------------------- slots: inset pockets you drop things into */
 .tile { border: 2px solid #B98A55; border-radius: 13px; background: var(--grain) 0 0 / 256px, radial-gradient(circle at 50% 38%, #FFF9E8, #F0DBB4);
   box-shadow: inset 0 3px 7px rgba(110, 70, 30, 0.22), inset 0 -2px 0 rgba(255, 255, 255, 0.55), 0 2px 0 rgba(255, 246, 225, 0.8); transition: transform 0.12s ease; }
-.tile img { filter: drop-shadow(0 3px 2px rgba(80, 45, 15, 0.25)); }
 .tile .qty { background: #4E3018; border: 1.5px solid #F2D49E; box-shadow: 0 1px 0 rgba(0,0,0,0.3); font-size: 11.5px; }
 .tile:active { transform: scale(0.96); }
 .tile[aria-pressed='true'] { border-color: #C47F1E; background: var(--grain) 0 0 / 256px, radial-gradient(circle at 50% 38%, #FFFCEF, #FFE7A8);
@@ -137,8 +135,8 @@
 /* ---------------------------------------------------------------- windows: carved frames around parchment */
 .modal { border: 14px solid transparent; border-image: url(assets/ui/frame_wood.png) 56 / 14px stretch; border-radius: 18px;
   background: var(--grain) 0 0 / 256px, linear-gradient(#FFF8E8, #F4E1BF); background-clip: padding-box; background-origin: padding-box;
-  padding: 12px 14px calc(14px + var(--safe-bottom)); box-shadow: none; filter: drop-shadow(0 -6px 18px rgba(0, 0, 0, 0.3)); }
-.scrim.center .modal { border-radius: 18px; padding: 14px; filter: drop-shadow(0 10px 24px rgba(0, 0, 0, 0.35)); }
+  padding: 12px 14px calc(14px + var(--safe-bottom)); box-shadow: 0 -6px 18px rgba(0, 0, 0, 0.3); }
+.scrim.center .modal { border-radius: 18px; padding: 14px; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.35); }
 .modal .grab { background: #C49A68; margin: -2px auto 10px; }
 .toast { background: var(--grain) 0 0 / 256px, linear-gradient(#FFF8E6, #F0DBB2); color: var(--ink-900); border: 2.5px solid var(--wood-ink);
   box-shadow: inset 0 1.5px 0 #FFFDF5, 0 3px 0 var(--wood-shadow), 0 8px 18px rgba(0, 0, 0, 0.25); }
@@ -166,9 +164,8 @@
    ===================================================================================================== */
 
 /* Journey: an explorer's journal. Ruled pages, leather bookmark tabs, entries with a margin rule. */
-#app[data-screen='journey'] .paper, #app[data-screen='skills'] .paper {
-  background: repeating-linear-gradient(transparent 0 29px, rgba(150, 110, 70, 0.13) 29px 30px) 0 150px / 100% 100% no-repeat local,
-    var(--grain) 0 0 / 256px, linear-gradient(#FBF0DA, #F2DFBD); }
+#app[data-screen='journey'] .paper, #app[data-screen='skills'] .paper { background: var(--grain) 0 0 / 256px, linear-gradient(#FBF0DA, #F2DFBD); }
+#app[data-screen='journey'] .paper > .pad, #app[data-screen='skills'] .paper > .pad { background: repeating-linear-gradient(transparent 0 29px, rgba(150, 110, 70, 0.12) 29px 30px); }
 #app[data-screen='journey'] .tab, #app[data-screen='skills'] .tab { background: #8E4630; border-color: #3E1E12; border-style: solid;
   background-image: linear-gradient(rgba(255, 200, 160, 0.16), rgba(0, 0, 0, 0.12)); box-shadow: inset 0 0 0 2px #8E4630, inset 0 0 0 3.5px rgba(241, 217, 168, 0.55), 0 3px 0 #2E140A; }
 #app[data-screen='journey'] .tab[aria-selected='true'], #app[data-screen='skills'] .tab[aria-selected='true'] {
@@ -178,7 +175,7 @@
 /* Bag: a traveller's satchel. Canvas sheet with a stitched seam, stitched fabric tabs, cloth pockets. */
 #app[data-screen='bag'] .bag-inner { border: 13px solid transparent; border-image: url(assets/ui/frame_cloth.png) 56 / 13px stretch; border-radius: 17px;
   background: var(--weave) 0 0 / 64px, linear-gradient(#EFDDBA, #E2C99E); background-clip: padding-box; padding: 6px; box-shadow: none;
-  filter: drop-shadow(0 -4px 14px rgba(50, 28, 10, 0.25)); }
+  box-shadow: 0 -4px 14px rgba(50, 28, 10, 0.25); }
 #app[data-screen='bag'] .tab { background: var(--weave) 0 0 / 48px, #8A6440; border-color: #3E2A16; color: #FFF3DC;
   box-shadow: inset 0 0 0 2px #8A6440, inset 0 0 0 3.5px rgba(255, 230, 190, 0.45), 0 3px 0 #2E1E0E; outline: none; }
 #app[data-screen='bag'] .tab[aria-selected='true'] { background: var(--grain) 0 0 / 256px, linear-gradient(#FFF7DC, #FFE19A); color: #3A200E;
@@ -190,7 +187,7 @@
 
 /* Market: a stall. Striped awning over the shelves, products on wooden shelf tags, prices on hanging tags. */
 #app[data-screen='shop'] .shop-lower { position: relative; border: 13px solid transparent; border-image: url(assets/ui/frame_wood.png) 56 / 13px stretch; border-radius: 17px;
-  background: var(--grain) 0 0 / 256px, linear-gradient(#FFF6E2, #F1DDB6); background-clip: padding-box; padding: 26px 8px 6px; box-shadow: none; filter: drop-shadow(0 -4px 14px rgba(50, 28, 10, 0.25)); }
+  background: var(--grain) 0 0 / 256px, linear-gradient(#FFF6E2, #F1DDB6); background-clip: padding-box; padding: 26px 8px 6px; box-shadow: 0 -4px 14px rgba(50, 28, 10, 0.25); }
 #app[data-screen='shop'] .shop-lower::before { content: ''; position: absolute; left: -6px; right: -6px; top: -10px; height: 30px; z-index: 2; pointer-events: none;
   background: repeating-linear-gradient(90deg, #E46A4E 0 26px, #FFF4E0 26px 52px);
   -webkit-mask: radial-gradient(13px 9px at 13px 21px, #000 98%, transparent 100%) 0 0 / 26px 30px repeat-x, linear-gradient(#000, #000) 0 0 / 100% 21px no-repeat;
@@ -229,9 +226,6 @@
 #app[data-screen='apothecary'] .recipe .btn:not(:disabled) { border-color: #4E2E6C; color: #FFF; text-shadow: 0 1px 0 rgba(40, 10, 60, 0.5);
   background: linear-gradient(180deg, #D6B8F2 0%, #A983D6 45%, #8358B8 100%); box-shadow: inset 0 -3px 0 rgba(70, 30, 110, 0.4), 0 4px 0 #3E2258, 0 0 14px rgba(170, 120, 240, 0.55); }
 
-/* EvoDex: a collector's binder. Ring holes down the left of every page. */
-#app[data-screen='evodex'] .card { padding-left: 26px; background: radial-gradient(circle at 12px 50%, #8E6A4A 0 4px, rgba(255,255,255,0.8) 4.5px 6px, transparent 6.5px) 0 0 / 24px 40px repeat-y,
-  var(--grain) 0 0 / 256px, linear-gradient(var(--parch-a), var(--parch-b)); }
 
 /* Home: the nameplate and the step board read as props on the diorama. */
 .id-card { border-color: var(--wood-edge); box-shadow: inset 0 0 0 2px rgba(255,252,240,0.75), inset 0 0 0 3.5px var(--parch-rule), 0 4px 0 var(--wood-edge), 0 8px 16px rgba(40, 20, 5, 0.22); }
@@ -244,7 +238,7 @@
 /* Encounters: the action panel is a carved window rising from the bottom; plates, log and actions are props. */
 .enc2 .enc-panel:not(.intro) { border: 11px solid transparent; border-bottom-width: 0; border-image: url(assets/ui/frame_wood.png) 56 / 11px 11px 0 11px stretch;
   border-radius: 17px 17px 0 0; background: var(--grain) 0 0 / 256px, linear-gradient(#FBF1DC, #F2E0BF); background-clip: padding-box;
-  padding: 8px 3px calc(8px + var(--safe-bottom)); box-shadow: none; filter: drop-shadow(0 -6px 14px rgba(20, 12, 6, 0.32)); }
+  padding: 8px 3px calc(8px + var(--safe-bottom)); box-shadow: 0 -6px 14px rgba(20, 12, 6, 0.32); }
 .enc-plate { border: 2.5px solid var(--wood-edge); background: var(--grain) 0 0 / 256px, linear-gradient(#FFF9EA, #F4E3C2);
   box-shadow: inset 0 0 0 2px rgba(255, 252, 240, 0.7), 0 4px 0 var(--wood-edge), 0 10px 22px rgba(30, 18, 8, 0.3); }
 .enc-log, .rs-card, .rec-tile, .tm-row, .prep-plate { border: 2px solid var(--card-edge); background: var(--grain) 0 0 / 256px, linear-gradient(var(--parch-a), var(--parch-b));
@@ -275,3 +269,171 @@
 .prep-head2 .pb.map { border: 2.5px solid var(--wood-edge); background: var(--grain) 0 0 / 256px, linear-gradient(#FFF8E6, #EED7AE); box-shadow: inset 0 1.5px 0 #FFFDF5, 0 3px 0 var(--wood-edge); }
 
 .reduced-motion .tab, .reduced-motion .nav button, .reduced-motion .tile { transition: none; }
+
+/* =====================================================================================================
+   UX pass: framing levels, readability, Journey
+   Three levels of framing so not every rectangle wears a thick border:
+     1 WINDOW  carved frame (modals, Bag, Market, encounter panel)       - decorative, few per screen
+     2 CARD    card stock (.card)                                         - the content you act on
+     3 INSET   a pressed-in parchment panel with plain rows (.card.inset, .mini-list) - secondary info
+   ===================================================================================================== */
+.no-dev .dev { display: none !important; }
+/* screen switches: start from a faint frame, never from blank */
+.screen.fade-in { animation: kitIn 0.16s ease-out both; }
+@keyframes kitIn { from { opacity: 0.45; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+/* readability: the smallest text was 11-12 px; nothing below 12, most secondary text 13 */
+.small { font-size: 13px; line-height: 18px; }
+.tiny { font-size: 12px; line-height: 15px; }
+.tag.small { height: 21px; font-size: 12px; }
+.large-text .small { font-size: 14.5px; line-height: 20px; }
+.large-text .tiny { font-size: 13.5px; line-height: 17px; }
+.large-text .body { font-size: 16px; line-height: 23px; }
+.large-text .h-card { font-size: 17.5px; line-height: 23px; }
+.large-text .tag.small { height: 23px; font-size: 13px; }
+.large-text .tile .nm, .large-text .prod .nm { font-size: 14px; line-height: 16px; }
+.large-text .enc-act .tx small, .large-text .enc-log .line { font-size: 14px; }
+
+/* level 3: inset panels hold plain rows separated by stitched rules */
+.mini-list { padding: 2px 10px; display: flex; flex-direction: column; }
+.mini-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; width: 100%; min-height: 48px; padding: 7px 0; border: 0;
+  background: none; text-align: left; font: inherit; color: var(--ink-900); cursor: pointer; }
+.mini-row + .mini-row { border-top: 1.5px dashed rgba(150, 105, 60, 0.35); }
+.mini-row .t { min-width: 0; font: 800 14.5px/1.2 var(--font-game); }
+.mini-row .t small { display: block; margin-top: 2px; font: 600 12.5px/1.25 var(--font-body); color: var(--ink-500); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mini-row .face { width: 34px; height: 38px; object-fit: contain; }
+.mini-row .ic { width: 26px; height: 26px; justify-self: center; opacity: 0.8; }
+.mini-row .ck { width: 26px; height: 26px; border-radius: 50%; display: grid; place-items: center; background: var(--meadow-100); box-shadow: inset 0 0 0 1.5px #9CC27A; }
+.mini-row .ck svg { width: 15px; height: 15px; }
+.mini-row.locked .t { color: var(--ink-700); }
+.done-toggle { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 50px; padding: 6px 14px 6px 10px; border-radius: 13px; cursor: pointer; font: 800 15px var(--font-game); color: var(--ink-900);
+  border: 2px solid var(--card-edge); background: var(--grain) 0 0 / 256px, linear-gradient(#FBF0DA, #EEDDBC); box-shadow: inset 0 1.5px 0 #FFFDF5, 0 3px 0 var(--card-bevel); }
+.done-toggle img { width: 30px; height: 30px; }
+.done-toggle b { color: var(--ink-500); }
+.done-toggle:active { transform: translateY(2px); box-shadow: 0 1px 0 var(--card-bevel); }
+.claimed-line { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px; font: 800 13.5px var(--font-game); color: var(--meadow-700);
+  background: rgba(229, 242, 207, 0.6); box-shadow: inset 0 0 0 1.5px rgba(130, 183, 94, 0.45); }
+.claimed-line svg { width: 16px; height: 16px; flex: none; }
+.all-caught-up { display: flex; align-items: center; gap: 12px; padding: 12px; }
+.story-quest .kick { font: 900 11px/1 var(--font-game); letter-spacing: 0.06em; text-transform: uppercase; color: #A8643E; margin-bottom: 3px; }
+.large-text .story-quest .kick { font-size: 12px; }
+
+/* ---------------------------------------------------------------- Bag: the dressing room and the pockets */
+/* Wear: the Evochi gets the stage (bigger, centred, slots around it), the items run in one strip, and
+   one big Equip sits under them. The other pockets: a small Evochi, and the grid and item card get the room. */
+.bag-screen.mode-wear .bag-hero { flex: 1 1 auto; min-height: 250px; }
+.bag-screen.mode-inv .bag-hero { flex: 0 0 auto; min-height: 140px; height: 20vh; max-height: 180px; }
+.bag-screen.mode-inv .bag-sheet, .bag-screen.mode-inv .bag-inner { flex: 1 1 auto; }
+.bag-screen.mode-inv .fill-scroll { flex: 1 1 auto; min-height: 150px; }
+.wear-strip { display: flex; gap: 8px; overflow-x: auto; padding: 2px 2px 6px; scrollbar-width: none; scroll-snap-type: x proximity; }
+.wear-strip::-webkit-scrollbar { display: none; }
+.wear-strip .tile { flex: 0 0 80px; min-height: 92px; scroll-snap-align: start; }
+.wear-strip .tile img { width: 56px; height: 56px; }
+.wear-strip .empty { flex: 1; }
+.wear-bar { display: grid; grid-template-columns: 54px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 14px;
+  border: 2px solid #8C6A44; background: var(--grain) 0 0 / 256px, linear-gradient(#FFF9EA, #F4E2C0); box-shadow: inset 0 0 0 2px rgba(255,252,240,0.7), 0 3px 0 #6E5236; }
+.wear-bar .wb-pic { width: 54px; height: 54px; border-radius: 12px; display: grid; place-items: center; border: 2.5px solid #C47F1E;
+  background: radial-gradient(circle at 50% 40%, #FFFCEF, #FBE7BE); box-shadow: inset 0 2px 6px rgba(150, 90, 20, 0.2); }
+.wear-bar .wb-pic img { width: 46px; height: 46px; }
+.wear-bar .wb-info { min-width: 0; }
+.wear-bar .wb-info b { display: block; font: 900 16.5px/1.15 var(--font-game); margin-bottom: 4px; }
+.wear-bar .wb-btn { min-height: 52px; padding: 0 16px; font-size: 18px; }
+.wear-bar .wb-btn svg { width: 22px; height: 22px; }
+.item-card { grid-template-columns: 64px minmax(0, 1fr); align-items: start; }
+.item-card .pic { width: 64px; height: 64px; }
+.item-card .pic img { width: 56px; height: 56px; }
+.item-card .desc { font: 400 14px/19px var(--font-body); color: var(--ink-700); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.item-card.open .desc { display: block; }
+.item-card .acts { grid-column: 1 / -1; flex-direction: row; align-items: center; gap: 8px; min-width: 0; }
+.item-card .acts .btn { flex: 1 1 0; min-width: 0; }
+.item-card .acts .tiny { flex: 0 1 auto; text-align: right; }
+.more-btn { border: 0; background: none; padding: 4px 0 0; font: 800 13px var(--font-game); color: #9A6418; cursor: pointer; }
+.large-text .item-card .desc { font-size: 15.5px; line-height: 21px; }
+.fill-scroll { align-content: start; }
+
+/* ---------------------------------------------------------------- the cooking / brewing station */
+/* The room plate is framed square; .st-img holds the plate in image space so the push-in (wide -> close)
+   is one transition on left/top/width. The mouth of the oven or cauldron (--mx, --my) is where the
+   ingredients drop, the glow sits and the finished dish pops out. */
+.cook-stage { position: relative; z-index: 2; width: 100%; aspect-ratio: 1; overflow: hidden; flex: none; background: #2A1A10;
+  border-bottom: 4px solid var(--wood-ink); box-shadow: 0 4px 0 #C99A62, 0 10px 18px rgba(40, 20, 5, 0.25); }
+.cook-stage .st-img { position: absolute; left: var(--wl); top: var(--wt); width: var(--ww); aspect-ratio: 780 / 1000;
+  transition: left 0.95s cubic-bezier(.45, 0, .2, 1), top 0.95s cubic-bezier(.45, 0, .2, 1), width 0.95s cubic-bezier(.45, 0, .2, 1); }
+.cook-stage.close .st-img { left: var(--cl); top: var(--ct); width: var(--cw); }
+.cook-stage .st-img img { display: block; width: 100%; height: 100%; }
+.cook-stage::after { content: ''; position: absolute; inset: 0; pointer-events: none; background: radial-gradient(ellipse at var(--mx) var(--my), transparent 30%, rgba(20, 10, 5, 0.45) 95%); opacity: 0; transition: opacity 0.9s; }
+.cook-stage.close::after { opacity: 1; }
+.st-glow { position: absolute; left: var(--mx); top: var(--my); width: 70%; aspect-ratio: 1; transform: translate(-50%, -50%); border-radius: 50%; pointer-events: none; mix-blend-mode: screen;
+  background: radial-gradient(closest-side, rgba(var(--glow), 0.75), rgba(var(--glow), 0.25) 55%, rgba(var(--glow), 0)); opacity: 0; transition: opacity 0.8s 0.6s; }
+.cook-stage.close .st-glow { opacity: 0.55; animation: stGlow 1.1s ease-in-out infinite alternate; }
+.cook-stage.play .st-glow { opacity: 0.85; }
+@keyframes stGlow { from { transform: translate(-50%, -50%) scale(0.92); } to { transform: translate(-50%, -50%) scale(1.06); } }
+.st-embers i, .st-bubbles i { position: absolute; left: calc(var(--mx) + (var(--i) - 3) * 3.2%); top: var(--my); width: 7px; height: 7px; border-radius: 50%; opacity: 0; pointer-events: none; }
+.st-embers i { background: #FFD27A; box-shadow: 0 0 8px #FF9A3C; }
+.st-bubbles i { width: 12px; height: 12px; background: radial-gradient(circle at 35% 35%, #FFFFFF, #CDB4FF 45%, rgba(150, 110, 230, 0.4)); }
+.cook-stage.close .st-embers i, .cook-stage.close .st-bubbles i { animation: stRise 1.6s ease-out infinite; animation-delay: calc(var(--i) * 0.23s + 0.9s); }
+@keyframes stRise { 0% { opacity: 0; transform: translate(0, 0) scale(0.6); } 20% { opacity: 1; } 100% { opacity: 0; transform: translate(calc((var(--i) - 3) * 6px), -120px) scale(1.1); } }
+.st-drops img { position: absolute; left: var(--mx); top: var(--my); width: 15%; margin: -7.5% 0 0 -7.5%; opacity: 0; pointer-events: none; filter: drop-shadow(0 4px 3px rgba(0, 0, 0, 0.35)); }
+.cook-stage.close .st-drops img { animation: stDrop 0.75s cubic-bezier(.5, 0, .9, .5) both; animation-delay: calc(0.55s + var(--i) * 0.16s); }
+@keyframes stDrop { 0% { opacity: 1; transform: translate(var(--sx), 260px) rotate(-30deg) scale(1.1); } 55% { opacity: 1; transform: translate(calc(var(--sx) * 0.35), -40px) rotate(10deg) scale(0.9); }
+  100% { opacity: 0; transform: translate(0, 0) rotate(30deg) scale(0.35); } }
+.st-gauge { position: absolute; left: 6%; right: 6%; bottom: 5%; padding: 10px 12px; border-radius: 14px; opacity: 0; transform: translateY(14px); transition: opacity 0.3s, transform 0.3s;
+  border: 2.5px solid var(--wood-ink); background: var(--wood-l) 0 40% / 320px, #D6A066; box-shadow: inset 0 2px 0 rgba(255, 238, 205, 0.6), 0 4px 0 var(--wood-shadow), 0 8px 18px rgba(0, 0, 0, 0.35); }
+.cook-stage.play .st-gauge, .cook-stage.done .st-gauge { opacity: 1; transform: none; }
+.st-gauge .mg-meter { margin: 0; }
+.st-name { position: absolute; left: 50%; top: 4%; transform: translateX(-50%); display: flex; align-items: center; gap: 6px; padding: 5px 14px 5px 6px; border-radius: 12px; white-space: nowrap;
+  border: 2.5px solid var(--wood-ink); background: var(--grain) 0 0 / 256px, linear-gradient(#FFF8E6, #F1DDB8); box-shadow: 0 3px 0 var(--wood-shadow); font: 900 16px var(--font-game); color: var(--ink-900); }
+.st-name img { width: 30px; height: 30px; }
+.st-pop { position: absolute; left: var(--mx); top: var(--my); width: 34%; aspect-ratio: 1; transform: translate(-50%, -50%) scale(0); pointer-events: none; }
+.st-pop img { width: 100%; height: 100%; filter: drop-shadow(0 6px 6px rgba(0, 0, 0, 0.4)); }
+.st-pop i { position: absolute; left: 50%; top: 50%; width: 14px; height: 14px; margin: -7px; background: #FFE5A2; opacity: 0;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); }
+.cook-stage.done .st-pop { animation: stPop 0.9s cubic-bezier(.2, 1.4, .4, 1) both; }
+.cook-stage.done .st-pop i { animation: stSpark 0.9s ease-out 0.15s both; }
+.cook-stage.done.r-skip .st-pop { animation-duration: 0.4s; }
+@keyframes stPop { 0% { transform: translate(-50%, -50%) scale(0); } 100% { transform: translate(-50%, -105%) scale(1); } }
+@keyframes stSpark { 0% { opacity: 1; transform: rotate(var(--a)) translateY(0) scale(0.6); } 100% { opacity: 0; transform: rotate(var(--a)) translateY(calc(-1 * var(--d))) scale(1.2); } }
+.st-banner { position: absolute; left: 50%; top: 18%; transform: translateX(-50%) scale(0.6); padding: 6px 18px; border-radius: 14px; opacity: 0; white-space: nowrap; pointer-events: none;
+  font: 900 20px var(--font-game); color: #3A200E; border: 2.5px solid #8A5414; background: linear-gradient(#FFF0B8, #F9CF6A); box-shadow: 0 4px 0 #6E3F0E; transition: opacity 0.25s, transform 0.35s cubic-bezier(.2, 1.4, .4, 1); }
+.cook-stage.done.r-perfect .st-banner, .cook-stage.done.r-good .st-banner { opacity: 1; transform: translateX(-50%) scale(1); }
+.cook-controls { display: flex; flex-direction: column; gap: 10px; }
+.reduced-motion .cook-stage .st-img { transition: none; }
+.reduced-motion .st-drops img, .reduced-motion .st-embers i, .reduced-motion .st-bubbles i { animation: none !important; opacity: 0; }
+
+/* readability: secondary labels that were 10.5-11.5 px come up to 12 (badges and counters stay compact) */
+.pin small, .req, .enc-log .turn, .rw-tile small, .dex-card small, .team-card small, .enc-comp small, .rs-tile small, .rs-meta, .rec-tile .rk,
+.tm-meter span, .checks em, .mini-head small, .legal { font-size: 12px; }
+.tabs.five .tab { font-size: 12px; }
+.large-text .pin small, .large-text .req, .large-text .enc-log .turn, .large-text .rw-tile small, .large-text .team-card small, .large-text .enc-comp small,
+.large-text .rs-tile small, .large-text .rs-meta, .large-text .rec-tile .rk, .large-text .tm-meter span, .large-text .ms-card .nm { font-size: 13.5px; }
+.large-text .tabs.five .tab, .large-text .tab span { font-size: 13px; }
+.large-text .quest .t, .large-text .story-quest .t { font-size: 16.5px; }
+.large-text .recipe .h-card, .large-text .disc .t { font-size: 16.5px; }
+
+/* ---------------------------------------------------------------- the purchase reveal */
+.bought .story-banner { animation: buyBanner 0.45s cubic-bezier(.2, 1.4, .4, 1) both; }
+.buy-pop { position: relative; width: 150px; height: 150px; margin: 4px auto 0; }
+.buy-pop .item { position: absolute; inset: 15px; width: 120px; height: 120px; filter: drop-shadow(0 6px 5px rgba(60, 30, 5, 0.35)); animation: buyItem 0.7s cubic-bezier(.2, 1.5, .4, 1) 0.1s both; }
+.buy-pop .rays { position: absolute; inset: -30px; border-radius: 50%; opacity: 0.85;
+  background: repeating-conic-gradient(rgba(255, 214, 110, 0.55) 0 10deg, rgba(255, 214, 110, 0) 10deg 24deg);
+  -webkit-mask: radial-gradient(closest-side, #000 35%, transparent); mask: radial-gradient(closest-side, #000 35%, transparent); animation: buyRays 6s linear infinite, fadeIn2 0.4s both; }
+.buy-pop .spark { position: absolute; left: 50%; top: 50%; width: 16px; height: 16px; margin: -8px; background: #FFE5A2; opacity: 0;
+  clip-path: polygon(50% 0%, 61% 35%, 98% 35%, 68% 57%, 79% 91%, 50% 70%, 21% 91%, 32% 57%, 2% 35%, 39% 35%); animation: stSpark 0.9s ease-out 0.25s both; }
+.buy-pop .coin { position: absolute; left: 50%; top: 60%; width: 26px; height: 26px; margin: -13px; opacity: 0; animation: buyCoin 0.9s ease-out both; animation-delay: calc(var(--i) * 0.07s); }
+@keyframes buyItem { 0% { transform: scale(0) rotate(-12deg); } 100% { transform: scale(1) rotate(0); } }
+@keyframes buyRays { to { transform: rotate(360deg); } }
+@keyframes buyBanner { 0% { transform: scale(0.5); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+@keyframes buyCoin { 0% { opacity: 1; transform: translate(0, 0) scale(1); } 100% { opacity: 0; transform: translate(calc((var(--i) - 2) * 34px), 90px) scale(0.6) rotate(180deg); } }
+.reduced-motion .buy-pop .rays, .reduced-motion .buy-pop .coin, .reduced-motion .buy-pop .spark { animation: none; opacity: 0; }
+
+/* Home: the next form on the nameplate */
+.evo-next { display: grid; grid-template-columns: 30px minmax(0, 1fr) 22px; gap: 6px; align-items: center; min-height: 40px; margin-top: 2px; padding: 3px 8px 3px 4px; border-radius: 11px;
+  cursor: pointer; text-align: left; font: inherit; border: 1.5px solid #D9B57E; background: linear-gradient(#FFF6DF, #FBE6BC); box-shadow: inset 0 1px 0 #FFFDF5, 0 2px 0 #C99A62; }
+.evo-next .sil { width: 30px; height: 30px; object-fit: contain; filter: brightness(0) opacity(0.35); }
+.evo-next .t { min-width: 0; font: 900 13px/1.1 var(--font-game); color: var(--ink-900); overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.evo-next .t small { display: block; margin-top: 1px; font: 800 12px var(--font-game); color: var(--ink-500); overflow: hidden; text-overflow: ellipsis; }
+.evo-next .ring { width: 22px; height: 22px; border-radius: 50%; background: conic-gradient(#E9A541 calc(var(--p) * 1turn), rgba(110, 70, 30, 0.18) 0);
+  -webkit-mask: radial-gradient(closest-side, transparent 55%, #000 58%); mask: radial-gradient(closest-side, transparent 55%, #000 58%); }
+.evo-next:active { transform: translateY(1px); }
+.large-text .evo-next .t { font-size: 14px; }
+.large-text .evo-next .t small { font-size: 12.5px; }

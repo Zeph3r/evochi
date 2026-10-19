@@ -58,7 +58,8 @@ await run(() => {
   Object.assign(s.story.flags, { cottage_restored: true, waystone_revealed: true, waystone_restored: true });
   s.story.questStates.eq01 = { phase: 'ruins_ready', acceptedAt: T0 - 3600000, resolvedSteps: 1500, tracked: true };
   s.story.peakLevel = 6;
-  for (const [id, q] of Object.entries({ seed_sunberry: 2, seed_golden_wheat: 3, sunberry: 5, golden_wheat: 2, meadow_carrot: 3, sunberry_tart: 2, glowleaf: 3, lantern_tonic: 1 })) s.inventory[id] = { quantity: q, acquisitions: [] };
+  for (const [id, q] of Object.entries({ seed_sunberry: 2, seed_golden_wheat: 3, sunberry: 5, golden_wheat: 2, meadow_carrot: 3, sunberry_tart: 2, glowleaf: 3, lantern_tonic: 1, leaf_scarf: 1, explorer_hat: 1, red_backpack: 1 })) s.inventory[id] = { quantity: q, acquisitions: [] };
+  s.pet.equipped = { neck: 'leaf_scarf' };
   store.replace(s);
   store.run((st, t) => G.grantCoins(st, 1240, t), store.now());
   app.go('home');
@@ -69,7 +70,7 @@ await go('inspect'); await shot('pet');
 await tab('journey', { tab: 'daily' }); await shot('journey_daily');
 await tab('journey', { tab: 'story' }); await shot('journey_story');
 await tab('journey', { tab: 'skills' }); await shot('journey_skills');
-await tab('bag', { cat: 'wearable' }); await shot('bag_wear');
+await tab('bag', { cat: 'wearable', sel: 'explorer_hat' }); await shot('bag_wear');
 await tab('bag', { cat: 'consumable', sel: 'sunberry_tart' }); await shot('bag_care');
 await tab('bag', { cat: 'pantry' }); await shot('bag_pantry');
 await tab('shop', { cat: 'featured' }); await shot('shop_featured');

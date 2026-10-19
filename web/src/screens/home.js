@@ -121,6 +121,7 @@ export const home = {
           <div class="stack" style="gap:6px;min-width:0">
             <div class="row" style="gap:8px;min-width:0"><h2 class="pet-name">${p.name}</h2><button class="icon-btn" data-act="rename" aria-label="Rename ${p.name}" data-k="rename">${ICON.edit}</button></div>
             <div class="row" style="gap:6px;flex-wrap:wrap"><span class="tag stage">${stageLabel(p.stage)}</span>${statusTag(dp.status)}</div>
+            ${evoNext(ctx)}
           </div>
           <div class="divider" aria-hidden="true"></div>
           <div class="stack" style="gap:5px;justify-content:center">
@@ -308,6 +309,19 @@ function evoFamily(ctx) {
           <div class="pic"><img data-sprite="${spriteAttr(st, p.paletteId, st === 2 ? 'determined' : 'default', [], '', 140)}" src="${BLANK}" alt=""></div>
           <span class="lbl">${stageLabel(st)}</span></button>`)}
     </div></section>`;
+}
+
+// the next form, always on the nameplate: its silhouette, the two things it needs, and a progress ring
+function evoNext(ctx) {
+  const dp = ctx.d.pet;
+  const p = ctx.state.pet;
+  const ev = dp.evo;
+  if (!ev || ev.maxed || !ev.req) return '';
+  const pct = Math.min(ev.levelProgress ?? 0, ev.daysProgress ?? 0);
+  return html`<button class="evo-next" data-act="inspect" data-k="evo-next" aria-label="Next form: ${stageLabel(p.stage + 1)}. Level ${dp.level} of ${ev.req.level}, ${dp.activeDays} of ${ev.req.activeDays} active days">
+    <img class="sil" data-sprite="${spriteAttr(p.stage + 1, p.paletteId, 'default', [], '', 80)}" src="${BLANK}" alt="">
+    <span class="t">Next: ${stageLabel(p.stage + 1)}<small>Lv ${dp.level}/${ev.req.level} · ${dp.activeDays}/${ev.req.activeDays} days</small></span>
+    <i class="ring" style="--p:${pct.toFixed(3)}" aria-hidden="true"></i></button>`;
 }
 
 function evoChip(ctx) {

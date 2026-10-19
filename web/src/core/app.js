@@ -173,6 +173,9 @@ export class App {
     const s = this.store.state.player?.settings;
     const rm = s?.reducedMotion || window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     this.root.classList.toggle('reduced-motion', !!rm);
+    // the web preview's step simulator and playtest shortcuts (players never see them), and larger text
+    this.root.classList.toggle('no-dev', s?.devTools === false);
+    this.root.classList.toggle('large-text', !!s?.largeText);
     this.reducedMotion = !!rm;
     setLook(s?.classicVillagers ? 'classic' : 'lit');
     audio.configure({ sound: s ? s.sound : true, music: s ? s.music : true });

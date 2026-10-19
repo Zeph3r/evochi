@@ -72,12 +72,12 @@ export const journey = {
         </section>` : ''}
         ${tab === 'daily' || tab === 'weekly' ? sources : ''}
         ${tab === 'skills' ? skillsPanel(ctx) : ''}
-        ${tab === 'daily' ? html`<h2 class="h-sec sec-head" style="margin-top:4px">Daily quests</h2>
-        <div class="list">${daily.map((q) => questRow(q))}</div>
+        ${tab === 'daily' ? html`<h2 class="h-sec sec-head" style="margin-top:4px">Today's quests</h2>
+        ${questList(daily, 'today')}
         ${discoveriesPanel(ctx)}` : ''}
         ${tab === 'story' ? html`${storyTab(ctx)}${sources}` : ''}
         ${tab === 'weekly' ? html`<h2 class="h-sec sec-head" style="margin-top:4px">This week</h2>
-        <div class="list">${weekly.map((q) => questRow(q))}</div>
+        ${questList(weekly, 'this week')}
         <section class="card" style="padding:12px" aria-label="Week overview">
           <div class="week">${days.map((k) => {
             const day = d.days[k];
@@ -113,6 +113,12 @@ export const journey = {
   actions: {
     ...skillsActions,
     ...discoveryActions,
+    'j-done'(ctx) {
+      const u = ctx.ui('journey');
+      u.doneOpen = !u.doneOpen;
+      ctx.sfx('ui_tap', 0.3);
+      ctx.rerender();
+    },
     jtab(ctx, id) {
       ctx.ui('journey').tab = id;
       ctx.sfx('ui_tap', 0.3);
@@ -179,6 +185,14 @@ function doWalk(ctx, n) {
   ctx.act((s, t) => G.syncSteps(s, samples, t, { source: 'demo' }));
   ctx.sfx('ui_tap', 0.5);
   ctx.track('step_sync_result', { ok: true, bucket: n >= 2500 ? 'large' : 'small' });
+}
+
+// active objectives first: the ones ready to claim, then the ones in progress; claimed ones fold into one line
+function questList(qs, when) {
+  const open = qs.filter((q) => !q.claimed).sort((a, b) => Number(b.eligible) - Number(a.eligible));
+  const claimed = qs.filter((q) => q.claimed);
+  return html`${open.length ? html`<div class="list">${open.map((q) => questRow(q))}</div>` : ''}
+    ${claimed.length ? html`<div class="claimed-line">${ICON.checkDark}<span>${open.length ? `${claimed.length} claimed ${when}` : `All ${claimed.length} claimed ${when}. Nice walking.`}</span></div>` : ''}`;
 }
 
 function questRow(q) {

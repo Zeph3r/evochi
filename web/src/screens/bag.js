@@ -35,7 +35,10 @@ export const bag = {
   id: 'bag',
   scene(ctx) {
     const u = ctx.ui('bag');
-    const sc = petScene(ctx, { platform: true, decor: null, focus: { x: 0.45, y: u.groundY || 0.33 } });
+    const wear = (u.cat || 'wearable') === 'wearable';
+    // two presentations: the dressing room (Wear) gives the Evochi the stage; the other pockets give the grid the room
+    const sc = petScene(ctx, { platform: true, decor: null, focus: { x: wear ? 0.5 : 0.45, y: u.groundY || 0.33 } });
+    sc.pet.scale = wear ? 1.3 : 0.8;
     const eq = { ...(ctx.state.pet.equipped || {}) };
     const sel = u.sel && ITEMS[u.sel];
     if (sel && sel.category === 'wearable') eq[sel.slot] = u.sel; // temporary try-on preview
@@ -99,12 +102,13 @@ export const bag = {
     if (!u.sel && cat === 'wearable') u.sel = Object.values(p.equipped || {})[0] || list[0] || null;
     const sel = u.sel;
     const cols = ctx.W >= 370 ? 4 : 3;
+    const wear = cat === 'wearable';
     const newWear = owned(s, 'wearable').some((id) => !Object.values(p.equipped || {}).includes(id)) && !u.seenWear;
-    return html`<main class="screen" aria-label="Bag">
+    return html`<main class="screen bag-screen ${wear ? 'mode-wear' : 'mode-inv'}" aria-label="Bag">
       <header class="hud">${titleImg('title_bag', 'Bag')}${coinPill(ctx)}</header>
       <h1 class="sr-only">Bag</h1>
-      <span class="preview-tag" aria-hidden="true">Preview</span>
-      ${Object.entries(SLOT_UI).map(([slot, label]) => {
+      ${wear ? html`<span class="preview-tag" aria-hidden="true">${sel && ITEMS[sel]?.category === 'wearable' && p.equipped?.[ITEMS[sel].slot] !== sel ? 'Trying on' : 'Dressing room'}</span>` : ''}
+      ${!wear ? '' : Object.entries(SLOT_UI).map(([slot, label]) => {
         const id = p.equipped?.[slot];
         const active = sel && ITEMS[sel]?.slot === slot;
         return html`<button class="slot-box ${active ? 'active' : ''}" data-slot="${slot}" data-act="slot" data-arg="${slot}" data-k="slot-${slot}" aria-label="${label} slot: ${id ? ITEMS[id].name : 'empty'}">
@@ -117,7 +121,7 @@ export const bag = {
           ${CATS.map((c) => html`<button class="tab" role="tab" aria-selected="${c.id === cat}" data-act="cat" data-arg="${c.id}" data-k="cat-${c.id}" aria-label="${c.aria || c.label}"><img src="${icon(c.icon)}" alt=""><span>${c.label}</span>${c.id === 'wearable' && newWear ? raw('<i class="badge-dot" style="top:-4px;right:-4px"></i>') : ''}</button>`)}
         </div>
         <div class="sheet-bg bag-inner">
-          <div class="grid fill-scroll" role="list" style="grid-template-columns:repeat(${cols},minmax(0,1fr))">
+          <div class="${wear ? 'wear-strip' : 'grid fill-scroll'}" role="list" style="${wear ? '' : `grid-template-columns:repeat(${cols},minmax(0,1fr))`}">
             ${pouch ? pouchGrid(ctx, u.selQ, cols) : list.length ? list.map((id) => {
               const it = ITEMS[id];
               const q = G.ownedQty(s, id);
@@ -128,7 +132,7 @@ export const bag = {
                 ${story ? raw(STAR) : ''}<img src="${itemImg(id)}" alt="">${it.category !== 'wearable' && (q > 1 || it.category === 'consumable' || it.stackable) ? html`<span class="qty">x${q}</span>` : ''}${eq || placed ? html`<span class="eq" aria-hidden="true">${ICON.check}</span>` : ''}<span class="nm">${it.name}</span></button>`;
             }) : html`<div class="empty" style="grid-column:1/-1"><img src="${icon(CATS.find((c) => c.id === cat).icon)}" alt="" width="54" height="54" style="opacity:.6"><p class="body" style="margin:6px 0 10px"><b>Nothing in this pocket yet.</b></p><button class="btn sm" data-act="shop" data-k="bag-shop">Visit the Market</button></div>`}
           </div>
-          ${pouch ? (u.selQ ? pouchDetail(ctx, u.selQ) : '') : sel ? detail(ctx, sel) : ''}
+          ${pouch ? (u.selQ ? pouchDetail(ctx, u.selQ) : '') : sel ? (wear ? wearBar(ctx, sel) : detail(ctx, sel)) : ''}
         </div>
       </section>
       <div style="height:6px;flex:none"></div>
@@ -140,7 +144,15 @@ export const bag = {
       const u = ctx.ui('bag');
       u.cat = c;
       u.sel = null;
+      u.more = false;
+      // the layout changes between the dressing room and the pockets: let the scene re-measure
+      ctx.app.sceneSig = null;
       if (c === 'wearable') u.seenWear = true;
+      ctx.rerender();
+    },
+    more(ctx) {
+      const u = ctx.ui('bag');
+      u.more = !u.more;
       ctx.rerender();
     },
     'sel-q'(ctx, id) {
@@ -154,11 +166,15 @@ export const bag = {
     },
     sel(ctx, id) {
       const u = ctx.ui('bag');
+      if (u.sel === id && ITEMS[id].category !== 'wearable') u.more = !u.more;
+      else u.more = false;
       u.sel = id;
-      if (ITEMS[id].category === 'wearable') {
+      const it = ITEMS[id];
+      if (it.category === 'wearable') {
         ctx.scene.react('equip');
         ctx.track('item_previewed', { item: id });
-      }
+      } else if (it.category === 'consumable' && !it.effect?.growth) ctx.scene.react('snack');
+      else ctx.scene.react('inspect');
       ctx.sfx('ui_tap', 0.4);
       ctx.rerender();
     },
@@ -223,6 +239,19 @@ export const bag = {
   },
 };
 
+// the dressing room's bar under the strip: what you're trying on and one big button (Equip, or Take off)
+function wearBar(ctx, id) {
+  const p = ctx.state.pet;
+  const it = ITEMS[id];
+  const eq = p.equipped?.[it.slot] === id;
+  return html`<div class="wear-bar" aria-live="polite">
+    <div class="wb-pic"><img src="${itemImg(id)}" alt=""></div>
+    <div class="wb-info"><b>${it.name}</b><div class="row" style="gap:4px;flex-wrap:wrap"><span class="tag small cream"><img src="${icon('wearables')}" alt="">${SLOT_UI[it.slot]}</span>${rarityTag(id)}</div></div>
+    ${eq ? html`<button class="btn cream wb-btn" data-act="unequip" data-arg="${it.slot}" data-k="d-remove" aria-label="Take off ${it.name}">${ICON.trash}<span>Take off</span></button>`
+      : html`<button class="btn wb-btn" data-act="equip" data-arg="${id}" data-k="d-equip">${ICON.shirt}<span>Equip</span></button>`}
+  </div>`;
+}
+
 function detail(ctx, id) {
   const s = ctx.state;
   const p = s.pet;
@@ -263,11 +292,13 @@ function detail(ctx, id) {
     acts = html`<button class="btn sm" data-act="place" data-arg="${id}" ${placed >= q ? raw('disabled') : ''} data-k="d-place">Place</button>
       <button class="btn sm cream" data-act="${placed ? 'unplace' : 'arrange'}" data-arg="${id}" data-k="d-unplace">${placed ? 'Remove' : 'Arrange'}</button>`;
   }
-  return html`<div class="card detail" aria-live="polite">
+  const more = !!ctx.ui('bag').more;
+  return html`<div class="card detail item-card ${more ? 'open' : ''}" aria-live="polite">
     <div class="pic"><img src="${itemImg(id)}" alt=""></div>
     <div style="min-width:0"><b class="h-card">${it.name}</b>
       <div class="row" style="gap:4px;margin:4px 0;flex-wrap:wrap"><span class="tag small cream"><img src="${icon(CAT_ICON[it.category] || 'decorations')}" alt="">${tag}</span>${rarityTag(id)}</div>
-      <div class="small" style="color:var(--ink-700)">${it.desc}</div>${storySourceTag(id) ? html`<div style="margin-top:4px">${storySourceTag(id)}</div>` : ''}${usedIn(id)}</div>
+      <div class="desc">${it.desc}</div>${more ? html`${storySourceTag(id) ? html`<div style="margin-top:4px">${storySourceTag(id)}</div>` : ''}${usedIn(id)}` : ''}
+      <button class="more-btn" data-act="more" data-k="d-more" aria-expanded="${more}">${more ? 'Less' : 'More'} <span aria-hidden="true">${more ? '▴' : '▾'}</span></button></div>
     <div class="acts">${acts}</div></div>`;
 }
 

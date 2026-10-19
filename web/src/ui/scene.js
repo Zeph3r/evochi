@@ -214,6 +214,7 @@ export class Scene {
       equip: { expr: 'happy', motion: 'wiggle', dur: 700, burst: 'stars' },
       sad: { expr: 'sad', motion: 'none', dur: 1400 },
       determined: { expr: 'determined', motion: 'bounce', dur: 900 },
+      snack: { expr: 'excited', motion: 'hop', dur: 1000, burst: 'hearts' },
     }[kind];
     if (!R) return;
     if (this.cfg.reducedMotion) R.motion = 'none';

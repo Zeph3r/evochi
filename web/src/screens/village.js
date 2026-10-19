@@ -705,36 +705,45 @@ export function disturbanceCards(ctx) {
   });
 }
 
+// The Story tab is a journal: what's waiting for you right now on top (encounters, then active and new
+// stories as full entries), what's coming next as short "locked" lines, the chapter card, and everything
+// finished folded away under one toggle, so the page is about the next adventure, not the last five.
+const LINES = { quests: 'Village Tales', home: 'Home Tales', trail: 'Lumen Trails', side: 'Side story' };
+const rank = (v) => (v.next?.kind === 'handin' || v.next?.kind === 'encounter' ? 0 : v.accepted ? 1 : 2);
+
 export function storyTab(ctx) {
   const st = ctx.d.story;
   const done = st.quests.filter((v) => v.completed).length;
   const dist = disturbanceCards(ctx);
+  const distIds = new Set((st.encounters || []).map((v) => v.id));
+  const all = Object.entries(LINES).flatMap(([k, line]) => (st[k] || []).map((v) => ({ v, line })));
+  const active = all.filter(({ v }) => !v.completed && v.phase !== 'locked' && !distIds.has(v.id)).sort((a, b) => rank(a.v) - rank(b.v));
+  const soon = all.filter(({ v }) => !v.completed && v.phase === 'locked').sort((a, b) => (a.v.level || 0) - (b.v.level || 0)).slice(0, 3);
+  const finished = all.filter(({ v }) => v.completed);
+  const open = !!ctx.ui('journey').doneOpen;
   return html`${dist.length ? html`<h2 class="h-sec sec-head" style="margin-top:2px">Main Quests</h2><div class="list">${dist}</div>` : ''}
+    <h2 class="h-sec sec-head" style="margin-top:${dist.length ? 6 : 2}px">Your adventures</h2>
+    ${active.length ? html`<div class="list">${active.map(({ v, line }) => storyRow(v, line))}</div>`
+      : html`<div class="card inset all-caught-up"><img src="${icon('journey')}" alt="" width="40" height="40"><div><b class="h-card">All caught up</b><div class="small muted">New stories open as your Evochi grows and the village needs a hand.</div></div></div>`}
+    ${soon.length ? html`<h2 class="h-sec sec-head" style="margin-top:6px">Coming up</h2>
+      <div class="card inset mini-list" role="list">${soon.map(({ v, line }) => html`<button class="mini-row locked" role="listitem" data-act="story-quest" data-arg="${v.id}" data-k="sq-${v.id}">
+        <img src="${icon('lock')}" alt="" class="ic"><span class="t">${v.title}<small>${line} · ${nextText(v)}</small></span><span class="tag small neutral">Lv ${v.level}</span></button>`)}</div>` : ''}
     <section class="card chapter-card" aria-label="${Q.CHAPTER.name}">
       <img src="${squareArt(st.flags)}" alt="" class="cover">
       <div class="in"><div class="tiny" style="color:#FFF6E6">${Q.CHAPTER.name}</div><b class="h-card" style="color:#FFF">${Q.CHAPTER.title}</b>
         <div class="row" style="gap:6px;margin-top:6px"><span class="tag small stage">${done} / ${st.quests.length} quests</span>${st.titles.length ? html`<span class="tag small ok">${Q.TITLES[st.titles[0]].name}</span>` : ''}</div></div>
       <button class="btn sm" data-act="visit-village" data-k="j-village" style="position:absolute;right:10px;bottom:10px">Visit Village</button>
     </section>
-    <div class="list">${st.quests.map((v) => html`<button class="card story-quest ${v.completed ? 'claimed' : ''}" data-act="story-quest" data-arg="${v.id}" data-k="sq-${v.id}">
-      <img src="${npcSprite(Q.QUESTS[v.id].giver, v.completed ? 'happy' : 'neutral')}" alt="" class="face">
-      <div style="min-width:0;text-align:left"><div class="row" style="gap:6px;flex-wrap:wrap"><span class="t">${v.title}</span>${statusTag(v)}</div>
-        <div class="small muted">${nextText(v)}</div>
-        ${v.accepted && !v.completed ? html`<div style="margin-top:4px">${walkBar(v)}</div>` : ''}</div>
-      <span class="chev" aria-hidden="true">&rsaquo;</span></button>`)}</div>
-    <h2 class="h-sec sec-head" style="margin-top:6px">Home Tales</h2>
-    <div class="list">${st.home.map((v) => storyRow(v))}</div>
-    <h2 class="h-sec sec-head" style="margin-top:6px">Lumen Trails <span class="tag small cream" style="margin-left:4px">Encounters</span></h2>
-    <div class="list">${st.trail.map((v) => storyRow(v))}</div>
-    <h2 class="h-sec sec-head" style="margin-top:6px">Side stories <span class="tag small cream" style="margin-left:4px">Optional</span></h2>
-    <div class="list">${st.side.map((v) => storyRow(v))}</div>
+    ${finished.length ? html`<button class="done-toggle" data-act="j-done" aria-expanded="${open}" data-k="j-done"><img src="${icon('trophy')}" alt=""><span class="grow">Completed stories <b>(${finished.length})</b></span><span class="chev" aria-hidden="true">${open ? '▴' : '▾'}</span></button>
+      ${open ? html`<div class="card inset mini-list" role="list">${finished.map(({ v, line }) => html`<button class="mini-row" role="listitem" data-act="story-quest" data-arg="${v.id}" data-k="sq-${v.id}">
+        <img src="${npcSprite(Q.QUESTS[v.id].giver, 'happy')}" alt="" class="face"><span class="t">${v.title}<small>${line}</small></span><span class="ck" aria-label="Complete">${ICON.checkDark}</span></button>`)}</div>` : ''}` : ''}
     <p class="small muted" style="margin:2px 4px">Story walks only count steps taken after you accept a quest. Rest days never break them, and nothing expires. Side stories never block the main story.</p>`;
 }
 
-function storyRow(v) {
+function storyRow(v, line) {
   return html`<button class="card story-quest ${v.completed ? 'claimed' : ''}" data-act="story-quest" data-arg="${v.id}" data-k="sq-${v.id}">
     <img src="${npcSprite(Q.QUESTS[v.id].giver, v.completed ? 'happy' : 'neutral')}" alt="" class="face">
-    <div style="min-width:0;text-align:left"><div class="row" style="gap:6px;flex-wrap:wrap"><span class="t">${v.title}</span>${statusTag(v)}</div>
+    <div style="min-width:0;text-align:left">${line ? html`<div class="kick">${line}</div>` : ''}<div class="row" style="gap:6px;flex-wrap:wrap"><span class="t">${v.title}</span>${statusTag(v)}</div>
       <div class="small muted">${nextText(v)}</div>
       ${v.accepted && !v.completed ? html`<div style="margin-top:4px">${walkBar(v)}</div>` : ''}</div>
     <span class="chev" aria-hidden="true">&rsaquo;</span></button>`;

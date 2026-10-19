@@ -626,68 +626,6 @@ const MG = {
   apothecary: { prompt: 'Tap when the marker reaches the golden zone to brew a perfect batch.', stop: 'Stir now!', skip: 'Skip, just brew it' },
 };
 
-function openMinigame(ctx, rid) {
-  const R = H.RECIPES[rid];
-  const T = MG[R.station];
-  const m = { t0: 0, p: 0, raf: null, done: false, result: null, period: ctx.app.reducedMotion ? 2600 : 1700, zone: [0.62, 0.8] };
-  const tri = (t) => {
-    const x = (t % 1) * 2;
-    return x < 1 ? x : 2 - x;
-  };
-  const finish = (c, quality) => {
-    if (m.result) return;
-    m.done = true;
-    m.result = quality;
-    c.app.renderModals();
-    setTimeout(() => {
-      c.closeModal();
-      doCraft(c.app.ctx(), rid, quality);
-    }, quality === 'skip' ? 0 : 750);
-  };
-  ctx.modal({
-    center: true,
-    noDismiss: true,
-    label: `${H.STATIONS[R.station].verb} ${ITEMS[R.makes].name}`,
-    render: () => html`<div class="stack center mg">
-      <img src="${itemImg(R.makes)}" alt="" width="84" height="84" style="margin:0 auto">
-      <h2 class="h-sec">${ITEMS[R.makes].name}</h2>
-      <p class="small" style="margin:0;color:var(--ink-700)">${T.prompt}</p>
-      <div class="mg-meter ${m.result ? 'r-' + m.result : ''}" aria-hidden="true"><i class="zone" style="left:${m.zone[0] * 100}%;width:${(m.zone[1] - m.zone[0]) * 100}%"></i><i class="marker" style="left:${m.p * 100}%"></i></div>
-      ${m.result && m.result !== 'skip' ? html`<div class="mg-result ${m.result}" role="status">${m.result === 'perfect' ? 'Perfect! Double batch' : 'Nicely done!'}</div>` : html`<div class="mg-result" aria-hidden="true">&nbsp;</div>`}
-      <button class="btn green block" data-act="mg-stop" data-autofocus ${m.result ? raw('disabled') : ''}>${T.stop}</button>
-      <button class="btn cream block" data-act="mg-skip" ${m.result ? raw('disabled') : ''}>${T.skip}</button>
-      <p class="tiny muted" style="margin:0">Optional: skipping makes a normal batch. Ingredients are never wasted.</p></div>`,
-    mount: () => {
-      if (m.raf || m.done) return;
-      m.t0 = performance.now();
-      const tick = () => {
-        const mk = document.querySelector('.mg-meter .marker');
-        if (!mk || m.done) {
-          m.raf = null;
-          return;
-        }
-        m.p = tri((performance.now() - m.t0) / m.period);
-        mk.style.left = (m.p * 100).toFixed(2) + '%';
-        m.raf = requestAnimationFrame(tick);
-      };
-      m.raf = requestAnimationFrame(tick);
-    },
-    onClose: () => {
-      m.done = true;
-    },
-    actions: {
-      'mg-stop': (c) => {
-        const p = tri((performance.now() - m.t0) / m.period);
-        m.p = p;
-        const ok = p >= m.zone[0] - 0.015 && p <= m.zone[1] + 0.015;
-        c.sfx(ok ? 'reward_chime' : 'ui_tap', 0.6);
-        finish(c, ok ? 'perfect' : 'good');
-      },
-      'mg-skip': (c) => finish(c, 'skip'),
-    },
-  });
-}
-
 function doCraft(ctx, rid, quality) {
   const R = H.RECIPES[rid];
   const r = ctx.act(H.craft, rid, quality === 'perfect' ? 'perfect' : 'good');
@@ -733,7 +671,8 @@ function doCraft(ctx, rid, quality) {
       },
       'cr-again': (c) => {
         c.closeModal();
-        openMinigame(c, rid);
+        c.ui('station').cook = { rid, station: R.station, phase: 'in', t0: Date.now() };
+        c.rerender();
       },
       'cr-garden': (c) => {
         c.closeModal();
@@ -749,6 +688,86 @@ function doCraft(ctx, rid, quality) {
   });
 }
 
+// The station is the focal point: picking a recipe pushes the camera in on the oven (or the cauldron),
+// the ingredients drop in, the timing game plays on a gauge over the fire, and the dish pops out before
+// the reward card. Everything about the cook lives in u.cook so a fuller minigame can replace the gauge.
+const STAGE = {
+  kitchen: { fx: 0.256, fy: 0.49, wide: 1.15, close: 2.1, glow: '255,150,60', label: 'The oven' },
+  apothecary: { fx: 0.333, fy: 0.47, wide: 1.15, close: 2.1, glow: '170,120,255', label: 'The cauldron' },
+};
+const AR = 1000 / 780; // the room plates' height / width
+function frameVars(id, Z, pre) {
+  const F = STAGE[id];
+  const cl = (v, lo) => Math.min(0, Math.max(lo, v));
+  const l = cl(50 - F.fx * Z * 100, 100 - Z * 100);
+  const t = cl(50 - F.fy * Z * AR * 100, 100 - Z * AR * 100);
+  return `--${pre}l:${l.toFixed(2)}%;--${pre}t:${t.toFixed(2)}%;--${pre}w:${(Z * 100).toFixed(1)}%`;
+}
+// where the station's mouth sits inside the close-up frame (box %), for the glow, the drops and the pop
+function mouthAt(id) {
+  const F = STAGE[id];
+  const Z = F.close;
+  const cl = (v, lo) => Math.min(0, Math.max(lo, v));
+  const l = cl(50 - F.fx * Z * 100, 100 - Z * 100);
+  const t = cl(50 - F.fy * Z * AR * 100, 100 - Z * AR * 100);
+  return [l + F.fx * Z * 100, t + F.fy * Z * AR * 100];
+}
+
+function cookStage(ctx, id, room) {
+  const u = ctx.ui('station');
+  const c = u.cook;
+  const R = H.RECIPES[c.rid];
+  const it = ITEMS[R.makes];
+  const [mx, my] = mouthAt(id);
+  const drops = Object.entries(R.needs).flatMap(([iid, n]) => Array.from({ length: Math.min(n, 3) }, () => iid)).slice(0, 6);
+  return html`<div class="cook-stage" data-keep="cook-${c.t0}" style="${raw(frameVars(id, STAGE[id].wide, 'w'))};${raw(frameVars(id, STAGE[id].close, 'c'))};--mx:${mx.toFixed(1)}%;--my:${my.toFixed(1)}%;--glow:${STAGE[id].glow}" aria-label="${STAGE[id].label}">
+    <div class="st-img"><img src="${url(room.file)}" alt=""></div>
+    <i class="st-glow" aria-hidden="true"></i>
+    ${id === 'apothecary' ? html`<span class="st-bubbles" aria-hidden="true">${Array.from({ length: 7 }, (_, i) => html`<i style="--i:${i}"></i>`)}</span>` : html`<span class="st-embers" aria-hidden="true">${Array.from({ length: 7 }, (_, i) => html`<i style="--i:${i}"></i>`)}</span>`}
+    <span class="st-drops" aria-hidden="true">${drops.map((iid, i) => html`<img src="${itemImg(iid)}" alt="" style="--i:${i};--sx:${((i % 2 ? 1 : -1) * (40 + 22 * i)).toFixed(0)}px">`)}</span>
+    <span class="st-pop" aria-hidden="true"><img src="${itemImg(R.makes)}" alt="">${Array.from({ length: 10 }, (_, i) => html`<i style="--a:${i * 36}deg;--d:${70 + (i % 3) * 22}px"></i>`)}</span>
+    <div class="st-gauge" aria-hidden="true"><div class="mg-meter"><i class="zone" style="left:62%;width:18%"></i><i class="marker" style="left:0%"></i></div></div>
+    <div class="st-banner" role="status"></div>
+    <div class="st-name"><img src="${itemImg(R.makes)}" alt=""><b>${it.name}</b></div>
+  </div>`;
+}
+
+function cookControls(ctx, id) {
+  const u = ctx.ui('station');
+  const c = u.cook;
+  const T = MG[id];
+  const ready = c.phase === 'play';
+  return html`<div class="cook-controls">
+    <p class="small" style="margin:0;color:var(--ink-700)">${c.phase === 'in' ? (id === 'kitchen' ? 'Into the oven it goes...' : 'Into the cauldron it goes...') : T.prompt}</p>
+    <button class="btn green lg block" data-act="cook-stop" data-k="mg-stop" ${ready ? '' : raw('disabled')}>${T.stop}</button>
+    <div class="row" style="gap:8px"><button class="btn cream grow" data-act="cook-skip" data-k="mg-skip">${T.skip}</button><button class="btn ghost" data-act="cook-cancel" data-k="mg-back">Back</button></div>
+    <p class="tiny muted" style="margin:0">Optional: skipping makes a normal batch. Ingredients are only used once it's done.</p>
+  </div>`;
+}
+
+function finishCook(ctx, quality) {
+  const u = ctx.ui('station');
+  const c = u.cook;
+  if (!c || c.phase === 'done') return;
+  c.phase = 'done';
+  const st = document.querySelector('.cook-stage');
+  if (st) {
+    st.classList.remove('play');
+    st.classList.add('done', 'r-' + quality);
+    const b = st.querySelector('.st-banner');
+    if (b) b.textContent = quality === 'perfect' ? 'Perfect! Double batch' : quality === 'good' ? 'Nicely done!' : '';
+  }
+  for (const b of document.querySelectorAll('.cook-controls .btn')) b.disabled = true;
+  if (quality !== 'skip') ctx.sfx(quality === 'perfect' ? 'reward_chime' : 'ui_tap', 0.6);
+  const rid = c.rid;
+  setTimeout(() => {
+    if (u.cook !== c) return;
+    u.cook = null;
+    ctx.rerender();
+    doCraft(ctx.app.ctx(), rid, quality);
+  }, quality === 'skip' ? 450 : 1350);
+}
+
 export const station = {
   id: 'station',
   scene: () => null,
@@ -758,6 +777,15 @@ export const station = {
     const room = HM().rooms[id];
     const open = H.stationOpen(ctx.state, id);
     const u = ctx.ui('station');
+    if (u.cook && (u.cook.station !== id || !H.RECIPES[u.cook.rid])) u.cook = null;
+    if (u.cook) {
+      // the stage and the header stay put across re-renders (data-keep), so the push-in and the gauge run uninterrupted
+      return html`<main class="screen scroll paper village station st-${id} cooking" aria-label="Your ${S.name}" data-keep-root="station">
+        ${raw(String(hud(ctx, `Your ${S.name}`, S.name)).replace('<header class="hud vhud"', '<header data-keep="hud" class="hud vhud"'))}
+        ${cookStage(ctx, id, room)}
+        <div class="pad stack" style="gap:10px;margin-top:12px;position:relative;z-index:3;padding-bottom:calc(20px + var(--safe-bottom))">${cookControls(ctx, id)}</div>
+      </main>`;
+    }
     const joy = u.joy && Date.now() - u.joy < 1200;
     const recipes = H.RECIPE_ORDER.filter((r) => H.RECIPES[r].station === id).map((r) => H.recipeView(ctx.state, r));
     const v = Q.questView(ctx.state, S.quest, ctx.now);
@@ -775,8 +803,55 @@ export const station = {
       </div>
     </main>`;
   },
+  mount(ctx, el) {
+    const u = ctx.ui('station');
+    const c = u.cook;
+    const st = el?.querySelector('.cook-stage');
+    if (!c || !st) return;
+    if (!st.dataset.started) {
+      st.dataset.started = '1';
+      requestAnimationFrame(() => requestAnimationFrame(() => st.classList.add('close')));
+      setTimeout(() => {
+        if (u.cook !== c || c.phase !== 'in') return;
+        c.phase = 'play';
+        c.p0 = performance.now();
+        st.classList.add('play');
+        ctx.rerender();
+      }, ctx.app.reducedMotion ? 300 : 1750);
+    }
+    if (c.phase === 'play' && !c.raf) {
+      const period = ctx.app.reducedMotion ? 2600 : 1700;
+      const tick = () => {
+        const mk = document.querySelector('.cook-stage .marker');
+        if (u.cook !== c || c.phase !== 'play' || !mk) {
+          c.raf = null;
+          return;
+        }
+        const x = ((performance.now() - c.p0) / period) % 1 * 2;
+        c.p = x < 1 ? x : 2 - x;
+        mk.style.left = (c.p * 100).toFixed(2) + '%';
+        c.raf = requestAnimationFrame(tick);
+      };
+      c.raf = requestAnimationFrame(tick);
+    }
+  },
   actions: {
     ...sharedActions,
+    'cook-stop'(ctx) {
+      const c = ctx.ui('station').cook;
+      if (!c || c.phase !== 'play') return;
+      const ok = c.p >= 0.62 - 0.015 && c.p <= 0.8 + 0.015;
+      finishCook(ctx, ok ? 'perfect' : 'good');
+    },
+    'cook-skip'(ctx) {
+      finishCook(ctx, 'skip');
+    },
+    'cook-cancel'(ctx) {
+      const u = ctx.ui('station');
+      u.cook = null;
+      ctx.sfx('ui_tap', 0.3);
+      ctx.rerender();
+    },
     craft(ctx, rid) {
       const r = H.recipeView(ctx.state, rid);
       if (!r.open) {
@@ -793,7 +868,11 @@ export const station = {
         ctx.sfx('error_bonk', 0.4);
         return;
       }
-      openMinigame(ctx, rid);
+      const u = ctx.ui('station');
+      u.cook = { rid, station: H.RECIPES[rid].station, phase: 'in', t0: Date.now() };
+      ctx.sfx('ui_tap', 0.5);
+      ctx.app.root.querySelector('.screen.scroll')?.scrollTo?.(0, 0);
+      ctx.rerender();
     },
   },
 };

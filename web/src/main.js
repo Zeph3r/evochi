@@ -42,6 +42,8 @@ async function boot(hotData = {}) {
     const M = manifest();
     const s = store.state;
     const critical = [M.titles.wordmark_evochi.file, M.icons.coin, M.icons.home, M.icons.heart, M.thumbs.file];
+    // the kit's materials (kit.css): decoded up front so the first screen switch never waits on them
+    critical.push(...['paper_grain', 'wood_light', 'wood_mid', 'wood_dark', 'frame_wood', 'frame_cloth', 'cloth_weave'].map((n) => `ui/${n}.png`));
     const hab = !s.player ? 'welcome' : 'meadow';
     for (const l of Object.values(M.habitats[hab].layers)) critical.push(l);
     let done = 0;

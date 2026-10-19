@@ -192,7 +192,7 @@ export function startGuest(state, now, tz) {
   s.player = {
     id: uid('player'), accountType: 'guest', email: null, timezone: tz || s.tzHint || 'UTC', createdAt: now,
     goal: CONFIG.goal.default, goalHistory: [],
-    settings: { sound: true, music: true, haptics: true, reducedMotion: false, notifications: false, quietStart: 21, quietEnd: 8, analytics: false },
+    settings: { sound: true, music: true, haptics: true, reducedMotion: false, notifications: false, quietStart: 21, quietEnd: 8, analytics: false, largeText: false, devTools: true },
   };
   s.onboarding.step = 'create';
   return ok(s, [{ type: 'player_created' }]);

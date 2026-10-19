@@ -230,24 +230,52 @@ sprites are sized by the scene's perspective.
   you; violet crystals and crackle are the Hollow. A hit tints light creatures gold and brightens dark
   ones, never a white silhouette.
 
-## The game-native kit (windows as props)
+## The Evochi Game UI Kit (the visual foundation)
 
 The interface is built from crafted materials instead of flat web panels (`web/src/kit.css`, loaded
-after `styles.css`; the Flutter app mirrors it in `lib/features/shared/kit.dart`):
+after `styles.css`; the Flutter app mirrors it in `lib/features/shared/kit.dart`). This is the locked
+visual language: new systems (the Lumen Wilds, dungeons, crafting) use these pieces rather than new
+directions.
 
-- **Windows** (modals and sheets, the Bag, the Market, the encounter's action panel) sit in a carved
-  9-slice frame with brass rivets and leaf sprigs over the top corners, around parchment.
-- **Cards** are printed card stock: paper grain, a thin double rule inside the edge and a thick bottom
-  edge. **Slots** (item tiles, equipment boxes) are inset pockets with a gold ring when chosen.
-- **Signs**: page titles are nailed wooden plaques, back and square buttons are light wood, the coin
-  purse is dark wood, tabs are wooden plaques whose chosen one lifts and lights, and the bottom nav is
-  a carved wooden bar with the current screen raised on a parchment plaque.
-- **Buttons** have a dark outline, a gloss strip and a thick edge, and sink when pressed. Section
-  heads get a leaf bullet and a stitched rule; progress bars are carved grooves.
-- **Each screen has a material** (`#app[data-screen]`): Journey is an explorer's journal (ruled
-  pages, leather bookmark tabs), the Bag a satchel (canvas, stitched pockets), the Market a stall
-  (awning, shelf cards, prices on wooden tags), the Village and Guild a notice board (pinned papers),
-  the Kitchen a recipe book, the Apothecary plum wood and lavender paper, the EvoDex a binder.
+**Palette** (named for the kit, reconciled with the canonical style-guide tokens; where the two were
+within a shade, the canonical value is kept):
+
+| Token | Value | Use |
+| --- | --- | --- |
+| Wood frame | `#8B5939` (frames paint `#B8783F` → `#8E5428`, ink `#4A2A14`) | primary windows, plaques, tabs, nav |
+| Parchment | `#F8EBD5` (cards `#FFF8E8` → `#F6E6C8`) | content surfaces |
+| Warm gold | `#F4B84E` (`--gold-500`) | primary buttons, the chosen tab and slot |
+| Meadow green | `#82B75E` (`--meadow-500`) | positive actions (Give, Plant, Cook) |
+| Alchemist violet | `#AA8BCF` (`--violet-400`), plum `#6E4A78` | magical actions (Brew), the Apothecary, the Hollow |
+| Deep cocoa | `#3B2923` text, `#473025` / `#4A2A14` outlines | text and outlines |
+
+**Three levels of framing**, so not every rectangle wears a thick border:
+1. **Window**: a carved 9-slice frame with brass rivets and leaf sprigs (modals and sheets, the Bag,
+   the Market, the encounter's action panel). A few per screen at most.
+2. **Card**: printed card stock (paper grain, a thin double rule, a thick bottom edge): the content you
+   act on. **Slots** (item tiles, equipment boxes) are inset pockets with a gold ring when chosen.
+3. **Inset**: a pressed-in parchment panel holding plain rows split by stitched rules
+   (`.card.inset`, `.mini-list`): secondary information, finished quests, what's coming next.
+
+**Four window variants** share the type, buttons, spacing and icons, and each gets an accent:
+- **Standard wood and parchment**: Home, Bag (satchel canvas and stitched pockets), Market (awning,
+  shelf cards, prices on wooden tags), Village and Trail Guild (a notice board with pinned papers).
+- **Journal**: story quests, discoveries, EvoDex, Skills (ruled pages, leather bookmark tabs).
+- **Crafting / workbench**: Kitchen (warm, recipe cards), Apothecary (plum wood, lavender paper),
+  Farming. Cooking and brewing happen at the station: choosing a recipe pushes the camera in on the
+  oven or cauldron, the ingredients drop in, the timing gauge plays over the fire, and the dish pops out
+  before the reward card (`u.cook` in `screens/homeland.js`; a fuller minigame can replace the gauge).
+- **Encounter / adventure**: battle, encounter preparation, rewards, and next the Wilderness HUD.
+
+**Signs and controls**: page titles are nailed wooden plaques; back and square buttons are light wood;
+the coin purse is dark wood; tabs are wooden plaques whose chosen one lifts and lights; the bottom nav
+is a carved wooden bar. Buttons have a dark outline, a gloss strip and a thick edge, and sink when
+pressed. Section heads get a leaf bullet and a stitched rule; progress bars are carved grooves;
+switches are brass knobs in a groove.
+
+**Readability**: nothing below 12 px; secondary text is 13 px. Profile > Larger text raises labels,
+descriptions and item text across the game. Profile > Developer tools hides the web preview's step
+simulator and playtest shortcuts, so you can see Evochi as players will.
 
 The materials are painted procedurally: `python3 tools/ui_textures.py web/public/assets/ui` writes the
 wood planks, paper grain, canvas weave and the four frames (wood, plum, leather, canvas).

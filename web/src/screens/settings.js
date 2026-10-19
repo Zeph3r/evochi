@@ -64,6 +64,7 @@ export const settings = {
           <div class="setting"><div class="grow"><div class="t">Sound effects</div></div>${sw(st.sound, 'toggle', 'Sound effects', 'ts')}</div>
           <div class="setting"><div class="grow"><div class="t">Ambient music</div></div>${sw(st.music, 'toggle', 'Ambient music', 'tm')}</div>
           <div class="setting"><div class="grow"><div class="t">Haptics</div></div>${sw(st.haptics, 'toggle', 'Haptics', 'th')}</div>
+          <div class="setting"><div class="grow"><div class="t">Larger text</div><div class="d">Bigger labels, descriptions and item text everywhere.</div></div>${sw(st.largeText, 'toggle', 'Larger text', 'tx')}</div>
           <div class="setting"><div class="grow"><div class="t">Reduce motion</div><div class="d">Crossfades instead of bounces, flashes and particles.</div></div>${sw(st.reducedMotion, 'toggle', 'Reduce motion', 'tr')}</div>
           <div class="setting"><div class="grow"><div class="t">Classic villagers</div><div class="d">Flat, evenly lit villagers instead of ones lit by each room's lanterns and windows.</div></div>${sw(st.classicVillagers, 'toggle', 'Classic villagers', 'tv')}</div>
         </section>
@@ -75,6 +76,9 @@ export const settings = {
           <div class="setting"><img src="${icon('lock')}" alt="" width="30" height="30"><div class="grow"><div class="t">Privacy & data</div><div class="d">Evochi stores daily step totals and game progress. Nothing leaves this device in the web preview.</div></div></div>
           <div class="setting"><div class="grow"><div class="t">Share anonymous usage events</div><div class="d">Product events only (no raw health data). Kept locally here.</div></div>${sw(st.analytics, 'toggle', 'Share usage events', 'ta')}</div>
           <div class="row" style="padding:0 12px 12px;gap:8px;flex-wrap:wrap"><button class="btn sm cream" data-act="export" data-k="exp">Export my data</button><button class="btn sm danger" data-act="delete" data-k="del">Delete all data</button></div>
+        </section>
+        <section class="card" aria-label="Developer tools">
+          <div class="setting"><img src="${icon('settings')}" alt="" width="30" height="30"><div class="grow"><div class="t">Developer tools</div><div class="d">The step simulator in Journey and the playtest shortcuts below. Turn them off to see Evochi as players will.</div></div>${sw(st.devTools !== false, 'toggle', 'Developer tools', 'td')}</div>
         </section>
         <section class="card dev" aria-label="Playtest tools">
           <div class="setting"><img src="${icon('warning')}" alt="" width="30" height="30"><div class="grow"><div class="t">Playtest tools</div><div class="d">Preview-only shortcuts for testing progression. Clock offset: +${offDays} day${offDays === 1 ? '' : 's'}.</div></div></div>
@@ -125,9 +129,9 @@ export const settings = {
   },
   actions: {
     toggle(ctx, arg, el) {
-      const k = { tn: 'notifications', ts: 'sound', tm: 'music', th: 'haptics', tr: 'reducedMotion', ta: 'analytics', tv: 'classicVillagers' }[el.dataset.k];
+      const k = { tn: 'notifications', ts: 'sound', tm: 'music', th: 'haptics', tr: 'reducedMotion', ta: 'analytics', tv: 'classicVillagers', tx: 'largeText', td: 'devTools' }[el.dataset.k];
       const st = ctx.state.player.settings;
-      ctx.act(G.updateSettings, { [k]: !st[k] });
+      ctx.act(G.updateSettings, { [k]: k === 'devTools' ? st.devTools === false : !st[k] });
       ctx.app.applySettings();
       ctx.app.sceneSig = null;
       if (k === 'notifications' && !st[k]) ctx.toast('Reminder on. Your progress never depends on notifications.', 'ok', 'bell');
