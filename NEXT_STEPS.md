@@ -1,6 +1,8 @@
 # Next steps (handoff)
 
-The latest work is the encounter rework: the battle shot (your Evochi from behind, the wild one
+The latest work is the fight rework: every move in four beats (wind-up, action, impact with a
+hit-stop, recovery) and a canvas particle engine (`web/src/ui/fx.js`, ported to Flutter as
+`stage_fx.dart`); the four encounter Shorts were re-recorded with it. Before that, the encounter rework: the battle shot (your Evochi from behind, the wild one
 facing it, low Blender cameras), camera moves and ability effects, the Sentinel's awakening, encounter
 music, and the encounter UI after the Encounter UI Redesign board. Before that: Lumen Trails (daily
 discoveries, the Trail Guild, encounters and companions). README.md covers the project, the art
@@ -9,7 +11,10 @@ pipeline and how to build.
 ## Not verified yet
 
 - **Flutter build.** Home Tales and the Lumen Trails were ported to Flutter but, like the rest of
-  the Flutter client, only syntax-checked, never compiled. Run `flutter pub get`, `flutter analyze`
+  the Flutter client, only syntax-checked, never compiled. That includes the newest port, the fight
+  choreography and the effects engine (`features/trails/stage_fx.dart`, the hit-stop clock in
+  `encounter_stage.dart`): play a Lumen Glow turn and the Hollow Sprout's finish and compare the
+  timing with `web/` frame by frame. Run `flutter pub get`, `flutter analyze`
   and `flutter test` in `flutter/`, then play Explore Home → Garden, the Cottage restoration, a daily
   discovery and the first encounter, and compare with the web build. See the "Home Tales" and
   "Lumen Trails" sections of `flutter/README.md` for the files.
