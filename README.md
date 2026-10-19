@@ -281,6 +281,25 @@ The materials are painted procedurally: `python3 tools/ui_textures.py web/public
 wood planks, paper grain, canvas weave and the four frames (wood, plum, leather, canvas).
 `tools/ui_tour.mjs` screenshots every screen with a seeded mid-game save for reviews.
 
+### The Market: browse, details, try on
+
+The Market has three parts, so you browse in one place and preview in another:
+
+- **Browse**: the sign, tabs, search and sort stay fixed. Below them, a market stall under a striped awning
+  holds a two-column catalog, and only the inside of the stall scrolls. Each card shows the item, its
+  slot or type, its rarity and one footer: a price tag, a dimmed price when you're short of coins, Owned,
+  or Equipped / In your nest. Featured opens with one hero offer (your Evochi wearing it), then a curated
+  shelf. The Market keeps your scroll position through sheets, previews and tab switches.
+- **Details**: a sheet with the right preview for each kind of item. Wearables show your Evochi from three
+  sides. Care items show their effects and your Evochi's reaction. Habitat pieces say where they go.
+  Seeds show the growth stages, time, harvest, Farming level and the recipes that use the crop.
+- **Try on**: the Dressing Room shows wearables full screen. You can turn between the 3/4 view, its
+  mirror and the back view, zoom in on the slot, compare with and without the item, then buy, equip or
+  take it off from the panel. Habitat pieces get a nest preview with the piece in its spot.
+
+The purchase rules don't change: one confirmation, a single request id, no double charges. Slots are
+labelled Head, Neck and Back everywhere.
+
 ## Asset pack contents
 
 - **Characters:**

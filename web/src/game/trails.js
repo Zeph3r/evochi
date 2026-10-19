@@ -560,7 +560,9 @@ export function completeEncounter(state, now) {
   const t = q.turnIns.find((x) => x.encounter);
   let s = clone(state);
   ensureTrails(s).encounter = null;
-  const r = storyHandIn(s, e.quest, t.id, now);
+  // a Lantern Tonic (or Glowleaf) offered during the fight counts as the one you brought: winning with
+  // every tonic spent must still finish the quest
+  const r = storyHandIn(s, e.quest, t.id, now, { spent: e.used || {} });
   if (r.error) return fail(state, r.error, r);
   s = r.state;
   const events = [...r.events];

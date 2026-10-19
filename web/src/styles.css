@@ -1516,3 +1516,11 @@ img { -webkit-user-drag: none; user-select: none; }
 .travel-motes.hollow i { background: #E0CCFF; box-shadow: 0 0 10px 3px rgba(170,110,255,0.8); }
 @keyframes travelMote { 0% { transform: translate(0, 0); opacity: 0; } 20% { opacity: 0.95; } 100% { transform: translate(14px, -46vh); opacity: 0; } }
 .reduced-motion .travel-motes, .reduced-motion .ds-pic .motes { display: none; }
+/* result title: two outlined lines need air between them (the outline and drop shadow collided at 0.98) */
+.big-title.small { line-height: 1.1; gap: 3px; padding-top: 4px; }
+.big-title.small .big { font-size: clamp(30px, 9.4vw, 38px); }
+.big-title.small .z { font-size: clamp(25px, 7.6vw, 31px); }
+/* five rewards fit one row down to 360 wide (the Sentinel's list wrapped a lone tile) */
+.rs-tiles { grid-template-columns: repeat(auto-fit, minmax(50px, 1fr)); gap: 8px 4px; }
+.rs-tile .pic { width: clamp(48px, 13.6cqw, 58px); height: clamp(48px, 13.6cqw, 58px); }
+.rs-tile .pic img { width: 82%; height: 82%; }

@@ -1009,7 +1009,9 @@ ActionResult completeEncounter(GameState state, int now) {
   final t = q.turnIns.firstWhere((x) => x.encounter != null);
   var s = state.copy();
   s.trails.encounter = null;
-  final r = story.storyHandIn(s, e.quest, t.id, now);
+  // a Lantern Tonic (or Glowleaf) offered during the fight counts as the one you brought: winning with
+  // every tonic spent must still finish the quest
+  final r = story.storyHandIn(s, e.quest, t.id, now, spent: Map<String, int>.from(e.used));
   if (!r.ok) return _fail(state, r.error!, r.info);
   s = r.state;
   return _ok(s, [

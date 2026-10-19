@@ -311,6 +311,33 @@ test('Tangled Lumen: a Hollow is restored (Instability to 0); Glowleaf is requir
   assert.equal(G.ownedQty(s2, 'lumen_shard'), G.ownedQty(s, 'lumen_shard') - 1);
 });
 
+test('The Forgotten Sentinel: winning with every Lantern Tonic spent still finishes the quest', () => {
+  let s = freshPet();
+  s = levelUp(s, 6, T0);
+  const now = T0 + HOUR;
+  s = structuredClone(s);
+  for (const id of ['vq01', 'vq02', 'vq03', 'hq01', 'eq01', 'eq02']) {
+    s.story.questStates[id] = { phase: 'completed', acceptedAt: now - HOUR, completedAt: now, resolvedSteps: 1000, seenCompletion: true };
+    s.story.claimedRewards.push(id);
+  }
+  Object.assign(s.story.flags, { lamp_lit: true, waystone_revealed: true, waystone_restored: true, cottage_restored: true, petalune_befriended: true, sprout_restored: true });
+  s = must(Q.markNpcMet(s, 'waystone_map'));
+  s = must(Q.acceptStoryQuest(s, 'eq03', now));
+  s = G.syncSteps(s, walkAt(now + MIN, 3100, 'eq03'), now + 2 * HOUR).state;
+  s = give(s, 'lantern_tonic', 1);
+  s = must(TR.startEncounter(s, 'eq03', now + 2 * HOUR));
+  // offer the only tonic in the fight
+  [s] = playOut(s, now + 2 * HOUR, { item: 'lantern_tonic' });
+  assert.equal(TR.encounterView(s, now).done, 'success');
+  assert.equal(G.ownedQty(s, 'lantern_tonic'), 0);
+  // the gate accepts the tonic you already gave the Sentinel: no "you still need 1 more Lantern Tonic"
+  s = must(TR.completeEncounter(s, now + 3 * HOUR));
+  assert.equal(Q.questPhase(s, 'eq03'), 'completed');
+  assert.equal(TR.encounterView(s, now), null);
+  assert.equal(G.ownedQty(s, 'lantern_tonic'), 0);
+  // and the Bag still pays first when it can: two tonics, one offered, one taken at the gate (the test below)
+});
+
 test('The Forgotten Sentinel: after the Waystone, a long restore with a second phase; the relic and title', () => {
   let s = freshPet();
   s = levelUp(s, 6, T0);

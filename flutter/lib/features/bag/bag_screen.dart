@@ -52,7 +52,7 @@ const _catIcon = {
   ItemCategory.seed: 'skill_farming',
   ItemCategory.ingredient: 'skill_cooking',
 };
-const _slotUi = {'head': 'Head', 'back': 'Back', 'neck': 'Accessory'};
+const _slotUi = {'head': 'Head', 'back': 'Back', 'neck': 'Neck'};
 
 /// "Uncommon" with a leaf, or the gold "Story reward" label.
 Widget _rarityTag(CatalogItem it) => it.isStory ? const StoryRewardTag(small: true) : Tag(it.rarity[0].toUpperCase() + it.rarity.substring(1), tone: TagTone.ok, icon: 'care');

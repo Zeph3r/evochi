@@ -499,11 +499,12 @@ function hasItems(state, consume) {
   return Object.entries(consume || {}).every(([id, n]) => pouchQty(state, id) >= n);
 }
 
-/** Inventory items a hand-in asks for (harvests, homemade food), and what's still missing. */
-export function itemNeeds(state, t) {
+/** Inventory items a hand-in asks for (harvests, homemade food), and what's still missing.
+ *  `spent` counts items already given at the place (offered during its encounter): they did the job. */
+export function itemNeeds(state, t, spent = {}) {
   const out = [];
   for (const [id, n] of Object.entries(t?.consumeItems || {})) {
-    const have = ownedQty(state, id);
+    const have = ownedQty(state, id) + (spent[id] || 0);
     out.push({ id, need: n, have: Math.min(have, n), ok: have >= n });
   }
   return out;
@@ -514,7 +515,7 @@ function stageOk(state, t) {
 }
 
 /** Give quest items to an NPC (or the Waystone). Transactional and idempotent. */
-export function storyHandIn(state, qid, turnInId, now) {
+export function storyHandIn(state, qid, turnInId, now, { spent = {} } = {}) {
   const q = QUESTS[qid];
   const t = q?.turnIns.find((x) => x.id === turnInId);
   if (!t) return fail(state, 'unknown_turnin');
@@ -523,7 +524,7 @@ export function storyHandIn(state, qid, turnInId, now) {
   if (phaseIndex(q, st.phase) > phaseIndex(q, t.from)) return ok(state, [{ type: 'story_already', questId: qid, turnIn: turnInId }]);
   if (st.phase !== t.from) return fail(state, 'story_not_ready');
   if (!hasItems(state, t.consume)) return fail(state, 'story_missing_items');
-  const short = itemNeeds(state, t).filter((x) => !x.ok);
+  const short = itemNeeds(state, t, spent).filter((x) => !x.ok);
   if (short.length) return fail(state, 'story_missing_items', { missing: short });
   if (!stageOk(state, t)) return fail(state, 'story_needs_stage', { stage: t.requireStage });
   const s = clone(state);
@@ -533,7 +534,11 @@ export function storyHandIn(state, qid, turnInId, now) {
     S.questPouch[id] -= n;
     if (S.questPouch[id] <= 0) delete S.questPouch[id];
   }
-  for (const [id, n] of Object.entries(t.consumeItems || {})) s.inventory[id].quantity -= n;
+  for (const [id, n] of Object.entries(t.consumeItems || {})) {
+    // from the Bag first (as always); only a shortfall is covered by what was already offered at the place
+    const take = Math.min(n, ownedQty(s, id));
+    if (take) s.inventory[id].quantity -= take;
+  }
   events.push({ type: 'story_handin', questId: qid, turnIn: turnInId, npc: t.npc, consumed: t.consume });
   addPouch(s, t.grant, events, qid, now);
   for (const f of t.flags || []) S.flags[f] = true;

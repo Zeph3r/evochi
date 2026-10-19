@@ -226,14 +226,16 @@ class ItemNeed {
 }
 
 /// Inventory items a hand-in asks for (harvests, homemade food), and what's still missing.
-List<ItemNeed> itemNeeds(GameState s, TurnIn? t) => [
-      for (final e in (t?.consumeItems ?? const <String, int>{}).entries) ItemNeed(e.key, e.value, math.min(g.ownedQty(s, e.key), e.value)),
+/// [spent] counts items already given at the place (offered during its encounter): they did the job.
+List<ItemNeed> itemNeeds(GameState s, TurnIn? t, [Map<String, int> spent = const {}]) => [
+      for (final e in (t?.consumeItems ?? const <String, int>{}).entries)
+        ItemNeed(e.key, e.value, math.min(g.ownedQty(s, e.key) + (spent[e.key] ?? 0), e.value)),
     ];
 
 bool _stageOk(GameState s, TurnIn? t) => t == null || t.requireStage <= 0 || (s.pet?.stage ?? 0) >= t.requireStage;
 
 /// Give quest items to a villager (or the Waystone, or your Cottage). Transactional and idempotent.
-g.ActionResult storyHandIn(GameState state, String qid, String turnInId, int now) {
+g.ActionResult storyHandIn(GameState state, String qid, String turnInId, int now, {Map<String, int> spent = const {}}) {
   final q = storyQuests[qid];
   final t = q?.turnIns.where((x) => x.id == turnInId).firstOrNull;
   if (q == null || t == null) return _fail(state, 'unknown_turnin');
@@ -244,7 +246,7 @@ g.ActionResult storyHandIn(GameState state, String qid, String turnInId, int now
   }
   if (st.phase != t.from) return _fail(state, 'story_not_ready');
   if (!_hasItems(state, t.consume)) return _fail(state, 'story_missing_items');
-  final short = itemNeeds(state, t).where((x) => !x.ok).toList();
+  final short = itemNeeds(state, t, spent).where((x) => !x.ok).toList();
   if (short.isNotEmpty) return _fail(state, 'story_missing_items', {'missing': short});
   if (!_stageOk(state, t)) return _fail(state, 'story_needs_stage', {'stage': t.requireStage});
   final s = state.copy();
@@ -258,7 +260,11 @@ g.ActionResult storyHandIn(GameState state, String qid, String turnInId, int now
       story.questPouch[id] = left;
     }
   });
-  t.consumeItems.forEach((id, n) => s.inventory[id]!.quantity -= n);
+  t.consumeItems.forEach((id, n) {
+    // from the Bag first (as always); only a shortfall is covered by what was already offered at the place
+    final take = math.min(n, g.ownedQty(s, id));
+    if (take > 0) s.inventory[id]!.quantity -= take;
+  });
   events.add(g.GameEvent('story_handin', {'questId': qid, 'turnIn': turnInId, 'npc': t.npc, 'consumed': t.consume}));
   _addPouch(s, t.grant, events, qid);
   for (final f in t.flags) {

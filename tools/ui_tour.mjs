@@ -75,7 +75,10 @@ await tab('bag', { cat: 'consumable', sel: 'sunberry_tart' }); await shot('bag_c
 await tab('bag', { cat: 'pantry' }); await shot('bag_pantry');
 await tab('shop', { cat: 'featured' }); await shot('shop_featured');
 await tab('shop', { cat: 'wearables' }); await shot('shop_wear');
-await click('buy'); await shot('shop_buy_modal', 600);
+await click('p-tiny_crown'); await shot('shop_details', 700);
+await click('try'); await shot('shop_try', 1200);
+await click('try-buy'); await shot('shop_buy_modal', 600);
+await run(() => { const { app } = window.__evochi; app.closeAllModals(); app.ui.shop = { cat: 'wearables' }; });
 await go('evodex'); await shot('evodex');
 await go('settings'); await shot('settings');
 await go('village'); await shot('village', 1400);
