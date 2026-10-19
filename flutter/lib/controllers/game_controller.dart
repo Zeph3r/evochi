@@ -58,6 +58,7 @@ class GameController extends ChangeNotifier {
   String journeyTab = 'daily'; // daily | weekly | story | skills
   bool storyDoneOpen = false; // Journey > Story: the completed stories unfolded
   String? bagCategoryRequest; // e.g. 'pouch'
+  String? bagItemRequest; // the item to pick there (the Market's "View in Bag")
 
   /// Profile > Developer tools: the step simulator, the Garden's time skip and the playtest shortcuts.
   bool get devTools => state.player?.settings.devTools ?? false;
@@ -117,9 +118,10 @@ class GameController extends ChangeNotifier {
   }
 
   /// Switch the main tab from anywhere (closes pushed screens first; see MainShell).
-  void goTab(String tab, {String? journey, String? bag}) {
+  void goTab(String tab, {String? journey, String? bag, String? bagItem}) {
     if (journey != null) journeyTab = journey;
     if (bag != null) bagCategoryRequest = bag;
+    if (bagItem != null) bagItemRequest = bagItem;
     tabRequest.value = null;
     tabRequest.value = tab;
     notifyListeners();

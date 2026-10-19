@@ -27,8 +27,15 @@ pipeline and how to build.
   The UX pass on top of it (Journey order, the Bag's dressing room, the cooking station, Larger text,
   Developer tools) is uncompiled too; check `EvochiTextScaler` in `app/theme.dart`, `ListenableBuilder`
   in `shared/scene_scaffold.dart` and `Image.asset(opacity:)` in `home/station_screen.dart` first.
+- **Flutter: the Market redesign** (`lib/features/shop/`: `shop_screen.dart`, `market_kit.dart`,
+  `market_catalog.dart`, `market_details.dart`, `market_preview.dart`) is uncompiled. Run
+  `flutter test test/trails_test.dart` for the new Sentinel hand-in test, then walk the same path as
+  `market_check`: browse each tab, search and sort, open a sheet, the Dressing Room (three views, zoom,
+  Show original, buy, Equip Now, Take off), Preview in Nest, and View in Bag. Check that the catalog
+  keeps its scroll position after a preview and after switching tabs. The hero offer is hard-wired to
+  `golden_crest_crown` because the Dart catalog has no `hero` flag.
 - The web build is the reference. Run `cd web && node build.mjs`, serve `web/dist`, and play. Web
-  tests: `npm test` (65 pass). Phone-size playthroughs (Home Tales: walk → plant → harvest → Bram →
+  tests: `npm test` (66 pass). Phone-size playthroughs (Home Tales: walk → plant → harvest → Bram →
   cottage → cook → Mira → Apothecary; Lumen Trails: discovery → Guild → Pip → prep → travel →
   encounter → reward → companion, then the Hollow Sprout and the Sentinel) run clean with no page
   errors at 390 and 360 px.

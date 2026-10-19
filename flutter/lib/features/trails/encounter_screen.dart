@@ -1324,7 +1324,11 @@ class _EncounterScreenState extends State<EncounterScreen> {
     ];
     final used = v.used.entries.map((e) => '${catalog[e.key]?.name ?? e.key}${e.value > 1 ? ' ×${e.value}' : ''}').join(', ');
     final (tint, outline) = befriend ? (const Color(0xFF74CC46), const Color(0xFF2C5A1C)) : (const Color(0xFFFFCD4A), const Color(0xFF8A5A12));
-    final size = (MediaQuery.of(context).size.width * 0.10).clamp(30.0, 40.0);
+    // two outlined lines need air between them (at 0.98 the outline and drop of "The Sentinel" collided
+    // with "Is Restored!"): 1.1 line height, 3 px apart, and the second line a size down
+    final sw = MediaQuery.of(context).size.width;
+    final bigSize = (sw * 0.094).clamp(30.0, 38.0).toDouble();
+    final zSize = (sw * 0.076).clamp(25.0, 31.0).toDouble();
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
       Semantics(
         container: true,
@@ -1338,10 +1342,14 @@ class _EncounterScreenState extends State<EncounterScreen> {
               header: true,
               label: '$big $z',
               child: ExcludeSemantics(
-                child: Column(children: [
-                  _Entrance(delay: 120, ms: 600, stamp: true, rm: _rm, child: _OutlinedText(big, size: size, tint: tint, outline: outline, stroke: 3, drop: 5, dropColor: const Color(0x2E000000))),
-                  _Entrance(delay: 260, ms: 500, stamp: true, rm: _rm, child: _OutlinedText(z, size: size, tint: tint, outline: outline, stroke: 3, drop: 5, dropColor: const Color(0x2E000000))),
-                ]),
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Column(children: [
+                    _Entrance(delay: 120, ms: 600, stamp: true, rm: _rm, child: _OutlinedText(big, size: bigSize, tint: tint, outline: outline, stroke: 3, drop: 5, dropColor: const Color(0x2E000000), height: 1.1)),
+                    const SizedBox(height: 3),
+                    _Entrance(delay: 260, ms: 500, stamp: true, rm: _rm, child: _OutlinedText(z, size: zSize, tint: tint, outline: outline, stroke: 3, drop: 5, dropColor: const Color(0x2E000000), height: 1.1)),
+                  ]),
+                ),
               ),
             ),
             const SizedBox(height: 8),
@@ -1460,7 +1468,8 @@ class _EntranceState extends State<_Entrance> with SingleTickerProviderStateMixi
 /// A big game title line with a thick outline and a drop shadow (the web's stacked text-shadows):
 /// the shadow, then the outline as a stroke, then the fill.
 class _OutlinedText extends StatelessWidget {
-  const _OutlinedText(this.text, {required this.size, required this.tint, required this.outline, required this.stroke, required this.drop, this.dropColor = const Color(0x47000000), this.letterSpacing = 0});
+  const _OutlinedText(this.text,
+      {required this.size, required this.tint, required this.outline, required this.stroke, required this.drop, this.dropColor = const Color(0x47000000), this.letterSpacing = 0, this.height = 0.98});
   final String text;
   final double size;
   final Color tint; // the letters' colour
@@ -1469,9 +1478,10 @@ class _OutlinedText extends StatelessWidget {
   final double drop; // the drop shadow's offset down
   final Color dropColor;
   final double letterSpacing;
+  final double height; // line height (the result card's two lines want 1.1)
   @override
   Widget build(BuildContext context) {
-    final base = TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: size, height: 0.98, letterSpacing: letterSpacing);
+    final base = TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: size, height: height, letterSpacing: letterSpacing);
     return Stack(children: [
       Transform.translate(offset: Offset(0, drop), child: Text(text, textAlign: TextAlign.center, style: base.copyWith(color: dropColor))),
       Text(
@@ -1639,18 +1649,22 @@ class _ResultTile {
   final bool hl; // the creature itself, highlighted
 }
 
-/// The result's reward tiles in a wrapping grid (auto-fit columns of at least 56px that share the row).
+/// The result's reward tiles in a wrapping grid (auto-fit columns of at least 50px that share the row):
+/// five fit one row down to 360 wide (the Sentinel's list used to wrap a lone tile).
 class _ResultTiles extends StatelessWidget {
   const _ResultTiles({required this.tiles, required this.restore});
   final List<_ResultTile> tiles;
   final bool restore;
   @override
   Widget build(BuildContext context) => LayoutBuilder(builder: (ctx, box) {
-        const gapX = 6.0, gapY = 8.0;
+        const gapX = 4.0, gapY = 8.0;
         final w = box.maxWidth - 4;
-        final cols = math.max(1, ((w + gapX) / (56 + gapX)).floor());
+        final cols = math.max(1, ((w + gapX) / (50 + gapX)).floor());
         final per = math.min(cols, math.max(1, tiles.length));
         final tw = (w - gapX * (per - 1)) / per;
+        // the picture: clamp(48px, 13.6% of the screen, 58px), the art 82% of it
+        final pic = math.min(tw, (MediaQuery.of(ctx).size.width * 0.136).clamp(48.0, 58.0).toDouble());
+        final inner = pic * 0.82;
         return Padding(
           padding: const EdgeInsets.fromLTRB(2, 2, 2, 4),
           child: Wrap(spacing: gapX, runSpacing: gapY, children: [
@@ -1662,8 +1676,8 @@ class _ResultTiles extends StatelessWidget {
                   child: ExcludeSemantics(
                     child: Column(mainAxisSize: MainAxisSize.min, children: [
                       Container(
-                        width: 58,
-                        height: 58,
+                        width: pic,
+                        height: pic,
                         alignment: Alignment.center,
                         decoration: t.hl
                             ? BoxDecoration(
@@ -1673,7 +1687,7 @@ class _ResultTiles extends StatelessWidget {
                                 boxShadow: [BoxShadow(color: restore ? const Color(0xFFB4874F) : const Color(0xFF6E9A4E), offset: const Offset(0, 2))],
                               )
                             : Kit.slot(radius: 14),
-                        child: t.item != null ? ItemImage(t.item!, size: 48) : VoxelIcon(t.icon ?? 'star', size: 48),
+                        child: t.item != null ? ItemImage(t.item!, size: inner) : VoxelIcon(t.icon ?? 'star', size: inner),
                       ),
                       const SizedBox(height: 2),
                       Text(t.name, textAlign: TextAlign.center, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 12.5, height: 1.15, color: EvochiColor.ink)),

@@ -112,6 +112,11 @@ class _BagScreenState extends State<BagScreen> {
       _sel = null;
       _more = false;
     }
+    final reqItem = c.bagItemRequest;
+    if (reqItem != null) {
+      c.bagItemRequest = null;
+      _sel = reqItem; // (dropped below if it isn't in this pocket)
+    }
     final pet = c.state.pet!;
     final v = c.view;
     final list = _pouch ? const <String>[] : _owned(c, _cat);

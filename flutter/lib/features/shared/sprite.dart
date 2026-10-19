@@ -35,6 +35,7 @@ class _PetSpriteState extends State<PetSprite> {
   ui.Image? _img;
   ui.Image? _ov;
   Rect? _src;
+  int _req = 0; // only the latest load lands
 
   @override
   void initState() {
@@ -45,10 +46,19 @@ class _PetSpriteState extends State<PetSprite> {
   @override
   void didUpdateWidget(PetSprite old) {
     super.didUpdateWidget(old);
-    if (old.stage != widget.stage || old.palette != widget.palette || old.expr != widget.expr || old.view != widget.view) _load();
+    // (the overlays and the size decide which sheet it draws from: a preview turning a piece on or off)
+    if (old.stage != widget.stage ||
+        old.palette != widget.palette ||
+        old.expr != widget.expr ||
+        old.view != widget.view ||
+        old.overlays.join('+') != widget.overlays.join('+') ||
+        (old.height <= 150) != (widget.height <= 150)) {
+      _load();
+    }
   }
 
   Future<void> _load() async {
+    final req = ++_req;
     final m = AssetManifest.instance!;
     final e = m.char(widget.stage);
     String file;
@@ -67,7 +77,7 @@ class _PetSpriteState extends State<PetSprite> {
     final img = await AtlasCache.load(file);
     ui.Image? ov;
     if (widget.overlays.isNotEmpty && widget.view == null) ov = await AtlasCache.load(artBase + e.overlaysFile);
-    if (!mounted) return;
+    if (!mounted || req != _req) return;
     setState(() {
       _img = img;
       _ov = ov;

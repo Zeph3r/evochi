@@ -408,6 +408,35 @@ void main() {
     expect(g.ownedQty(s2, 'lumen_shard'), g.ownedQty(s, 'lumen_shard') - 1);
   });
 
+  test('The Forgotten Sentinel: winning with every Lantern Tonic spent still finishes the quest', () {
+    var s = freshPet();
+    s = levelUp(s, 6, t0);
+    final now = t0 + hourMs;
+    s = s.copy();
+    for (final id in ['vq01', 'vq02', 'vq03', 'hq01', 'eq01', 'eq02']) {
+      s.story.questStates[id] = doneState(now, seen: true);
+      s.story.claimedRewards.add(id);
+    }
+    for (final f in ['lamp_lit', 'waystone_revealed', 'waystone_restored', 'cottage_restored', 'petalune_befriended', 'sprout_restored']) {
+      s.story.flags[f] = true;
+    }
+    s = must(q.markNpcMet(s, 'waystone_map'));
+    s = must(q.acceptStoryQuest(s, 'eq03', now));
+    s = sync(s, walkAt(now + minMs, 3100, 'eq03'), now + 2 * hourMs).state;
+    s = give(s, 'lantern_tonic', 1);
+    s = must(tr.startEncounter(s, 'eq03', now + 2 * hourMs));
+    // offer the only tonic in the fight
+    (s, _) = playOut(s, now + 2 * hourMs, item: 'lantern_tonic');
+    expect(tr.encounterView(s, now)!.done, 'success');
+    expect(g.ownedQty(s, 'lantern_tonic'), 0);
+    // the gate accepts the tonic you already gave the Sentinel: no "you still need 1 more Lantern Tonic"
+    s = must(tr.completeEncounter(s, now + 3 * hourMs));
+    expect(q.questPhase(s, 'eq03'), 'completed');
+    expect(tr.encounterView(s, now), isNull);
+    expect(g.ownedQty(s, 'lantern_tonic'), 0);
+    // and the Bag still pays first when it can: two tonics, one offered, one taken at the gate (the test below)
+  });
+
   test('The Forgotten Sentinel: after the Waystone, a long restore with a second phase; the relic and title', () {
     var s = freshPet();
     s = levelUp(s, 6, t0);

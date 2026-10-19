@@ -1,5 +1,13 @@
-// S10 Shop / Evochi Market (style guide §12, §18 "Purchase/preview UX"). The Garden shelf sells Home
-// Tales seeds, bought 1, 3 or 5 at a time, with "Plant now" after buying.
+// S10 Shop / Evochi Market (style guide §12, §18; web/src/screens/shop.js). Three experiences instead
+// of one cramped screen:
+//   BROWSE    a fixed sign, five wood tabs and a search / sort row, then one scrolling stall (the
+//             Featured hero offer and two columns of product cards) above the nav (market_catalog.dart)
+//   DETAILS   a sheet per item, shaped by its category (market_details.dart)
+//   TRY-ON    a full-screen dressing room for wearables and the nest preview for habitat pieces
+//             (market_preview.dart)
+// The catalog keeps its scroll position through redraws, the sheet, a preview and a trip to another
+// tab; a new tab, sort or search starts it at the top. The economy, catalog, prices, ownership and the
+// purchase flow are unchanged: one request id per purchase, debounced, x1 / x3 / x5 for seeds and care.
 
 import 'dart:math' as math;
 
@@ -12,13 +20,15 @@ import '../../controllers/game_controller.dart';
 import '../../core/models/catalog.dart';
 import '../../core/utils/ids.dart';
 import '../../game/engine.dart' as g;
-import '../../game/home/home.dart' as h;
 import '../home/home_widgets.dart';
 import '../nest/sheets.dart';
 import '../shared/kit.dart';
-import '../shared/scene_scaffold.dart';
 import '../shared/scene_view.dart';
 import '../shared/widgets.dart';
+import 'market_catalog.dart';
+import 'market_details.dart';
+import 'market_kit.dart';
+import 'market_preview.dart';
 
 const _cats = [
   ('featured', 'Featured', 'star'),
@@ -27,34 +37,7 @@ const _cats = [
   ('habitats', 'Habitats', 'habitats'),
   ('garden', 'Garden', 'skill_farming'),
 ];
-
-List<String> _listFor(String cat) =>
-    catalog.values.where((it) => isShopItem(it.id) && (cat == 'featured' ? it.featured : it.shop == cat)).map((it) => it.id).toList();
-
-(String, String) _tagFor(CatalogItem it) => switch (it.category) {
-      ItemCategory.wearable => (it.slot == 'neck' ? 'Neck' : (slotLabels[it.slot] ?? 'Wearable'), 'wearables'),
-      ItemCategory.consumable => ('Care', 'care'),
-      ItemCategory.decoration => ('Habitat', 'habitats'),
-      ItemCategory.seed => ('Seed', 'skill_farming'),
-      ItemCategory.ingredient => ('Ingredient', 'skill_cooking'),
-    };
-
-/// The stall's shelf cards and the featured card (`.prod`, `.shop-feature`).
-const _shelf = KitPaper(Color(0xFFFFFAEE), Color(0xFFF5E3C0), Color(0xFFA87542), Color(0xFF7A5230), Color(0x61C49660));
-
-/// A price on a light-wood tag.
-Widget _priceTag({required double height, required Widget child, EdgeInsets padding = const EdgeInsets.symmetric(horizontal: 6)}) => Container(
-      height: height,
-      padding: padding,
-      decoration: Kit.wood(radius: 9, border: 2, width: 240, edge: 2, drop: false),
-      child: child,
-    );
-
-const _tints = [
-  [Color(0xFFFFF5D9), Color(0xFFF8E2B0)],
-  [Color(0xFFEFF8E2), Color(0xFFD5EBBC)],
-  [Color(0xFFEAF5FC), Color(0xFFCFE6F6)],
-];
+const _sorts = [('shop', 'Shop order'), ('low', 'Price: low'), ('high', 'Price: high')];
 
 class ShopScreen extends StatefulWidget {
   const ShopScreen({super.key, required this.active});
@@ -65,23 +48,299 @@ class ShopScreen extends StatefulWidget {
 
 class _ShopScreenState extends State<ShopScreen> {
   final _scene = SceneController();
+  final _q = TextEditingController();
+  final _qFocus = FocusNode();
+  late ScrollController _scroll = _newScroll(0);
+  double _scrollY = 0; // where the catalog was, kept while it's off screen
   String _cat = 'featured';
+  String _sort = 'shop';
+  String? _view; // null: the catalog | try: the dressing room | nest: the nest preview
   String? _sel;
-  bool _tryOn = false;
+  bool _showing = true; // the previewed piece on (false: "Show original")
+  String _tview = 'left';
+  bool _zoom = false;
+  int _cheer = 0;
+  DateTime? _enterAt;
+  DateTime? _backAt;
 
-  Future<void> _buy(GameController c, String id) async {
+  GameController get _c => context.read<GameController>();
+
+  @override
+  void initState() {
+    super.initState();
+    _qFocus.addListener(_onFocus);
+  }
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    _qFocus.removeListener(_onFocus);
+    _qFocus.dispose();
+    _q.dispose();
+    super.dispose();
+  }
+
+  ScrollController _newScroll(double at) => ScrollController(initialScrollOffset: at)..addListener(_onScroll);
+
+  void _onScroll() {
+    if (_scroll.hasClients) _scrollY = _scroll.offset;
+  }
+
+  void _onFocus() {
+    if (mounted) setState(() {}); // the search field's gold ring
+  }
+
+  /// Moving between the catalog and a preview plays a short entrance once, not on every redraw.
+  static bool _fresh(DateTime? t) => t != null && DateTime.now().difference(t).inMilliseconds < 450;
+
+  void _toTop() {
+    _scrollY = 0;
+    if (_scroll.hasClients) _scroll.jumpTo(0);
+  }
+
+  List<String> _list() {
+    final q = _q.text.trim().toLowerCase();
+    var list = [
+      for (final it in catalog.values)
+        if (isShopItem(it.id) && (_cat == 'featured' ? it.featured : it.shop == _cat)) it.id,
+    ];
+    // on the Featured front, the hero offer is already up top
+    if (_cat == 'featured' && q.isEmpty) list.remove(marketHeroId);
+    if (q.isNotEmpty) {
+      list = [
+        for (final id in list)
+          if (item(id).name.toLowerCase().contains(q) || marketTypeLabel(item(id)).toLowerCase().contains(q)) id,
+      ];
+    }
+    if (_sort != 'shop') {
+      // stable: equal prices keep the shop's order
+      final order = {for (var i = 0; i < list.length; i++) list[i]: i};
+      final dir = _sort == 'low' ? 1 : -1;
+      list.sort((a, b) {
+        final d = dir * (item(a).price - item(b).price);
+        return d != 0 ? d : order[a]! - order[b]!;
+      });
+    }
+    return list;
+  }
+
+  // ---------------------------------------------------------------- browsing ----
+  void _setCat(String cat) {
+    if (_cat == cat) return;
+    setState(() {
+      _cat = cat;
+      _q.clear();
+      _toTop();
+    });
+    _c.audio.play('ui_tap', volume: 0.3);
+  }
+
+  void _onQuery(String _) => setState(_toTop);
+
+  void _cycleSort() {
+    final i = _sorts.indexWhere((x) => x.$1 == _sort);
+    setState(() {
+      _sort = _sorts[(i + 1) % _sorts.length].$1;
+      _toTop();
+    });
+    _c.audio.play('ui_tap', volume: 0.3);
+  }
+
+  void _clearQuery() {
+    _q.clear();
+    setState(_toTop);
+  }
+
+  void _open(String id) {
+    _c.audio.play('ui_tap', volume: 0.4);
+    _openDetails(id);
+  }
+
+  /// The details sheet; the catalog stays put behind it.
+  void _openDetails(String id) {
+    _sel = id;
+    _qFocus.unfocus();
+    _c.analytics.track('item_previewed', {'item': id});
+    showEvochiSheet<void>(context, builder: (s) {
+      void close() => Navigator.pop(s);
+      return MarketDetails(
+        id: id,
+        onClose: close,
+        onTry: () {
+          close();
+          _enterTry(id);
+        },
+        onNest: () {
+          close();
+          _enterNest(id);
+        },
+        onBuy: () {
+          close();
+          _buy(id);
+        },
+        onEarn: () {
+          close();
+          _earn(id);
+        },
+        onEquip: () => _equip(id),
+        onUnequip: () => _unequip(item(id).slot ?? 'head'),
+        onPlace: () => _place(id),
+      );
+    });
+  }
+
+  // ---------------------------------------------------------------- previews ----
+  void _enterTry(String id) {
+    _qFocus.unfocus();
+    setState(() {
+      _view = 'try';
+      _sel = id;
+      _showing = true;
+      _tview = 'left';
+      _zoom = false;
+      _enterAt = DateTime.now();
+    });
+    _c.audio.play('reward_chime', volume: 0.4);
+    _c.analytics.track('item_previewed', {'item': id, 'where': 'dressing_room'});
+  }
+
+  void _enterNest(String id) {
+    _qFocus.unfocus();
+    setState(() {
+      _view = 'nest';
+      _sel = id;
+      _showing = true;
+      _enterAt = DateTime.now();
+    });
+    _c.audio.play('ui_tap', volume: 0.5);
+  }
+
+  /// Back to the catalog, on the same shelf ([quiet]: no entrance or sound, e.g. on the way to the Bag).
+  void _exitPreview({bool quiet = false}) {
+    if (_view == null) return;
+    // the shelf left the tree with its scroll position: a fresh controller starts where it was
+    final old = _scroll..removeListener(_onScroll);
+    _scroll = _newScroll(_scrollY);
+    if (old.hasClients) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => old.dispose());
+    } else {
+      old.dispose();
+    }
+    setState(() {
+      _view = null;
+      if (!quiet) _backAt = DateTime.now();
+    });
+    if (!quiet) _c.audio.play('ui_tap', volume: 0.3);
+  }
+
+  void _rotate(int d) {
+    final i = marketViews.indexWhere((x) => x.$1 == _tview);
+    setState(() => _tview = marketViews[(i + d + marketViews.length) % marketViews.length].$1);
+    _c.audio.play('ui_tap', volume: 0.3);
+  }
+
+  void _pickView(String v) {
+    setState(() => _tview = v);
+    _c.audio.play('ui_tap', volume: 0.3);
+  }
+
+  void _toggle() {
+    setState(() => _showing = !_showing);
+    _c.audio.play(_showing ? 'reward_chime' : 'ui_tap', volume: 0.35);
+  }
+
+  void _toggleZoom() {
+    setState(() => _zoom = !_zoom);
+    _c.audio.play('ui_tap', volume: 0.3);
+  }
+
+  void _petTap() {
+    setState(() => _cheer++);
+    _c.audio.play('pet_chirp');
+  }
+
+  void _nestPetTap() {
+    _scene.react('pet');
+    _c.audio.play('pet_chirp');
+  }
+
+  // ------------------------------------------- actions shared by the sheet and the previews ----
+  void _equip(String id) {
+    final c = _c;
+    final it = item(id);
+    if (!c.run((s, n) => g.equip(s, id, n)).ok) return;
+    c.audio.play('reward_chime', volume: 0.5);
+    c.toast('${it.name} equipped', icon: 'wearables');
+    c.analytics.track('accessory_equipped', {'item': id, 'where': 'market'});
+    if (_view == 'try' && mounted) setState(() => _cheer++);
+  }
+
+  void _unequip(String slot) {
+    final c = _c;
+    c.run((s, n) => g.unequip(s, slot));
+    c.audio.play('ui_tap');
+    if (mounted) setState(() => _showing = false);
+  }
+
+  void _place(String id) {
+    final c = _c;
+    final it = item(id);
+    final spot = marketNestSpot(c.state, it);
+    if (!c.run((s, n) => g.placeDecoration(s, id, spot)).ok) return;
+    c.toast('${it.name} placed in the ${(decorSlots[spot]?.label ?? spot).toLowerCase()} spot', icon: 'decorations');
+    c.audio.play('ui_tap');
+    c.analytics.track('decoration_placed', {'item': id, 'where': 'market'});
+  }
+
+  void _viewInBag(String id) {
+    final pocket = switch (item(id).category) {
+      ItemCategory.wearable => 'wearable',
+      ItemCategory.consumable => 'consumable',
+      ItemCategory.decoration => 'decoration',
+      _ => 'pantry',
+    };
+    _exitPreview(quiet: true);
+    _c.goTab('bag', bag: pocket, bagItem: id);
+  }
+
+  /// Not enough EvoCoins: how to earn the rest.
+  void _earn(String id) {
+    final c = _c;
+    final it = item(id);
+    showEvochiSheet<void>(context, builder: (s) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const Row(children: [VoxelIcon('coin', size: 40), SizedBox(width: 8), Text('Almost there!', style: EvochiText.section)]),
+          const SizedBox(height: 8),
+          Text(
+            '${it.name} costs ${fmt(it.price)} EvoCoins and you have ${fmt(c.balance)}. Complete today\'s quests on your Journey to earn the rest.',
+            style: EvochiText.bodyText,
+          ),
+          const SizedBox(height: 12),
+          EvochiButton(
+            label: 'Open Journey',
+            onPressed: () {
+              Navigator.pop(s);
+              TabNav.of(context).go('journey');
+            },
+          ),
+          const SizedBox(height: 8),
+          EvochiButton(label: 'Keep browsing', tone: ButtonTone.cream, onPressed: () => Navigator.pop(s)),
+        ]));
+  }
+
+  Future<void> _buy(String id) async {
+    final c = _c;
     final it = item(id);
     final requestId = newId('buy');
     var pending = false;
-    var n = 1; // seeds: 1, 3 or 5 at a time
-    final multi = it.category == ItemCategory.seed;
+    var n = 1; // seeds and care: 1, 3 or 5 at a time
+    final multi = it.category == ItemCategory.seed || it.category == ItemCategory.consumable;
     await showEvochiDialog<void>(context, builder: (d) => StatefulBuilder(builder: (d, set) {
           return Column(mainAxisSize: MainAxisSize.min, children: [
             ItemImage(id, size: 104),
             Text('Buy ${it.name}?', style: EvochiText.section, textAlign: TextAlign.center),
             const SizedBox(height: 10),
             if (multi) ...[
-              QtyPick(price: it.price, balance: c.balance, value: n, onChanged: (k) => set(() => n = k)),
+              QtyPick(price: it.price, balance: c.balance, value: n, onChanged: pending ? (_) {} : (k) => set(() => n = k)),
               const SizedBox(height: 10),
             ],
             Container(
@@ -107,12 +366,11 @@ class _ShopScreenState extends State<ShopScreen> {
                       set(() => pending = true); // one tap only: the request id makes retries idempotent
                       await Future<void>.delayed(const Duration(milliseconds: 300));
                       final qty = n;
-                      final r = qty > 1 ? buyMany(c, id, qty, requestId) : c.run((s, t) => g.purchase(s, id, requestId, t));
+                      final r = qty > 1 ? buyMany(c, id, qty, requestId) : c.run((s, now) => g.purchase(s, id, requestId, now));
                       if (d.mounted) Navigator.pop(d);
                       if (r.ok) {
                         c.analytics.track('item_purchased', {'item': id, 'price': it.price * qty, 'qty': qty});
-                        _scene.react('reward');
-                        if (mounted) _purchased(c, id, qty);
+                        if (mounted) _purchased(id, qty);
                       }
                     },
             ),
@@ -122,15 +380,17 @@ class _ShopScreenState extends State<ShopScreen> {
         }));
   }
 
-  void _purchased(GameController c, String id, [int n = 1]) {
+  void _purchased(String id, [int n = 1]) {
     final it = item(id);
     final seed = it.category == ItemCategory.seed;
+    if (_view == 'try') setState(() => _cheer++);
+    _scene.react('reward');
     showEvochiDialog<void>(context, builder: (d) => Column(mainAxisSize: MainAxisSize.min, children: [
           _BuyReveal(id: id),
           Text(n > 1 ? '$n × ${it.name} are yours!' : '${it.name} is yours!', style: EvochiText.section, textAlign: TextAlign.center),
-          Text(seed ? "They're in your Bag's Pantry." : "It's waiting in your Bag.", style: EvochiText.bodyText),
+          Text(seed ? "They're in your Bag's Pantry." : 'It has been added to your Bag.', style: EvochiText.bodyText, textAlign: TextAlign.center),
           const SizedBox(height: 12),
-          if (seed)
+          if (seed) ...[
             EvochiButton(
               label: 'Plant now',
               tone: ButtonTone.green,
@@ -139,343 +399,378 @@ class _ShopScreenState extends State<ShopScreen> {
                 openGarden(context);
               },
             ),
-          if (it.category == ItemCategory.wearable)
+            const SizedBox(height: 8),
+          ],
+          if (it.category == ItemCategory.wearable) ...[
             EvochiButton(
-              label: 'Equip now',
-              icon: const Icon(Icons.checkroom_rounded, color: EvochiColor.wood),
+              label: 'Equip Now',
+              tone: ButtonTone.green,
+              icon: const Icon(Icons.dry_cleaning_rounded, color: EvochiColor.wood, size: 20),
               onPressed: () {
                 Navigator.pop(d);
-                if (c.run((s, n) => g.equip(s, id, n)).ok) {
-                  c.toast('${it.name} equipped', icon: 'wearables');
-                  setState(() => _tryOn = false);
-                  TabNav.of(context).go('bag');
-                }
+                _equip(id);
+                // stay where you were: the dressing room shows it on, the catalog opens its sheet equipped
+                if (_view != 'try') _openDetails(id);
               },
             ),
-          if (it.category == ItemCategory.decoration)
+            const SizedBox(height: 8),
+          ],
+          if (it.category == ItemCategory.decoration) ...[
             EvochiButton(
               label: 'Place in nest',
+              tone: ButtonTone.green,
               onPressed: () {
                 Navigator.pop(d);
-                showHabitatSheet(context);
+                _place(id);
+                if (_view != 'nest') _openDetails(id);
               },
             ),
-          const SizedBox(height: 8),
-          EvochiButton(label: 'Keep shopping', tone: ButtonTone.cream, onPressed: () => Navigator.pop(d)),
-        ]));
-  }
-
-  void _earn(GameController c, CatalogItem it) {
-    showEvochiSheet<void>(context, builder: (s) => Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          const Row(children: [VoxelIcon('coin', size: 40), SizedBox(width: 8), Text('Almost there!', style: EvochiText.section)]),
-          const SizedBox(height: 8),
-          Text(
-            '${it.name} costs ${fmt(it.price)} EvoCoins and you have ${fmt(c.balance)}. Complete today\'s quests on your Journey to earn the rest.',
-            style: EvochiText.bodyText,
-          ),
-          const SizedBox(height: 12),
+            const SizedBox(height: 8),
+          ],
           EvochiButton(
-            label: 'Open Journey',
+            label: 'View in Bag',
+            tone: ButtonTone.cream,
             onPressed: () {
-              Navigator.pop(s);
-              TabNav.of(context).go('journey');
+              Navigator.pop(d);
+              _viewInBag(id);
             },
           ),
+          const SizedBox(height: 4),
+          _GhostButton(label: 'Keep shopping', onTap: () => Navigator.pop(d)),
         ]));
   }
 
+  // ------------------------------------------------------------------- build ----
   @override
   Widget build(BuildContext context) {
     final c = context.watch<GameController>();
-    final pet = c.state.pet!;
-    final list = _listFor(_cat);
-    if (_sel == null || !list.contains(_sel)) _sel = _cat == 'featured' ? 'golden_crest_crown' : list.first;
-    final id = _sel!;
-    final it = item(id);
-    final own = g.ownedQty(c.state, id);
-    final owned = own > 0 && !it.isStackable;
-    final afford = c.balance >= it.price;
-    final (tg, tgi) = _tagFor(it);
-    final seedLevel = h.cropDefs[it.crop]?.level ?? 1;
-    final equipped = Map<String, String>.of(pet.equipped);
-    if (_tryOn && it.category == ItemCategory.wearable) equipped[it.slot!] = id;
-    final reduce = MediaQuery.of(context).disableAnimations;
-    final w = MediaQuery.of(context).size.width;
-    // a market stall: wooden tabs, a wood-framed lower sheet under a striped awning, shelf cards with
-    // prices on light-wood tags
-    return Scaffold(
-      backgroundColor: const Color(0xFFC9A27A),
-      body: KitPage(
-        material: KitMaterial.market,
-        paper: false,
-        child: SceneScaffold(
-        controller: _scene,
-        onPetTap: () => _scene.react('pet'),
-        petLabel: pet.name,
-        minHero: 230,
-        bottomInset: navInset(context),
-        headerAllowance: 130,
-        groundOffset: 6,
-        config: (gy) => SceneConfig(
-          habitat: 'market',
-          zoom: 1.32,
-          background: const Color(0xFFC9A27A),
-          focus: Offset(0.26, gy),
-          reducedMotion: reduce,
-          pet: PetConfig(stage: pet.stage, palette: pet.paletteId, status: c.view.pet!.status, equipped: equipped.values.toList(), scale: pet.stage == 3 ? 0.85 : 1),
-        ),
-        header: Column(children: [
-          Padding(
-            padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Semantics(
-                header: true,
-                label: 'Evochi Market',
-                child: ExcludeSemantics(
-                  child: Column(children: [Image.asset(art.title('wordmark_evochi'), height: 34), Image.asset(art.title('title_market'), height: 28)]),
-                ),
-              ),
-              const Spacer(),
-              CoinPill(balance: c.balance, onPlus: () => showCoinsInfo(context)),
-            ]),
-          ),
-          const SizedBox(height: 8),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Row(children: [
-              for (final cat in _cats)
-                Expanded(
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
-                    child: Semantics(
-                      selected: _cat == cat.$1,
-                      button: true,
-                      label: cat.$2,
-                      child: GestureDetector(
-                        onTap: () => setState(() {
-                          _cat = cat.$1;
-                          _sel = null;
-                          _tryOn = false;
-                        }),
-                        // wooden plaques; the chosen one lifts and lights up
-                        child: KitTab(
-                          selected: _cat == cat.$1,
-                          height: w < 400 ? 54 : 46,
-                          padding: EdgeInsets.zero,
-                          radius: const BorderRadius.vertical(top: Radius.circular(12), bottom: Radius.circular(6)),
-                          child: Flex(
-                            direction: w < 400 ? Axis.vertical : Axis.horizontal,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              VoxelIcon(cat.$3, size: 22),
-                              const SizedBox(width: 3, height: 1),
-                              Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text(cat.$2, style: KitTab.label(EvochiText.tag.copyWith(fontSize: 12.5), _cat == cat.$1)))),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ]),
-          ),
-        ]),
-        hero: Align(
-          alignment: Alignment.bottomRight,
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(0, 10, 8, 12),
-            child: SizedBox(
-              width: w * (w < 360 ? 0.62 : 0.56),
-              child: GameCard(
-                paper: _shelf,
-                padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
-                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
-                  Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                    Expanded(
-                      child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                        Tag(_cat == 'featured' ? 'FEATURED' : tg.toUpperCase(), tone: TagTone.red),
-                        const SizedBox(height: 4),
-                        Text(it.name, style: EvochiText.section.copyWith(fontSize: 19, fontWeight: FontWeight.w900)),
-                      ]),
-                    ),
-                    Container(
-                      width: 52,
-                      height: 52,
-                      alignment: Alignment.center,
-                      decoration: Kit.slot(radius: 10),
-                      child: ItemImage(id, size: 44),
-                    ),
-                  ]),
-                  if (w >= 360) Text(it.desc, maxLines: 3, overflow: TextOverflow.ellipsis, style: EvochiText.caption.copyWith(color: EvochiColor.textSecondary, fontSize: 12.5)),
-                  const SizedBox(height: 6),
-                  Wrap(spacing: 4, runSpacing: 4, children: [
-                    Tag(
-                      switch (it.category) {
-                        ItemCategory.wearable => 'Wearable',
-                        ItemCategory.consumable => 'Consumable',
-                        ItemCategory.seed => 'Farming Lv $seedLevel',
-                        _ => 'Decoration',
-                      },
-                      icon: tgi,
-                    ),
-                    Tag(tg),
-                    Tag(it.rarity[0].toUpperCase() + it.rarity.substring(1), tone: TagTone.ok, icon: 'care'),
-                  ]),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 7),
-                    child: _priceTag(
-                      height: 36,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Row(children: [
-                        const VoxelIcon('coin', size: 28),
-                        const SizedBox(width: 8),
-                        Text(fmt(it.price), style: WoodPlaque.text(EvochiText.number.copyWith(fontSize: 19))),
-                        const Spacer(),
-                        if (it.isStackable && own > 0) Text('Owned x$own', style: WoodPlaque.text(EvochiText.caption)),
-                      ]),
-                    ),
-                  ),
-                  Row(children: [
-                    if (it.category == ItemCategory.wearable) ...[
-                      Expanded(
-                        child: EvochiButton(
-                          label: _tryOn ? 'Take off' : 'Try On',
-                          small: true,
-                          tone: ButtonTone.cream,
-                          onPressed: () {
-                            setState(() => _tryOn = !_tryOn);
-                            if (_tryOn) {
-                              _scene.react('equip');
-                              c.audio.play('reward_chime', volume: 0.4);
-                            }
-                          },
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                    ],
-                    Expanded(
-                      child: owned
-                          ? EvochiButton(label: 'Owned', small: true, tone: ButtonTone.green, onPressed: () => TabNav.of(context).go('bag'))
-                          : EvochiButton(
-                              label: 'Purchase',
-                              small: true,
-                              tone: afford ? ButtonTone.green : ButtonTone.cream,
-                              icon: const VoxelIcon('coin', size: 20),
-                              semanticLabel: afford ? 'Purchase ${it.name}' : 'Purchase - you need ${fmt(it.price - c.balance)} more EvoCoins',
-                              onPressed: () => afford ? _buy(c, id) : _earn(c, it),
-                            ),
-                    ),
-                  ]),
-                ]),
+    final pet = c.state.pet;
+    final rm = MediaQuery.of(context).disableAnimations;
+    final sel = _sel == null ? null : catalog[_sel!];
+    var view = _view;
+    if (pet == null || sel == null || (view == 'try' && sel.category != ItemCategory.wearable) || (view == 'nest' && sel.category != ItemCategory.decoration)) {
+      view = null;
+    }
+    final nest = view == 'nest';
+    // browsing and the dressing room: the market stall as a backdrop (the page draws the Evochi); the
+    // nest preview: the real meadow with the piece in its spot, unless you're comparing with the original
+    final SceneConfig scene;
+    if (nest && pet != null && sel != null) {
+      final pl = Map<String, String>.of(c.state.placements);
+      if (_showing) pl[marketNestSpot(c.state, sel)] = sel.id;
+      scene = SceneConfig(
+        habitat: 'meadow',
+        decor: pl,
+        focus: const Offset(0.5, 0.5),
+        reducedMotion: rm,
+        pet: PetConfig(stage: pet.stage, palette: pet.paletteId, status: c.view.pet!.status, equipped: pet.equipped.values.toList()),
+      );
+    } else {
+      scene = SceneConfig(habitat: 'market', zoom: 1.32, background: const Color(0xFFC9A27A), focus: const Offset(0.3, 0.42), reducedMotion: rm);
+    }
+    final play = !rm && _fresh(_enterAt);
+    final Widget body;
+    if (view == 'try') {
+      body = MarketDressingRoom(
+        id: _sel!,
+        view: _tview,
+        showing: _showing,
+        zoom: _zoom,
+        cheer: _cheer,
+        play: play,
+        onExit: _exitPreview,
+        onToggle: _toggle,
+        onZoom: _toggleZoom,
+        onRotate: _rotate,
+        onView: _pickView,
+        onPetTap: _petTap,
+        onBuy: () => _buy(_sel!),
+        onEarn: () => _earn(_sel!),
+        onEquip: () => _equip(_sel!),
+        onUnequip: () => _unequip(item(_sel!).slot ?? 'head'),
+      );
+    } else if (view == 'nest') {
+      body = MarketNestRoom(
+        id: _sel!,
+        showing: _showing,
+        play: play,
+        onExit: _exitPreview,
+        onToggle: _toggle,
+        onBuy: () => _buy(_sel!),
+        onEarn: () => _earn(_sel!),
+        onPlace: () => _place(_sel!),
+      );
+    } else {
+      body = _browse(c, rm);
+    }
+    return PopScope(
+      // the system back gesture leaves a preview before it leaves the app
+      canPop: !(widget.active && view != null),
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _exitPreview();
+      },
+      child: Scaffold(
+        backgroundColor: const Color(0xFFC9A27A),
+        resizeToAvoidBottomInset: false,
+        body: KitPage(
+          material: KitMaterial.market,
+          paper: false,
+          child: Stack(children: [
+            Positioned.fill(
+              child: KeyedSubtree(
+                key: ValueKey(nest ? 'meadow' : 'market'),
+                child: HabitatScene(config: scene, controller: _scene, onPetTap: nest ? _nestPetTap : null, petLabel: 'Pet ${pet?.name ?? 'your Evochi'}'),
               ),
             ),
-          ),
-        ),
-        // the stall: a wood-framed sheet with the red and cream awning along its top
-        panel: Padding(
-          padding: const EdgeInsets.fromLTRB(4, 6, 4, 0),
-          child: Stack(clipBehavior: Clip.none, fit: StackFit.passthrough, children: [
-          FramedWindow(
-          border: 13,
-          padding: const EdgeInsets.fromLTRB(6, 24, 6, 4),
-          sheet: Kit.sheet(colors: const [Color(0xFFFFF6E2), Color(0xFFF1DDB6)]),
-          shadow: const BoxShadow(color: Color(0x40321C0A), blurRadius: 14, offset: Offset(0, -4)),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            Row(children: [
-              const Icon(Icons.grid_view_rounded, color: Color(0xFF4A3A32), size: 20),
-              const SizedBox(width: 6),
-              Text(_cat == 'featured' ? 'Featured Items' : _cats.firstWhere((x) => x.$1 == _cat).$2, style: EvochiText.cardTitle),
-              const Spacer(),
-              if (_cat == 'featured')
-                TextButton(onPressed: () => setState(() => _cat = 'wearables'), child: const Text('See All ›', style: EvochiText.tag)),
-            ]),
-            GridView.count(
-              crossAxisCount: 3,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              mainAxisSpacing: 8,
-              crossAxisSpacing: 8,
-              childAspectRatio: 0.66,
-              children: [
-                for (var i = 0; i < list.length; i++)
-                  Builder(builder: (_) {
-                    final pid = list[i];
-                    final p = item(pid);
-                    final (ptg, ptgi) = _tagFor(p);
-                    final pown = g.ownedQty(c.state, pid) > 0 && !p.isStackable;
-                    final tint = _tints[p.category == ItemCategory.consumable ? 1 : (p.category == ItemCategory.seed ? (i.isEven ? 1 : 0) : i % _tints.length)];
-                    return Semantics(
-                      selected: pid == id,
-                      button: true,
-                      label: '${p.name}, ${p.price} EvoCoins${pown ? ', owned' : ''}',
-                      child: GestureDetector(
-                        onTap: () {
-                          setState(() {
-                            _sel = pid;
-                            _tryOn = false;
-                          });
-                          c.analytics.track('item_previewed', {'item': pid});
-                        },
-                        // a shelf card; the chosen one gets a gold ring
-                        child: Container(
-                          padding: const EdgeInsets.all(6),
-                          decoration: KitDecoration(
-                            base: BoxDecoration(
-                              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [_shelf.top, _shelf.bottom]),
-                              image: kitGrain,
-                              borderRadius: BorderRadius.circular(14),
-                              border: Border.all(color: pid == id ? const Color(0xFFC47F1E) : _shelf.edge, width: 2),
-                              boxShadow: pid == id
-                                  ? const [BoxShadow(color: Color(0x8CFFBE46), blurRadius: 14), BoxShadow(color: Color(0xFF7A5230), offset: Offset(0, 3)), BoxShadow(color: KitColor.goldRing, spreadRadius: 3)]
-                                  : const [BoxShadow(color: Color(0x2E3C230C), blurRadius: 10, offset: Offset(0, 6)), BoxShadow(color: Color(0xFF7A5230), offset: Offset(0, 3))],
-                            ),
-                            inset: 2,
-                          ),
-                          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Expanded(
-                              child: Container(
-                                decoration: KitDecoration(
-                                  base: BoxDecoration(
-                                    borderRadius: BorderRadius.circular(10),
-                                    gradient: RadialGradient(colors: tint),
-                                    border: Border.all(color: const Color(0x5996693C), width: 2),
-                                  ),
-                                  inset: 2,
-                                  shadow: const BoxShadow(color: Color(0x26643C14), blurRadius: 6, offset: Offset(0, 2)),
-                                ),
-                                alignment: Alignment.center,
-                                child: Stack(children: [
-                                  Center(child: ItemImage(pid, size: 62)),
-                                  if (pown) const Positioned(left: 2, top: 2, child: Tag('Owned', tone: TagTone.ok)),
-                                ]),
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(p.name, maxLines: 2, style: EvochiText.cardTitle.copyWith(fontSize: 13.5, height: 1.1)),
-                            const SizedBox(height: 2),
-                            Tag(ptg, icon: ptgi),
-                            const SizedBox(height: 4),
-                            _priceTag(
-                              height: 28,
-                              child: Row(children: [const VoxelIcon('coin', size: 20), const SizedBox(width: 4), Text(fmt(p.price), style: WoodPlaque.text(EvochiText.number.copyWith(fontSize: 15)))]),
-                            ),
-                          ]),
-                        ),
-                      ),
-                    );
-                  }),
-              ],
-            ),
-          ]),
-          ),
-          // the awning hangs over the frame's top edge
-          const Positioned(left: 7, right: 7, top: 3, height: 30, child: ShopAwning()),
+            Positioned.fill(child: body),
           ]),
         ),
-      ),
       ),
     );
   }
+
+  /// BROWSE: the sign, the tabs and the search row stay put; only the stall's inside scrolls.
+  Widget _browse(GameController c, bool rm) {
+    final narrow = MediaQuery.of(context).size.width <= 380;
+    final cat = _cats.firstWhere((x) => x.$1 == _cat, orElse: () => _cats.first);
+    final list = _list();
+    final back = !rm && _fresh(_backAt);
+    return Semantics(
+      container: true,
+      label: 'Evochi Market',
+      child: Column(children: [
+        SafeArea(bottom: false, child: _header(c)),
+        const SizedBox(height: 4),
+        _tabs(),
+        MarketEntrance(kind: MarketEntranceKind.back, play: back, child: _searchRow(cat.$2, narrow)),
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(6, 14, 6, 6),
+            child: MarketEntrance(
+              kind: MarketEntranceKind.back,
+              play: back,
+              child: Semantics(
+                container: true,
+                label: cat.$2,
+                child: MarketStall(child: LayoutBuilder(builder: (ctx, b) => _catalog(c, list, cat, b.maxWidth, narrow))),
+              ),
+            ),
+          ),
+        ),
+        SizedBox(height: navInset(context)),
+      ]),
+    );
+  }
+
+  Widget _header(GameController c) => Padding(
+        padding: const EdgeInsets.fromLTRB(14, 12, 14, 2),
+        child: Row(children: [
+          Semantics(
+            header: true,
+            label: 'Evochi Market',
+            child: ExcludeSemantics(
+              child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Image.asset(art.title('wordmark_evochi'), height: 28, filterQuality: FilterQuality.medium),
+                Transform.translate(offset: const Offset(0, -3), child: Image.asset(art.title('title_market'), height: 25, filterQuality: FilterQuality.medium)),
+              ]),
+            ),
+          ),
+          const Spacer(),
+          CoinPill(balance: c.balance, onPlus: () => showCoinsInfo(context)),
+        ]),
+      );
+
+  /// Five wooden plaques; the chosen one lifts and lights up.
+  Widget _tabs() => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: Row(children: [
+          for (final cat in _cats)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: Semantics(
+                  selected: _cat == cat.$1,
+                  button: true,
+                  label: cat.$2,
+                  excludeSemantics: true,
+                  child: GestureDetector(
+                    onTap: () => _setCat(cat.$1),
+                    child: KitTab(
+                      selected: _cat == cat.$1,
+                      height: 52,
+                      padding: const EdgeInsets.fromLTRB(2, 3, 2, 0),
+                      radius: const BorderRadius.vertical(top: Radius.circular(11), bottom: Radius.circular(6)),
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        VoxelIcon(cat.$3, size: 24),
+                        Flexible(
+                          child: FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(cat.$2, maxLines: 1, style: KitTab.label(EvochiText.tag.copyWith(fontSize: 12), _cat == cat.$1)),
+                          ),
+                        ),
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+        ]),
+      );
+
+  /// "Find an item..." (by name or type, within the tab) and the sort button (shop order, price low,
+  /// price high; just the icon on narrow phones).
+  Widget _searchRow(String label, bool narrow) {
+    final sort = _sorts.firstWhere((x) => x.$1 == _sort).$2;
+    final focused = _qFocus.hasFocus;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 8, 8, 0),
+      child: Row(children: [
+        Expanded(
+          child: Container(
+            height: 44,
+            padding: const EdgeInsets.symmetric(horizontal: 10),
+            decoration: KitDecoration(
+              base: BoxDecoration(
+                color: const Color(0xFFFBF0D9),
+                image: kitGrain,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: KitColor.woodInk, width: 2.5),
+                boxShadow: [
+                  if (focused) const BoxShadow(color: KitColor.goldRing, spreadRadius: 3),
+                  const BoxShadow(color: KitColor.woodShadow, offset: Offset(0, 2)),
+                ],
+              ),
+              inset: 2.5,
+              shadow: const BoxShadow(color: Color(0x336E461E), blurRadius: 5, offset: Offset(0, 3)),
+            ),
+            child: Row(children: [
+              const Icon(Icons.search_rounded, size: 22, color: Color(0xFF6B4A34)),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Semantics(
+                  label: 'Find an item in $label',
+                  textField: true,
+                  child: TextField(
+                    controller: _q,
+                    focusNode: _qFocus,
+                    onChanged: _onQuery,
+                    textInputAction: TextInputAction.search,
+                    autocorrect: false,
+                    enableSuggestions: false,
+                    cursorColor: KitColor.woodInk,
+                    style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 15, color: EvochiColor.ink),
+                    decoration: const InputDecoration.collapsed(
+                      hintText: 'Find an item...',
+                      hintStyle: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w700, fontSize: 15, color: Color(0xFF9C7E62)),
+                    ),
+                  ),
+                ),
+              ),
+            ]),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Semantics(
+          button: true,
+          label: 'Sort by $sort',
+          excludeSemantics: true,
+          child: KitPress(
+            onTap: _cycleSort,
+            builder: (_, down) => AnimatedContainer(
+              duration: const Duration(milliseconds: 60),
+              height: 44,
+              width: narrow ? 44 : null,
+              padding: EdgeInsets.symmetric(horizontal: narrow ? 0 : 10),
+              transform: Matrix4.translationValues(0, down ? 2 : 0, 0),
+              decoration: Kit.wood(radius: 12, border: 2.5, width: 300, y: -1, pressed: down, drop: false),
+              child: Row(mainAxisSize: MainAxisSize.min, mainAxisAlignment: MainAxisAlignment.center, children: [
+                const Icon(Icons.swap_vert_rounded, size: 22, color: KitColor.woodInk),
+                if (!narrow) ...[
+                  const SizedBox(width: 5),
+                  Text(sort, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 13, color: KitColor.signInk, shadows: kitSignShadow)),
+                ],
+              ]),
+            ),
+          ),
+        ),
+      ]),
+    );
+  }
+
+  /// What scrolls: the hero offer (Featured only), the shelf heading and the two-column grid.
+  Widget _catalog(GameController c, List<String> list, (String, String, String) cat, double width, bool narrow) {
+    final pet = c.state.pet!;
+    final q = _q.text.trim();
+    final featured = _cat == 'featured';
+    final cardW = math.max(0.0, (width - 6 - 9) / 2);
+    final artH = (MediaQuery.of(context).size.width * 0.25).clamp(86.0, 116.0).toDouble();
+    final img = math.max(24.0, math.min(92.0, math.min((cardW - 18) * 0.72, artH - 8)));
+    Widget card(int k) => MarketProductCard(
+          id: list[k],
+          index: k,
+          st: marketItemState(c, list[k]),
+          artHeight: artH,
+          imageSize: img,
+          showIcon: !narrow,
+          onTap: () => _open(list[k]),
+        );
+    return SingleChildScrollView(
+      controller: _scroll,
+      padding: const EdgeInsets.fromLTRB(3, 16, 3, 6),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        if (featured && q.isEmpty) MarketHeroOffer(pet: pet, id: marketHeroId, st: marketItemState(c, marketHeroId), onTry: () => _enterTry(marketHeroId)),
+        MarketShelfHead(title: featured ? (q.isEmpty ? 'More featured items' : 'Featured items') : cat.$2, count: list.length),
+        if (list.isEmpty)
+          _empty(cat, q)
+        else
+          for (var i = 0; i < list.length; i += 2)
+            Padding(
+              padding: EdgeInsets.only(bottom: i + 2 < list.length ? 10 : 0),
+              // the two cards of a row share its height, their price tags on one line
+              child: IntrinsicHeight(
+                child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Expanded(child: card(i)),
+                  const SizedBox(width: 9),
+                  Expanded(child: i + 1 < list.length ? card(i + 1) : const SizedBox.shrink()),
+                ]),
+              ),
+            ),
+        const SizedBox(height: 4),
+      ]),
+    );
+  }
+
+  Widget _empty((String, String, String) cat, String q) => Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 22),
+        child: Column(children: [
+          Opacity(opacity: 0.6, child: VoxelIcon(cat.$3, size: 54)),
+          const SizedBox(height: 6),
+          Text('Nothing called "$q" in ${cat.$2}.', textAlign: TextAlign.center, style: EvochiText.cardTitle),
+          const SizedBox(height: 10),
+          EvochiButton(label: 'Clear search', small: true, expand: false, tone: ButtonTone.cream, onPressed: _clearQuery),
+        ]),
+      );
+}
+
+/// A plain text button (`.btn.ghost`): "Keep shopping".
+class _GhostButton extends StatelessWidget {
+  const _GhostButton({required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: label,
+        excludeSemantics: true,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: SizedBox(
+            height: 44,
+            child: Center(child: Text(label, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 16, color: EvochiColor.textSecondary))),
+          ),
+        ),
+      );
 }
 
 /// The purchase reveal (`.bought` in kit.css): a "Purchased!" banner pops in, the item pops up out of
