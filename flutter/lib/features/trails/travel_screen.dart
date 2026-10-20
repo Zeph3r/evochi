@@ -12,6 +12,7 @@ import '../../game/trails/trails.dart' as tr;
 import '../shared/widgets.dart';
 import 'encounter_screen.dart';
 import 'trails_widgets.dart';
+import '../shared/live_scene.dart';
 
 const _travelLines = <String, List<String>>{
   'eq01': [
@@ -128,7 +129,7 @@ class _TravelScreenState extends State<TravelScreen> with TickerProviderStateMix
               final dx = _reduce ? 0.0 : -0.03 * (1 - t) * mq.size.width;
               return Transform.translate(offset: Offset(dx, 0), child: Transform.scale(scale: scale, alignment: const Alignment(0, -0.2), child: child));
             },
-            child: Image.asset(ta.scene(e.scene), fit: BoxFit.cover, alignment: const Alignment(0, -0.1), excludeFromSemantics: true),
+            child: LiveImage(ta.scene(e.scene), fit: BoxFit.cover, alignment: const Alignment(0, -0.1), excludeFromSemantics: true),
           ),
         const IgnorePointer(
           child: DecoratedBox(

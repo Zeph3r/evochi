@@ -18,6 +18,7 @@ import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import '../village/village_screen.dart';
 import 'home_widgets.dart';
+import '../shared/live_scene.dart';
 
 const _mapPins = [('garden', 'Garden'), ('cottage', 'Cottage'), ('gate', 'Village Gate')];
 
@@ -143,7 +144,7 @@ class _HomeMapScreenState extends State<HomeMapScreen> {
 
                   return Stack(clipBehavior: Clip.hardEdge, children: [
                     Positioned.fill(
-                      child: Image.asset(
+                      child: LiveImage(
                         ha.map(restored: restored),
                         fit: BoxFit.cover,
                         semanticLabel:

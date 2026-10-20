@@ -298,9 +298,12 @@ class _JourneyTabs extends StatelessWidget {
       ('story', 'Story', 'habitats', storyDot),
       ('skills', 'Skills', 'skill_farming', false),
     ];
-    // one label size for the four bookmarks
+    // one label size for the four bookmarks. The row keeps 8 px above it: the header (the sliver
+    // before it) paints over anything that pokes above, which cut off the open tab's glow and the dots
     final group = [for (final t in tabs) t.$2];
-    return Row(children: [
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Row(children: [
       for (final t in tabs)
         Expanded(
           child: Padding(
@@ -318,10 +321,11 @@ class _JourneyTabs extends StatelessWidget {
                     style: KitTabStyle.leather,
                     height: 48,
                     radius: BorderRadius.circular(12),
-                    padding: const EdgeInsets.symmetric(horizontal: 3),
+                    // clear of the plaque's stitched rim, so the longest label never runs into it
+                    padding: const EdgeInsets.symmetric(horizontal: 6),
                     child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-                      VoxelIcon(t.$3, size: 24),
-                      const SizedBox(width: 4),
+                      VoxelIcon(t.$3, size: 20),
+                      const SizedBox(width: 3),
                       Flexible(
                         child: KitRowLabel(t.$2, group: group, style: KitTab.label(EvochiText.tag, tab == t.$1)),
                       ),
@@ -333,7 +337,8 @@ class _JourneyTabs extends StatelessWidget {
             ),
           ),
         ),
-    ]);
+      ]),
+    );
   }
 }
 

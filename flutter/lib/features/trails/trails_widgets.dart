@@ -29,6 +29,8 @@ import '../village/village_screen.dart';
 import 'guild_screen.dart';
 import 'prep_screen.dart';
 import 'trail_place_screen.dart';
+import '../shared/live_scene.dart';
+import '../shared/ambience.dart';
 
 TrailsArt get trailsArt => art.trails;
 
@@ -41,11 +43,13 @@ void _pushTrail(BuildContext context, String name, WidgetBuilder builder) {
 
 const guildRouteName = 'guild';
 
-Route<void> guildRoute() => MaterialPageRoute<void>(settings: const RouteSettings(name: guildRouteName), builder: (_) => const GuildScreen());
+Route<void> guildRoute() => MaterialPageRoute<void>(settings: const RouteSettings(name: guildRouteName), builder: (_) => const Ambience('amb_lodge', child: GuildScreen()));
 
-void openGuild(BuildContext context) => _pushTrail(context, guildRouteName, (_) => const GuildScreen());
-void openTrailPlace(BuildContext context, String id) => _pushTrail(context, 'trailplace:$id', (_) => TrailPlaceScreen(placeId: id));
-void openPrep(BuildContext context, String questId) => _pushTrail(context, 'prep:$questId', (_) => PrepScreen(questId: questId));
+void openGuild(BuildContext context) => _pushTrail(context, guildRouteName, (_) => const Ambience('amb_lodge', child: GuildScreen()));
+void openTrailPlace(BuildContext context, String id) =>
+    _pushTrail(context, 'trailplace:$id', (_) => Ambience(id == 'gate' ? 'amb_dusk' : 'amb_forest', child: TrailPlaceScreen(placeId: id)));
+void openPrep(BuildContext context, String questId) =>
+    _pushTrail(context, 'prep:$questId', (_) => Ambience(sceneAmbience(tr.encounterDefs[questId]?.scene), child: PrepScreen(questId: questId)));
 
 /// Where a discovery is inspected: a village place, a trail place, or somewhere at home.
 void goDiscoveryPlace(BuildContext context, String place) {
@@ -1395,7 +1399,7 @@ class TrailPlate extends StatelessWidget {
               height: hPlate,
               child: Stack(clipBehavior: Clip.none, children: [
                 Positioned.fill(
-                  child: Image.asset(trailsArt.scene(scene), fit: BoxFit.cover, semanticLabel: semanticLabel, excludeFromSemantics: semanticLabel == null, gaplessPlayback: true),
+                  child: LiveImage(trailsArt.scene(scene), fit: BoxFit.cover, semanticLabel: semanticLabel, excludeFromSemantics: semanticLabel == null),
                 ),
                 ...?overlays?.call(w, hPlate),
               ]),

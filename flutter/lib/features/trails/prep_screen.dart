@@ -24,6 +24,8 @@ import '../village/village_screen.dart';
 import 'encounter_screen.dart';
 import 'trails_widgets.dart';
 import 'travel_screen.dart';
+import '../shared/live_scene.dart';
+import '../shared/ambience.dart';
 
 class _PlaceInfo {
   const _PlaceInfo(this.name, this.line, this.badge);
@@ -63,7 +65,7 @@ class _PrepScreenState extends State<PrepScreen> {
     final r = c.run((s, n) => tr.startEncounter(s, qid, n));
     if (!r.ok) return;
     c.audio.play('ui_tap', volume: 0.5);
-    Navigator.of(context).push(MaterialPageRoute<void>(settings: const RouteSettings(name: 'travel'), builder: (_) => TravelScreen(questId: qid)));
+    Navigator.of(context).push(MaterialPageRoute<void>(settings: const RouteSettings(name: 'travel'), builder: (_) => Ambience(sceneAmbience(tr.encounterDefs[qid]?.scene), child: TravelScreen(questId: qid))));
   }
 
   void _resume() {
@@ -197,7 +199,7 @@ class _PrepScreenState extends State<PrepScreen> {
                       decoration: BoxDecoration(borderRadius: BorderRadius.circular(18), boxShadow: const [BoxShadow(color: Color(0x38281A0A), blurRadius: 14, offset: Offset(0, 6))]),
                       child: Stack(fit: StackFit.expand, children: [
                         if (ta.available && ta.hasScene(e.scene))
-                          Image.asset(ta.scene(e.scene), fit: BoxFit.cover, alignment: const Alignment(0, -0.12), excludeFromSemantics: true)
+                          LiveImage(ta.scene(e.scene), fit: BoxFit.cover, alignment: const Alignment(0, -0.12), excludeFromSemantics: true)
                         else
                           const ColoredBox(color: EvochiColor.panel2),
                         Positioned(

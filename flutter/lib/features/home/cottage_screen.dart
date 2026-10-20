@@ -17,6 +17,7 @@ import '../trails/trails_widgets.dart';
 import '../village/story_widgets.dart';
 import '../village/village_screen.dart';
 import 'home_widgets.dart';
+import '../shared/live_scene.dart';
 
 class CottageScreen extends StatefulWidget {
   const CottageScreen({super.key});
@@ -177,23 +178,27 @@ class _CottageView extends StatelessWidget {
       aspectRatio: size.width / size.height,
       child: LayoutBuilder(builder: (ctx, b) {
         return Stack(fit: StackFit.expand, children: [
-          Image.asset(
+          // only the one on show moves (the other sits under it, or waits at opacity 0)
+          LiveImage(
             ha.cottage(restored: false),
             fit: BoxFit.cover,
             alignment: ha.cottageAlignment,
             semanticLabel: restored ? null : 'The old cottage: a broken roof, boarded windows and an empty doorway.',
             excludeFromSemantics: restored,
+            motion: restored ? 0 : 1,
+            particles: !restored,
           ),
           AnimatedOpacity(
             opacity: restored ? 1 : 0,
             duration: Duration(milliseconds: animating && !reduce ? 1800 : 300),
             curve: Curves.easeIn,
-            child: Image.asset(
+            child: LiveImage(
               ha.cottage(restored: true),
               fit: BoxFit.cover,
               alignment: ha.cottageAlignment,
               semanticLabel: restored ? 'Your restored cottage: a new red roof, warm windows and a puffing chimney.' : null,
               excludeFromSemantics: !restored,
+              motion: restored ? 1 : 0,
             ),
           ),
           if (animating && !reduce)

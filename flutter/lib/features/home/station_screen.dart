@@ -26,6 +26,8 @@ import '../shared/widgets.dart';
 import '../village/story_widgets.dart';
 import '../village/village_screen.dart';
 import 'home_widgets.dart';
+import '../shared/live_scene.dart';
+import '../shared/ambience.dart';
 
 /// Where the station sits on its room plate (fractions of the 780 x 1000 image): the oven's mouth or
 /// the cauldron's rim, where the ingredients drop, the glow sits and the dish pops out.
@@ -247,12 +249,17 @@ class _StationScreenState extends State<StationScreen> {
       final r = _cookRid!;
       // at the station: the stage and its controls (the system back cancels the cook)
       // at the station: the whole screen is the oven (or the cauldron), no page around it
-      body = _CookView(
-        key: ValueKey('cook-$_cookSerial'),
-        recipe: h.recipeDefs[r]!,
-        station: id,
-        onDone: (quality) => _cookDone(c, r, quality),
-        onCancel: () => _cancelCook(c),
+      // up at the oven's mouth (or the cauldron's) the fire is louder
+      body = Ambience(
+        apothecary ? 'amb_apothecary' : 'amb_kitchen',
+        gain: 1.7,
+        child: _CookView(
+          key: ValueKey('cook-$_cookSerial'),
+          recipe: h.recipeDefs[r]!,
+          station: id,
+          onDone: (quality) => _cookDone(c, r, quality),
+          onCancel: () => _cancelCook(c),
+        ),
       );
     } else {
       final open = h.stationOpen(c.state, id);
@@ -271,7 +278,7 @@ class _StationScreenState extends State<StationScreen> {
               return SizedBox(
                 height: hPlate,
                 child: Stack(fit: StackFit.expand, children: [
-                  Image.asset(
+                  LiveImage(
                     homeArt.room(id),
                     fit: BoxFit.cover,
                     alignment: const Alignment(0, 0.28),
@@ -660,7 +667,8 @@ class _CookViewState extends State<_CookView> with SingleTickerProviderStateMixi
           // the room plate, pushing in from the room to the station
           Positioned.fromRect(
             rect: frame,
-            child: Image.asset(plate, fit: BoxFit.fill, gaplessPlayback: true, filterQuality: FilterQuality.medium, excludeFromSemantics: true),
+            // the room keeps living (the fire flickers, the steam wavers); the stage paints its own sparks
+            child: LiveImage(plate, fit: BoxFit.fill, excludeFromSemantics: true, particles: false),
           ),
           // the vignette, the glow and the embers (or bubbles), painted straight over the plate
           Positioned.fill(

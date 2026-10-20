@@ -38,10 +38,13 @@ flutter:
     - assets/art/icons/
     - assets/art/titles/
     - assets/art/village/
+    - assets/art/fx/ # living-scene masks (tools/art/scene_fx.py)
     - assets/audio/sfx/
     - assets/audio/ambient/
     - assets/config/
     - assets/ui/ # game-native kit textures (tools/ui_textures.py): wood, paper grain, canvas, window frames
+  shaders:
+    - shaders/scene_fx.frag
   fonts:
     - family: Nunito
       fonts:

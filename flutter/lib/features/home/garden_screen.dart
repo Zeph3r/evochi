@@ -18,6 +18,7 @@ import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import '../village/village_screen.dart';
 import 'home_widgets.dart';
+import '../shared/live_scene.dart';
 
 const _sparkColor = Color(0xFFFFE27A);
 const _dropColor = Color(0xFF5BAFE0);
@@ -243,7 +244,7 @@ class _GardenPlate extends StatelessWidget {
               width: w,
               height: hPlate,
               child: Stack(children: [
-                Positioned.fill(child: Image.asset(ha.garden, fit: BoxFit.cover, semanticLabel: 'Your garden: four raised beds inside a little fence.')),
+                Positioned.fill(child: LiveImage(ha.garden, fit: BoxFit.cover, semanticLabel: 'Your garden: four raised beds inside a little fence.')),
                 for (final p in plots)
                   if (!p.empty)
                     Positioned.fromRect(

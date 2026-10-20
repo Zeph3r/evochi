@@ -10,11 +10,13 @@ import 'controllers/game_controller.dart';
 import 'core/services/asset_manifest.dart';
 import 'data/local/local_store.dart';
 import 'data/repositories/game_repository.dart';
+import 'features/shared/live_scene.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await AssetManifest.load();
+  await SceneFx.load();
   try {
     GameConfig.current = GameConfig.parse(await rootBundle.loadString('assets/config/balance_v1.json'));
   } catch (_) {

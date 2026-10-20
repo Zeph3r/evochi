@@ -20,11 +20,13 @@ import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import 'npc_puppet.dart';
 import 'story_widgets.dart';
+import '../shared/live_scene.dart';
+import '../shared/ambience.dart';
 
 const _villageRoute = 'village';
 const _placeRoute = 'place';
 
-Route<void> _villageRouteFor() => MaterialPageRoute<void>(settings: const RouteSettings(name: _villageRoute), builder: (_) => const VillageScreen());
+Route<void> _villageRouteFor() => MaterialPageRoute<void>(settings: const RouteSettings(name: _villageRoute), builder: (_) => const Ambience('amb_village', child: VillageScreen()));
 
 /// Open the Square from anywhere (Home, Journey > Story, the Quest Pouch, after a reward).
 void openVillage(BuildContext context) {
@@ -43,7 +45,7 @@ void openVillage(BuildContext context) {
 void openPlace(BuildContext context, String id, {String? npc}) {
   final nav = Navigator.of(context);
   final here = ModalRoute.of(context)?.settings.name;
-  final route = MaterialPageRoute<void>(settings: const RouteSettings(name: _placeRoute), builder: (_) => PlaceScreen(placeId: id, npc: npc));
+  final route = MaterialPageRoute<void>(settings: const RouteSettings(name: _placeRoute), builder: (_) => Ambience(placeAmbience(id), child: PlaceScreen(placeId: id, npc: npc)));
   if (here == _placeRoute) {
     nav.pushReplacement(route);
     return;
@@ -188,7 +190,7 @@ class _VillageScreenState extends State<VillageScreen> {
                 child: LayoutBuilder(builder: (ctx, b) {
                   return Stack(clipBehavior: Clip.hardEdge, children: [
                     Positioned.fill(
-                      child: Image.asset(
+                      child: LiveImage(
                         va.square(lampLit: lit, restored: restored),
                         fit: BoxFit.cover,
                         semanticLabel: "Sunlit Village Square: Mira's Glasshouse on the left, Bram's Workshop on the right, the Trail Guild Lodge up the road and the Waystone in the middle${lit ? '. The nursery lamp is lit.' : '.'}",
@@ -635,9 +637,7 @@ class _PlaceScreenState extends State<PlaceScreen> {
                           child: Stack(clipBehavior: Clip.hardEdge, children: [
                             // the soft grade is applied as the plate paints (no offscreen layer under the villagers)
                             Positioned.fill(
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(image: DecorationImage(image: AssetImage(plate), fit: BoxFit.cover, colorFilter: const ColorFilter.matrix(_backdrop))),
-                              ),
+                              child: LiveImage(plate, fit: BoxFit.cover, colorFilter: const ColorFilter.matrix(_backdrop), excludeFromSemantics: true),
                             ),
                             // depth: a soft vignette and a fade into the page keep the eye on the villagers
                             const Positioned.fill(

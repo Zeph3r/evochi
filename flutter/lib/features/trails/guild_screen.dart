@@ -14,6 +14,7 @@ import '../shared/widgets.dart';
 import '../village/story_widgets.dart';
 import '../village/village_screen.dart';
 import 'trails_widgets.dart';
+import '../shared/live_scene.dart';
 
 class GuildScreen extends StatefulWidget {
   const GuildScreen({super.key});
@@ -123,11 +124,7 @@ class _GuildHead extends StatelessWidget {
         height: 150,
         child: Stack(fit: StackFit.expand, children: [
           // the soft grade is applied as the plate paints (no offscreen layer)
-          DecoratedBox(
-            decoration: BoxDecoration(
-              image: DecorationImage(image: AssetImage(villageArt.place('lodge')), fit: BoxFit.cover, alignment: const Alignment(0, -0.2), colorFilter: const ColorFilter.matrix(_soft)),
-            ),
-          ),
+          LiveImage(villageArt.place('lodge'), fit: BoxFit.cover, alignment: const Alignment(0, -0.2), colorFilter: const ColorFilter.matrix(_soft), excludeFromSemantics: true),
           const DecoratedBox(
             decoration: BoxDecoration(
               gradient: LinearGradient(

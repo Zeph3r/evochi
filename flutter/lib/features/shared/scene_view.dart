@@ -9,6 +9,7 @@ import 'package:flutter/scheduler.dart';
 
 import '../../core/services/asset_manifest.dart';
 import '../../game/vitality/vitality.dart';
+import 'live_scene.dart';
 
 const _worldScale = {1: 0.205, 2: 0.2, 3: 0.165};
 
@@ -264,7 +265,8 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
       Widget layer(String name) {
         final f = hab.layer(name);
         if (f == null) return const SizedBox.shrink();
-        return Positioned(left: ox, top: oy, width: hab.w * k, child: Image.asset(artBase + f, fit: BoxFit.fitWidth, gaplessPlayback: true, excludeFromSemantics: true));
+        // living layers: the far trees and the lake, the big tree and the grass, the foreground blades
+        return Positioned(left: ox, top: oy, width: hab.w * k, height: hab.h * k, child: LiveImage(artBase + f, fit: BoxFit.fill, excludeFromSemantics: true, motion: cfg.reducedMotion ? 0 : 1));
       }
 
       final back = <Widget>[];

@@ -115,9 +115,11 @@ class _SkillsPanelState extends State<SkillsPanel> {
       if (next) nextMarked = true;
       rows.add(_MilestoneRow(m: m, skill: s, reached: reached, done: done, next: next, req: sr, onTap: () => _openMilestone(context, m)));
     }
-    // one label size for the three skill bookmarks (each also carries its icon and a level chip)
+    // one label size for the three skill bookmarks (each carries its icon; the level sits on the corner)
     final group = [for (final x in all.values) x.name];
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+      // room above for the corner badges and the chosen tab's glow
+      const SizedBox(height: 8),
       Row(children: [
         for (final id in h.skillOrder)
           Expanded(
@@ -228,22 +230,45 @@ class _SkillTab extends StatelessWidget {
         excludeSemantics: true,
         child: GestureDetector(
           onTap: onTap,
-          // the journal's leather bookmark tabs
-          child: KitTab(
-            selected: selected,
-            style: KitTabStyle.leather,
-            height: 48,
-            radius: BorderRadius.circular(12),
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              VoxelIcon(skill.icon, size: 24),
-              const SizedBox(width: 3),
-              Flexible(
-                child: KitRowLabel(skill.name, group: group, style: KitTab.label(EvochiText.tag, selected)),
-              ),
-              LvChip('${skill.level}'),
-            ]),
-          ),
+          // the journal's leather bookmark tabs, the level pinned to the corner like a tag
+          child: Stack(clipBehavior: Clip.none, children: [
+            KitTab(
+              selected: selected,
+              style: KitTabStyle.leather,
+              height: 48,
+              radius: BorderRadius.circular(12),
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                VoxelIcon(skill.icon, size: 22),
+                const SizedBox(width: 4),
+                Flexible(
+                  child: KitRowLabel(skill.name, group: group, style: KitTab.label(EvochiText.tag, selected)),
+                ),
+              ]),
+            ),
+            Positioned(top: -8, right: -4, child: _LevelBadge(skill.level)),
+          ]),
         ),
+      );
+}
+
+/// A skill's level as a little gold tag on its tab's corner.
+class _LevelBadge extends StatelessWidget {
+  const _LevelBadge(this.level);
+  final int level;
+  @override
+  Widget build(BuildContext context) => Container(
+        constraints: const BoxConstraints(minWidth: 24),
+        height: 22,
+        padding: const EdgeInsets.symmetric(horizontal: 5),
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFF1B8), Color(0xFFF5C451)]),
+          borderRadius: BorderRadius.circular(11),
+          border: Border.all(color: const Color(0xFF8A5A14), width: 2),
+          boxShadow: const [BoxShadow(color: Color(0x66000000), offset: Offset(0, 2), blurRadius: 1)],
+        ),
+        child: Text('$level', style: EvochiText.tag.copyWith(color: const Color(0xFF5A3A0A), fontSize: 12, fontWeight: FontWeight.w900, height: 1)),
       );
 }
 

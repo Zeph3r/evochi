@@ -409,6 +409,76 @@ cp ../web/public/assets/ui/*.png assets/ui/
 
 If the frame size or slice changes, update `KitTextures.frameSlice` and `KitTextures.frameCenter`.
 
+## Living scenes
+
+The backgrounds are pre-rendered voxel art, so motion is layered on at runtime.
+`lib/features/shared/live_scene.dart` has `LiveImage`, a drop-in for `Image.asset` on scene art. It
+draws the image through `shaders/scene_fx.frag`, steered by a per-scene mask, and the shader
+handles:
+
+- **Foliage:** sways in gusts and its leaves shimmer.
+- **Grass:** bands of light travel across it.
+- **Water:** still water ripples and glints, and waterfalls stream.
+- **Light:** fire flickers, lamps and windows breathe, and crystals pulse.
+- **Smoke and cloth:** smoke wavers and banners ripple.
+
+On top of the shader, the scene's emitters are painted with one or two `drawAtlas` calls: glows,
+embers, chimney smoke and cauldron steam, bubbles, dust, pollen, fireflies, sparks and drifting
+leaves. Particles are pure functions of time, so there is no per-frame state.
+
+The scene repaints at about 30 fps, and only while its route and tab are on screen. The shell gives
+each tab a `TickerMode`, so hidden tabs stop ticking. With reduced motion the picture stays still,
+with its lights on. An image without a mask is drawn still.
+
+- **Masks and emitters:** `tools/art/scene_fx.py` bakes them from the zones in
+  `tools/art/fx_zones/*.py`, one file per area. Each zone is a shape plus a colour key ("the green
+  pixels in this ellipse sway like a tree"). The mask encoding and the emitter fields are described
+  in that script's docstring. Run `python3 tools/art/scene_fx.py --preview DIR` and check the
+  colourised previews after changing a zone.
+- **Output:** masks go to `assets/art/fx/` (lossless webp, the same size as the scene), and the
+  table to `assets/config/scene_fx.json`. `SceneFx.load()` reads the table at startup.
+- **Where it's used:**
+  - the Nest's habitat layers and the Market
+  - the Home Map, Garden and Cottage
+  - the Kitchen and Apothecary, including the cook stage, which skips the emitters because it
+    paints its own
+  - the Square and the village places
+  - the Guild
+  - the trail scenes and the battle backdrops, including their foreground layers
+
+## Place ambience
+
+Each kind of place has its own background bed instead of the meadow loop everywhere. All of them are
+synthesised by `tools/art/ambience.py`. Each is a 40 s mono mp3, built to be exactly periodic:
+FFT-shaped noise, whole-cycle modulations, one-shots that wrap round the end, and a circular-
+convolution room.
+
+| Bed | Plays in | What you hear |
+| --- | --- | --- |
+| `amb_home` | Home Map, Garden, Cottage | breeze, birds, a far waterfall, a passing bee |
+| `amb_village` | the Square, the Waystone | the stream, birds, wind chimes, Bram tapping metal |
+| `amb_kitchen` | Kitchen | a faint wood-fire crackle |
+| `amb_apothecary` | Apothecary | cauldron bubbles over a low fire, a glass clink |
+| `amb_workshop` | Bram's Workshop | the forge's roar and crackle, the bellows |
+| `amb_lodge` | Trail Guild, the lodge | room tone, a clock, wind outside, a page turning |
+| `amb_glasshouse` | Mira's Glasshouse | drips, a trickle, muffled birds, bees |
+| `amb_forest` | Mossy Ruins | a close waterfall, rustling leaves, birds |
+| `amb_hollow` | the Hollow-held ruins | wind and a low hum |
+| `amb_dusk` | Sentinel Gate | crickets, wind, a crystal shimmer, an owl |
+| `amb_market` | the Market tab | breeze, flapping flags, birds |
+
+The Nest and the menu tabs keep `ambient_meadow_loop`.
+
+- **Choosing the bed:** a place's route is wrapped in `Ambience(name)`
+  (`lib/features/shared/ambience.dart`). `AudioService` keeps a stack of the places on screen
+  (following `TickerMode`) and crossfades to the newest one. An encounter's music overrides the
+  place until it ends.
+- **Up close:** the cook stage re-wraps its station at gain 1.7, so the fire gets louder when you're
+  at the oven's mouth.
+- **Looping:** beds don't use the codec's loop. `_Bed` starts the next pass 2.5 s before the end and
+  crossfades with equal power, so mp3 padding never leaves a gap.
+- **Volumes:** set in `_loopVolumes`. The kitchen crackle is deliberately faint.
+
 ## Haptics
 
 `lib/core/services/haptics.dart` is the game's haptic vocabulary: one named feel (`Haptic`) per

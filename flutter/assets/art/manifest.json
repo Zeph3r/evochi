@@ -3928,7 +3928,18 @@
   "enc_soothe": "sfx/enc_soothe.mp3",
   "enc_surge": "sfx/enc_surge.mp3",
   "enc_whoosh": "sfx/enc_whoosh.mp3",
-  "enc_wild_loop": "ambient/enc_wild_loop.mp3"
+  "enc_wild_loop": "ambient/enc_wild_loop.mp3",
+  "amb_home": "ambient/amb_home.mp3",
+  "amb_village": "ambient/amb_village.mp3",
+  "amb_kitchen": "ambient/amb_kitchen.mp3",
+  "amb_apothecary": "ambient/amb_apothecary.mp3",
+  "amb_workshop": "ambient/amb_workshop.mp3",
+  "amb_lodge": "ambient/amb_lodge.mp3",
+  "amb_glasshouse": "ambient/amb_glasshouse.mp3",
+  "amb_forest": "ambient/amb_forest.mp3",
+  "amb_hollow": "ambient/amb_hollow.mp3",
+  "amb_dusk": "ambient/amb_dusk.mp3",
+  "amb_market": "ambient/amb_market.mp3"
  },
  "thumbs": {
   "file": "chars/thumbs.webp",

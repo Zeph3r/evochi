@@ -27,6 +27,7 @@ import '../shared/widgets.dart';
 import 'encounter_icons.dart';
 import 'stage_fx.dart';
 import 'trails_widgets.dart';
+import '../shared/live_scene.dart';
 
 // your Evochi's frame width (share of the shot's width) per stage, and how far right its face may reach
 const petWidthByStage = {1: 0.44, 2: 0.52, 3: 0.68};
@@ -1101,7 +1102,7 @@ class _World extends StatelessWidget {
     final fx = st.effects;
     fx?.resize(bw, bh);
     final layers = Stack(clipBehavior: Clip.none, children: [
-      Positioned.fill(child: Image.asset(g.scene.file, fit: BoxFit.fill, excludeFromSemantics: true, gaplessPlayback: true, filterQuality: FilterQuality.medium)),
+      Positioned.fill(child: LiveImage(g.scene.file, fit: BoxFit.fill, excludeFromSemantics: true)),
       // the Hollow's aura (gold once it's restored or befriended)
       Positioned(
         left: g.wildCx * bw - bw * 0.31,
@@ -1152,7 +1153,7 @@ class _World extends StatelessWidget {
           child: AnimatedBuilder(
             animation: clock,
             builder: (_, child) => Transform(origin: Offset(bw * 0.85, bh * 0.7), transform: _poseMatrix(st.fgAt(clock), bw, bh), child: child),
-            child: Image.asset(g.scene.fg, fit: BoxFit.fill, excludeFromSemantics: true, gaplessPlayback: true, filterQuality: FilterQuality.medium),
+            child: LiveImage(g.scene.fg, fit: BoxFit.fill, excludeFromSemantics: true, particles: false),
           ),
         ),
       ),

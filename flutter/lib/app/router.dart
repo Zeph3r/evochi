@@ -12,6 +12,7 @@ import '../features/evodex/evodex_screen.dart';
 import '../features/journey/journey_screen.dart';
 import '../features/nest/nest_screen.dart';
 import '../features/onboarding/onboarding_screens.dart';
+import '../features/shared/ambience.dart';
 import '../features/shared/widgets.dart';
 import '../features/shop/shop_screen.dart';
 
@@ -95,12 +96,14 @@ class _MainShellState extends State<MainShell> {
         extendBody: true,
         body: IndexedStack(
           index: order.indexOf(_tab),
+          // only the chosen tab ticks: the others keep their state but not their animations (living
+          // scenes, the pet) or their place's sound
           children: [
-            NestScreen(active: _tab == 'home'),
-            const JourneyScreen(),
-            BagScreen(active: _tab == 'bag'),
-            ShopScreen(active: _tab == 'shop'),
-            const EvoDexScreen(),
+            TickerMode(enabled: _tab == 'home', child: NestScreen(active: _tab == 'home')),
+            TickerMode(enabled: _tab == 'journey', child: const JourneyScreen()),
+            TickerMode(enabled: _tab == 'bag', child: BagScreen(active: _tab == 'bag')),
+            TickerMode(enabled: _tab == 'shop', child: Ambience('amb_market', child: ShopScreen(active: _tab == 'shop'))),
+            TickerMode(enabled: _tab == 'evodex', child: const EvoDexScreen()),
           ],
         ),
         bottomNavigationBar: EvochiNavBar(
