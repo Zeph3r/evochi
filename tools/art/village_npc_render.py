@@ -32,7 +32,7 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage
 
-from voxel import Camera, Light, collect_faces, fast_rasterize, edges_from_depth, downsample, hexrgb, project_px
+from voxel import Camera, Light, collect_faces, fast_rasterize, edges_from_depth, downsample, hexrgb, project_px, render
 from decals import Surface, Canvas, quads_to_polys
 from characters import paint_face
 from palettes import ACCESSORY
@@ -49,6 +49,8 @@ HOME = {
     # Alder stands on the right, drawn mirrored: render him on the left of a mirrored room, so the
     # flipped sprite carries the room's real light direction.
     'alder': ('lodge', dict(gx=0.73, gy=0.80, mirror=True, ev=-0.35)),
+    # Sher (wilds_npcs.py), the Wilds' cat: lit by the Trail Guild Lodge, standing between Pip and Alder
+    'sher': ('lodge', dict(gx=0.5, gy=0.80, mirror=False, ev=-0.3)),
 }
 UNIT = 0.0011          # plate height per sprite pixel (x the villager's size): one scale for everyone
 
@@ -430,6 +432,15 @@ def render_all(out_dir, builders, cam, scale, outline, expressions, fit_for, onl
             continue
         ch = b()
         fit = fit_for([ch.model], cam, scale)
+        if getattr(ch, 'whiskers', None):
+            # widen the frame for whiskers reaching past the head
+            from voxel import model_extent_points, Fit
+            P = np.concatenate([model_extent_points(ch.model)] + [wk.points() for wk in ch.whiskers])
+            sx, sy, _ = cam.project(P)
+            pad = 10
+            w = int(np.ceil((sx.max() - sx.min()) * scale + 2 * pad))
+            h = int(np.ceil((sy.max() - sy.min()) * scale + 2 * pad))
+            fit = Fit(scale, pad - sx.min() * scale, pad - sy.min() * scale, w + w % 2, h + h % 2)
         m, npz = export(name, ch, cam, fit, outline, work, expressions)
         if not os.environ.get('NPC_SKIP_BLENDER'):
             if not py:
@@ -483,6 +494,12 @@ def finish_npc(name, ch, cam, fit, outline, expressions, work, out_dir, m):
             if sname == 'lit':
                 L = grade(L, gains['lit'], sat=0.9, warm=warm)
             done[(p, e)] = ink(L, lines, pid[p], outline)
+            if p == 'head' and e != 'blink' and getattr(ch, 'whiskers', None):
+                # 3D whiskers ride on the head layer (they turn with it), hidden where the model is nearer
+                from whiskers import draw
+                if 'dep' not in lines:
+                    lines['dep'] = render(ch.model, pal, cam, fit.w, fit.h, fit=fit).depth
+                done[(p, e)] = draw(done[(p, e)], lines['dep'], cam, fit, ch.whiskers)
         # flattened expressions (thumbnails, cards, the classic sprite) on the full canvas
         for e in expressions:
             flat = stack({'s': shadow, **{k: v for k, v in done.items()}}, ['s'] + rest_key(e))

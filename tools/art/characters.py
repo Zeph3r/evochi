@@ -118,8 +118,11 @@ class Character:
 # ----------------------------------------------------------------------------
 # Stage 1: Eggling
 # ----------------------------------------------------------------------------
-def build_eggling(res=2) -> Character:
-    M = Model((-18, -1, -16), (18, 35, 18), MATS, res=res)
+def build_eggling(res=2, feet=None, lo_y=-1) -> Character:
+    """feet: {(side, front): (dy, dz)} moves a foot (side -1/+1, front True/False) relative to the body,
+    in world units (multiples of 1/res keep it on the voxel grid): the walk cycle (walk.py)."""
+    feet = feet or {}
+    M = Model((-18, lo_y, -16), (18, 35, 18), MATS, res=res)
     body = egg_mask(M, (0, 11.2, 0), 13.0, 13.2, 9.8, 11.6, p=2.25)
     M.set(body, 'shell')
 
@@ -169,17 +172,19 @@ def build_eggling(res=2) -> Character:
     # feet
     for s in (-1, 1):
         for (z0, z1, h) in ((3.0, 10.0, 4.2), (-9.5, -3.5, 3.6)):
+            dy, dz = feet.get((s, z0 > 0), (0.0, 0.0))
+            z0, z1, y0, h = z0 + dz, z1 + dz, dy, h + dy
             x0, x1 = (4.0, 10.8) if s > 0 else (-10.8, -4.0)
-            f = M.box((x0, 0, z0), (x1, h, z1))
+            f = M.box((x0, y0, z0), (x1, h, z1))
             # chamfer top-front edge
             f &= ~((M.Y > h - 1.0) & (M.Z > z1 - 1.0))
-            M.set(f & (M.m == 0) | (f & (M.m > 0) & (M.Y < 4.0)), 'feet')
-            M.set(M.box((x0, 0, z0), (x1, 1.0, z1)) & f, 'feet_shade')
-            if z0 > 0:
+            M.set(f & (M.m == 0) | (f & (M.m > 0) & (M.Y < 4.0 + dy)), 'feet')
+            M.set(M.box((x0, y0, z0), (x1, y0 + 1.0, z1)) & f, 'feet_shade')
+            if z0 > dz:
                 # claws: three cream nubs on the front edge
                 cx = np.linspace(x0 + 1.1, x1 - 1.1, 3)
                 for c in cx:
-                    cl = M.box((c - 0.6, 0, z1 - 0.5), (c + 0.6, 1.6, z1 + 1.2))
+                    cl = M.box((c - 0.6, y0, z1 - 0.5), (c + 0.6, y0 + 1.6, z1 + 1.2))
                     M.set(cl, 'claw')
 
     body_mask = (M.m > 0)

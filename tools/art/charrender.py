@@ -82,4 +82,7 @@ def render_char(ch: Character, variant='amber', expr='default', cam=None, w=512,
                  inner_alpha=0.8, inner_px=max(0.6, fit.scale * 0.045),
                  cov_ids=None if cov_prefix is None else
                  [i for i, n in enumerate(model.mats) if n.startswith(cov_prefix)])
+    if getattr(ch, 'whiskers', None):
+        from whiskers import draw
+        out.rgba = draw(out.rgba, out.depth, cam, fit, ch.whiskers)
     return out

@@ -281,6 +281,12 @@ class VillageArt {
     return n['layers'] == null ? null : NpcPuppetArt(n);
   }
 
+  /// The villager's face point on its sprite (round portraits centre on it).
+  Offset npcFace(String npcId) {
+    final f = _npc(npcId)['face'] as List;
+    return Offset((f[0] as num).toDouble(), (f[1] as num).toDouble());
+  }
+
   Size npcSize(String npcId) {
     final n = _npc(npcId);
     return Size((n['w'] as num).toDouble(), (n['h'] as num).toDouble());
