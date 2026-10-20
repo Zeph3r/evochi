@@ -129,6 +129,15 @@ passes the syntax check and its imports resolve, but `flutter analyze` / `flutte
     **Kitchen**. "Mira's Mortar" opens the **Apothecary**. Both rooms share one screen: recipe cards
     and a skippable timing game, where a perfect stop makes a double batch and +50% skill XP.
     Ingredients are never wasted.
+  - **The station (Flutter's own take, not yet on the web):** cooking takes over the whole screen.
+    The camera pushes into the oven or the cauldron, the ingredients drop in, and a gauge comes up.
+    The Kitchen has a heat dial whose needle swings across and back. The Apothecary has a stirring
+    ring round the cauldron's rim, with a ladle that loops. Both have a gold zone and one big round
+    button below ("Take it out!" or "Stir!"). The hint ribbon fades once you've read it, your Evochi
+    peeks in from the corner, and a stamp ("Perfect!" with a "Double batch ×2" ribbon, or "Nicely
+    done!") lands as the dish pops. The reward card then opens over the scene. `_CookView` in
+    `station_screen.dart` runs it on one `Ticker`, and with reduced motion there's no push-in, no
+    particles and a slower gauge.
   - **Cozy Skills:** Farming, Cooking and Alchemy, with a milestone chart (the Skills screen and
     Journey > Skills).
   - **Side stories:** "The Shy Visitor" (Pip) and "Guardian of the Old Grove" (Alder, needs a
@@ -399,6 +408,27 @@ cp ../web/public/assets/ui/*.png assets/ui/
 ```
 
 If the frame size or slice changes, update `KitTextures.frameSlice` and `KitTextures.frameCenter`.
+
+## Haptics
+
+`lib/core/services/haptics.dart` is the game's haptic vocabulary: one named feel (`Haptic`) per
+moment, played with the matching sound. Phones whose motor takes patterns get a short waveform with
+strengths, using the `vibration` plugin (pinned below 3.2, which needs Dart 3.11). Other phones get
+the system's taps on a timer, and desktop and web get nothing. The Haptics switch in Profile gates
+everything, through `AudioService`.
+
+`AudioService.play` buzzes the feel mapped to a sound (`_soundFeel`), scaled by its volume.
+`buzz(Haptic)`, `tick()` and `bump()` cover moments with no sound of their own:
+
+- **Nest:** petting purrs, and Play hops.
+- **Encounters:** Glow swells, Soothe breathes, a landed move hits, a surge or a lash-out hurts, the
+  Sentinel rumbles, eyes lighting thump, and the reveal wins.
+- **Cooking and brewing:** a notch as the gauge enters the gold, then perfect or good on the stop.
+- **Everywhere else:** rewards, level-ups, evolution, purchases, harvest, equip, errors, and the
+  Market's turntable ticks.
+
+Android needs the `VIBRATE` permission, which is in the manifest snippet. Keep feels short and rare:
+a buzz on every tap gets switched off.
 
 ## Accounts and cloud
 

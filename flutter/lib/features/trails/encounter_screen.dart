@@ -24,6 +24,7 @@ import '../../core/models/catalog.dart';
 import '../../core/services/asset_manifest.dart';
 import '../../game/story/story.dart' as q;
 import '../../game/trails/trails.dart' as tr;
+import '../../core/services/haptics.dart';
 import '../shared/kit.dart';
 import '../shared/sprite.dart';
 import '../shared/widgets.dart';
@@ -667,6 +668,8 @@ class _EncounterScreenState extends State<EncounterScreen> {
     void landed() {
       if (landedOnce) return;
       landedOnce = true;
+      // your move lands: a firm tap for a glow, a nudge or a gift (Soothe and Petal Hush breathe instead)
+      if (a.kind == 'light' || a.kind == 'physical' || a.kind == 'item') _c.audio.buzz(Haptic.hit, strength: a.kind == 'item' ? 0.6 : 1);
       switch (a.kind) {
         case 'light':
           // Golden Pulse winds out round the face; on a Hollow one, its crystals break off
@@ -864,6 +867,7 @@ class _EncounterScreenState extends State<EncounterScreen> {
           void hurt() {
             if (hurtOnce) return;
             hurtOnce = true;
+            _c.audio.buzz(Haptic.hurt);
             st.hitstop(ms(80));
             st.update((s) => s.petExpr = 'surprised');
             st.retriggerPet('hurt', 750);
@@ -945,12 +949,16 @@ class _EncounterScreenState extends State<EncounterScreen> {
       fx?.burst(w, 14, shape: 'sparkle', pal: 'gold', speed: 70, vary: 0.6, drag: 2, size: 3.4, sizeK: 'spark', life: 1.2, gravity: 50, spin: 2, angle: -math.pi / 2, spread: 1.4);
     }
 
-    void revealed() => st.update((s) {
-          s.wildState = after.stateKey;
-          s.hollow = false;
-          s.phase2 = false;
-          s.won = true;
-        });
+    void revealed() {
+      // calmed or restored: a little celebration in the hand
+      _c.audio.buzz(Haptic.win);
+      st.update((s) {
+        s.wildState = after.stateKey;
+        s.hollow = false;
+        s.phase2 = false;
+        s.won = true;
+      });
+    }
     if (restore && fx != null && !_rm) {
       _sfx('enc_glow', 0.6);
       st.retriggerWild('dissolve', 580);

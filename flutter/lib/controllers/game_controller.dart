@@ -11,6 +11,7 @@ import '../core/models/catalog.dart';
 import '../core/models/game_state.dart';
 import '../core/services/analytics.dart';
 import '../core/services/audio_service.dart';
+import '../core/services/haptics.dart';
 import '../core/utils/day_keys.dart';
 import '../data/health_adapters/demo_step_source.dart';
 import '../data/health_adapters/health_step_source.dart';
@@ -138,6 +139,8 @@ class GameController extends ChangeNotifier {
     state = await repo.load() ?? GameState.fresh(DateTime.now().millisecondsSinceEpoch, zone);
     state.tzHint = zone;
     _applySettings();
+    // what the phone's vibration motor can do (patterns, strengths), for the haptics
+    unawaited(audio.hx.init());
     ready = true;
     // story walks re-check progress on open (e.g. a quest whose target was met by the last sync)
     if (state.player != null) run((s, n) => story.storyTick(s, n), quiet: true);
@@ -240,11 +243,14 @@ class GameController extends ChangeNotifier {
     switch (e.type) {
       case 'xp':
         toast('+${e.data['amount']} XP for $name', icon: 'xp');
+      case 'equipped':
+        audio.buzz(Haptic.equip);
       case 'level_up':
         toast('Level ${e.data['level']}! $name is growing', icon: 'star');
         audio.play('level_up');
       case 'goal_met':
         toast('Daily goal reached! Bond +1', icon: 'heart');
+        audio.buzz(Haptic.win);
       case 'evolution_ready':
         toast('Something is stirring... evolution is ready!', icon: 'evolve');
         analytics.track('evolution_unlocked', {'stage': e.data['stage']});
@@ -286,6 +292,7 @@ class GameController extends ChangeNotifier {
           toast('${story.npcs[npc]!.name} is ready for you in Sunlit Village', icon: 'pin');
         }
       case 'harvested':
+        audio.buzz(Haptic.harvest);
         final items = (e.data['items'] as Map).cast<String, int>();
         toast(items.entries.map((x) => '+${x.value} ${h.itemLabel(x.key, x.value)}').join(', '), icon: items.isEmpty ? 'skill_farming' : 'item:${items.keys.first}');
       case 'planted':

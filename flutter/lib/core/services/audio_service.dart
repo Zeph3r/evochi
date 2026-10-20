@@ -5,11 +5,28 @@
 import 'dart:async';
 
 import 'package:audioplayers/audioplayers.dart';
-import 'package:flutter/services.dart' hide AssetManifest;
 
 import 'asset_manifest.dart';
+import 'haptics.dart';
 
 const defaultLoop = 'ambient_meadow_loop';
+
+/// The sounds that carry a feel of their own (see haptics.dart): the buzz plays with the sound, even
+/// when the sound is off, as long as Haptics is on. Its strength follows the sound's volume.
+const _soundFeel = <String, Haptic>{
+  'pet_chirp': Haptic.purr,
+  'play_boing': Haptic.hop,
+  'reward_chime': Haptic.reward,
+  'level_up': Haptic.levelUp,
+  'evolve_fanfare': Haptic.evolve,
+  'purchase': Haptic.purchase,
+  'error_bonk': Haptic.error,
+  'enc_glow': Haptic.glow,
+  'enc_soothe': Haptic.soothe,
+  'enc_surge': Haptic.surge,
+  'enc_rumble': Haptic.rumble,
+  'enc_awaken': Haptic.thump,
+};
 
 class AudioService {
   AudioPlayer _ambient = AudioPlayer();
@@ -39,6 +56,10 @@ class AudioService {
   }
 
   Future<void> play(String name, {double volume = 0.8}) async {
+    var feel = _soundFeel[name];
+    // a quiet chime (a toggle, a small confirm) is only a notch
+    if (feel == Haptic.reward && volume < 0.5) feel = Haptic.tick;
+    if (feel != null) buzz(feel, strength: 0.45 + volume * 0.65);
     if (!sound) return;
     final rel = _rel(name);
     if (rel == null) return;
@@ -126,11 +147,15 @@ class AudioService {
     if (then == null) _fadeIn = t;
   }
 
-  void tick() {
-    if (haptics) HapticFeedback.selectionClick();
+  /// The phone's motor (see haptics.dart), behind the Haptics switch.
+  final Haptics hx = Haptics();
+
+  /// Play a named feel (behind the Haptics switch).
+  void buzz(Haptic h, {double strength = 1}) {
+    if (haptics) hx.play(h, strength: strength);
   }
 
-  void bump() {
-    if (haptics) HapticFeedback.lightImpact();
-  }
+  void tick() => buzz(Haptic.tick);
+
+  void bump() => buzz(Haptic.tap);
 }

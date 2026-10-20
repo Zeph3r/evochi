@@ -237,11 +237,13 @@ class _ShopScreenState extends State<ShopScreen> {
     final i = marketViews.indexWhere((x) => x.$1 == _tview);
     setState(() => _tview = marketViews[(i + d + marketViews.length) % marketViews.length].$1);
     _c.audio.play('ui_tap', volume: 0.3);
+    _c.audio.tick(); // a notch as your Evochi turns
   }
 
   void _pickView(String v) {
     setState(() => _tview = v);
     _c.audio.play('ui_tap', volume: 0.3);
+    _c.audio.tick();
   }
 
   void _toggle() {

@@ -18,6 +18,8 @@ dependencies:
   # the adapter in lib/data/health_adapters isolates this dependency.
   health: ^11.1.0
   audioplayers: ^6.1.0
+  # haptics: patterns with strengths on Android 8+ and Core Haptics iPhones (3.2 needs Dart 3.11)
+  vibration: ">=3.1.3 <3.2.0"
 
 dev_dependencies:
   flutter_test:

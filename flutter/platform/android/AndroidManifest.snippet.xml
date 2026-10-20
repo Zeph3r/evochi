@@ -1,5 +1,7 @@
 <!-- android/app/src/main/AndroidManifest.xml -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Haptics (the vibration package) -->
+    <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Health Connect: read-only step count -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
     <!-- Lets Health Connect show which apps it can talk to (Android 11+) -->
