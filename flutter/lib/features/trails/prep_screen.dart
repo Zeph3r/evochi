@@ -65,7 +65,7 @@ class _PrepScreenState extends State<PrepScreen> {
     final r = c.run((s, n) => tr.startEncounter(s, qid, n));
     if (!r.ok) return;
     c.audio.play('ui_tap', volume: 0.5);
-    Navigator.of(context).push(MaterialPageRoute<void>(settings: const RouteSettings(name: 'travel'), builder: (_) => Ambience(sceneAmbience(tr.encounterDefs[qid]?.scene), child: TravelScreen(questId: qid))));
+    Navigator.of(context).push(MaterialPageRoute<void>(settings: const RouteSettings(name: 'travel'), builder: (_) => Ambience(scenePlace(tr.encounterDefs[qid]?.scene), child: TravelScreen(questId: qid))));
   }
 
   void _resume() {

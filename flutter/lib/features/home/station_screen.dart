@@ -251,7 +251,7 @@ class _StationScreenState extends State<StationScreen> {
       // at the station: the whole screen is the oven (or the cauldron), no page around it
       // up at the oven's mouth (or the cauldron's) the fire is louder
       body = Ambience(
-        apothecary ? 'amb_apothecary' : 'amb_kitchen',
+        apothecary ? 'apothecary' : 'kitchen',
         gain: 1.7,
         child: _CookView(
           key: ValueKey('cook-$_cookSerial'),

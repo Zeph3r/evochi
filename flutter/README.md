@@ -417,7 +417,7 @@ draws the image through `shaders/scene_fx.frag`, steered by a per-scene mask, an
 handles:
 
 - **Foliage:** sways in gusts and its leaves shimmer.
-- **Grass:** bands of light travel across it.
+- **Grass:** a faint, fine shimmer (a broad travelling band read as a line sweeping the map).
 - **Water:** still water ripples and glints, and waterfalls stream.
 - **Light:** fire flickers, lamps and windows breathe, and crystals pulse.
 - **Smoke and cloth:** smoke wavers and banners ripple.
@@ -446,38 +446,52 @@ with its lights on. An image without a mask is drawn still.
   - the Guild
   - the trail scenes and the battle backdrops, including their foreground layers
 
-## Place ambience
+## Place sound: music and ambience
 
-Each kind of place has its own background bed instead of the meadow loop everywhere. All of them are
-synthesised by `tools/art/ambience.py`. Each is a 40 s mono mp3, built to be exactly periodic:
-FFT-shaped noise, whole-cycle modulations, one-shots that wrap round the end, and a circular-
-convolution room.
+Each place has two layers of sound, both chosen by where you are. A place's route is wrapped in
+`Ambience(place)` (`lib/features/shared/ambience.dart`). `AudioService` keeps a stack of the places
+on screen (following `TickerMode`, so a hidden tab or a covered route drops out) and plays the
+newest one, or the Nest's when there is none. The table is `placeSounds` in
+`lib/core/services/audio_service.dart`.
 
-| Bed | Plays in | What you hear |
-| --- | --- | --- |
-| `amb_home` | Home Map, Garden, Cottage | breeze, birds, a far waterfall, a passing bee |
-| `amb_village` | the Square, the Waystone | the stream, birds, wind chimes, Bram tapping metal |
-| `amb_kitchen` | Kitchen | a faint wood-fire crackle |
-| `amb_apothecary` | Apothecary | cauldron bubbles over a low fire, a glass clink |
-| `amb_workshop` | Bram's Workshop | the forge's roar and crackle, the bellows |
-| `amb_lodge` | Trail Guild, the lodge | room tone, a clock, wind outside, a page turning |
-| `amb_glasshouse` | Mira's Glasshouse | drips, a trickle, muffled birds, bees |
-| `amb_forest` | Mossy Ruins | a close waterfall, rustling leaves, birds |
-| `amb_hollow` | the Hollow-held ruins | wind and a low hum |
-| `amb_dusk` | Sentinel Gate | crickets, wind, a crystal shimmer, an owl |
-| `amb_market` | the Market tab | breeze, flapping flags, birds |
+- **Music** (the Music switch) is a small playlist per place. A track plays once, then 20-45 s of
+  quiet (just the place's own sounds), then the next one. Moving between screens of the same place
+  (the Home Map, the Garden and the Cottage) carries on; a new place fades the tune out and starts
+  its own. An encounter's loop overrides the place while it runs.
+- **Ambient beds** (the Sound effects switch) play only where they belong: a faint wood fire in the
+  Kitchen (louder at the oven's mouth in the cook stage), the cauldron bubbling over a low fire in
+  the Apothecary, Bram's forge, the stream on the Square, drips in the Glasshouse, and the waterfall
+  at the ruins. Birds, crickets, wind and the lodge clock were cut for nagging. Beds don't use the
+  codec's loop: `_Bed` starts the next pass 2.5 s before the end and crossfades with equal power,
+  and if a pass ever ends first the next starts at once.
 
-The Nest and the menu tabs keep `ambient_meadow_loop`.
+**The music** (`tools/art/music.py`) is our own arrangements of public-domain traditional airs.
 
-- **Choosing the bed:** a place's route is wrapped in `Ambience(name)`
-  (`lib/features/shared/ambience.dart`). `AudioService` keeps a stack of the places on screen
-  (following `TickerMode`) and crossfades to the newest one. An encounter's music overrides the
-  place until it ends.
-- **Up close:** the cook stage re-wraps its station at gain 1.7, so the fire gets louder when you're
-  at the oven's mouth.
-- **Looping:** beds don't use the codec's loop. `_Bed` starts the next pass 2.5 s before the end and
-  crossfades with equal power, so mp3 padding never leaves a gap.
-- **Volumes:** set in `_loopVolumes`. The kitchen crackle is deliberately faint.
+- **Source:** the melodies come from *O'Neill's Music of Ireland* (1850) as encoded in the music21
+  corpus. Only the notes are taken.
+- **Arrangement:** the script harmonises each melody with a small Viterbi pass over the key's triads
+  (weighted by beat, preferring folk progressions). It arranges the tune for a harp, guitar or
+  marimba accompaniment, a soft pad and bass, and a melody that changes instrument each pass, with a
+  celesta glint on the last. Each track gets a two-bar intro and a held, ritardando ending.
+- **Rendering:** FluidSynth with the MIT-licensed FluidR3 GM soundfont, levelled quietly and encoded
+  as 80 kbps stereo mp3s in `assets/audio/music/`.
+
+| Place | Tunes |
+| --- | --- |
+| Nest | The Skylark, The Little Red Lark, 'Twas on a Summer Morning |
+| Home Map, Garden, Cottage | Good Morning Fair Maid, 'Twas on a Summer Morning, The Skylark |
+| Square | Of My Love I Was Thinking, The Bright Black Rose, Good Morning Fair Maid |
+| Kitchen | Down by the Old Mill, An Irish Lullaby |
+| Apothecary | The Enchanted Valley, The Dark Woman of the Glen |
+| Bram's Workshop | The Little Bench of Rushes, Down by the Old Mill |
+| Trail Guild | Down at the Seaside, The Bright Black Rose |
+| Glasshouse | The Fairy Boy, An Irish Lullaby |
+| Mossy Ruins | The Young Man's Dream, The Little Fair Child |
+| Ruins under the Hollow, Sentinel Gate | The Dark Woman of the Glen and a second tune |
+| Market | The Good Ship Planet, Of My Love I Was Thinking |
+
+To change a tune, edit `TRACKS` (the collection, X number, tempo, instruments), run
+`python3 tools/art/music.py OUT_DIR`, copy the mp3s in, and list them in the manifest's audio block.
 
 ## Haptics
 

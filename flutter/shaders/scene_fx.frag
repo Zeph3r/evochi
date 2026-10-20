@@ -2,8 +2,8 @@
 // (tools/art/scene_fx.py bakes the masks). One pass per scene image:
 //   R  sway amount (0-1, feathered). B picks how it moves: 40 smoke wavers as it rises, 80 cloth
 //      ripples, anything else is foliage (sways in gusts, its leaves shimmer).
-//   G  255 falling water (streaks run down), 128 still water (ripples, glints), 64 grass (bands
-//      of light run across it, nothing moves).
+//   G  255 falling water (streaks run down), 128 still water (ripples, glints), 64 grass (a faint
+//      fine shimmer, nothing moves).
 //   B  255 fire (flickers), 200 crystal (pulses), 128 lamp or window (breathes).
 // Everything is in the image's own pixels, so a scene looks the same at any size.
 
@@ -72,7 +72,9 @@ void main() {
       light += cos(ph) * 0.045 * sway;
     } else {
       // foliage: gusts roll across the scene; inside a gust the canopy leans and its leaves shimmer
-      float gust = noise(vec2(px.x * 0.0035 - t * 0.22, t * 0.07));
+      // a soft 2D field (turned off the pixel grid) so no gust has a straight edge
+      vec2 q = vec2(px.x * 0.8 + px.y * 0.6, px.y * 0.8 - px.x * 0.6) * 0.004;
+      float gust = noise(q - vec2(t * 0.18, t * 0.05));
       float g = 0.3 + 0.7 * smoothstep(0.2, 0.8, gust);
       float lean = sin(t * 1.6 + px.x * 0.011 + px.y * 0.007) * 0.65 + sin(t * 2.7 + px.y * 0.045) * 0.35;
       d.x += lean * 2.2 * g * s;
@@ -83,9 +85,9 @@ void main() {
   }
 
   if (surf > 32.0 && surf < 96.0) {
-    // grass: soft bands of light travel with the wind
-    float wave = noise(vec2(px.x * 0.005 - t * 0.38, px.y * 0.011 + t * 0.04));
-    light += (smoothstep(0.52, 0.86, wave) * 0.085 - 0.018) * max(uWind, 0.3);
+    // grass: a faint, fine shimmer that drifts with the wind (no broad bands: a band read as a line
+    // sweeping across the map)
+    light += (noise(px * 0.065 + vec2(t * 0.45, t * 0.12)) - 0.5) * 0.035 * max(uWind, 0.3);
   } else if (surf > 96.0 && surf < 192.0) {
     // still water: a small ripple and glints that come and go
     d += vec2(sin(px.y * 0.33 + t * 2.0), cos(px.x * 0.19 + t * 1.5)) * 0.55;

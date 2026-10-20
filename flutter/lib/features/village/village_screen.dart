@@ -26,7 +26,7 @@ import '../shared/ambience.dart';
 const _villageRoute = 'village';
 const _placeRoute = 'place';
 
-Route<void> _villageRouteFor() => MaterialPageRoute<void>(settings: const RouteSettings(name: _villageRoute), builder: (_) => const Ambience('amb_village', child: VillageScreen()));
+Route<void> _villageRouteFor() => MaterialPageRoute<void>(settings: const RouteSettings(name: _villageRoute), builder: (_) => const Ambience('village', child: VillageScreen()));
 
 /// Open the Square from anywhere (Home, Journey > Story, the Quest Pouch, after a reward).
 void openVillage(BuildContext context) {
@@ -45,7 +45,7 @@ void openVillage(BuildContext context) {
 void openPlace(BuildContext context, String id, {String? npc}) {
   final nav = Navigator.of(context);
   final here = ModalRoute.of(context)?.settings.name;
-  final route = MaterialPageRoute<void>(settings: const RouteSettings(name: _placeRoute), builder: (_) => Ambience(placeAmbience(id), child: PlaceScreen(placeId: id, npc: npc)));
+  final route = MaterialPageRoute<void>(settings: const RouteSettings(name: _placeRoute), builder: (_) => Ambience(villagePlace(id), child: PlaceScreen(placeId: id, npc: npc)));
   if (here == _placeRoute) {
     nav.pushReplacement(route);
     return;

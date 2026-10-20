@@ -8,7 +8,7 @@ lib/features/shared/live_scene.dart). This script says where each effect goes:
               comes from B: smoke wavers as it rises, cloth ripples, anything else is foliage (sways
               in gusts and its leaves shimmer).
     G  surface: 255 falling water (streaks run down), 128 still water (ripples and glints),
-              64 grass (gust waves of light run across it, no movement)
+              64 grass (a faint fine shimmer, no movement)
     B  kind:  255 fire (flickers), 200 crystal (slow pulse), 128 lamp or window (breathes),
               80 cloth, 40 smoke
 * Emitters, drawn over the scene by a painter: glows, embers, smoke and steam, bubbles, motes
@@ -40,7 +40,7 @@ Keys: all, green, water, waterfall, fire, warm (lit window glass), white, pale, 
 bright, cloth.
 
 How the client plays them (scene_fx.frag): foliage sways up to ~2 image px at full R, in gusts,
-and its leaves shimmer; grass gets travelling bands of light (no movement); still water ripples
+and its leaves shimmer; grass gets a faint fine shimmer (no movement); still water ripples
 under a px and glints; falling water gets bright streaks running down; fire flickers ±25%
 brightness, lamps breathe ±12%, crystals pulse ±25%; smoke wavers up to ~3 px, more as it rises;
 cloth ripples ~2 px.
@@ -80,7 +80,7 @@ ZONES = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'fx_zones')
 EFFECTS = {
     'tree': (None, 0, 1.0),      # canopies: sway + leaf shimmer
     'blades': (64, 0, 0.75),     # big foreground grass and flowers: sway + gust waves
-    'grass': (64, None, None),   # ground grass: gust waves of light only
+    'grass': (64, None, None),   # ground grass: a faint shimmer only
     'cloth': (None, 80, 0.8),
     'smoke': (None, 40, 1.0),
     'fall': (255, None, None),

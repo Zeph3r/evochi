@@ -9,9 +9,10 @@ leaves a gap.
     python3 tools/art/ambience.py OUT_DIR     # writes amb_*.mp3 (needs ffmpeg with libmp3lame)
     python3 tools/art/ambience.py OUT_DIR --wav   # also keeps the wavs, for listening
 
-Loops: amb_home (Home Map, Garden, the Cottage outside), amb_village, amb_kitchen, amb_apothecary,
-amb_workshop, amb_lodge, amb_glasshouse, amb_forest (Mossy Ruins), amb_hollow (the ruins while the
-Hollow holds them), amb_dusk (Sentinel Gate), amb_market. The Nest keeps ambient_meadow_loop.
+Loops: amb_village (the stream), amb_kitchen (a faint wood fire), amb_apothecary (the cauldron
+bubbling over a low fire), amb_workshop (the forge), amb_glasshouse (drips and a trickle) and
+amb_forest (the waterfall at the Mossy Ruins). Everywhere else is music only (tools/art/music.py):
+birds, crickets, wind and the lodge clock were cut for nagging.
 """
 import os
 import subprocess
@@ -359,23 +360,10 @@ def whoosh(rng):
 
 # --------------------------------------------------------------------------------- scenes ----
 def scene(name, rng):
-    if name == 'amb_home':
-        w, g = wind(rng, 1.0, 650)
-        x = norm(w) * 0.42 + norm(leaves(rng, g)) * 0.14 + norm(waterfall(rng)) * 0.16 + birds(rng, 14, 0.75)
-        bz = np.zeros(N)
-        for _ in range(2):
-            place(bz, bee(rng), rng.uniform(0, L))
-        return circ_reverb(x + bz * 0.12, rng, 1.0, 0.12)
+    # Only sounds that belong to the place and sit still: fire, bubbling, water. No birds, crickets,
+    # wind or clocks (they nagged, and the music carries the mood now).
     if name == 'amb_village':
-        w, g = wind(rng, 0.8, 600)
-        x = norm(stream(rng)) * 0.22 + norm(waterfall(rng)) * 0.1 + norm(w) * 0.2 + norm(leaves(rng, g)) * 0.08
-        x += birds(rng, 16, 0.9) + chimes(rng, 3, 0.2)
-        cl = np.zeros(N)  # Bram, somewhere, tapping metal
-        for _ in range(2):
-            at = rng.uniform(0, L)
-            for j in range(3):
-                place(cl, bell(rng, rng.uniform(1500, 1900), 0.25) * (0.8 if j == 0 else 0.5), at + j * 0.55)
-        x += fft_filter(cl, band(300, 3000)) * 0.08
+        x = norm(stream(rng)) * 0.3 + norm(waterfall(rng)) * 0.08
         return circ_reverb(x, rng, 1.2, 0.15)
     if name == 'amb_kitchen':
         x = norm(room(rng)) * 0.12 + norm(fire(rng, roar=1.0, rate=2.2, pops=3, bright=0.7, crack=0.3)) * 0.6
@@ -384,68 +372,24 @@ def scene(name, rng):
         simmer = spectrum_noise(rng, band(100, 900, -0.5)) * periodic_env(rng, 30, 0.7, 0.6, 1.0)
         x = norm(room(rng)) * 0.1 + norm(simmer) * 0.14 + norm(bubbling(rng, 7.0, 6)) * 0.5
         x += norm(fire(rng, roar=0.7, rate=1.4, pops=1, bright=0.6, crack=0.22)) * 0.25
-        gl = np.zeros(N)
-        for _ in range(2):
-            place(gl, bell(rng, rng.uniform(2600, 3400), 0.35, (1, 2.32, 4.1), (1, 0.4, 0.15)), rng.uniform(0, L))
-        x += gl * 0.05
         return circ_reverb(x, rng, 0.5, 0.3, 4000)
     if name == 'amb_workshop':
         x = norm(room(rng)) * 0.1 + norm(fire(rng, roar=1.3, rate=4.0, pops=5, bright=0.9, crack=0.45)) * 0.6
-        bl = np.zeros(N)
-        for i in range(4):  # the bellows breathe on the forge now and then
-            place(bl, whoosh(rng), i * L / 4 + rng.uniform(0, 3))
-        x += norm(bl) * 0.12
         return circ_reverb(x, rng, 0.55, 0.3, 3500)
-    if name == 'amb_lodge':
-        w, g = wind(rng, 1.2, 400)
-        x = norm(room(rng)) * 0.18 + norm(fft_filter(w, band(40, 300))) * 0.22
-        tk = np.zeros(N)
-        for i in range(int(L)):
-            place(tk, tick(rng, 2100 if i % 2 == 0 else 1700) * 0.5, i + 0.0)
-        x += norm(fft_filter(tk, band(700, 4500))) * 0.035 + birds(rng, 5, 0.3, muffle=1500)
-        rs = np.zeros(N)  # someone turns a page
-        for _ in range(2):
-            n = int(0.25 * SR)
-            t = np.arange(n) / SR
-            place(rs, fft_filter(rng.standard_normal(n), band(1500, 6000)) * np.clip(np.sin(np.pi * t / t[-1]), 0, None) ** 3, rng.uniform(0, L))
-        x += rs * 0.04
-        return circ_reverb(x, rng, 0.7, 0.3, 3000)
     if name == 'amb_glasshouse':
-        x = norm(room(rng)) * 0.08 + birds(rng, 11, 0.35, muffle=2400) + norm(stream(rng)) * 0.06
+        x = norm(room(rng)) * 0.06 + norm(stream(rng)) * 0.05
         dr = np.zeros(N)
-        for _ in range(16):
+        for _ in range(12):
             place(dr, drip(rng) * rng.uniform(0.4, 1.0), rng.uniform(0, L))
-        bz = np.zeros(N)
-        for _ in range(3):
-            place(bz, bee(rng), rng.uniform(0, L))
-        x += dr * 0.18 + bz * 0.1
+        x += dr * 0.16
         return circ_reverb(x, rng, 0.8, 0.3, 5000)
     if name == 'amb_forest':
-        w, g = wind(rng, 1.0, 700)
-        x = norm(waterfall(rng, near=True)) * 0.4 + norm(leaves(rng, g)) * 0.2 + norm(w) * 0.2 + birds(rng, 16, 0.6)
+        x = norm(waterfall(rng, near=True))
         return circ_reverb(x, rng, 1.4, 0.18)
-    if name == 'amb_hollow':
-        w, g = wind(rng, 1.4, 500)
-        drone = np.sin(2 * np.pi * 110 * T) + np.sin(2 * np.pi * 110.5 * T) + 0.4 * np.sin(2 * np.pi * 164.75 * T)
-        x = norm(w) * 0.4 + norm(waterfall(rng)) * 0.15 + norm(drone * periodic_env(rng, 6, 1, 0.3, 1.0)) * 0.08 + birds(rng, 3, 0.25)
-        return circ_reverb(x, rng, 1.8, 0.25)
-    if name == 'amb_dusk':
-        w, g = wind(rng, 0.8, 500)
-        x = norm(crickets(rng, 5)) * 0.3 + norm(w) * 0.25 + norm(waterfall(rng)) * 0.1 + norm(shimmer(rng)) * 0.06
-        ho = np.zeros(N)
-        for _ in range(2):
-            place(ho, hoot(rng), rng.uniform(0, L))
-        x += ho * 0.07
-        return circ_reverb(x, rng, 1.6, 0.22)
-    if name == 'amb_market':
-        w, g = wind(rng, 1.1, 650)
-        x = norm(w) * 0.38 + norm(flaps(rng, g, 9)) * 0.16 + birds(rng, 8, 0.4) + chimes(rng, 2, 0.12)
-        return circ_reverb(x, rng, 1.0, 0.12)
     raise SystemExit(name)
 
 
-SCENES = ['amb_home', 'amb_village', 'amb_kitchen', 'amb_apothecary', 'amb_workshop', 'amb_lodge', 'amb_glasshouse',
-          'amb_forest', 'amb_hollow', 'amb_dusk', 'amb_market']
+SCENES = ['amb_village', 'amb_kitchen', 'amb_apothecary', 'amb_workshop', 'amb_glasshouse', 'amb_forest']
 
 
 def finish(x):

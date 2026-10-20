@@ -37,11 +37,11 @@ void _pushHome(BuildContext context, String name, WidgetBuilder builder) {
   Navigator.of(context).push(MaterialPageRoute<void>(settings: RouteSettings(name: name), builder: builder));
 }
 
-void openHomeMap(BuildContext context) => _pushHome(context, 'homemap', (_) => const Ambience('amb_home', child: HomeMapScreen()));
-void openGarden(BuildContext context) => _pushHome(context, 'garden', (_) => const Ambience('amb_home', child: GardenScreen()));
-void openCottage(BuildContext context) => _pushHome(context, 'cottage', (_) => const Ambience('amb_home', child: CottageScreen()));
+void openHomeMap(BuildContext context) => _pushHome(context, 'homemap', (_) => const Ambience('home', child: HomeMapScreen()));
+void openGarden(BuildContext context) => _pushHome(context, 'garden', (_) => const Ambience('home', child: GardenScreen()));
+void openCottage(BuildContext context) => _pushHome(context, 'cottage', (_) => const Ambience('home', child: CottageScreen()));
 void openStation(BuildContext context, String id) =>
-    _pushHome(context, 'station:$id', (_) => Ambience(id == 'apothecary' ? 'amb_apothecary' : 'amb_kitchen', child: StationScreen(stationId: id)));
+    _pushHome(context, 'station:$id', (_) => Ambience(id == 'apothecary' ? 'apothecary' : 'kitchen', child: StationScreen(stationId: id)));
 void openSkills(BuildContext context, {String? skill}) => _pushHome(context, 'skills', (_) => SkillsScreen(initial: skill));
 
 /// Navigate to a home destination: garden | cottage | skills | kitchen | apothecary | village | nest

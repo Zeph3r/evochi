@@ -41,6 +41,7 @@ flutter:
     - assets/art/fx/ # living-scene masks (tools/art/scene_fx.py)
     - assets/audio/sfx/
     - assets/audio/ambient/
+    - assets/audio/music/ # place music: arrangements of public-domain airs (tools/art/music.py)
     - assets/config/
     - assets/ui/ # game-native kit textures (tools/ui_textures.py): wood, paper grain, canvas, window frames
   shaders:

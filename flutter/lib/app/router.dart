@@ -102,7 +102,7 @@ class _MainShellState extends State<MainShell> {
             TickerMode(enabled: _tab == 'home', child: NestScreen(active: _tab == 'home')),
             TickerMode(enabled: _tab == 'journey', child: const JourneyScreen()),
             TickerMode(enabled: _tab == 'bag', child: BagScreen(active: _tab == 'bag')),
-            TickerMode(enabled: _tab == 'shop', child: Ambience('amb_market', child: ShopScreen(active: _tab == 'shop'))),
+            TickerMode(enabled: _tab == 'shop', child: Ambience('market', child: ShopScreen(active: _tab == 'shop'))),
             TickerMode(enabled: _tab == 'evodex', child: const EvoDexScreen()),
           ],
         ),

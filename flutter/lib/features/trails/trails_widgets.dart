@@ -43,13 +43,13 @@ void _pushTrail(BuildContext context, String name, WidgetBuilder builder) {
 
 const guildRouteName = 'guild';
 
-Route<void> guildRoute() => MaterialPageRoute<void>(settings: const RouteSettings(name: guildRouteName), builder: (_) => const Ambience('amb_lodge', child: GuildScreen()));
+Route<void> guildRoute() => MaterialPageRoute<void>(settings: const RouteSettings(name: guildRouteName), builder: (_) => const Ambience('lodge', child: GuildScreen()));
 
-void openGuild(BuildContext context) => _pushTrail(context, guildRouteName, (_) => const Ambience('amb_lodge', child: GuildScreen()));
+void openGuild(BuildContext context) => _pushTrail(context, guildRouteName, (_) => const Ambience('lodge', child: GuildScreen()));
 void openTrailPlace(BuildContext context, String id) =>
-    _pushTrail(context, 'trailplace:$id', (_) => Ambience(id == 'gate' ? 'amb_dusk' : 'amb_forest', child: TrailPlaceScreen(placeId: id)));
+    _pushTrail(context, 'trailplace:$id', (_) => Ambience(id == 'gate' ? 'dusk' : 'forest', child: TrailPlaceScreen(placeId: id)));
 void openPrep(BuildContext context, String questId) =>
-    _pushTrail(context, 'prep:$questId', (_) => Ambience(sceneAmbience(tr.encounterDefs[questId]?.scene), child: PrepScreen(questId: questId)));
+    _pushTrail(context, 'prep:$questId', (_) => Ambience(scenePlace(tr.encounterDefs[questId]?.scene), child: PrepScreen(questId: questId)));
 
 /// Where a discovery is inspected: a village place, a trail place, or somewhere at home.
 void goDiscoveryPlace(BuildContext context, String place) {
