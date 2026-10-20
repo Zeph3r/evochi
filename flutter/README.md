@@ -200,7 +200,19 @@ logic it is **uncompiled here**: every file passes the syntax check and its impo
   (`state.trails`). Old saves get a fresh one on load.
 - **Screens** live in `lib/features/trails/`:
   - `guild_screen.dart`: the Guild Board (rank, lore, today's discoveries, trail jobs, friends).
-  - `trail_place_screen.dart`: the Mossy Ruins and the Old Gate (scene, residents, the clue glint).
+  - `trail_place_screen.dart`: the Mossy Ruins and the Old Gate, scene first. The living scene fills
+    the screen (cover scale, panned sideways by touch, mouse drag or wheel; the camera starts on the
+    trail job's creature, else a ready clue, else whoever is there). Friends stand where they live (tap:
+    Field Notes); a trail job's creature waits in its start state under a gold "!" (tap: prep); a ready
+    discovery shows the Inspect glint at its spot; your Evochi stands with you (tap: a chirp and a
+    hop). Edge hints point at a job or clue off to the side. A compact dock at the bottom holds the
+    place's line and the one action that matters now (Meet / Help, the trail job card, or Inspect).
+    Spots (feet, width, facing) are per scene in `_spots`, in scene-image pixels.
+  - `creature_page.dart`: Field Notes, a friend's own page (it replaced the creature card): the
+    creature large over its dimmed home, its tags, and a parchment page (blurb, where it was found,
+    kind, rarity, companion since / restored, likes, its encounter ability). `openCreaturePage` is used
+    by the scenes, the EvoDex "Friends of the trail" panel and the Guild; the creature flies there
+    (Hero `creature-<id>`).
   - `prep_screen.dart` (after the encounter UX board): "Encounter Preparation" with a look-around
     button, the scene banner with its place, the creature's nameplate over it (portrait, name, rarity
     and kind, the quest's level, its starting meter), the Objective card (the goal and the checklist),
@@ -270,7 +282,7 @@ logic it is **uncompiled here**: every file passes the syntax check and its impo
     panel is measured after each frame and the view ends 20px above it, like the web (full height
     under the intro card).
   - `trails_widgets.dart`: navigation, tags, the rank card, discovery rows and cards, the clue glint,
-    the creature card, the friends panel, the trail quest rows, `EncCta` (green, amber and gold), the
+    `InspectBadge`, the friends panel, the trail quest rows, `EncCta` (green, amber and gold), the
     reward tiles, `EncFace` (round portraits), `ThinBar`, and `DisturbanceCards`: the Journey > Story
     tab's "Main Quests" call to a waiting encounter (the scene, the creature's glowing silhouette,
     motes rising; tap for prep).

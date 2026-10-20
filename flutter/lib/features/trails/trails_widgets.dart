@@ -28,6 +28,7 @@ import '../village/story_widgets.dart';
 import '../village/village_screen.dart';
 import 'guild_screen.dart';
 import 'prep_screen.dart';
+import 'creature_page.dart';
 import 'trail_place_screen.dart';
 import '../shared/live_scene.dart';
 import '../shared/ambience.dart';
@@ -875,7 +876,35 @@ class ClueGlint extends StatefulWidget {
   State<ClueGlint> createState() => _ClueGlintState();
 }
 
-class _ClueGlintState extends State<ClueGlint> with SingleTickerProviderStateMixin {
+class _ClueGlintState extends State<ClueGlint> {
+  @override
+  Widget build(BuildContext context) {
+    final c = context.watch<GameController>();
+    final clues = tr.cluesAt(c.state, widget.place, c.now);
+    if (clues.isEmpty) return const SizedBox.shrink();
+    final d = clues.first;
+    final spot = _clueSpots[widget.place] ?? const Offset(0.5, 0.6);
+    return Positioned(
+      left: widget.width * spot.dx,
+      top: widget.height * spot.dy,
+      child: FractionalTranslation(
+        translation: const Offset(-0.5, -0.5),
+        child: InspectBadge(label: 'Inspect: ${d.title}', onTap: () => inspectClue(context, d.id)),
+      ),
+    );
+  }
+}
+
+/// The glinting "Inspect" button that marks a ready discovery in a scene: it bobs and its spark turns.
+class InspectBadge extends StatefulWidget {
+  const InspectBadge({super.key, required this.label, required this.onTap});
+  final String label;
+  final VoidCallback onTap;
+  @override
+  State<InspectBadge> createState() => _InspectBadgeState();
+}
+
+class _InspectBadgeState extends State<InspectBadge> with SingleTickerProviderStateMixin {
   late final AnimationController _a = AnimationController(vsync: this, duration: const Duration(milliseconds: 1600));
 
   @override
@@ -895,51 +924,37 @@ class _ClueGlintState extends State<ClueGlint> with SingleTickerProviderStateMix
   }
 
   @override
-  Widget build(BuildContext context) {
-    final c = context.watch<GameController>();
-    final clues = tr.cluesAt(c.state, widget.place, c.now);
-    if (clues.isEmpty) return const SizedBox.shrink();
-    final d = clues.first;
-    final spot = _clueSpots[widget.place] ?? const Offset(0.5, 0.6);
-    return Positioned(
-      left: widget.width * spot.dx,
-      top: widget.height * spot.dy,
-      child: FractionalTranslation(
-        translation: const Offset(-0.5, -0.5),
-        child: Semantics(
-          button: true,
-          label: 'Inspect: ${d.title}',
-          child: GestureDetector(
-            onTap: () => inspectClue(context, d.id),
-            child: AnimatedBuilder(
-              animation: _a,
-              builder: (_, child) => Transform.translate(offset: Offset(0, -6 * math.sin(_a.value * math.pi)), child: child),
-              child: ExcludeSemantics(
-                child: Container(
-                  constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
-                  padding: const EdgeInsets.fromLTRB(8, 4, 8, 5),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    border: Border.all(color: Colors.white, width: 2),
-                    gradient: const RadialGradient(center: Alignment(0, -0.3), radius: 0.9, colors: [Color(0xFFFFF6D5), EvochiColor.primary]),
-                    boxShadow: const [
-                      BoxShadow(color: Color(0x73FFE696), spreadRadius: 4),
-                      BoxShadow(color: Color(0xE6FFD26E), blurRadius: 18),
-                      BoxShadow(color: EvochiColor.primaryShadow, offset: Offset(0, 3)),
-                    ],
-                  ),
-                  child: Column(mainAxisSize: MainAxisSize.min, children: [
-                    RotationTransition(turns: _a, child: const SparkIcon(size: 26)),
-                    Text('Inspect', style: EvochiText.tag.copyWith(color: EvochiColor.ink, fontSize: 12, fontWeight: FontWeight.w900)),
-                  ]),
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: widget.label,
+        child: GestureDetector(
+          onTap: widget.onTap,
+          child: AnimatedBuilder(
+            animation: _a,
+            builder: (_, child) => Transform.translate(offset: Offset(0, -6 * math.sin(_a.value * math.pi)), child: child),
+            child: ExcludeSemantics(
+              child: Container(
+                constraints: const BoxConstraints(minWidth: 44, minHeight: 44),
+                padding: const EdgeInsets.fromLTRB(8, 4, 8, 5),
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: Colors.white, width: 2),
+                  gradient: const RadialGradient(center: Alignment(0, -0.3), radius: 0.9, colors: [Color(0xFFFFF6D5), EvochiColor.primary]),
+                  boxShadow: const [
+                    BoxShadow(color: Color(0x73FFE696), spreadRadius: 4),
+                    BoxShadow(color: Color(0xE6FFD26E), blurRadius: 18),
+                    BoxShadow(color: EvochiColor.primaryShadow, offset: Offset(0, 3)),
+                  ],
                 ),
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  RotationTransition(turns: _a, child: const SparkIcon(size: 26)),
+                  Text('Inspect', style: EvochiText.tag.copyWith(color: EvochiColor.ink, fontSize: 12, fontWeight: FontWeight.w900)),
+                ]),
               ),
             ),
           ),
         ),
-      ),
-    );
-  }
+      );
 }
 
 /// A discovery's card: the clue (or the find), the walk, rewards and what to do next.
@@ -1054,61 +1069,9 @@ void inspectClue(BuildContext context, String id) {
 }
 
 // ------------------------------------------------------------------ creatures ----
-/// A befriended or restored creature: its picture, tags, story and what it does for you.
-Future<void> showCreatureCard(BuildContext context, String id) {
-  final c = context.read<GameController>();
-  final def = tr.creatureDefs[id]!;
-  final t = c.trailsView;
-  final comp = t.companions.where((x) => x.id == id).firstOrNull;
-  final restored = t.restored[id];
-  Widget kv(String k, String v) => Padding(
-        padding: const EdgeInsets.only(bottom: 4),
-        child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          SizedBox(width: 128, child: Text(k, style: EvochiText.caption.copyWith(fontSize: 13))),
-          Expanded(child: Text(v, style: EvochiText.cardTitle.copyWith(fontSize: 13))),
-        ]),
-      );
-  return showEvochiDialog<void>(context, builder: (d) => SingleChildScrollView(
-        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(18),
-              gradient: const RadialGradient(center: Alignment(0, 0.4), radius: 0.9, colors: [Color(0xFFFFF9EC), Color(0xFFEFDFC9)]),
-            ),
-            alignment: Alignment.center,
-            child: CreatureImage(id, height: def.size == 'large' ? 150 : 120),
-          ),
-          const SizedBox(height: 8),
-          Text(def.name, style: EvochiText.section, textAlign: TextAlign.center),
-          const SizedBox(height: 6),
-          Wrap(alignment: WrapAlignment.center, spacing: 4, runSpacing: 4, children: [
-            kindTag(def),
-            affinityTag(def.affinity),
-            for (final trait in def.traits.skip(1)) Tag(trait),
-          ]),
-          const SizedBox(height: 8),
-          Text(def.blurb, style: EvochiText.bodyText, textAlign: TextAlign.center),
-          const SizedBox(height: 10),
-          Container(
-            padding: const EdgeInsets.fromLTRB(12, 10, 12, 6),
-            decoration: Kit.inset(),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              kv('Found', def.home),
-              if (comp != null) kv('Companion since', shortDate(comp.since)),
-              if (restored != null) kv('Restored', shortDate(restored)),
-              if (def.companion != null) kv('In encounters', def.companion!.name),
-            ]),
-          ),
-          if (def.companion != null && comp != null) ...[
-            const SizedBox(height: 8),
-            Text(def.companion!.text, style: EvochiText.caption, textAlign: TextAlign.center),
-          ],
-          const SizedBox(height: 12),
-          EvochiButton(label: 'Close', tone: ButtonTone.cream, onPressed: () => Navigator.pop(d)),
-        ]),
-      ));
-}
+/// A befriended or restored creature: its own page (see creature_page.dart), not a card over the
+/// scene.
+Future<void> showCreatureCard(BuildContext context, String id) async => openCreaturePage(context, id);
 
 /// A creature in a grid: its face, name and how you know it (or '???').
 class FriendCard extends StatelessWidget {
