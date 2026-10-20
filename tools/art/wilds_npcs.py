@@ -51,9 +51,10 @@ def gear(M, mask, name, empty=True):
     return mask
 
 
-def build_sher(res=2, legs=None, arms=None, lo_y=-1) -> Character:
+def build_sher(res=2, legs=None, arms=None, lo_y=-1, lean=0.0) -> Character:
     """legs: {side: (dy, dz)} lifts/moves a boot and its leg; arms: {side: dz} swings a paw forward/back.
-    Sides are x signs: +1 is the viewer's right (his left)."""
+    Sides are x signs: +1 is the viewer's right (his left). lean: how far (units) his head leans forward
+    over his hips, a shear of everything above them (running)."""
     legs = legs or {}
     arms = arms or {}
     M = Model((-17, lo_y, -18), (17, 40, 15), [], res=res)
@@ -242,7 +243,19 @@ def build_sher(res=2, legs=None, arms=None, lo_y=-1) -> Character:
     tag(M, M.m > 0, BODY)
     tag(M, head_all, HEAD)
     tag(M, right_arm, ARM)
-    face = Frame(center=(0, 21.4 + U, 0.4), n=(0, 0.02, 1), reach=20)
+    y0, y1 = 7.2 + U, 34.0 + U
+
+    def lean_at(y):
+        return lean * min(1.0, max(0.0, (y - y0) / (y1 - y0)))
+    if lean:
+        ys = (np.arange(M.lo[1], M.hi[1]) + 0.5) / M.res
+        for j, y in enumerate(ys):
+            k = int(round(lean_at(y) * M.res))
+            if k:
+                for arr in (M.m, M.layer, M.glow):
+                    arr[:, j, :] = np.roll(arr[:, j, :], k, axis=1)
+    fy = 21.4 + U
+    face = Frame(center=(0, fy, 0.4 + round(lean_at(fy) * M.res) / M.res), n=(0, 0.02, 1), reach=20)
     ch = Character(stage=0, model=M, face=face, eye_u=3.45, eye_v=0.75, eye_w=2.55, eye_h=3.9,
                    cheek_u=5.0, cheek_v=-1.9, cheek_w=1.7, cheek_h=1.1, mouth_v=-3.2,
                    face_extent=(-10, 10, -6.5, 6.5), scale_ref=32.0)
@@ -251,6 +264,10 @@ def build_sher(res=2, legs=None, arms=None, lo_y=-1) -> Character:
     ch.no_mouth = True
     ch.face_extra = sher_face
     ch.whiskers = sher_whiskers()
+    if lean:
+        for wk in ch.whiskers:
+            r = wk.root
+            wk.root = (r[0], r[1], r[2] + round(lean_at(r[1]) * M.res) / M.res)
     ch.pivots = {'head': (0, 15.6 + U, 0.4), 'arm': (5.6, 13.4 + U, 0.4)}
     ch.size = 0.9
     return ch

@@ -502,36 +502,51 @@ place keeps to its own sounds, or quiet.
 To change a tune, edit `TRACKS` (the collection, X number, tempo, instruments), run
 `python3 tools/art/music.py OUT_DIR`, copy the mp3s in, and list them in the manifest's audio block.
 
-## Lumen Wilds (first slice: the walk test)
+## Lumen Wilds (F1: the Sunlit Thicket)
 
-The Wilds are a walkable map, built the same way as the rest of the art: 3D voxel models rendered into
-2D sprites (no real-time 3D), so the look matches and it runs on stable Flutter everywhere. Profile >
-Developer tools shows a **Lumen Wilds walk test** button on Journey's playtest card.
+The Wilds are walkable maps built like the rest of the art: 3D voxel models rendered into 2D (no
+real-time 3D), so the look matches and it runs on stable Flutter everywhere. Profile > Developer tools
+shows **Lumen Wilds: Sunlit Thicket** on Journey's playtest card.
 
-- **The map camera** is fixed: orthographic, 35° above the horizon, looking north. World (x, 0, z) lands
-  at image pixel `origin + (x, z * sin 35°) * 6`. Everything (ground, props, walk sheets) uses it.
-- **Walk sheets** (`tools/art/walk.py`): rows are 8 directions (S, SE, E, NE, N, NW, W, SW), columns an
-  idle stance then an 8-frame walk. The Eggling trots (diagonal pairs of feet, the voxel feet stepping on
-  the grid) in all six palettes; Sher walks on two legs, paws swinging. Each direction is the camera
-  turned around the walker with the light turned too, so the light always falls from the same side of
-  the screen. `wilds_walk.json` adds a per-frame waddle (a roll the app scales by cos(facing)) and a
-  squash on each footfall.
-- **The test clearing** (`tools/art/wilds_art.py`): one voxel slab (grass, a winding path, tufts,
-  flowers, pebbles) and props as separate sprites (trees, rocks, stumps, bushes) with footprints, drawn
-  back to front with the walkers, so you pass behind a tree and in front of a rock.
-- **The screen** (`lib/features/wilds/walk_test_screen.dart`): full screen, no tab bar, a camera that
-  follows your Evochi. Drag to walk (a joystick appears under your finger), tap to walk there, or use
-  WASD / the arrow keys. Props and walkers block each other.
-- **Sher** (`tools/art/wilds_npcs.py`), a scout you meet on the path, from the original drawing: an
-  orange-and-white cat (white blaze, eyes in orange, orange mouth patch, white chest and mitts), muzzle
-  whiskers as real 3D strands (`tools/art/whiskers.py`), and his gear modelled on top like the Evochi
-  wearables: the maroon neckerchief, a backpack and a utility belt. He is built and lit like the
-  villagers (parts, face rig, five expressions, idle/talk/listen in `NPC_ANIM`, lit in the Trail Guild
-  Lodge) and packed into `village.npcs.sher` (`tools/art/wilds_pack.py`). Tap him and he offers to join
-  your party: an NPC ally, as in the Guild Raids design (he never replaces your Evochi). Then he follows
-  your path, a step to the side, and the party panel shows you both (Raid HP and Energy sit full until
-  there is combat). `tools/art/wilds_blend.py` writes him as a Blender file (parts that pivot like the
-  game's, every expression packed, whiskers as curves, the walk as a looping animation).
+- **The map camera** is fixed: orthographic, 35 degrees above the horizon, looking north. World (x, 0, z)
+  lands at image pixel `origin + (x, z * sin 35) * scale` (the ground and props at 5 px per unit, the
+  walkers drawn as if 6).
+- **Walkers** (`tools/art/walk.py`): every Evochi stage in all six palettes, and Sher, each with a walk
+  and a run sheet (rows: 8 directions S, SE, E, NE, N, NW, W, SW; columns: idle + 8 frames). The Evochi
+  trot when walking and bound when running (a moment airborne); Sher leans into his run. The light turns
+  with each direction, so it always falls from the same side of the screen. Each stage has its own pixel
+  scale (Eggling 6, Juvenile 4.6, Elder 3.5), so bigger stages read a little bigger, not three times.
+  `wilds_walk.json` adds per frame a waddle (a roll the app scales by cos(facing)), a footfall squash and
+  the body lift; the wearables (`wear_<stage>_<item>.webp`, one row of directions over the idle body) ride
+  that lift, so your Evochi walks in what it wears.
+- **The map** (`tools/art/wilds_maps.py`): the Thicket's plan (a trail from the south entrance past
+  Sher's camp, a pond, a stream with a plank bridge, a hidden nook, the sealed gate to Fernwood Trail in
+  the north), the ground as one voxel slab, ~390 props (oaks, pines, birches in groves with glades,
+  bushes, rocks, logs, ruins, the tent, the sign, the gate). Tall props keep out of a band south of the
+  trail and clearings, so nothing in front of the camera hides them. `tools/art/wilds_blender.py` lights
+  the ground in Cycles with every prop present but hidden from the camera (their shadows fall on it)
+  and renders each prop kind as its own sprite under the same sun. It can save both scenes for a GPU
+  machine (`--only=ground_blend,props_blend`, then `--only=tiles,prop_images,data`): on the dev PC the
+  `blender/thicket/render_all.bat` renders them in a background Blender in about 90 seconds.
+  `wilds_map_thicket.json` holds the ground tiles and origin, the walk grid (water), the props and their
+  footprints, the spots (exit, sign, pond, glint, gate with its level), the fire, Sher's camp and route,
+  the objective and the minimap.
+- **The screen** (`lib/features/wilds/wilds_screen.dart`, art in `wilds_art.dart`): scene first, no tab
+  bar. Your party (top left), a minimap (top right; tap for the whole floor with the objective and a
+  legend), Interact (when something is near: Read, Look, Inspect, Leave, Talk) and Run (a toggle) at the
+  bottom right. Drag anywhere for a joystick (push to the rim to run), tap a spot to walk there (far
+  spots you run to), or WASD / arrows with Shift to run and E to interact. Trees, rocks, logs and water
+  block the way; a tall prop in front of a walker turns see-through while it hides them. The campfire
+  flickers and the nook glints.
+- **Sher** (`tools/art/wilds_npcs.py`), a scout from the original drawing: an orange-and-white cat with
+  the drawing's markings, muzzle whiskers as real 3D strands (`tools/art/whiskers.py`), and his gear
+  modelled on top like the Evochi wearables (the maroon neckerchief, a backpack, a utility belt). He is
+  built and lit like the villagers (parts, five expressions, idle/talk/listen in `NPC_ANIM`) and packed
+  into `village.npcs.sher` (`tools/art/wilds_pack.py`). He waits at his camp by the fire; talk to him and
+  he offers to join your party, an NPC ally as in the Guild Raids design (he never replaces your Evochi),
+  then follows your path a step to the side. Raid HP and Energy sit full until there is combat.
+  `tools/art/wilds_blend.py` writes him as a Blender file (posable parts, every expression, whiskers as
+  curves, the walk and run as looping animations).
 
 ## Haptics
 

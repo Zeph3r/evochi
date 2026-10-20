@@ -14,76 +14,509 @@
  ],
  "frames": 8,
  "walkers": {
-  "s01": {
-   "frameW": 220,
-   "frameH": 248,
+  "s02": {
+   "frameW": 234,
+   "frameH": 226,
    "ground": [
-    110.0,
-    179.9
+    117.0,
+    177.2
    ],
-   "sheets": {
-    "amber": "walk_s01_amber.webp",
-    "forest": "walk_s01_forest.webp",
-    "coral": "walk_s01_coral.webp",
-    "ocean": "walk_s01_ocean.webp",
-    "amethyst": "walk_s01_amethyst.webp",
-    "obsidian": "walk_s01_obsidian.webp"
+   "scale": 4.6,
+   "radius": 10.0,
+   "gaits": {
+    "walk": {
+     "sheets": {
+      "amber": "walk_s02_amber.webp",
+      "forest": "walk_s02_forest.webp",
+      "coral": "walk_s02_coral.webp",
+      "ocean": "walk_s02_ocean.webp",
+      "amethyst": "walk_s02_amethyst.webp",
+      "obsidian": "walk_s02_obsidian.webp"
+     },
+     "roll": [
+      0.0,
+      0.0,
+      2.83,
+      4.0,
+      2.83,
+      0.0,
+      -2.83,
+      -4.0,
+      -2.83
+     ],
+     "squash": [
+      1.0,
+      0.97,
+      0.998,
+      1.0,
+      0.998,
+      0.97,
+      0.998,
+      1.0,
+      0.998
+     ],
+     "lift": [
+      0.0,
+      0.0,
+      1.9,
+      3.8,
+      1.9,
+      0.0,
+      1.9,
+      3.8,
+      1.9
+     ],
+     "cycle": 11.5
+    },
+    "run": {
+     "sheets": {
+      "amber": "run_s02_amber.webp",
+      "forest": "run_s02_forest.webp",
+      "coral": "run_s02_coral.webp",
+      "ocean": "run_s02_ocean.webp",
+      "amethyst": "run_s02_amethyst.webp",
+      "obsidian": "run_s02_obsidian.webp"
+     },
+     "roll": [
+      0.0,
+      0.0,
+      4.24,
+      6.0,
+      4.24,
+      0.0,
+      -4.24,
+      -6.0,
+      -4.24
+     ],
+     "squash": [
+      1.0,
+      0.94,
+      0.996,
+      1.0,
+      0.996,
+      0.94,
+      0.996,
+      1.0,
+      0.996
+     ],
+     "lift": [
+      0.0,
+      0.0,
+      3.8,
+      9.4,
+      3.8,
+      0.0,
+      3.8,
+      9.4,
+      3.8
+     ],
+     "cycle": 16.1
+    }
    },
-   "roll": [
-    0.0,
-    0.0,
-    2.83,
-    4.0,
-    2.83,
-    0.0,
-    -2.83,
-    -4.0,
-    -2.83
+   "wear": {
+    "leaf_scarf": {
+     "file": "wear_s02_leaf_scarf.webp",
+     "slot": "neck"
+    },
+    "blue_scarf": {
+     "file": "wear_s02_blue_scarf.webp",
+     "slot": "neck"
+    },
+    "tiny_crown": {
+     "file": "wear_s02_tiny_crown.webp",
+     "slot": "head"
+    },
+    "golden_crest_crown": {
+     "file": "wear_s02_golden_crest_crown.webp",
+     "slot": "head"
+    },
+    "explorer_hat": {
+     "file": "wear_s02_explorer_hat.webp",
+     "slot": "head"
+    },
+    "butterfly_clip": {
+     "file": "wear_s02_butterfly_clip.webp",
+     "slot": "head"
+    },
+    "red_backpack": {
+     "file": "wear_s02_red_backpack.webp",
+     "slot": "back"
+    },
+    "explorer_pack": {
+     "file": "wear_s02_explorer_pack.webp",
+     "slot": "back"
+    },
+    "reward_windtrail_mantle": {
+     "file": "wear_s02_reward_windtrail_mantle.webp",
+     "slot": "back"
+    }
+   }
+  },
+  "s01": {
+   "frameW": 230,
+   "frameH": 254,
+   "ground": [
+    115.0,
+    184.8
    ],
-   "squash": [
-    1.0,
-    0.97,
-    0.998,
-    1.0,
-    0.998,
-    0.97,
-    0.998,
-    1.0,
-    0.998
-   ]
+   "scale": 6.0,
+   "radius": 9.0,
+   "gaits": {
+    "walk": {
+     "sheets": {
+      "amber": "walk_s01_amber.webp",
+      "forest": "walk_s01_forest.webp",
+      "coral": "walk_s01_coral.webp",
+      "ocean": "walk_s01_ocean.webp",
+      "amethyst": "walk_s01_amethyst.webp",
+      "obsidian": "walk_s01_obsidian.webp"
+     },
+     "roll": [
+      0.0,
+      0.0,
+      2.83,
+      4.0,
+      2.83,
+      0.0,
+      -2.83,
+      -4.0,
+      -2.83
+     ],
+     "squash": [
+      1.0,
+      0.97,
+      0.998,
+      1.0,
+      0.998,
+      0.97,
+      0.998,
+      1.0,
+      0.998
+     ],
+     "lift": [
+      0.0,
+      0.0,
+      2.5,
+      4.9,
+      2.5,
+      0.0,
+      2.5,
+      4.9,
+      2.5
+     ],
+     "cycle": 10.0
+    },
+    "run": {
+     "sheets": {
+      "amber": "run_s01_amber.webp",
+      "forest": "run_s01_forest.webp",
+      "coral": "run_s01_coral.webp",
+      "ocean": "run_s01_ocean.webp",
+      "amethyst": "run_s01_amethyst.webp",
+      "obsidian": "run_s01_obsidian.webp"
+     },
+     "roll": [
+      0.0,
+      0.0,
+      4.24,
+      6.0,
+      4.24,
+      0.0,
+      -4.24,
+      -6.0,
+      -4.24
+     ],
+     "squash": [
+      1.0,
+      0.94,
+      0.996,
+      1.0,
+      0.996,
+      0.94,
+      0.996,
+      1.0,
+      0.996
+     ],
+     "lift": [
+      0.0,
+      0.0,
+      4.9,
+      9.8,
+      4.9,
+      0.0,
+      4.9,
+      9.8,
+      4.9
+     ],
+     "cycle": 14.0
+    }
+   },
+   "wear": {
+    "leaf_scarf": {
+     "file": "wear_s01_leaf_scarf.webp",
+     "slot": "neck"
+    },
+    "blue_scarf": {
+     "file": "wear_s01_blue_scarf.webp",
+     "slot": "neck"
+    },
+    "tiny_crown": {
+     "file": "wear_s01_tiny_crown.webp",
+     "slot": "head"
+    },
+    "golden_crest_crown": {
+     "file": "wear_s01_golden_crest_crown.webp",
+     "slot": "head"
+    },
+    "explorer_hat": {
+     "file": "wear_s01_explorer_hat.webp",
+     "slot": "head"
+    },
+    "butterfly_clip": {
+     "file": "wear_s01_butterfly_clip.webp",
+     "slot": "head"
+    },
+    "red_backpack": {
+     "file": "wear_s01_red_backpack.webp",
+     "slot": "back"
+    },
+    "explorer_pack": {
+     "file": "wear_s01_explorer_pack.webp",
+     "slot": "back"
+    },
+    "reward_windtrail_mantle": {
+     "file": "wear_s01_reward_windtrail_mantle.webp",
+     "slot": "back"
+    }
+   }
   },
   "sher": {
    "frameW": 198,
-   "frameH": 248,
+   "frameH": 252,
    "ground": [
     99.0,
-    216.6
+    219.1
    ],
-   "sheets": {
-    "sher": "walk_sher_sher.webp"
+   "scale": 6.0,
+   "radius": 7.0,
+   "gaits": {
+    "walk": {
+     "sheets": {
+      "sher": "walk_sher_sher.webp"
+     },
+     "roll": [
+      0.0,
+      0.0,
+      1.77,
+      2.5,
+      1.77,
+      0.0,
+      -1.77,
+      -2.5,
+      -1.77
+     ],
+     "squash": [
+      1.0,
+      0.98,
+      0.999,
+      1.0,
+      0.999,
+      0.98,
+      0.999,
+      1.0,
+      0.999
+     ],
+     "lift": [
+      0.0,
+      0.0,
+      2.5,
+      2.5,
+      2.5,
+      0.0,
+      2.5,
+      2.5,
+      2.5
+     ],
+     "cycle": 8.0
+    },
+    "run": {
+     "sheets": {
+      "sher": "run_sher_sher.webp"
+     },
+     "roll": [
+      0.0,
+      0.0,
+      2.12,
+      3.0,
+      2.12,
+      0.0,
+      -2.12,
+      -3.0,
+      -2.12
+     ],
+     "squash": [
+      1.0,
+      0.96,
+      0.998,
+      1.0,
+      0.998,
+      0.96,
+      0.997,
+      1.0,
+      0.998
+     ],
+     "lift": [
+      0.0,
+      0.0,
+      2.5,
+      4.9,
+      2.5,
+      0.0,
+      2.5,
+      4.9,
+      2.5
+     ],
+     "cycle": 12.0
+    }
+   }
+  },
+  "s03": {
+   "frameW": 296,
+   "frameH": 240,
+   "ground": [
+    148.0,
+    177.2
+   ],
+   "scale": 3.5,
+   "radius": 12.0,
+   "gaits": {
+    "walk": {
+     "sheets": {
+      "amber": "walk_s03_amber.webp",
+      "forest": "walk_s03_forest.webp",
+      "coral": "walk_s03_coral.webp",
+      "ocean": "walk_s03_ocean.webp",
+      "amethyst": "walk_s03_amethyst.webp",
+      "obsidian": "walk_s03_obsidian.webp"
+     },
+     "roll": [
+      0.0,
+      0.0,
+      2.83,
+      4.0,
+      2.83,
+      0.0,
+      -2.83,
+      -4.0,
+      -2.83
+     ],
+     "squash": [
+      1.0,
+      0.97,
+      0.998,
+      1.0,
+      0.998,
+      0.97,
+      0.998,
+      1.0,
+      0.998
+     ],
+     "lift": [
+      0.0,
+      0.0,
+      1.4,
+      4.3,
+      1.4,
+      0.0,
+      1.4,
+      4.3,
+      1.4
+     ],
+     "cycle": 14.0
+    },
+    "run": {
+     "sheets": {
+      "amber": "run_s03_amber.webp",
+      "forest": "run_s03_forest.webp",
+      "coral": "run_s03_coral.webp",
+      "ocean": "run_s03_ocean.webp",
+      "amethyst": "run_s03_amethyst.webp",
+      "obsidian": "run_s03_obsidian.webp"
+     },
+     "roll": [
+      0.0,
+      0.0,
+      4.24,
+      6.0,
+      4.24,
+      0.0,
+      -4.24,
+      -6.0,
+      -4.24
+     ],
+     "squash": [
+      1.0,
+      0.94,
+      0.996,
+      1.0,
+      0.996,
+      0.94,
+      0.996,
+      1.0,
+      0.996
+     ],
+     "lift": [
+      0.0,
+      0.0,
+      4.3,
+      8.6,
+      4.3,
+      0.0,
+      4.3,
+      8.6,
+      4.3
+     ],
+     "cycle": 19.6
+    }
    },
-   "roll": [
-    0.0,
-    0.0,
-    1.77,
-    2.5,
-    1.77,
-    0.0,
-    -1.77,
-    -2.5,
-    -1.77
-   ],
-   "squash": [
-    1.0,
-    0.98,
-    0.999,
-    1.0,
-    0.999,
-    0.98,
-    0.999,
-    1.0,
-    0.999
-   ]
+   "wear": {
+    "leaf_scarf": {
+     "file": "wear_s03_leaf_scarf.webp",
+     "slot": "neck"
+    },
+    "blue_scarf": {
+     "file": "wear_s03_blue_scarf.webp",
+     "slot": "neck"
+    },
+    "tiny_crown": {
+     "file": "wear_s03_tiny_crown.webp",
+     "slot": "head"
+    },
+    "golden_crest_crown": {
+     "file": "wear_s03_golden_crest_crown.webp",
+     "slot": "head"
+    },
+    "explorer_hat": {
+     "file": "wear_s03_explorer_hat.webp",
+     "slot": "head"
+    },
+    "butterfly_clip": {
+     "file": "wear_s03_butterfly_clip.webp",
+     "slot": "head"
+    },
+    "red_backpack": {
+     "file": "wear_s03_red_backpack.webp",
+     "slot": "back"
+    },
+    "explorer_pack": {
+     "file": "wear_s03_explorer_pack.webp",
+     "slot": "back"
+    },
+    "reward_windtrail_mantle": {
+     "file": "wear_s03_reward_windtrail_mantle.webp",
+     "slot": "back"
+    }
+   }
   }
  }
 }

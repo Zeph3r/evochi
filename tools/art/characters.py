@@ -466,9 +466,11 @@ def fluff(M: Model, center, size, rng, n=7, spread=None):
 # ----------------------------------------------------------------------------
 # Stage 2: Juvenile
 # ----------------------------------------------------------------------------
-def build_juvenile(res=2) -> Character:
+def build_juvenile(res=2, feet=None, lo_y=-1) -> Character:
+    """feet: {(side, front): (dy, dz)}, as for the Eggling (walk.py)."""
+    feet = feet or {}
     rng = np.random.default_rng(22)
-    M = Model((-17, -1, -32), (17, 36, 28), MATS, res=res)
+    M = Model((-17, lo_y, -32), (17, 36, 28), MATS, res=res)
     head = egg_mask(M, (0, 17.4, 7.0), 11.4, 10.0, 9.8, 9.6, p=2.9)
     body = tube(M, [(0, 9.4, 2.0), (0, 9.0, -5.0), (0, 9.2, -9.5)], [8.2, 8.0, 6.8], p=2.5,
                 squash=(1.0, 0.84))
@@ -482,14 +484,16 @@ def build_juvenile(res=2) -> Character:
 
     for s in (-1, 1):
         for z in (1.6, -7.6):
+            dy, dz = feet.get((s, z > 0), (0.0, 0.0))
+            z += dz
             x0, x1 = (3.4, 9.8) if s > 0 else (-9.8, -3.4)
-            box = M.box((x0, 0, z - 2.8), (x1, 4.2, z + 2.8))
-            box &= ~((M.Y > 3.2) & (M.Z > z + 1.8))
-            leg = box & ~(core & (M.Y >= 4.2))
+            box = M.box((x0, dy, z - 2.8), (x1, 4.2 + max(0.0, -dy), z + 2.8))
+            box &= ~((M.Y > 3.2 + dy) & (M.Z > z + 1.8))
+            leg = box & ~(core & (M.Y >= 4.2 + max(0.0, dy)))
             M.set(leg, 'feet')
-            M.set(leg & (M.Y < 1.1), 'feet_shade')
+            M.set(leg & (M.Y < 1.1 + dy), 'feet_shade')
             for cx in np.linspace(x0 + 1.2, x1 - 1.2, 3):
-                M.set(M.box((cx - 0.55, 0, z + 2.6), (cx + 0.55, 1.2, z + 3.6)), 'claw')
+                M.set(M.box((cx - 0.55, dy, z + 2.6), (cx + 0.55, 1.2 + dy, z + 3.6)), 'claw')
 
     shl = shell_region(M, core, res)
     crest = np.zeros(M.m.shape, bool)
@@ -539,9 +543,11 @@ def build_juvenile(res=2) -> Character:
 # ----------------------------------------------------------------------------
 # Stage 3: Elder
 # ----------------------------------------------------------------------------
-def build_elder(res=2) -> Character:
+def build_elder(res=2, feet=None, lo_y=-1) -> Character:
+    """feet: {(side, front): (dy, dz)}: the foot moves, the leg bends to follow (walk.py)."""
+    feet = feet or {}
     rng = np.random.default_rng(33)
-    M = Model((-22, -1, -48), (22, 46, 34), MATS, res=res)
+    M = Model((-22, lo_y, -48), (22, 46, 34), MATS, res=res)
     head = egg_mask(M, (0, 17.0, 16.0), 9.8, 8.4, 7.6, 10.2, p=2.7)
     snout = egg_mask(M, (0, 15.0, 23.0), 7.4, 5.4, 5.0, 5.8, p=2.6)
     neck = tube(M, [(0, 15.0, 10.0), (0, 12.5, 5.0)], [7.6, 8.2], p=2.4)
@@ -559,18 +565,21 @@ def build_elder(res=2) -> Character:
 
     for s in (-1, 1):
         for z in (7.0, -12.5):
-            leg = tube(M, [(s * 6.0, 9.5, z), (s * 9.4, 5.2, z + 0.5), (s * 10.6, 2.6, z + 1.0)],
-                       [4.4, 3.9, 3.6], p=2.6) & ~core
+            dy, dz = feet.get((s, z > 0), (0.0, 0.0))
+            leg = tube(M, [(s * 6.0, 9.5, z), (s * 9.4, 5.2 + dy * 0.6, z + 0.5 + dz * 0.6),
+                           (s * 10.6, 2.6 + dy, z + 1.0 + dz)], [4.4, 3.9, 3.6], p=2.6) & ~core
             M.set(leg, 'shell')
-            foot = M.box((s * 10.6 - 4.2, 0, z - 3.2), (s * 10.6 + 4.2, 3.8, z + 5.4))
-            foot &= ~((M.Y > 2.6) & (M.Z > z + 3.8))
+            zf = z + dz
+            foot = M.box((s * 10.6 - 4.2, dy, zf - 3.2), (s * 10.6 + 4.2, 3.8 + dy, zf + 5.4))
+            foot &= ~((M.Y > 2.6 + dy) & (M.Z > zf + 3.8))
             M.set(foot, 'feet')
-            M.set(foot & (M.Y < 1.1), 'feet_shade')
+            M.set(foot & (M.Y < 1.1 + dy), 'feet_shade')
             for cx in np.linspace(s * 10.6 - 2.8, s * 10.6 + 2.8, 3):
-                M.set(M.box((cx - 0.7, 0, z + 5.0), (cx + 0.7, 1.5, z + 6.8)), 'claw')
+                M.set(M.box((cx - 0.7, dy, zf + 5.0), (cx + 0.7, 1.5 + dy, zf + 6.8)), 'claw')
             pl = fluff(M, (s * 10.0, 10.0, z), 5.4, rng, n=8, spread=(1.0, 2.0, 2.2)) & (M.m == 0)
             M.set(pl, 'crest.7')
-            pl = fluff(M, (s * 10.4, 5.5, z + 1.0), 3.6, rng, n=5, spread=(0.8, 1.2, 1.6)) & (M.m == 0)
+            pl = fluff(M, (s * 10.4, 5.5 + dy * 0.6, z + 1.0 + dz * 0.6), 3.6, rng, n=5,
+                       spread=(0.8, 1.2, 1.6)) & (M.m == 0)
             M.set(pl, 'crest.8')
 
     # crystalline mane: big angular spikes radiating up and back from the head
@@ -666,5 +675,5 @@ def two_tone(M: Model, seed=5, scale=1.6, thresh=0.25, light_mat='pattern', spik
     return sel
 
 
-def build(stage: int, res=2) -> Character:
-    return {1: build_eggling, 2: build_juvenile, 3: build_elder}[stage](res)
+def build(stage: int, res=2, **kw) -> Character:
+    return {1: build_eggling, 2: build_juvenile, 3: build_elder}[stage](res, **kw)

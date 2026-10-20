@@ -22,7 +22,7 @@ import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import '../village/story_widgets.dart';
-import '../wilds/walk_test_screen.dart';
+import '../wilds/wilds_screen.dart';
 
 class JourneyScreen extends StatefulWidget {
   const JourneyScreen({super.key});
@@ -165,12 +165,12 @@ class _JourneyScreenState extends State<JourneyScreen> {
               ),
             ]),
             const SizedBox(height: 10),
-            // the Lumen Wilds' first slice: walking on the map (lib/features/wilds/)
+            // the Lumen Wilds' first slice: F1, the Sunlit Thicket (lib/features/wilds/)
             EvochiButton(
-              label: 'Lumen Wilds walk test',
+              label: 'Lumen Wilds: Sunlit Thicket',
               tone: ButtonTone.cream,
               small: true,
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WalkTestScreen())),
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WildsScreen())),
             ),
           ]),
         ),

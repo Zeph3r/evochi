@@ -151,30 +151,32 @@ def main(out):
         if pname == 'head':
             whisker_curves(rest, origin, ob, sher, 'sher')
 
-    # ---- the walk: one mesh per frame, each shown only on its own frame (press play)
-    walk = bpy.data.collections.new('Sher walk')
-    sc.collection.children.link(walk)
-    wroot = bpy.data.objects.new('Sher walk', None)
-    walk.objects.link(wroot)
-    wroot.location = (0.0, 0.0, 0.0)
-    wroot.location.x = 5.0
-    for i in range(FRAMES):
-        p, bob = sher_pose(i)
-        ch = build_sher(2, legs=p['legs'], arms=p['arms'], lo_y=-3)
-        C, Nf, COL, VN, PART = mesh_arrays(ch.model, pal)
-        UV, FM = face_projection(ch, C, Nf, PART)
-        ob = make_mesh(f'walk_{i + 1}', C, VN, COL, UV, FM, (0.0, -bob, 0.0), mat, walk)
-        ob.parent = wroot
-        ob.location = (0.0, 0.0, 0.0)
-        whisker_curves(ch, (0.0, -bob, 0.0), ob, walk, f'walk_{i + 1}')
-        for o in [ob] + list(ob.children):
-            for f in range(1, FRAMES + 1):
-                hide = f != i + 1
-                o.hide_viewport = hide
-                o.hide_render = hide
-                o.keyframe_insert('hide_viewport', frame=f)
-                o.keyframe_insert('hide_render', frame=f)
-        print('walk frame', i + 1, flush=True)
+    # ---- the walk and the run: one mesh per frame, each shown only on its own frame (press play)
+    for gi, gait in enumerate(('walk', 'run')):
+        pose = sher_pose(gait)
+        coll = bpy.data.collections.new(f'Sher {gait}')
+        sc.collection.children.link(coll)
+        groot = bpy.data.objects.new(f'Sher {gait}', None)
+        coll.objects.link(groot)
+        groot.location = (5.0 * (gi + 1), 0.0, 0.0)
+        for i in range(FRAMES):
+            p, bob = pose(i)
+            ch = build_sher(2, legs=p['legs'], arms=p['arms'], lo_y=-3, lean=p['lean'])
+            C, Nf, COL, VN, PART = mesh_arrays(ch.model, pal)
+            UV, FM = face_projection(ch, C, Nf, PART)
+            # each frame projects the face itself (it moves with the lean), so the shared material fits
+            ob = make_mesh(f'{gait}_{i + 1}', C, VN, COL, UV, FM, (0.0, -bob, 0.0), mat, coll)
+            ob.parent = groot
+            ob.location = (0.0, 0.0, 0.0)
+            whisker_curves(ch, (0.0, -bob, 0.0), ob, coll, f'{gait}_{i + 1}')
+            for o in [ob] + list(ob.children):
+                for f in range(1, FRAMES + 1):
+                    hide = f != i + 1
+                    o.hide_viewport = hide
+                    o.hide_render = hide
+                    o.keyframe_insert('hide_viewport', frame=f)
+                    o.keyframe_insert('hide_render', frame=f)
+            print(gait, 'frame', i + 1, flush=True)
 
     # ---- a ground and two cameras
     me = bpy.data.meshes.new('ground')
@@ -201,7 +203,7 @@ def main(out):
         'animates them (rotate them to try poses). The face is a painted texture: in the "sher" material,\n'
         'swap the two image nodes to face_<expression> / lit_<expression> (neutral, happy, worried, thinking,\n'
         'proud, blink) to change his expression.\n\n'
-        'Collection "Sher walk": the walk cycle, one mesh per frame. Press play (Spacebar) to watch it loop.\n\n'
+        'Collections "Sher walk" and "Sher run": the cycles, one mesh per frame. Press play (Spacebar) to watch them loop.\n\n'
         'Cameras: cam_portrait (the dialogue angle) and cam_wilds (the Lumen Wilds map camera).\n'
         'Built from tools/art/wilds_npcs.py; regenerate with tools/art/wilds_blend.py.\n')
     bpy.ops.wm.save_as_mainfile(filepath=os.path.abspath(out), compress=True)
