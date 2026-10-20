@@ -304,6 +304,7 @@ class Raid {
     for (final s in spawns) {
       foes.add(_spawn(s.id, s.kind, s.zone, s.x, s.z));
     }
+    foeTotal = foes.length;
     final b = bossDef;
     if (b != null) {
       boss = Boss(id: 'briarback', x: b.x, z: b.z, ax0: b.ax, az0: b.az, ar: b.ar)..face(0, 1);
@@ -396,7 +397,7 @@ class Raid {
   }
 
   Iterable<Foe> get hostile => allFoes.where((f) => f.alive && !f.calm && f.st != FoeState.dormant);
-  int get foeTotal => foes.where((f) => !f.summoned).length;
+  int foeTotal = 0; // the creatures the floor began with (calmed ones trot off and leave the list)
   bool get inCombat => hostile.any((f) => f.fighting && f.target != null);
   bool get wallActive => wallUp;
 
@@ -470,6 +471,12 @@ class Raid {
     _tickRoots(dt);
     _tickPickups(dt);
     _physics(dt);
+    // a breather between fights: Raid HP comes back slowly when nothing is after you, Sher's faster
+    if (!inCombat) {
+      if (pet.alive) pet.hp = math.min(pet.maxHp, pet.hp + 1.5 * dt);
+      final sh = sher;
+      if (sh != null && party && sherWinded <= 0) sh.hp = math.min(sh.maxHp, sh.hp + 4 * dt);
+    }
     marks.removeWhere((m) => m.done);
     foes.removeWhere((f) => f.calm && f.alpha <= 0);
     trail.removeWhere((t) => time - t.$3 > 0.35);

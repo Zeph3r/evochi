@@ -556,6 +556,7 @@ status effect, healing from the Bag, retreat and knockout evacuation, and reward
 - **The fight** is `lib/features/wilds/wilds_combat.dart` (a `Raid`): a pure-Dart simulation the
   screen ticks, draws and plays sounds for. Your Evochi has **Raid HP** (120 + 10 per level) and
   **Stamina**, kept only in the fight: Vitality is never touched, and a knockout is an evacuation.
+  With nothing after you, Raid HP comes back slowly (Sher's faster).
 - **Your moves**: Pounce (J, or hold it; tap again within half a second for a three-hit combo whose last
   hit pounces), Glow Bolt (K, homes a little), Lumen Pulse (L, a burst round you that also clears
   spores), a dodge roll (Space: invulnerable frames, passes through foes; a dodge that slips a hit gives

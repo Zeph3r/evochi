@@ -305,7 +305,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     }
     final nearSher = sher != null && pet.dist(sher) < 52 && (!r.inCombat || !r.party);
     final b = r.boss;
-    final nearBoss = b != null && r.bossState == BossState.calm && pet.dist(b) < 60;
+    final nearBoss = b != null && r.bossState == BossState.calm && pet.dist(b) < 80;
     if (near?.id != _near?.id || nearSher != _nearSher || nearBoss != _nearBoss) {
       setState(() {
         _near = near;
@@ -329,8 +329,11 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     }
     final p = _toGround(fx, fz) * _gk;
     final gw = m.groundW * _gk, gh = m.groundH * _gk;
+    // the arena sits near the floor's north edge: the camera may look a little past it (into the dark of
+    // the wood) so the fight isn't pushed up under the HUD
+    final over = bossFight ? 190.0 : 70.0;
     final want2 = Offset((p.dx - _view.width / 2).clamp(0.0, math.max(0.0, gw - _view.width)),
-        (p.dy - _view.height * (bossFight ? 0.6 : 0.58)).clamp(0.0, math.max(0.0, gh - _view.height)));
+        (p.dy - _view.height * (bossFight ? 0.6 : 0.58)).clamp(-over, math.max(0.0, gh - _view.height)));
     _cam = _snap ? want2 : Offset.lerp(_cam, want2, math.min(1.0, dt * 6))!;
     _snap = false;
     final reduce = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
@@ -979,6 +982,15 @@ class _MapPainter extends CustomPainter {
       if (t.rect.overlaps(vis)) canvas.drawImage(t.img, t.rect.topLeft, pq);
     }
     canvas.restore();
+    // past the floor's north edge: the deep wood, the seam softened
+    final seam = -s._cam.dy + s._shakeY;
+    if (seam > 0) {
+      canvas.drawRect(Rect.fromLTWH(0, 0, size.width, seam), Paint()..color = const Color(0xFF1F3318));
+      canvas.drawRect(
+          Rect.fromLTWH(0, seam - 30, size.width, 90),
+          Paint()
+            ..shader = ui.Gradient.linear(Offset(0, seam - 30), Offset(0, seam + 60), const [Color(0xFF1F3318), Color(0x001F3318)]));
+    }
     // on the ground: spore clouds, the guardian's rings, telegraphs, effects that lie flat
     for (final h in r.hazards) {
       _cloud(canvas, h);
