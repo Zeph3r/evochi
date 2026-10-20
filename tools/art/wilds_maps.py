@@ -72,6 +72,10 @@ BRANCHES = [
     ([(-34, 150), (-58, 150), (-72, 160)], 14),        # down to the pond shore
     ([(-28, -330), (-70, -352), (-112, -372), (-146, -390)], 11),   # the overgrown way to the nook
 ]
+# where the fights are: clearings off the trail (the foes wait there), and the guardian's arena before the
+# gate. Each zone: id, name, centre x, z, radius.
+ZONES = [('fern', 'Fern Clearing', -8, 250, 46), ('ring', 'Mushroom Ring', 4, 26, 44), ('stand', 'Thorn Stand', 28, -222, 46)]
+ARENA = (-14, -398, 74)                                # the Briarback's arena: centre x, z, radius
 CAMP = (100, 340)
 POND = (-118, 112, 62, 44)                             # centre x, z, radius x, z
 NOOK = (-152, -392)
@@ -122,7 +126,8 @@ def plan():
     water = water_art & ~bridge                          # where nobody can walk
     path &= ~water
     clear = np.zeros_like(path)
-    for (cx, cz, r) in ((CAMP[0], CAMP[1], 54), (0, 548, 58), (0, -500, 54), (NOOK[0], NOOK[1], 22)):
+    for (cx, cz, r) in ((CAMP[0], CAMP[1], 54), (0, 548, 58), (0, -500, 54), (NOOK[0], NOOK[1], 22), ARENA[:3],
+                        *[(z[2], z[3], z[4]) for z in ZONES]):
         clear |= (X - cx) ** 2 + (Z - cz) ** 2 < r * r
     return dict(X=X, Z=Z, path=path, water=water, water_art=water_art, stream=stream, pond=pond, bridge=bridge,
                 clear=clear, jit=jit)
@@ -419,11 +424,62 @@ def seat():
     return M, 0.0
 
 
+def bramble(seed):
+    """A Hollow bramble: thick thorny canes arching out of the ground, violet buds glowing on them"""
+    rng = _rng(seed)
+    M = Model((-14, 0, -12), (14, 20, 12), [], res=1)
+    P = CPainter(M, seed)
+    cane = np.zeros(M.m.shape, bool)
+    buds = []
+    for k in range(9):
+        a = rng.uniform(0, 2 * math.pi)
+        r0 = rng.uniform(0, 4)
+        x0, z0 = r0 * math.cos(a), r0 * math.sin(a)
+        b = a + rng.uniform(-1.2, 1.2)
+        span = rng.uniform(7, 12)
+        h = rng.uniform(9, 16)
+        for t in np.linspace(0, 1, 26):
+            x = x0 + math.cos(b) * span * t
+            z = z0 * 0.8 + math.sin(b) * span * t * 0.8
+            y = h * math.sin(math.pi * t) * (1 - 0.25 * t)
+            cane |= blob(M, (x, y, z), (1.6, 1.6, 1.6))
+            if 0.25 < t < 0.8 and rng.random() < 0.18:
+                d = rng.normal(size=3)
+                d /= np.linalg.norm(d)
+                cane |= blob(M, (x + d[0] * 1.8, y + d[1] * 1.8, z + d[2] * 1.8), (0.7, 0.7, 0.7))
+            if abs(t - 0.5) < 0.02 and rng.random() < 0.6:
+                buds.append((x, y + 1.4, z))
+    P.fill(cane & (M.Y >= 0), ['#4A3550', '#3E2B46', '#57405F'], cell=(2, 2, 2))
+    for (x, y, z) in buds:
+        bud = blob(M, (x, y, z), (1.3, 1.3, 1.3))
+        M.set(bud, '#C8B1E4')
+        M.glow[bud] = 0.9
+    return M, 9.5
+
+
+def shrooms(seed):
+    """A few Hollow toadstools: violet caps with glowing spots (they don't block the way)"""
+    rng = _rng(seed)
+    M = Model((-9, 0, -8), (9, 9, 8), [], res=1)
+    P = CPainter(M, seed)
+    for (x, z, s) in ((-3.5, 1.5, 1.0), (2.5, -1.5, 1.3), (4.5, 3.0, 0.8)):
+        stem = (np.hypot(M.X - x, M.Z - z) < 1.1 * s) & (M.Y < 3.6 * s)
+        P.fill(stem, ['#D8C9E6', '#C8B8D9'])
+        capm = blob(M, (x, 4.0 * s, z), (2.8 * s, 1.6 * s, 2.8 * s)) & (M.Y >= 3.0 * s)
+        P.fill(capm, ['#6B4C95', '#5E4286'])
+        sh = capm & ~ndimage.binary_erosion(capm)
+        pts = np.argwhere(sh & (M.Y > 3.8 * s))
+        for i in rng.choice(len(pts), min(5, len(pts)), replace=False):
+            M.m[tuple(pts[i])] = M.mid('#D9C2FF')
+            M.glow[tuple(pts[i])] = 0.9
+    return M, 0.0
+
+
 KINDS = {
     'oak_a': lambda: oak(11), 'oak_b': lambda: oak(12), 'pine_a': lambda: pine(21), 'pine_b': lambda: pine(22),
     'birch': lambda: birch(31), 'bush': lambda: bush(41), 'rock': lambda: rock(51), 'boulder': lambda: rock(52, True),
     'stump': lambda: stump(61), 'log': lambda: log(71), 'pillar': lambda: pillar(81), 'pillar_low': lambda: pillar(82, 14),
-    'gate': gate, 'sign': sign, 'tent': tent, 'seat': seat,
+    'gate': gate, 'sign': sign, 'tent': tent, 'seat': seat, 'bramble': lambda: bramble(91), 'shrooms': lambda: shrooms(95),
 }
 # footprints that are not one circle: (dx, dz, r) relative to the prop's spot
 SHAPES = {
@@ -501,7 +557,55 @@ def place_props(pl, rng):
     add('gate', GATE[0], GATE[1], 0, flip=False)
     for (dx, dz, k) in ((-40, 22, 'pillar'), (44, 18, 'pillar_low'), (-52, -8, 'pillar_low'), (56, -12, 'pillar')):
         add(k, GATE[0] + dx, GATE[1] + dz, 0, flip=False)
+    # the arena: ruined pillars and a boulder to bait the guardian's charge into, brambles round the rim
+    ax, az, ar = ARENA
+    for (dx, dz, k) in ARENA_ROCKS:
+        add(k, ax + dx, az + dz, 0, flip=False)
+    for k in range(22):
+        a = 2 * math.pi * k / 22
+        x, z = ax + math.cos(a) * (ar - 4), az + math.sin(a) * (ar - 4) * 0.92
+        if z > az + ar * 0.55 and abs(x - arena_entry()[0]) < 40:
+            continue                                   # the way in stays open (until the fight)
+        if z < GATE[1] + 30 or (z < az - ar * 0.5 and abs(x + 8) < 30):
+            continue                                   # not in front of the gate, nor across the way to it
+        if math.hypot(x - NOOK[0], z - NOOK[1]) < 90 and x < ax - 40 and abs(z - (-362)) < 26:
+            continue                                   # the overgrown way to the nook
+        add('bramble', x, z, 0, flip=bool(k % 2))
+    # the Hollow creeping in at the Thorn Stand
+    zx, zz, zr = ZONES[2][2], ZONES[2][3], ZONES[2][4]
+    for a in (2.3, 3.4, 5.6):
+        add('bramble', zx + math.cos(a) * (zr + 4), zz + math.sin(a) * (zr + 4) * 0.9, 0, flip=a > 3)
+    # toadstools round the Mushroom Ring
+    zx, zz, zr = ZONES[1][2], ZONES[1][3], ZONES[1][4]
+    for k in range(9):
+        a = 2 * math.pi * k / 9 + 0.3
+        add('shrooms', zx + math.cos(a) * (zr - 6), zz + math.sin(a) * (zr - 6) * 0.9, 0, flip=bool(k % 2))
     return props
+
+
+ARENA_ROCKS = [(-48, -18, 'pillar'), (40, -30, 'pillar_low'), (-30, 34, 'boulder'), (34, 30, 'pillar')]
+
+
+def arena_entry():
+    """where the trail comes into the arena (its south rim), and the trail's heading there"""
+    ax, az, ar = ARENA
+    pts = np.array(MAIN_PATH, float)
+    for i in range(len(pts) - 1):
+        a, b = pts[i], pts[i + 1]
+        if math.hypot(a[0] - ax, a[1] - az) >= ar > math.hypot(b[0] - ax, b[1] - az):
+            for t in np.linspace(0, 1, 200):
+                p = a + (b - a) * t
+                if math.hypot(p[0] - ax, p[1] - az) < ar:
+                    d = (b - a) / np.linalg.norm(b - a)
+                    return float(p[0]), float(p[1]), float(d[0]), float(d[1])
+    raise ValueError('the trail misses the arena')
+
+
+def arena_wall():
+    """the brambles that close the way in while the guardian fights: across the trail at the rim"""
+    x, z, dx, dz = arena_entry()
+    px, pz = -dz, dx                                   # across the trail
+    return [[round(x + px * k - dx * 4, 1), round(z + pz * k - dz * 4, 1)] for k in (-36, -18, 0, 18, 36)]
 
 
 # ------------------------------------------------------------------ data ----
@@ -563,6 +667,20 @@ def data(out, name, pl, props, ground_meta, prop_meta):
                 blocks.append([round(p['x'] + (-dx if p['flip'] else dx), 1), round(p['z'] + dz, 1), r])
         elif img['radius'] > 0:
             blocks.append([p['x'], p['z'], img['radius']])
+    zones = [{'id': i, 'name': n, 'x': x, 'z': z, 'r': r} for i, n, x, z, r in ZONES]
+    ax, az, ar = ARENA
+    foes = [
+        {'id': 'fern_1', 'kind': 'thornling', 'zone': 'fern', 'x': -30, 'z': 230},
+        {'id': 'fern_2', 'kind': 'thornling', 'zone': 'fern', 'x': 4, 'z': 242},
+        {'id': 'ring_1', 'kind': 'sporecap', 'zone': 'ring', 'x': -16, 'z': 12},
+        {'id': 'ring_2', 'kind': 'sporecap', 'zone': 'ring', 'x': 22, 'z': 40},
+        {'id': 'stand_1', 'kind': 'thornling', 'zone': 'stand', 'x': 12, 'z': -206},
+        {'id': 'stand_2', 'kind': 'thornling', 'zone': 'stand', 'x': 46, 'z': -230},
+        {'id': 'stand_3', 'kind': 'sporecap', 'zone': 'stand', 'x': 30, 'z': -252},
+    ]
+    boss = {'id': 'briarback', 'kind': 'briarback', 'name': 'Briarback', 'title': 'Guardian of the Thicket',
+            'x': ax + 4, 'z': az - 34, 'arena': {'x': ax, 'z': az, 'r': ar}, 'wall': arena_wall(),
+            'summon': [[ax - 36, az + 6], [ax + ar - 30, az - 8], [ax - 26, az - ar + 34], [ax + 26, az - ar + 34]]}
     meta = {
         'id': name, 'name': 'Sunlit Thicket', 'floor': 'F1', 'level': 3, 'pitch': MAP_PITCH, 'scale': GROUND_SCALE,
         'ground': ground_meta, 'bounds': list(BOUNDS), 'grid': walk_grid(pl),
@@ -572,6 +690,7 @@ def data(out, name, pl, props, ground_meta, prop_meta):
         'sher': {'x': CAMP[0] - 22, 'z': CAMP[1] + 4, 'route': [[CAMP[0] - 22, CAMP[1] + 4], [CAMP[0] + 2, CAMP[1] + 26],
                                                                 [CAMP[0] + 14, CAMP[1] - 2]]},
         'objective': 'Explore the Thicket and find the way to Fernwood Trail',
+        'zones': zones, 'foes': foes, 'boss': boss,
         'minimap': minimap(pl, props, out, name),
     }
     json.dump(meta, open(os.path.join(out, f'wilds_map_{name}.json'), 'w'), indent=1)

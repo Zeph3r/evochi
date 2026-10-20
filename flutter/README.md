@@ -544,9 +544,70 @@ shows **Lumen Wilds: Sunlit Thicket** on Journey's playtest card.
   built and lit like the villagers (parts, five expressions, idle/talk/listen in `NPC_ANIM`) and packed
   into `village.npcs.sher` (`tools/art/wilds_pack.py`). He waits at his camp by the fire; talk to him and
   he offers to join your party, an NPC ally as in the Guild Raids design (he never replaces your Evochi),
-  then follows your path a step to the side. Raid HP and Energy sit full until there is combat.
-  `tools/art/wilds_blend.py` writes him as a Blender file (posable parts, every expression, whiskers as
-  curves, the walk and run as looping animations).
+  then follows your path a step to the side (once he has joined, he meets you at the trailhead on later
+  visits). `tools/art/wilds_blend.py` writes him as a Blender file (posable parts, every expression,
+  whiskers as curves, the walk and run as looping animations).
+
+### Combat in the Thicket
+
+The first playable slice of the Guild Raids design: three fight clearings, a guardian, an NPC ally, a
+status effect, healing from the Bag, retreat and knockout evacuation, and rewards saved once.
+
+- **The fight** is `lib/features/wilds/wilds_combat.dart` (a `Raid`): a pure-Dart simulation the
+  screen ticks, draws and plays sounds for. Your Evochi has **Raid HP** (120 + 10 per level) and
+  **Stamina**, kept only in the fight: Vitality is never touched, and a knockout is an evacuation.
+- **Your moves**: Pounce (J, or hold it; tap again within half a second for a three-hit combo whose last
+  hit pounces), Glow Bolt (K, homes a little), Lumen Pulse (L, a burst round you that also clears
+  spores), a dodge roll (Space: invulnerable frames, passes through foes; a dodge that slips a hit gives
+  some Stamina back), and Heal (Q: the cheapest healing item in your Bag, eaten for Raid HP scaled from
+  its Vitality value). Attacks soft-target the best foe ahead; tap a foe to keep them on it. Pounces
+  don't stall Stamina recovery, so a combo still leaves the legs to roll; dodges, bolts and pulses do.
+- **Sher** flanks whatever is after your Evochi (across from it), swipes in pairs, throws a dazzle vial
+  at things that keep their distance, steps out of any telegraph about to land (and in behind a thorn
+  ring), tosses a tonic when your Evochi drops below 40%, and calls the guardian's moves. Brought down,
+  he is winded for a few seconds and gets back up.
+- **Foes** (`tools/art/wilds_foes.py`: voxel models posed per frame, walk and act sheets in 8
+  directions, and a calm variant for when the Hollow lifts). Defeated, they are calmed, not killed:
+  they hop, trot off into the wood and leave coins (sometimes a Lumen Shard, sometimes a mote of light
+  that heals) in your **satchel**.
+  - **Thornling**: notices you in a sight cone (a running Evochi is heard; one alert calls its pack),
+    circles at a distance, and waits its turn: at most two attack the same target, a beat apart. It
+    tucks into a thorn ball and rolls along a telegraphed line that tracks you (with a little lead)
+    until its last 40%. A roll into a tree or a rock knocks it silly (free hits). Too close to roll, it
+    nips. Hurt, it backs off once. Pulled too far from its clearing, it gives up and goes home to heal.
+  - **Sporecap**: keeps 60-110 units away, hopping out by the open way (12 headings scored for distance
+    gained, no trees or water, near home, not reversing); lobs spores where you are heading (a lead a
+    little short of perfect, so turning dodges it), with the landing marked; the landing leaves a cloud
+    that slows you and halves Stamina recovery (**Spored**). Cornered, it puffs.
+  - **Briarback**, the guardian, waits in a bramble arena before the old gate. Step in and the brambles
+    close behind you. It turns slowly (its flank is the place to be) and chooses each move by a weighted
+    score: range, facing, cooldowns, not repeating itself, and a read of how you play (keep your
+    distance and it charges and roots more; hug its flank and it rings). **Sweep** (a cone),
+    **Charge** (a line that tracks you, then runs past and pulls up; into a pillar, the boulder or the
+    brambles it crashes and is dazed), **Roots** (under you, Sher, where you are heading and round
+    you), and from 60% the **Thorn ring** (roll through it). At 60% and 30% it roars and calls two
+    Thornlings; below 30% it is enraged (quicker wind-ups, chained charges, more roots). From the
+    second phase it reads an early dodge and may hold its sweep or charge a beat (the telegraph slows
+    to show it). Heavy hits wear its poise to a stagger; hits from behind and on a dazed foe land harder.
+- **Telegraphs** are drawn on the ground (red-orange, filling to the moment they land, chevrons along a
+  charge). Hits flash and spark, numbers float (crits bigger, heals green), big hits shake the camera
+  and freeze a few frames. The fight sounds are synthesised (`tools/art/wilds_sfx.py`); the wild and
+  guardian loops play while you fight.
+- **The save** (`lib/game/wilds/wilds.dart`, through `GameController.run`): a healing item leaves the
+  Bag as it is eaten; the satchel is banked once per bank (its transaction id) when you leave through
+  the exit, retreat (Leave, Esc, the back gesture: a card confirms), or calm the guardian. A knockout
+  sends you back to the trailhead with full Raid HP, half the unbanked satchel lost, and the guardian
+  and anyone still after you back where they were. The first clear gives 150 EvoCoins, 2 Lumen Shards
+  and the **Briar Heartwood** (a crafting fragment) and saves `wilds_thicket_cleared`; after that the
+  calm Briarback offers a spar, rewarded once a day. Sher's welcome gift (three Berry Snacks) is
+  given once. The app going to the background pauses the fight.
+- **Debug builds** add playtest keys: 1-3 jump to a clearing, 4 and 5 to the arena, G keeps Raid HP
+  full, B takes a fifth of the guardian's health.
+- **Tests**: `test/wilds_test.dart` (perception and packs, attack turns, the roll's bonk, dodging,
+  kiting, leads and spores, leashing, calming, the guardian's waking, phases, move choice, crashes,
+  evacuation, victory, Sher; and the save: banking once, the first clear, healing items). 
+  `test/wilds_sim_test.dart` is a playtest bot that fights every clearing and the guardian (with and
+  without Sher, careful and sloppy) and prints time, damage taken by source, heals and dodges.
 
 ## Haptics
 

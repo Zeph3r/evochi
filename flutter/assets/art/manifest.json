@@ -3807,7 +3807,8 @@
   "ancient_relic": "items/ancient_relic.webp",
   "q_mossy_clue": "items/q_mossy_clue.webp",
   "q_lumen_trace": "items/q_lumen_trace.webp",
-  "q_old_trail_map": "items/q_old_trail_map.webp"
+  "q_old_trail_map": "items/q_old_trail_map.webp",
+  "briar_heartwood": "items/briar_heartwood.webp"
  },
  "icons": {
   "bag": "icons/bag.webp",
@@ -3949,7 +3950,17 @@
   "mus_seaside": "music/mus_seaside.mp3",
   "mus_skylark": "music/mus_skylark.mp3",
   "mus_summer_morning": "music/mus_summer_morning.mp3",
-  "mus_young_mans_dream": "music/mus_young_mans_dream.mp3"
+  "mus_young_mans_dream": "music/mus_young_mans_dream.mp3",
+  "wild_hit": "sfx/wild_hit.mp3",
+  "wild_hurt": "sfx/wild_hurt.mp3",
+  "wild_swing": "sfx/wild_swing.mp3",
+  "wild_dodge": "sfx/wild_dodge.mp3",
+  "wild_bolt": "sfx/wild_bolt.mp3",
+  "wild_roll": "sfx/wild_roll.mp3",
+  "wild_spore": "sfx/wild_spore.mp3",
+  "wild_calm": "sfx/wild_calm.mp3",
+  "wild_roar": "sfx/wild_roar.mp3",
+  "wild_crash": "sfx/wild_crash.mp3"
  },
  "thumbs": {
   "file": "chars/thumbs.webp",

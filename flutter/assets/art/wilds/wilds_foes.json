@@ -1,0 +1,248 @@
+{
+ "pitch": 35.0,
+ "dirs": [
+  "S",
+  "SE",
+  "E",
+  "NE",
+  "N",
+  "NW",
+  "W",
+  "SW"
+ ],
+ "frames": 8,
+ "foes": {
+  "thornling": {
+   "frameW": 178,
+   "frameH": 154,
+   "ground": [
+    89.0,
+    113.2
+   ],
+   "scale": 6.0,
+   "radius": 8.0,
+   "gaits": {
+    "walk": {
+     "sheets": {
+      "hollow": "foe_thornling_walk_hollow.webp",
+      "calm": "foe_thornling_walk_calm.webp"
+     },
+     "roll": [
+      0.0,
+      0.0,
+      3.54,
+      5.0,
+      3.54,
+      0.0,
+      -3.54,
+      -5.0,
+      -3.54
+     ],
+     "squash": [
+      1.0,
+      0.95,
+      0.997,
+      1.0,
+      0.997,
+      0.95,
+      0.997,
+      1.0,
+      0.997
+     ],
+     "lift": [
+      0.0,
+      0.0,
+      2.5,
+      2.5,
+      2.5,
+      0.0,
+      2.5,
+      2.5,
+      2.5
+     ],
+     "cycle": 7.2
+    }
+   },
+   "act": {
+    "sheet": "foe_thornling_act.webp",
+    "poses": [
+     "crouch",
+     "tuck",
+     "ball",
+     "nip",
+     "hurt"
+    ]
+   },
+   "top": 98.2
+  },
+  "sporecap": {
+   "frameW": 136,
+   "frameH": 136,
+   "ground": [
+    68.0,
+    106.1
+   ],
+   "scale": 6.0,
+   "radius": 8.0,
+   "gaits": {
+    "walk": {
+     "sheets": {
+      "hollow": "foe_sporecap_walk_hollow.webp",
+      "calm": "foe_sporecap_walk_calm.webp"
+     },
+     "roll": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      -0.0,
+      -0.0,
+      -0.0
+     ],
+     "squash": [
+      1.0,
+      0.88,
+      0.925,
+      0.985,
+      1.0,
+      1.0,
+      1.0,
+      0.985,
+      0.925
+     ],
+     "lift": [
+      0.0,
+      0.0,
+      4.9,
+      12.3,
+      14.7,
+      14.7,
+      14.7,
+      12.3,
+      4.9
+     ],
+     "cycle": 10.0
+    }
+   },
+   "act": {
+    "sheet": "foe_sporecap_act.webp",
+    "poses": [
+     "swell1",
+     "swell2",
+     "puff",
+     "hurt"
+    ]
+   },
+   "top": 84.1
+  },
+  "briarback": {
+   "frameW": 302,
+   "frameH": 308,
+   "ground": [
+    151.0,
+    258.0
+   ],
+   "scale": 3.6,
+   "radius": 17.0,
+   "gaits": {
+    "walk": {
+     "sheets": {
+      "hollow": "foe_briarback_walk_hollow.webp",
+      "calm": "foe_briarback_walk_calm.webp"
+     },
+     "roll": [
+      0.0,
+      0.0,
+      1.06,
+      1.5,
+      1.06,
+      0.0,
+      -1.06,
+      -1.5,
+      -1.06
+     ],
+     "squash": [
+      1.0,
+      0.98,
+      0.999,
+      1.0,
+      0.999,
+      0.98,
+      0.999,
+      1.0,
+      0.999
+     ],
+     "lift": [
+      0.0,
+      0.0,
+      1.5,
+      2.9,
+      1.5,
+      0.0,
+      1.5,
+      2.9,
+      1.5
+     ],
+     "cycle": 16.0
+    },
+    "charge": {
+     "sheets": {
+      "hollow": "foe_briarback_charge_hollow.webp"
+     },
+     "roll": [
+      0.0,
+      0.0,
+      1.41,
+      2.0,
+      1.41,
+      0.0,
+      -1.41,
+      -2.0,
+      -1.41
+     ],
+     "squash": [
+      1.0,
+      0.96,
+      0.998,
+      1.0,
+      0.998,
+      0.96,
+      0.997,
+      1.0,
+      0.998
+     ],
+     "lift": [
+      0.0,
+      0.0,
+      2.9,
+      5.9,
+      2.9,
+      0.0,
+      2.9,
+      5.9,
+      2.9
+     ],
+     "cycle": 30.0
+    }
+   },
+   "act": {
+    "sheet": "foe_briarback_act.webp",
+    "poses": [
+     "lower1",
+     "lower2",
+     "sweep_l",
+     "sweep_r",
+     "rear1",
+     "rear2",
+     "stomp",
+     "roar",
+     "stagger",
+     "hurt"
+    ]
+   },
+   "top": 172.0
+  }
+ }
+}

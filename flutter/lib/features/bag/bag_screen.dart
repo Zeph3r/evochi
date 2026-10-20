@@ -659,13 +659,20 @@ class _ItemCard extends StatelessWidget {
         note = 'Farming Lv ${h.cropDefs[it.crop]?.level ?? 1}';
       case ItemCategory.ingredient:
         tag = 'Ingredient';
-        final room = h.recipesUsing(id).map((r) => r.station).where((st) => h.stationOpen(c.state, st)).firstOrNull;
-        buttons = [
-          if (room != null)
-            EvochiButton(label: h.stationDefs[room]!.verb, small: true, onPressed: () => openStation(context, room))
-          else
-            EvochiButton(label: 'Cottage', small: true, tone: ButtonTone.cream, onPressed: () => openCottage(context)),
-        ];
+        final uses = h.recipesUsing(id);
+        final room = uses.map((r) => r.station).where((st) => h.stationOpen(c.state, st)).firstOrNull;
+        if (uses.isEmpty) {
+          // a Wilds fragment: kept for crafting, nothing to cook or brew with it yet
+          buttons = [];
+          note = 'A crafting fragment';
+        } else {
+          buttons = [
+            if (room != null)
+              EvochiButton(label: h.stationDefs[room]!.verb, small: true, onPressed: () => openStation(context, room))
+            else
+              EvochiButton(label: 'Cottage', small: true, tone: ButtonTone.cream, onPressed: () => openCottage(context)),
+          ];
+        }
       case ItemCategory.decoration:
         tag = 'Decoration';
         final placed = c.state.placements.values.where((x) => x == id).length;

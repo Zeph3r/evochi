@@ -81,6 +81,55 @@ class WalkerArt {
   }
 }
 
+/// A foe's art (tools/art/wilds_foes.py): per gait a sheet per variant (hollow, calm), and the act sheet
+/// (one column per pose). Drawn at its own scale (true to the world).
+class FoeGait {
+  FoeGait(this.sheets, this.roll, this.squash, this.lift, this.cycle);
+  final Map<String, ui.Image> sheets; // variant -> sheet
+  final List<double> roll, squash, lift;
+  final double cycle;
+}
+
+class FoeArt {
+  FoeArt({required this.fw, required this.fh, required this.gx, required this.gy, required this.scale, required this.radius,
+      required this.top, required this.gaits, required this.act, required this.poses});
+  final double fw, fh, gx, gy, scale, radius, top;
+  final Map<String, FoeGait> gaits;
+  final ui.Image act;
+  final Map<String, int> poses; // pose name -> column
+
+  static Map<String, dynamic>? _meta;
+
+  static Future<FoeArt> load(String key) async {
+    final all = _meta ??= await _json('wilds_foes.json');
+    final f = ((all['foes'] as Map)[key] as Map).cast<String, dynamic>();
+    final gaits = <String, FoeGait>{};
+    for (final e in (f['gaits'] as Map).entries) {
+      final g = (e.value as Map).cast<String, dynamic>();
+      final sheets = <String, ui.Image>{};
+      for (final v in (g['sheets'] as Map).entries) {
+        sheets[v.key as String] = await _img(wildsBase + (v.value as String));
+      }
+      gaits[e.key as String] = FoeGait(sheets, _nums(g['roll']), _nums(g['squash']), _nums(g['lift']), (g['cycle'] as num? ?? 10).toDouble());
+    }
+    final act = (f['act'] as Map).cast<String, dynamic>();
+    final poses = [for (final p in act['poses'] as List) p as String];
+    final gr = f['ground'] as List;
+    return FoeArt(
+      fw: (f['frameW'] as num).toDouble(),
+      fh: (f['frameH'] as num).toDouble(),
+      gx: (gr[0] as num).toDouble(),
+      gy: (gr[1] as num).toDouble(),
+      scale: (f['scale'] as num).toDouble(),
+      radius: (f['radius'] as num).toDouble(),
+      top: (f['top'] as num? ?? f['frameH'] as num).toDouble(),
+      gaits: gaits,
+      act: await _img(wildsBase + (act['sheet'] as String)),
+      poses: {for (var i = 0; i < poses.length; i++) poses[i]: i},
+    );
+  }
+}
+
 class PropArt {
   PropArt(this.img, this.ax, this.ay, this.scale);
   final ui.Image img;
@@ -163,6 +212,19 @@ class WildsMap {
       [for (final p in s['route'] as List) Offset(((p as List)[0] as num).toDouble(), (p[1] as num).toDouble())],
     );
   }
+
+  /// The fight clearings, the foes waiting in them, the guardian and its arena.
+  List<(String, String, double, double, double)> get zones => [
+        for (final z in (j['zones'] as List? ?? const []))
+          ((z as Map)['id'] as String, z['name'] as String, (z['x'] as num).toDouble(), (z['z'] as num).toDouble(), (z['r'] as num).toDouble()),
+      ];
+
+  List<(String, String, String, double, double)> get foes => [
+        for (final f in (j['foes'] as List? ?? const []))
+          ((f as Map)['id'] as String, f['kind'] as String, f['zone'] as String, (f['x'] as num).toDouble(), (f['z'] as num).toDouble()),
+      ];
+
+  Map<String, dynamic>? get boss => (j['boss'] as Map?)?.cast<String, dynamic>();
 
   /// The world rectangle the minimap covers (the slab).
   Rect get miniWorld {

@@ -226,6 +226,12 @@ const catalog = <String, CatalogItem>{
       id: 'ancient_relic', name: 'Ancient Relic', category: ItemCategory.decoration, decor: 'side', rarity: 'legendary',
       desc: "A stone tablet from the Sentinel's gate, its three trail grooves glowing softly. A piece of the Lumen Trails for your nest.",
       shop: null, acquisition: 'story', originQuest: 'eq03', tradable: false, sellable: false),
+  // ---- Lumen Wilds: what a floor's guardian leaves once it is calm (fragments for Wilds cosmetics)
+  'briar_heartwood': CatalogItem(
+      id: 'briar_heartwood', name: 'Briar Heartwood', category: ItemCategory.ingredient, rarity: 'epic', stackable: true, shop: null,
+      acquisition: 'trail', tradable: false, sellable: false,
+      desc: "A piece of the Briarback's antler, warm wood split open on a mint-green glow. The Hollow is gone from it. "
+          'A crafting fragment from the Sunlit Thicket.'),
 };
 
 /// Can this item be bought in the Market (and rolled as a quest cosmetic)? Story items never can.
