@@ -1211,6 +1211,38 @@ class KitSectionHead extends StatelessWidget {
 enum KitTabStyle { wood, leather, cloth }
 
 /// A tab plaque (`.tab`). The chosen one lifts 3 px and lights up.
+/// One font size for a whole row of labels (tabs, a row of buttons): the largest size, up to
+/// [style]'s, at which the longest label fits in [width]. Shrinking each label on its own (a
+/// FittedBox per label) left "Wear" big and "Pantry" small side by side.
+double kitFitFontSize(BuildContext context, Iterable<String> labels, TextStyle style, double width, {double min = 10}) {
+  final base = style.fontSize ?? 14;
+  if (width <= 0) return min;
+  final scaler = MediaQuery.maybeTextScalerOf(context) ?? TextScaler.noScaling;
+  var size = base;
+  for (final l in labels) {
+    final tp = TextPainter(text: TextSpan(text: l, style: style), textDirection: TextDirection.ltr, textScaler: scaler, maxLines: 1)..layout();
+    if (tp.width > width) size = math.min(size, base * width / tp.width * 0.98);
+    tp.dispose();
+  }
+  return math.max(min, size);
+}
+
+/// A label that shares its size with the rest of its row: it measures the room it actually gets and
+/// sizes itself (and, since every sibling does the same sum over the same [group], all of them) so
+/// the longest label in [group] fits. Put it where the label goes, inside a Flexible.
+class KitRowLabel extends StatelessWidget {
+  const KitRowLabel(this.text, {super.key, required this.group, required this.style, this.min = 9.5});
+  final String text;
+  final List<String> group;
+  final TextStyle style;
+  final double min;
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(builder: (ctx, box) {
+        final fs = box.maxWidth.isFinite ? kitFitFontSize(ctx, group, style, box.maxWidth, min: min) : (style.fontSize ?? 14);
+        return Text(text, maxLines: 1, softWrap: false, overflow: TextOverflow.clip, style: style.copyWith(fontSize: fs));
+      });
+}
+
 class KitTab extends StatelessWidget {
   const KitTab({super.key, required this.selected, required this.child, this.style = KitTabStyle.wood, this.height = 48, this.padding = const EdgeInsets.symmetric(horizontal: 4), this.radius});
   final bool selected;
@@ -1222,13 +1254,18 @@ class KitTab extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final reduce = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
-    return AnimatedContainer(
-      duration: reduce ? Duration.zero : const Duration(milliseconds: 120),
-      height: height,
-      padding: padding,
-      transform: Matrix4.translationValues(0, selected ? -3 : 0, 0),
-      decoration: radius == null ? Kit.tab(selected: selected, style: style) : Kit.tab(selected: selected, style: style, radius: radius!),
-      child: child,
+    final d = reduce ? Duration.zero : const Duration(milliseconds: 120);
+    // the chosen tab rises 3 px within the row's own height, so a clipping parent can't cut its top off
+    return AnimatedPadding(
+      duration: d,
+      padding: EdgeInsets.only(top: selected ? 0 : 3, bottom: selected ? 3 : 0),
+      child: AnimatedContainer(
+        duration: d,
+        height: height,
+        padding: padding,
+        decoration: radius == null ? Kit.tab(selected: selected, style: style) : Kit.tab(selected: selected, style: style, radius: radius!),
+        child: child,
+      ),
     );
   }
 

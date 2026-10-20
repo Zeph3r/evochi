@@ -581,7 +581,10 @@ class _ShopScreenState extends State<ShopScreen> {
       );
 
   /// Five wooden plaques; the chosen one lifts and lights up.
-  Widget _tabs() => Padding(
+  Widget _tabs() {
+    // one label size for the five plaques: the size at which "Wearables" fits
+    final group = [for (final x in _cats) x.$2];
+    return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(children: [
           for (final cat in _cats)
@@ -603,10 +606,7 @@ class _ShopScreenState extends State<ShopScreen> {
                       child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                         VoxelIcon(cat.$3, size: 24),
                         Flexible(
-                          child: FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(cat.$2, maxLines: 1, style: KitTab.label(EvochiText.tag.copyWith(fontSize: 12), _cat == cat.$1)),
-                          ),
+                          child: KitRowLabel(cat.$2, group: group, style: KitTab.label(EvochiText.tag.copyWith(fontSize: 12), _cat == cat.$1)),
                         ),
                       ]),
                     ),
@@ -616,6 +616,7 @@ class _ShopScreenState extends State<ShopScreen> {
             ),
         ]),
       );
+  }
 
   /// "Find an item..." (by name or type, within the tab) and the sort button (shop order, price low,
   /// price high; just the icon on narrow phones).

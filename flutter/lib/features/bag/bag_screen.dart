@@ -170,7 +170,10 @@ class _BagScreenState extends State<BagScreen> {
     );
   }
 
-  Widget _tabs() => Padding(
+  Widget _tabs() {
+    // one label size for the five pockets: the size at which the longest fits ("Pantry")
+    final group = [for (final x in _cats) x.$2];
+    return Padding(
         padding: const EdgeInsets.symmetric(horizontal: 8),
         child: Row(children: [
           for (final cat in _cats)
@@ -178,6 +181,7 @@ class _BagScreenState extends State<BagScreen> {
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 3),
                 child: _TabChip(
+                  group: group,
                   label: cat.$2,
                   fullLabel: cat.$4,
                   icon: cat.$3,
@@ -193,6 +197,7 @@ class _BagScreenState extends State<BagScreen> {
             ),
         ]),
       );
+  }
 
   /// The satchel: a canvas sheet in the stitched cloth frame.
   Widget _satchel(Widget child) => Padding(
@@ -420,7 +425,8 @@ class _BagScreenState extends State<BagScreen> {
 }
 
 class _TabChip extends StatelessWidget {
-  const _TabChip({required this.label, required this.fullLabel, required this.icon, required this.selected, required this.onTap});
+  const _TabChip({required this.label, required this.fullLabel, required this.icon, required this.selected, required this.onTap, required this.group});
+  final List<String> group;
   final String label;
   final String fullLabel;
   final String icon;
@@ -438,12 +444,14 @@ class _TabChip extends StatelessWidget {
           child: KitTab(
             selected: selected,
             style: KitTabStyle.cloth,
-            height: 48,
+            height: 52,
+            padding: const EdgeInsets.fromLTRB(2, 3, 2, 0),
             radius: const BorderRadius.vertical(top: Radius.circular(12), bottom: Radius.circular(6)),
-            child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
-              VoxelIcon(icon, size: 24),
-              const SizedBox(width: 3),
-              Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text(label, style: KitTab.label(EvochiText.tag, selected, style: KitTabStyle.cloth)))),
+            // the icon over the word, like the Market's tabs: five pockets side by side leave too little
+            // room beside an icon for "Pantry" at a readable size
+            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              VoxelIcon(icon, size: 22),
+              Flexible(child: KitRowLabel(label, group: group, style: KitTab.label(EvochiText.tag.copyWith(fontSize: 12), selected, style: KitTabStyle.cloth))),
             ]),
           ),
         ),

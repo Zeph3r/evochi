@@ -78,8 +78,19 @@ class EvochiButton extends StatefulWidget {
     this.small = false,
     this.expand = true,
     this.semanticLabel,
+    this.labelSize,
+    this.labelGroup,
+    this.hPad,
+    this.iconGap = 8,
   });
+  /// The labels of the buttons beside this one: all of them take the size at which the longest fits.
+  final List<String>? labelGroup;
   final String label;
+  /// A font size shared with the buttons beside it (see [kitFitFontSize]), so a row reads evenly.
+  final double? labelSize;
+  /// Horizontal padding; tighter in rows of three.
+  final double? hPad;
+  final double iconGap;
   final VoidCallback? onPressed;
   final ButtonTone tone;
   final Widget? icon;
@@ -104,22 +115,27 @@ class _EvochiButtonState extends State<EvochiButton> {
     final h = widget.large ? 56.0 : (widget.small ? 44.0 : 48.0);
     final style = EvochiText.button.copyWith(
       color: p.fg,
-      fontSize: widget.large ? 20 : (widget.small ? 15 : 17),
+      fontSize: widget.labelSize ?? (widget.large ? 20 : (widget.small ? 15 : 17)),
       shadows: p.textShadow == null ? null : [Shadow(color: p.textShadow!, offset: const Offset(0, 1))],
     );
     final child = AnimatedContainer(
       duration: const Duration(milliseconds: 60),
       height: h,
       transform: Matrix4.translationValues(0, down ? 3 : 0, 0),
-      padding: EdgeInsets.symmetric(horizontal: widget.small ? 12 : 18),
+      padding: EdgeInsets.symmetric(horizontal: widget.hPad ?? (widget.small ? 12 : 18)),
       decoration: Kit.button(p, pressed: down, small: widget.small, disabled: !enabled, radius: widget.large ? 14 : (widget.small ? 10 : 13)),
       child: Row(
         mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          if (widget.icon != null) ...[widget.icon!, const SizedBox(width: 8)],
-          // a label that doesn't fit shrinks a little instead of losing its end ("Need 150 more" on a phone)
-          Flexible(child: FittedBox(fit: BoxFit.scaleDown, child: Text(widget.label, style: style, maxLines: 1))),
+          if (widget.icon != null) ...[widget.icon!, SizedBox(width: widget.iconGap)],
+          // a lone label that doesn't fit shrinks a little rather than losing its end ("Need 150 more");
+          // buttons in a row share one size through [labelSize] instead, so they read evenly
+          Flexible(
+            child: widget.labelGroup != null
+                ? KitRowLabel(widget.label, group: widget.labelGroup!, style: style, min: 11)
+                : FittedBox(fit: BoxFit.scaleDown, child: Text(widget.label, style: style, maxLines: 1)),
+          ),
         ],
       ),
     );
@@ -241,44 +257,68 @@ class CoinPill extends StatelessWidget {
   final int balance;
   final VoidCallback onPlus;
   @override
-  Widget build(BuildContext context) => Semantics(
-        label: '${fmt(balance)} EvoCoins',
-        // dark wood, with a gold plus
+  Widget build(BuildContext context) {
+    // A dark-wood purse: the coin sits inside it (it used to hang 8 px off the left edge), the number,
+    // and a gold plus drawn at its full 26 px (a 44 px IconButton squeezed into the 36 px purse
+    // squashed it). Painted with plain colours under the wood grain, so it shows even before the
+    // texture has loaded. The number never scales with the phone's font size.
+    final n = Text(
+      fmt(balance),
+      maxLines: 1,
+      softWrap: false,
+      textScaler: TextScaler.noScaling,
+      style: EvochiText.number.copyWith(color: Colors.white, fontSize: 15, height: 1.1, shadows: kitWoodTextShadow),
+    );
+    // the whole purse answers a tap (the plus alone is a small target on a phone)
+    return Semantics(
+      label: '${fmt(balance)} EvoCoins',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onPlus,
         child: Container(
-          height: 36,
-          padding: const EdgeInsets.only(right: 4),
-          decoration: Kit.coinPill(),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Transform.translate(offset: const Offset(-8, 0), child: const VoxelIcon('coin', size: 32)),
-            ConstrainedBox(
-              constraints: const BoxConstraints(minWidth: 46),
-              child: Text(fmt(balance), style: EvochiText.number.copyWith(color: Colors.white, fontSize: 15, shadows: kitWoodTextShadow)),
-            ),
-            SizedBox(
-              width: 44,
-              height: 44,
-              child: IconButton(
-                onPressed: onPlus,
-                tooltip: 'How to earn EvoCoins',
-                icon: Container(
-                  width: 26,
-                  height: 26,
-                  decoration: const KitDecoration(
-                    base: BoxDecoration(
-                      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFE5A2), Color(0xFFF4B84E)]),
-                      borderRadius: BorderRadius.all(Radius.circular(7)),
-                      border: Border.fromBorderSide(BorderSide(color: Color(0xFF7A4512), width: 1.5)),
-                    ),
-                    inset: 1.5,
-                    top: KitBand(1, Color(0x99FFFFFF)),
+        height: 36,
+        padding: const EdgeInsets.fromLTRB(5, 0, 5, 0),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF7A4A28), Color(0xFF5A3418)]),
+          image: kitWood(KitWood.dark, width: 260, y: -1),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: const Color(0xFF2E180A), width: 2),
+          boxShadow: const [BoxShadow(color: Color(0x4D1E0F05), blurRadius: 8, offset: Offset(0, 4)), BoxShadow(color: Color(0xFF2E180A), offset: Offset(0, 2))],
+        ),
+        child: Row(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.center, children: [
+          const VoxelIcon('coin', size: 24),
+          const SizedBox(width: 5),
+          ConstrainedBox(constraints: const BoxConstraints(minWidth: 34), child: n),
+          const SizedBox(width: 6),
+          Semantics(
+            button: true,
+            label: 'How to earn EvoCoins',
+            excludeSemantics: true,
+            child: Tooltip(
+              message: 'How to earn EvoCoins',
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: onPlus,
+                child: Container(
+                  width: 24,
+                  height: 24,
+                  alignment: Alignment.center,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFE5A2), Color(0xFFF4B84E)]),
+                    borderRadius: BorderRadius.all(Radius.circular(7)),
+                    border: Border.fromBorderSide(BorderSide(color: Color(0xFF7A4512), width: 1.5)),
+                    boxShadow: [BoxShadow(color: Color(0x99FFFFFF), offset: Offset(0, 1), blurRadius: 0, spreadRadius: -1)],
                   ),
-                  child: const Icon(Icons.add, color: Color(0xFF5A3410), size: 18),
+                  child: const Icon(Icons.add_rounded, color: Color(0xFF5A3410), size: 18),
                 ),
               ),
             ),
-          ]),
-        ),
-      );
+          ),
+        ]),
+      ),
+      ),
+    );
+  }
 }
 
 class SquareIconButton extends StatelessWidget {

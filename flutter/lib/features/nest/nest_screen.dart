@@ -166,7 +166,9 @@ class _NestScreenState extends State<NestScreen> {
               const SizedBox(height: 8),
               _StepsCard(),
               const SizedBox(height: 8),
-              Row(children: [
+              Builder(builder: (ctx) {
+                // Pet, Play and Inspect share one label size ("Inspect" used to shrink on its own)
+                return Row(children: [
                 Expanded(child: _ActionButton(label: 'Pet', icon: 'heart', tone: ButtonTone.gold, onTap: () => _pet(c))),
                 const SizedBox(width: 10),
                 Expanded(child: _ActionButton(label: 'Play', icon: 'play', tone: ButtonTone.green, onTap: () => _play(c))),
@@ -182,7 +184,8 @@ class _NestScreenState extends State<NestScreen> {
                     },
                   ),
                 ),
-              ]),
+              ]);
+              }),
               const SizedBox(height: 8),
               if (compact)
                 GameCard(
@@ -597,6 +600,7 @@ class _StepsCard extends StatelessWidget {
 
 class _ActionButton extends StatelessWidget {
   const _ActionButton({required this.label, required this.icon, required this.tone, required this.onTap});
+  static const _group = ['Pet', 'Play', 'Inspect'];
   final String label;
   final String icon;
   final ButtonTone tone;
@@ -604,7 +608,7 @@ class _ActionButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SizedBox(
         height: 58,
-        child: EvochiButton(label: label, tone: tone, icon: VoxelIcon(icon, size: 28), onPressed: onTap),
+        child: EvochiButton(label: label, tone: tone, icon: VoxelIcon(icon, size: 26), iconGap: 6, hPad: 10, labelGroup: _group, onPressed: onTap),
       );
 }
 

@@ -298,6 +298,8 @@ class _JourneyTabs extends StatelessWidget {
       ('story', 'Story', 'habitats', storyDot),
       ('skills', 'Skills', 'skill_farming', false),
     ];
+    // one label size for the four bookmarks
+    final group = [for (final t in tabs) t.$2];
     return Row(children: [
       for (final t in tabs)
         Expanded(
@@ -321,10 +323,7 @@ class _JourneyTabs extends StatelessWidget {
                       VoxelIcon(t.$3, size: 24),
                       const SizedBox(width: 4),
                       Flexible(
-                        child: FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(t.$2, style: KitTab.label(EvochiText.tag, tab == t.$1)),
-                        ),
+                        child: KitRowLabel(t.$2, group: group, style: KitTab.label(EvochiText.tag, tab == t.$1)),
                       ),
                     ]),
                   ),

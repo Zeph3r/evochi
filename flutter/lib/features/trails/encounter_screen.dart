@@ -1219,6 +1219,10 @@ class _EncounterScreenState extends State<EncounterScreen> {
     final comp = v.actions.where((a) => a.kind == 'companion').firstOrNull;
     final hist = v.log.length > 1 ? v.log.sublist(math.max(0, v.log.length - 6), v.log.length - 1) : v.log.sublist(0, 0);
     final icn = lg.who == 'wild' && hollow ? 'hollow' : lg.who;
+    // one name size for the four actions: the size at which the longest ("Gentle Nudge") fits a half-row
+    // button (the panel's frame and padding, the gap, then each button's padding, icon and border)
+    final bw = (MediaQuery.of(context).size.width - 2 * 14 - 10) / 2;
+    final nameSize = kitFitFontSize(context, main.map((a) => a.name), _ActionButton.nameStyle, bw - 16 - 50 - 6, min: 12);
     return ExcludeSemantics(
       excluding: hidden,
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
@@ -1287,11 +1291,16 @@ class _EncounterScreenState extends State<EncounterScreen> {
         for (var i = 0; i < main.length; i += 2)
           Padding(
             padding: const EdgeInsets.only(bottom: 10),
-            child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              Expanded(child: _ActionButton(a: main[i], v: v, busy: _busy, onTap: () => _onAction(main[i].id))),
-              const SizedBox(width: 10),
-              Expanded(child: i + 1 < main.length ? _ActionButton(a: main[i + 1], v: v, busy: _busy, onTap: () => _onAction(main[i + 1].id)) : const SizedBox.shrink()),
-            ]),
+            // the two buttons of a row share its height. The panel scrolls, so the row has no height
+            // of its own to stretch into: without IntrinsicHeight it failed to lay out, which on a
+            // phone (a release build) left the panel blank and the battle squeezed above it
+            child: IntrinsicHeight(
+              child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                Expanded(child: _ActionButton(a: main[i], v: v, busy: _busy, nameSize: nameSize, onTap: () => _onAction(main[i].id))),
+                const SizedBox(width: 10),
+                Expanded(child: i + 1 < main.length ? _ActionButton(a: main[i + 1], v: v, busy: _busy, nameSize: nameSize, onTap: () => _onAction(main[i + 1].id)) : const SizedBox.shrink()),
+              ]),
+            ),
           ),
         // the companion's ability and Retreat share the last row
         if (comp != null)
@@ -1703,7 +1712,9 @@ class _ResultTiles extends StatelessWidget {
 
 /// One action: its icon, name and what it costs, coloured by kind.
 class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.a, required this.v, required this.busy, required this.onTap});
+  const _ActionButton({required this.a, required this.v, required this.busy, required this.onTap, this.nameSize = 15.5});
+  static const nameStyle = TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15.5, height: 1.15, color: EvochiColor.ink);
+  final double nameSize;
   final tr.ActionView a;
   final tr.EncounterView v;
   final bool busy;
@@ -1784,7 +1795,7 @@ class _ActionButton extends StatelessWidget {
                   const SizedBox(width: 8),
                   Expanded(
                     child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                      Text(a.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15.5, height: 1.15, color: EvochiColor.ink)),
+                      Text(a.name, maxLines: 1, softWrap: false, overflow: TextOverflow.clip, style: nameStyle.copyWith(fontSize: nameSize)),
                       const SizedBox(height: 2),
                       Text(sub, style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 12.5, height: 1.2, color: Color(0xC73B2923))),
                     ]),

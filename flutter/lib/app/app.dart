@@ -62,10 +62,13 @@ class _EvochiAppState extends State<EvochiApp> with WidgetsBindingObserver {
       theme: evochiTheme(),
       builder: (context, child) {
         final mq = MediaQuery.of(context);
-        // honour the OS reduce-motion setting as well as the in-game toggle; Larger text raises small
-        // and secondary text on top of the system's text size
+        // honour the OS reduce-motion setting as well as the in-game toggle. Text: the game's layout is
+        // drawn to fixed sizes like the web build, so the phone's own font size is capped (a 115-130%
+        // system font squashed tabs, buttons and the coin purse on Android); Profile > Larger text
+        // raises small and secondary text on purpose instead.
+        final sys = mq.textScaler.clamp(minScaleFactor: 1.0, maxScaleFactor: 1.0);
         return MediaQuery(
-          data: mq.copyWith(disableAnimations: mq.disableAnimations || reduce, textScaler: large ? EvochiTextScaler(mq.textScaler) : mq.textScaler),
+          data: mq.copyWith(disableAnimations: mq.disableAnimations || reduce, textScaler: large ? EvochiTextScaler(sys) : sys),
           child: ToastListener(child: SkillUpListener(child: child!)),
         );
       },

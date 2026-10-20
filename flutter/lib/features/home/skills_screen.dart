@@ -115,6 +115,8 @@ class _SkillsPanelState extends State<SkillsPanel> {
       if (next) nextMarked = true;
       rows.add(_MilestoneRow(m: m, skill: s, reached: reached, done: done, next: next, req: sr, onTap: () => _openMilestone(context, m)));
     }
+    // one label size for the three skill bookmarks (each also carries its icon and a level chip)
+    final group = [for (final x in all.values) x.name];
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
       Row(children: [
         for (final id in h.skillOrder)
@@ -122,6 +124,7 @@ class _SkillsPanelState extends State<SkillsPanel> {
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 3),
               child: _SkillTab(
+                group: group,
                 skill: all[id]!,
                 selected: id == k,
                 onTap: () {
@@ -212,7 +215,8 @@ class _SkillsPanelState extends State<SkillsPanel> {
 }
 
 class _SkillTab extends StatelessWidget {
-  const _SkillTab({required this.skill, required this.selected, required this.onTap});
+  const _SkillTab({required this.skill, required this.selected, required this.onTap, required this.group});
+  final List<String> group;
   final h.SkillView skill;
   final bool selected;
   final VoidCallback onTap;
@@ -234,10 +238,7 @@ class _SkillTab extends StatelessWidget {
               VoxelIcon(skill.icon, size: 24),
               const SizedBox(width: 3),
               Flexible(
-                child: FittedBox(
-                  fit: BoxFit.scaleDown,
-                  child: Text(skill.name, style: KitTab.label(EvochiText.tag, selected)),
-                ),
+                child: KitRowLabel(skill.name, group: group, style: KitTab.label(EvochiText.tag, selected)),
               ),
               LvChip('${skill.level}'),
             ]),
