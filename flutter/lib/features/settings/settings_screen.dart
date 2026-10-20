@@ -175,7 +175,7 @@ class SettingsScreen extends StatelessWidget {
                     ]),
                   ),
                 toggle('Sound effects', 'Taps, rewards, and the sounds of each place: the kitchen fire, the cauldron, the stream.', st.sound, (x, v) => x.sound = v),
-                toggle('Music', 'Gentle tunes for each place, with quiet spells between them.', st.music, (x, v) => x.music = v),
+                toggle('Music', "Gentle tunes indoors: the cottage's rooms and the village's houses, with quiet spells between them.", st.music, (x, v) => x.music = v),
                 toggle('Haptics', null, st.haptics, (x, v) => x.haptics = v),
                 toggle('Larger text', 'Bigger labels, descriptions and item text everywhere.', st.largeText, (x, v) => x.largeText = v),
                 toggle('Reduce motion', 'Crossfades instead of bounces, flashes and particles.', st.reducedMotion, (x, v) => x.reducedMotion = v),

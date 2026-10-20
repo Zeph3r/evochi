@@ -454,7 +454,7 @@ on screen (following `TickerMode`, so a hidden tab or a covered route drops out)
 newest one, or the Nest's when there is none. The table is `placeSounds` in
 `lib/core/services/audio_service.dart`.
 
-- **Music** (the Music switch) is a small playlist per place. A track plays once, then 20-45 s of
+- **Music** (the Music switch) is a small playlist per indoor place. A track plays once, then 20-45 s of
   quiet (just the place's own sounds), then the next one. Moving between screens of the same place
   (the Home Map, the Garden and the Cottage) carries on; a new place fades the tune out and starts
   its own. An encounter's loop overrides the place while it runs.
@@ -476,19 +476,16 @@ newest one, or the Nest's when there is none. The table is `placeSounds` in
 - **Rendering:** FluidSynth with the MIT-licensed FluidR3 GM soundfont, levelled quietly and encoded
   as 80 kbps stereo mp3s in `assets/audio/music/`.
 
+Music plays indoors only. Outside (the Nest, the Home Map, the Square, the trails, the Market) each
+place keeps to its own sounds, or quiet.
+
 | Place | Tunes |
 | --- | --- |
-| Nest | The Skylark, The Little Red Lark, 'Twas on a Summer Morning |
-| Home Map, Garden, Cottage | Good Morning Fair Maid, 'Twas on a Summer Morning, The Skylark |
-| Square | Of My Love I Was Thinking, The Bright Black Rose, Good Morning Fair Maid |
-| Kitchen | Down by the Old Mill, An Irish Lullaby |
-| Apothecary | The Enchanted Valley, The Dark Woman of the Glen |
-| Bram's Workshop | The Little Bench of Rushes, Down by the Old Mill |
-| Trail Guild | Down at the Seaside, The Bright Black Rose |
-| Glasshouse | The Fairy Boy, An Irish Lullaby |
-| Mossy Ruins | The Young Man's Dream, The Little Fair Child |
-| Ruins under the Hollow, Sentinel Gate | The Dark Woman of the Glen and a second tune |
-| Market | The Good Ship Planet, Of My Love I Was Thinking |
+| Kitchen | Down by the Old Mill, Good Morning Fair Maid, The Skylark |
+| Apothecary | The Enchanted Valley, The Dark Woman of the Glen, The Young Man's Dream |
+| Bram's Workshop | The Little Bench of Rushes, Of My Love I Was Thinking, The Good Ship Planet |
+| Trail Guild | Down at the Seaside, The Bright Black Rose, The Little Fair Child |
+| Mira's Glasshouse | The Fairy Boy, An Irish Lullaby, 'Twas on a Summer Morning, The Little Red Lark |
 
 To change a tune, edit `TRACKS` (the collection, X number, tempo, instruments), run
 `python3 tools/art/music.py OUT_DIR`, copy the mp3s in, and list them in the manifest's audio block.

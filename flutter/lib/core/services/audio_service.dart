@@ -3,9 +3,9 @@
 // Where you are decides what plays: each place screen wraps itself in an Ambience
 // (lib/features/shared/ambience.dart) and the newest one on screen wins (the Nest when there's none).
 // A place has two layers (placeSounds):
-// - Music, behind the Music switch: a small playlist of gentle arrangements of public-domain airs
-//   (tools/art/music.py). A track plays once, then a quiet gap, then the next one. An encounter's
-//   track overrides the place's while it runs.
+// - Music, behind the Music switch, indoors only: a small playlist of gentle arrangements of
+//   public-domain airs (tools/art/music.py). A track plays once, then a quiet gap, then the next one.
+//   An encounter's track overrides the place's while it runs.
 // - An ambient bed, behind the Sound effects switch: the kitchen fire, the cauldron, the forge, the
 //   stream, a waterfall (tools/art/ambience.py). Beds crossfade into their next pass instead of
 //   relying on the codec's loop, so an mp3's padding never leaves a gap.
@@ -45,19 +45,21 @@ class PlaceSound {
   final double musicVolume;
 }
 
+// Music plays indoors only (the cottage's rooms, the village's houses); everywhere else keeps to its
+// own sounds: the stream on the Square, the waterfall at the ruins, or quiet.
 const placeSounds = <String, PlaceSound>{
-  'nest': PlaceSound(music: ['mus_skylark', 'mus_red_lark', 'mus_summer_morning']),
-  'home': PlaceSound(music: ['mus_fair_maid', 'mus_summer_morning', 'mus_skylark']),
-  'village': PlaceSound(bed: 'amb_village', music: ['mus_my_love', 'mus_black_rose', 'mus_fair_maid']),
-  'kitchen': PlaceSound(bed: 'amb_kitchen', music: ['mus_old_mill', 'mus_lullaby'], musicVolume: 0.38),
-  'apothecary': PlaceSound(bed: 'amb_apothecary', music: ['mus_enchanted_valley', 'mus_dark_woman'], musicVolume: 0.38),
-  'workshop': PlaceSound(bed: 'amb_workshop', music: ['mus_bench_of_rushes', 'mus_old_mill'], musicVolume: 0.38),
-  'lodge': PlaceSound(music: ['mus_seaside', 'mus_black_rose']),
-  'glasshouse': PlaceSound(bed: 'amb_glasshouse', music: ['mus_fairy_boy', 'mus_lullaby']),
-  'forest': PlaceSound(bed: 'amb_forest', music: ['mus_young_mans_dream', 'mus_fair_child'], musicVolume: 0.45),
-  'hollow': PlaceSound(bed: 'amb_forest', music: ['mus_dark_woman', 'mus_enchanted_valley'], musicVolume: 0.45),
-  'dusk': PlaceSound(music: ['mus_dark_woman', 'mus_young_mans_dream']),
-  'market': PlaceSound(music: ['mus_good_ship', 'mus_my_love']),
+  'nest': PlaceSound(music: []),
+  'home': PlaceSound(music: []),
+  'village': PlaceSound(bed: 'amb_village', music: []),
+  'kitchen': PlaceSound(bed: 'amb_kitchen', music: ['mus_old_mill', 'mus_fair_maid', 'mus_skylark'], musicVolume: 0.38),
+  'apothecary': PlaceSound(bed: 'amb_apothecary', music: ['mus_enchanted_valley', 'mus_dark_woman', 'mus_young_mans_dream'], musicVolume: 0.38),
+  'workshop': PlaceSound(bed: 'amb_workshop', music: ['mus_bench_of_rushes', 'mus_my_love', 'mus_good_ship'], musicVolume: 0.38),
+  'lodge': PlaceSound(music: ['mus_seaside', 'mus_black_rose', 'mus_fair_child']),
+  'glasshouse': PlaceSound(bed: 'amb_glasshouse', music: ['mus_fairy_boy', 'mus_lullaby', 'mus_summer_morning', 'mus_red_lark']),
+  'forest': PlaceSound(bed: 'amb_forest', music: []),
+  'hollow': PlaceSound(bed: 'amb_forest', music: []),
+  'dusk': PlaceSound(music: []),
+  'market': PlaceSound(music: []),
 };
 
 /// How loud each bed plays (the kitchen fire is a faint crackle on purpose).
