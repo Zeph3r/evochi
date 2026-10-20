@@ -131,16 +131,18 @@ class FoeArt {
 }
 
 class PropArt {
-  PropArt(this.img, this.ax, this.ay, this.scale);
+  PropArt(this.img, this.ax, this.ay, this.scale, [this.mask]);
   final ui.Image img;
   final double ax, ay, scale;
+  final ui.Image? mask; // for the living-scene shader: what sways (tools/art/wilds_maps.py prop_mask)
 }
 
 class MapProp {
-  const MapProp(this.kind, this.x, this.z, this.flip);
+  const MapProp(this.kind, this.x, this.z, this.flip, [this.s = 1]);
   final String kind;
   final double x, z;
   final bool flip;
+  final double s; // this one's size (trees vary)
 }
 
 class MapSpot {
@@ -160,9 +162,10 @@ class MapSpot {
 }
 
 class GroundTile {
-  GroundTile(this.img, this.rect);
+  GroundTile(this.img, this.rect, [this.mask]);
   final ui.Image img;
   final Rect rect; // in ground pixels
+  final ui.Image? mask; // grass and water, for the living-scene shader
 }
 
 class WildsMap {
@@ -251,7 +254,8 @@ class WildsMap {
     m.tiles = [
       for (final t in g['tiles'] as List)
         GroundTile(await _img(wildsBase + ((t as Map)['image'] as String)),
-            Rect.fromLTWH((t['x'] as num).toDouble(), (t['y'] as num).toDouble(), (t['w'] as num).toDouble(), (t['h'] as num).toDouble())),
+            Rect.fromLTWH((t['x'] as num).toDouble(), (t['y'] as num).toDouble(), (t['w'] as num).toDouble(), (t['h'] as num).toDouble()),
+            t['mask'] == null ? null : await _img(wildsBase + (t['mask'] as String))),
     ];
     final images = (m.j['images'] as Map).cast<String, dynamic>();
     m.propArt = {};
@@ -259,11 +263,12 @@ class WildsMap {
       final p = (e.value as Map).cast<String, dynamic>();
       final a = p['anchor'] as List;
       m.propArt[e.key] = PropArt(await _img(wildsBase + (p['image'] as String)), (a[0] as num).toDouble(), (a[1] as num).toDouble(),
-          (p['scale'] as num? ?? m.scale).toDouble());
+          (p['scale'] as num? ?? m.scale).toDouble(), p['mask'] == null ? null : await _img(wildsBase + (p['mask'] as String)));
     }
     m.props = [
       for (final p in m.j['props'] as List)
-        MapProp((p as Map)['kind'] as String, (p['x'] as num).toDouble(), (p['z'] as num).toDouble(), p['flip'] == true),
+        MapProp((p as Map)['kind'] as String, (p['x'] as num).toDouble(), (p['z'] as num).toDouble(), p['flip'] == true,
+            (p['s'] as num? ?? 1).toDouble()),
     ];
     m.blocks = [
       for (final b in m.j['blocks'] as List) (((b as List)[0] as num).toDouble(), (b[1] as num).toDouble(), (b[2] as num).toDouble()),

@@ -21,9 +21,11 @@ import village_blender as VB
 from voxel import Camera, model_extent_points
 from walk import MAP_PITCH
 
-SUN = dict(type='sun', dir=(0.42, -0.78, -0.48), power=3.2, color=5400, angle=5.0)
-WORLD = ((0.74, 0.86, 0.98), 0.9)       # a bright sky: the shade under the trees stays green, not black
-WATER = ('#5FAFCF', '#58A6C6', '#6BB9D6')
+# a shaded wood in the late afternoon: a warm low sun, a dim green-blue sky light, so the floor under
+# the trees goes deep and the sunlit patches and canopy tops glow
+SUN = dict(type='sun', dir=(0.5, -0.62, -0.6), power=3.4, color=4700, angle=4.0)
+WORLD = ((0.55, 0.70, 0.66), 0.55)
+WATER = ('#4E95B0', '#4889A6', '#5AA0BA')
 
 
 def B(v):
@@ -82,13 +84,65 @@ def ortho_camera(scale, ox, oy, w, h):
     return ob
 
 
-def place(ob, x, z, flip):
+def place(ob, x, z, flip, s=1.0):
     ob.location = Vector(B((x, 0.0, z)) * VB.SCALE)
-    if flip:
-        ob.scale = (-1.0, 1.0, 1.0)
+    ob.scale = (-s if flip else s, s, s)
 
 
-def render_ground(G, props, kinds, out, name, scale=None, quick=False, save_blend=None, samples=None):
+def canopy_gobo(pl, props, height=70.0):
+    """A sheet of leaves high over the map, unseen by the camera: it breaks the sun into dapples on the
+    floor. Thick over the woods, thin over the trail and the clearings, open over the meadow."""
+    from scipy import ndimage
+    from wilds_maps import X0, X1, Z0, Z1, canopy_map, noise2, norm
+    W, D = pl['X'].shape
+    can = canopy_map(pl, props)
+    open_ = ndimage.gaussian_filter((pl['path'] | pl['clear'] | pl['water_art']).astype(np.float32), 6)
+    leaf = norm(noise2((W, D), 2.6, 31)) * 0.6 + norm(noise2((W, D), 0.9, 32)) * 0.4
+    cover = np.clip(0.5 + can * 0.35 - open_ * 0.45 - (pl['Z'] > 380) * 0.35, 0.05, 0.85)
+    a = (leaf < cover).astype(np.float32)        # 1 = leaf (blocks the sun)
+    a = ndimage.gaussian_filter(a, 0.8)
+    s = 2                                        # 2 units per pixel
+    a = a[::s, ::s]
+    w, h = a.shape
+    img = bpy.data.images.new('gobo', w, h, alpha=True)
+    px = np.zeros((h, w, 4), np.float32)
+    px[..., :3] = 0.2
+    px[..., 3] = a.T[::-1]                       # image rows go up = toward -z... flipped below by UVs
+    img.pixels.foreach_set(px.ravel())
+    img.pack()
+    me = bpy.data.meshes.new('gobo')
+    corners = [B((X0, height, Z1)) * VB.SCALE, B((X1, height, Z1)) * VB.SCALE, B((X1, height, Z0)) * VB.SCALE,
+               B((X0, height, Z0)) * VB.SCALE]
+    me.from_pydata([tuple(c) for c in corners], [], [(0, 1, 2, 3)])
+    uv = me.uv_layers.new()
+    for li, (u, v) in enumerate(((0, 0), (1, 0), (1, 1), (0, 1))):
+        uv.data[li].uv = (u, v)
+    mat = bpy.data.materials.new('gobo')
+    mat.use_nodes = True
+    nt = mat.node_tree
+    nt.nodes.clear()
+    o = nt.nodes.new('ShaderNodeOutputMaterial')
+    tex = nt.nodes.new('ShaderNodeTexImage')
+    tex.image = img
+    tex.interpolation = 'Linear'
+    dif = nt.nodes.new('ShaderNodeBsdfDiffuse')
+    dif.inputs['Color'].default_value = (0.05, 0.1, 0.04, 1)
+    tr = nt.nodes.new('ShaderNodeBsdfTransparent')
+    mix = nt.nodes.new('ShaderNodeMixShader')
+    nt.links.new(tex.outputs['Alpha'], mix.inputs['Fac'])
+    nt.links.new(tr.outputs[0], mix.inputs[1])
+    nt.links.new(dif.outputs[0], mix.inputs[2])
+    nt.links.new(mix.outputs[0], o.inputs['Surface'])
+    me.materials.append(mat)
+    ob = bpy.data.objects.new('gobo', me)
+    bpy.context.scene.collection.objects.link(ob)
+    ob.visible_camera = False
+    ob.visible_diffuse = False                  # it only casts shadows (no bounce off it)
+    ob.visible_glossy = False
+    return ob
+
+
+def render_ground(G, props, kinds, out, name, scale=None, quick=False, save_blend=None, samples=None, pl=None):
     """The ground with the props' shadows, in tiles. With save_blend, the scene is saved there ready to
     render (on a machine with a GPU: tile_ground() then cuts the picture) instead of rendered here."""
     from wilds_maps import GROUND_SCALE, X0, X1, Z0, Z1, TILE
@@ -114,8 +168,10 @@ def render_ground(G, props, kinds, out, name, scale=None, quick=False, save_blen
     for i, pp in enumerate(props):
         ob = bpy.data.objects.new(f'p{i}', meshes[pp['kind']])
         bpy.context.scene.collection.objects.link(ob)
-        place(ob, pp['x'], pp['z'], pp['flip'])
+        place(ob, pp['x'], pp['z'], pp['flip'], pp.get('s', 1.0))
         ob.visible_camera = False           # it shades the ground, the game draws the sprite
+    if pl is not None:
+        canopy_gobo(pl, props)
     ortho_camera(s, ox, oy, w, h)
     print(f'ground: {w}x{h}, {len(props)} props, built in {time.time() - t:.1f}s', flush=True)
     meta = {'w': w, 'h': h, 'origin': [round(ox, 2), round(oy, 2)], 'scale': s}
@@ -134,15 +190,22 @@ def render_ground(G, props, kinds, out, name, scale=None, quick=False, save_blen
 
 
 def tile_ground(path, out, name):
+    return tile_image(Image.open(path).convert('RGB'), out, f'{name}_ground')
+
+
+def tile_image(im, out, stem, lossless=False):
     from wilds_maps import TILE
-    im = Image.open(path).convert('RGB')
     w, h = im.size
     tiles = []
     for ty in range(0, h, TILE):
         for tx in range(0, w, TILE):
             tw, th = min(TILE, w - tx), min(TILE, h - ty)
-            fn = f'{name}_ground_{ty // TILE}_{tx // TILE}.webp'
-            im.crop((tx, ty, tx + tw, ty + th)).save(os.path.join(out, fn), quality=86, method=6)
+            fn = f'{stem}_{ty // TILE}_{tx // TILE}.webp'
+            c = im.crop((tx, ty, tx + tw, ty + th))
+            if lossless:
+                c.save(os.path.join(out, fn), lossless=True, quality=100, method=6)
+            else:
+                c.save(os.path.join(out, fn), quality=86, method=6)
             tiles.append({'image': fn, 'x': tx, 'y': ty, 'w': tw, 'h': th})
     return tiles
 

@@ -32,10 +32,10 @@ import '../../core/services/haptics.dart';
 import '../../game/wilds/wilds.dart' as w;
 import '../shared/ambience.dart';
 import '../shared/kit.dart';
+import '../shared/live_scene.dart' show SceneFx;
 import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import '../village/story_widgets.dart';
-import '../village/village_screen.dart';
 import 'wilds_art.dart';
 import 'wilds_combat.dart';
 
@@ -59,7 +59,6 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   Offset? _stickOrigin, _stick;
   Offset? _target; // tap-to-move (world x, z)
   bool _targetRun = false;
-  bool _runToggle = false;
   Size _view = Size.zero;
   double _u = 2.7; // screen px per world unit
   Offset _cam = Offset.zero; // top-left of the view, in screen px of the scaled ground
@@ -89,14 +88,26 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   final _rng = math.Random();
   bool _snap = true; // the camera jumps (the start, after an evacuation)
   late final GameController _c;
+  ui.FragmentProgram? _fxProgram; // the living-scene shader: leaves sway, grass shimmers, water ripples
+  final _fx = <Object, ui.FragmentShader>{}; // one per tile / prop drawn (each draw keeps its uniforms)
 
   static const _floor = 'thicket';
+
+
+  ui.FragmentShader? _fxFor(Object key) {
+    final p = _fxProgram;
+    if (p == null) return null;
+    return _fx[key] ??= p.fragmentShader();
+  }
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     _c = context.read<GameController>();
+    SceneFx.program().then((p) {
+      if (mounted) _fxProgram = p;
+    });
     final c = _c;
     final pet = c.state.pet;
     final key = 's0${(pet?.stage ?? 1).clamp(1, 3)}';
@@ -180,6 +191,9 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     WidgetsBinding.instance.removeObserver(this);
     if (_music != null) _c.audio.setMusic(null);
     _ticker.dispose();
+    for (final sh in _fx.values) {
+      sh.dispose();
+    }
     _focus.dispose();
     _repaint.dispose();
     super.dispose();
@@ -228,7 +242,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     if (k(LogicalKeyboardKey.arrowUp, LogicalKeyboardKey.keyW)) vz -= 1;
     if (k(LogicalKeyboardKey.arrowDown, LogicalKeyboardKey.keyS)) vz += 1;
     var speed = 1.0;
-    var run = _runToggle || k(LogicalKeyboardKey.shiftLeft, LogicalKeyboardKey.shiftRight);
+    var run = k(LogicalKeyboardKey.shiftLeft, LogicalKeyboardKey.shiftRight);
     if (vx != 0 || vz != 0) {
       _target = null;
     } else if (_stickOrigin != null && _stick != null) {
@@ -344,14 +358,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   }
 
   bool _padHeld = false;
-
-  /// The guardian's health bar is up (on a phone it takes the top row; the party and the map step down).
-  bool get _bossBar {
-    final r = _raid;
-    return r != null && r.boss != null && !r.boss!.calm && (r.bossState == BossState.intro || r.bossState == BossState.fight);
-  }
-
-  void _toggleRun() => setState(() => _runToggle = !_runToggle);
+  String? _objText; // the objective line, and when it last changed (it shows, then fades)
+  double _objAt = 0;
 
   void _sfx(String name, double vol, {double gap = 0.06}) {
     final last = _sfxAt[name] ?? -9;
@@ -638,7 +646,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
         }
       },
       child: Ambience(
-        'village',
+        'forest',
         child: Scaffold(
           backgroundColor: const Color(0xFF2E4A24),
           body: LayoutBuilder(builder: (ctx, b) {
@@ -670,41 +678,53 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                   ),
                 ),
                 if (_stickOrigin != null && _stick != null) _Stick(origin: _stickOrigin!, knob: _stick!),
-                // the header over a soft shade
+                // a soft shade at the top so the HUD reads
                 Positioned(
                   left: 0,
                   right: 0,
                   top: 0,
-                  child: Container(
-                    decoration: const BoxDecoration(
-                      gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x80141A10), Color(0x00141A10)]),
-                    ),
-                    child: SafeArea(
-                      bottom: false,
-                      child: PlaceHeader(
-                        title: m == null ? 'Lumen Wilds' : '${m.name} · ${m.floor}',
-                        short: m?.floor ?? 'Wilds',
-                        backLabel: 'Leave',
-                        onBack: _askLeave,
+                  height: mq.padding.top + 96,
+                  child: const IgnorePointer(
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0x660B120A), Color(0x000B120A)]),
                       ),
                     ),
                   ),
                 ),
                 if (m != null && _raid != null) ...[
-                  Positioned(left: 10, top: mq.padding.top + 62 + (narrow && _bossBar ? 46 : 0), child: _PartyPanel(state: this)),
+                  _NearLabel(state: this),
+                  // top left: back, then the party
                   Positioned(
-                    right: 10,
-                    top: mq.padding.top + 62 + (narrow && _bossBar ? 46 : 0),
-                    child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
-                      _MiniMap(state: this, onTap: () => setState(() => _card = 'map')),
-                      const SizedBox(height: 6),
-                      _SatchelPill(state: this),
+                    left: 8 + mq.padding.left,
+                    top: mq.padding.top + 8,
+                    child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                      Semantics(
+                        button: true,
+                        label: 'Leave the Wilds',
+                        child: GestureDetector(
+                          onTap: _askLeave,
+                          child: Container(
+                            width: 38,
+                            height: 38,
+                            decoration: _glass(0.45),
+                            child: const Icon(Icons.arrow_back_rounded, size: 20, color: Color(0xFFFFF6E4)),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      _PartyPanel(state: this),
                     ]),
                   ),
                   Positioned(
-                    left: narrow ? 10 : 170,
-                    right: narrow ? 10 : 120,
-                    top: mq.padding.top + (narrow ? (_bossBar ? 60 : 172) : 62),
+                    right: 10 + mq.padding.right,
+                    top: mq.padding.top + 8,
+                    child: _MiniMap(state: this, onTap: () => setState(() => _card = 'map')),
+                  ),
+                  Positioned(
+                    left: narrow ? 12 : 200,
+                    right: narrow ? 12 : 110,
+                    top: mq.padding.top + (narrow ? 92 : 14),
                     child: IgnorePointer(child: Center(child: _TopCenter(state: this))),
                   ),
                   if (card == null)
@@ -714,13 +734,13 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                       child: _CombatPad(state: this),
                     ),
                   if (_hintT > 0 && card == null && _hint == null)
-                    _bottomHint(mq, _hintT > 1, 'Drag to walk · push far to run · tap a spot'),
+                    _bottomHint(mq, _hintT > 1, 'Drag to walk · push far to run'),
                   if (_hint != null && card == null) _bottomHint(mq, _hintT2 > 0.6, _hint!),
                   if (_banner != null && card == null)
                     Positioned(
                       left: 0,
                       right: 0,
-                      bottom: mq.padding.bottom + (narrow ? 250 : 120),
+                      bottom: mq.padding.bottom + (narrow ? 230 : 120),
                       child: IgnorePointer(child: Center(child: _Banner(text: _banner!))),
                     ),
                 ],
@@ -734,20 +754,16 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   }
 
   Widget _bottomHint(MediaQueryData mq, bool on, String text) => Positioned(
-        left: 12,
-        right: 216,
-        bottom: 16 + mq.padding.bottom,
+        left: 16,
+        right: 200,
+        bottom: 20 + mq.padding.bottom,
         child: IgnorePointer(
           child: Align(
             alignment: Alignment.bottomLeft,
             child: AnimatedOpacity(
               opacity: on ? 1 : 0,
               duration: const Duration(milliseconds: 600),
-              child: Container(
-                padding: const EdgeInsets.fromLTRB(12, 6, 12, 7),
-                decoration: BoxDecoration(color: const Color(0xD92A1D10), borderRadius: BorderRadius.circular(14)),
-                child: Text(text, style: EvochiText.tag.copyWith(color: const Color(0xFFFFF3DC))),
-              ),
+              child: Text(text, style: _hudText(12.5)),
             ),
           ),
         ),
@@ -978,8 +994,29 @@ class _MapPainter extends CustomPainter {
     canvas.translate(-s._cam.dx + s._shakeX, -s._cam.dy + s._shakeY);
     canvas.scale(gk);
     final vis = Rect.fromLTWH((s._cam.dx - s._shakeX) / gk, (s._cam.dy - s._shakeY) / gk, size.width / gk, size.height / gk).inflate(8);
-    for (final t in m.tiles) {
-      if (t.rect.overlaps(vis)) canvas.drawImage(t.img, t.rect.topLeft, pq);
+    final ft = s._t % 600.0;
+    for (var i = 0; i < m.tiles.length; i++) {
+      final t = m.tiles[i];
+      if (!t.rect.overlaps(vis)) continue;
+      final sh = rm || t.mask == null ? null : s._fxFor(t);
+      if (sh == null) {
+        canvas.drawImage(t.img, t.rect.topLeft, pq);
+        continue;
+      }
+      sh
+        ..setFloat(0, t.rect.left)
+        ..setFloat(1, t.rect.top)
+        ..setFloat(2, t.rect.width)
+        ..setFloat(3, t.rect.height)
+        ..setFloat(4, t.img.width.toDouble())
+        ..setFloat(5, t.img.height.toDouble())
+        ..setFloat(6, ft)
+        ..setFloat(7, 1)
+        ..setFloat(8, t.rect.left)
+        ..setFloat(9, t.rect.top)
+        ..setImageSampler(0, t.img)
+        ..setImageSampler(1, t.mask!);
+      canvas.drawRect(t.rect, Paint()..shader = sh);
     }
     canvas.restore();
     // past the floor's north edge: the deep wood, the seam softened
@@ -1041,12 +1078,13 @@ class _MapPainter extends CustomPainter {
       final a = m.propArt[p.kind];
       if (a == null) continue;
       final g = s._toScreen(p.x, p.z);
-      final k = s._u / a.scale;
+      final k = s._u / a.scale * p.s;
       final rect = Rect.fromLTWH(g.dx - a.ax * k, g.dy - a.ay * k, a.img.width * k, a.img.height * k);
       if (!rect.overlaps(view)) continue;
       final tall = p.kind.startsWith('oak') || p.kind.startsWith('pine') || p.kind.startsWith('birch') || p.kind == 'gate' || p.kind == 'tent' || p.kind.startsWith('pillar');
       final see = tall && hidden.any((h) => p.z > h.$1 && rect.deflate(rect.width * 0.12).overlaps(h.$2));
-      items.add((p.z, () => _prop(canvas, p.flip, a, g, k, see ? _see : pq)));
+      final sh = rm || a.mask == null ? null : s._fxFor(p);
+      items.add((p.z, () => _prop(canvas, p.flip, a, g, k, see ? _see : pq, sh, s._toGround(p.x, p.z))));
     }
     // the brambles that close the arena
     final bramble = m.propArt['bramble'];
@@ -1082,6 +1120,9 @@ class _MapPainter extends CustomPainter {
     for (final it in items) {
       it.$2();
     }
+    // the wood's own life: leaves coming down, fireflies in the shade; the edges sink into shadow
+    if (!rm) _ambient(canvas, size);
+    _vignette(canvas, size);
     // above everything: sparks, motes, stars, numbers
     for (final b in r.bursts) {
       if (!const {'pulse', 'spores', 'sweep', 'dust'}.contains(b.kind)) _burst(canvas, b);
@@ -1102,18 +1143,112 @@ class _MapPainter extends CustomPainter {
     if (b != null && sher != null) _bubble(canvas, sher, b);
   }
 
+  static double _h(int a, int b, int c) {
+    var x = (a * 73856093) ^ (b * 19349663) ^ (c * 83492791);
+    x = (x ^ (x >> 13)) * 1274126177;
+    x = x ^ (x >> 16);
+    return (x & 0xFFFFFF) / 0x1000000;
+  }
+
+  /// Fireflies and falling leaves, in the world (they stay put as the camera moves). Each is a pure
+  /// function of its cell and the time: nothing to keep between frames.
+  void _ambient(Canvas canvas, Size size) {
+    final t = s._t;
+    final a = s._toWorld(const Offset(-40, -80)), b = s._toWorld(Offset(size.width + 40, size.height + 40));
+    final up = _up;
+    // fireflies: a few per cell, drifting, blinking slowly
+    const fc = 60.0;
+    final glow = Paint()..blendMode = BlendMode.plus;
+    for (var cx = (a.dx / fc).floor(); cx <= (b.dx / fc).floor(); cx++) {
+      for (var cz = (a.dy / fc).floor(); cz <= (b.dy / fc).floor(); cz++) {
+        for (var i = 0; i < 2; i++) {
+          if (_h(cx, cz, i * 7 + 1) > 0.7) continue;
+          final ph = _h(cx, cz, i * 7 + 2) * 6.283, ph2 = _h(cx, cz, i * 7 + 3) * 6.283;
+          final x = (cx + _h(cx, cz, i * 7 + 4)) * fc + math.sin(t * 0.31 + ph) * 14 + math.sin(t * 0.83 + ph2) * 5;
+          final z = (cz + _h(cx, cz, i * 7 + 5)) * fc + math.cos(t * 0.27 + ph2) * 12 + math.sin(t * 0.67 + ph) * 4;
+          final y = 7 + _h(cx, cz, i * 7 + 6) * 12 + math.sin(t * 1.1 + ph) * 3;
+          // on for a while, then dark: a slow pulse with a sharp-ish top
+          final on = math.pow(math.max(0.0, math.sin(t * (0.55 + 0.3 * _h(cx, cz, i)) + ph * 3)), 3).toDouble();
+          if (on < 0.03) continue;
+          final g = s._toScreen(x, z) - Offset(0, y * up);
+          final r = 2.4 * s._u;
+          glow.shader = ui.Gradient.radial(g, r * 2.6, [
+            Color.fromRGBO(255, 250, 170, 0.95 * on),
+            Color.fromRGBO(214, 240, 110, 0.35 * on),
+            const Color(0x00C8F060),
+          ], const [0.0, 0.25, 1.0]);
+          canvas.drawCircle(g, r * 2.6, glow);
+        }
+      }
+    }
+    // leaves: one in some cells, coming down from the canopy in a lazy zigzag, then gone
+    const lc = 110.0;
+    final leaf = Paint();
+    const cols = [Color(0xFF6E9440), Color(0xFF8AA348), Color(0xFFB0893A), Color(0xFF9C6A30), Color(0xFF557A34)];
+    for (var cx = (a.dx / lc).floor(); cx <= (b.dx / lc).floor(); cx++) {
+      for (var cz = (a.dy / lc).floor(); cz <= (b.dy / lc).floor(); cz++) {
+        if (_h(cx, cz, 91) > 0.55) continue;
+        const life = 7.0;
+        final off = _h(cx, cz, 92) * life;
+        final cyc = ((t + off) / life).floor();
+        final f = ((t + off) / life) - cyc; // 0..1 through this fall
+        final x0 = (cx + _h(cx, cz, cyc * 3 + 1)) * lc, z0 = (cz + _h(cx, cz, cyc * 3 + 2)) * lc;
+        final y = 42 * (1 - f);
+        final x = x0 + math.sin(f * 9 + cx) * 7 + f * 18; // the wind carries it east a little
+        final g = s._toScreen(x, z0) - Offset(0, y * up);
+        final fade = f < 0.08 ? f / 0.08 : (f > 0.9 ? (1 - f) / 0.1 : 1.0);
+        leaf.color = cols[(cyc + cx * 3 + cz).abs() % cols.length].withAlpha((230 * fade).round());
+        canvas.save();
+        canvas.translate(g.dx, g.dy);
+        canvas.rotate(math.sin(f * 9 + cz) * 1.1);
+        canvas.scale(1, 0.55 + 0.45 * math.cos(f * 13 + cx).abs()); // turning over as it falls
+        canvas.drawOval(Rect.fromCenter(center: Offset.zero, width: 2.6 * s._u, height: 1.5 * s._u), leaf);
+        canvas.restore();
+      }
+    }
+  }
+
+  void _vignette(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    canvas.drawRect(
+        Offset.zero & size,
+        Paint()
+          ..shader = ui.Gradient.radial(c, size.longestSide * 0.62, const [Color(0x00000000), Color(0x00000000), Color(0x5A0A1408)],
+              const [0.0, 0.55, 1.0]));
+  }
+
   static final _see = Paint()
     ..filterQuality = FilterQuality.medium
     ..color = const Color.fromRGBO(0, 0, 0, 0.42);
 
   double get _up => s._cosP * s._u; // screen px per world unit of height
 
-  void _prop(Canvas canvas, bool flip, PropArt a, Offset g, double k, Paint pq) {
+  void _prop(Canvas canvas, bool flip, PropArt a, Offset g, double k, Paint pq, [ui.FragmentShader? sh, Offset at = Offset.zero]) {
     canvas.save();
     canvas.translate(g.dx, g.dy);
     if (flip) canvas.scale(-1, 1);
     canvas.scale(k);
-    canvas.drawImage(a.img, Offset(-a.ax, -a.ay), pq);
+    if (sh == null) {
+      canvas.drawImage(a.img, Offset(-a.ax, -a.ay), pq);
+    } else {
+      final w = a.img.width.toDouble(), h = a.img.height.toDouble();
+      sh
+        ..setFloat(0, -a.ax)
+        ..setFloat(1, -a.ay)
+        ..setFloat(2, w)
+        ..setFloat(3, h)
+        ..setFloat(4, w)
+        ..setFloat(5, h)
+        ..setFloat(6, s._t % 600.0)
+        ..setFloat(7, 1)
+        ..setFloat(8, at.dx - a.ax)
+        ..setFloat(9, at.dy - a.ay)
+        ..setImageSampler(0, a.img)
+        ..setImageSampler(1, a.mask!);
+      canvas.drawRect(Rect.fromLTWH(-a.ax, -a.ay, w, h), Paint()
+        ..shader = sh
+        ..color = pq.color);
+    }
     canvas.restore();
   }
 
@@ -1620,6 +1755,19 @@ class _MapPainter extends CustomPainter {
 
 // ====================================================================== the HUD
 /// The party: your Evochi first (it leads), then Sher. Raid HP (green) and Stamina (blue); statuses.
+/// Text over the world: light, with a soft dark halo so it reads on grass and shade alike.
+const _hudShadow = [Shadow(color: Color(0xCC0B120A), blurRadius: 6), Shadow(color: Color(0x990B120A), blurRadius: 2, offset: Offset(0, 1))];
+TextStyle _hudText(double size, [Color color = const Color(0xFFFFF6E4)]) =>
+    EvochiText.tag.copyWith(color: color, fontSize: size, shadows: _hudShadow, height: 1.15);
+
+/// A round, see-through button for the HUD (the back arrow, the minimap's frame).
+BoxDecoration _glass(double alpha) => BoxDecoration(
+      shape: BoxShape.circle,
+      color: Color.fromRGBO(12, 20, 10, alpha),
+      border: Border.all(color: const Color(0x59FFF6E4), width: 1.5),
+    );
+
+/// The party: round portraits, Raid HP as a ring round each (stamina an inner arc on your Evochi's).
 class _PartyPanel extends StatelessWidget {
   const _PartyPanel({required this.state});
   final _WildsScreenState state;
@@ -1632,42 +1780,29 @@ class _PartyPanel extends StatelessWidget {
       builder: (context, _, child) {
         final r = state._raid!;
         final sher = r.party ? r.sher : null;
-        Widget row(Widget face, String name, double hp, double maxHp, {double? stamina, bool lead = false, List<String> tags = const []}) => Padding(
-              padding: const EdgeInsets.only(bottom: 6),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                face,
-                const SizedBox(width: 6),
-                Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                  Row(mainAxisSize: MainAxisSize.min, children: [
-                    Text(name, style: EvochiText.tag.copyWith(color: const Color(0xFFFFF3DC), fontSize: lead ? 13 : 12)),
-                    const SizedBox(width: 6),
-                    Text('${hp.ceil()}', style: EvochiText.tag.copyWith(color: const Color(0xFFB8E68C), fontSize: 11)),
-                    for (final t in tags) ...[
-                      const SizedBox(width: 4),
-                      _Tag(t),
-                    ],
-                  ]),
-                  const SizedBox(height: 3),
-                  _Bar(width: lead ? 96 : 72, frac: maxHp <= 0 ? 0 : hp / maxHp, color: hp / maxHp < 0.3 ? const Color(0xFFE5675B) : const Color(0xFF6CC24A)),
-                  if (stamina != null) ...[
-                    const SizedBox(height: 2),
-                    _Bar(width: lead ? 96 : 72, frac: stamina / 100, color: const Color(0xFF4FA3E0), height: 5),
-                  ],
-                ]),
-              ]),
-            );
         return Semantics(
-          label: 'Party: ${pet?.name ?? 'your Evochi'} ${r.pet.hp.ceil()} of ${r.pet.maxHp.round()} Raid HP${sher != null ? ', Sher ${sher.hp.ceil()} HP' : ''}',
+          label: 'Party: ${pet?.name ?? 'your Evochi'} ${r.pet.hp.ceil()} of ${r.pet.maxHp.round()} Raid HP, stamina ${r.stamina.round()}'
+              '${sher != null ? ', Sher ${sher.hp.ceil()} HP' : ''}',
           child: ExcludeSemantics(
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(6, 6, 10, 0),
-              decoration: BoxDecoration(color: const Color(0xB32A1D10), borderRadius: BorderRadius.circular(14)),
-              child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                if (pet != null)
-                  row(EncFace.pet(pet, size: 38), pet.name, r.pet.hp, r.pet.maxHp, stamina: r.stamina, lead: true, tags: [if (r.pet.slowT > 0) 'Spored']),
-                if (sher != null) row(const SherFace(size: 32), 'Sher', sher.hp, sher.maxHp, tags: [if (r.sherWinded > 0) 'Winded']),
-              ]),
-            ),
+            child: Row(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+              if (pet != null)
+                _Portrait(
+                  size: 52,
+                  hp: r.pet.maxHp <= 0 ? 0 : r.pet.hp / r.pet.maxHp,
+                  stamina: r.stamina / 100,
+                  tag: r.pet.slowT > 0 ? 'Spored' : null,
+                  child: EncFace.pet(pet, size: 42),
+                ),
+              if (sher != null) ...[
+                const SizedBox(width: 4),
+                _Portrait(
+                  size: 40,
+                  hp: sher.maxHp <= 0 ? 0 : sher.hp / sher.maxHp,
+                  tag: r.sherWinded > 0 ? 'Winded' : null,
+                  child: const SherFace(size: 31),
+                ),
+              ],
+            ]),
           ),
         );
       },
@@ -1675,15 +1810,77 @@ class _PartyPanel extends StatelessWidget {
   }
 }
 
-class _Tag extends StatelessWidget {
-  const _Tag(this.text);
-  final String text;
+class _Portrait extends StatelessWidget {
+  const _Portrait({required this.size, required this.hp, required this.child, this.stamina, this.tag});
+  final double size, hp;
+  final double? stamina;
+  final String? tag;
+  final Widget child;
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.fromLTRB(5, 1, 5, 1),
-        decoration: BoxDecoration(color: text == 'Spored' ? const Color(0xFF7A5BB0) : const Color(0xFF8A6A4A), borderRadius: BorderRadius.circular(6)),
-        child: Text(text, style: EvochiText.tag.copyWith(color: Colors.white, fontSize: 10)),
+  Widget build(BuildContext context) => SizedBox(
+        width: size,
+        height: size + (tag != null ? 12 : 0),
+        child: Stack(clipBehavior: Clip.none, alignment: Alignment.topCenter, children: [
+          SizedBox(width: size, height: size, child: CustomPaint(painter: _RingPainter(hp, stamina))),
+          Positioned(top: (size - (size - 10)) / 2, child: SizedBox(width: size - 10, height: size - 10, child: Center(child: child))),
+          if (tag != null)
+            Positioned(
+              top: size - 6,
+              child: Container(
+                padding: const EdgeInsets.fromLTRB(5, 0, 5, 1),
+                decoration: BoxDecoration(color: tag == 'Spored' ? const Color(0xE67A5BB0) : const Color(0xE68A6A4A), borderRadius: BorderRadius.circular(6)),
+                child: Text(tag!, style: EvochiText.tag.copyWith(color: Colors.white, fontSize: 9.5, height: 1.3)),
+              ),
+            ),
+        ]),
       );
+}
+
+class _RingPainter extends CustomPainter {
+  _RingPainter(this.hp, this.stamina);
+  final double hp;
+  final double? stamina;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = size.center(Offset.zero);
+    final r = size.width / 2 - 2.5;
+    final track = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 4.5
+      ..color = const Color(0x8C0B120A);
+    canvas.drawCircle(c, r, track);
+    final f = hp.clamp(0.0, 1.0);
+    final col = f < 0.3 ? const Color(0xFFF0685A) : (f < 0.6 ? const Color(0xFFE8C04E) : const Color(0xFF7DD456));
+    canvas.drawArc(
+        Rect.fromCircle(center: c, radius: r),
+        -math.pi / 2,
+        2 * math.pi * f,
+        false,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4.5
+          ..strokeCap = StrokeCap.round
+          ..color = col);
+    final st = stamina;
+    if (st != null) {
+      // stamina: a thin arc along the bottom, inside the ring
+      final rr = r - 4.5;
+      final s = st.clamp(0.0, 1.0);
+      final arc = Rect.fromCircle(center: c, radius: rr);
+      canvas.drawArc(arc, math.pi * 0.2, math.pi * 0.6, false, Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..color = const Color(0x990B120A));
+      canvas.drawArc(arc, math.pi * 0.8, -math.pi * 0.6 * s, false, Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3
+        ..strokeCap = StrokeCap.round
+        ..color = s < 0.2 ? const Color(0xFF8FA6B8) : const Color(0xFF5CB8F0));
+    }
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) => old.hp != hp || old.stamina != stamina;
 }
 
 class _Bar extends StatelessWidget {
@@ -1695,7 +1892,7 @@ class _Bar extends StatelessWidget {
         width: width,
         height: height,
         padding: const EdgeInsets.all(1),
-        decoration: BoxDecoration(color: const Color(0xFF1A120A), borderRadius: BorderRadius.circular(height)),
+        decoration: BoxDecoration(color: const Color(0xB31A120A), borderRadius: BorderRadius.circular(height)),
         alignment: Alignment.centerLeft,
         child: FractionallySizedBox(
           widthFactor: frac.clamp(0.0, 1.0),
@@ -1705,7 +1902,8 @@ class _Bar extends StatelessWidget {
       );
 }
 
-/// The objective, or (while it fights) the guardian's health with its phase notches.
+/// The objective as a line of text that shows when it changes (and on arrival), then fades; while
+/// the guardian fights, its health.
 class _TopCenter extends StatelessWidget {
   const _TopCenter({required this.state});
   final _WildsScreenState state;
@@ -1726,13 +1924,18 @@ class _TopCenter extends StatelessWidget {
           } else {
             text = 'The Thicket is calm';
           }
-          return Container(
-            padding: const EdgeInsets.fromLTRB(10, 5, 12, 6),
-            decoration: BoxDecoration(color: const Color(0xB32A1D10), borderRadius: BorderRadius.circular(12)),
-            child: Row(mainAxisSize: MainAxisSize.min, children: [
-              const SparkIcon(size: 16),
-              const SizedBox(width: 6),
-              Flexible(child: Text(text, style: EvochiText.tag.copyWith(color: const Color(0xFFFFF3DC), fontSize: 12), overflow: TextOverflow.ellipsis)),
+          if (text != state._objText) {
+            state._objText = text;
+            state._objAt = state._t;
+          }
+          final on = state._t - state._objAt < 5.5 || state._combatT > 0;
+          return AnimatedOpacity(
+            opacity: on ? 1 : 0,
+            duration: const Duration(milliseconds: 900),
+            child: Column(mainAxisSize: MainAxisSize.min, children: [
+              Text(state._map!.name.toUpperCase(), style: _hudText(10, const Color(0xCCFFE7B8)).copyWith(letterSpacing: 1.6)),
+              const SizedBox(height: 1),
+              Text(text, textAlign: TextAlign.center, style: _hudText(14)),
             ]),
           );
         },
@@ -1748,26 +1951,24 @@ class _BossBar extends StatelessWidget {
     final col = boss.stage >= 3 ? const Color(0xFFE0526B) : (boss.stage == 2 ? const Color(0xFFB878E8) : const Color(0xFF9B7BD6));
     return Semantics(
       label: 'Briarback, ${(f * 100).round()} percent',
-      child: Container(
-        constraints: const BoxConstraints(maxWidth: 360),
-        padding: const EdgeInsets.fromLTRB(12, 6, 12, 8),
-        decoration: BoxDecoration(color: const Color(0xCC1E1424), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFF3B2923), width: 2)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 320),
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           Row(mainAxisSize: MainAxisSize.min, children: [
-            Text('Briarback', style: EvochiText.tag.copyWith(color: const Color(0xFFFFF3DC), fontSize: 13)),
+            Text('Briarback', style: _hudText(14)),
             const SizedBox(width: 6),
-            Text(boss.stage >= 3 ? 'Enraged' : 'Guardian of the Thicket', style: EvochiText.tag.copyWith(color: const Color(0xFFD9C2FF), fontSize: 11)),
+            Text(boss.stage >= 3 ? 'Enraged' : 'Guardian of the Thicket', style: _hudText(11, const Color(0xFFD9C2FF))),
           ]),
           const SizedBox(height: 4),
           LayoutBuilder(builder: (context, cons) {
-            final w = math.min(cons.maxWidth, 300.0);
+            final w = math.min(cons.maxWidth, 280.0);
             return SizedBox(
               width: w,
-              height: 10,
+              height: 9,
               child: Stack(children: [
-                _Bar(width: w, height: 10, frac: f, color: col),
+                _Bar(width: w, height: 9, frac: f, color: col),
                 for (final n in const [0.6, 0.3])
-                  Positioned(left: w * n - 1, top: 0, bottom: 0, child: Container(width: 2, color: const Color(0xFFFFF3DC))),
+                  Positioned(left: w * n - 1, top: 1, bottom: 1, child: Container(width: 2, color: const Color(0xCCFFF3DC))),
               ]),
             );
           }),
@@ -1788,40 +1989,8 @@ class _Banner extends StatelessWidget {
       );
 }
 
-/// What you have found and not yet brought home.
-class _SatchelPill extends StatelessWidget {
-  const _SatchelPill({required this.state});
-  final _WildsScreenState state;
-  @override
-  Widget build(BuildContext context) => ValueListenableBuilder<int>(
-        valueListenable: state._repaint,
-        builder: (context, _, child) {
-          final r = state._raid!;
-          final n = r.items.values.fold(0, (a, v) => a + v);
-          if (r.coins <= 0 && n == 0) return const SizedBox.shrink();
-          return Semantics(
-            label: 'Satchel: ${r.coins} coins${n > 0 ? ' and $n items' : ''}, not yet brought home',
-            child: Container(
-              padding: const EdgeInsets.fromLTRB(6, 3, 9, 4),
-              decoration: BoxDecoration(color: const Color(0xB32A1D10), borderRadius: BorderRadius.circular(12)),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const VoxelIcon('coin', size: 18),
-                const SizedBox(width: 3),
-                Text('${r.coins}', style: EvochiText.tag.copyWith(color: const Color(0xFFFFE08A), fontSize: 12)),
-                if (n > 0) ...[
-                  const SizedBox(width: 6),
-                  const ItemImage('lumen_shard', size: 18),
-                  Text('$n', style: EvochiText.tag.copyWith(color: const Color(0xFFC9F5EA), fontSize: 12)),
-                ],
-              ]),
-            ),
-          );
-        },
-      );
-}
-
-/// The action pad: Pounce (big), Dodge, Glow Bolt and Lumen Pulse (cooldown rings), a healing item, Run;
-/// and the context button (Talk, Look, Leave) above it when something is near.
+/// The action pad, icons only on see-through discs: Pounce (big; hold to keep at it), Dodge, Glow Bolt
+/// and Lumen Pulse (their cooldowns sweep round), a berry. Running is the stick pushed to its rim.
 class _CombatPad extends StatelessWidget {
   const _CombatPad({required this.state});
   final _WildsScreenState state;
@@ -1832,105 +2001,87 @@ class _CombatPad extends StatelessWidget {
     final heals = w.healItemCount(c.state);
     final s = state;
     final r = s._raid!;
-    final near = s._near;
-    final talk = (s._nearSher && (near == null || !r.party)) || s._nearBoss;
-    final ctx = talk || near != null;
     return ValueListenableBuilder<int>(
       valueListenable: s._repaint,
       builder: (context, _, child) {
         final st = r.stamina;
-        return SizedBox(
-          width: 204,
-          height: ctx ? 246 : 176,
-          child: Stack(clipBehavior: Clip.none, children: [
-            if (ctx)
+        // the pad is quieter out of a fight
+        final calm = s._combatT <= 0;
+        return AnimatedOpacity(
+          opacity: calm ? 0.72 : 1,
+          duration: const Duration(milliseconds: 400),
+          child: SizedBox(
+            width: 178,
+            height: 170,
+            child: Stack(clipBehavior: Clip.none, children: [
               Positioned(
-                right: 2,
-                top: 0,
-                child: _ActionButton(
-                  label: s._nearBoss ? 'Spar' : (talk ? (r.party ? 'Chat' : 'Talk') : near!.label),
-                  icon: talk ? Icons.chat_bubble_rounded : Icons.touch_app_rounded,
-                  big: true,
-                  onTap: s._interact,
+                right: 0,
+                bottom: 0,
+                child: _PadButton(
+                  label: 'Pounce',
+                  icon: 'paw',
+                  size: 78,
+                  tone: const Color(0xFFF4B84E),
+                  dim: st < 5,
+                  onDown: () {
+                    s._padHeld = true;
+                    s._press('attack');
+                    s._held['attack'] = 0.3;
+                  },
+                  onUp: () {
+                    s._padHeld = false;
+                    s._held.remove('attack');
+                  },
                 ),
               ),
-            Positioned(
-              right: 0,
-              bottom: 0,
-              child: _PadButton(
-                label: 'Pounce',
-                icon: Icons.pets_rounded,
-                size: 80,
-                tone: const Color(0xFFF4B84E),
-                dim: st < 5,
-                onDown: () {
-                  s._padHeld = true;
-                  s._press('attack');
-                  s._held['attack'] = 0.3;
-                },
-                onUp: () {
-                  s._padHeld = false;
-                  s._held.remove('attack');
-                },
+              Positioned(
+                right: 84,
+                bottom: 2,
+                child: _PadButton(label: 'Dodge', icon: 'swirl', size: 54, tone: const Color(0xFFB8E68C), dim: st < 20, onDown: () => s._press('dodge')),
               ),
-            ),
-            Positioned(
-              right: 86,
-              bottom: 0,
-              child: _PadButton(label: 'Dodge', icon: Icons.rotate_left_rounded, size: 56, tone: const Color(0xFFB8E68C), dim: st < 20, onDown: () => s._press('dodge')),
-            ),
-            Positioned(
-              right: 74,
-              bottom: 64,
-              child: _PadButton(
-                label: 'Bolt',
-                icon: Icons.blur_on_rounded,
-                size: 54,
-                tone: const Color(0xFF9FF0DA),
-                cooldown: r.boltCd / 1.0,
-                dim: st < 18,
-                onDown: () => s._press('bolt'),
+              Positioned(
+                right: 70,
+                bottom: 62,
+                child: _PadButton(
+                  label: 'Glow Bolt',
+                  icon: 'energy',
+                  size: 50,
+                  tone: const Color(0xFF9FF0DA),
+                  cooldown: r.boltCd / 1.0,
+                  dim: st < 18,
+                  onDown: () => s._press('bolt'),
+                ),
               ),
-            ),
-            Positioned(
-              right: 8,
-              bottom: 88,
-              child: _PadButton(
-                label: 'Pulse',
-                icon: Icons.flare_rounded,
-                size: 54,
-                tone: const Color(0xFFC9F5EA),
-                cooldown: r.pulseCd / 7.0,
-                dim: st < 34,
-                onDown: () => s._press('pulse'),
+              Positioned(
+                right: 10,
+                bottom: 86,
+                child: _PadButton(
+                  label: 'Lumen Pulse',
+                  icon: 'sun',
+                  size: 50,
+                  tone: const Color(0xFFC9F5EA),
+                  cooldown: r.pulseCd / 7.0,
+                  dim: st < 34,
+                  onDown: () => s._press('pulse'),
+                ),
               ),
-            ),
-            Positioned(
-              right: 150,
-              bottom: 2,
-              child: _PadButton(
-                label: heals > 0 ? '$heals' : 'Heal',
-                image: healId,
-                icon: Icons.local_dining_rounded,
-                size: 48,
-                tone: const Color(0xFFFFF0DE),
-                cooldown: s._itemCd / 2.5,
-                dim: heals == 0,
-                onDown: () => s._press('item'),
+              Positioned(
+                right: 128,
+                bottom: 60,
+                child: _PadButton(
+                  label: heals > 0 ? 'Eat a berry, $heals left' : 'No berries',
+                  icon: 'potion',
+                  image: healId,
+                  badge: heals > 0 ? '$heals' : null,
+                  size: 42,
+                  tone: const Color(0xFFFFF0DE),
+                  cooldown: s._itemCd / 2.5,
+                  dim: heals == 0,
+                  onDown: () => s._press('item'),
+                ),
               ),
-            ),
-            Positioned(
-              right: 140,
-              bottom: 58,
-              child: _PadButton(
-                label: 'Run',
-                icon: Icons.directions_run_rounded,
-                size: 42,
-                tone: s._runToggle ? const Color(0xFF6CC24A) : const Color(0xFFE6D3AE),
-                onDown: s._toggleRun,
-              ),
-            ),
-          ]),
+            ]),
+          ),
         );
       },
     );
@@ -1938,15 +2089,14 @@ class _CombatPad extends StatelessWidget {
 }
 
 class _PadButton extends StatelessWidget {
-  const _PadButton({required this.label, required this.icon, required this.size, required this.tone, required this.onDown, this.onUp, this.cooldown = 0, this.dim = false, this.image});
-  final String label;
-  final IconData icon;
+  const _PadButton({required this.label, required this.icon, required this.size, required this.tone, required this.onDown, this.onUp, this.cooldown = 0, this.dim = false, this.image, this.badge});
+  final String label, icon;
   final double size, cooldown;
-  final Color tone;
+  final Color tone; // the rim
   final VoidCallback onDown;
   final VoidCallback? onUp;
   final bool dim;
-  final String? image;
+  final String? image, badge;
   @override
   Widget build(BuildContext context) {
     final ready = cooldown <= 0.001;
@@ -1959,24 +2109,31 @@ class _PadButton extends StatelessWidget {
         onPointerCancel: (_) => onUp?.call(),
         child: ExcludeSemantics(
           child: Opacity(
-            opacity: dim ? 0.55 : 1,
+            opacity: dim ? 0.45 : 1,
             child: SizedBox(
               width: size,
               height: size,
-              child: Stack(children: [
+              child: Stack(clipBehavior: Clip.none, children: [
                 Container(
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    gradient: RadialGradient(center: const Alignment(-0.2, -0.35), colors: [Color.lerp(tone, Colors.white, 0.55)!, tone]),
-                    border: Border.all(color: const Color(0xFF3B2923), width: 2.5),
-                    boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 6, offset: Offset(0, 3))],
+                    gradient: const RadialGradient(center: Alignment(0, -0.3), colors: [Color(0x66243020), Color(0x8C0B120A)]),
+                    border: Border.all(color: tone.withAlpha(200), width: 2),
                   ),
-                  child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                    if (image != null) ItemImage(image!, size: size * 0.46) else Icon(icon, size: size * 0.36, color: EvochiColor.ink),
-                    Text(label, style: EvochiText.tag.copyWith(color: EvochiColor.ink, fontSize: size > 70 ? 13 : 10.5, height: 1.05)),
-                  ]),
+                  alignment: Alignment.center,
+                  child: image != null ? ItemImage(image!, size: size * 0.62) : VoxelIcon(icon, size: size * 0.6),
                 ),
                 if (!ready) Positioned.fill(child: CustomPaint(painter: _CooldownPainter(cooldown.clamp(0.0, 1.0)))),
+                if (badge != null)
+                  Positioned(
+                    right: -3,
+                    bottom: -3,
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(5, 0, 5, 1),
+                      decoration: BoxDecoration(color: const Color(0xE62A1D10), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0x59FFF6E4))),
+                      child: Text(badge!, style: EvochiText.tag.copyWith(color: const Color(0xFFFFF6E4), fontSize: 10.5, height: 1.25)),
+                    ),
+                  ),
               ]),
             ),
           ),
@@ -1992,7 +2149,7 @@ class _CooldownPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final r = Offset.zero & size;
-    canvas.drawArc(r.deflate(2), -math.pi / 2, 2 * math.pi * left, true, Paint()..color = const Color(0x8C1A120A));
+    canvas.drawArc(r.deflate(2), -math.pi / 2, 2 * math.pi * left, true, Paint()..color = const Color(0x990B120A));
   }
 
   @override
@@ -2028,44 +2185,71 @@ class SherFace extends StatelessWidget {
   }
 }
 
-/// The context button (Talk, Look, Leave, Spar).
-class _ActionButton extends StatelessWidget {
-  const _ActionButton({required this.label, required this.icon, required this.onTap, this.big = false});
-  final String label;
-  final IconData icon;
-  final VoidCallback onTap;
-  final bool big;
+/// What you can do with what's near (Talk, Look, Read, Spar...): a small label over it, tap to do it.
+class _NearLabel extends StatelessWidget {
+  const _NearLabel({required this.state});
+  final _WildsScreenState state;
   @override
-  Widget build(BuildContext context) {
-    final d = big ? 70.0 : 58.0;
-    return Semantics(
-      button: true,
-      label: label,
-      child: GestureDetector(
-        onTap: onTap,
-        child: ExcludeSemantics(
-          child: Container(
-            width: d,
-            height: d,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              gradient: const RadialGradient(center: Alignment(-0.2, -0.35), colors: [Color(0xFFFFF0B0), EvochiColor.primary]),
-              border: Border.all(color: const Color(0xFF3B2923), width: 2.5),
-              boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 6, offset: Offset(0, 3))],
+  Widget build(BuildContext context) => ValueListenableBuilder<int>(
+        valueListenable: state._repaint,
+        builder: (context, _, child) {
+          final s = state;
+          final r = s._raid!;
+          final near = s._near;
+          final talk = (s._nearSher && (near == null || !r.party)) || s._nearBoss;
+          // (positioned even when empty: a bare box in the Stack would size it to nothing)
+          if (!talk && near == null) return const Positioned(left: 0, top: 0, child: SizedBox.shrink());
+          final String label;
+          final Offset at;
+          if (s._nearBoss) {
+            label = 'Spar';
+            at = s._toScreen(r.boss!.x, r.boss!.z) - Offset(0, 48 * s._u / 2.7);
+          } else if (talk) {
+            label = r.party ? 'Chat' : 'Talk';
+            at = s._toScreen(r.sher!.x, r.sher!.z) - Offset(0, 62 * s._u / 2.7);
+          } else {
+            label = near!.label;
+            at = s._toScreen(near.x, near.z) - Offset(0, 30 * s._u / 2.7);
+          }
+          return Positioned(
+            left: at.dx - 60,
+            top: at.dy - 30,
+            width: 120,
+            height: 34,
+            child: Center(
+              child: Semantics(
+                button: true,
+                label: label,
+                child: GestureDetector(
+                  onTap: s._interact,
+                  child: Container(
+                    padding: const EdgeInsets.fromLTRB(9, 4, 11, 5),
+                    decoration: BoxDecoration(
+                      color: const Color(0xD9FFF3DC),
+                      borderRadius: BorderRadius.circular(14),
+                      border: Border.all(color: const Color(0xFF3B2923), width: 1.5),
+                      boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 5, offset: Offset(0, 2))],
+                    ),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      Icon(talk ? Icons.chat_bubble_rounded : Icons.touch_app_rounded, size: 14, color: EvochiColor.ink),
+                      const SizedBox(width: 4),
+                      Text(label, style: EvochiText.tag.copyWith(color: EvochiColor.ink, fontSize: 12.5, height: 1.1)),
+                      if (!kIsWeb && defaultTargetPlatform != TargetPlatform.android && defaultTargetPlatform != TargetPlatform.iOS) ...[
+                        const SizedBox(width: 5),
+                        Text('E', style: EvochiText.tag.copyWith(color: const Color(0xFF8F6A42), fontSize: 10.5)),
+                      ],
+                    ]),
+                  ),
+                ),
+              ),
             ),
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              Icon(icon, size: big ? 24 : 22, color: EvochiColor.ink),
-              Text(label, style: EvochiText.tag.copyWith(color: EvochiColor.ink, fontSize: big ? 12 : 11, height: 1.1)),
-            ]),
-          ),
-        ),
-      ),
-    );
-  }
+          );
+        },
+      );
 }
 
-/// The minimap: the floor around you, top-down, north up; the gate, the camp, Sher, the foes and the
-/// guardian marked. Tap for the whole floor.
+/// The minimap: a round window on the floor around you, north up; the gate, the camp, Sher, the foes
+/// and the guardian marked; what's in the satchel as a badge. Tap for the whole floor.
 class _MiniMap extends StatelessWidget {
   const _MiniMap({required this.state, required this.onTap});
   final _WildsScreenState state;
@@ -2077,21 +2261,54 @@ class _MiniMap extends StatelessWidget {
         child: GestureDetector(
           onTap: onTap,
           child: ExcludeSemantics(
-            child: Container(
-              width: 92,
-              height: 92,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: const Color(0xFF3B2923), width: 2.5),
-                boxShadow: const [BoxShadow(color: Color(0x66000000), blurRadius: 6, offset: Offset(0, 2))],
-              ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(11),
-                child: CustomPaint(painter: _MiniPainter(state, span: 220, repaint: state._repaint)),
-              ),
+            child: SizedBox(
+              width: 78,
+              height: 78,
+              child: Stack(clipBehavior: Clip.none, children: [
+                Container(
+                  width: 78,
+                  height: 78,
+                  decoration: _glass(0.3).copyWith(boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 6, offset: Offset(0, 2))]),
+                  padding: const EdgeInsets.all(2),
+                  child: ClipOval(child: Opacity(opacity: 0.9, child: CustomPaint(painter: _MiniPainter(state, span: 200, repaint: state._repaint)))),
+                ),
+                Positioned(left: -6, bottom: -4, child: _Satchel(state: state)),
+              ]),
             ),
           ),
         ),
+      );
+}
+
+/// What you have found and not yet brought home: a badge on the minimap.
+class _Satchel extends StatelessWidget {
+  const _Satchel({required this.state});
+  final _WildsScreenState state;
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<int>(
+        valueListenable: state._repaint,
+        builder: (context, _, child) {
+          final r = state._raid!;
+          final n = r.items.values.fold(0, (a, v) => a + v);
+          if (r.coins <= 0 && n == 0) return const SizedBox.shrink();
+          return Semantics(
+            label: 'Satchel: ${r.coins} coins${n > 0 ? ' and $n items' : ''}, not yet brought home',
+            child: Container(
+              padding: const EdgeInsets.fromLTRB(3, 1, 7, 2),
+              decoration: BoxDecoration(color: const Color(0xE62A1D10), borderRadius: BorderRadius.circular(10), border: Border.all(color: const Color(0x59FFF6E4))),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const VoxelIcon('coin', size: 15),
+                const SizedBox(width: 2),
+                Text('${r.coins}', style: EvochiText.tag.copyWith(color: const Color(0xFFFFE08A), fontSize: 11)),
+                if (n > 0) ...[
+                  const SizedBox(width: 4),
+                  const ItemImage('lumen_shard', size: 15),
+                  Text('$n', style: EvochiText.tag.copyWith(color: const Color(0xFFC9F5EA), fontSize: 11)),
+                ],
+              ]),
+            ),
+          );
+        },
       );
 }
 

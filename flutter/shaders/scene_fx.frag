@@ -16,6 +16,7 @@ uniform vec4 uDst;   // where the whole image lands on the canvas: left, top, wi
 uniform vec2 uTex;   // the image's size in px (the mask has the same size)
 uniform float uTime; // seconds, wrapped on the Dart side
 uniform float uWind; // 1 = a breezy day; 0 = still
+uniform vec2 uOffset; // where this image sits in a bigger world (px): its gusts and ripples line up with its neighbours'
 
 uniform sampler2D uImage;
 uniform sampler2D uMask;
@@ -47,6 +48,7 @@ void main() {
   vec2 frag = FlutterFragCoord().xy;
   vec2 px = (frag - uDst.xy) / uDst.zw * uTex;
   vec4 m = maskAt(px);
+  vec2 wp = px + uOffset; // for the motion fields only (one wind over the whole map)
   float sway = m.r;
   float surf = m.g * 255.0;
   float kind = m.b * 255.0;
@@ -73,13 +75,13 @@ void main() {
     } else {
       // foliage: gusts roll across the scene; inside a gust the canopy leans and its leaves shimmer
       // a soft 2D field (turned off the pixel grid) so no gust has a straight edge
-      vec2 q = vec2(px.x * 0.8 + px.y * 0.6, px.y * 0.8 - px.x * 0.6) * 0.004;
+      vec2 q = vec2(wp.x * 0.8 + wp.y * 0.6, wp.y * 0.8 - wp.x * 0.6) * 0.004;
       float gust = noise(q - vec2(t * 0.18, t * 0.05));
       float g = 0.3 + 0.7 * smoothstep(0.2, 0.8, gust);
-      float lean = sin(t * 1.6 + px.x * 0.011 + px.y * 0.007) * 0.65 + sin(t * 2.7 + px.y * 0.045) * 0.35;
+      float lean = sin(t * 1.6 + wp.x * 0.011 + wp.y * 0.007) * 0.65 + sin(t * 2.7 + px.y * 0.045 + uOffset.x * 0.013) * 0.35;
       d.x += lean * 2.2 * g * s;
-      d.y += sin(t * 2.1 + px.x * 0.03) * 0.45 * g * s;
-      float leaf = noise(px * 0.085 + vec2(t * 0.8, -t * 0.35)) - 0.5;
+      d.y += sin(t * 2.1 + wp.x * 0.03) * 0.45 * g * s;
+      float leaf = noise(wp * 0.085 + vec2(t * 0.8, -t * 0.35)) - 0.5;
       light += leaf * 0.11 * g * sway;
     }
   }
@@ -87,13 +89,13 @@ void main() {
   if (surf > 32.0 && surf < 96.0) {
     // grass: a faint, fine shimmer that drifts with the wind (no broad bands: a band read as a line
     // sweeping across the map)
-    light += (noise(px * 0.065 + vec2(t * 0.45, t * 0.12)) - 0.5) * 0.035 * max(uWind, 0.3);
+    light += (noise(wp * 0.065 + vec2(t * 0.45, t * 0.12)) - 0.5) * 0.035 * max(uWind, 0.3);
   } else if (surf > 96.0 && surf < 192.0) {
     // still water: a small ripple and glints that come and go
-    d += vec2(sin(px.y * 0.33 + t * 2.0), cos(px.x * 0.19 + t * 1.5)) * 0.55;
-    float gl = noise(px * vec2(0.075, 0.21) + vec2(t * 0.55, t * 0.18));
+    d += vec2(sin(wp.y * 0.33 + t * 2.0), cos(wp.x * 0.19 + t * 1.5)) * 0.55;
+    float gl = noise(wp * vec2(0.075, 0.21) + vec2(t * 0.55, t * 0.18));
     light += smoothstep(0.78, 0.94, gl) * 0.24;
-    light += (noise(px * 0.03 + vec2(t * 0.25)) - 0.5) * 0.05;
+    light += (noise(wp * 0.03 + vec2(t * 0.25)) - 0.5) * 0.05;
   } else if (surf > 192.0) {
     // falling water: streaks run down and foam glints
     float s1 = noise(vec2(px.x * 0.32, px.y * 0.035 - t * 2.4));

@@ -41,17 +41,22 @@ X0, X1, Z0, Z1 = -200, 200, -600, 600      # the slab
 BOUNDS = (-186, -498, 186, 592)            # where walkers may stand (up to the gate)
 CELL = 4                                    # walk grid cell (world units)
 
-GRASS = ['#5E9E43', '#69AB49', '#73B54F', '#7EBF57', '#8BC862']
-PATH = ['#C9A877', '#BF9C6B', '#D3B587']
-SOIL = ['#7A5638', '#6E4C31']
-WATER = ['#5FAFCF', '#58A6C6', '#6BB9D6']
-WOOD = ['#9A6B43', '#8A5D39', '#A87A4E']
-STONE = ['#9C968C', '#8E887E', '#A8A297']
-MOSS = ['#6FA34C', '#7DB357', '#5F9442']
-LEAF_OAK = ['#4C8E3A', '#5A9C44', '#3F7E33', '#68AC4D']
-LEAF_PINE = ['#2F6B3E', '#3A7A47', '#285C36']
-LEAF_BIRCH = ['#86BE5A', '#96C966', '#78B04F']
-BARK = ['#7B5435', '#6A462B', '#86603D']
+GRASS = ['#3F6A2E', '#467334', '#4E7C39', '#57853F', '#618F45']     # a shaded wood: mossy, not lime
+LITTER = ['#5B5631', '#625935', '#545A31', '#6A5E38']                # leaf litter under the groves
+MOSS_FLOOR = ['#3B6230', '#42693A']
+PATH = ['#A58A5E', '#9A7F55', '#B09366']
+SOIL = ['#6A4B31', '#5E422B']
+WATER = ['#4E95B0', '#4889A6', '#5AA0BA']
+WOOD = ['#8E6440', '#7E5636', '#9A7048']
+STONE = ['#8E897F', '#827D73', '#9A958A']
+MOSS = ['#5E8C40', '#6A974A', '#517D38']
+LEAF_OAK = ['#3B6B2D', '#447634', '#36632A', '#4E8039']
+LEAF_OAK_LO, LEAF_OAK_HI = '#2D5524', '#62924A'
+LEAF_PINE = ['#24513A', '#2C5E41', '#1F4733']
+LEAF_PINE_HI = '#3B7050'
+LEAF_BIRCH = ['#5A8A3A', '#669642', '#507E34']
+LEAF_BIRCH_HI = '#84AC52'
+BARK = ['#6B4A31', '#5C3F29', '#775337']
 
 
 def noise2(shape, scale, seed):
@@ -134,8 +139,22 @@ def plan():
 
 
 # ------------------------------------------------------------------ the ground ----
-def ground(pl, rng):
+def canopy_map(pl, props):
+    """0..1: how much tree overhead (from the trees' positions, blurred)"""
     W, D = pl['X'].shape
+    c = np.zeros((W, D), np.float32)
+    for p in props:
+        if p['kind'].startswith(('oak', 'pine', 'birch')):
+            i, k = int(p['x'] - X0), int(p['z'] - Z0)
+            if 0 <= i < W and 0 <= k < D:
+                c[i, k] += 1.0 * p.get('s', 1.0)
+    c = ndimage.gaussian_filter(c, 16) * 900
+    return np.clip(c, 0, 1)
+
+
+def ground(pl, rng, props=()):
+    W, D = pl['X'].shape
+    can = canopy_map(pl, props)
     M = Model((X0, -6, Z0), (X1, 6, Z1), [], res=1)
     P = CPainter(M, seed=7)
     j0 = -M.lo[1]                                       # index of y = 0
@@ -150,12 +169,20 @@ def ground(pl, rng):
     band = np.clip((g * len(GRASS)).astype(int), 0, len(GRASS) - 1)
     ids = np.array([M.mid(c) for c in GRASS], np.uint8)
     M.m[:, j0 - 1, :] = ids[band]
+    # under the trees: the grass gives way to leaf litter and moss, in soft-edged patches
+    nl = norm(noise2((W, D), 5, 11))
+    under = (can + (nl - 0.5) * 0.5) > 0.42
+    lid = np.array([M.mid(c) for c in LITTER], np.uint8)
+    mid_ = np.array([M.mid(c) for c in MOSS_FLOOR], np.uint8)
+    lk = rng.integers(0, len(LITTER), (W, D))
+    mossy = norm(noise2((W, D), 3, 12)) > 0.55
+    M.m[:, j0 - 1, :] = np.where(under & ~mossy, lid[lk], np.where(under & mossy, mid_[lk % 2], M.m[:, j0 - 1, :]))
     pn = norm(noise2((W, D), 1.4, 4))
     pid = np.array([M.mid(c) for c in PATH], np.uint8)
     pk = np.clip((pn * 3).astype(int), 0, 2)
     M.m[:, j0 - 1, :] = np.where(pl['path'], pid[pk], M.m[:, j0 - 1, :])
     edge = ndimage.binary_dilation(pl['path'], iterations=2) & ~pl['path'] & (n2 > 0.4)
-    M.m[:, j0 - 1, :] = np.where(edge, M.mid('#A8B866'), M.m[:, j0 - 1, :])
+    M.m[:, j0 - 1, :] = np.where(edge, M.mid('#6F7E40'), M.m[:, j0 - 1, :])
     # water channels: dig, line the banks with stones, fill to 2 below the grass
     for j in range(j0 - 4, j0):
         M.m[:, j, :] = np.where(water, 0, M.m[:, j, :])
@@ -198,16 +225,39 @@ def ground(pl, rng):
         M.m[i, j0:j0 + hgt, k] = M.mid(['#5E8F3E', '#6E9E48'][rng.integers(0, 2)])
         if rng.random() < 0.4:
             M.m[i, j0 + hgt - 1, k] = M.mid('#7A5638')            # a cattail head
-    # tufts, flowers and pebbles (not on paths or water)
+    # tufts; fallen leaves under the trees; ferns round the trunks; flowers only where the sun gets in
     grass_ok = ~pl['path'] & ~water & ~br
-    for (i, k) in np.argwhere(grass_ok & (rng.random((W, D)) < 0.012)):
+    for (i, k) in np.argwhere(grass_ok & ~under & (rng.random((W, D)) < 0.014)):
         hgt = rng.integers(1, 3)
-        M.m[i, j0:j0 + hgt, k] = M.mid(['#4F8E38', '#5E9E43', '#86C25C'][rng.integers(0, 3)])
-    flowers = grass_ok & (rng.random((W, D)) < 0.004)
-    meadow = (pl['Z'] > 380) & grass_ok & (rng.random((W, D)) < 0.02)
-    for (i, k) in np.argwhere(flowers | meadow):
-        M.m[i, j0, k] = M.mid('#4F8E38')
-        M.m[i, j0 + 1, k] = M.mid(['#F4E07A', '#F6F1E4', '#E99AC0', '#9FC6F2', '#F2A65A'][rng.integers(0, 5)])
+        M.m[i, j0:j0 + hgt, k] = M.mid(['#3F6E2C', '#4A7A33', '#5C8A3C'][rng.integers(0, 3)])
+    for (i, k) in np.argwhere(grass_ok & under & (rng.random((W, D)) < 0.05)):
+        M.m[i, j0, k] = M.mid(['#8A5A2C', '#A0682E', '#7A6A34', '#9C7A3A', '#6E4A2A'][rng.integers(0, 5)])
+    fern_cols = ['#2F5E2A', '#3A6C30', '#457A36']
+    for p in props:
+        if not p['kind'].startswith(('oak', 'pine', 'birch', 'bush')):
+            continue
+        for _ in range(rng.integers(0, 3)):
+            a = rng.uniform(0, 2 * math.pi)
+            d = rng.uniform(8, 16) * p.get('s', 1.0)
+            fx, fz = p['x'] + math.cos(a) * d, p['z'] + math.sin(a) * d
+            fi, fk = int(fx - X0), int(fz - Z0)
+            if not (7 <= fi < W - 7 and 7 <= fk < D - 7) or not grass_ok[fi, fk] or pl['clear'][fi, fk]:
+                continue
+            # a fern: fronds arching out from the middle, low at the tips
+            for f in range(rng.integers(5, 8)):
+                fa = f * 2 * math.pi / 7 + rng.uniform(-0.3, 0.3)
+                ln = rng.uniform(3.5, 5.5)
+                c = fern_cols[rng.integers(0, 3)]
+                for t in np.linspace(0, 1, 7):
+                    i2 = int(round(fi + math.cos(fa) * ln * t))
+                    k2 = int(round(fk + math.sin(fa) * ln * t))
+                    y = j0 + int(round(3.2 * math.sin(math.pi * (0.15 + 0.7 * t)) * (1 - 0.35 * t)))
+                    M.m[i2, y, k2] = M.mid(c)
+    sunny = grass_ok & ~under & (pl['clear'] | (pl['Z'] > 380) | (can < 0.12))
+    fl = sunny & (rng.random((W, D)) < np.where(pl['Z'] > 380, 0.008, 0.003))
+    for (i, k) in np.argwhere(fl):
+        M.m[i, j0, k] = M.mid('#3F6E2C')
+        M.m[i, j0 + 1, k] = M.mid(['#F0DC7A', '#EDE6D6', '#D998B8', '#9DB8E2'][rng.integers(0, 4)])
     for (i, k) in np.argwhere(pl['path'] & (rng.random((W, D)) < 0.006)):
         M.m[i, j0, k] = M.mid(STONE[rng.integers(0, 3)])
     # mushrooms in the north wood
@@ -246,73 +296,139 @@ def blob(M, c, r, p=2.2):
     return (np.abs((M.X - c[0]) / r[0]) ** p + np.abs((M.Y - c[1]) / r[1]) ** p + np.abs((M.Z - c[2]) / r[2]) ** p) <= 1
 
 
-def oak(seed):
+def tube(M, a, b, r0, r1=None):
+    """a tapered capsule from a to b"""
+    r1 = r0 if r1 is None else r1
+    a, b = np.asarray(a, float), np.asarray(b, float)
+    ab = b - a
+    L2 = max(float(ab @ ab), 1e-9)
+    px, py, pz = M.X - a[0], M.Y - a[1], M.Z - a[2]
+    t = np.clip((px * ab[0] + py * ab[1] + pz * ab[2]) / L2, 0, 1)
+    dx, dy, dz = px - t * ab[0], py - t * ab[1], pz - t * ab[2]
+    r = r0 + (r1 - r0) * t
+    return dx * dx + dy * dy + dz * dz <= r * r
+
+
+def roots(M, P, rng, r0, n=5, reach=7.0):
+    """flaring roots at the foot of a trunk"""
+    a0 = rng.uniform(0, 2 * math.pi)
+    for i in range(n):
+        a = a0 + 2 * math.pi * i / n + rng.uniform(-0.3, 0.3)
+        ln = reach * rng.uniform(0.7, 1.15)
+        P.fill(tube(M, (0, 2.2, 0), (math.cos(a) * (r0 + ln), 0.3, math.sin(a) * (r0 + ln)), r0 * 0.55, 0.7) & (M.Y >= 0), BARK)
+
+
+def leafy(M, P, can, cols, lo, hi, seed, rough=0.62):
+    """a canopy: its outline roughened, darker underneath, catching the light on top"""
+    n = norm(noise2(M.m.shape, 1.3, seed))
+    # a lumpy outline: tufts grow out where the noise is high (carving holes would open pockets that
+    # shade into a pattern), and bites come out only at the very rim
+    grow = ndimage.binary_dilation(can, iterations=1) & ~can & (n > rough + 0.08)
+    can = can | grow
+    rim = can & ~ndimage.binary_erosion(can, iterations=1) & (n < 0.2)
+    can = can & ~(rim & ~ndimage.binary_dilation(~can, iterations=1, border_value=1).__invert__())
+    P.fill(can, cols, cell=(2, 2, 2))
+    ys = M.Y[can]
+    if len(ys):
+        ymid = np.percentile(ys, 45)
+        M.set(can & (M.Y < ymid - 3) & (n < 0.55), lo)
+        top = can & ~np.roll(can, -1, axis=1)             # faces open to the sky
+        M.set(top & (n > 0.5), hi)
+    return can
+
+
+def oak(seed, big=False):
     rng = _rng(seed)
-    M = Model((-26, 0, -24), (26, 70, 24), [], res=1)
+    k = 1.25 if big else 1.0
+    M = Model((-int(32 * k), 0, -int(30 * k)), (int(32 * k), int(76 * k), int(30 * k)), [], res=1)
     P = CPainter(M, seed)
-    r = np.hypot(M.X, M.Z)
-    trunk = (r < 3.6 + np.maximum(0, 4 - M.Y) * 0.9) & (M.Y < 28)
-    P.fill(trunk, BARK, cell=(1, 3, 1))
-    for (dx, dz, ry) in ((5, 2, 20), (-5, -3, 23)):
-        P.fill(blob(M, (dx * 0.6, ry, dz * 0.6), (5, 1.2, 1.2)) & (M.Y > ry - 1), BARK)
+    lean = (rng.uniform(-1.5, 1.5), rng.uniform(-1.0, 1.0))
+    top = (lean[0] * k, 24 * k, lean[1] * k)
+    P.fill(tube(M, (0, 0, 0), top, 3.6 * k, 2.4 * k), BARK, cell=(1, 3, 1))
+    roots(M, P, rng, 3.2 * k, n=5, reach=6.5 * k)
     can = np.zeros(M.m.shape, bool)
-    h = 32 + rng.uniform(-3, 3)
-    for _ in range(7):
-        c = (rng.uniform(-11, 11), h + rng.uniform(-5, 6), rng.uniform(-9, 9))
-        rr = rng.uniform(8, 12)
-        can |= blob(M, c, (rr, rr * 0.75, rr * 0.9))
-    can |= blob(M, (0, h, 0), (18, 11, 16))
-    n = norm(noise2(M.m.shape, 1.6, seed))
-    P.fill(can, LEAF_OAK, cell=(2, 2, 2))
-    M.set(can & (n > 0.72) & (M.Y > h + 2), '#78BC5A')
-    return M, 6.0
+    h = (31 + rng.uniform(-2, 2)) * k
+    limbs = []
+    for i in range(4):
+        a = rng.uniform(0, 2 * math.pi)
+        rr = rng.uniform(9, 14) * k
+        end = (top[0] + math.cos(a) * rr, h + rng.uniform(-4, 3) * k, top[2] + math.sin(a) * rr * 0.85)
+        start = (top[0] * 0.8, (17 + i * 2.5) * k, top[2] * 0.8)
+        P.fill(tube(M, start, end, 1.6 * k, 0.9 * k), BARK)
+        limbs.append(end)
+    for c in limbs:
+        for _ in range(3):
+            rr = rng.uniform(5.5, 8.5) * k
+            cc = (c[0] + rng.uniform(-4, 4) * k, c[1] + rng.uniform(-2, 4) * k, c[2] + rng.uniform(-4, 4) * k)
+            can |= blob(M, cc, (rr, rr * 0.72, rr * 0.9))
+    can |= blob(M, (top[0], h + 3 * k, top[2]), (13 * k, 8 * k, 12 * k))
+    leafy(M, P, can, LEAF_OAK, LEAF_OAK_LO, LEAF_OAK_HI, seed)
+    return M, 6.0 * k
 
 
 def pine(seed):
     rng = _rng(seed)
-    M = Model((-20, 0, -20), (20, 82, 20), [], res=1)
+    M = Model((-22, 0, -22), (22, 88, 22), [], res=1)
     P = CPainter(M, seed)
     r = np.hypot(M.X, M.Z)
-    P.fill((r < 2.8 + np.maximum(0, 3 - M.Y)) & (M.Y < 22), BARK, cell=(1, 3, 1))
-    tiers = 4
-    base = 10 + rng.uniform(-1.5, 1.5)
+    th = np.arctan2(M.Z, M.X)
+    P.fill((r < 2.6 + np.maximum(0, 3 - M.Y) * 0.6) & (M.Y < 30), BARK, cell=(1, 3, 1))
+    roots(M, P, rng, 2.4, n=4, reach=4.5)
+    tiers = rng.integers(5, 7)
+    base = 9 + rng.uniform(-1.5, 1.5)
+    can = np.zeros(M.m.shape, bool)
+    n = noise2(M.m.shape, 1.1, seed)
     for t in range(tiers):
-        y0 = base + t * 9.5
-        rad = 15 - t * 3.0
-        cone = (M.Y >= y0) & (M.Y < y0 + 13) & (r < rad * (1 - (M.Y - y0) / 13.0) + 1.5 * np.sin(np.arctan2(M.Z, M.X) * 6))
-        P.fill(cone, LEAF_PINE, cell=(2, 2, 2))
-    P.fill((r < 1.5) & (M.Y >= base + tiers * 9.5) & (M.Y < base + tiers * 9.5 + 4), LEAF_PINE)
+        y0 = base + t * 8.0
+        rad = 16 - t * (12.0 / tiers)
+        k = (M.Y - y0) / 12.0
+        ragged = 1.6 * np.sin(th * (5 + t % 3) + t) + 2.0 * (n - 0.5)
+        cone = (M.Y >= y0 - 1.5 * (r / max(rad, 1)) ** 2) & (k < 1) & (r < rad * (1 - np.clip(k, 0, 1)) + ragged)
+        can |= cone
+    can |= (r < 1.6) & (M.Y >= base + tiers * 8.0) & (M.Y < base + tiers * 8.0 + 5)
+    leafy(M, P, can, LEAF_PINE, '#1A3D2B', LEAF_PINE_HI, seed, rough=0.66)
     return M, 5.0
 
 
 def birch(seed):
     rng = _rng(seed)
-    M = Model((-18, 0, -18), (18, 66, 18), [], res=1)
+    M = Model((-20, 0, -20), (20, 70, 20), [], res=1)
     P = CPainter(M, seed)
-    r = np.hypot(M.X, M.Z - 0.0)
-    trunk = (r < 2.4) & (M.Y < 32)
-    P.fill(trunk, ['#F1ECE0', '#E6DFCF'], cell=(1, 1, 1))
-    M.set(trunk & (np.floor(M.Y / 2.5) % 3 == 0) & (np.floor(np.arctan2(M.Z, M.X) * 2) % 2 == 0), '#3C3530')
+    lean = (rng.uniform(-3, 3), rng.uniform(-2, 2))
+    mid = (lean[0] * 0.4, 14, lean[1] * 0.4)
+    top = (lean[0], 36, lean[1])
+    trunk = tube(M, (0, 0, 0), mid, 2.3, 2.0) | tube(M, mid, top, 2.0, 1.4)
+    P.fill(trunk, ['#EEE8DA', '#E2DBCA'], cell=(1, 1, 1))
+    dark = trunk & (norm(noise2(M.m.shape, 0.8, seed)) > 0.66)
+    M.set(dark | (trunk & (M.Y < 2.5)), '#3C3530')
     can = np.zeros(M.m.shape, bool)
-    for _ in range(6):
-        c = (rng.uniform(-7, 7), 34 + rng.uniform(-5, 8), rng.uniform(-6, 6))
-        rr = rng.uniform(7, 9.5)
-        can |= blob(M, c, (rr, rr * 1.1, rr))
-    P.fill(can, LEAF_BIRCH, cell=(2, 2, 2))
+    for _ in range(9):
+        c = (top[0] + rng.uniform(-7, 7), rng.uniform(26, 44), top[2] + rng.uniform(-6, 6))
+        rr = rng.uniform(5, 7.5)
+        can |= blob(M, c, (rr, rr * 1.15, rr))
+    for _ in range(3):
+        a = rng.uniform(0, 2 * math.pi)
+        P.fill(tube(M, (mid[0], 22 + rng.uniform(0, 8), mid[2]), (top[0] + math.cos(a) * 7, 34, top[2] + math.sin(a) * 6), 0.8, 0.5),
+               ['#E2DBCA'])
+    leafy(M, P, can, LEAF_BIRCH, '#456E2E', LEAF_BIRCH_HI, seed, rough=0.58)
     return M, 4.0
 
 
 def bush(seed):
-    M = Model((-12, 0, -11), (12, 16, 11), [], res=1)
-    P = CPainter(M, seed)
-    b = (blob(M, (0, 6.5, 0), (10, 7, 9)) | blob(M, (-5, 4.5, 3), (6, 4.5, 6)) | blob(M, (5.5, 5, -2), (6, 5, 6))) & (M.Y >= 0)
-    P.fill(b, ['#4E8F3A', '#5FA046', '#447F33'], cell=(2, 2, 2))
     rng = _rng(seed)
+    M = Model((-13, 0, -12), (13, 16, 12), [], res=1)
+    P = CPainter(M, seed)
+    b = np.zeros(M.m.shape, bool)
+    for _ in range(6):
+        rr = rng.uniform(4.5, 7.5)
+        b |= blob(M, (rng.uniform(-6, 6), rng.uniform(3, 7), rng.uniform(-4, 4)), (rr, rr * 0.85, rr))
+    b &= M.Y >= 0
+    b = leafy(M, P, b, ['#3E7232', '#4A803A', '#355F2A'], '#2C5024', '#5E9244', seed, rough=0.6)
     sh = b & ~ndimage.binary_erosion(b)
     pts = np.argwhere(sh & (M.Y > 4))
-    for i in rng.choice(len(pts), min(26, len(pts)), replace=False):
-        x, y, z = pts[i]
-        M.m[x, y, z] = M.mid('#D9453B')
+    if seed % 2 and len(pts):
+        for i in rng.choice(len(pts), min(10, len(pts)), replace=False):
+            M.m[tuple(pts[i])] = M.mid('#C2453B')
     return M, 9.0
 
 
@@ -476,8 +592,9 @@ def shrooms(seed):
 
 
 KINDS = {
-    'oak_a': lambda: oak(11), 'oak_b': lambda: oak(12), 'pine_a': lambda: pine(21), 'pine_b': lambda: pine(22),
-    'birch': lambda: birch(31), 'bush': lambda: bush(41), 'rock': lambda: rock(51), 'boulder': lambda: rock(52, True),
+    'oak_a': lambda: oak(11), 'oak_b': lambda: oak(12), 'oak_c': lambda: oak(13), 'oak_old': lambda: oak(14, big=True),
+    'pine_a': lambda: pine(21), 'pine_b': lambda: pine(22), 'pine_c': lambda: pine(23),
+    'birch': lambda: birch(31), 'birch_b': lambda: birch(32), 'bush': lambda: bush(41), 'bush_b': lambda: bush(42), 'rock': lambda: rock(51), 'boulder': lambda: rock(52, True),
     'stump': lambda: stump(61), 'log': lambda: log(71), 'pillar': lambda: pillar(81), 'pillar_low': lambda: pillar(82, 14),
     'gate': gate, 'sign': sign, 'tent': tent, 'seat': seat, 'bramble': lambda: bramble(91), 'shrooms': lambda: shrooms(95),
 }
@@ -499,7 +616,7 @@ def place_props(pl, rng):
     # band south of the path and the clearings (z grows southward, toward the camera)
     shade = keep_out.copy()
     for k in range(4, 58, 3):
-        shade[:, k:] |= (pl['path'] | pl['clear'])[:, :-k]
+        shade[:, k:] |= (pl['path'] | pl['clear'] | pl['water_art'])[:, :-k]
     props = []
     taken = []
 
@@ -513,35 +630,68 @@ def place_props(pl, rng):
             return False
         return all((x - tx) ** 2 + (z - tz) ** 2 > (r + tr) ** 2 for tx, tz, tr in taken)
 
-    def add(kind, x, z, r, flip=None):
+    def add(kind, x, z, r, flip=None, sc=1.0):
         props.append({'kind': kind, 'x': round(float(x), 1), 'z': round(float(z), 1),
-                      'flip': bool(rng.random() < 0.5) if flip is None else flip})
+                      'flip': bool(rng.random() < 0.5) if flip is None else flip, 's': round(float(sc), 2)})
         taken.append((x, z, r))
 
-    trees = ['oak_a', 'oak_b', 'pine_a', 'pine_b', 'birch']
-    # the walls: dense along the edges
-    for x in np.arange(X0 + 10, X1 - 4, 22):
-        for z in (Z0 + 14, Z1 - 10):
-            x2 = x + rng.uniform(-6, 6)
-            if ok(x2, z, 8, tall=True):
-                add(trees[rng.integers(0, 5)], x2, z + rng.uniform(-5, 5), 12)
-    for z in np.arange(Z0 + 30, Z1 - 20, 24):
-        for x in (X0 + 12, X1 - 12):
-            z2 = z + rng.uniform(-8, 8)
-            if ok(x, z2, 8, tall=True):
-                add(trees[rng.integers(0, 5)], x + rng.uniform(-4, 4), z2, 12)
-    # groves with glades between them: denser to the north (pines), lighter in the south (oaks, birches)
+    # which trees grow where: species come in stands (a field picks them), not salt-and-pepper
+    species = norm(noise2((W, D), 30, 91))
+    north_f = lambda z: np.clip((-z - 60) / 260, 0, 1)
+
+    def tree_at(x, z):
+        f = species[int(x - X0), int(z - Z0)] + 0.45 * north_f(z) - 0.25 * (z > 380)
+        if f > 0.78:
+            pool = ['pine_a', 'pine_b', 'pine_c', 'pine_a']
+        elif f > 0.6:
+            pool = ['pine_a', 'oak_b', 'pine_c', 'oak_c']
+        elif f > 0.36:
+            pool = ['oak_a', 'oak_b', 'oak_c', 'oak_a', 'oak_b', 'birch']
+        else:
+            pool = ['birch', 'birch_b', 'oak_a', 'oak_c']
+        k = pool[rng.integers(0, len(pool))]
+        if k.startswith('oak') and rng.random() < 0.08:
+            k = 'oak_old'
+        return k
+
+    # the walls: thick along the edges, two ragged rows
+    for x in np.arange(X0 + 8, X1 - 4, 15):
+        for z0 in (Z0 + 12, Z0 + 30, Z1 - 8, Z1 - 24):
+            x2, z2 = x + rng.uniform(-8, 8), z0 + rng.uniform(-7, 7)
+            sc = rng.uniform(0.85, 1.2)
+            if rng.random() < 0.85 and ok(x2, z2, 8 * sc, tall=True):
+                add(tree_at(x2, z2), x2, z2, 11 * sc, sc=sc)
+    for z in np.arange(Z0 + 30, Z1 - 20, 16):
+        for x0 in (X0 + 10, X0 + 28, X1 - 10, X1 - 28):
+            x2, z2 = x0 + rng.uniform(-7, 7), z + rng.uniform(-8, 8)
+            sc = rng.uniform(0.85, 1.2)
+            if rng.random() < 0.85 and ok(x2, z2, 8 * sc, tall=True):
+                add(tree_at(x2, z2), x2, z2, 11 * sc, sc=sc)
+    # groves with glades between them: thicker to the north
     dens = norm(noise2((W, D), 26, 77))
-    for _ in range(6000):
+    for _ in range(7000):
         x, z = rng.uniform(X0 + 20, X1 - 20), rng.uniform(Z0 + 30, Z1 - 30)
-        north = z < -150
-        d = dens[int(x - X0), int(z - Z0)] + (0.18 if north else 0.0) - (0.12 if z > 380 else 0.0)
+        d = dens[int(x - X0), int(z - Z0)] + 0.18 * north_f(z) - (0.12 if z > 380 else 0.0)
         if rng.random() > np.clip((d - 0.38) / 0.3, 0.0, 1.0):
             continue
-        kind = (['pine_a', 'pine_b', 'pine_a', 'oak_a', 'birch'] if north else ['oak_a', 'oak_b', 'birch', 'birch', 'oak_a'])[rng.integers(0, 5)]
-        if ok(x, z, 11, tall=True):
-            add(kind, x, z, 11)
-    for kind, n, r in (('bush', 26, 9), ('rock', 14, 10), ('boulder', 5, 15), ('stump', 8, 7), ('log', 4, 24)):
+        sc = rng.uniform(0.8, 1.2)
+        if ok(x, z, 10 * sc, tall=True):
+            add(tree_at(x, z), x, z, 10.5 * sc, sc=sc)
+    # undergrowth at the groves' edges
+    near_tree = np.zeros((W, D), bool)
+    for pp in props:
+        i, k = int(pp['x'] - X0), int(pp['z'] - Z0)
+        near_tree[max(0, i - 24):i + 24, max(0, k - 24):k + 24] = True
+    for _ in range(9000):
+        if sum(1 for pp in props if pp['kind'].startswith('bush')) >= 46:
+            break
+        x, z = rng.uniform(X0 + 24, X1 - 24), rng.uniform(Z0 + 40, Z1 - 30)
+        if not near_tree[int(x - X0), int(z - Z0)]:
+            continue
+        sc = rng.uniform(0.75, 1.15)
+        if ok(x, z, 9 * sc):
+            add(['bush', 'bush_b'][rng.integers(0, 2)], x, z, 9 * sc, sc=sc)
+    for kind, n, r in (('rock', 14, 10), ('boulder', 5, 15), ('stump', 8, 7), ('log', 4, 24)):
         for _ in range(4000):
             if n == 0:
                 break
@@ -608,6 +758,56 @@ def arena_wall():
     return [[round(x + px * k - dx * 4, 1), round(z + pz * k - dz * 4, 1)] for k in (-36, -18, 0, 18, 36)]
 
 
+# ------------------------------------------------------------------ the masks ----
+# For the living-scene shader (flutter/shaders/scene_fx.frag): what moves, and how.
+def ground_mask(pl, gm, out, name):
+    """Grass shimmers (G 64), water ripples (G 128); paths, banks and the bridge stay still. Cut in the
+    ground's tiles, lossless."""
+    from wilds_blender import tile_image
+    w, h, s = gm['w'], gm['h'], gm['scale']
+    ox, oy = gm['origin']
+    sp, cp = math.sin(math.radians(MAP_PITCH)), math.cos(math.radians(MAP_PITCH))
+    gx, gy = np.meshgrid(np.arange(w) + 0.5, np.arange(h) + 0.5)
+    W, D = pl['X'].shape
+    x = (gx - ox) / s
+    i = np.clip((x - X0).astype(int), 0, W - 1)
+    # the grass top (y = 0) and the water surface (y = -2) land at different rows
+    kz = np.clip(((gy - oy) / s / sp - X0 * 0 - Z0).astype(int), 0, D - 1)
+    kw = np.clip(((gy - oy) / s / sp - 2 * cp / sp - Z0).astype(int), 0, D - 1)
+    m = np.zeros((h, w, 3), np.uint8)
+    wat = pl['water_art'][i, kw] & ~pl['bridge'][i, kw]
+    still = ~pl['path'][i, kz] & ~pl['bridge'][i, kz] & ~pl['water_art'][i, kz]
+    m[..., 1] = np.where(wat, 128, np.where(still, 64, 0))
+    return tile_image(Image.fromarray(m, 'RGB'), out, f'{name}_groundmask', lossless=True)
+
+
+def prop_mask(png, kind):
+    """Leaves sway, more toward the top (the trunk and roots hold still); cloth ripples; the rest is
+    still. A few px past the leaves so the outline moves too."""
+    im = np.asarray(Image.open(png).convert('RGBA')).astype(np.float32)
+    h, w = im.shape[:2]
+    r, g, b, a = im[..., 0], im[..., 1], im[..., 2], im[..., 3]
+    m = np.zeros((h, w, 3), np.uint8)
+    leafy_kind = kind.startswith(('oak', 'pine', 'birch', 'bush', 'bramble'))
+    if leafy_kind:
+        leaf = (a > 40) & (g > r * 1.08) & (g > b * 1.05)
+        leaf = ndimage.binary_opening(leaf, iterations=1) | (leaf & ndimage.binary_erosion(leaf))
+        ys = np.nonzero(a.max(1) > 40)[0]
+        top, bot = (ys.min(), ys.max()) if len(ys) else (0, h - 1)
+        ramp = np.clip((bot - np.arange(h)) / max(1, bot - top), 0, 1)[:, None] ** 0.8
+        amt = {'bush': 0.45, 'bush_b': 0.45, 'bramble': 0.3}.get(kind, 1.0)
+        sway = np.where(leaf, ramp * amt, 0).astype(np.float32)
+        sway = ndimage.grey_dilation(sway, size=(5, 5))
+        sway = ndimage.gaussian_filter(sway, 1.2)
+        m[..., 0] = np.clip(sway * 255, 0, 255).astype(np.uint8)
+    elif kind == 'tent':
+        cloth = (a > 40) & (r > g * 1.1)
+        ys = np.arange(h)[:, None]
+        m[..., 0] = np.where(cloth, 70, 0).astype(np.uint8)
+        m[..., 2] = np.where(cloth, 80, 0).astype(np.uint8)
+    return Image.fromarray(m, 'RGB')
+
+
 # ------------------------------------------------------------------ data ----
 def walk_grid(pl):
     """Blocked cells (CELL units): water (the bridge is open), outside the bounds."""
@@ -624,10 +824,10 @@ def minimap(pl, props, out, name):
     W, D = pl['X'].shape
     s = 2
     img = np.zeros((D // s, W // s, 3), np.uint8)
-    grass = np.array([126, 176, 92], np.uint8)
+    grass = np.array([84, 124, 64], np.uint8)
     img[:] = grass
     sub = lambda a: a[::s, ::s].T[:D // s, :W // s]
-    img[sub(pl['path'])] = (214, 190, 140)
+    img[sub(pl['path'])] = (190, 166, 118)
     img[sub(pl['bridge'])] = (160, 112, 70)
     img[sub(pl['water'])] = (98, 172, 206)
     im = Image.fromarray(img)
@@ -637,7 +837,7 @@ def minimap(pl, props, out, name):
         x, z = (p['x'] - X0) / s, (p['z'] - Z0) / s
         if p['kind'].startswith(('oak', 'pine', 'birch')):
             r = 4
-            d.ellipse((x - r, z - r, x + r, z + r), fill=(64, 112, 58))
+            d.ellipse((x - r, z - r, x + r, z + r), fill=(40, 78, 42))
         elif p['kind'] in ('rock', 'boulder', 'pillar', 'pillar_low'):
             d.ellipse((x - 2, z - 2, x + 2, z + 2), fill=(150, 146, 136))
     fn = f'{name}_mini.webp'
@@ -666,7 +866,7 @@ def data(out, name, pl, props, ground_meta, prop_meta):
             for dx, dz, r in SHAPES[p['kind']]:
                 blocks.append([round(p['x'] + (-dx if p['flip'] else dx), 1), round(p['z'] + dz, 1), r])
         elif img['radius'] > 0:
-            blocks.append([p['x'], p['z'], img['radius']])
+            blocks.append([p['x'], p['z'], round(img['radius'] * p.get('s', 1.0), 1)])
     zones = [{'id': i, 'name': n, 'x': x, 'z': z, 'r': r} for i, n, x, z, r in ZONES]
     ax, az, ar = ARENA
     foes = [
@@ -709,19 +909,21 @@ def main(out, quick=False, only=None):
     gm_path = os.path.join(work, 'ground_meta.json')
     pm_path = os.path.join(work, 'prop_meta.json')
     if only is None or 'ground' in only or 'ground_blend' in only:
-        G = ground(pl, rng)
+        G = ground(pl, rng, props)
         import wilds_blender
         if only and 'ground_blend' in only:
             # the scene for a GPU machine; after it renders <out>/work/<name>_ground.png, run --only=tiles
             gm = wilds_blender.render_ground(G, props, KINDS, out, name, save_blend=os.path.join(work, f'{name}_ground.blend'),
-                                             samples=96)
+                                             samples=96, pl=pl)
         else:
-            gm = wilds_blender.render_ground(G, props, KINDS, out, name, quick=quick)
+            gm = wilds_blender.render_ground(G, props, KINDS, out, name, quick=quick, pl=pl)
         json.dump(gm, open(gm_path, 'w'))
     if only and 'tiles' in only:
         import wilds_blender
         gm = json.load(open(gm_path))
         gm['tiles'] = wilds_blender.tile_ground(os.path.join(work, f'{name}_ground.png'), out, name)
+        for t, mt in zip(gm['tiles'], ground_mask(pl, gm, out, name)):
+            t['mask'] = mt['image']
         json.dump(gm, open(gm_path, 'w'))
     if only is None or 'props' in only:
         import wilds_blender
@@ -737,8 +939,16 @@ def main(out, quick=False, only=None):
         pm = json.load(open(pm_path))
         for k in pm:
             fn = f'{name}_prop_{k}.webp'
-            Image.open(os.path.join(work, 'props', k + '.png')).save(os.path.join(out, fn), quality=90, method=6)
+            src = os.path.join(work, 'props', k + '.png')
+            Image.open(src).save(os.path.join(out, fn), quality=90, method=6)
             pm[k]['image'] = fn
+            mk = prop_mask(src, k)
+            if np.asarray(mk).any():
+                mfn = f'{name}_propmask_{k}.webp'
+                mk.save(os.path.join(out, mfn), lossless=True, quality=100, method=6)
+                pm[k]['mask'] = mfn
+            else:
+                pm[k].pop('mask', None)
         json.dump(pm, open(pm_path, 'w'))
     if only is None or 'data' in only:
         gm = json.load(open(gm_path))

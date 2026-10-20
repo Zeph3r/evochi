@@ -371,6 +371,8 @@ class _LivePainter extends CustomPainter {
         ..setFloat(5, ih)
         ..setFloat(6, t)
         ..setFloat(7, motion)
+        ..setFloat(8, 0)
+        ..setFloat(9, 0)
         ..setImageSampler(0, image)
         ..setImageSampler(1, m);
       paint.shader = sh;
