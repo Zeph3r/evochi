@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 12+: the save goes to the player's Google account backup and across when they move to a new
+     phone (device-to-device transfer). Nothing else in the app's storage is copied. -->
+<data-extraction-rules>
+    <cloud-backup>
+        <include domain="sharedpref" path="FlutterSharedPreferences.xml" />
+    </cloud-backup>
+    <device-transfer>
+        <include domain="sharedpref" path="FlutterSharedPreferences.xml" />
+    </device-transfer>
+</data-extraction-rules>

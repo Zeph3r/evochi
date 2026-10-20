@@ -643,6 +643,46 @@ profiles). To add Apple/Google sign-in and cloud saves:
 
 The welcome screen's Apple/Google buttons explain this and fall back to guest play until then.
 
+## Saves and backup (Android)
+
+The whole game is one JSON string under `evochi.save.v1` in the app's shared preferences
+(`lib/data/local/local_store.dart`). No server is involved.
+
+- **Auto Backup** is switched on explicitly in `AndroidManifest.xml` with two rule files in
+  `android/app/src/main/res/xml/`. They back up that one preferences file and nothing else (the file is
+  `FlutterSharedPreferences.xml`), to the player's Google account, and carry it across on a phone-to-phone
+  transfer. Android restores it when the app is installed again on a phone signed in to the same account.
+  It is not live sync between two phones that are both in use.
+- **Steps after a restore:** step samples carry stable ids, so the same walk re-read from Health Connect is
+  never counted twice. Health Connect forgets the app's permission on a fresh install, so `sync()` checks
+  `hasPermission()` and, when it is gone, drops the connection to "not connected" and the Journey tab offers
+  to reconnect.
+- **Testing a restore** (needs a phone or emulator with Google Play services, USB debugging on):
+  1. Play a bit, then `adb shell bmgr backupnow com.evochi.evochi`.
+  2. `adb uninstall com.evochi.evochi`, then install the APK again.
+  3. Android restores during the install when the backup is found; open the app and your pet should be there.
+  `adb shell bmgr list transports` should show the Google transport as the current one (marked with a `*`).
+  A sideloaded install (an APK copied over) may be skipped by the restore: use `adb install` or a Play
+  testing build for a faithful test.
+- **Not covered yet:** two phones in use at once (that wants Play Games saved games), and a player with
+  backup turned off in Android settings. An Export / Import save screen is the planned safety net.
+
+## Shipping to Play
+
+- **First time:** create the app in Play Console (package `com.evochi.evochi`), complete the App content
+  forms (privacy policy, Data safety, Health apps declaration for the steps), and upload the first bundle by
+  hand to the Internal testing track. Generate an upload key once:
+  `keytool -genkeypair -v -keystore upload-keystore.jks -keyalg RSA -keysize 2048 -validity 10000 -alias upload`
+  and keep it (and its passwords) somewhere safe outside the repo; losing it means asking Google to reset it.
+- **Local signed build:** put `key.properties` in `android/` (`storeFile`, `storePassword`, `keyAlias`,
+  `keyPassword`; it is git-ignored). Without it a release build is debug-signed, fine for sideloading only.
+- **CI:** `.github/workflows/flutter-ci.yml` analyzes and tests every push; `android-release.yml` builds the
+  signed bundle and uploads it to a Play track when you push a tag like `v1.0.3` or run it from the Actions
+  tab. Secrets it reads: `ANDROID_KEYSTORE_BASE64`, `ANDROID_KEYSTORE_PASSWORD`, `ANDROID_KEY_PASSWORD`,
+  `ANDROID_KEY_ALIAS`, and (optional) `PLAY_SERVICE_ACCOUNT_JSON`.
+- **Tracks are the test environment:** Internal testing (up to 100 testers, minutes to appear), then
+  Closed, then Production. There is no server, so there is nothing else to stage.
+
 ## Regenerating art
 
 All art comes from the Python voxel pipeline in `../tools/art`:

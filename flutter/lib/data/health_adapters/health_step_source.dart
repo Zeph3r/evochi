@@ -51,6 +51,17 @@ class HealthStepSource implements StepSource {
   }
 
   @override
+  Future<bool> hasPermission() async {
+    try {
+      if (!await isAvailable()) return true; // can't tell: not Health Connect's missing grant to report
+      final ok = await _health.hasPermissions(_types, permissions: const [HealthDataAccess.READ]);
+      return ok != false;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  @override
   Future<List<StepSample>> readSamples(int from, int to) async {
     final points = await _health.getHealthDataFromTypes(
       types: _types,

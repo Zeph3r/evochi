@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Android 11 and older: Auto Backup (to the player's Google account) keeps the save, nothing else.
+     The whole game is one JSON string in the shared preferences file (lib/data/local/local_store.dart). -->
+<full-backup-content>
+    <include domain="sharedpref" path="FlutterSharedPreferences.xml" />
+</full-backup-content>

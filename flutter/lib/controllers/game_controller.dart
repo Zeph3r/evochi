@@ -339,6 +339,13 @@ class GameController extends ChangeNotifier {
     if (src == null || syncing) return;
     syncing = true;
     notifyListeners();
+    // A save restored onto a fresh install (or a revoked grant) still says "health" but Health Connect
+    // has forgotten the permission: fall back to "not connected" so the Journey tab offers to reconnect.
+    if (src.id == 'health' && !await src.hasPermission()) {
+      syncing = false;
+      run((s, n) => g.setConnection(s, 'none', n));
+      return;
+    }
     final to = now;
     final createdAt = state.pet?.createdAt ?? to;
     final from = [state.steps.lastSync ?? createdAt, createdAt].reduce((a, b) => a < b ? a : b) - 2 * dayMs;

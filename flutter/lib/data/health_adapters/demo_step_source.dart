@@ -21,6 +21,9 @@ class DemoStepSource implements StepSource {
   @override
   Future<StepPermission> requestPermission() async => StepPermission.granted;
 
+  @override
+  Future<bool> hasPermission() async => true;
+
   /// Queue a walk of [steps] ending at [now] as 2-minute samples. With [notBefore] the walk is
   /// squeezed so it never starts before that instant (a story quest's acceptance).
   List<StepSample> walk(int steps, int now, {bool watch = true, int notBefore = 0}) {

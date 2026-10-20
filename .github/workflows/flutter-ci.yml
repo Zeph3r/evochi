@@ -1,0 +1,31 @@
+# Every push and pull request that touches the game: analyze and run the tests (the combat playtest bot included).
+name: Flutter CI
+
+on:
+  push:
+    branches: [main]
+    paths: ['flutter/**', '.github/workflows/flutter-ci.yml']
+  pull_request:
+    paths: ['flutter/**', '.github/workflows/flutter-ci.yml']
+
+concurrency:
+  group: flutter-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: flutter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.27.1   # what the dev PC runs; bump both together
+          cache: true
+      - run: flutter pub get
+      # 28 older infos/warnings are known; errors still fail the build
+      - run: flutter analyze --no-fatal-infos --no-fatal-warnings
+      - run: flutter test
