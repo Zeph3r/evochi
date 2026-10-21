@@ -14,6 +14,7 @@ import '../../core/utils/day_keys.dart';
 import '../../game/economy/economy.dart' as econ;
 import '../../game/engine.dart' as g;
 import '../../game/vitality/vitality.dart';
+import '../../game/wilds/wilds.dart' as w;
 import '../../game/xp/xp.dart';
 import '../caravan/season_screen.dart';
 import '../home/skills_screen.dart';
@@ -160,14 +161,6 @@ class _JourneyScreenState extends State<JourneyScreen> {
                 onPressed: v.todaySteps >= v.goal ? null : () => c.simulateWalk(math.max(100, v.goal - v.todaySteps)),
               ),
             ]),
-            const SizedBox(height: 10),
-            // the Lumen Wilds' first slice: F1, the Sunlit Thicket (lib/features/wilds/)
-            EvochiButton(
-              label: 'Lumen Wilds: Sunlit Thicket',
-              tone: ButtonTone.cream,
-              small: true,
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WildsScreen())),
-            ),
           ]),
         ),
       if (conn == 'manual')
@@ -255,6 +248,8 @@ class _JourneyScreenState extends State<JourneyScreen> {
               today,
               const SizedBox(height: 10),
               const SeasonStrip(),
+              const SizedBox(height: 10),
+              const _WildsCard(),
               const SizedBox(height: 10),
               ...sources,
               const SizedBox(height: 14),
@@ -530,4 +525,59 @@ class _RingPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_RingPainter old) => old.pct != pct;
+}
+
+
+/// The way into the Lumen Wilds: the Sunlit Thicket, and once you have been below it, the deepest floor
+/// of Fernwood Trail you have reached.
+class _WildsCard extends StatelessWidget {
+  const _WildsCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.watch<GameController>();
+    final deepest = w.deepestFloor(c.state);
+    final calm = w.floorCleared(c.state, 'thicket');
+    return GameCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Row(children: [
+          const VoxelIcon('journey', size: 28),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              const Text('Lumen Wilds', style: EvochiText.cardTitle),
+              Text(
+                deepest >= 2
+                    ? 'Deepest yet: F$deepest, Fernwood Trail'
+                    : (calm ? 'The Thicket is calm. Fernwood Trail waits past the old gate.' : 'Calm the Hollow creatures in the Sunlit Thicket.'),
+                style: EvochiText.caption,
+              ),
+            ]),
+          ),
+        ]),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(
+            child: EvochiButton(
+              label: 'Sunlit Thicket',
+              tone: ButtonTone.green,
+              small: true,
+              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WildsScreen())),
+            ),
+          ),
+          if (deepest >= 2) ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: EvochiButton(
+                label: 'Go to F$deepest',
+                tone: ButtonTone.cream,
+                small: true,
+                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => WildsScreen(depth: deepest))),
+              ),
+            ),
+          ],
+        ]),
+      ]),
+    );
+  }
 }

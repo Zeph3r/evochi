@@ -40,12 +40,26 @@ import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import '../village/story_widgets.dart';
 import 'boss_intro.dart';
+import 'deep_floor.dart';
 import 'wilds_art.dart';
 import 'wilds_combat.dart';
 
+/// What you carry from one Deep Wilds floor down to the next: Raid HP and the satchel.
+class DeepCarry {
+  const DeepCarry(this.hp, this.coins, this.items);
+  final double hp;
+  final int coins;
+  final Map<String, int> items;
+}
+
 class WildsScreen extends StatefulWidget {
-  const WildsScreen({super.key, this.mapId = 'thicket'});
+  const WildsScreen({super.key, this.mapId = 'thicket', this.depth, this.seed, this.carry});
   final String mapId;
+
+  /// A Deep Wilds floor (F2 and down), made fresh from [seed]; null for a hand-made map.
+  final int? depth;
+  final int? seed;
+  final DeepCarry? carry;
   @override
   State<WildsScreen> createState() => _WildsScreenState();
 }
@@ -127,8 +141,9 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final key = 's0${(pet?.stage ?? 1).clamp(1, 3)}';
     final palette = pet?.paletteId ?? 'amber';
     final wearing = pet?.equipped.values.toList() ?? const <String>[];
+    final depth = widget.depth;
     Future.wait([
-      WildsMap.load(widget.mapId),
+      depth == null ? WildsMap.load(widget.mapId) : makeFloor(depth, widget.seed ?? DateTime.now().millisecondsSinceEpoch & 0x7fffffff),
       WalkerArt.load(key, palette, wearing: wearing),
       WalkerArt.load('sher', 'sher'),
       FoeArt.load('thornling'),
@@ -182,14 +197,14 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final s = m.sher;
     final sher = s == null ? null : Actor(id: 'sher', kind: 'sher', team: Team.party, x: s.$1, z: s.$2, radius: 7, health: 150);
     final b = m.boss;
-    final cleared = w.floorCleared(c.state, _floor);
+    final cleared = m.depth == null && w.floorCleared(c.state, _floor);
     _clearFirst = !cleared;
     _sealOpen = cleared;
     _sealT = 1;
     final ar = b == null ? null : (b['arena'] as Map).cast<String, dynamic>();
     List<(double, double)> pts(Object? l) => [for (final p in (l as List? ?? const [])) (((p as List)[0] as num).toDouble(), (p[1] as num).toDouble())];
     final fire = m.fx.where((f) => f.$3 == 'fire').toList();
-    return Raid(
+    final raid = Raid(
       ground: RaidGround(wet: m.blocked, blocks: m.blocks, bounds: m.bounds),
       pet: pet,
       sher: sher,
@@ -217,7 +232,17 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       lootLabel: (id, n) => id == econ.glimmer ? '+$n Glimmer!' : '+$n ${_lootName(id)}!',
       ward: _takeWard(c),
       bossScale: _soloBoss,
+      // the Deep Wilds: the creatures grow tougher and hit harder the further down you go
+      foeHp: m.depth == null ? 1.0 : 1 + 0.22 * (m.depth! - 1),
+      foeHarm: m.depth == null ? 1.0 : 1 + 0.12 * (m.depth! - 1),
     );
+    final carry = widget.carry;
+    if (carry != null) {
+      raid.pet.hp = carry.hp.clamp(1.0, raid.pet.maxHp);
+      raid.coins = carry.coins;
+      raid.items.addAll(carry.items);
+    }
+    return raid;
   }
 
   @override
@@ -269,6 +294,13 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     if (_sealOpen && _sealT < 1) _sealT = math.min(1.0, _sealT + dt / 1.8);
     final m = _map, r = _raid;
     if (m == null || r == null || _view == Size.zero) return;
+    if (m.depth != null && !_sealOpen && r.foeTotal > 0 && r.calmed >= r.foeTotal) {
+      // the floor is calm: the way down opens
+      _sealOpen = true;
+      _sealT = 0;
+      _showBanner('The way down opens!', 2.6);
+      _sfx('level_up', 0.6);
+    }
     final pet = r.pet;
     // input: keys, then the joystick, then a tap target
     var vx = 0.0, vz = 0.0;
@@ -671,7 +703,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
 
   void _interact() {
     if (_card != null) return;
-    if (_nearBoss) {
+    // a spot you are standing at comes first (the calm guardian likes to wander by the gate)
+    if (_nearBoss && _near == null) {
       setState(() => _card = 'spar');
       return;
     }
@@ -788,6 +821,80 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     _bank();
     // a direct pop: the PopScope above only catches the back gesture (and asks first)
     Navigator.of(context).pop();
+  }
+
+  // ---- the Deep Wilds
+  final _used = <String>{}; // spots spent on this floor: chests opened, shrines prayed at, camps rested at
+
+  /// Down the steps to the next floor: a fresh floor, the run (Raid HP, satchel) carried along.
+  void _descend(int depth) {
+    final r = _raid;
+    if (r == null) return;
+    final c = context.read<GameController>();
+    c.run((s, n) => w.wildsReach(s, depth, n), quiet: true);
+    c.audio.play('enc_whoosh', volume: 0.6);
+    c.analytics.track('wilds_descend', {'floor': depth});
+    final carry = DeepCarry(r.pet.hp, r.coins, Map.of(r.items));
+    Navigator.of(context).pushReplacement(PageRouteBuilder<void>(
+      transitionDuration: const Duration(milliseconds: 700),
+      pageBuilder: (_, __, ___) => WildsScreen(depth: depth, seed: DateTime.now().microsecondsSinceEpoch & 0x7fffffff, carry: carry),
+      transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: a, child: child),
+    ));
+  }
+
+  /// A shrine's two blessings (decided by where it stands, so it offers the same two every time you look).
+  (String, String) _blessingsFor(MapSpot s) {
+    const all = ['regen', 'swift', 'moonlit', 'lantern', 'thornskin'];
+    final i = (s.x.abs() * 7 + s.z.abs() * 13).round() % all.length;
+    return (all[i], all[(i + 2) % all.length]);
+  }
+
+  void _bless(MapSpot s, String buff) {
+    _used.add(s.id);
+    _raid?.applyBuff(buff, secs: 120);
+    _sfx('reward_chime', 0.6);
+  }
+
+  void _rest(MapSpot s) {
+    final r = _raid;
+    if (r == null) return;
+    _used.add(s.id);
+    r.pet.hp = r.pet.maxHp;
+    _showBanner('Rested: Raid HP full', 2.0);
+    _sfx('enc_soothe', 0.6);
+  }
+
+  /// An old chest: coins and a find, more of both further down.
+  void _openChest(MapSpot s) {
+    final r = _raid;
+    final m = _map;
+    if (r == null || m == null) return;
+    _used.add(s.id);
+    final depth = m.depth ?? 1;
+    final rng = math.Random(s.x.round() * 31 + s.z.round() + depth);
+    final coins = 18 + depth * 8 + rng.nextInt(10);
+    r.coins += coins;
+    final found = <String>['$coins EvoCoins'];
+    final shards = 1 + depth ~/ 3;
+    r.items['lumen_shard'] = (r.items['lumen_shard'] ?? 0) + shards;
+    found.add('$shards Lumen Shard${shards > 1 ? 's' : ''}');
+    econ.rollDrops('wilds_foe', rng).forEach((id, n) {
+      r.items[id] = (r.items[id] ?? 0) + n;
+      found.add('$n ${_lootName(id)}');
+    });
+    _showBanner('Found: ${found.join(', ')}', 3.2);
+    _sfx('reward_chime', 0.7);
+    // the lid stays open
+    _image('assets/art/economy/chest_wood_open.webp').then((img) {
+      final a = m.propArt['chest'];
+      if (a != null && mounted) setState(() => m.propArt['chest'] = PropArt(img, img.width / 2, img.height * 0.92, a.scale));
+    });
+  }
+
+  Future<ui.Image> _image(String path) async {
+    final data = await rootBundle.load(path);
+    final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+    return (await codec.getNextFrame()).image;
   }
 
   void _askLeave() {
@@ -986,7 +1093,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   }
 
   /// Playtesting shortcuts (debug builds only): 1-3 the clearings, 4 the arena's edge, 5 the arena, G
-  /// keeps your Evochi's Raid HP full, B takes a fifth of the guardian's health, I replays its entrance.
+  /// keeps your Evochi's Raid HP full, B takes a fifth of the guardian's health, I replays its entrance, N
+  /// goes down to the next Deep Wilds floor.
   void _debugKey(LogicalKeyboardKey k) {
     final r = _raid, m = _map;
     if (r == null || m == null) return;
@@ -1003,6 +1111,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       if (k == LogicalKeyboardKey.digit5) to = (ax - 6, az + rr * 0.45);
     }
     if (k == LogicalKeyboardKey.keyB) r.debugHurtBoss(0.2);
+    // N: straight down to the next Deep Wilds floor
+    if (k == LogicalKeyboardKey.keyN) _descend((m.depth ?? 1) + 1);
     // I: play the guardian's entrance again (the full cut)
     if (k == LogicalKeyboardKey.keyI && _introArt != null) setState(() => _cine = IntroCut.full);
     // the gate's seal: up again (R), or drawn back as if the guardian had just been calmed (T)
@@ -1161,6 +1271,57 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
         final lvl = c.view.pet?.level.level ?? 1;
         final locked = s.need != null && lvl < s.need!;
         final calm = r.bossState == BossState.calm;
+        final deep = m.depth;
+        final used = _used.contains(s.id);
+        if (s.kind == 'gate' && (deep != null || (calm && !locked))) {
+          // the way down: the Thicket's gate once its guardian is calm, a deep floor's once the floor is
+          final open = deep == null || _sealOpen;
+          final next = (deep ?? 1) + 1;
+          body = _SpotCard(
+            spot: s,
+            note: open
+                ? 'Steps lead down into F$next. Your satchel and your Raid HP come with you.'
+                : 'The seal holds while the Hollow stirs on this floor: ${r.foeTotal - r.calmed} still to calm.',
+            primary: open ? 'Descend' : 'OK',
+            secondary: open ? 'Not yet' : null,
+            onPrimary: open ? () => _descend(next) : close,
+            onSecondary: close,
+          );
+          break;
+        }
+        if (s.kind == 'chest' || s.kind == 'shrine' || s.kind == 'camp') {
+          final blessings = _blessingsFor(s);
+          body = _SpotCard(
+            spot: s,
+            note: used
+                ? 'Nothing more here.'
+                : switch (s.kind) {
+                    'shrine' => 'Choose a blessing: it lasts two minutes.',
+                    'camp' => r.pet.hp >= r.pet.maxHp ? 'Your Evochi is fresh already.' : null,
+                    _ => null,
+                  },
+            primary: used ? 'OK' : switch (s.kind) { 'chest' => 'Open', 'shrine' => buffDefs[blessings.$1]!.name, _ => 'Rest' },
+            secondary: used ? null : (s.kind == 'shrine' ? buffDefs[blessings.$2]!.name : 'Leave it'),
+            onPrimary: () {
+              if (!used) {
+                switch (s.kind) {
+                  case 'chest':
+                    _openChest(s);
+                  case 'shrine':
+                    _bless(s, blessings.$1);
+                  default:
+                    _rest(s);
+                }
+              }
+              close();
+            },
+            onSecondary: () {
+              if (!used && s.kind == 'shrine') _bless(s, blessings.$2);
+              close();
+            },
+          );
+          break;
+        }
         body = _SpotCard(
           spot: s,
           note: s.kind == 'gate'
@@ -1230,7 +1391,7 @@ class _MapPainter extends CustomPainter {
       if (!t.rect.overlaps(vis)) continue;
       final sh = rm || t.mask == null ? null : s._fxFor(t);
       if (sh == null) {
-        canvas.drawImage(t.img, t.rect.topLeft, pq);
+        canvas.drawImageRect(t.img, Rect.fromLTWH(0, 0, t.img.width.toDouble(), t.img.height.toDouble()), t.rect, pq);
         continue;
       }
       sh
@@ -1247,6 +1408,17 @@ class _MapPainter extends CustomPainter {
         ..setImageSampler(0, t.img)
         ..setImageSampler(1, t.mask!);
       canvas.drawRect(t.rect, Paint()..shader = sh);
+    }
+    // the canopy's shade on a made floor (the Thicket's is in its render)
+    if (m.shade.isNotEmpty) {
+      final sp = Paint();
+      for (final (x, z, r) in m.shade) {
+        final c = s._toGround(x, z);
+        if (!vis.inflate(r * m.scale).contains(c)) continue;
+        final rx = r * m.scale, rz = rx * m.sinP;
+        sp.shader = ui.Gradient.radial(c, rx, const [Color(0x55081008), Color(0x00081008)]);
+        canvas.drawOval(Rect.fromCenter(center: c, width: rx * 2, height: rz * 2.4), sp);
+      }
     }
     canvas.restore();
     // past the floor's north edge: the deep wood, the seam softened
@@ -1710,7 +1882,8 @@ class _MapPainter extends CustomPainter {
   }
 
   void _foe(Canvas canvas, Foe f, FoeArt a, Offset g) {
-    final k = s._u / a.scale;
+    final k = s._u / a.scale * f.size;
+    if (f.elite && !f.calm) _glow(canvas, g - Offset(0, a.top * k * 0.35), a.top * k * 0.7, Color.fromRGBO(150, 90, 230, 0.32 + 0.1 * math.sin(s._t * 4)));
     final pose = f.pose;
     final pi = pose == null ? null : a.poses[pose];
     final ui.Image img;
@@ -2480,8 +2653,11 @@ class _TopCenter extends StatelessWidget {
             return _BossBar(boss: b);
           }
           final String text;
+          final deep = state._map!.depth != null;
           if (r.calmed < r.foeTotal) {
             text = 'Calm the Hollow creatures  ${r.calmed}/${r.foeTotal}';
+          } else if (deep) {
+            text = 'The way down is open';
           } else if (r.bossState != BossState.calm) {
             text = 'Face the guardian at the old gate';
           } else {
@@ -2496,7 +2672,8 @@ class _TopCenter extends StatelessWidget {
             opacity: on ? 1 : 0,
             duration: const Duration(milliseconds: 900),
             child: Column(mainAxisSize: MainAxisSize.min, children: [
-              Text(state._map!.name.toUpperCase(), style: _hudText(10, const Color(0xCCFFE7B8)).copyWith(letterSpacing: 1.6)),
+              Text(state._map!.depth == null ? state._map!.name.toUpperCase() : '${state._map!.name.toUpperCase()} · ${state._map!.floor}',
+                  style: _hudText(10, const Color(0xCCFFE7B8)).copyWith(letterSpacing: 1.6)),
               const SizedBox(height: 1),
               Text(text, textAlign: TextAlign.center, style: _hudText(14)),
             ]),
@@ -3028,7 +3205,11 @@ class _FullMap extends StatelessWidget {
     final m = state._map!;
     final r = state._raid!;
     final mq = MediaQuery.of(context);
-    final objective = r.calmed >= r.foeTotal && r.bossState == BossState.calm
+    final objective = m.depth != null
+        ? (r.calmed >= r.foeTotal
+            ? 'The floor is calm: the old doorway down is open.'
+            : 'Calm the Hollow creatures (${r.calmed}/${r.foeTotal}), then take the old doorway down.')
+        : r.calmed >= r.foeTotal && r.bossState == BossState.calm
         ? 'The Thicket is calm. The old gate north leads to Fernwood Trail.'
         : 'Calm the Hollow creatures (${r.calmed}/${r.foeTotal})${r.bossState == BossState.calm ? '. The guardian is calm.' : ' and the guardian at the old gate.'}';
     return Container(

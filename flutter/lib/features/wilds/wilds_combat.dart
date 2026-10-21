@@ -66,6 +66,7 @@ class Actor {
   bool calm = false; // the Hollow has lifted
   double alpha = 1, spin = 0, sx = 1, sy = 1, lift = 0, glow = 0;
   double tilt = 0; // a lean in radians (drawn only), toward screen-right when positive
+  double size = 1; // drawn bigger (an elite)
   double pop = 0; // 1 at the instant of a hit, easing to 0: the body squashes and springs back
   // state
   double flash = 0, iframes = 0, stun = 0, slowT = 0, mercy = 0;
@@ -120,6 +121,7 @@ class Foe extends Actor {
   double poise = 40, maxPoise = 40;
   double alertDelay = 0;
   double windup = 0.5, active = 0.2, recover = 0.5;
+  bool elite = false; // a Deep Wilds elite: bigger, tougher, hits harder, drops more
   Mark? mark;
   double leaveT = 0; // calm: trotting off
 
@@ -337,6 +339,8 @@ class Raid {
     this.lootLabel,
     this.ward = 0,
     double bossScale = 1.0,
+    this.foeHp = 1.0,
+    this.foeHarm = 1.0,
   })  : rng = math.Random(seed),
         lootRng = math.Random(seed * 31 + 7) {
     startX = pet.x;
@@ -377,6 +381,8 @@ class Raid {
   final bool bossCleared;
   final int level;
   final int stage; // your Evochi's: 1 Eggling, 2 Juvenile, 3 Elder
+  /// Deeper floors: the creatures' health and the harm they do, as multiples.
+  final double foeHp, foeHarm;
   final math.Random rng;
   /// Rare finds a calmed foe can leave (the economy's drop table); its own random, so the fight's dice
   /// never change when the loot does.
@@ -412,11 +418,11 @@ class Raid {
   bool has(String b) => (buffs[b] ?? 0) > 0;
 
   /// Drink a brew: its buff starts (or refreshes) at full length.
-  void applyBuff(String id) {
+  void applyBuff(String id, {double? secs}) {
     final d = buffDefs[id];
     if (d == null) return;
     if (coatings.contains(id)) buffs.removeWhere((k, _) => k != id && coatings.contains(k));
-    buffs[id] = math.max(buffs[id] ?? 0, d.secs);
+    buffs[id] = math.max(buffs[id] ?? 0, secs ?? d.secs);
     bursts.add(Burst('buff', pet.x, pet.z, 0.8, size: 2));
     _float(d.name, pet.x, pet.z, 'info', ttl: 1.1);
     _emit('buff', text: id);
@@ -492,11 +498,21 @@ class Raid {
   bool get wallActive => wallUp;
 
   Foe _spawn(String id, String kind, String zone, double x, double z) {
-    final f = Foe(id: id, kind: kind, x: x, z: z, radius: kind == 'sporecap' ? 8 : 8, health: kind == 'sporecap' ? 46 : 58, zone: zone);
+    final elite = id.startsWith('elite');
+    final f = Foe(
+        id: id,
+        kind: kind,
+        x: x,
+        z: z,
+        radius: (kind == 'sporecap' ? 8 : 8) * (elite ? 1.3 : 1),
+        health: (kind == 'sporecap' ? 46 : 58) * foeHp * (elite ? 2.8 : 1),
+        zone: zone);
+    f.elite = elite;
+    if (elite) f.size = 1.4;
     f
       ..cycle = kind == 'sporecap' ? 10 : 7.2
-      ..poise = kind == 'sporecap' ? 20 : 30
-      ..maxPoise = kind == 'sporecap' ? 20 : 30
+      ..poise = (kind == 'sporecap' ? 20 : 30) * (elite ? 1.8 : 1)
+      ..maxPoise = (kind == 'sporecap' ? 20 : 30) * (elite ? 1.8 : 1)
       ..cd = 0.6 + rng.nextDouble()
       ..strafe = rng.nextBool() ? 1 : -1;
     f.face(rng.nextDouble() - 0.5, 1);
@@ -1244,6 +1260,8 @@ class Raid {
   /// Hurts a; returns whether it landed.
   bool _hurt(Actor a, double dmg, {Actor? from, double kx = 0, double kz = 0, double poise = 0, double stun = 0, String cause = ''}) {
     if (!a.alive || a.calm) return false;
+    // deeper floors' creatures hit harder; an elite harder still
+    if (from is Foe && a.team == Team.party) dmg *= foeHarm * (from.elite ? 1.35 : 1);
     if (a is Foe && (a.st == FoeState.roar || a.st == FoeState.dormant)) {
       _float('Shrugged off', a.x, a.z, 'info', ttl: 0.6);
       return false;
@@ -2311,8 +2329,18 @@ class Raid {
     }
     calmed += f.summoned ? 0 : 1;
     // what it leaves: coins into the satchel, sometimes a shard, a mote of light that heals
-    final c = (f.kind == 'sporecap' ? 3 : 2) + rng.nextInt(3);
+    final c = ((f.kind == 'sporecap' ? 3 : 2) + rng.nextInt(3)) * (f.elite ? 5 : 1) + (foeHp > 1 ? (foeHp * 2).round() : 0);
     coins += c;
+    if (f.elite) {
+      // an elite always leaves a shard, and gets a second roll at something rare
+      items['lumen_shard'] = (items['lumen_shard'] ?? 0) + 1;
+      _float('+1 Lumen Shard', f.x, f.z - 20, 'loot', ttl: 1.6);
+      lootRoll?.call(lootRng).forEach((id, n) {
+        items[id] = (items[id] ?? 0) + n;
+        _float(lootLabel?.call(id, n) ?? '+$n $id', f.x, f.z - 27, 'loot', ttl: 2.0);
+        _emit('rare_drop', text: id, x: f.x, z: f.z);
+      });
+    }
     _float('+$c coins', f.x, f.z, 'loot', ttl: 1.2);
     if (!f.summoned && rng.nextDouble() < 0.18) {
       items['lumen_shard'] = (items['lumen_shard'] ?? 0) + 1;

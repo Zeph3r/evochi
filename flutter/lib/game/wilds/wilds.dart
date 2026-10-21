@@ -128,6 +128,29 @@ ActionResult wildsClear(GameState state, String floor, int now) {
   ]);
 }
 
+// ---- the Deep Wilds (F2 and down: features/wilds/deep_floor.dart)
+String reachFlag(int floor) => 'wilds_f${floor}_reached';
+
+/// The deepest Deep Wilds floor ever reached (1: none yet, only the Thicket).
+int deepestFloor(GameState s) {
+  var d = 1;
+  while (s.flags[reachFlag(d + 1)] == true) {
+    d++;
+  }
+  return d;
+}
+
+/// You went down the steps to [floor]: remembered (the deepest you have been), and the first time you
+/// reach a new depth, a little Glimmer for the explorer.
+ActionResult wildsReach(GameState state, int floor, int now) {
+  if (state.flags[reachFlag(floor)] == true) return ActionResult(state);
+  final s = state.copy();
+  s.flags[reachFlag(floor)] = true;
+  // every fifth floor, the first time: a little Glimmer for the explorer
+  final m = floor % 5 == 0 ? econ.milestoneGlimmer(s, 'deep_f$floor', 25, now) : null;
+  return ActionResult(s, events: [GameEvent('wilds_reached', {'floor': floor, 'glimmer': m == null ? 0 : 25})]);
+}
+
 /// Sher's welcome: the first time he joins, a few Berry Snacks for the road.
 ActionResult wildsSherGift(GameState state, int now) {
   if (state.flags['wilds_sher_gift'] == true) return ActionResult(state);
