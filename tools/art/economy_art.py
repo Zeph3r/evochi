@@ -482,8 +482,71 @@ def thornskin_tonic():
     return M, Camera(yaw=-20, pitch=16)
 
 
+def frostmint_tonic():
+    """A round flask of icy mint-blue brew, frost crystals on the shoulder, a snowflake on the cork."""
+    M = M_((-8, -1, -8), (8, 18, 8), res=2)
+    cy = bottle(M, 'round', '#6FC8E8', '#D8F4FF', glow=0.6)
+    for k in range(7):
+        a = k * 0.9 + 0.3
+        tip = spike(M, (math.cos(a) * 3.4, 6.2, math.sin(a) * 3.4), (math.cos(a) * 0.5, 1.0, math.sin(a) * 0.5), 1.8, 0.55, 0.1)
+        put(M, tip & (M.m == 0), '#F2FCFF', glow=0.5)
+    flake = (np.abs(M.X) <= 0.5) | (np.abs(M.X - M.Y + cy[1] + 1.2) <= 0.5) | (np.abs(M.X + M.Y - cy[1] - 1.2) <= 0.5)
+    put(M, flake & (M.Y > cy[1]) & (M.Y < cy[1] + 3.0) & (np.abs(M.Z) <= 0.6) & (np.abs(M.X) <= 1.6) & (M.m == 0), '#FFFFFF', glow=0.8)
+    return M, Camera(yaw=-20, pitch=16)
+
+
+def fizzleberry_soda():
+    """A tall bottle of fizzing berry-pink soda, bubbles rising out of it and a little spark on top."""
+    M = M_((-8, -1, -8), (8, 19, 8), res=2)
+    cy = bottle(M, 'tall', '#F06AAE', '#FFC2E1', glow=0.5)
+    for (x, y, z) in ((1.6, 3.0, 2.2), (-1.0, 5.0, 2.4), (0.6, 6.4, 2.6), (-0.4, 2.0, 2.6)):
+        put(M, ell(M, (x, y, z), (0.5, 0.5, 0.5)), '#FFF0F8', glow=0.9)
+    zig = [(0, cy[1] + 0.4), (1.2, cy[1] + 1.6), (-0.4, cy[1] + 2.4), (0.9, cy[1] + 3.8)]
+    for (x0, y0), (x1, y1) in zip(zig, zig[1:]):
+        for t in np.linspace(0, 1, 6):
+            put(M, ell(M, (x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, 0), (0.45, 0.45, 0.45)) & (M.m == 0), '#FFE45C', glow=1.0)
+    return M, Camera(yaw=-20, pitch=16)
+
+
+def sapling_syrup():
+    """A squat jar of golden-green syrup with a tiny sapling sprouting from the cork."""
+    M = M_((-8, -1, -8), (8, 18, 8), res=2)
+    cy = bottle(M, 'round', '#9BCB3C', '#E6F59A', glow=0.35)
+    stem = (np.abs(M.X) <= 0.5) & (np.abs(M.Z) <= 0.5) & (M.Y > cy[1]) & (M.Y < cy[1] + 3.2)
+    put(M, stem & (M.m == 0), '#5E8C3E')
+    for i, d in enumerate(((0.9, 0.6, 0.2), (-0.9, 0.7, -0.1))):
+        lf = spike(M, (0, cy[1] + 2.6, 0), d, 2.6, 1.0, 0.3)
+        put(M, lf & (M.m == 0), LEAF_HI if i else LEAF)
+    put(M, ell(M, (2.2, 2.6, 2.6), (0.6, 0.9, 0.6)), '#E6F59A', glow=0.6)
+    return M, Camera(yaw=-20, pitch=16)
+
+
+def dazzle_dew():
+    """A round flask of shimmering gold-white dew with little stars swirling inside and one on top."""
+    M = M_((-8, -1, -8), (8, 18, 8), res=2)
+    cy = bottle(M, 'round', '#F5D35A', '#FFF6C8', glow=0.8)
+    for (x, y, z) in ((1.4, 3.0, 2.8), (-1.2, 4.2, 2.8), (0.2, 2.0, 3.3)):
+        star4(M, (x, y, z), 0.9, 0.6, '#FFFFFF', 1.0)
+    star4(M, (0, cy[1] + 1.8, 0), 1.7, 0.9, '#FFF3A0', 1.0)
+    return M, Camera(yaw=-20, pitch=16)
+
+
+def hushwater():
+    """A tall bottle of still, deep-blue water with a crescent moon on the cork: it quiets the Hollow."""
+    M = M_((-8, -1, -8), (8, 19, 8), res=2)
+    cy = bottle(M, 'tall', '#3D5FB8', '#9FB8F0', glow=0.45)
+    moon = (plane_dist(M, (0, cy[1] + 2.0, 0)) <= 1.8) & ~(plane_dist(M, (0.8, cy[1] + 2.4, 0)) <= 1.5) & (np.abs(M.Z) <= 0.7)
+    put(M, moon & (M.m == 0), '#E9EEFF', glow=0.9)
+    for y in (3.0, 4.6):
+        ring = (np.abs(np.sqrt(M.X ** 2 + M.Z ** 2) - 3.0) <= 0.35) & (np.abs(M.Y - y) <= 0.3)
+        put(M, ring, '#C9D6FF', glow=0.5)
+    return M, Camera(yaw=-20, pitch=16)
+
+
 ITEMS = {
     'ember_draught': ember_draught, 'thornskin_tonic': thornskin_tonic,
+    'frostmint_tonic': frostmint_tonic, 'fizzleberry_soda': fizzleberry_soda, 'sapling_syrup': sapling_syrup,
+    'dazzle_dew': dazzle_dew, 'hushwater': hushwater,
     'sunstone': sunstone, 'moonwell_dew': moonwell_dew, 'heartbloom': heartbloom,
     'wayfinder_compass': wayfinder_compass, 'golden_acorn': golden_acorn, 'hollow_ward': hollow_ward,
     'starseed': starseed, 'prism_scale': prism_scale, 'glimmer': glimmer, 'starter_pack': starter_pack,

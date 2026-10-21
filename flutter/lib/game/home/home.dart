@@ -151,8 +151,14 @@ const recipeDefs = <String, RecipeDef>{
   // Wilds brews: made for fights (their buffs in the Wilds: game/wilds/wilds.dart)
   'ember_draught': RecipeDef('ember_draught', 'apothecary', 'ember_draught', {'sunberry': 3, 'moonshroom': 1}, 3, 30),
   'thornskin_tonic': RecipeDef('thornskin_tonic', 'apothecary', 'thornskin_tonic', {'briar_heartwood': 1, 'glowleaf': 1}, 4, 40),
+  // coatings: one on your attacks at a time
+  'fizzleberry_soda': RecipeDef('fizzleberry_soda', 'apothecary', 'fizzleberry_soda', {'sunberry': 4, 'golden_wheat': 1}, 2, 25),
+  'sapling_syrup': RecipeDef('sapling_syrup', 'apothecary', 'sapling_syrup', {'glowleaf': 1, 'meadow_carrot': 2, 'sunberry': 1}, 2, 25),
+  'frostmint_tonic': RecipeDef('frostmint_tonic', 'apothecary', 'frostmint_tonic', {'glowleaf': 2, 'moonshroom': 1}, 3, 30),
+  'dazzle_dew': RecipeDef('dazzle_dew', 'apothecary', 'dazzle_dew', {'lumen_shard': 1, 'sunberry': 2, 'golden_wheat': 1}, 3, 35),
+  'hushwater': RecipeDef('hushwater', 'apothecary', 'hushwater', {'moonshroom': 2, 'meadow_carrot': 1}, 4, 40),
 };
-const recipeOrder = ['sunberry_tart', 'carrot_stew', 'golden_bun', 'moonshroom_pie', 'glowleaf_tonic', 'meadow_tea', 'sprout_tonic', 'moonlight_draught', 'lantern_tonic', 'ember_draught', 'thornskin_tonic'];
+const recipeOrder = ['sunberry_tart', 'carrot_stew', 'golden_bun', 'moonshroom_pie', 'glowleaf_tonic', 'meadow_tea', 'sprout_tonic', 'moonlight_draught', 'lantern_tonic', 'ember_draught', 'thornskin_tonic', 'fizzleberry_soda', 'sapling_syrup', 'frostmint_tonic', 'dazzle_dew', 'hushwater'];
 
 /// The story quest that teaches a recipe: its room's quest, or Tangled Lumen for the Lantern Tonic.
 String recipeQuest(RecipeDef r) => r.flag == 'sprout_restored' ? 'eq02' : stationDefs[r.station]!.quest;

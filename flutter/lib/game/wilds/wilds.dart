@@ -24,6 +24,12 @@ const wildsBrews = {
   'lantern_tonic': 'lantern',
   'ember_draught': 'ember',
   'thornskin_tonic': 'thornskin',
+  // coatings (one at a time)
+  'frostmint_tonic': 'frost',
+  'fizzleberry_soda': 'static',
+  'sapling_syrup': 'sap',
+  'dazzle_dew': 'dazzle',
+  'hushwater': 'hush',
 };
 
 /// The brews in the Bag, in [wildsBrews] order.

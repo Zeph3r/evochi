@@ -70,6 +70,8 @@ class Actor {
   // state
   double flash = 0, iframes = 0, stun = 0, slowT = 0, mercy = 0;
   double burnT = 0, _burnFx = 0; // set alight by an Ember Draught's hits
+  double chillT = 0; // chilled by a Frost coating: moves and winds up slower
+  double daze = 0; // built up by a Dazzle coating: at 100 it reels
   double kx = 0, kz = 0; // knockback (units per second)
   double vx = 0, vz = 0; // velocity last tick (for leading shots)
   late double px = x, pz = z; // where it was last tick
@@ -191,6 +193,8 @@ class Shot {
   // a lob: from (x0, z0) to (x1, z1) over `life` seconds, arcing `h` units high
   double x0 = 0, z0 = 0, x1 = 0, z1 = 0, h = 0;
   bool lob = false, done = false;
+  int pierce = 0; // foes it can pass through (a Juvenile's bolt goes through one)
+  final hits = <Actor>{};
   Mark? mark;
   double get height => lob ? h * 4 * (t / life) * (1 - t / life) : 6;
 }
@@ -232,8 +236,9 @@ class Floater {
 
 /// A little effect: sparks, dust, light motes, a pulse, roots bursting up, a slash.
 class Burst {
-  Burst(this.kind, this.x, this.z, this.ttl, {this.dx = 0, this.dz = 1, this.size = 1});
+  Burst(this.kind, this.x, this.z, this.ttl, {this.dx = 0, this.dz = 1, this.size = 1, this.tag = ''});
   final String kind;
+  final String tag; // e.g. the coating that tints a swipe
   final double x, z, ttl, dx, dz, size;
   double t = 0;
 }
@@ -284,7 +289,7 @@ const _stamMax = 100.0, _stamRegen = 34.0, _stamDelay = 0.55;
 const _swingCost = [5.0, 5.0, 8.0], _swingDmg = [9.0, 10.0, 16.0], _swingPoise = [8.0, 8.0, 24.0], _swingKnock = [40.0, 40.0, 120.0];
 const _swingLunge = [9.0, 9.0, 16.0], _swingRecover = [0.17, 0.17, 0.32];
 const _boltCost = 18.0, _boltCd = 1.0, _boltDmg = 13.0;
-const _pulseCost = 34.0, _pulseCd = 7.0, _pulseDmg = 18.0, _pulseR = 36.0;
+const _pulseCost = 34.0, _pulseCd = 7.0, _pulseDmg = 18.0, _pulseR0 = 36.0;
 const _dodgeCost = 20.0, _dodgeTime = 0.3, _dodgeDist = 46.0;
 
 /// A potion's buff in the Wilds (an Apothecary brew drunk mid-run).
@@ -302,7 +307,16 @@ const buffDefs = <String, BuffDef>{
   'lantern': BuffDef('Lantern-lit', 30, 'The Hollow hits 35% softer'),
   'ember': BuffDef('Ember', 30, 'Your hits set foes alight'),
   'thornskin': BuffDef('Thornskin', 25, 'Strikers take 40% of their blow back'),
+  // coatings: something on your own attacks (one at a time)
+  'frost': BuffDef('Frost', 30, 'Your hits chill: foes move and wind up slower'),
+  'static': BuffDef('Static', 30, 'Every fourth hit sparks to another foe'),
+  'sap': BuffDef('Sap', 30, 'Your hits heal you a little'),
+  'dazzle': BuffDef('Dazzle', 30, 'Your hits build dizziness until a foe reels'),
+  'hush': BuffDef('Hush', 30, 'Your hits break guard far sooner'),
 };
+
+/// Coatings sit on your Evochi's own attacks; a new one washes the last one off.
+const coatings = {'ember', 'frost', 'static', 'sap', 'dazzle', 'hush'};
 const _sherHp = 150.0;
 
 class Raid {
@@ -317,6 +331,7 @@ class Raid {
     this.bossDef,
     this.bossCleared = false,
     this.level = 1,
+    this.stage = 1,
     int seed = 7,
     this.lootRoll,
     this.lootLabel,
@@ -326,7 +341,8 @@ class Raid {
         lootRng = math.Random(seed * 31 + 7) {
     startX = pet.x;
     startZ = pet.z;
-    atk = 1 + 0.06 * (level - 1);
+    // each evolution hits a little harder (and its moves change: see the Pounce, Bolt and Pulse)
+    atk = (1 + 0.06 * (level - 1)) * (1 + 0.08 * (stage.clamp(1, 3) - 1));
     for (final s in spawns) {
       foes.add(_spawn(s.id, s.kind, s.zone, s.x, s.z));
     }
@@ -360,6 +376,7 @@ class Raid {
   final BossDef? bossDef;
   final bool bossCleared;
   final int level;
+  final int stage; // your Evochi's: 1 Eggling, 2 Juvenile, 3 Elder
   final math.Random rng;
   /// Rare finds a calmed foe can leave (the economy's drop table); its own random, so the fight's dice
   /// never change when the loot does.
@@ -398,6 +415,7 @@ class Raid {
   void applyBuff(String id) {
     final d = buffDefs[id];
     if (d == null) return;
+    if (coatings.contains(id)) buffs.removeWhere((k, _) => k != id && coatings.contains(k));
     buffs[id] = math.max(buffs[id] ?? 0, d.secs);
     bursts.add(Burst('buff', pet.x, pet.z, 0.8, size: 2));
     _float(d.name, pet.x, pet.z, 'info', ttl: 1.1);
@@ -451,6 +469,15 @@ class Raid {
   final damage = <int, int>{}; // ground block -> crashes taken
   final broken = <int>{};
   double _hoofT = 0, _trailT = 0;
+  int _staticN = 0; // hits toward the next Static spark
+  double _sapCd = 0;
+  bool _chaining = false;
+
+  /// The Pulse reaches further as your Evochi grows.
+  double get pulseR => _pulseR0 * (stage >= 3 ? 1.4 : (stage >= 2 ? 1.25 : 1.0));
+
+  /// The coating on your Evochi's attacks right now, if any.
+  String? get coating => buffs.keys.where(coatings.contains).firstOrNull;
   bool _closeCall = false;
 
   Iterable<Foe> get allFoes sync* {
@@ -578,16 +605,21 @@ class Raid {
       if (has('regen') && pet.alive) pet.hp = math.min(pet.maxHp, pet.hp + 3 * dt);
     }
     _tickBurns(dt);
+    _sapCd -= dt;
     time += dt;
     _sayCd -= dt;
     _tickPet(dt, inp);
     final s = sher;
     if (s != null) _tickSher(s, dt);
     for (final f in foes.toList()) {
-      _tickFoe(f, dt);
+      _cool(f, dt);
+      _tickFoe(f, f.chillT > 0 ? dt * 0.62 : dt);
     }
     final b = boss;
-    if (b != null) _tickBoss(b, dt);
+    if (b != null) {
+      _cool(b, dt);
+      _tickBoss(b, b.chillT > 0 ? dt * 0.8 : dt);
+    }
     _tickShots(dt);
     _tickHazards(dt);
     _tickWaves(dt);
@@ -920,13 +952,20 @@ class Raid {
           p.sx = 1 + 0.08 * k;
           p.tilt = -lean * 0.12 * k;
         } else if (actT < 0.2) {
-          final lunge = _swingLunge[c] / 0.13 * _lungeK;
+          // a Juvenile's third Pounce is a Leap: further and higher, and it lands with a shockwave
+          final leap = c == 2 && stage >= 2;
+          final lunge = _swingLunge[c] * (leap ? 1.35 : 1) / 0.13 * _lungeK;
           _move(p, p.fx, p.fz, lunge * (p.slowT > 0 ? 0.7 : 1), dt, faceIt: false);
           final big = c == 2 ? 1.6 : 1.0;
           p.sy = 1 + 0.12 * big;
           p.sx = 1 - 0.08 * big;
           p.tilt = lean * 0.2 * big;
-          if (c == 2) p.lift = math.sin((actT - 0.07) / 0.13 * math.pi) * 9;
+          if (c == 2) p.lift = math.sin((actT - 0.07) / 0.13 * math.pi) * (leap ? 18 : 9);
+          if (actT - dt < 0.07) {
+            // the swipe itself: an arc of light (bigger as it grows, tinted by its coating)
+            bursts.add(Burst('swipe', p.x + p.fx * 10, p.z + p.fz * 10, 0.22,
+                dx: p.fx, dz: p.fz, size: (0.8 + 0.25 * (stage - 1)) * (c == 2 ? 1.3 : 1), tag: coating ?? ''));
+          }
           if (trail.isEmpty || time - trail.last.$3 > 0.03) trail.add((p.x, p.z, time));
           _swingHits(c);
           _landed = false;
@@ -940,6 +979,7 @@ class Raid {
           if (!_landed && _lungeK > 0.5) {
             _landed = true;
             bursts.add(Burst('dust', p.x - p.fx * 2, p.z - p.fz * 2, 0.4, size: c == 2 ? 1.4 : 0.8));
+            if (c == 2 && stage >= 2) _leapLand(p);
           }
         }
         if (actT > 0.2 + _swingRecover[c]) {
@@ -958,7 +998,8 @@ class Raid {
         p.glow = 1;
         if (actT >= 0.1 && actT - dt < 0.1) {
           final t = _softTarget(170, p.fx, p.fz);
-          final sh = Shot(ShotKind.bolt, Team.party, p.x + p.fx * 10, p.z + p.fz * 10, vx: p.fx * 165, vz: p.fz * 165, life: 1.2, owner: p, target: t);
+          final sh = Shot(ShotKind.bolt, Team.party, p.x + p.fx * 10, p.z + p.fz * 10, vx: p.fx * 165, vz: p.fz * 165, life: 1.2, owner: p, target: t)
+            ..pierce = stage >= 3 ? 2 : (stage >= 2 ? 1 : 0);
           shots.add(sh);
           _emit('bolt');
         }
@@ -1157,16 +1198,32 @@ class Raid {
     }
   }
 
+  /// The Leap lands: a shockwave knocks back and stuns what is near (the guardian only loses poise).
+  void _leapLand(Actor p) {
+    final r = stage >= 3 ? 42.0 : 30.0;
+    bursts.add(Burst('quake', p.x, p.z, 0.5, size: r));
+    shake = math.max(shake, 0.45);
+    hitstop = math.max(hitstop, 0.05);
+    _emit('leap', x: p.x, z: p.z);
+    for (final f in hostile.toList()) {
+      final d = p.dist(f);
+      if (d > r + f.radius) continue;
+      final k = d > 1e-6 ? 1 / d : 0.0;
+      _hurt(f, 6 * atk, from: p, kx: (f.x - p.x) * k * 110, kz: (f.z - p.z) * k * 110, poise: 16);
+      if (f is! Boss && !f.calm) f.stun = math.max(f.stun, 0.6);
+    }
+  }
+
   void _pulse() {
     final p = pet;
-    bursts.add(Burst('pulse', p.x, p.z, 0.45, size: _pulseR));
+    bursts.add(Burst('pulse', p.x, p.z, 0.45, size: pulseR));
     _emit('pulse');
     shake = math.max(shake, 0.25);
     p.slowT = 0;
-    hazards.removeWhere((h) => _len(h.x - p.x, h.z - p.z) < _pulseR + h.r * 0.5);
+    hazards.removeWhere((h) => _len(h.x - p.x, h.z - p.z) < pulseR + h.r * 0.5);
     for (final f in hostile.toList()) {
       final d = p.dist(f);
-      if (d > _pulseR + f.radius) continue;
+      if (d > pulseR + f.radius) continue;
       final k = d > 1e-6 ? 1 / d : 0.0;
       _hurt(f, _pulseDmg * atk, from: p, kx: (f.x - p.x) * k * 150, kz: (f.z - p.z) * k * 150, poise: 34);
     }
@@ -1229,6 +1286,47 @@ class Raid {
     if (a is Foe && from == pet) {
       if (has('moonlit') && rng.nextDouble() < 0.25) crit = true;
       if (has('ember')) a.burnT = 3.0;
+      if (has('frost')) {
+        if (a.chillT <= 0) bursts.add(Burst('frost', a.x, a.z, 0.6, size: a is Boss ? 1.6 : 1));
+        a.chillT = 3.0;
+      }
+      if (has('hush')) poise *= 1.6;
+      if (has('sap') && _sapCd <= 0 && pet.hp < pet.maxHp) {
+        _sapCd = 0.2;
+        pet.hp = math.min(pet.maxHp, pet.hp + 2.5);
+        bursts.add(Burst('sap', a.x, a.z, 0.6, dx: pet.x - a.x, dz: pet.z - a.z));
+      }
+      if (has('dazzle')) {
+        // dizziness builds with every hit; it reels at the top (once any stun it is already in is over)
+        a.daze = math.min(100, a.daze + (a is Boss ? 11 : 24));
+        if (a.daze >= 100 && a.stun <= 0) {
+          a.daze = 0;
+          _stagger(a, a is Boss ? 0.9 : 1.4);
+          _float('Dazzled!', a.x, a.z - 6, 'crit', ttl: 0.8);
+          bursts.add(Burst('stars', a.x, a.z, 1.2, size: a is Boss ? 2 : 1));
+          _emit('dazzled', x: a.x, z: a.z);
+        }
+      }
+      if (has('static') && !_chaining && ++_staticN >= 4) {
+        _staticN = 0;
+        Foe? next;
+        var nd = 80.0;
+        for (final o in hostile) {
+          if (o == a || o.calm) continue;
+          final d = o.dist(a);
+          if (d < nd) {
+            nd = d;
+            next = o;
+          }
+        }
+        bursts.add(Burst('zap', a.x, a.z, 0.35, dx: (next?.x ?? a.x + 20) - a.x, dz: (next?.z ?? a.z) - a.z));
+        _emit('zap', x: a.x, z: a.z);
+        if (next != null) {
+          _chaining = true;
+          _hurt(next, dmg * 0.5, from: pet, poise: 6, stun: 0.25);
+          _chaining = false;
+        }
+      }
     }
     if (a is Foe) {
       // from behind, or while it is dazed: it hurts more
@@ -2329,11 +2427,31 @@ class Raid {
         continue;
       }
       for (final f in hostile.toList()) {
+        if (s.hits.contains(f)) continue;
         if (_len(f.x - s.x, f.z - s.z) < f.radius + 4) {
           final sp = math.max(_len(s.vx, s.vz), 1e-6);
           _hurt(f, _boltDmg * atk, from: pet, kx: s.vx / sp * 50, kz: s.vz / sp * 50, poise: 10);
-          s.done = true;
+          s.hits.add(f);
           bursts.add(Burst('glow', s.x, s.z, 0.35));
+          if (s.pierce > 0) {
+            // it goes straight through and on to the next one
+            s.pierce--;
+            s.life = s.t + 0.8;
+            Foe? next;
+            var nd = 130.0;
+            for (final o in hostile) {
+              if (s.hits.contains(o)) continue;
+              final d = _len(o.x - s.x, o.z - s.z);
+              if (d < nd) {
+                nd = d;
+                next = o;
+              }
+            }
+            s.target = next;
+            bursts.add(Burst('spark', s.x, s.z, 0.3));
+            break;
+          }
+          s.done = true;
           break;
         }
       }
@@ -2365,6 +2483,12 @@ class Raid {
       }
     }
     waves.removeWhere((w) => w.r > w.maxR);
+  }
+
+  /// Frost thaws and dizziness clears with time.
+  void _cool(Foe f, double dt) {
+    if (f.chillT > 0) f.chillT = math.max(0, f.chillT - dt);
+    if (f.daze > 0) f.daze = math.max(0, f.daze - dt * 9);
   }
 
   /// Ember Draught burns: a few points a second for as long as the fire lasts.

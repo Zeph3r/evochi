@@ -3827,7 +3827,12 @@
   "season_first_light_scarf": "items/season_first_light_scarf.webp",
   "season_dawn_shimmer": "items/season_dawn_shimmer.webp",
   "ember_draught": "items/ember_draught.webp",
-  "thornskin_tonic": "items/thornskin_tonic.webp"
+  "thornskin_tonic": "items/thornskin_tonic.webp",
+  "frostmint_tonic": "items/frostmint_tonic.webp",
+  "fizzleberry_soda": "items/fizzleberry_soda.webp",
+  "sapling_syrup": "items/sapling_syrup.webp",
+  "dazzle_dew": "items/dazzle_dew.webp",
+  "hushwater": "items/hushwater.webp"
  },
  "icons": {
   "bag": "icons/bag.webp",

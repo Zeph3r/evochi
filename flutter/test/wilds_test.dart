@@ -494,4 +494,93 @@ void main() {
       expect(r.foes[0].pop, lessThan(0.05));
     });
   });
+
+  group('coatings and growing up', () {
+    // swing at whatever is in front, the whole time
+    RaidInput swinging(Raid r) => RaidInput()..attack = true;
+
+    Raid duel({int stage = 1, List<FoeSpawn> foes = const [FoeSpawn('a', 'thornling', 'z', 0, 16)], double hp = 100000}) {
+      final r = Raid(ground: meadow(), pet: petAt(0, 34, hp: hp), spawns: foes, stage: stage, seed: 5);
+      for (final f in r.foes) {
+        f.face(0, 1);
+      }
+      return r;
+    }
+
+    test('one coating at a time: a new one washes the last off; plain brews stay', () {
+      final r = duel();
+      r.applyBuff('lantern');
+      r.applyBuff('ember');
+      r.applyBuff('frost');
+      expect(r.has('frost'), isTrue);
+      expect(r.has('ember'), isFalse);
+      expect(r.has('lantern'), isTrue);
+      expect(r.coating, 'frost');
+    });
+
+    test('Frost chills what it hits', () {
+      final r = duel()..applyBuff('frost');
+      run(r, 1.5, swinging);
+      expect(r.foes.first.chillT, greaterThan(0));
+    });
+
+    test('Sap heals a little on every hit', () {
+      final r = duel(hp: 100)..applyBuff('sap');
+      r.pet.hp = 40;
+      r.foes.first.stun = 3; // it cannot bite back meanwhile
+      run(r, 1.0, swinging);
+      expect(r.pet.hp, greaterThan(40));
+    });
+
+    test('Static sparks to a second foe', () {
+      final r = duel(foes: const [FoeSpawn('a', 'thornling', 'z', 0, 16), FoeSpawn('b', 'thornling', 'z', 40, 10)])..applyBuff('static');
+      final b = r.foes[1];
+      for (var i = 0; i < 60 * 4 && b.hp >= b.maxHp; i++) {
+        r.tick(dt, swinging(r));
+      }
+      expect(b.hp, lessThan(b.maxHp));
+    });
+
+    test('Dazzle makes a foe reel', () {
+      final r = duel()..applyBuff('dazzle');
+      // a sturdy one, so it is still standing when the dizziness tops out
+      r.foes.first
+        ..maxHp = 5000
+        ..hp = 5000;
+      var dazzled = false;
+      for (var i = 0; i < 60 * 5 && !dazzled; i++) {
+        r.tick(dt, swinging(r));
+        dazzled = r.events.any((e) => e.type == 'dazzled');
+      }
+      expect(dazzled, isTrue);
+    });
+
+    test('a Juvenile reaches further: a wider Pulse, a bolt that goes through, a Leap that lands with a shockwave', () {
+      expect(duel(stage: 2).pulseR, greaterThan(duel(stage: 1).pulseR));
+      // two foes in a row ahead: the bolt goes through the first into the second
+      final r = duel(stage: 2, foes: const [FoeSpawn('a', 'thornling', 'z', 0, -10), FoeSpawn('b', 'thornling', 'z', 0, -40)]);
+      for (final f in r.foes) {
+        f.face(0, -1); // looking away: they have not seen you
+      }
+      r.press('bolt');
+      run(r, 1.0);
+      expect(r.foes.every((f) => f.hp < f.maxHp), isTrue);
+      // the third Pounce of a combo is a Leap
+      final l = duel(stage: 2);
+      var leapt = false;
+      for (var i = 0; i < 60 * 3 && !leapt; i++) {
+        l.tick(dt, swinging(l));
+        leapt = l.events.any((e) => e.type == 'leap');
+      }
+      expect(leapt, isTrue);
+      // an Eggling's third Pounce is still a pounce
+      final e = duel(stage: 1);
+      var eggLeapt = false;
+      for (var i = 0; i < 60 * 3; i++) {
+        e.tick(dt, swinging(e));
+        eggLeapt = eggLeapt || e.events.any((ev) => ev.type == 'leap');
+      }
+      expect(eggLeapt, isFalse);
+    });
+  });
 }

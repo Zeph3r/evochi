@@ -210,6 +210,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
             ),
       bossCleared: cleared,
       level: level,
+      stage: c.state.pet?.stage ?? 1,
       seed: DateTime.now().millisecondsSinceEpoch & 0xffff,
       // the economy: rare finds from calmed creatures, and an armed Hollow Ward
       lootRoll: (r) => econ.rollDrops('wilds_foe', r),
@@ -544,6 +545,14 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
           a.buzz(Haptic.hit);
         case 'hoof':
           _sfx('enc_rumble', 0.22, gap: 0.12);
+        case 'zap':
+          _sfx('enc_surge', 0.35, gap: 0.12);
+        case 'leap':
+          _sfx('wild_crash', 0.5, gap: 0.1);
+          a.buzz(Haptic.thump);
+        case 'dazzled':
+          _sfx('play_boing', 0.45, gap: 0.2);
+          a.buzz(Haptic.hit);
         case 'close_call':
           _sfx('enc_soothe', 0.6);
           a.buzz(Haptic.perfect);
@@ -746,7 +755,13 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final res = c.run((s, n) => w.wildsDrink(s, id, n), quiet: true);
     final ev = res.events.where((e) => e.type == 'wilds_drink').firstOrNull;
     if (ev == null) return;
-    r.applyBuff(ev.data['buff'] as String);
+    final buff = ev.data['buff'] as String;
+    final before = r.coating;
+    r.applyBuff(buff);
+    // one coating at a time: the new one washes the last off
+    if (coatings.contains(buff) && before != null && before != buff) {
+      _showBanner('${buffDefs[buff]?.name} coating: ${buffDefs[before]?.name} washed off', 2.0);
+    }
     _brewCd = 1.5;
     c.analytics.track('wilds_brew', {'item': id});
   }
@@ -1634,7 +1649,12 @@ class _MapPainter extends CustomPainter {
     final p = Paint()
       ..filterQuality = FilterQuality.medium
       ..color = Color.fromRGBO(0, 0, 0, a.alpha.clamp(0.0, 1.0));
-    if (a.flash > 0) p.colorFilter = ColorFilter.mode(Color.fromRGBO(255, 255, 255, (a.flash / 0.14).clamp(0.0, 1.0) * 0.75), BlendMode.srcATop);
+    if (a.flash > 0) {
+      p.colorFilter = ColorFilter.mode(Color.fromRGBO(255, 255, 255, (a.flash / 0.14).clamp(0.0, 1.0) * 0.75), BlendMode.srcATop);
+    } else if (a is Foe && a.chillT > 0) {
+      // frosted over by a Frost coating
+      p.colorFilter = ColorFilter.mode(Color.fromRGBO(170, 220, 255, 0.22 + 0.1 * (a.chillT / 3).clamp(0.0, 1.0)), BlendMode.srcATop);
+    }
     return p;
   }
 
@@ -1933,6 +1953,78 @@ class _MapPainter extends CustomPainter {
     final g = s._toScreen(b.x, b.z);
     final u = s._u / 2.7;
     switch (b.kind) {
+      case 'swipe':
+        // the Pounce's arc of light: bigger as your Evochi grows, tinted by its coating
+        final col = switch (b.tag) {
+          'ember' => const Color(0xFFFFA24A),
+          'frost' => const Color(0xFFBFE9FF),
+          'static' => const Color(0xFFFFE86A),
+          'sap' => const Color(0xFFB8EE7A),
+          'dazzle' => const Color(0xFFFFF0A8),
+          'hush' => const Color(0xFF9FB8FF),
+          _ => const Color(0xFFFFF6E4),
+        };
+        final a0 = math.atan2(b.dz * s._map!.sinP, b.dx);
+        final w = 34 * u * b.size, h = 24 * u * b.size;
+        final c = g - Offset(0, 9 * _up);
+        final rect = Rect.fromCenter(center: c, width: w, height: h);
+        final sweep = 1.0 + 0.9 * k;
+        canvas.drawArc(rect, a0 - 0.9, sweep, false,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = (5 + 3 * b.size) * (1 - k)
+              ..strokeCap = StrokeCap.round
+              ..color = col.withAlpha(((1 - k) * 230).round()));
+        if (b.tag.isNotEmpty) _glow(canvas, c, 18 * u * b.size, col.withAlpha(((1 - k) * 110).round()));
+      case 'quake':
+        // the Leap lands: a ring of force across the ground and a puff of grit
+        canvas.drawOval(
+            _ellipse(b.x, b.z, b.size * Curves.easeOutCubic.transform(k)),
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 6 * (1 - k) + 1
+              ..color = Color.fromRGBO(255, 244, 214, 0.85 * (1 - k)));
+        canvas.drawOval(_ellipse(b.x, b.z, b.size * 0.6 * k), Paint()..color = Color.fromRGBO(200, 180, 140, 0.25 * (1 - k)));
+      case 'frost':
+        // a Frost coating takes hold: ice shards burst out and glitter
+        final p = Paint()
+          ..strokeWidth = 2.4
+          ..strokeCap = StrokeCap.round
+          ..color = Color.fromRGBO(200, 236, 255, 1 - k);
+        final c = g - Offset(0, 10 * _up * b.size);
+        for (var i = 0; i < 8; i++) {
+          final a = i * math.pi / 4 + 0.3;
+          final d0 = 3 + 6 * k, d1 = 8 + 18 * k;
+          canvas.drawLine(c + Offset(math.cos(a) * d0, math.sin(a) * d0 * 0.7) * u * b.size,
+              c + Offset(math.cos(a) * d1, math.sin(a) * d1 * 0.7) * u * b.size, p);
+        }
+        _glow(canvas, c, 18 * u * b.size, Color.fromRGBO(170, 220, 255, 0.5 * (1 - k)));
+      case 'sap':
+        // green motes drawn from the hit back into your Evochi
+        final pc = Paint()..color = Color.fromRGBO(170, 230, 110, 0.9 * (1 - k * k));
+        for (var i = 0; i < 4; i++) {
+          final kk = (k * 1.3 - i * 0.1).clamp(0.0, 1.0);
+          final at = s._toScreen(b.x + b.dx * kk, b.z + b.dz * kk) - Offset(math.sin(i * 2.1 + k * 6) * 6 * u, (12 + 10 * math.sin(kk * math.pi)) * _up);
+          canvas.drawCircle(at, 2.6 * u, pc);
+        }
+      case 'zap':
+        // Static: a jagged spark leaps to the next foe
+        final from = g - Offset(0, 10 * _up), to = s._toScreen(b.x + b.dx, b.z + b.dz) - Offset(0, 10 * _up);
+        final path = Path()..moveTo(from.dx, from.dy);
+        for (var i = 1; i < 6; i++) {
+          final t = i / 6;
+          final mid = Offset.lerp(from, to, t)!;
+          path.lineTo(mid.dx + ((i + (s._t * 30).floor()) % 2 == 0 ? 6 : -6) * u, mid.dy + (i.isEven ? -4 : 4) * u);
+        }
+        path.lineTo(to.dx, to.dy);
+        canvas.drawPath(
+            path,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 3
+              ..strokeJoin = StrokeJoin.round
+              ..color = Color.fromRGBO(255, 236, 110, 1 - k));
+        _glow(canvas, to, 16 * u, Color.fromRGBO(255, 236, 110, 0.6 * (1 - k)));
       case 'scar':
         // moss torn up behind the charge: a dark furrow that fades
         final a = s._toScreen(b.x - b.dx * 7, b.z - b.dz * 7), c = s._toScreen(b.x + b.dx * 7, b.z + b.dz * 7);
@@ -2601,7 +2693,8 @@ class _BrewShelf extends StatelessWidget {
                   ItemImage(id, size: 30),
                   const SizedBox(width: 6),
                   Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                    Text('${buffDefs[w.wildsBrews[id]]?.name ?? ''} ×${ge.ownedQty(c.state, id)}', style: EvochiText.tag.copyWith(color: const Color(0xFFFFF6E4), fontSize: 12)),
+                    Text('${buffDefs[w.wildsBrews[id]]?.name ?? ''}${coatings.contains(w.wildsBrews[id]) ? ' coating' : ''} ×${ge.ownedQty(c.state, id)}',
+                        style: EvochiText.tag.copyWith(color: const Color(0xFFFFF6E4), fontSize: 12)),
                     Text(catalog[id]?.name ?? id, style: EvochiText.tiny.copyWith(color: const Color(0xCCFFF6E4), fontSize: 10.5)),
                   ]),
                 ]),

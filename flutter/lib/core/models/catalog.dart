@@ -231,11 +231,32 @@ const catalog = <String, CatalogItem>{
   'ember_draught': CatalogItem(
       id: 'ember_draught', name: 'Ember Draught', category: ItemCategory.consumable, kind: 'potion', rarity: 'rare', stackable: true, shop: null,
       acquisition: 'home', vitality: 8,
-      desc: 'A warm orange brew with a little flame dancing on the cork. Restores 8 vitality. In the Wilds: Ember, your hits set foes alight for 30s.'),
+      desc: 'A warm orange brew with a little flame dancing on the cork. Restores 8 vitality. In the Wilds: an Ember coating for 30s, your hits set foes alight.'),
   'thornskin_tonic': CatalogItem(
       id: 'thornskin_tonic', name: 'Thornskin Tonic', category: ItemCategory.consumable, kind: 'potion', rarity: 'epic', stackable: true, shop: null,
       acquisition: 'home', vitality: 8,
       desc: 'Briar Heartwood steeped in glowleaf: it bristles in the bottle. Restores 8 vitality. In the Wilds: Thornskin, strikers take 40% of their blow back for 25s.'),
+  // ---- coatings: brews that put something on your Evochi's own attacks (one at a time)
+  'frostmint_tonic': CatalogItem(
+      id: 'frostmint_tonic', name: 'Frostmint Tonic', category: ItemCategory.consumable, kind: 'potion', rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'home', vitality: 8,
+      desc: 'Cold enough to frost the glass. Restores 8 vitality. In the Wilds: a Frost coating for 30s, your hits chill foes so they move and wind up slower.'),
+  'fizzleberry_soda': CatalogItem(
+      id: 'fizzleberry_soda', name: 'Fizzleberry Soda', category: ItemCategory.consumable, kind: 'potion', rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'home', vitality: 8,
+      desc: 'It crackles when you shake it. Restores 8 vitality. In the Wilds: a Static coating for 30s, every fourth hit sparks to another foe nearby.'),
+  'sapling_syrup': CatalogItem(
+      id: 'sapling_syrup', name: 'Sapling Syrup', category: ItemCategory.consumable, kind: 'potion', rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'home', vitality: 8,
+      desc: 'Thick, sweet and green, with a sprout in the cork. Restores 8 vitality. In the Wilds: a Sap coating for 30s, your hits heal you a little.'),
+  'dazzle_dew': CatalogItem(
+      id: 'dazzle_dew', name: 'Dazzle Dew', category: ItemCategory.consumable, kind: 'potion', rarity: 'epic', stackable: true, shop: null,
+      acquisition: 'home', vitality: 8,
+      desc: 'Starlight caught in a drop of dew. Restores 8 vitality. In the Wilds: a Dazzle coating for 30s, your hits build up dizziness until a foe reels, stunned.'),
+  'hushwater': CatalogItem(
+      id: 'hushwater', name: 'Hushwater', category: ItemCategory.consumable, kind: 'potion', rarity: 'epic', stackable: true, shop: null,
+      acquisition: 'home', vitality: 8,
+      desc: 'Still, deep and quiet. Restores 8 vitality. In the Wilds: a Hush coating for 30s, your hits break a foe\'s guard far sooner, so it staggers.'),
   'ancient_relic': CatalogItem(
       id: 'ancient_relic', name: 'Ancient Relic', category: ItemCategory.decoration, decor: 'side', rarity: 'legendary',
       desc: "A stone tablet from the Sentinel's gate, its three trail grooves glowing softly. A piece of the Lumen Trails for your nest.",
