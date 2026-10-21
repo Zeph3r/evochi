@@ -19,7 +19,9 @@ import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/models/catalog.dart';
 import '../../core/utils/ids.dart';
+import '../../game/economy/economy.dart' as e;
 import '../../game/engine.dart' as g;
+import '../caravan/caravan_screen.dart';
 import '../home/home_widgets.dart';
 import '../nest/sheets.dart';
 import '../shared/kit.dart';
@@ -578,6 +580,28 @@ class _ShopScreenState extends State<ShopScreen> {
             ),
           ),
           const Spacer(),
+          // the Starlight Caravan: the premium store, its own wagon beside the coin purse
+          Semantics(
+            button: true,
+            label: 'Starlight Caravan, ${e.glimmerOf(c.state)} Glimmer',
+            excludeSemantics: true,
+            child: GestureDetector(
+              onTap: () => openCaravan(context),
+              // a little night-blue door to the premium store
+              child: Container(
+                height: 36,
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF3A4688), Color(0xFF1B2246)]),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: const Color(0xFFE8BC5C), width: 2),
+                  boxShadow: const [BoxShadow(color: Color(0x4D1E0F05), blurRadius: 8, offset: Offset(0, 4))],
+                ),
+                child: const VoxelIcon('caravan', size: 30),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
           CoinPill(balance: c.balance, onPlus: () => showCoinsInfo(context)),
         ]),
       );

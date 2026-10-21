@@ -87,6 +87,7 @@ const titles = {
   'grove_friend': 'Grove Friend',
   'friend_of_petalune': 'Friend of Petalune',
   'trailwarden': 'Trailwarden',
+  'lightbearer': 'Lightbearer', // Season 1: First Light, premium track
 };
 
 const chapterName = 'Village Tales, Chapter 1';

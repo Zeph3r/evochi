@@ -12,8 +12,11 @@ import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/models/catalog.dart';
 import '../../core/services/asset_manifest.dart';
+import '../../core/services/haptics.dart';
+import '../../game/economy/economy.dart' as econ;
 import '../../game/engine.dart' as g;
 import '../../game/home/home.dart' as h;
+import '../caravan/caravan_screen.dart' show showRareInfo;
 import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import '../village/village_screen.dart';
@@ -128,6 +131,23 @@ class _GardenScreenState extends State<GardenScreen> {
     if (c.run((s, n) => h.useSproutTonic(s, pid, n)).ok) c.audio.play('reward_chime', volume: 0.5);
   }
 
+  /// A Sunstone (or, with none, the Caravan's offer): the bed ripens at once.
+  void _sunstone(GameController c, String pid) {
+    if (g.ownedQty(c.state, 'sunstone') < 1) {
+      showRareInfo(context, 'sunstone');
+      return;
+    }
+    if (c.run((s, n) => econ.useSunstone(s, pid, n)).ok) {
+      c.audio.buzz(Haptic.reward);
+      setState(() => _splash = pid);
+      _later(900, () => _splash = null);
+    }
+  }
+
+  void _dew(GameController c) {
+    if (c.run((s, n) => econ.useMoonwellDew(s, n)).ok) c.audio.play('ui_tap', volume: 0.6);
+  }
+
   void _harvestAll(GameController c) {
     for (final p in h.plotDefs) {
       if (h.plotView(c.state, p.id, c.now).ripe) _harvest(c, p.id);
@@ -172,6 +192,8 @@ class _GardenScreenState extends State<GardenScreen> {
                       onBuy: (seed) => openSeedShop(context, seed),
                       onWater: () => _water(c, sel.id),
                       onTonic: () => _tonic(c, sel.id),
+                      onSunstone: () => _sunstone(c, sel.id),
+                      onDew: () => _dew(c),
                       onHarvest: () => _harvest(c, sel.id),
                       onHarvestAll: () => _harvestAll(c),
                       onWalk: () => goWalk(context),
@@ -433,6 +455,8 @@ class _BedPanel extends StatelessWidget {
     required this.onBuy,
     required this.onWater,
     required this.onTonic,
+    required this.onSunstone,
+    required this.onDew,
     required this.onHarvest,
     required this.onHarvestAll,
     required this.onWalk,
@@ -443,6 +467,8 @@ class _BedPanel extends StatelessWidget {
   final ValueChanged<String> onBuy;
   final VoidCallback onWater;
   final VoidCallback onTonic;
+  final VoidCallback onSunstone;
+  final VoidCallback onDew;
   final VoidCallback onHarvest;
   final VoidCallback onHarvestAll;
   final VoidCallback onWalk;
@@ -515,10 +541,13 @@ class _BedPanel extends StatelessWidget {
       }
 
       final tonic = take(plot.tonic ? h.growSproutTonic : 0.0);
+      final boost = take(plot.boost);
       final water = take(plot.watered ? h.growWater : 0.0);
       final walk = take(gr.walk);
       final time = take(gr.time);
       final tonics = g.ownedQty(c.state, 'sprout_tonic');
+      final suns = g.ownedQty(c.state, 'sunstone');
+      final dews = g.ownedQty(c.state, 'moonwell_dew');
       final pct = (p.progress * 100).floor();
       body = [
         const SizedBox(height: 10),
@@ -540,6 +569,7 @@ class _BedPanel extends StatelessWidget {
                   seg(walk, _walkCol),
                   seg(water, _waterCol),
                   seg(tonic, _tonicCol),
+                  seg(boost, _boostCol),
                 ]);
               }),
             ),
@@ -563,6 +593,7 @@ class _BedPanel extends StatelessWidget {
           _KeyDot(_walkCol, gr.steps > 0 ? 'Walking (${fmt(gr.steps)} steps)' : 'Walking'),
           if (p.watered) const _KeyDot(_waterCol, 'Watered'),
           if (p.tonic) const _KeyDot(_tonicCol, 'Sprout Tonic'),
+          if (plot.boost > 0) const _KeyDot(_boostCol, 'Moonwell Dew'),
         ]),
         const SizedBox(height: 10),
         Wrap(spacing: 8, runSpacing: 8, children: [
@@ -577,7 +608,18 @@ class _BedPanel extends StatelessWidget {
           if (tonics > 0 && !p.tonic)
             EvochiButton(label: 'Sprout Tonic +50%', small: true, expand: false, tone: ButtonTone.cream, icon: const ItemImage('sprout_tonic', size: 24), onPressed: onTonic),
           EvochiButton(label: 'Walk', small: true, expand: false, tone: ButtonTone.green, icon: const VoxelIcon('steps', size: 22), onPressed: onWalk),
+          if (dews > 0 && !plot.dew)
+            EvochiButton(label: 'Moonwell Dew: all beds', small: true, expand: false, tone: ButtonTone.cream, icon: const ItemImage('moonwell_dew', size: 24), onPressed: onDew),
         ]),
+        const SizedBox(height: 8),
+        // the rainy-day option, always beside the free one (walking)
+        EvochiButton(
+          label: suns > 0 ? 'Ripen now with a Sunstone ($suns)' : 'Ripen now with a Sunstone',
+          small: true,
+          tone: ButtonTone.plum,
+          icon: const ItemImage('sunstone', size: 24),
+          onPressed: onSunstone,
+        ),
       ];
     }
     return Semantics(
@@ -617,6 +659,7 @@ const _timeCol = [Color(0xFFFFE29A), Color(0xFFF4B84E)];
 const _walkCol = [Color(0xFFA8D87E), Color(0xFF6FA44E)];
 const _waterCol = [Color(0xFFA6DBF6), Color(0xFF4C9BCC)];
 const _tonicCol = [Color(0xFFD3C1EC), Color(0xFF9975C9)];
+const _boostCol = [Color(0xFFBFF1F7), Color(0xFF5EC3D8)];
 
 class _KeyDot extends StatelessWidget {
   const _KeyDot(this.colors, this.label);

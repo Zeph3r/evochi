@@ -17,6 +17,7 @@ import '../data/health_adapters/demo_step_source.dart';
 import '../data/health_adapters/health_step_source.dart';
 import '../data/health_adapters/step_source.dart';
 import '../data/repositories/game_repository.dart';
+import '../game/economy/economy.dart' as econ;
 import '../game/engine.dart' as g;
 import '../game/home/home.dart' as h;
 import '../game/story/story.dart' as story;
@@ -223,6 +224,12 @@ class GameController extends ChangeNotifier {
       'encounter_over': const Toast('This encounter is over', icon: 'encounter'),
       'companion_used': const Toast('Petalune already helped this time', icon: 'creature_petalune', kind: 'warn'),
       'no_companion': const Toast('No companion can help here', icon: 'encounter', kind: 'warn'),
+      // the economy (rare finds, the Caravan, the Season Pass, Evochi Plus)
+      for (final k in ['need_glimmer', 'no_beds', 'already_armed', 'not_dead', 'season_over', 'not_on_sale', 'not_member'])
+        k: Toast(econ.economyError(k, r.info), icon: k == 'need_glimmer' ? 'glimmer' : 'star', kind: 'warn'),
+      'art_pending': const Toast("This Season 1 reward's look arrives with the season art", icon: 'season', kind: 'warn'),
+      'use_rare': const Toast('Rare finds are used from their own button', icon: 'star', kind: 'warn'),
+      'already_owned': const Toast('Already yours', icon: 'star'),
     };
     _toasts.add(m[r.error] ?? const Toast('Something went wrong - please try again', icon: 'warning', kind: 'err'));
     audio.play('error_bonk', volume: 0.5);
@@ -259,9 +266,41 @@ class GameController extends ChangeNotifier {
       case 'claimed':
         final rewards = (e.data['rewards'] as List).cast<Map<String, Object?>>();
         final coins = rewards.where((r) => r['kind'] == 'coins').fold<int>(0, (a, r) => a + (r['amount'] as int));
-        final items = rewards.where((r) => r['kind'] == 'item').map((r) => item(r['itemId'] as String).name).toList();
-        toast('+$coins EvoCoins${items.isEmpty ? '' : ' + ${items.join(', ')}'}', icon: 'coin');
+        final counts = <String, int>{};
+        for (final r in rewards.where((r) => r['kind'] == 'item')) {
+          counts[r['itemId'] as String] = (counts[r['itemId'] as String] ?? 0) + 1;
+        }
+        final items = [for (final x in counts.entries) '${x.value > 1 ? '${x.value} ' : ''}${h.itemLabel(x.key, x.value)}'];
+        final glimmer = rewards.where((r) => r['kind'] == 'glimmer').fold<int>(0, (a, r) => a + (r['amount'] as int));
+        toast('+$coins EvoCoins${glimmer > 0 ? ' + $glimmer Glimmer' : ''}${items.isEmpty ? '' : ' + ${items.join(', ')}'}', icon: 'coin');
         audio.play('coin');
+      case 'rare_used':
+        final id = e.data['itemId'] as String;
+        toast(id == 'sunstone' ? 'Sunstone! The bed ripens at once' : 'Moonwell Dew! Every growing bed is watered', icon: 'item:$id');
+        audio.play('reward_chime', volume: 0.7);
+        analytics.track('rare_used', {'item': id});
+      case 'rare_armed':
+        final id = e.data['itemId'] as String;
+        toast('${item(id).name} is ready. ${econ.armable[id] ?? ''}', icon: 'item:$id');
+        audio.play('reward_chime', volume: 0.6);
+      case 'revived':
+        if (e.data['via'] == 'heartbloom') {
+          toast('The Heartbloom opens. $name wakes at full Vitality!', icon: 'item:heartbloom');
+          audio.play('evolve_fanfare', volume: 0.7);
+        }
+      case 'caravan_bought':
+        audio.play('purchase');
+        analytics.track('glimmer_spent', {'item': e.data['itemId'], 'qty': e.data['qty'], 'price': e.data['price']});
+      case 'season_pass':
+        toast('Season Pass unlocked! The premium track is yours', icon: 'season');
+        audio.play('level_up');
+        analytics.track('season_pass_bought', {'season': e.data['season']});
+      case 'plus_daily':
+        toast('Evochi Plus: +${e.data['glimmer']} Glimmer and +${e.data['xp']} Season XP', icon: 'plus');
+        audio.play('coin', volume: 0.7);
+      case 'play_granted':
+        audio.play('level_up');
+        analytics.track('purchase_completed', {'product': e.data['product']});
       case 'purchased':
         audio.play('purchase');
       case 'bond':

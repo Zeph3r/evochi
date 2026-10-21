@@ -9,6 +9,7 @@
 import '../../core/models/catalog.dart';
 import '../../core/models/game_state.dart';
 import '../../core/utils/day_keys.dart';
+import '../economy/economy.dart' as econ;
 import '../engine.dart';
 
 /// The Bag's healing items a fight can use, cheapest first (the button eats these in order).
@@ -54,15 +55,18 @@ List<Map<String, Object?>> _rewards(int coins, Map<String, int> items) => [
 /// once: its transaction id is the run's.
 ActionResult wildsBank(GameState state, String runId, int coins, Map<String, int> items, int now) {
   final bag = {for (final e in items.entries) if (e.value > 0 && catalog.containsKey(e.key)) e.key: e.value};
-  if (coins <= 0 && bag.isEmpty) return ActionResult(state);
+  final glimmer = items[econ.glimmer] ?? 0; // a rare foe drop rides in the satchel too
+  if (coins <= 0 && bag.isEmpty && glimmer <= 0) return ActionResult(state);
   final s = state.copy();
   final txn = 'wilds:run:$runId';
   if (!addTxn(s, WalletTxn(id: txn, amount: coins, cause: 'wilds', at: now))) {
     return ActionResult(state, events: [GameEvent('already_claimed', {'id': txn})]);
   }
   bag.forEach((id, n) => grantItem(s, id, n, 'wilds', now, txn));
+  final rewards = _rewards(coins, bag);
+  if (glimmer > 0) rewards.addAll(econ.grantDrops(s, {econ.glimmer: glimmer}, 'wilds', txn, now));
   return ActionResult(s, events: [
-    GameEvent('wilds_banked', {'coins': coins, 'items': bag, 'rewards': _rewards(coins, bag)}),
+    GameEvent('wilds_banked', {'coins': coins, 'items': bag, 'glimmer': glimmer, 'rewards': rewards}),
   ]);
 }
 
@@ -84,8 +88,16 @@ ActionResult wildsClear(GameState state, String floor, int now) {
     return ActionResult(s, events: [GameEvent('already_claimed', {'id': txn})]);
   }
   r.items.forEach((id, n) => grantItem(s, id, n, 'wilds', now, txn));
+  final rewards = _rewards(r.coins, r.items);
+  // the economy: the guardian's rare roll, 200 Season XP (once a day) and, the first time, 50 Glimmer
+  rewards.addAll(econ.grantDrops(s, econ.rollDrops('wilds_boss', seededRandom('${s.player?.id ?? 'guest'}:$txn:rare')), 'wilds', '$txn:rare', now));
+  econ.seasonBossAward(s, now);
+  if (first) {
+    final m = econ.milestoneGlimmer(s, 'first_boss:$floor', 50, now);
+    if (m != null) rewards.add(m);
+  }
   return ActionResult(s, events: [
-    GameEvent('wilds_cleared', {'floor': floor, 'first': first, 'coins': r.coins, 'items': r.items, 'rewards': _rewards(r.coins, r.items)}),
+    GameEvent('wilds_cleared', {'floor': floor, 'first': first, 'coins': r.coins, 'items': r.items, 'rewards': rewards}),
   ]);
 }
 

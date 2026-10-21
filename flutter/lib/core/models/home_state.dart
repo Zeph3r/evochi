@@ -15,20 +15,24 @@ const defaultHomeCounts = {'harvests': 0, 'cooked': 0, 'brewed': 0, 'perfect': 0
 
 /// One planted bed.
 class PlotState {
-  PlotState({required this.crop, required this.plantedAt, this.watered = false, this.tonic = false});
+  PlotState({required this.crop, required this.plantedAt, this.watered = false, this.tonic = false, this.boost = 0, this.dew = false});
   final String crop;
   final int plantedAt;
   bool watered; // optional watering, once per planting
   bool tonic; // a Sprout Tonic was poured on it (once per planting)
+  double boost; // growing time added by rare finds: a Sunstone (1.0), Moonwell Dew (0.25)
+  bool dew; // Moonwell Dew reached this bed (once per planting)
 
   factory PlotState.fromJson(Map<String, dynamic> j) => PlotState(
         crop: j['crop'] as String,
         plantedAt: _i(j['plantedAt']),
         watered: j['watered'] == true,
         tonic: j['tonic'] == true,
+        boost: (j['boost'] as num?)?.toDouble() ?? 0,
+        dew: j['dew'] == true,
       );
 
-  Map<String, dynamic> toJson() => {'crop': crop, 'plantedAt': plantedAt, 'watered': watered, 'tonic': tonic};
+  Map<String, dynamic> toJson() => {'crop': crop, 'plantedAt': plantedAt, 'watered': watered, 'tonic': tonic, if (boost > 0) 'boost': boost, if (dew) 'dew': dew};
 }
 
 class HomeState {

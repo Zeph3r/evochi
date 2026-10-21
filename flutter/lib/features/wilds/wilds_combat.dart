@@ -297,7 +297,12 @@ class Raid {
     this.bossCleared = false,
     this.level = 1,
     int seed = 7,
-  }) : rng = math.Random(seed) {
+    this.lootRoll,
+    this.lootLabel,
+    this.ward = 0,
+    double bossScale = 1.0,
+  })  : rng = math.Random(seed),
+        lootRng = math.Random(seed * 31 + 7) {
     startX = pet.x;
     startZ = pet.z;
     atk = 1 + 0.06 * (level - 1);
@@ -308,6 +313,10 @@ class Raid {
     final b = bossDef;
     if (b != null) {
       boss = Boss(id: 'briarback', x: b.x, z: b.z, ax0: b.ax, az0: b.az, ar: b.ar)..face(0, 1);
+      // a lighter guardian for a party of one (Sher keeps the camp now)
+      boss!
+        ..maxHp *= bossScale
+        ..hp = boss!.maxHp;
       bossState = bossCleared ? BossState.calm : BossState.dormant;
       if (bossCleared) {
         boss!
@@ -331,6 +340,13 @@ class Raid {
   final bool bossCleared;
   final int level;
   final math.Random rng;
+  /// Rare finds a calmed foe can leave (the economy's drop table); its own random, so the fight's dice
+  /// never change when the loot does.
+  final Map<String, int> Function(math.Random r)? lootRoll;
+  final String Function(String id, int n)? lootLabel;
+  final math.Random lootRng;
+  /// A Hollow Ward: hits the shield still turns away.
+  int ward;
   late double atk;
   late double startX, startZ;
 
@@ -922,6 +938,14 @@ class Raid {
       return false;
     }
     if (a == sher && sherWinded > 0) return false;
+    if (a == pet && ward > 0) {
+      // the Hollow Ward turns the blow away
+      ward--;
+      a.mercy = 0.5;
+      _float(ward > 0 ? 'Warded! ($ward left)' : 'Ward spent!', a.x, a.z, 'info', ttl: 0.9);
+      _emit('warded', value: ward.toDouble());
+      return false;
+    }
     var crit = false;
     if (a is Foe) {
       // from behind, or while it is dazed: it hurts more
@@ -1016,6 +1040,19 @@ class Raid {
     phase = RaidPhase.knocked;
     act = PetAct.none;
     _emit('knockout');
+  }
+
+  /// A Heartbloom after a knockout: back up where you fell, with 60% Raid HP and a moment's grace.
+  void secondWind() {
+    if (phase != RaidPhase.knocked) return;
+    phase = RaidPhase.explore;
+    pet
+      ..hp = pet.maxHp * 0.6
+      ..mercy = 2.0;
+    act = PetAct.none;
+    bursts.add(Burst('motes', pet.x, pet.z, 1.4, size: 2));
+    _float('Second wind!', pet.x, pet.z, 'info', ttl: 1.2);
+    _emit('second_wind');
   }
 
   /// After a knockout: back at the trailhead. Half the unbanked satchel is lost; the guardian (if it was
@@ -1886,6 +1923,16 @@ class Raid {
     if (!f.summoned && rng.nextDouble() < 0.18) {
       items['lumen_shard'] = (items['lumen_shard'] ?? 0) + 1;
       _float('+1 Lumen Shard', f.x, f.z - 6, 'loot', ttl: 1.4);
+    }
+    final roll = lootRoll;
+    if (!f.summoned && roll != null) {
+      var dz = 13.0;
+      roll(lootRng).forEach((id, n) {
+        items[id] = (items[id] ?? 0) + n;
+        _float(lootLabel?.call(id, n) ?? '+$n $id', f.x, f.z - dz, 'loot', ttl: 2.0);
+        _emit('rare_drop', text: id, x: f.x, z: f.z);
+        dz += 7;
+      });
     }
     if (rng.nextDouble() < (pet.hpFrac < 0.5 ? 0.7 : 0.35)) pickups.add(Pickup('mote', f.x + 4, f.z + 3, 14));
     // a cleared clearing

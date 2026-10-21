@@ -3808,7 +3808,24 @@
   "q_mossy_clue": "items/q_mossy_clue.webp",
   "q_lumen_trace": "items/q_lumen_trace.webp",
   "q_old_trail_map": "items/q_old_trail_map.webp",
-  "briar_heartwood": "items/briar_heartwood.webp"
+  "briar_heartwood": "items/briar_heartwood.webp",
+  "sunstone": "items/sunstone.webp",
+  "moonwell_dew": "items/moonwell_dew.webp",
+  "heartbloom": "items/heartbloom.webp",
+  "wayfinder_compass": "items/wayfinder_compass.webp",
+  "golden_acorn": "items/golden_acorn.webp",
+  "hollow_ward": "items/hollow_ward.webp",
+  "starseed": "items/starseed.webp",
+  "prism_scale": "items/prism_scale.webp",
+  "glimmer": "items/glimmer.webp",
+  "starter_pack": "items/starter_pack.webp",
+  "season_dawn_circlet": "items/season_dawn_circlet.webp",
+  "season_firefly_scarf": "items/season_firefly_scarf.webp",
+  "season_lantern_wings": "items/season_lantern_wings.webp",
+  "season_glow_ribbon": "items/season_glow_ribbon.webp",
+  "season_first_light_banner": "items/season_first_light_banner.webp",
+  "season_first_light_scarf": "items/season_first_light_scarf.webp",
+  "season_dawn_shimmer": "items/season_dawn_shimmer.webp"
  },
  "icons": {
   "bag": "icons/bag.webp",
@@ -3866,7 +3883,15 @@
   "purify": "icons/purify.webp",
   "nudge": "icons/nudge.webp",
   "moon": "icons/moon.webp",
-  "swirl": "icons/swirl.webp"
+  "swirl": "icons/swirl.webp",
+  "glimmer": "icons/glimmer.webp",
+  "caravan": "icons/caravan.webp",
+  "plus": "icons/plus.webp",
+  "season": "icons/season.webp",
+  "chest_wood": "icons/chest_wood.webp",
+  "chest_silver": "icons/chest_silver.webp",
+  "chest_gold": "icons/chest_gold.webp",
+  "chest_lumen": "icons/chest_lumen.webp"
  },
  "titles": {
   "title_bag": {

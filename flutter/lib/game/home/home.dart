@@ -16,6 +16,7 @@ import 'dart:math' as math;
 import '../../core/models/catalog.dart';
 import '../../core/models/game_state.dart';
 import '../../core/models/home_state.dart';
+import '../economy/economy.dart' as econ;
 import '../engine.dart' as g;
 import '../story/story.dart' as story;
 
@@ -265,7 +266,7 @@ PlotGrowth plotGrowth(GameState s, PlotState plot, int now) {
   final time = math.max(0, now - plot.plantedAt) / growMs;
   final steps = stepsSince(s, plot.plantedAt);
   final walk = math.min(growMaxWalkShare, steps / growStepsForFull);
-  final p = time + walk + (plot.watered ? growWater : 0.0) + (plot.tonic ? growSproutTonic : 0.0);
+  final p = time + walk + (plot.watered ? growWater : 0.0) + (plot.tonic ? growSproutTonic : 0.0) + plot.boost;
   return PlotGrowth(progress: math.min(1.0, p), time: time, walk: walk, steps: steps, growMs: growMs);
 }
 
@@ -440,7 +441,8 @@ g.ActionResult plant(GameState state, String plotId, String cropId, int now) {
   if (g.ownedQty(state, c.seed) < 1) return _fail(state, 'no_seed', {'seed': c.seed});
   final s = state.copy();
   _take(s, c.seed, 1);
-  s.home.plots[plotId] = PlotState(crop: cropId, plantedAt: now);
+  // Evochi Plus: beds water themselves when planted
+  s.home.plots[plotId] = PlotState(crop: cropId, plantedAt: now, watered: econ.plusActive(state, now));
   return _ok(s, [g.GameEvent('planted', {'plot': plotId, 'crop': cropId})]);
 }
 

@@ -20,6 +20,7 @@ import '../../core/models/catalog.dart';
 import '../../core/models/game_state.dart';
 import '../../core/utils/day_keys.dart';
 import '../../core/models/trails_state.dart';
+import '../economy/economy.dart' as econ;
 import '../engine.dart';
 import '../story/story.dart' as story;
 
@@ -603,11 +604,13 @@ ActionResult inspectDiscovery(GameState state, String id, int now) {
   final txn = 'discovery:${dayKey(now, _zone(s))}:$id';
   if (d.reward.coins > 0) addTxn(s, WalletTxn(id: txn, amount: d.reward.coins, cause: 'discovery:$id', at: now));
   d.reward.items.forEach((iid, n) => grantItem(s, iid, n, 'discovery', now, txn));
+  // the economy: an armed Wayfinder Compass doubles it; a rare roll (Moonwell Dew, a Compass)
+  final extras = econ.discoveryExtras(s, d.reward.coins, d.reward.items, txn, now);
   final rankBefore = guildRank(tr.guildXp).id;
   tr.guildXp += d.reward.guildXp;
   tr.stats['discoveries'] = tr.stat('discoveries') + 1;
   final events = <GameEvent>[
-    GameEvent('discovery_found', {'id': id, 'title': d.title, 'reward': d.reward}),
+    GameEvent('discovery_found', {'id': id, 'title': d.title, 'reward': d.reward, 'extras': extras}),
   ];
   final rankAfter = guildRank(tr.guildXp);
   if (rankAfter.id != rankBefore) events.add(GameEvent('guild_rank', {'rank': rankAfter, 'name': rankAfter.name}));

@@ -16,8 +16,10 @@ import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/models/catalog.dart';
 import '../../core/models/game_state.dart';
+import '../../game/economy/economy.dart' as econ;
 import '../../game/engine.dart' as g;
 import '../../game/home/home.dart' as h;
+import '../caravan/caravan_screen.dart';
 import '../home/home_widgets.dart';
 import '../nest/sheets.dart';
 import '../shared/kit.dart';
@@ -598,6 +600,10 @@ class _ItemCard extends StatelessWidget {
     String? note;
     String tag;
     switch (it.category) {
+      case ItemCategory.wearable || ItemCategory.decoration when it.pendingArt:
+        // a Season 1 reward: owned now, its look arrives with the season art
+        tag = 'Season 1';
+        buttons = [const EvochiButton(label: 'Look arrives with Season 1', small: true, tone: ButtonTone.cream, onPressed: null)];
       case ItemCategory.wearable:
         final eq = pet.equipped[it.slot] == id;
         tag = _slotUi[it.slot] ?? 'Wearable';
@@ -625,6 +631,10 @@ class _ItemCard extends StatelessWidget {
             onPressed: eq ? () => c.run((s, n) => g.unequip(s, it.slot!)) : null,
           ),
         ];
+      case ItemCategory.consumable when it.isRare:
+        tag = 'Rare find';
+        buttons = List<Widget>.of(rareActions(context, id).whereType<EvochiButton>());
+        note = econ.isArmed(c.state, id) ? 'Ready and waiting' : (econ.armable[id] != null ? 'Get it ready, then it works by itself' : null);
       case ItemCategory.consumable when it.growth > 0:
         tag = 'Garden';
         buttons = [EvochiButton(label: 'Use in Garden', small: true, tone: ButtonTone.green, onPressed: () => openGarden(context))];

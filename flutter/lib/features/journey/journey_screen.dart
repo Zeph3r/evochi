@@ -10,11 +10,12 @@ import 'package:provider/provider.dart';
 import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
-import '../../core/models/catalog.dart';
 import '../../core/utils/day_keys.dart';
+import '../../game/economy/economy.dart' as econ;
 import '../../game/engine.dart' as g;
 import '../../game/vitality/vitality.dart';
 import '../../game/xp/xp.dart';
+import '../caravan/season_screen.dart';
 import '../home/skills_screen.dart';
 import '../nest/sheets.dart';
 import '../settings/settings_screen.dart';
@@ -23,6 +24,7 @@ import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import '../village/story_widgets.dart';
 import '../wilds/wilds_screen.dart';
+import 'chest_reveal.dart';
 
 class JourneyScreen extends StatefulWidget {
   const JourneyScreen({super.key});
@@ -45,20 +47,12 @@ class _JourneyScreenState extends State<JourneyScreen> {
     c.analytics.track('quest_claimed', {'quest': id});
     final ev = r.events.where((e) => e.type == 'claimed').toList();
     if (ev.isEmpty) return;
-    final rewards = (ev.first.data['rewards'] as List).cast<Map<String, Object?>>();
-    if (rewards.any((x) => x['chest'] == true)) {
-      c.audio.play('reward_chime');
-      showEvochiDialog<void>(context, builder: (d) => Column(mainAxisSize: MainAxisSize.min, children: [
-            const VoxelIcon('chest', size: 96),
-            const Text('Reward chest opened!', style: EvochiText.section),
-            const SizedBox(height: 10),
-            Wrap(alignment: WrapAlignment.center, spacing: 8, runSpacing: 8, children: [
-              for (final r in rewards)
-                r['kind'] == 'coins' ? Tag('+${r['amount']}', tone: TagTone.stage, icon: 'coin') : Tag(item(r['itemId'] as String).name, tone: TagTone.ok),
-            ]),
-            const SizedBox(height: 14),
-            EvochiButton(label: 'Collect', onPressed: () => Navigator.pop(d)),
-          ]));
+    final data = ev.first.data;
+    final rewards = (data['rewards'] as List).cast<Map<String, Object?>>();
+    final tier = data['tier'];
+    if (tier is String || rewards.any((x) => x['chest'] == true)) {
+      // the whole claim plays out of the chest: the quest's coins and the chest's contents together
+      showChestReveal(context, tier: tier is String ? tier : 'wood', rewards: rewards);
     }
   }
 
@@ -67,8 +61,10 @@ class _JourneyScreenState extends State<JourneyScreen> {
   List<Widget> _questList(GameController c, List<g.QuestView> qs, String when) {
     final open = [...qs.where((q) => !q.claimed && q.eligible), ...qs.where((q) => !q.claimed && !q.eligible)];
     final claimed = qs.where((q) => q.claimed).length;
+    // the tier today's Daily Goal chest would open as (it climbs with the week's goal days)
+    final chest = open.any((q) => q.def.chest) ? econ.chestTierPreview(c.state, c.now) : null;
     return [
-      for (final q in open) _QuestRow(q: q, onClaim: () => _claim(c, q.def.id)),
+      for (final q in open) _QuestRow(q: q, chest: chest, onClaim: () => _claim(c, q.def.id)),
       if (claimed > 0) _ClaimedLine(open.isEmpty ? 'All $claimed claimed $when. Nice walking.' : '$claimed claimed $when'),
     ];
   }
@@ -258,6 +254,8 @@ class _JourneyScreenState extends State<JourneyScreen> {
             ] else ...[
               today,
               const SizedBox(height: 10),
+              const SeasonStrip(),
+              const SizedBox(height: 10),
               ...sources,
               const SizedBox(height: 14),
               if (tab == 'daily') ...[
@@ -382,9 +380,11 @@ class _ClaimedLine extends StatelessWidget {
 }
 
 class _QuestRow extends StatelessWidget {
-  const _QuestRow({required this.q, required this.onClaim});
+  const _QuestRow({required this.q, required this.onClaim, this.chest});
   final g.QuestView q;
   final VoidCallback onClaim;
+  /// The tier of chest a chest quest opens today ('silver'); null when unknown.
+  final String? chest;
   @override
   Widget build(BuildContext context) => Padding(
         padding: const EdgeInsets.only(bottom: 8),
@@ -400,7 +400,11 @@ class _QuestRow extends StatelessWidget {
                 child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Row(children: [
                     Flexible(child: Text(q.def.title, style: EvochiText.cardTitle)),
-                    if (q.def.chest) ...[const SizedBox(width: 6), const Tag('+ chest', tone: TagTone.stage)],
+                    // the chest it opens today, as its own little chest (the tier's name for screen readers)
+                    if (q.def.chest) ...[
+                      const SizedBox(width: 6),
+                      Semantics(label: chestTierLabel(chest ?? 'wood'), child: VoxelIcon('chest_${chest ?? 'wood'}', size: 26)),
+                    ],
                   ]),
                   Text(q.def.desc, style: EvochiText.caption),
                   const SizedBox(height: 4),

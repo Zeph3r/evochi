@@ -10,8 +10,10 @@ import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/utils/day_keys.dart';
+import '../../game/economy/economy.dart' as econ;
 import '../../game/engine.dart' as g;
 import '../../game/vitality/vitality.dart';
+import '../caravan/caravan_screen.dart';
 import '../home/home_widgets.dart';
 import '../onboarding/onboarding_screens.dart' show EvolutionStrip;
 import '../pet/pet_screens.dart';
@@ -707,6 +709,28 @@ class MemorialView extends StatelessWidget {
                         : null,
                   ),
                   if (herbs < need) const Padding(padding: EdgeInsets.only(top: 6), child: Text("Herbs are sold for EvoCoins in the Market's Care tab.", style: EvochiText.caption)),
+                ]),
+              ),
+              const SizedBox(height: 10),
+              // a rare find: wakes at full Vitality, at once
+              GameCard(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                  Row(children: [
+                    const ItemImage('heartbloom', size: 32),
+                    const SizedBox(width: 6),
+                    const Expanded(child: Text('Use a Heartbloom', style: EvochiText.cardTitle)),
+                    Tag('You have ${g.ownedQty(c.state, 'heartbloom')}'),
+                  ]),
+                  const SizedBox(height: 4),
+                  const Text('Wakes at full Vitality, right now.', style: EvochiText.caption),
+                  const SizedBox(height: 8),
+                  EvochiButton(
+                    label: g.ownedQty(c.state, 'heartbloom') > 0 ? 'Wake with a Heartbloom' : 'Find one at the Caravan',
+                    tone: ButtonTone.plum,
+                    onPressed: g.ownedQty(c.state, 'heartbloom') > 0
+                        ? () => c.run((s, n) => econ.reviveWithHeartbloom(s, n))
+                        : () => openCaravan(context),
+                  ),
                 ]),
               ),
               const SizedBox(height: 10),

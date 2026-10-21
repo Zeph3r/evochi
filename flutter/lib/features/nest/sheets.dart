@@ -189,7 +189,7 @@ Future<void> showCoinsInfo(BuildContext context) => showEvochiSheet<void>(contex
             style: EvochiText.bodyText,
           ),
           const SizedBox(height: 4),
-          const Text('There is no paid currency in this version.', style: EvochiText.caption),
+          const Text('Glimmer, the rarer currency, is found now and then out there and spent at the Starlight Caravan. EvoCoins are never sold.', style: EvochiText.caption),
           const SizedBox(height: 12),
           EvochiButton(
             label: 'Open Journey',

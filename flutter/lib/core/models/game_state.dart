@@ -3,6 +3,7 @@
 
 import 'dart:convert';
 
+import 'economy_state.dart';
 import 'home_state.dart';
 import 'story_state.dart';
 import 'trails_state.dart';
@@ -380,6 +381,7 @@ class GameState {
     StoryState? story,
     HomeState? home,
     TrailsState? trails,
+    EconomyState? economy,
     this.clockOffset = 0,
     this.configVersion = '1.0.0',
     this.savedAtMs = 0,
@@ -395,7 +397,8 @@ class GameState {
         flags = flags ?? {},
         story = story ?? StoryState(),
         home = home ?? HomeState(),
-        trails = trails ?? TrailsState();
+        trails = trails ?? TrailsState(),
+        economy = economy ?? EconomyState();
 
   Player? player;
   Onboarding onboarding;
@@ -412,6 +415,7 @@ class GameState {
   final StoryState story; // Village Tales: account-level, survives pets (see story_state.dart)
   final HomeState home; // Home Tales: garden, skills, starter gift; account-level too (home_state.dart)
   final TrailsState trails; // Lumen Trails: discoveries, guild XP, companions, the live encounter (trails_state.dart)
+  final EconomyState economy; // Plus, the Season Pass, the Caravan, armed rare items, Play purchases (economy_state.dart)
   int clockOffset; // playtest tools only
   final int createdAt;
   String tzHint;
@@ -440,6 +444,7 @@ class GameState {
       story: StoryState.fromJson(j['story']),
       home: HomeState.fromJson(j['home']),
       trails: TrailsState.fromJson(j['trails']),
+      economy: EconomyState.fromJson(j['economy']),
       clockOffset: _i(_m(j['debug'])['clockOffset']),
       configVersion: (j['configVersion'] as String?) ?? '1.0.0',
       savedAtMs: _i(j['savedAtMs']),
@@ -469,6 +474,7 @@ class GameState {
         'story': story.toJson(),
         'home': home.toJson(),
         'trails': trails.toJson(),
+        'economy': economy.toJson(),
         'debug': {'clockOffset': clockOffset},
         'tzHint': tzHint,
         'createdAt': createdAt,

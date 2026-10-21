@@ -170,7 +170,7 @@ Raid zone(List<FoeSpawn> spawns, int seed, {bool withSher = false}) {
   return r;
 }
 
-Raid arena(int seed, {bool withSher = false}) {
+Raid arena(int seed, {bool withSher = false, double bossScale = 1.0}) {
   // the arena's pillars and boulder, its rim of brambles
   final blocks = <(double, double, double)>[(-62.0, -416.0, 6.5), (26.0, -428.0, 6.5), (-44.0, -364.0, 15.0), (20.0, -368.0, 6.5)];
   for (var k = 0; k < 22; k++) {
@@ -184,6 +184,7 @@ Raid arena(int seed, {bool withSher = false}) {
     bossDef: const BossDef(x: -10, z: -432, ax: -14, az: -398, ar: 74, wall: [], summon: [(-50.0, -392.0), (30.0, -406.0), (-40.0, -438.0), (12.0, -438.0)]),
     level: 3,
     seed: seed,
+    bossScale: bossScale,
   );
   if (withSher) r.join();
   return r;
@@ -223,5 +224,13 @@ void main() {
     print('Briarback sloppy:    ${sloppy.join(' | ')}');
     expect(duo.where((o) => o.won).length, greaterThanOrEqualTo(3));
     expect(duo.where((o) => o.won).every((o) => o.secs > 30), isTrue);
+  });
+
+  test('the Briarback alone, as players meet it now (Sher keeps the camp): winnable, still a fight', () {
+    final solo = [for (var seed = 1; seed <= 5; seed++) fight(arena(seed, bossScale: 0.85), seed: seed, boss: true, limit: 300)];
+    // ignore: avoid_print
+    print('Briarback solo, eased: ${solo.join(' | ')}');
+    expect(solo.where((o) => o.won).length, greaterThanOrEqualTo(4));
+    expect(solo.where((o) => o.won).every((o) => o.secs > 30), isTrue);
   });
 }

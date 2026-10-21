@@ -29,6 +29,8 @@ import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/models/catalog.dart';
 import '../../core/services/haptics.dart';
+import '../../game/economy/economy.dart' as econ;
+import '../../game/engine.dart' as ge;
 import '../../game/wilds/wilds.dart' as w;
 import '../shared/ambience.dart';
 import '../shared/kit.dart';
@@ -132,19 +134,21 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
         _map = m;
         _raid = _newRaid(m);
       });
-      // Sher has come along before: he waits at the trailhead now, ready to go
-      final raid = _raid!;
-      final sh = raid.sher;
-      if (sh != null && _c.state.flags['wilds_sher_gift'] == true) {
-        raid.join();
-        sh
-          ..x = raid.pet.x + 16
-          ..z = raid.pet.z + 6
-          ..face(0, -1);
-        _say('Ready when you are.', 2.4);
-      }
+      // Sher keeps the camp by the fire: he gives berries and a tip, and the trail is yours to walk
       _ticker.start();
     });
+  }
+
+  /// The guardian's Raid HP for a party of one (the plan: Sher stays at the camp, the fight eases a little).
+  static const _soloBoss = 0.85;
+
+  /// An armed Hollow Ward is spent on this run: a three-hit shield.
+  int _takeWard(GameController c) {
+    final res = c.run((s, n) => econ.wildsTakeWard(s), quiet: true);
+    final up = res.events.where((e) => e.type == 'ward_up').firstOrNull;
+    if (up == null) return 0;
+    c.toast('Hollow Ward up: the first three hits are turned away', icon: 'item:hollow_ward');
+    return up.data['hits'] as int;
   }
 
   Raid _newRaid(WildsMap m) {
@@ -183,6 +187,11 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       bossCleared: cleared,
       level: level,
       seed: DateTime.now().millisecondsSinceEpoch & 0xffff,
+      // the economy: rare finds from calmed creatures, and an armed Hollow Ward
+      lootRoll: (r) => econ.rollDrops('wilds_foe', r),
+      lootLabel: (id, n) => id == econ.glimmer ? '+$n Glimmer!' : '+$n ${_lootName(id)}!',
+      ward: _takeWard(c),
+      bossScale: _soloBoss,
     );
   }
 
@@ -466,6 +475,13 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
           Future.delayed(const Duration(milliseconds: 2200), () {
             if (mounted && _card == null) setState(() => _card = 'victory');
           });
+        case 'rare_drop':
+          _sfx('reward_chime', 0.7);
+          a.buzz(Haptic.reward);
+        case 'warded':
+          _sfx('enc_soothe', 0.5, gap: 0.2);
+        case 'second_wind':
+          a.buzz(Haptic.win);
         case 'knockout':
           _music = null;
           a.setMusic(null);
@@ -527,13 +543,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     if (r == null) return;
     context.read<GameController>().audio.play('pet_chirp', volume: 0.5);
     setState(() {
-      if (r.party) {
-        const lines = ['Lead the way!', 'I\'ve got your back.', 'Smell that? Rain later.', 'Stay close to the path.', 'The stream\'s cold. Bridge is drier.'];
-        _say(lines[_line++ % lines.length], 2.6);
-      } else {
-        _card = 'sher';
-        _target = null;
-      }
+      _card = 'sher';
+      _target = null;
     });
   }
 
@@ -609,7 +620,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     r.coins = 0;
     r.items.clear();
     _banks++;
-    final parts = ['+$coins EvoCoins', for (final e in items.entries) '+${e.value} ${catalog[e.key]?.name ?? e.key}'];
+    final parts = ['+$coins EvoCoins', for (final e in items.entries) '+${e.value} ${_lootName(e.key)}'];
     c.toast('Satchel brought home: ${parts.join(', ')}', icon: 'coin');
     c.audio.play('coin', volume: 0.6);
     return true;
@@ -834,18 +845,21 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final Widget body;
     switch (card) {
       case 'sher':
+        // Sher keeps the camp: berries for the road (once) and a tip each time you stop by
+        final gifted = c.state.flags['wilds_sher_gift'] == true;
+        final tip = _sherTips[_line % _sherTips.length];
         body = _Offer(
-          onJoin: () {
-            c.audio.play('reward_chime', volume: 0.6);
-            r.join();
-            final res = c.run((s, n) => w.wildsSherGift(s, n), quiet: true);
-            final gift = res.events.any((e) => e.type == 'wilds_gift');
-            setState(() {
-              _card = null;
-              _say(gift ? 'Lead the way! Here, berries for the road. Eat one when you\'re hurt.' : 'Lead the way!', gift ? 4.2 : 2.4);
-            });
+          gifted: gifted,
+          tip: tip,
+          onThanks: () {
+            _line++;
+            if (!gifted) {
+              c.audio.play('reward_chime', volume: 0.6);
+              c.run((s, n) => w.wildsSherGift(s, n), quiet: true);
+              c.toast('Sher gave you 3 Berry Snacks', icon: 'item:berry_snack');
+            }
+            setState(() => _card = null);
           },
-          onLater: close,
         );
       case 'retreat':
         body = _InfoCard(
@@ -877,6 +891,14 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
               ? 'Sher carried ${pet?.name ?? 'your Evochi'} back to the trailhead. Raid HP is back to full; its Vitality is untouched.'
               : '${pet?.name ?? 'Your Evochi'} scrambled back to the trailhead. Raid HP is back to full; its Vitality is untouched.',
           note: _lostText(r),
+          // a Heartbloom: get back up where you fell, satchel and all
+          secondary: ge.ownedQty(c.state, 'heartbloom') > 0 ? 'Heartbloom (${ge.ownedQty(c.state, 'heartbloom')})' : null,
+          onSecondary: () {
+            if (!c.run((s, n) => econ.wildsSecondWind(s, n)).ok) return;
+            r.secondWind();
+            c.audio.play('level_up', volume: 0.7);
+            setState(() => _card = null);
+          },
           primary: 'Back on my feet',
           primaryTone: ButtonTone.green,
           onPrimary: () {
@@ -904,6 +926,13 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
               c.audio.play('reward_chime', volume: 0.7);
               c.toast(_clearFirst ? 'The Sunlit Thicket is calm! +${reward.coins} EvoCoins + Briar Heartwood' : 'A good spar! +${reward.coins} EvoCoins + Briar Heartwood',
                   icon: 'item:briar_heartwood');
+              // the guardian's rare roll and the first-clear Glimmer (the economy)
+              final ev = res.events.firstWhere((e) => e.type == 'wilds_cleared');
+              final extra = [
+                for (final x in (ev.data['rewards'] as List).cast<Map<String, Object?>>())
+                  if (x['kind'] == 'glimmer') '+${x['amount']} Glimmer' else if (x['kind'] == 'item' && econ.activeRares.contains(x['itemId'])) '+1 ${_lootName(x['itemId'] as String)}',
+              ];
+              if (extra.isNotEmpty) c.toast('The guardian left a gift: ${extra.join(', ')}', icon: 'glimmer');
             } else if (!_clearFirst) {
               c.toast('Sparring rewards come once a day', icon: 'coin', kind: 'warn');
             }
@@ -965,13 +994,13 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
 
   String? _lostText(Raid r) {
     final lostC = (r.coins / 2).ceil();
-    final lostI = [for (final e in r.items.entries) if ((e.value / 2).ceil() > 0) '${(e.value / 2).ceil()} ${catalog[e.key]?.name ?? e.key}'];
+    final lostI = [for (final e in r.items.entries) if ((e.value / 2).ceil() > 0) '${(e.value / 2).ceil()} ${_lootName(e.key)}'];
     if (lostC == 0 && lostI.isEmpty) return null;
     return 'Dropped on the way: ${[if (lostC > 0) '$lostC EvoCoins', ...lostI].join(', ')} (half the satchel).';
   }
 
   String _satchelText(int coins, Map<String, int> items) =>
-      [if (coins > 0) '$coins EvoCoins', for (final e in items.entries) '${e.value} ${catalog[e.key]?.name ?? e.key}'].join(', ');
+      [if (coins > 0) '$coins EvoCoins', for (final e in items.entries) '${e.value} ${_lootName(e.key)}'].join(', ');
 }
 
 // ====================================================================== the map
@@ -2550,11 +2579,11 @@ class _VictoryCard extends StatelessWidget {
         const SizedBox(height: 10),
         Wrap(spacing: 8, runSpacing: 6, children: [
           chip(const VoxelIcon('coin', size: 22), '+$coins'),
-          for (final e in items.entries) chip(ItemImage(e.key, size: 26), '${catalog[e.key]?.name ?? e.key} x${e.value}'),
+          for (final e in items.entries) chip(ItemImage(e.key, size: 26), '${_lootName(e.key)} x${e.value}'),
         ]),
         if (satchelCoins > 0 || satchelItems.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Text('Your satchel comes home too: ${[if (satchelCoins > 0) '$satchelCoins EvoCoins', for (final e in satchelItems.entries) '${e.value} ${catalog[e.key]?.name ?? e.key}'].join(', ')}.',
+          Text('Your satchel comes home too: ${[if (satchelCoins > 0) '$satchelCoins EvoCoins', for (final e in satchelItems.entries) '${e.value} ${_lootName(e.key)}'].join(', ')}.',
               style: EvochiText.caption.copyWith(color: EvochiColor.textSecondary)),
         ],
         if (!first) ...[
@@ -2569,9 +2598,19 @@ class _VictoryCard extends StatelessWidget {
 }
 
 /// Meeting Sher: his offer to come along.
+const _sherTips = [
+  'The Briarback charges in a straight line. Dodge through it, then strike its flank while it shakes off the crash.',
+  'Sporecaps lob their spores where you are standing. Keep moving and they land behind you.',
+  'Thornlings roll at you. Sidestep, and pounce while they uncurl.',
+  'Hurt? Eat a berry from the leaf button. Your Vitality stays untouched in here.',
+  'Calmed creatures sometimes leave rare finds. Bring your satchel home before you push your luck.',
+];
+
 class _Offer extends StatelessWidget {
-  const _Offer({required this.onJoin, required this.onLater});
-  final VoidCallback onJoin, onLater;
+  const _Offer({required this.gifted, required this.tip, required this.onThanks});
+  final bool gifted;
+  final String tip;
+  final VoidCallback onThanks;
   @override
   Widget build(BuildContext context) => Container(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -2583,19 +2622,19 @@ class _Offer extends StatelessWidget {
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 Text('Sher', style: EvochiText.cardTitle.copyWith(fontSize: 18)),
-                const Text('A scout who knows the Wilds', style: EvochiText.caption),
+                const Text('A scout who keeps the camp', style: EvochiText.caption),
               ]),
             ),
           ]),
           const SizedBox(height: 8),
-          Text('Heading deeper? Something Hollow has the wood on edge, and the old guardian at the gate isn\'t itself. Two are safer than one. Mind if I join your party?',
-              style: EvochiText.bodyText.copyWith(height: 1.35)),
+          Text(
+            gifted
+                ? 'Back already? The fire\'s still going. $tip'
+                : 'Heading deeper? Something Hollow has the wood on edge. I\'ll keep the fire lit here for when you come back. Take these berries for the road, and a word of advice: $tip',
+            style: EvochiText.bodyText.copyWith(height: 1.35),
+          ),
           const SizedBox(height: 10),
-          Row(children: [
-            Expanded(child: EvochiButton(label: 'Not now', tone: ButtonTone.cream, onPressed: onLater)),
-            const SizedBox(width: 8),
-            Expanded(child: EvochiButton(label: 'Join my party', tone: ButtonTone.green, onPressed: onJoin)),
-          ]),
+          EvochiButton(label: gifted ? 'Thanks, Sher' : 'Thanks, Sher (3 Berry Snacks)', tone: ButtonTone.green, onPressed: onThanks),
         ]),
       );
 }
@@ -2644,3 +2683,6 @@ class _Stick extends StatelessWidget {
     );
   }
 }
+
+/// A satchel entry's name: an item, or Glimmer (a rare foe drop).
+String _lootName(String id) => id == econ.glimmer ? 'Glimmer' : (catalog[id]?.name ?? id);

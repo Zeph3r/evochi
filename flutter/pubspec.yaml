@@ -40,6 +40,7 @@ flutter:
     - assets/art/village/
     - assets/art/fx/ # living-scene masks (tools/art/scene_fx.py)
     - assets/art/wilds/ # the Lumen Wilds: walk sheets, the test clearing (tools/art/walk.py, wilds_art.py)
+    - assets/art/economy/ # economy: chest tiers (tools/art/economy_art.py)
     - assets/audio/sfx/
     - assets/audio/ambient/
     - assets/audio/music/ # place music: arrangements of public-domain airs (tools/art/music.py)

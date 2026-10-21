@@ -12,7 +12,9 @@ import '../../controllers/game_controller.dart';
 import '../../core/models/game_state.dart';
 import '../../core/utils/day_keys.dart';
 import '../../data/health_adapters/step_source.dart';
+import '../../game/economy/economy.dart' as econ;
 import '../../game/engine.dart' as g;
+import '../caravan/caravan_screen.dart';
 import '../shared/widgets.dart';
 
 const _zones = [
@@ -274,6 +276,21 @@ class SettingsScreen extends StatelessWidget {
                     EvochiButton(label: 'Fast-track evolution', small: true, expand: false, tone: ButtonTone.cream, onPressed: c.fastTrackEvolution),
                     EvochiButton(label: 'Skip 3 idle days', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.advanceDays(3, 0)),
                     EvochiButton(label: '+3 Healing Herbs', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.grantHerbs(3)),
+                  ]),
+                  const SizedBox(height: 12),
+                  const Text('Economy', style: EvochiText.cardTitle),
+                  const Text('Glimmer, Evochi Plus and the Caravan. Cash offers there become free test purchases while these tools are on.', style: EvochiText.caption),
+                  const SizedBox(height: 8),
+                  Wrap(spacing: 6, runSpacing: 6, children: [
+                    EvochiButton(label: '+500 Glimmer', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => c.run((x, n) => econ.grantGlimmerTest(x, 500, n))),
+                    EvochiButton(
+                      label: econ.plusActive(c.state, c.now) ? 'End test Plus' : 'Start test Plus',
+                      small: true,
+                      expand: false,
+                      tone: ButtonTone.cream,
+                      onPressed: () => c.run((x, n) => econ.setPlusTest(x, !econ.plusActive(x, n), n)),
+                    ),
+                    EvochiButton(label: 'Open the Caravan', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => openCaravan(context)),
                   ]),
                   const SizedBox(height: 12),
                   const Text('Home Tales', style: EvochiText.cardTitle),

@@ -13,6 +13,7 @@ import '../core/models/game_state.dart';
 import '../core/utils/day_keys.dart';
 import '../core/utils/ids.dart';
 import 'bond/bond.dart';
+import 'economy/economy.dart' as econ;
 import 'evolution/evolution.dart';
 import 'story/story.dart' as story;
 import 'trails/trails.dart' as trails;
@@ -133,7 +134,8 @@ int goalFor(GameState s, String key) {
   return g;
 }
 
-int balanceOf(GameState s) => s.txns.fold(0, (a, t) => a + t.amount);
+/// A wallet balance: EvoCoins unless [currency] says otherwise ('glimmer').
+int balanceOf(GameState s, [String currency = 'evocoin']) => s.txns.fold(0, (a, t) => t.currency == currency ? a + t.amount : a);
 int ownedQty(GameState s, String id) => s.inventory[id]?.quantity ?? 0;
 
 GameView derive(GameState s, int now) {
@@ -490,19 +492,14 @@ ActionResult claimQuest(GameState state, String questId, int now) {
     {'kind': 'coins', 'amount': q.def.coins}
   ];
   final verifiedDay = !d.todayUnverified || GameConfig.current.manualAllowsChests;
+  String? tier;
   if (q.def.chest && verifiedDay) {
-    final r = seededRandom('${s.player!.id}:${q.claimId}:chest');
-    final cc = GameConfig.current.chestCoins;
-    final coins = cc[r.nextInt(cc.length)];
-    _addTxn(s, WalletTxn(id: '$txnId:chest', amount: coins, cause: 'chest', at: now));
-    rewards.add({'kind': 'coins', 'amount': coins, 'chest': true});
-    if (r.nextDouble() < GameConfig.current.chestItemChance) {
-      final items = GameConfig.current.chestItems;
-      final it = items[r.nextInt(items.length)];
-      _grant(s, it, 1, 'chest', now, '$txnId:chest');
-      rewards.add({'kind': 'item', 'itemId': it});
-    }
+    // the tiered daily chest (economy plan): Wooden, Silver, Gold or Lumen
+    final c = econ.openDailyChest(s, d, txnId, now);
+    tier = c.tier;
+    rewards.addAll(c.rewards);
   }
+  if (q.def.period == 'week' && q.def.goalDays != null) rewards.addAll(econ.weeklyBonus(s, txnId, now));
   if (q.def.cosmeticChance > 0 && verifiedDay) {
     final r = seededRandom('${s.player!.id}:${q.claimId}:cosmetic');
     if (r.nextDouble() < q.def.cosmeticChance) {
@@ -516,7 +513,7 @@ ActionResult claimQuest(GameState state, String questId, int now) {
     }
   }
   s.claims[q.claimId] = {'claimedAt': now, 'txnId': txnId};
-  return _ok(s, [GameEvent('claimed', {'questId': questId, 'rewards': rewards})]);
+  return _ok(s, [GameEvent('claimed', {'questId': questId, 'rewards': rewards, if (tier != null) 'tier': tier})]);
 }
 
 // -------------------------------------------------------------------- shop ----
@@ -539,6 +536,7 @@ ActionResult purchase(GameState state, String itemId, String requestId, int now)
 ActionResult equip(GameState state, String itemId, int now) {
   final it = catalog[itemId];
   if (it == null || it.category != ItemCategory.wearable) return _fail(state, 'not_wearable');
+  if (it.pendingArt) return _fail(state, 'art_pending');
   if (ownedQty(state, itemId) < 1) return _fail(state, 'not_owned');
   if (state.pet == null) return _fail(state, 'no_pet');
   if (!itemCompatible(itemId, state.pet!.stage)) return _fail(state, 'incompatible');
@@ -563,6 +561,7 @@ ActionResult useConsumable(GameState state, String itemId, int now) {
   if (it == null || it.category != ItemCategory.consumable) return _fail(state, 'not_consumable');
   if (ownedQty(state, itemId) < 1) return _fail(state, 'not_owned');
   if (it.growth > 0) return _fail(state, 'use_in_garden'); // Sprout Tonic: poured on a garden bed
+  if (it.isRare) return _fail(state, 'use_rare'); // rare finds have their own uses (economy.dart)
   final d = derive(state, now);
   if (d.pet == null) return _fail(state, 'no_pet');
   if (d.pet!.dead) return _fail(state, 'pet_dead');
@@ -588,6 +587,7 @@ ActionResult useConsumable(GameState state, String itemId, int now) {
 ActionResult placeDecoration(GameState state, String itemId, String slotId) {
   final it = catalog[itemId];
   if (it == null || it.category != ItemCategory.decoration) return _fail(state, 'not_decoration');
+  if (it.pendingArt) return _fail(state, 'art_pending');
   final slot = decorSlots[slotId];
   if (slot == null || slot.accepts != it.decor) return _fail(state, 'no_anchor');
   final placedElsewhere = state.placements.entries.where((e) => e.value == itemId && e.key != slotId).length;
@@ -622,7 +622,8 @@ ActionResult evolve(GameState state, int now) {
     }
   }
   s.unlocks.putIfAbsent('stage:lizard:$next', () => now);
-  return _ok(s, [GameEvent('evolved', {'stage': next, 'removed': removed})]);
+  final bonus = econ.milestoneGlimmer(s, 'evolve:$next', 30, now);
+  return _ok(s, [GameEvent('evolved', {'stage': next, 'removed': removed, if (bonus != null) 'glimmer': bonus['amount']})]);
 }
 
 // ------------------------------------------------------ recovery / memorial ----

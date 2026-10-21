@@ -41,6 +41,8 @@ class CatalogItem {
     this.kind,
     this.crop,
     this.stages = const [1, 2, 3],
+    this.glimmer,
+    this.pendingArt = false,
   }) : listPrice = price;
 
   final String id;
@@ -66,8 +68,11 @@ class CatalogItem {
   final String? kind; // consumables: meal | potion | garden
   final String? crop; // seeds: the crop they grow
   final List<int> stages;
+  final int? glimmer; // Starlight Caravan price in Glimmer (rare items); null = not sold there
+  final bool pendingArt; // a season reward whose wearable art is not rendered yet: owned, not equippable
 
   bool get isStackable => category == ItemCategory.consumable || stackable;
+  bool get isRare => kind == 'rare';
   bool get isStory => acquisition == 'story';
   bool get isHome => acquisition == 'home';
   bool get forSale => shop != null && listPrice != null && !isStory;
@@ -232,6 +237,69 @@ const catalog = <String, CatalogItem>{
       acquisition: 'trail', tradable: false, sellable: false,
       desc: "A piece of the Briarback's antler, warm wood split open on a mint-green glow. The Hollow is gone from it. "
           'A crafting fragment from the Sunlit Thicket.'),
+  // ---- Rare finds (the economy plan): they drop rarely in play and the Starlight Caravan sells them for
+  // Glimmer. Each one is a consumable of kind 'rare'; what it does lives in game/economy/economy.dart.
+  'sunstone': CatalogItem(
+      id: 'sunstone', name: 'Sunstone', category: ItemCategory.consumable, kind: 'rare', rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'drop', tradable: false, glimmer: 30,
+      desc: 'A warm gold gem that holds a whole afternoon of sunlight. Set it on a garden bed and the crop ripens at once.'),
+  'moonwell_dew': CatalogItem(
+      id: 'moonwell_dew', name: 'Moonwell Dew', category: ItemCategory.consumable, kind: 'rare', rarity: 'uncommon', stackable: true, shop: null,
+      acquisition: 'drop', tradable: false, glimmer: 20,
+      desc: 'Pale blue water from the old moonwell. Waters every planted bed at once and adds a quarter of a growing time to each.'),
+  'heartbloom': CatalogItem(
+      id: 'heartbloom', name: 'Heartbloom', category: ItemCategory.consumable, kind: 'rare', rarity: 'epic', stackable: true, shop: null,
+      acquisition: 'drop', tradable: false, glimmer: 60,
+      desc: 'A rose-pink bloom with heart-shaped petals. Wakes a fainted Evochi at full Vitality, and in the Wilds it gets you back on your feet once.'),
+  'wayfinder_compass': CatalogItem(
+      id: 'wayfinder_compass', name: 'Wayfinder Compass', category: ItemCategory.consumable, kind: 'rare', rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'drop', tradable: false, glimmer: 40,
+      desc: 'A brass compass whose needle points at the best-hidden things. Doubles the reward of your next trail discovery.'),
+  'golden_acorn': CatalogItem(
+      id: 'golden_acorn', name: 'Golden Acorn', category: ItemCategory.consumable, kind: 'rare', rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'drop', tradable: false, glimmer: 50,
+      desc: 'A lucky acorn of solid gold. Your next daily chest opens one tier better.'),
+  'hollow_ward': CatalogItem(
+      id: 'hollow_ward', name: 'Hollow Ward', category: ItemCategory.consumable, kind: 'rare', rarity: 'uncommon', stackable: true, shop: null,
+      acquisition: 'drop', tradable: false, glimmer: 25,
+      desc: 'A violet charm carved with a calming rune. Your next Wilds run starts with a shield that turns away the first three hits.'),
+  'starseed': CatalogItem(
+      id: 'starseed', name: 'Starseed', category: ItemCategory.consumable, kind: 'rare', rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'drop', tradable: false,
+      desc: 'A seed with a tiny star caught inside. It will grow Starfruit once the garden has room for it.'),
+  'prism_scale': CatalogItem(
+      id: 'prism_scale', name: 'Prism Scale', category: ItemCategory.consumable, kind: 'rare', rarity: 'legendary', stackable: true, shop: null,
+      acquisition: 'drop', tradable: false,
+      desc: 'An iridescent scale that throws rainbows. One day it will give your Evochi a shimmer of its own.'),
+  // ---- Season 1: First Light. Pass rewards; their wearable art arrives with the season.
+  'season_dawn_circlet': CatalogItem(
+      id: 'season_dawn_circlet', name: 'Dawn Circlet', category: ItemCategory.wearable, slot: 'head', rarity: 'epic', shop: null,
+      acquisition: 'season', tradable: false, sellable: false, pendingArt: true,
+      desc: 'A thin gold circlet set with a sliver of morning light. Season 1: First Light, premium track.'),
+  'season_firefly_scarf': CatalogItem(
+      id: 'season_firefly_scarf', name: 'Firefly Scarf', category: ItemCategory.wearable, slot: 'neck', rarity: 'epic', shop: null,
+      acquisition: 'season', tradable: false, sellable: false, pendingArt: true,
+      desc: 'A night-blue scarf embroidered with tiny glowing fireflies. Season 1: First Light, premium track.'),
+  'season_lantern_wings': CatalogItem(
+      id: 'season_lantern_wings', name: 'Lantern Wings', category: ItemCategory.wearable, slot: 'back', rarity: 'legendary', shop: null,
+      acquisition: 'season', tradable: false, sellable: false, pendingArt: true,
+      desc: 'Little paper-lantern wings that glow when you walk. Season 1: First Light, premium track.'),
+  'season_glow_ribbon': CatalogItem(
+      id: 'season_glow_ribbon', name: 'Glow Ribbon', category: ItemCategory.wearable, slot: 'tail', rarity: 'epic', shop: null,
+      acquisition: 'season', tradable: false, sellable: false, pendingArt: true,
+      desc: 'A ribbon for the tail that trails a faint light. Season 1: First Light, premium track.'),
+  'season_first_light_banner': CatalogItem(
+      id: 'season_first_light_banner', name: 'First Light Banner', category: ItemCategory.decoration, decor: 'side', rarity: 'epic', shop: null,
+      acquisition: 'season', tradable: false, sellable: false, pendingArt: true,
+      desc: 'A camp banner stitched with a rising sun over the Thicket. Season 1: First Light, premium track.'),
+  'season_first_light_scarf': CatalogItem(
+      id: 'season_first_light_scarf', name: 'First Light Scarf', category: ItemCategory.wearable, slot: 'neck', rarity: 'rare', shop: null,
+      acquisition: 'season', tradable: false, sellable: false, pendingArt: true,
+      desc: 'A soft dawn-coloured scarf for everyone who walked Season 1. Season 1: First Light, free track.'),
+  'season_dawn_shimmer': CatalogItem(
+      id: 'season_dawn_shimmer', name: 'Dawn Shimmer', category: ItemCategory.decoration, decor: 'side', rarity: 'legendary', shop: null,
+      acquisition: 'season', tradable: false, sellable: false, pendingArt: true,
+      desc: 'A swirl of morning light that will follow your Evochi. Season 1: First Light, the final premium reward.'),
 };
 
 /// Can this item be bought in the Market (and rolled as a quest cosmetic)? Story items never can.
