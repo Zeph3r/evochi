@@ -1507,9 +1507,10 @@ class _MapPainter extends CustomPainter {
     canvas.translate(g.dx, g.dy - w.lift * _up);
     if (!rm) {
       final face = w.dir * math.pi / 4;
-      canvas.rotate(gait.roll[col] * math.pi / 180 * math.cos(face));
+      canvas.rotate(gait.roll[col] * math.pi / 180 * math.cos(face) + w.tilt);
       final sit = w.pose == 'sit';
-      canvas.scale(w.sx, w.sy * gait.squash[col] * (sit ? 0.82 : 1));
+      final pop = Curves.easeOut.transform(w.pop.clamp(0.0, 1.0));
+      canvas.scale(w.sx * (1 + 0.1 * pop), w.sy * gait.squash[col] * (sit ? 0.82 : 1) * (1 - 0.12 * pop));
     }
     final dst = Rect.fromLTWH(-art.gx * k, -art.gy * k, art.fw * k, art.fh * k);
     final paint = _spritePaint(w);
@@ -1551,7 +1552,8 @@ class _MapPainter extends CustomPainter {
     canvas.translate(g.dx, g.dy - f.lift * _up);
     if (!rm) {
       canvas.rotate(roll * math.pi / 180 * math.cos(f.dir * math.pi / 4));
-      canvas.scale(f.sx, f.sy * squash);
+      final pop = Curves.easeOut.transform(f.pop.clamp(0.0, 1.0)) * (f is Boss ? 0.4 : 1.0);
+      canvas.scale(f.sx * (1 + 0.12 * pop), f.sy * squash * (1 - 0.16 * pop));
     }
     if (pose == 'ball' && f.spin != 0 && !rm) {
       final c = 7.0 * _up;
@@ -1867,6 +1869,14 @@ class _MapPainter extends CustomPainter {
               ..strokeWidth = 5 * (1 - k)
               ..color = Color.fromRGBO(255, 248, 225, 0.85 * (1 - k)));
         _glow(canvas, g - Offset(0, 8 * _up), (10 + 20 * k) * u * b.size, Color.fromRGBO(255, 250, 230, 0.7 * (1 - k)));
+      case 'dust':
+        // a kicked-up puff: a few soft grains drifting out and fading
+        for (var i = 0; i < 4; i++) {
+          final a = i * 1.7 + b.x * 0.3;
+          final c = g + Offset(math.cos(a) * (3 + 9 * k) * b.size * u, -(1 + 5 * k) * _up * b.size + math.sin(a) * 1.5 * u);
+          canvas.drawCircle(c, (2.2 + 2.6 * k) * u * b.size,
+              Paint()..color = Color.fromRGBO(226, 214, 190, 0.45 * (1 - k)));
+        }
       case 'ember':
         final p = Paint()..color = Color.lerp(const Color(0xFFFFD25E), const Color(0xFFE2522F), k)!.withAlpha(((1 - k) * 230).round());
         for (var i = 0; i < 3; i++) {

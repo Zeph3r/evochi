@@ -443,4 +443,55 @@ void main() {
       expect(taken(const ['lantern']), lessThan(plain));
     });
   });
+
+  group('a living body', () {
+    test('standing still it breathes, flourishes now and then, and never drifts', () {
+      final r = Raid(ground: meadow(), pet: petAt(0, 0, hp: 100), spawns: const []);
+      final x0 = r.pet.x, z0 = r.pet.z;
+      var squashed = false, leaned = false, hopped = false;
+      for (var i = 0; i < 60 * 70; i++) {
+        r.tick(dt, RaidInput());
+        if ((r.pet.sy - 1).abs() > 0.01) squashed = true;
+        if (r.pet.tilt.abs() > 0.02) leaned = true;
+        if (r.pet.lift > 1) hopped = true;
+      }
+      expect(squashed && leaned && hopped, isTrue);
+      expect(r.pet.x, x0);
+      expect(r.pet.z, z0);
+    });
+
+    test('a pounce coils, stretches and lands without changing what it hits', () {
+      // side on, so the lean shows on screen (facing straight up or down it would be edge on)
+      final r = Raid(ground: meadow(), pet: petAt(30, 0, hp: 100000), spawns: const [FoeSpawn('a', 'thornling', 'z', 8, 0)], seed: 3);
+      r.foes[0].face(1, 0);
+      r.pet.face(-1, 0);
+      r.press('attack');
+      var minSy = 9.0, maxSy = 0.0, tilted = false, dust = false;
+      for (var i = 0; i < 40; i++) {
+        r.tick(dt, RaidInput());
+        if (r.pet.sy < minSy) minSy = r.pet.sy;
+        if (r.pet.sy > maxSy) maxSy = r.pet.sy;
+        if (r.pet.tilt.abs() > 0.05) tilted = true;
+        if (r.bursts.any((b) => b.kind == 'dust')) dust = true;
+      }
+      expect(minSy, lessThan(0.93));
+      expect(maxSy, greaterThan(1.08));
+      expect(tilted, isTrue);
+      expect(dust, isTrue);
+    });
+
+    test('a hit makes a foe pop, and it settles', () {
+      final r = Raid(ground: meadow(), pet: petAt(0, 30, hp: 100000), spawns: const [FoeSpawn('a', 'thornling', 'z', 0, 12)], seed: 3);
+      r.foes[0].face(0, 1);
+      r.pet.face(0, -1);
+      r.press('attack');
+      var popped = false;
+      for (var i = 0; i < 90; i++) {
+        r.tick(dt, RaidInput());
+        if (r.foes[0].pop > 0.5) popped = true;
+      }
+      expect(popped, isTrue);
+      expect(r.foes[0].pop, lessThan(0.05));
+    });
+  });
 }

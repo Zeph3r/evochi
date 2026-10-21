@@ -65,6 +65,8 @@ class Actor {
   String gait = 'walk';
   bool calm = false; // the Hollow has lifted
   double alpha = 1, spin = 0, sx = 1, sy = 1, lift = 0, glow = 0;
+  double tilt = 0; // a lean in radians (drawn only), toward screen-right when positive
+  double pop = 0; // 1 at the instant of a hit, easing to 0: the body squashes and springs back
   // state
   double flash = 0, iframes = 0, stun = 0, slowT = 0, mercy = 0;
   double burnT = 0, _burnFx = 0; // set alight by an Ember Draught's hits
@@ -407,6 +409,10 @@ class Raid {
   double stamina = _stamMax, _stamWait = 0;
   PetAct act = PetAct.none;
   double actT = 0;
+  bool _landed = false;
+  double idleT = 0, _nextFlourish = 7, _flourishT = -1, _glanceUntil = 0, _nextGlance = 3, cheerT = 0;
+  int _flourishKind = 0, _flourishN = 0;
+  int _stepK = 0;
   int combo = 0;
   double comboUntil = 0;
   final _hitThisSwing = <Actor>{};
@@ -691,6 +697,7 @@ class Raid {
   void _physics(double dt) {
     for (final a in _bodies) {
       a.flash = math.max(0, a.flash - dt);
+      a.pop = math.max(0, a.pop - dt * 6);
       a.iframes = math.max(0, a.iframes - dt);
       a.mercy = math.max(0, a.mercy - dt);
       a.stun = math.max(0, a.stun - dt);
@@ -785,6 +792,7 @@ class Raid {
     p.sx = p.sy = 1;
     p.lift = 0;
     p.spin = 0;
+    p.tilt = 0;
     p.ghost = false;
     p.glow = math.max(0, p.glow - dt * 2);
     actT += dt;
@@ -847,17 +855,36 @@ class Raid {
     switch (act) {
       case PetAct.swing:
         final c = combo;
-        // a quick crouch, the lunge (the pounce hops), then a breath
+        final lean = math.sin(p.dir * math.pi / 4);
+        // a crouch that coils back, the lunge (the pounce hops) with the body stretched through it and an
+        // afterimage behind, then a landing squash that springs out
         if (actT < 0.07) {
-          p.sy = 0.86;
-          p.sx = 1.08;
+          final k = actT / 0.07;
+          p.sy = 1 - 0.14 * k;
+          p.sx = 1 + 0.08 * k;
+          p.tilt = -lean * 0.12 * k;
         } else if (actT < 0.2) {
           final lunge = _swingLunge[c] / 0.13 * _lungeK;
           _move(p, p.fx, p.fz, lunge * (p.slowT > 0 ? 0.7 : 1), dt, faceIt: false);
-          p.sy = 1.12;
-          p.sx = 0.92;
+          final big = c == 2 ? 1.6 : 1.0;
+          p.sy = 1 + 0.12 * big;
+          p.sx = 1 - 0.08 * big;
+          p.tilt = lean * 0.2 * big;
           if (c == 2) p.lift = math.sin((actT - 0.07) / 0.13 * math.pi) * 9;
+          if (trail.isEmpty || time - trail.last.$3 > 0.03) trail.add((p.x, p.z, time));
           _swingHits(c);
+          _landed = false;
+        } else {
+          final k = ((actT - 0.2) / 0.16).clamp(0.0, 1.0);
+          final land = (1 - k) * (1 - k);
+          final big = c == 2 ? 1.7 : 1.0;
+          p.sy = 1 - 0.1 * big * land;
+          p.sx = 1 + 0.09 * big * land;
+          p.tilt = -lean * 0.06 * land * big;
+          if (!_landed && _lungeK > 0.5) {
+            _landed = true;
+            bursts.add(Burst('dust', p.x - p.fx * 2, p.z - p.fz * 2, 0.4, size: c == 2 ? 1.4 : 0.8));
+          }
         }
         if (actT > 0.2 + _swingRecover[c]) {
           act = PetAct.none;
@@ -865,7 +892,13 @@ class Raid {
         }
         mx = mz = 0;
       case PetAct.bolt:
-        p.sy = 0.92;
+        {
+          // lean in, then a small kick back as it fires
+          final lean = math.sin(p.dir * math.pi / 4);
+          p.sy = actT < 0.1 ? 0.92 : 1.04;
+          p.sx = actT < 0.1 ? 1.04 : 0.96;
+          p.tilt = actT < 0.1 ? lean * 0.08 : -lean * 0.1 * (1 - ((actT - 0.1) / 0.14).clamp(0.0, 1.0));
+        }
         p.glow = 1;
         if (actT >= 0.1 && actT - dt < 0.1) {
           final t = _softTarget(170, p.fx, p.fz);
@@ -877,7 +910,16 @@ class Raid {
         mx = mz = 0;
       case PetAct.pulse:
         p.glow = math.min(1, actT / 0.28);
-        p.sy = 1 - 0.1 * math.min(1, actT / 0.28);
+        if (actT < 0.28) {
+          p.sy = 1 - 0.1 * math.min(1, actT / 0.28);
+          p.sx = 1 + 0.06 * math.min(1, actT / 0.28);
+        } else {
+          // released: it springs up and comes down in a wave
+          final k = ((actT - 0.28) / 0.28).clamp(0.0, 1.0);
+          p.lift = math.sin(k * math.pi) * 6;
+          p.sy = 1 + 0.12 * math.sin(k * math.pi);
+          p.sx = 1 - 0.06 * math.sin(k * math.pi);
+        }
         if (actT >= 0.28 && actT - dt < 0.28) _pulse();
         if (actT > 0.56) act = PetAct.none;
         mx = mz = 0;
@@ -918,10 +960,111 @@ class Raid {
       p.running = false;
       if (act != PetAct.swing) p.moving = false;
     }
+    _petLife(p, dt);
     // crumbs for Sher
     if (crumbs.isEmpty || _len(p.x - crumbs.last.$1, p.z - crumbs.last.$2) > 3) {
       crumbs.add((p.x, p.z));
       if (crumbs.length > 80) crumbs.removeAt(0);
+    }
+  }
+
+
+  /// The body when nothing is being asked of it: it breathes and shifts its weight, glances at what is
+  /// near, stands ready when something hostile is close, droops a little when hurt badly, and now and
+  /// then stretches, shakes itself or hops. Footfalls kick up dust. All of it is drawn only: it never
+  /// moves the Evochi or changes a hit.
+  void _petLife(Actor p, double dt) {
+    // footfalls: a puff of dust on each step while running
+    if (p.moving && p.running && act == PetAct.none) {
+      final k = (p.phase * 2).floor();
+      if (k != _stepK) {
+        _stepK = k;
+        bursts.add(Burst('dust', p.x - p.fx * 3, p.z - p.fz * 3, 0.32, size: 0.5));
+      }
+    }
+    final free = act == PetAct.none && !p.moving && p.stun <= 0 && !p.ghost;
+    if (!free) {
+      idleT = 0;
+      _flourishT = -1;
+      _nextFlourish = 7;
+      return;
+    }
+    idleT += dt;
+    final t = time;
+    final lean = math.sin(p.dir * math.pi / 4);
+    final low = p.hpFrac < 0.3;
+    Actor? near;
+    var nd = 150.0;
+    for (final f in hostile) {
+      if (f.calm || f.st == FoeState.dormant) continue;
+      final d = p.dist(f);
+      if (d < nd) {
+        nd = d;
+        near = f;
+      }
+    }
+    // breathing: slower and shallower when hurt
+    final br = math.sin(t * (low ? 1.5 : 2.3));
+    p.sy *= 1 + (low ? 0.012 : 0.02) * br;
+    p.sx *= 1 - (low ? 0.006 : 0.01) * br;
+    if (near != null && nd < 110) {
+      // ready: low and springy, facing it
+      p.face(near.x - p.x, near.z - p.z);
+      p.sy *= 0.955 + 0.012 * math.sin(t * 7);
+      p.sx *= 1.03;
+      p.tilt += lean * 0.05;
+      return;
+    }
+    if (cheerT > 0) {
+      cheerT -= dt;
+      final k = (t * 2.2) % 1.0;
+      p.lift = math.sin(k * math.pi) * 5;
+      p.sy *= 1 + 0.07 * math.sin(k * math.pi);
+      p.sx *= 1 - 0.04 * math.sin(k * math.pi);
+      return;
+    }
+    // a slow shift of weight from side to side
+    p.tilt += 0.03 * math.sin(t * 0.8) * (low ? 0.4 : 1);
+    if (low) {
+      p.sy *= 0.97;
+      return;
+    }
+    // a glance at whatever is near: a foe, or a friend, then back
+    if (t >= _glanceUntil && t >= _nextGlance && idleT > 2.2) {
+      final tgt = near ?? (sher != null && p.dist(sher!) < 160 ? sher : null);
+      if (tgt != null) {
+        _glanceUntil = t + 1.1;
+        _nextGlance = t + 3.5 + (_flourishN % 3) * 1.3;
+        p.face(tgt.x - p.x, tgt.z - p.z);
+      } else {
+        _nextGlance = t + 2.5;
+      }
+    }
+    // now and then a flourish
+    if (_flourishT < 0 && idleT > _nextFlourish) {
+      _flourishT = 0;
+      _flourishKind = _flourishN++ % 3;
+    }
+    if (_flourishT >= 0) {
+      _flourishT += dt;
+      final len = _flourishKind == 1 ? 0.9 : 0.8;
+      final k = (_flourishT / len).clamp(0.0, 1.0);
+      final w = math.sin(k * math.pi);
+      switch (_flourishKind) {
+        case 0: // a stretch
+          p.sy *= 1 + 0.11 * w;
+          p.sx *= 1 - 0.07 * w;
+        case 1: // a shake-off
+          p.tilt += math.sin(k * 34) * 0.1 * (1 - k);
+          p.sx *= 1 + 0.03 * w;
+        default: // a hop
+          p.lift = math.sin(k * math.pi) * 7;
+          p.sy *= 1 + 0.08 * math.sin(k * math.pi) - 0.1 * (k < 0.15 ? 1 - k / 0.15 : 0);
+      }
+      if (_flourishT >= len) {
+        _flourishT = -1;
+        _nextFlourish = idleT + 8 + (_flourishN % 4) * 2.0;
+      }
     }
   }
 
@@ -1048,6 +1191,7 @@ class Raid {
     final n = math.max(1, dmg.round());
     a.hp -= n;
     a.flash = 0.14;
+    a.pop = 1;
     a.kx += kx;
     a.kz += kz;
     final fx = (a.x + (from?.x ?? a.x)) / 2, fz = (a.z + (from?.z ?? a.z)) / 2;
@@ -2724,6 +2868,7 @@ class Raid {
     shake = 1.0;
     hitstop = 0.18;
     bursts.add(Burst('purify', b.x, b.z, 2.2, size: 3));
+    cheerT = 4;
     _emit('victory');
     say('You did it! Look... the Hollow\'s gone out of it.', gap: 1);
   }
