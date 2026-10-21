@@ -79,8 +79,8 @@ BRANCHES = [
 ]
 # where the fights are: clearings off the trail (the foes wait there), and the guardian's arena before the
 # gate. Each zone: id, name, centre x, z, radius.
-ZONES = [('fern', 'Fern Clearing', -8, 250, 46), ('ring', 'Mushroom Ring', 4, 26, 44), ('stand', 'Thorn Stand', 28, -222, 46)]
-ARENA = (-14, -398, 74)                                # the Briarback's arena: centre x, z, radius
+ZONES = [('fern', 'Fern Clearing', -8, 250, 64), ('ring', 'Mushroom Ring', 4, 26, 60), ('stand', 'Thorn Stand', 28, -218, 60)]
+ARENA = (-14, -390, 92)                                # the Briarback's arena: centre x, z, radius
 CAMP = (100, 340)
 POND = (-118, 112, 62, 44)                             # centre x, z, radius x, z
 NOOK = (-152, -392)
@@ -479,26 +479,119 @@ def pillar(seed, h=26):
     return M, 6.5
 
 
+GATE_EMIT = 21.0                 # the seal's emitters: on the pillars' inner faces, this far either side of the gate's middle
+GATE_BEAMS = (14.0, 26.0, 38.0)  # ...at these heights (world units); the game draws the beams between them
+
+
+# Elder Futhark runes as strokes on a 4 x 7 grid (u right, v up, centred): the gate's carvings.
+FUTHARK = {
+    'fehu': [(-1.5, -3.5, -1.5, 3.5), (-1.5, 1.4, 1.5, 3.4), (-1.5, -0.6, 1.5, 1.4)],
+    'raidho': [(-1.5, -3.5, -1.5, 3.5), (-1.5, 3.5, 1.3, 2.0), (1.3, 2.0, -1.5, 0.4), (-1.5, 0.4, 1.5, -3.5)],
+    'algiz': [(0, -3.5, 0, 3.5), (0, 0.6, -2.0, 3.5), (0, 0.6, 2.0, 3.5)],
+    'sowilo': [(1.3, 3.5, -1.3, 1.1), (-1.3, 1.1, 1.3, -1.1), (1.3, -1.1, -1.3, -3.5)],
+    'othala': [(0, 3.5, 2.0, 1.0), (0, 3.5, -2.0, 1.0), (-2.0, 1.0, 1.7, -3.5), (2.0, 1.0, -1.7, -3.5)],
+    'dagaz': [(-2.0, -3.5, -2.0, 3.5), (2.0, -3.5, 2.0, 3.5), (-2.0, 3.5, 2.0, -3.5), (-2.0, -3.5, 2.0, 3.5)],
+    'ingwaz': [(0, 3.5, 2.0, 0), (2.0, 0, 0, -3.5), (0, -3.5, -2.0, 0), (-2.0, 0, 0, 3.5)],
+}
+RUNES_LEFT = ('raidho', 'algiz', 'fehu')        # journey, protection, wealth (top to bottom)
+RUNES_RIGHT = ('sowilo', 'othala', 'dagaz')     # sun, ancestral home, dawn
+
+
+def rune_mask(M, cx, cy, rune, scale=1.25, w=0.85):
+    """The voxels within w of a rune's strokes, centred at (cx, cy) on the X-Y plane."""
+    u, v = M.X - cx, M.Y - cy
+    out = np.zeros(M.X.shape, bool)
+    for (x0, y0, x1, y1) in FUTHARK[rune]:
+        x0, y0, x1, y1 = x0 * scale, y0 * scale, x1 * scale, y1 * scale
+        dx, dy = x1 - x0, y1 - y0
+        L2 = max(dx * dx + dy * dy, 1e-6)
+        t = np.clip(((u - x0) * dx + (v - y0) * dy) / L2, 0, 1)
+        out |= np.hypot(u - (x0 + t * dx), v - (y0 + t * dy)) < w
+    return out
+
+
 def gate():
-    """The old stone arch to Fernwood Trail, grown over, a carved stone between its feet"""
-    M = Model((-34, 0, -9), (34, 64, 9), [], res=1)
+    """The ruined doorway to Fernwood Trail: two carved pillars on worn steps under a cracked lintel (its
+    far corner broken off and lying in the moss), a stone arch in the opening with a keystone rune, runes
+    that glow where the Lumen still runs, ivy hanging from the lintel, ferns at the feet. Gem sockets on
+    the pillars' inner faces hold the seal: the game draws its beams of light between them (GATE_BEAMS)."""
+    M = Model((-50, 0, -15), (50, 84, 15), [], res=1)
     P = CPainter(M, 41)
-    for s in (-1, 1):
-        P.fill(box(M, (s * 22 - 6, 0, -6), (s * 22 + 6, 46, 6)), ['#B9B2A2', '#A9A292', '#C5BFAF'], cell=(3, 3, 3))
-        P.fill(box(M, (s * 22 - 7.5, 0, -7.5), (s * 22 + 7.5, 4, 7.5)), ['#9E978A', '#8F897C'])
-    th = np.arctan2(M.Y - 40, M.X)
-    rr = np.hypot(M.X, M.Y - 40)
-    arch = (rr > 17) & (rr < 26) & (M.Y >= 40) & (np.abs(M.Z) < 6)
-    P.fill(arch, ['#B9B2A2', '#A9A292', '#C5BFAF'], cell=(3, 3, 3))
-    key = (np.abs(M.X) < 3.5) & (M.Y > 56) & (M.Y < 66) & (np.abs(M.Z) < 6.8)
-    P.fill(key, ['#C9C2AE'])
-    M.set(key & (M.Z > 6) & (np.abs(M.X) < 1.5) & (np.abs(M.Y - 61) < 2.5), '#8FE3D0')
-    M.glow[(M.m == M.mid('#8FE3D0'))] = 0.8
-    vine = (arch | box(M, (-28, 0, -6), (28, 46, 6))) & (M.m > 0) & (norm(noise2(M.m.shape, 1.6, 9)) > 0.62) & (np.abs(M.Z) > 4.5)
-    P.fill(vine, ['#4E8F3A', '#5FA046', '#3F7E33'])
-    # bars of light across the opening: the way is sealed
-    for y in (12, 22, 32):
-        P.fill(box(M, (-16, y, -0.5), (16, y + 1, 0.5)), ['#9FE3CF'], glow=0.9)
+    ST = ['#A7A08F', '#9A9383', '#B3AC9B', '#8F897A']
+    ST_DK = ['#7F796C', '#736E62', '#857F71']
+    RUNE = '#8FF0DC'
+    rn = norm(noise2(M.m.shape, 1.4, 41))
+    # the steps: two broad slabs, worn and cracked
+    steps = box(M, (-46, 0, -13), (46, 3, 14)) | box(M, (-40, 3, -11), (40, 5, 11))
+    steps &= ~(box(M, (16, 3, 6), (24, 5, 11)) & (rn > 0.5))
+    P.fill(steps, ST_DK, cell=(5, 1, 4))
+    # the pillars: square, a little tapered, on plinths, under capitals, with carved bands
+    cols = np.zeros_like(steps)
+    for sgn in (-1, 1):
+        cx = sgn * 30.0
+        taper = 9.0 - (M.Y - 5) * 0.035
+        col = (np.abs(M.X - cx) < taper) & (np.abs(M.Z) < taper - 1) & (M.Y >= 5) & (M.Y < 58)
+        cols |= col
+        P.fill(col, ST, cell=(3, 4, 3))
+        P.fill(box(M, (cx - 11.5, 5, -11), (cx + 11.5, 10, 11)), ST_DK, cell=(4, 2, 4))
+        P.fill(box(M, (cx - 11.5, 56, -11), (cx + 11.5, 61, 11)), ST_DK, cell=(4, 2, 4))
+        for y in (22.0, 34.0, 46.0):
+            M.set(col & (np.abs(M.Y - y) < 0.7) & ((np.abs(M.X - cx) > taper - 1.6) | (np.abs(M.Z) > taper - 2.6)), '#6E695E')
+        # Elder Futhark runes carved down the front face, glowing where the Lumen still runs
+        front = col & (M.Z > taper - 2.2)
+        for (y, rune) in zip((40, 28, 16), RUNES_LEFT if sgn < 0 else RUNES_RIGHT):
+            M.set(front & rune_mask(M, cx, y, rune), RUNE, glow=0.85)
+        # the seal's emitters: a carved bracket jutting into the opening, a bright gem in its mouth
+        for y in GATE_BEAMS:
+            iy = 9.0 - (y - 5) * 0.035                      # the pillar's half-width at that height
+            inner = cx - sgn * iy
+            bracket = (np.abs(M.X - (inner - sgn * 2.2)) < 2.4) & (np.abs(M.Y - y) < 2.6) & (M.Z > -3) & (M.Z < 4)
+            P.fill(bracket, ['#6E695E', '#7A7468'])
+            gem = (np.abs(M.X - (inner - sgn * 4.0)) < 1.4) & (np.abs(M.Y - y) < 1.5) & (M.Z > -1.5) & (M.Z < 3.5)
+            M.set(gem, '#C8FCFF', glow=1.0)
+    # the arch in the opening, and its keystone with the gate's rune
+    th_r = np.hypot(M.X, M.Y - 34)
+    arch = (th_r > 17) & (th_r < 23.5) & (M.Y >= 34) & (np.abs(M.Z) < 6) & (np.abs(M.X) < 23)
+    P.fill(arch, ST, cell=(3, 3, 3))
+    P.fill(arch & ((np.floor(np.arctan2(M.Y - 34, M.X) * 5) % 2) == 0), ['#9C9585'])
+    key = (np.abs(M.X) < 3.6) & (M.Y > 52) & (M.Y < 60) & (np.abs(M.Z) < 7.5)
+    P.fill(key, ['#BDB6A3'])
+    M.set(key & (M.Z > 6.6) & rune_mask(M, 0.0, 56.0, 'ingwaz', scale=0.75), RUNE, glow=0.95)
+    # the lintel across the top, cracked, its right end broken off
+    lin = box(M, (-42, 61, -10), (42, 70, 10))
+    broken = (M.X > 27) & (M.Y > 61 + (M.X - 27) * 0.45 + 3 * (rn - 0.5))
+    lin &= ~broken
+    P.fill(lin, ST, cell=(6, 3, 4))
+    M.set(lin & (np.abs(M.X + 6 + 2 * np.sin(M.Y)) < 0.6) & (M.Z > 9), '#5F5A50')   # the crack
+    # the broken corner, fallen at the right pillar's foot
+    fallen = box(M, (36, 0, 3), (48, 7, 14)) & (M.Y < 7 - (M.X - 36) * 0.18)
+    P.fill(fallen, ST, cell=(4, 2, 3))
+    solid = M.m > 0
+    # moss on every top face, and creeping down the faces from above
+    top = solid & ~np.roll(solid, -1, axis=1)
+    top[:, -1, :] = solid[:, -1, :]
+    # (patchy: stone should still read through it)
+    P.fill(top & (rn > 0.5) & (M.Y > 6), ['#5E8C40', '#6A974A', '#517D38', '#4C7A35'])
+    P.fill(top & (rn > 0.72) & (M.Y <= 6), ['#5E8C40', '#517D38'])
+    shell = solid & ~ndimage.binary_erosion(solid)
+    drip = shell & (norm(noise2(M.m.shape, 2.2, 47)) > 0.74) & (M.Y > 40)
+    P.fill(drip, ['#5E8C40', '#517D38'])
+    P.fill(shell & (M.Y < 12) & (norm(noise2(M.m.shape, 1.8, 48)) > 0.6), ['#5E8C40', '#4C7A35'])
+    # ivy hanging from the lintel's front
+    rng = np.random.default_rng(43)
+    for x in (-39.0, -35.5, -24.0, -20.5, -6.0, 19.0, 22.5):
+        ln = rng.uniform(7, 15) if abs(x) < 15 else rng.uniform(12, 24)
+        for y in np.arange(61, 61 - ln, -1.0):
+            wob = 1.2 * math.sin(y * 0.6 + x)
+            leaf = (np.abs(M.X - (x + wob)) < 1.0 + 0.6 * ((61 - y) % 3 < 1)) & (np.abs(M.Y - y) < 0.6) & (np.abs(M.Z - 10.6) < 0.8)
+            M.set(leaf & (M.m == 0), '#4E8F3A' if (int(y) % 2) else '#62A048')
+    # ferns at the pillars' feet
+    for (fx, fz) in ((-44, 9), (-17, 10), (17, 11), (44, -9), (-42, -8)):
+        for k in range(7):
+            a = k / 7 * math.pi * 2
+            for t in np.linspace(0, 1, 7):
+                x, y, z = fx + math.cos(a) * 6 * t, 4 + 5 * t * (1 - t) * 2, fz + math.sin(a) * 4 * t
+                M.set((np.abs(M.X - x) < 0.8) & (np.abs(M.Y - y) < 0.7) & (np.abs(M.Z - z) < 0.8) & (M.m == 0), '#4E8F3A' if t < 0.6 else '#6FAA4E')
     return M, 0.0
 
 
@@ -601,7 +694,8 @@ KINDS = {
 # footprints that are not one circle: (dx, dz, r) relative to the prop's spot
 SHAPES = {
     'log': [(-16, 0, 5.5), (-6, 0, 5.5), (5, 0, 5.5), (16, 0, 5.5)],
-    'gate': [(-22, 0, 8), (22, 0, 8), (-13, 0, 3), (13, 0, 3), (-5, 0, 3), (5, 0, 3), (0, 0, 3)],
+    # the pillars, the sealed opening between them (the seal's beams), and the fallen corner of the lintel
+    'gate': [(-30, 0, 11), (30, 0, 11), (-16, 0, 3.5), (-8, 0, 3.5), (0, 0, 3.5), (8, 0, 3.5), (16, 0, 3.5), (42, 8, 6)],
     'seat': [(-7, 0, 3.5), (0, 0, 3.5), (7, 0, 3.5)],
 }
 
@@ -733,7 +827,7 @@ def place_props(pl, rng):
     return props
 
 
-ARENA_ROCKS = [(-48, -18, 'pillar'), (40, -30, 'pillar_low'), (-30, 34, 'boulder'), (34, 30, 'pillar')]
+ARENA_ROCKS = [(-60, -22, 'pillar'), (50, -38, 'pillar_low'), (-38, 42, 'boulder'), (42, 38, 'pillar'), (4, -50, 'pillar_low')]
 
 
 def arena_entry():
@@ -852,7 +946,7 @@ def data(out, name, pl, props, ground_meta, prop_meta):
         {'id': 'sign', 'kind': 'read', 'x': SIGN[0], 'z': SIGN[1], 'r': 22, 'label': 'Read', 'title': 'Sunlit Thicket',
          'text': 'F1 · Sunlit Thicket. Mind the stream, keep to the trail. The old gate north leads to Fernwood.'},
         {'id': 'gate', 'kind': 'gate', 'x': GATE[0], 'z': GATE[1] + 14, 'r': 30, 'label': 'Inspect', 'title': 'Fernwood Trail',
-         'text': 'Bars of old light seal the arch. The carving reads: F2 · Fernwood Trail. Come back stronger (Lv. 5).',
+         'text': 'Beams of old Lumen light seal the doorway, humming between gems in the carved pillars. The lintel reads: F2 · Fernwood Trail. Calm the Thicket\'s guardian, and come back stronger (Lv. 5).',
          'need': 5},
         {'id': 'nook', 'kind': 'glint', 'x': NOOK[0], 'z': NOOK[1], 'r': 20, 'label': 'Inspect', 'title': 'A glint in the moss',
          'text': 'Trail runes, faintly glowing under the moss. Someone passed this way not long ago.'},
@@ -891,6 +985,8 @@ def data(out, name, pl, props, ground_meta, prop_meta):
                                                                 [CAMP[0] + 14, CAMP[1] - 2]]},
         'objective': 'Explore the Thicket and find the way to Fernwood Trail',
         'zones': zones, 'foes': foes, 'boss': boss,
+        # the gate's seal: beams of light between gem sockets on the pillars' inner faces (drawn by the game)
+        'gate': {'x': GATE[0], 'z': GATE[1], 'emit': GATE_EMIT, 'beams': list(GATE_BEAMS)},
         'minimap': minimap(pl, props, out, name),
     }
     json.dump(meta, open(os.path.join(out, f'wilds_map_{name}.json'), 'w'), indent=1)

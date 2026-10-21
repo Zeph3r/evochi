@@ -63,6 +63,12 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   bool _targetRun = false;
   Size _view = Size.zero;
   double _u = 2.7; // screen px per world unit
+  /// How much of the floor the screen shows across (world units): 180 exploring, wider in a fight so you
+  /// and whatever is after you fit, widest for the guardian. It eases between them.
+  double _zoomW = 180;
+  /// The gate's seal is down (this floor's guardian is calmed), and how far its retraction has run (0..1).
+  bool _sealOpen = false;
+  double _sealT = 1;
   Offset _cam = Offset.zero; // top-left of the view, in screen px of the scaled ground
   String? _card; // a spot id, 'sher', 'map', 'retreat', 'knocked', 'victory', 'pause', 'spar'
   MapSpot? _near;
@@ -162,6 +168,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final b = m.boss;
     final cleared = w.floorCleared(c.state, _floor);
     _clearFirst = !cleared;
+    _sealOpen = cleared;
+    _sealT = 1;
     final ar = b == null ? null : (b['arena'] as Map).cast<String, dynamic>();
     List<(double, double)> pts(Object? l) => [for (final p in (l as List? ?? const [])) (((p as List)[0] as num).toDouble(), (p[1] as num).toDouble())];
     final fire = m.fx.where((f) => f.$3 == 'fire').toList();
@@ -240,6 +248,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final dt = _last == Duration.zero ? 0.0 : math.min(0.05, (now - _last).inMicroseconds / 1e6);
     _last = now;
     _t += dt;
+    if (_sealOpen && _sealT < 1) _sealT = math.min(1.0, _sealT + dt / 1.8);
     final m = _map, r = _raid;
     if (m == null || r == null || _view == Size.zero) return;
     final pet = r.pet;
@@ -293,6 +302,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final sher = r.sher;
     if (sher != null) sher.cycle = _sherArt!.gait(sher.running && sher.moving).cycle;
     _itemCd = math.max(0, _itemCd - dt);
+    _brewCd = math.max(0, _brewCd - dt);
     if (_god) r.pet.hp = r.pet.maxHp;
     if (!_paused) r.tick(dt, _input);
     _events(r);
@@ -346,6 +356,22 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     var fx = pet.x, fz = pet.z;
     final bb = r.boss;
     final bossFight = bb != null && (r.bossState == BossState.intro || r.bossState == BossState.fight);
+    // room to move: the view widens to fit the fight
+    var wantW = 180.0;
+    if (bossFight) {
+      wantW = 235;
+    } else if (r.inCombat) {
+      var spread = 0.0;
+      for (final f in r.hostile) {
+        final d = f.dist(pet);
+        if (d < 170) spread = math.max(spread, d);
+      }
+      wantW = (spread * 2 + 90).clamp(180.0, 230.0);
+    }
+    _zoomW += (wantW - _zoomW) * math.min(1.0, dt * 1.6);
+    if (_view.width > 0) {
+      _u = math.max((_view.width / _zoomW).clamp(1.7, 3.6), _view.width / (m.groundW / m.scale));
+    }
     if (bossFight) {
       fx += (bb.x - pet.x) * 0.35;
       fz += (bb.z - pet.z) * 0.35;
@@ -468,6 +494,9 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
         case 'sher_swipe':
           _sfx('wild_swing', 0.3, gap: 0.12);
         case 'victory':
+          // the guardian calmed: the gate's seal draws back into its gems
+          _sealOpen = true;
+          _sealT = 0;
           _music = null;
           a.setMusic(null);
           _sfx('level_up', 0.8);
@@ -475,6 +504,20 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
           Future.delayed(const Duration(milliseconds: 2200), () {
             if (mounted && _card == null) setState(() => _card = 'victory');
           });
+        case 'launch':
+          _sfx('wild_crash', 0.35, gap: 0.1);
+          a.buzz(Haptic.hit);
+        case 'counter':
+          _sfx('wild_crash', 0.5);
+          a.buzz(Haptic.thump);
+        case 'perfect_dodge':
+          _sfx('enc_soothe', 0.6);
+          a.buzz(Haptic.perfect);
+        case 'loot_in':
+          _sfx('coin', 0.18, gap: 0.05);
+        case 'buff':
+          _sfx('reward_chime', 0.5);
+          a.buzz(Haptic.reward);
         case 'rare_drop':
           _sfx('reward_chime', 0.7);
           a.buzz(Haptic.reward);
@@ -608,6 +651,37 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     }
   }
 
+  // ---- brews: drunk in a fight for a buff
+  bool _brewPick = false;
+  double _brewCd = 0;
+
+  void _brewTap(List<String> brews) {
+    final c = context.read<GameController>();
+    if (brews.isEmpty) {
+      _showBanner('No brews: the Apothecary makes them', 2.2);
+      c.audio.buzz(Haptic.error, strength: 0.4);
+      return;
+    }
+    if (brews.length == 1) {
+      _drink(brews.first);
+    } else {
+      setState(() => _brewPick = !_brewPick);
+    }
+  }
+
+  void _drink(String id) {
+    final r = _raid;
+    setState(() => _brewPick = false);
+    if (r == null || _brewCd > 0 || r.phase != RaidPhase.explore) return;
+    final c = context.read<GameController>();
+    final res = c.run((s, n) => w.wildsDrink(s, id, n), quiet: true);
+    final ev = res.events.where((e) => e.type == 'wilds_drink').firstOrNull;
+    if (ev == null) return;
+    r.applyBuff(ev.data['buff'] as String);
+    _brewCd = 1.5;
+    c.analytics.track('wilds_brew', {'item': id});
+  }
+
   /// The satchel into the save (once per bank: a retry adds nothing).
   bool _bank() {
     final r = _raid;
@@ -662,7 +736,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
           backgroundColor: const Color(0xFF2E4A24),
           body: LayoutBuilder(builder: (ctx, b) {
             _view = Size(b.maxWidth, b.maxHeight);
-            _u = (b.maxWidth / 145).clamp(2.4, 3.6);
+            _u = (b.maxWidth / _zoomW).clamp(1.7, 3.6);
             if (m != null) _u = math.max(_u, b.maxWidth / (m.groundW / m.scale));
             final card = _card;
             final narrow = b.maxWidth < 560;
@@ -744,6 +818,13 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                       bottom: 12 + mq.padding.bottom,
                       child: _CombatPad(state: this),
                     ),
+                  // the brew shelf, beside the pad's flask
+                  if (card == null && _brewPick && w.ownedBrews(context.read<GameController>().state).length > 1)
+                    Positioned(
+                      right: 10 + mq.padding.right + 182,
+                      bottom: 12 + mq.padding.bottom + 96,
+                      child: _BrewShelf(brews: w.ownedBrews(context.read<GameController>().state), onPick: _drink),
+                    ),
                   if (_hintT > 0 && card == null && _hint == null)
                     _bottomHint(mq, _hintT > 1, 'Drag to walk · push far to run'),
                   if (_hint != null && card == null) _bottomHint(mq, _hintT2 > 0.6, _hint!),
@@ -814,6 +895,14 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     if (k == LogicalKeyboardKey.digit4) to = (-10, -300);
     if (k == LogicalKeyboardKey.digit5) to = (-14, -370);
     if (k == LogicalKeyboardKey.keyB) r.debugHurtBoss(0.2);
+    // the gate's seal: up again (R), or drawn back as if the guardian had just been calmed (T)
+    if (k == LogicalKeyboardKey.keyR) setState(() => _sealOpen = false);
+    if (k == LogicalKeyboardKey.keyT) {
+      setState(() {
+        _sealOpen = true;
+        _sealT = 0;
+      });
+    }
     if (k == LogicalKeyboardKey.keyG) {
       _god = !_god;
       _showBanner(_god ? 'Debug: Raid HP stays full' : 'Debug: off', 1.2);
@@ -966,8 +1055,10 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
           spot: s,
           note: s.kind == 'gate'
               ? (!calm
-                  ? 'Something old and tangled guards this gate.'
-                  : (locked ? 'The light holds steady now. Your Evochi is Lv. $lvl; it needs Lv. ${s.need}.' : 'The light flickers. Not yet, but soon.'))
+                  ? 'Something old and tangled guards this gate. While it does, the seal holds.'
+                  : (locked
+                      ? 'The seal is down. The path beyond is steep: your Evochi is Lv. $lvl and needs Lv. ${s.need}.'
+                      : 'The seal is down. Fernwood Trail is still overgrown past the doorway. Soon.'))
               : (s.kind == 'exit' && (r.coins > 0 || r.items.isNotEmpty) ? 'Your satchel comes home: ${_satchelText(r.coins, r.items)}.' : null),
           primary: s.kind == 'exit' ? 'Leave' : 'OK',
           secondary: s.kind == 'exit' ? 'Stay' : null,
@@ -1091,6 +1182,16 @@ class _MapPainter extends CustomPainter {
         canvas.drawOval(Rect.fromCenter(center: g, width: 7 * s._u, height: 3 * s._u), shadow..color = const Color(0x33000000));
       }
     }
+    // a counter is ready (after a perfect dodge): a gold ring under your Evochi
+    if (r.counterT > 0) {
+      final t = rm ? 0.5 : (math.sin(s._t * 14) + 1) / 2;
+      canvas.drawOval(
+          _ellipse(pet.x, pet.z, 15 + 2 * t),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 3
+            ..color = Color.fromRGBO(255, 205, 90, 0.55 + 0.4 * t));
+    }
     for (final p in r.pickups) {
       _pickup(canvas, p);
     }
@@ -1114,6 +1215,7 @@ class _MapPainter extends CustomPainter {
       final see = tall && hidden.any((h) => p.z > h.$1 && rect.deflate(rect.width * 0.12).overlaps(h.$2));
       final sh = rm || a.mask == null ? null : s._fxFor(p);
       items.add((p.z, () => _prop(canvas, p.flip, a, g, k, see ? _see : pq, sh, s._toGround(p.x, p.z))));
+      if (p.kind == 'gate') items.add((p.z + 0.5, () => _seal(canvas)));
     }
     // the brambles that close the arena
     final bramble = m.propArt['bramble'];
@@ -1237,8 +1339,82 @@ class _MapPainter extends CustomPainter {
     }
   }
 
+  /// The gate's seal: beams of Lumen light between the gem sockets on the pillars, crackling, until the
+  /// floor's guardian is calmed; then they draw back into the gems for good (a short retraction the first
+  /// time it happens here).
+  void _seal(Canvas canvas) {
+    final seal = s._map?.gateSeal;
+    if (seal == null) return;
+    final (gx, gz, emit, beams) = seal;
+    final open = s._sealOpen;
+    final k = open ? (1 - s._sealT).clamp(0.0, 1.0) : 1.0; // how much of each beam is still out
+    final t = s._t;
+    // the seal's light spills into the doorway and onto the steps
+    if (k > 0) {
+      final c = s._toScreen(gx, gz) - Offset(0, beams[beams.length ~/ 2] * _up);
+      final hum = rm ? 1.0 : 0.85 + 0.15 * math.sin(t * 3.1);
+      _glow(canvas, c, emit * 2.1 * s._u * k, Color.fromRGBO(120, 230, 255, 0.22 * hum * k));
+      canvas.drawOval(_ellipse(gx, gz + 6, emit * 1.3 * k), Paint()..color = Color.fromRGBO(140, 235, 255, 0.12 * hum * k));
+    }
+    for (var i = 0; i < beams.length; i++) {
+      final h = beams[i];
+      final l = s._toScreen(gx - emit + 2, gz) - Offset(0, h * _up);
+      final r = s._toScreen(gx + emit - 2, gz) - Offset(0, h * _up);
+      // the emitters glow either way (dimmer once the seal is down)
+      for (final e in [l, r]) {
+        _glow(canvas, e, (open && k <= 0 ? 6 : 10) * s._u / 2.7, Color.fromRGBO(160, 250, 255, open && k <= 0 ? 0.35 : 0.85));
+        canvas.drawCircle(e, 2.2 * s._u / 2.7, Paint()..color = const Color(0xFFEFFFFF));
+      }
+      if (k <= 0) continue;
+      // the beam: whole while the seal holds; drawing back, each half retreats into its own gem
+      final mid = Offset.lerp(l, r, 0.5)!;
+      final halves = k >= 1 ? [(l, r)] : [(l, Offset.lerp(l, mid, k)!), (r, Offset.lerp(r, mid, k)!)];
+      final flick = rm ? 1.0 : 0.82 + 0.18 * math.sin(t * 31 + i * 2.1) * math.sin(t * 7.3 + i);
+      final glowP = Paint()
+        ..color = Color.fromRGBO(120, 235, 255, 0.5 * flick)
+        ..strokeWidth = 11 * s._u / 2.7
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
+      final core = Paint()
+        ..color = Color.fromRGBO(235, 255, 255, 0.95 * flick)
+        ..strokeWidth = 2.6 * s._u / 2.7
+        ..strokeCap = StrokeCap.round
+        ..style = PaintingStyle.stroke;
+      for (final (p0, p1) in halves) {
+        // a wavering beam: a few segments, nudged by a shimmer
+        final path = Path()..moveTo(p0.dx, p0.dy);
+        const segs = 8;
+        for (var j = 1; j <= segs; j++) {
+          final pt = Offset.lerp(p0, p1, j / segs)!;
+          final w = (j == segs || rm) ? 0.0 : math.sin(t * 23 + j * 1.7 + i * 3) * 1.2 * s._u / 2.7;
+          path.lineTo(pt.dx, pt.dy + w);
+        }
+        canvas.drawPath(path, glowP);
+        canvas.drawPath(path, core);
+      }
+      final a = l, b = r;
+      // sparks crawling along it (while it holds)
+      if (!rm && k >= 1) {
+        for (var j = 0; j < 3; j++) {
+          final f = ((t * (0.6 + j * 0.23) + i * 0.37 + j * 0.31) % 1.0);
+          final pt = Offset.lerp(a, b, f)!;
+          canvas.drawCircle(pt, 1.6 * s._u / 2.7, Paint()..color = const Color(0xFFFFFFFF));
+        }
+      }
+    }
+  }
+
   void _vignette(Canvas canvas, Size size) {
     final c = size.center(Offset.zero);
+    // a perfect dodge: the world slows and cools for a moment
+    final sm = s._raid?.slowmo ?? 0;
+    if (sm > 0 && !rm) {
+      canvas.drawRect(
+          Offset.zero & size,
+          Paint()
+            ..shader = ui.Gradient.radial(c, size.longestSide * 0.7, [const Color(0x00000000), Color.fromRGBO(120, 200, 255, 0.22 * math.min(1.0, sm / 0.2))], const [0.45, 1.0]));
+    }
     canvas.drawRect(
         Offset.zero & size,
         Paint()
@@ -1523,6 +1699,14 @@ class _MapPainter extends CustomPainter {
   }
 
   void _pickup(Canvas canvas, Pickup p) {
+    if (p.kind == 'loot') {
+      // a glint of loot arcing out, then streaking to your Evochi
+      final up = p.t < 0.35 ? 4 + 26 * math.sin(p.t / 0.35 * math.pi) * 0.6 : 8.0;
+      final g = s._toScreen(p.x, p.z) - Offset(0, up * _up);
+      _glow(canvas, g, 9 * s._u / 2.7, const Color(0x99FFE07A));
+      _star(canvas, g, 4.5 * s._u / 2.7, const Color(0xFFFFF6D0));
+      return;
+    }
     final g = s._toScreen(p.x, p.z) - Offset(0, (6 + math.sin(s._t * 3 + p.x) * 2) * _up);
     final fade = p.t > 17 ? (20 - p.t) / 3 : 1.0;
     _glow(canvas, g, 12 * s._u / 2.7, Color.fromRGBO(255, 240, 160, 0.6 * fade));
@@ -1674,6 +1858,33 @@ class _MapPainter extends CustomPainter {
               ..strokeWidth = 3
               ..strokeCap = StrokeCap.round
               ..color = Color.fromRGBO(255, 240, 220, 1 - k));
+      case 'launch':
+        // the third Pounce: a ring of dust and a white flash where it lands
+        canvas.drawOval(
+            _ellipse(b.x, b.z, (10 + 26 * Curves.easeOut.transform(k)) * b.size),
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 5 * (1 - k)
+              ..color = Color.fromRGBO(255, 248, 225, 0.85 * (1 - k)));
+        _glow(canvas, g - Offset(0, 8 * _up), (10 + 20 * k) * u * b.size, Color.fromRGBO(255, 250, 230, 0.7 * (1 - k)));
+      case 'ember':
+        final p = Paint()..color = Color.lerp(const Color(0xFFFFD25E), const Color(0xFFE2522F), k)!.withAlpha(((1 - k) * 230).round());
+        for (var i = 0; i < 3; i++) {
+          final c = g + Offset(math.sin(i * 2.1 + b.x) * 5 * u, -(8 + 22 * k + i * 4) * _up);
+          canvas.drawCircle(c, (2.6 - 1.6 * k) * u, p);
+        }
+      case 'buff':
+        // a brew takes hold: a rising ring of light round your Evochi
+        for (var i = 0; i < 2; i++) {
+          final kk = (k - i * 0.25).clamp(0.0, 1.0);
+          canvas.drawOval(
+              _ellipse(b.x, b.z, 14 + 10 * kk),
+              Paint()
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 3 * (1 - kk)
+                ..color = Color.fromRGBO(200, 245, 255, 0.9 * (1 - kk)));
+        }
+        _glow(canvas, g - Offset(0, (10 + 30 * k) * _up), 14 * u, Color.fromRGBO(220, 250, 255, 0.6 * (1 - k)));
       case 'toss':
         final tx = b.x + b.dx * k, tz = b.z + b.dz * k;
         final c = s._toScreen(tx, tz) - Offset(0, (12 + 30 * 4 * k * (1 - k)) * _up);
@@ -1831,10 +2042,41 @@ class _PartyPanel extends StatelessWidget {
                   child: const SherFace(size: 31),
                 ),
               ],
+              // the brews at work: each one's bottle with its time running down round it
+              if (r.buffs.isNotEmpty) ...[
+                const SizedBox(width: 6),
+                Wrap(spacing: 3, runSpacing: 3, children: [
+                  for (final e in r.buffs.entries) _BuffChip(id: e.key, left: e.value),
+                ]),
+              ],
             ]),
           ),
         );
       },
+    );
+  }
+}
+
+/// A brew at work: its bottle in a ring that empties as the buff runs out.
+class _BuffChip extends StatelessWidget {
+  const _BuffChip({required this.id, required this.left});
+  final String id;
+  final double left;
+  @override
+  Widget build(BuildContext context) {
+    final def = buffDefs[id];
+    final brew = w.wildsBrews.entries.where((e) => e.value == id).map((e) => e.key).firstOrNull;
+    final f = def == null ? 0.0 : (left / def.secs).clamp(0.0, 1.0);
+    return Tooltip(
+      message: def == null ? id : '${def.name}: ${def.text}',
+      child: SizedBox(
+        width: 26,
+        height: 26,
+        child: Stack(alignment: Alignment.center, children: [
+          CircularProgressIndicator(value: f, strokeWidth: 2.5, backgroundColor: const Color(0x55000000), valueColor: const AlwaysStoppedAnimation(Color(0xFFBFF6FF))),
+          if (brew != null) ItemImage(brew, size: 20),
+        ]),
+      ),
     );
   }
 }
@@ -2028,6 +2270,7 @@ class _CombatPad extends StatelessWidget {
     final c = context.watch<GameController>();
     final healId = w.nextHealItem(c.state);
     final heals = w.healItemCount(c.state);
+    final brews = w.ownedBrews(c.state);
     final s = state;
     final r = s._raid!;
     return ValueListenableBuilder<int>(
@@ -2109,10 +2352,63 @@ class _CombatPad extends StatelessWidget {
                   onDown: () => s._press('item'),
                 ),
               ),
+              // the brews: a flask; with more than one kind, it opens a little shelf of them
+              Positioned(
+                right: 134,
+                bottom: 112,
+                child: _PadButton(
+                  label: brews.isEmpty ? 'No brews' : 'Drink a brew',
+                  icon: 'potion',
+                  image: brews.isEmpty ? null : brews.first,
+                  badge: brews.length > 1 ? '${brews.length}' : null,
+                  size: 40,
+                  tone: const Color(0xFFBFF6FF),
+                  cooldown: s._brewCd / 1.5,
+                  dim: brews.isEmpty,
+                  onDown: () => s._brewTap(brews),
+                ),
+              ),
             ]),
           ),
         );
       },
+    );
+  }
+}
+
+/// The brews on a little shelf (when there is more than one kind to choose from).
+class _BrewShelf extends StatelessWidget {
+  const _BrewShelf({required this.brews, required this.onPick});
+  final List<String> brews;
+  final ValueChanged<String> onPick;
+  @override
+  Widget build(BuildContext context) {
+    final c = context.watch<GameController>();
+    return Container(
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(color: const Color(0xCC1B2A1A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0x99BFF6FF), width: 1.5)),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
+        for (final id in brews)
+          Semantics(
+            button: true,
+            label: '${catalog[id]?.name ?? id}, ${buffDefs[w.wildsBrews[id]]?.text ?? ''}',
+            excludeSemantics: true,
+            child: GestureDetector(
+              onTap: () => onPick(id),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 3),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  ItemImage(id, size: 30),
+                  const SizedBox(width: 6),
+                  Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                    Text('${buffDefs[w.wildsBrews[id]]?.name ?? ''} ×${ge.ownedQty(c.state, id)}', style: EvochiText.tag.copyWith(color: const Color(0xFFFFF6E4), fontSize: 12)),
+                    Text(catalog[id]?.name ?? id, style: EvochiText.tiny.copyWith(color: const Color(0xCCFFF6E4), fontSize: 10.5)),
+                  ]),
+                ]),
+              ),
+            ),
+          ),
+      ]),
     );
   }
 }

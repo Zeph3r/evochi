@@ -67,6 +67,7 @@ class Actor {
   double alpha = 1, spin = 0, sx = 1, sy = 1, lift = 0, glow = 0;
   // state
   double flash = 0, iframes = 0, stun = 0, slowT = 0, mercy = 0;
+  double burnT = 0, _burnFx = 0; // set alight by an Ember Draught's hits
   double kx = 0, kz = 0; // knockback (units per second)
   double vx = 0, vz = 0; // velocity last tick (for leading shots)
   late double px = x, pz = z; // where it was last tick
@@ -209,10 +210,11 @@ class Wave {
 }
 
 class Pickup {
-  Pickup(this.kind, this.x, this.z, this.amount);
-  final String kind; // mote (heals)
-  final double x, z;
+  Pickup(this.kind, this.x, this.z, this.amount, {this.vx = 0, this.vz = 0});
+  final String kind; // mote (heals) | loot (a glint of what a calmed foe left: it flies to you)
+  double x, z;
   final int amount;
+  double vx, vz;
   double t = 0;
 }
 
@@ -282,6 +284,23 @@ const _swingLunge = [9.0, 9.0, 16.0], _swingRecover = [0.17, 0.17, 0.32];
 const _boltCost = 18.0, _boltCd = 1.0, _boltDmg = 13.0;
 const _pulseCost = 34.0, _pulseCd = 7.0, _pulseDmg = 18.0, _pulseR = 36.0;
 const _dodgeCost = 20.0, _dodgeTime = 0.3, _dodgeDist = 46.0;
+
+/// A potion's buff in the Wilds (an Apothecary brew drunk mid-run).
+class BuffDef {
+  const BuffDef(this.name, this.secs, this.text);
+  final String name;
+  final double secs;
+  final String text;
+}
+
+const buffDefs = <String, BuffDef>{
+  'regen': BuffDef('Regenerating', 20, '+3 Raid HP a second'),
+  'swift': BuffDef('Swift', 30, 'Stamina comes back 60% faster; dodges cost less'),
+  'moonlit': BuffDef('Moonlit', 30, 'A 1 in 4 chance to crit'),
+  'lantern': BuffDef('Lantern-lit', 30, 'The Hollow hits 35% softer'),
+  'ember': BuffDef('Ember', 30, 'Your hits set foes alight'),
+  'thornskin': BuffDef('Thornskin', 25, 'Strikers take 40% of their blow back'),
+};
 const _sherHp = 150.0;
 
 class Raid {
@@ -367,6 +386,21 @@ class Raid {
 
   RaidPhase phase = RaidPhase.explore;
   double time = 0, hitstop = 0, shake = 0;
+  /// A perfect dodge slows the world for a moment (real seconds left) and opens a counter window.
+  double slowmo = 0, counterT = 0;
+  /// Potion buffs (an Apothecary brew drunk in the Wilds): id -> seconds left. See [buffDefs].
+  final buffs = <String, double>{};
+  bool has(String b) => (buffs[b] ?? 0) > 0;
+
+  /// Drink a brew: its buff starts (or refreshes) at full length.
+  void applyBuff(String id) {
+    final d = buffDefs[id];
+    if (d == null) return;
+    buffs[id] = math.max(buffs[id] ?? 0, d.secs);
+    bursts.add(Burst('buff', pet.x, pet.z, 0.8, size: 2));
+    _float(d.name, pet.x, pet.z, 'info', ttl: 1.1);
+    _emit('buff', text: id);
+  }
   bool party = false;
 
   // your Evochi
@@ -471,6 +505,17 @@ class Raid {
       hitstop -= dt;
       return;
     }
+    if (slowmo > 0) {
+      slowmo -= dt;
+      dt *= 0.35;
+    }
+    counterT = math.max(0, counterT - dt);
+    if (buffs.isNotEmpty) {
+      buffs.updateAll((k, v) => v - dt);
+      buffs.removeWhere((k, v) => v <= 0);
+      if (has('regen') && pet.alive) pet.hp = math.min(pet.maxHp, pet.hp + 3 * dt);
+    }
+    _tickBurns(dt);
     time += dt;
     _sayCd -= dt;
     _tickPet(dt, inp);
@@ -729,7 +774,7 @@ class Raid {
     // stamina: back after a short breath, slower in spores, none while running
     _stamWait -= dt;
     if (_stamWait <= 0 && !(p.running && p.moving)) {
-      stamina = math.min(_stamMax, stamina + _stamRegen * (p.slowT > 0 ? 0.5 : 1) * dt);
+      stamina = math.min(_stamMax, stamina + _stamRegen * (p.slowT > 0 ? 0.5 : 1) * (has('swift') ? 1.6 : 1) * dt);
     }
     // a heal over a moment
     if (_healLeft > 0) {
@@ -748,8 +793,9 @@ class Raid {
     if (want != null && p.stun <= 0) {
       final canCancel = act == PetAct.none || act == PetAct.heal || (act == PetAct.swing && actT > 0.16) || (act == PetAct.bolt && actT > 0.14);
       if (want == 'dodge' && act != PetAct.dodge && act != PetAct.hurt && (canCancel || act == PetAct.pulse && actT > 0.3)) {
-        if (_afford(_dodgeCost)) {
-          _spend(_dodgeCost);
+        final cost = _dodgeCost * (has('swift') ? 0.7 : 1);
+        if (_afford(cost)) {
+          _spend(cost);
           final l = _len(inp.mx, inp.mz);
           _dodgeX = l > 1e-6 ? inp.mx / l : -p.fx;
           _dodgeZ = l > 1e-6 ? inp.mz / l : -p.fz;
@@ -889,8 +935,26 @@ class Raid {
       if (_len(f.x - hx, f.z - hz) > f.radius + 12) continue;
       _hitThisSwing.add(f);
       final d = math.max(_len(f.x - p.x, f.z - p.z), 1e-6);
-      _hurt(f, _swingDmg[c] * atk, from: p, kx: (f.x - p.x) / d * _swingKnock[c], kz: (f.z - p.z) / d * _swingKnock[c], poise: _swingPoise[c]);
-      if (c == 2) hitstop = 0.05;
+      // a counter after a perfect dodge lands harder and breaks poise
+      final counter = counterT > 0;
+      final k = counter ? 1.6 : 1.0;
+      _hurt(f, _swingDmg[c] * atk * k, from: p, kx: (f.x - p.x) / d * _swingKnock[c] * k, kz: (f.z - p.z) / d * _swingKnock[c] * k, poise: _swingPoise[c] * (counter ? 2 : 1));
+      if (counter) {
+        counterT = 0;
+        hitstop = math.max(hitstop, 0.08);
+        shake = math.max(shake, 0.5);
+        _float('Counter!', f.x, f.z - 8, 'crit', ttl: 0.9);
+        bursts.add(Burst('slash', f.x, f.z, 0.35, size: 2));
+        _emit('counter', x: f.x, z: f.z);
+      }
+      if (c == 2) {
+        // the third Pounce launches small foes: a beat of hit-stop, a burst, a moment stunned
+        hitstop = math.max(hitstop, 0.07);
+        shake = math.max(shake, 0.35);
+        bursts.add(Burst('launch', f.x, f.z, 0.4, size: f is Boss ? 2 : 1.4));
+        if (f is! Boss && !f.calm) f.stun = math.max(f.stun, 0.35);
+        _emit('launch', x: f.x, z: f.z);
+      }
     }
   }
 
@@ -932,8 +996,16 @@ class Raid {
       if (a == pet && act == PetAct.dodge && !_dodgeRewarded) {
         _dodgeRewarded = true;
         stamina = math.min(_stamMax, stamina + 12);
-        _float('Dodged!', a.x, a.z, 'info', ttl: 0.7);
-        _emit('dodged');
+        // dodged right as it landed: the world slows and a counter is ready
+        if (time - _dodgeAt < 0.2) {
+          slowmo = 0.45;
+          counterT = 1.4;
+          _float('Perfect dodge!', a.x, a.z, 'crit', ttl: 0.9);
+          _emit('perfect_dodge');
+        } else {
+          _float('Dodged!', a.x, a.z, 'info', ttl: 0.7);
+          _emit('dodged');
+        }
       }
       return false;
     }
@@ -946,7 +1018,19 @@ class Raid {
       _emit('warded', value: ward.toDouble());
       return false;
     }
+    if (a == pet && from is Foe) {
+      if (has('lantern')) dmg *= 0.65; // the Lantern Tonic steadies you against the Hollow
+      if (has('thornskin') && from.alive && !from.calm) {
+        // Thornskin: a share of the blow goes back into whoever struck
+        _hurt(from, dmg * 0.4, from: pet, poise: 4);
+        bursts.add(Burst('spark', from.x, from.z, 0.3));
+      }
+    }
     var crit = false;
+    if (a is Foe && from == pet) {
+      if (has('moonlit') && rng.nextDouble() < 0.25) crit = true;
+      if (has('ember')) a.burnT = 3.0;
+    }
     if (a is Foe) {
       // from behind, or while it is dazed: it hurts more
       if (from != null) {
@@ -955,7 +1039,10 @@ class Raid {
         if (behind > 0.45 && a is Boss) crit = true;
       }
       if (a.st == FoeState.stagger) crit = true;
-      if (crit) dmg *= 1.4;
+      if (crit) {
+        dmg *= 1.4;
+        hitstop = math.max(hitstop, 0.04);
+      }
       dmg *= 0.92 + rng.nextDouble() * 0.16;
     }
     final n = math.max(1, dmg.round());
@@ -1915,6 +2002,15 @@ class Raid {
       return;
     }
     _emit('calm', x: f.x, z: f.z);
+    hitstop = math.max(hitstop, 0.06);
+    shake = math.max(shake, 0.3);
+    // glints of what it leaves burst out and fly to you
+    if (!f.summoned) {
+      for (var i = 0; i < 4; i++) {
+        final a = lootRng.nextDouble() * math.pi * 2, v = 70 + lootRng.nextDouble() * 50;
+        pickups.add(Pickup('loot', f.x, f.z, 0, vx: math.cos(a) * v, vz: math.sin(a) * v));
+      }
+    }
     calmed += f.summoned ? 0 : 1;
     // what it leaves: coins into the satchel, sometimes a shard, a mote of light that heals
     final c = (f.kind == 'sporecap' ? 3 : 2) + rng.nextInt(3);
@@ -2071,9 +2167,46 @@ class Raid {
     waves.removeWhere((w) => w.r > w.maxR);
   }
 
+  /// Ember Draught burns: a few points a second for as long as the fire lasts.
+  void _tickBurns(double dt) {
+    for (final f in foes) {
+      if (f.burnT <= 0 || f.calm || !f.alive) continue;
+      f.burnT -= dt;
+      f.hp -= 5 * dt;
+      f._burnFx -= dt;
+      if (f._burnFx <= 0) {
+        f._burnFx = 0.22;
+        bursts.add(Burst('ember', f.x + (rng.nextDouble() - 0.5) * f.radius, f.z, 0.5));
+      }
+      if (f.hp <= 0) {
+        f.hp = 0;
+        _calm(f);
+      }
+    }
+  }
+
   void _tickPickups(double dt) {
     for (final p in pickups) {
       p.t += dt;
+      if (p.kind == 'loot') {
+        // a glint of loot: it bursts out, settles, then flies to your Evochi
+        if (p.t < 0.35) {
+          p.x += p.vx * dt;
+          p.z += p.vz * dt;
+          p.vx *= 0.9;
+          p.vz *= 0.9;
+        } else {
+          final dx = pet.x - p.x, dz = pet.z - p.z, d = math.max(_len(dx, dz), 1e-6);
+          final sp = 120 + 260 * math.min(1.0, (p.t - 0.35) * 2);
+          p.x += dx / d * math.min(d, sp * dt);
+          p.z += dz / d * math.min(d, sp * dt);
+          if (d < pet.radius + 4) {
+            p.t = 999;
+            _emit('loot_in');
+          }
+        }
+        continue;
+      }
       if (_len(pet.x - p.x, pet.z - p.z) < 14 + pet.radius) {
         p.t = 999;
         final before = pet.hp;

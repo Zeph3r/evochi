@@ -12,11 +12,32 @@ import '../../core/utils/day_keys.dart';
 import '../economy/economy.dart' as econ;
 import '../engine.dart';
 
-/// The Bag's healing items a fight can use, cheapest first (the button eats these in order).
-const wildsHealItems = [
-  'berry_snack', 'meadow_tea', 'carrot_stew', 'golden_bun', 'sunberry_tart', 'glowleaf_tonic', 'healing_herb',
-  'moonshroom_pie', 'lantern_tonic', 'moonlight_draught',
-];
+/// The Bag's healing items a fight can use, cheapest first (the button eats these in order). The
+/// Apothecary's brews are not here: drunk in the Wilds they give a buff instead ([wildsBrews]).
+const wildsHealItems = ['berry_snack', 'carrot_stew', 'golden_bun', 'sunberry_tart', 'healing_herb', 'moonshroom_pie'];
+
+/// Apothecary brews and the buff each gives in the Wilds (the buffs: features/wilds/wilds_combat.dart).
+const wildsBrews = {
+  'glowleaf_tonic': 'regen',
+  'meadow_tea': 'swift',
+  'moonlight_draught': 'moonlit',
+  'lantern_tonic': 'lantern',
+  'ember_draught': 'ember',
+  'thornskin_tonic': 'thornskin',
+};
+
+/// The brews in the Bag, in [wildsBrews] order.
+List<String> ownedBrews(GameState s) => [for (final id in wildsBrews.keys) if (ownedQty(s, id) > 0) id];
+
+/// Drink a brew in a fight: one leaves the Bag (the screen starts its buff).
+ActionResult wildsDrink(GameState state, String itemId, int now) {
+  final buff = wildsBrews[itemId];
+  if (buff == null) return _fail(state, 'not_a_brew');
+  if (ownedQty(state, itemId) < 1) return _fail(state, 'not_owned');
+  final s = state.copy();
+  s.inventory[itemId]!.quantity -= 1;
+  return ActionResult(s, events: [GameEvent('wilds_drink', {'itemId': itemId, 'buff': buff})]);
+}
 
 /// Raid HP an item restores in the Wilds (scaled from its Vitality value; it never touches Vitality).
 int wildsHealAmount(String itemId) => 14 + (catalog[itemId]?.vitality ?? 0) * 3;

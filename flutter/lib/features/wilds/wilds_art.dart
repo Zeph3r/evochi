@@ -229,6 +229,13 @@ class WildsMap {
 
   Map<String, dynamic>? get boss => (j['boss'] as Map?)?.cast<String, dynamic>();
 
+  /// The gate's seal: its middle (x, z), how far either side its emitters sit, and the beams' heights.
+  (double, double, double, List<double>)? get gateSeal {
+    final g = (j['gate'] as Map?)?.cast<String, dynamic>();
+    if (g == null) return null;
+    return ((g['x'] as num).toDouble(), (g['z'] as num).toDouble(), (g['emit'] as num).toDouble(), [for (final h in (g['beams'] as List)) (h as num).toDouble()]);
+  }
+
   /// The world rectangle the minimap covers (the slab).
   Rect get miniWorld {
     final g = (j['grid'] as Map).cast<String, dynamic>();

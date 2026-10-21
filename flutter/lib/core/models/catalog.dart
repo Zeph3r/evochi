@@ -206,11 +206,11 @@ const catalog = <String, CatalogItem>{
   'glowleaf_tonic': CatalogItem(
       id: 'glowleaf_tonic', name: 'Glowleaf Tonic', category: ItemCategory.consumable, kind: 'potion', rarity: 'uncommon', stackable: true, shop: null,
       acquisition: 'home', vitality: 10,
-      desc: 'A gentle mint-green tonic. Restores 10 vitality. Some old friends of the forest love it.'),
+      desc: 'A gentle mint-green tonic. Restores 10 vitality. Some old friends of the forest love it. In the Wilds: Regenerating, +3 Raid HP a second for 20s.'),
   'meadow_tea': CatalogItem(
       id: 'meadow_tea', name: 'Meadow Tea', category: ItemCategory.consumable, kind: 'potion', rarity: 'common', stackable: true, shop: null,
       acquisition: 'home', vitality: 6, treat: true,
-      desc: 'Calming herb tea. Restores 6 vitality; a homemade treat adds Bond once a day.'),
+      desc: 'Calming herb tea. Restores 6 vitality; a homemade treat adds Bond once a day. In the Wilds: Swift, stamina back 60% faster and cheaper dodges for 30s.'),
   'sprout_tonic': CatalogItem(
       id: 'sprout_tonic', name: 'Sprout Tonic', category: ItemCategory.consumable, kind: 'garden', rarity: 'uncommon', stackable: true, shop: null,
       acquisition: 'home', growth: 0.5,
@@ -218,7 +218,7 @@ const catalog = <String, CatalogItem>{
   'moonlight_draught': CatalogItem(
       id: 'moonlight_draught', name: 'Moonlight Draught', category: ItemCategory.consumable, kind: 'potion', rarity: 'rare', stackable: true, shop: null,
       acquisition: 'home', vitality: 20, recovery: true,
-      desc: 'A deep-blue draught full of tiny stars. Restores 20 vitality (12h cooldown, like a Healing Herb).'),
+      desc: 'A deep-blue draught full of tiny stars. Restores 20 vitality (12h cooldown, like a Healing Herb). In the Wilds: Moonlit, a 1 in 4 chance to crit for 30s.'),
   // ---- Lumen Trails: found on discoveries, brewed for encounters, earned from the guardians
   'lumen_shard': CatalogItem(
       id: 'lumen_shard', name: 'Lumen Shard', category: ItemCategory.ingredient, rarity: 'uncommon', stackable: true, shop: null, acquisition: 'trail',
@@ -226,7 +226,16 @@ const catalog = <String, CatalogItem>{
   'lantern_tonic': CatalogItem(
       id: 'lantern_tonic', name: 'Lantern Tonic', category: ItemCategory.consumable, kind: 'potion', rarity: 'rare', stackable: true, shop: null,
       acquisition: 'home', vitality: 12, lantern: true,
-      desc: 'Lumen in a bottle. Restores 12 vitality, and in an encounter it steadies the Hollow like nothing else.'),
+      desc: 'Lumen in a bottle. Restores 12 vitality, and in an encounter it steadies the Hollow like nothing else. In the Wilds: Lantern-lit, the Hollow hits 35% softer for 30s.'),
+  // ---- Wilds brews (the Apothecary): drunk in the Wilds they set your Evochi alight or bristling
+  'ember_draught': CatalogItem(
+      id: 'ember_draught', name: 'Ember Draught', category: ItemCategory.consumable, kind: 'potion', rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'home', vitality: 8,
+      desc: 'A warm orange brew with a little flame dancing on the cork. Restores 8 vitality. In the Wilds: Ember, your hits set foes alight for 30s.'),
+  'thornskin_tonic': CatalogItem(
+      id: 'thornskin_tonic', name: 'Thornskin Tonic', category: ItemCategory.consumable, kind: 'potion', rarity: 'epic', stackable: true, shop: null,
+      acquisition: 'home', vitality: 8,
+      desc: 'Briar Heartwood steeped in glowleaf: it bristles in the bottle. Restores 8 vitality. In the Wilds: Thornskin, strikers take 40% of their blow back for 25s.'),
   'ancient_relic': CatalogItem(
       id: 'ancient_relic', name: 'Ancient Relic', category: ItemCategory.decoration, decor: 'side', rarity: 'legendary',
       desc: "A stone tablet from the Sentinel's gate, its three trail grooves glowing softly. A piece of the Lumen Trails for your nest.",

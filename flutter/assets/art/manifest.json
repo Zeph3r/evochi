@@ -3825,7 +3825,9 @@
   "season_glow_ribbon": "items/season_glow_ribbon.webp",
   "season_first_light_banner": "items/season_first_light_banner.webp",
   "season_first_light_scarf": "items/season_first_light_scarf.webp",
-  "season_dawn_shimmer": "items/season_dawn_shimmer.webp"
+  "season_dawn_shimmer": "items/season_dawn_shimmer.webp",
+  "ember_draught": "items/ember_draught.webp",
+  "thornskin_tonic": "items/thornskin_tonic.webp"
  },
  "icons": {
   "bag": "icons/bag.webp",

@@ -455,7 +455,35 @@ def season_dawn_shimmer():
     return M, Camera(yaw=-8, pitch=6)
 
 
+def ember_draught():
+    """A round flask of glowing ember-orange brew with a little flame dancing on the cork."""
+    M = M_((-8, -1, -8), (8, 18, 8), res=2)
+    cy = bottle(M, 'round', '#FF7A2E', '#FFC064', glow=0.75)
+    flame = (plane_dist(M, (0, cy[1] + 2.6, 0)) <= 1.7 - 0.25 * (M.Y - cy[1] - 1.5)) & (M.Y > cy[1]) & (np.abs(M.Z) <= 1.0)
+    put(M, flame & (M.m == 0), '#FFB13B', glow=1.0)
+    put(M, (plane_dist(M, (0, cy[1] + 2.2, 0)) <= 0.8) & (np.abs(M.Z) <= 1.2), '#FFF2B0', glow=1.0)
+    for (x, y, z) in ((1.4, 3.2, 2.9), (-0.8, 2.2, 3.1), (0.5, 4.8, 3.0)):
+        put(M, ell(M, (x, y, z), (0.45, 0.45, 0.45)), '#FFE7A8', glow=1.0)
+    return M, Camera(yaw=-20, pitch=16)
+
+
+def thornskin_tonic():
+    """A tall bottle of deep-green brew wrapped in a briar of little thorns, a heartwood chip on the cork."""
+    M = M_((-8, -1, -8), (8, 18, 8), res=2)
+    cy = bottle(M, 'tall', '#3E9A55', '#8FD07A', glow=0.4)
+    for k in range(10):
+        a = k * 1.9
+        y = 1.5 + k * 0.85
+        x, z = math.cos(a) * 3.1, math.sin(a) * 3.1
+        put(M, ell(M, (x, y, z), (0.55, 0.55, 0.55)), '#6B4A31')
+        tip = spike(M, (x, y, z), (math.cos(a), 0.25, math.sin(a)), 1.4, 0.5, 0.1)
+        put(M, tip & (M.m == 0), '#E9D9B0')
+    put(M, box(M, (-1.2, cy[1], -1.2), (1.2, cy[1] + 1.2, 1.2)) & (M.m == 0), '#7FE3C8', glow=0.6)
+    return M, Camera(yaw=-20, pitch=16)
+
+
 ITEMS = {
+    'ember_draught': ember_draught, 'thornskin_tonic': thornskin_tonic,
     'sunstone': sunstone, 'moonwell_dew': moonwell_dew, 'heartbloom': heartbloom,
     'wayfinder_compass': wayfinder_compass, 'golden_acorn': golden_acorn, 'hollow_ward': hollow_ward,
     'starseed': starseed, 'prism_scale': prism_scale, 'glimmer': glimmer, 'starter_pack': starter_pack,

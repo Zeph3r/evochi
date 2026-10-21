@@ -379,7 +379,8 @@ void main() {
 
     test('a healing item leaves the Bag when eaten in a fight', () {
       var s = freshPet();
-      expect(w.wildsUseHeal(s, 'meadow_tea', t0).error, 'not_owned');
+      expect(w.wildsUseHeal(s, 'carrot_stew', t0).error, 'not_owned');
+      expect(w.wildsUseHeal(s, 'meadow_tea', t0).error, 'not_consumable'); // a brew: drunk for its buff instead
       expect(w.wildsUseHeal(s, 'leaf_scarf', t0).error, 'not_consumable');
       final n0 = g.ownedQty(s, 'berry_snack');
       s = w.wildsSherGift(s, t0).state;
@@ -390,6 +391,56 @@ void main() {
       final r = w.wildsUseHeal(s, 'berry_snack', t0);
       expect(g.ownedQty(r.state, 'berry_snack'), n0 + 2);
       expect(w.wildsHealAmount('berry_snack'), greaterThan(20));
+    });
+  });
+
+  group('brews and feel', () {
+    test('a brew drunk in a fight leaves the Bag and names its buff', () {
+      var s = freshPet();
+      expect(w.wildsDrink(s, 'berry_snack', t0).error, 'not_a_brew');
+      expect(w.wildsDrink(s, 'ember_draught', t0).error, 'not_owned');
+      final c = s.copy();
+      g.grantItem(c, 'ember_draught', 2, 'test', t0);
+      expect(w.ownedBrews(c), ['ember_draught']);
+      final r = w.wildsDrink(c, 'ember_draught', t0);
+      expect(r.events.single.data['buff'], 'ember');
+      expect(g.ownedQty(r.state, 'ember_draught'), 1);
+    });
+
+    test('Regenerating heals over time, then wears off', () {
+      final r = Raid(ground: meadow(), pet: petAt(0, 0));
+      r.pet.hp = 50;
+      r.applyBuff('regen');
+      run(r, 2);
+      expect(r.pet.hp, closeTo(59, 1.5)); // +3 a second from the brew, +1.5 the breather
+      run(r, 20);
+      expect(r.has('regen'), isFalse);
+    });
+
+    test('Ember sets a struck foe alight, and the fire calms it in the end', () {
+      final r = Raid(ground: meadow(), pet: petAt(0, 30), spawns: const [FoeSpawn('a', 'thornling', 'z', 0, 14)]);
+      r.applyBuff('ember');
+      final f = r.foes.first;
+      final hp0 = f.hp;
+      run(r, 0.6, (r) => RaidInput()..attack = true);
+      expect(f.burnT, greaterThan(0));
+      expect(f.hp, lessThan(hp0));
+    });
+
+    test('Lantern-lit softens the Hollow; Thornskin hits back', () {
+      // the same foe swings at two Evochi, one lantern-lit with thorns
+      double taken(List<String> buffs) {
+        final r = Raid(ground: meadow(), pet: petAt(0, 30, hp: 100000), spawns: const [FoeSpawn('a', 'thornling', 'z', 0, 16)], seed: 3);
+        for (final b in buffs) {
+          r.applyBuff(b);
+        }
+        run(r, 8);
+        return 100000 - r.pet.hp;
+      }
+
+      final plain = taken(const []);
+      expect(plain, greaterThan(0));
+      expect(taken(const ['lantern']), lessThan(plain));
     });
   });
 }
