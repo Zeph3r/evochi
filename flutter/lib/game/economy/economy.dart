@@ -20,6 +20,7 @@ import '../../core/utils/ids.dart';
 import '../engine.dart' as g;
 import '../home/home.dart' as h;
 import '../story/story_data.dart' show titles;
+import '../wilds/charms.dart' as charms;
 
 const glimmer = 'glimmer';
 
@@ -53,8 +54,18 @@ class Drop {
 
 /// Where rare finds come from (each line rolls on its own). Tuned in the plan's Rare items table.
 const dropTables = <String, List<Drop>>{
-  'wilds_foe': [Drop('sunstone', 0.005), Drop('golden_acorn', 0.003), Drop('hollow_ward', 0.01), Drop(glimmer, 0.01, min: 1, max: 3)],
-  'wilds_boss': [Drop('sunstone', 0.08), Drop('heartbloom', 0.03)],
+  'wilds_foe': [
+    Drop('sunstone', 0.005), Drop('golden_acorn', 0.003), Drop('hollow_ward', 0.01), Drop(glimmer, 0.01, min: 1, max: 3),
+    // charms (game/wilds/charms.dart): 0.6% between them
+    Drop('emberfang_charm', 0.0012), Drop('frostbell_charm', 0.0012), Drop('static_acorn', 0.0012), Drop('sap_locket', 0.0012),
+    Drop('dazzle_pebble', 0.0012),
+  ],
+  'wilds_boss': [
+    Drop('sunstone', 0.08), Drop('heartbloom', 0.03),
+    // a guardian is the likeliest place to find a charm: 10% between them
+    Drop('emberfang_charm', 0.02), Drop('frostbell_charm', 0.02), Drop('static_acorn', 0.02), Drop('sap_locket', 0.02),
+    Drop('dazzle_pebble', 0.02),
+  ],
   'discovery': [Drop('moonwell_dew', 0.05), Drop('wayfinder_compass', 0.04)],
   'weekly': [Drop('golden_acorn', 0.10)],
 };
@@ -592,7 +603,7 @@ class CaravanOffer {
   final int qty;
   final int price; // Glimmer
   final int full; // the undiscounted price (0 = no discount)
-  final String section; // rare | deals
+  final String section; // rare | deals | charms
   final bool deal; // one per day
   int get off => full > price && full > 0 ? ((1 - price / full) * 100).round() : 0;
 }
@@ -617,7 +628,19 @@ List<CaravanOffer> caravanStock(GameState s, int now) {
     out.add(CaravanOffer(id: 'one:$id', itemId: id, qty: 1, price: unit));
     out.add(CaravanOffer(id: 'five:$id', itemId: id, qty: 5, price: _pack(unit, 5, 0.1), full: unit * 5));
   }
+  out.addAll(weekCharms(s, now));
   return out;
+}
+
+/// This week's charms at the Caravan: two of the five it can stock, chosen per player and week (rank I;
+/// playing with a charm is what ranks it up). One of each, once.
+List<CaravanOffer> weekCharms(GameState s, int now) {
+  final week = weekKey(_today(s, now));
+  final r = g.seededRandom('${_pid(s)}:charms:$week');
+  final pool = [for (final d in charms.charmDefs.values) if (d.sold) d.id]..shuffle(r);
+  return [
+    for (final id in pool.take(2)) CaravanOffer(id: 'charm:$week:$id', itemId: id, qty: 1, price: catalog[id]!.glimmer!, section: 'charms'),
+  ];
 }
 
 bool dealBought(GameState s, String offerId) => s.txns.any((t) => t.id == 'caravan:$offerId');
@@ -626,7 +649,8 @@ bool dealBought(GameState s, String offerId) => s.txns.any((t) => t.id == 'carav
 g.ActionResult buyCaravan(GameState state, String offerId, String requestId, int now) {
   final o = caravanStock(state, now).where((x) => x.id == offerId).firstOrNull;
   if (o == null) return _fail(state, 'not_in_stock');
-  final txn = o.deal ? 'caravan:${o.id}' : 'caravan:${o.id}:$requestId';
+  if (o.section == 'charms' && charms.ownsCharm(state, o.itemId)) return _fail(state, 'owned');
+  final txn = o.deal || o.section == 'charms' ? 'caravan:${o.id}' : 'caravan:${o.id}:$requestId';
   if (state.txns.any((t) => t.id == txn)) return _ok(state, [g.GameEvent('already_purchased', {'offer': offerId})]);
   final bal = glimmerOf(state);
   if (bal < o.price) return _fail(state, 'need_glimmer', {'short': o.price - bal, 'price': o.price});

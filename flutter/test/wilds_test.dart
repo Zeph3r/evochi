@@ -583,4 +583,43 @@ void main() {
       expect(eggLeapt, isFalse);
     });
   });
+
+  group('an Elder\'s signature move', () {
+    Raid elder(String palette, {int stage = 3}) {
+      final r = Raid(ground: meadow(), pet: petAt(0, 34, hp: 100000), spawns: const [FoeSpawn('a', 'thornling', 'z', 0, 4)], stage: stage, palette: palette, seed: 5);
+      r.foes.first
+        ..maxHp = 5000
+        ..hp = 5000
+        ..face(0, -1);
+      return r;
+    }
+
+    test('only an Elder has one, and it is only ready when full', () {
+      final young = elder('obsidian', stage: 2)..sig = 100;
+      expect(young.sigReady, isFalse);
+      final r = elder('obsidian')..sig = 60;
+      expect(r.sigReady, isFalse);
+      r.press('signature');
+      run(r, 0.2);
+      expect(r.foes.first.hp, 5000); // nothing happened
+    });
+
+    for (final palette in const ['ocean', 'amber', 'amethyst', 'forest', 'coral', 'obsidian']) {
+      test('$palette: ${Raid.sigNames[palette]} lands', () {
+        final r = elder(palette)..sig = 100;
+        r.pet.hp = r.pet.maxHp - 500;
+        final hp0 = r.pet.hp;
+        r.press('signature');
+        run(r, palette == 'amethyst' ? 0.6 : 0.3);
+        expect(r.sig, 0);
+        expect(r.events.any((e) => e.type == 'signature') || r.floaters.any((f) => f.text == Raid.sigNames[palette]), isTrue);
+        if (palette == 'coral') {
+          run(r, 2);
+          expect(r.pet.hp, greaterThan(hp0));
+        } else {
+          expect(r.foes.first.hp, lessThan(5000));
+        }
+      });
+    }
+  });
 }

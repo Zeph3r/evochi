@@ -11,6 +11,7 @@ import '../../core/models/game_state.dart';
 import '../../core/utils/day_keys.dart';
 import '../economy/economy.dart' as econ;
 import '../engine.dart';
+import 'charms.dart' as charms;
 
 /// The Bag's healing items a fight can use, cheapest first (the button eats these in order). The
 /// Apothecary's brews are not here: drunk in the Wilds they give a buff instead ([wildsBrews]).
@@ -80,20 +81,25 @@ List<Map<String, Object?>> _rewards(int coins, Map<String, int> items) => [
 
 /// The satchel brought home (through the exit, a retreat, or with the guardian calmed). One run banks
 /// once: its transaction id is the run's.
-ActionResult wildsBank(GameState state, String runId, int coins, Map<String, int> items, int now) {
+ActionResult wildsBank(GameState state, String runId, int coins, Map<String, int> items, int now, {int calmed = 0}) {
   final bag = {for (final e in items.entries) if (e.value > 0 && catalog.containsKey(e.key)) e.key: e.value};
   final glimmer = items[econ.glimmer] ?? 0; // a rare foe drop rides in the satchel too
-  if (coins <= 0 && bag.isEmpty && glimmer <= 0) return ActionResult(state);
+  if (coins <= 0 && bag.isEmpty && glimmer <= 0 && calmed <= 0) return ActionResult(state);
   final s = state.copy();
   final txn = 'wilds:run:$runId';
   if (!addTxn(s, WalletTxn(id: txn, amount: coins, cause: 'wilds', at: now))) {
     return ActionResult(state, events: [GameEvent('already_claimed', {'id': txn})]);
   }
+  // charms: the worn one grows; one already owned that dropped again becomes progress, not a second copy
+  final dupes = {for (final e in bag.entries) if (charms.charmDefs.containsKey(e.key) && charms.ownsCharm(s, e.key)) e.key: e.value};
+  final charmEvents = charms.charmsAfterRun(s, calmed, dupes);
+  dupes.keys.forEach(bag.remove);
   bag.forEach((id, n) => grantItem(s, id, n, 'wilds', now, txn));
   final rewards = _rewards(coins, bag);
   if (glimmer > 0) rewards.addAll(econ.grantDrops(s, {econ.glimmer: glimmer}, 'wilds', txn, now));
   return ActionResult(s, events: [
     GameEvent('wilds_banked', {'coins': coins, 'items': bag, 'glimmer': glimmer, 'rewards': rewards}),
+    ...charmEvents,
   ]);
 }
 
@@ -117,7 +123,12 @@ ActionResult wildsClear(GameState state, String floor, int now) {
   r.items.forEach((id, n) => grantItem(s, id, n, 'wilds', now, txn));
   final rewards = _rewards(r.coins, r.items);
   // the economy: the guardian's rare roll, 200 Season XP (once a day) and, the first time, 50 Glimmer
-  rewards.addAll(econ.grantDrops(s, econ.rollDrops('wilds_boss', seededRandom('${s.player?.id ?? 'guest'}:$txn:rare')), 'wilds', '$txn:rare', now));
+  final rare = econ.rollDrops('wilds_boss', seededRandom('${s.player?.id ?? 'guest'}:$txn:rare'));
+  // a charm already owned turns into progress toward its next rank
+  final dupes = {for (final e in rare.entries) if (charms.charmDefs.containsKey(e.key) && charms.ownsCharm(s, e.key)) e.key: e.value};
+  final charmEvents = charms.charmsAfterRun(s, 0, dupes);
+  dupes.keys.forEach(rare.remove);
+  rewards.addAll(econ.grantDrops(s, rare, 'wilds', '$txn:rare', now));
   econ.seasonBossAward(s, now);
   if (first) {
     final m = econ.milestoneGlimmer(s, 'first_boss:$floor', 50, now);
@@ -125,6 +136,7 @@ ActionResult wildsClear(GameState state, String floor, int now) {
   }
   return ActionResult(s, events: [
     GameEvent('wilds_cleared', {'floor': floor, 'first': first, 'coins': r.coins, 'items': r.items, 'rewards': rewards}),
+    ...charmEvents,
   ]);
 }
 

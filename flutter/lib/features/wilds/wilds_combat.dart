@@ -194,6 +194,9 @@ class Shot {
   double x0 = 0, z0 = 0, x1 = 0, z1 = 0, h = 0;
   bool lob = false, done = false;
   int pierce = 0; // foes it can pass through (a Juvenile's bolt goes through one)
+  double power = 1; // a share of a full bolt's damage (the Prism Charm's side bolts)
+  bool prism = false; // drawn in rainbow
+  bool shard = false; // an Elder's crystal shard
   final hits = <Actor>{};
   Mark? mark;
   double get height => lob ? h * 4 * (t / life) * (1 - t / life) : 6;
@@ -217,7 +220,7 @@ class Wave {
 
 class Pickup {
   Pickup(this.kind, this.x, this.z, this.amount, {this.vx = 0, this.vz = 0});
-  final String kind; // mote (heals) | loot (a glint of what a calmed foe left: it flies to you)
+  final String kind; // mote (heals) | bloom (the Starseed Charm's: heals) | loot (a glint of what a calmed foe left: it flies to you)
   double x, z;
   final int amount;
   double vx, vz;
@@ -332,6 +335,9 @@ class Raid {
     this.bossCleared = false,
     this.level = 1,
     this.stage = 1,
+    this.charm,
+    this.charmRank = 1,
+    this.palette = 'amber',
     int seed = 7,
     this.lootRoll,
     this.lootLabel,
@@ -377,6 +383,23 @@ class Raid {
   final bool bossCleared;
   final int level;
   final int stage; // your Evochi's: 1 Eggling, 2 Juvenile, 3 Elder
+  // the charm it wears (game/wilds/charms.dart) and its rank, 1-3
+  final String? charm;
+  final int charmRank;
+  final String palette; // your Evochi's colour: an Elder's signature move is its colour's own
+  /// An Elder's signature move, filled by perfect dodges, counters and close calls (0-100).
+  double sig = 0;
+  bool get sigReady => stage >= 3 && sig >= 100;
+  double _reefT = 0, _reefX = 0, _reefZ = 0; // the Reef Bloom's healing ground
+  void _sigGain(double n) {
+    if (stage < 3) return;
+    final was = sig;
+    sig = math.min(100, sig + n);
+    if (was < 100 && sig >= 100) _emit('sig_ready');
+  }
+  int _charmN = 0; // hits toward the Static Acorn's next spark
+  double _charmSapCd = 0;
+  int get _ci => (charmRank - 1).clamp(0, 2);
   final math.Random rng;
   /// Rare finds a calmed foe can leave (the economy's drop table); its own random, so the fight's dice
   /// never change when the loot does.
@@ -606,6 +629,8 @@ class Raid {
     }
     _tickBurns(dt);
     _sapCd -= dt;
+    _tickReef(dt);
+    _charmSapCd -= dt;
     time += dt;
     _sayCd -= dt;
     _tickPet(dt, inp);
@@ -928,6 +953,12 @@ class Raid {
           if (t != null) p.face(t.x - p.x, t.z - p.z);
         }
         _buffer = null;
+      } else if (want == 'signature' && canCancel) {
+        if (sigReady) {
+          sig = 0;
+          _signature();
+        }
+        _buffer = null;
       } else if (want == 'pulse' && canCancel && pulseCd <= 0) {
         if (_afford(_pulseCost)) {
           _spend(_pulseCost);
@@ -1001,6 +1032,16 @@ class Raid {
           final sh = Shot(ShotKind.bolt, Team.party, p.x + p.fx * 10, p.z + p.fz * 10, vx: p.fx * 165, vz: p.fz * 165, life: 1.2, owner: p, target: t)
             ..pierce = stage >= 3 ? 2 : (stage >= 2 ? 1 : 0);
           shots.add(sh);
+          if (charm == 'prism_charm') {
+            // the Prism Charm: two lesser bolts fan out either side
+            for (final turn in const [-0.26, 0.26]) {
+              final c = math.cos(turn), sn = math.sin(turn);
+              final dx = p.fx * c - p.fz * sn, dz = p.fx * sn + p.fz * c;
+              shots.add(Shot(ShotKind.bolt, Team.party, p.x + dx * 10, p.z + dz * 10, vx: dx * 165, vz: dz * 165, life: 1.0, owner: p)
+                ..power = const [0.4, 0.55, 0.7][_ci]
+                ..prism = true);
+            }
+          }
           _emit('bolt');
         }
         if (actT > 0.24) act = PetAct.none;
@@ -1186,6 +1227,7 @@ class Raid {
         _float('Counter!', f.x, f.z - 8, 'crit', ttl: 0.9);
         bursts.add(Burst('slash', f.x, f.z, 0.35, size: 2));
         _emit('counter', x: f.x, z: f.z);
+        _sigGain(20);
       }
       if (c == 2) {
         // the third Pounce launches small foes: a beat of hit-stop, a burst, a moment stunned
@@ -1194,6 +1236,7 @@ class Raid {
         bursts.add(Burst('launch', f.x, f.z, 0.4, size: f is Boss ? 2 : 1.4));
         if (f is! Boss && !f.calm) f.stun = math.max(f.stun, 0.35);
         _emit('launch', x: f.x, z: f.z);
+        _sigGain(5);
       }
     }
   }
@@ -1211,6 +1254,103 @@ class Raid {
       final k = d > 1e-6 ? 1 / d : 0.0;
       _hurt(f, 6 * atk, from: p, kx: (f.x - p.x) * k * 110, kz: (f.z - p.z) * k * 110, poise: 16);
       if (f is! Boss && !f.calm) f.stun = math.max(f.stun, 0.6);
+    }
+  }
+
+  /// Each colour's signature move (Elders only): the name it is called by.
+  static const sigNames = {
+    'ocean': 'Tidal Surge',
+    'amber': 'Sunflare',
+    'amethyst': 'Crystal Shards',
+    'forest': 'Thorn Snare',
+    'coral': 'Reef Bloom',
+    'obsidian': 'Quake',
+  };
+
+  String get sigName => sigNames[palette] ?? 'Sunflare';
+
+  void _signature() {
+    final p = pet;
+    hitstop = math.max(hitstop, 0.12);
+    shake = math.max(shake, 0.7);
+    p.glow = 1;
+    _float(sigName, p.x, p.z - 10, 'crit', ttl: 1.3);
+    _emit('signature', text: palette, x: p.x, z: p.z);
+    switch (palette) {
+      case 'ocean':
+        // a wall of water rolls out ahead, sweeping everything in its way back
+        bursts.add(Burst('tide', p.x, p.z, 0.8, dx: p.fx, dz: p.fz, size: 150));
+        for (final f in hostile.toList()) {
+          final ax = f.x - p.x, az = f.z - p.z;
+          final along = ax * p.fx + az * p.fz, across = (ax * p.fz - az * p.fx).abs();
+          if (along < -8 || along > 150 || across > 30 + f.radius) continue;
+          _hurt(f, 30 * atk, from: p, kx: p.fx * 280, kz: p.fz * 280, poise: 70, stun: f is Boss ? 0 : 0.8);
+        }
+      case 'amethyst':
+        // a ring of crystal shards that go through whatever they meet
+        bursts.add(Burst('crystal', p.x, p.z, 0.5, size: 40));
+        for (var i = 0; i < 12; i++) {
+          final a = i * math.pi * 2 / 12;
+          shots.add(Shot(ShotKind.bolt, Team.party, p.x + math.cos(a) * 8, p.z + math.sin(a) * 8, vx: math.cos(a) * 190, vz: math.sin(a) * 190, life: 0.9, owner: p)
+            ..power = 1.4
+            ..pierce = 3
+            ..shard = true);
+        }
+      case 'forest':
+        // thorns burst up all round and hold everything near fast
+        bursts.add(Burst('snare', p.x, p.z, 2.6, size: 72));
+        for (final f in hostile.toList()) {
+          if (p.dist(f) > 72 + f.radius) continue;
+          _hurt(f, 14 * atk, from: p, poise: 40);
+          if (f is Boss) {
+            _chill(f, 3.0);
+          } else {
+            f.stun = math.max(f.stun, 2.4);
+            f.burnT = math.max(f.burnT, 2.0);
+          }
+        }
+      case 'coral':
+        // a reef blooms underfoot: it heals you (and anyone with you) and slows what wades in
+        _reefT = 6;
+        _reefX = p.x;
+        _reefZ = p.z;
+        bursts.add(Burst('reef', p.x, p.z, 6, size: 56));
+        p.hp = math.min(p.maxHp, p.hp + 20);
+        _float('+20', p.x, p.z, 'heal');
+      case 'obsidian':
+        // the ground itself heaves: the widest stun there is
+        bursts.add(Burst('quake', p.x, p.z, 0.7, size: 95));
+        bursts.add(Burst('rubble', p.x, p.z, 1.0, size: 1.6));
+        shake = math.max(shake, 1.2);
+        for (final f in hostile.toList()) {
+          final d = p.dist(f);
+          if (d > 95 + f.radius) continue;
+          final k = d > 1e-6 ? 1 / d : 0.0;
+          _hurt(f, 26 * atk, from: p, kx: (f.x - p.x) * k * 160, kz: (f.z - p.z) * k * 160, poise: 90, stun: f is Boss ? 0 : 1.3);
+        }
+      default:
+        // amber: a flash of sunlight that dazzles everything that can see it
+        bursts.add(Burst('sunflare', p.x, p.z, 0.8, size: 170));
+        for (final f in hostile.toList()) {
+          if (p.dist(f) > 170) continue;
+          _hurt(f, 12 * atk, from: p, poise: 30);
+          if (f is Boss) {
+            _dazzle(f, 60);
+          } else {
+            f.stun = math.max(f.stun, 1.8);
+          }
+        }
+    }
+  }
+
+  void _tickReef(double dt) {
+    if (_reefT <= 0) return;
+    _reefT -= dt;
+    for (final a in [pet, if (sher != null && party) sher!]) {
+      if (_len(a.x - _reefX, a.z - _reefZ) < 56) a.hp = math.min(a.maxHp, a.hp + 9 * dt);
+    }
+    for (final f in hostile) {
+      if (_len(f.x - _reefX, f.z - _reefZ) < 56 + f.radius) f.chillT = math.max(f.chillT, 0.3);
     }
   }
 
@@ -1258,6 +1398,7 @@ class Raid {
           counterT = 1.4;
           _float('Perfect dodge!', a.x, a.z, 'crit', ttl: 0.9);
           _emit('perfect_dodge');
+          _sigGain(34);
         } else {
           _float('Dodged!', a.x, a.z, 'info', ttl: 0.7);
           _emit('dodged');
@@ -1286,46 +1427,38 @@ class Raid {
     if (a is Foe && from == pet) {
       if (has('moonlit') && rng.nextDouble() < 0.25) crit = true;
       if (has('ember')) a.burnT = 3.0;
-      if (has('frost')) {
-        if (a.chillT <= 0) bursts.add(Burst('frost', a.x, a.z, 0.6, size: a is Boss ? 1.6 : 1));
-        a.chillT = 3.0;
-      }
+      if (has('frost')) _chill(a, 3.0);
       if (has('hush')) poise *= 1.6;
       if (has('sap') && _sapCd <= 0 && pet.hp < pet.maxHp) {
         _sapCd = 0.2;
-        pet.hp = math.min(pet.maxHp, pet.hp + 2.5);
-        bursts.add(Burst('sap', a.x, a.z, 0.6, dx: pet.x - a.x, dz: pet.z - a.z));
+        _sapHeal(a, 2.5);
       }
-      if (has('dazzle')) {
-        // dizziness builds with every hit; it reels at the top (once any stun it is already in is over)
-        a.daze = math.min(100, a.daze + (a is Boss ? 11 : 24));
-        if (a.daze >= 100 && a.stun <= 0) {
-          a.daze = 0;
-          _stagger(a, a is Boss ? 0.9 : 1.4);
-          _float('Dazzled!', a.x, a.z - 6, 'crit', ttl: 0.8);
-          bursts.add(Burst('stars', a.x, a.z, 1.2, size: a is Boss ? 2 : 1));
-          _emit('dazzled', x: a.x, z: a.z);
-        }
-      }
+      if (has('dazzle')) _dazzle(a, a is Boss ? 11 : 24);
       if (has('static') && !_chaining && ++_staticN >= 4) {
         _staticN = 0;
-        Foe? next;
-        var nd = 80.0;
-        for (final o in hostile) {
-          if (o == a || o.calm) continue;
-          final d = o.dist(a);
-          if (d < nd) {
-            nd = d;
-            next = o;
+        _spark(a, dmg * 0.5);
+      }
+      // the charm it wears
+      switch (charm) {
+        case 'emberfang_charm' when !_chaining:
+          if (rng.nextDouble() < const [0.25, 0.35, 0.45][_ci]) {
+            if (a.burnT <= 0) bursts.add(Burst('ember', a.x, a.z, 0.5));
+            a.burnT = math.max(a.burnT, 2.0);
           }
-        }
-        bursts.add(Burst('zap', a.x, a.z, 0.35, dx: (next?.x ?? a.x + 20) - a.x, dz: (next?.z ?? a.z) - a.z));
-        _emit('zap', x: a.x, z: a.z);
-        if (next != null) {
-          _chaining = true;
-          _hurt(next, dmg * 0.5, from: pet, poise: 6, stun: 0.25);
-          _chaining = false;
-        }
+        case 'frostbell_charm' when !_chaining:
+          if (rng.nextDouble() < const [0.25, 0.35, 0.45][_ci]) _chill(a, 2.0);
+        case 'static_acorn' when !_chaining:
+          if (++_charmN >= const [6, 5, 4][_ci]) {
+            _charmN = 0;
+            _spark(a, dmg * 0.45);
+          }
+        case 'sap_locket' when !_chaining:
+          if (_charmSapCd <= 0 && pet.hp < pet.maxHp) {
+            _charmSapCd = 0.25;
+            _sapHeal(a, const [1.0, 1.5, 2.0][_ci]);
+          }
+        case 'dazzle_pebble' when !_chaining:
+          _dazzle(a, (a is Boss ? 0.5 : 1.0) * const [10.0, 14.0, 18.0][_ci]);
       }
     }
     if (a is Foe) {
@@ -2329,6 +2462,8 @@ class Raid {
       });
     }
     if (rng.nextDouble() < (pet.hpFrac < 0.5 ? 0.7 : 0.35)) pickups.add(Pickup('mote', f.x + 4, f.z + 3, 14));
+    // the Starseed Charm: a bloom of light grows where it was calmed
+    if (charm == 'starseed_charm' && !f.summoned) pickups.add(Pickup('bloom', f.x - 4, f.z - 2, const [12, 18, 24][_ci]));
     // a cleared clearing
     final z = f.zone;
     if (f.summoned) return;
@@ -2430,12 +2565,13 @@ class Raid {
         if (s.hits.contains(f)) continue;
         if (_len(f.x - s.x, f.z - s.z) < f.radius + 4) {
           final sp = math.max(_len(s.vx, s.vz), 1e-6);
-          _hurt(f, _boltDmg * atk, from: pet, kx: s.vx / sp * 50, kz: s.vz / sp * 50, poise: 10);
+          _hurt(f, _boltDmg * atk * s.power, from: pet, kx: s.vx / sp * 50, kz: s.vz / sp * 50, poise: 10 * s.power);
           s.hits.add(f);
           bursts.add(Burst('glow', s.x, s.z, 0.35));
           if (s.pierce > 0) {
             // it goes straight through and on to the next one
             s.pierce--;
+            if (s.shard) break; // a crystal shard flies on straight
             s.life = s.t + 0.8;
             Foe? next;
             var nd = 130.0;
@@ -2485,6 +2621,49 @@ class Raid {
     waves.removeWhere((w) => w.r > w.maxR);
   }
 
+  void _chill(Foe a, double secs) {
+    if (a.chillT <= 0) bursts.add(Burst('frost', a.x, a.z, 0.6, size: a is Boss ? 1.6 : 1));
+    a.chillT = math.max(a.chillT, secs);
+  }
+
+  void _sapHeal(Foe a, double hp) {
+    pet.hp = math.min(pet.maxHp, pet.hp + hp);
+    bursts.add(Burst('sap', a.x, a.z, 0.6, dx: pet.x - a.x, dz: pet.z - a.z));
+  }
+
+  /// Dizziness builds with every hit; it reels at the top (once any stun it is already in is over).
+  void _dazzle(Foe a, double by) {
+    a.daze = math.min(100, a.daze + by);
+    if (a.daze >= 100 && a.stun <= 0) {
+      a.daze = 0;
+      _stagger(a, a is Boss ? 0.9 : 1.4);
+      _float('Dazzled!', a.x, a.z - 6, 'crit', ttl: 0.8);
+      bursts.add(Burst('stars', a.x, a.z, 1.2, size: a is Boss ? 2 : 1));
+      _emit('dazzled', x: a.x, z: a.z);
+    }
+  }
+
+  /// A spark leaps from [a] to the nearest other foe.
+  void _spark(Foe a, double dmg) {
+    Foe? next;
+    var nd = 80.0;
+    for (final o in hostile) {
+      if (o == a || o.calm) continue;
+      final d = o.dist(a);
+      if (d < nd) {
+        nd = d;
+        next = o;
+      }
+    }
+    bursts.add(Burst('zap', a.x, a.z, 0.35, dx: (next?.x ?? a.x + 20) - a.x, dz: (next?.z ?? a.z) - a.z));
+    _emit('zap', x: a.x, z: a.z);
+    if (next != null) {
+      _chaining = true;
+      _hurt(next, dmg, from: pet, poise: 6, stun: 0.25);
+      _chaining = false;
+    }
+  }
+
   /// Frost thaws and dizziness clears with time.
   void _cool(Foe f, double dt) {
     if (f.chillT > 0) f.chillT = math.max(0, f.chillT - dt);
@@ -2531,6 +2710,7 @@ class Raid {
         }
         continue;
       }
+      if (p.kind == 'bloom' && p.t < 0.6) continue; // a bloom opens before it can be picked
       if (_len(pet.x - p.x, pet.z - p.z) < 14 + pet.radius) {
         p.t = 999;
         final before = pet.hp;
@@ -2887,6 +3067,7 @@ class Raid {
               counterT = math.max(counterT, 1.1);
               _float('Close call!', pet.x, pet.z, 'crit', ttl: 0.9);
               _emit('close_call', x: pet.x, z: pet.z);
+              _sigGain(30);
             }
           }
           for (final a in [pet, if (sher != null && party) sher!]) {

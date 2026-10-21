@@ -561,7 +561,7 @@ ActionResult useConsumable(GameState state, String itemId, int now) {
   if (it == null || it.category != ItemCategory.consumable) return _fail(state, 'not_consumable');
   if (ownedQty(state, itemId) < 1) return _fail(state, 'not_owned');
   if (it.growth > 0) return _fail(state, 'use_in_garden'); // Sprout Tonic: poured on a garden bed
-  if (it.isRare) return _fail(state, 'use_rare'); // rare finds have their own uses (economy.dart)
+  if (it.isRare || it.isCharm) return _fail(state, 'use_rare'); // rare finds and charms have their own uses
   final d = derive(state, now);
   if (d.pet == null) return _fail(state, 'no_pet');
   if (d.pet!.dead) return _fail(state, 'pet_dead');

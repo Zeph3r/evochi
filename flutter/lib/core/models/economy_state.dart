@@ -91,7 +91,10 @@ class EconomyState {
     Map<String, int>? offers,
     List<PlayPurchase>? purchases,
     this.caravanMet = false,
+    this.charm = '',
+    Map<String, int>? charmXp,
   })  : plus = plus ?? PlusState(),
+        charmXp = charmXp ?? {},
         seasons = seasons ?? {},
         armed = armed ?? {},
         offers = offers ?? {},
@@ -104,6 +107,10 @@ class EconomyState {
   final Map<String, int> offers; // one-time offers bought (starter_pack) -> when
   final List<PlayPurchase> purchases;
   bool caravanMet; // the merchant's introduction was seen
+  // charms (game/wilds/charms.dart): the one worn in the Wilds ('' for none), and each charm's progress
+  // toward its next rank (creatures calmed while it was worn)
+  String charm;
+  final Map<String, int> charmXp;
 
   SeasonProgress season(String id) => seasons.putIfAbsent(id, () => SeasonProgress());
 
@@ -118,6 +125,8 @@ class EconomyState {
       offers: _m(j['offers']).map((k, v) => MapEntry(k, _i(v))),
       purchases: _l(j['purchases']).map((e) => PlayPurchase.fromJson(_m(e))).toList(),
       caravanMet: j['caravanMet'] == true,
+      charm: (j['charm'] as String?) ?? '',
+      charmXp: _m(j['charmXp']).map((k, v) => MapEntry(k, _i(v))),
     );
   }
 
@@ -129,5 +138,7 @@ class EconomyState {
         'offers': offers,
         'purchases': purchases.map((e) => e.toJson()).toList(),
         'caravanMet': caravanMet,
+        'charm': charm,
+        'charmXp': charmXp,
       };
 }

@@ -3832,7 +3832,14 @@
   "fizzleberry_soda": "items/fizzleberry_soda.webp",
   "sapling_syrup": "items/sapling_syrup.webp",
   "dazzle_dew": "items/dazzle_dew.webp",
-  "hushwater": "items/hushwater.webp"
+  "hushwater": "items/hushwater.webp",
+  "emberfang_charm": "items/emberfang_charm.webp",
+  "frostbell_charm": "items/frostbell_charm.webp",
+  "static_acorn": "items/static_acorn.webp",
+  "sap_locket": "items/sap_locket.webp",
+  "dazzle_pebble": "items/dazzle_pebble.webp",
+  "prism_charm": "items/prism_charm.webp",
+  "starseed_charm": "items/starseed_charm.webp"
  },
  "icons": {
   "bag": "icons/bag.webp",

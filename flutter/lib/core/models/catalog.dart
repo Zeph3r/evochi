@@ -73,6 +73,7 @@ class CatalogItem {
 
   bool get isStackable => category == ItemCategory.consumable || stackable;
   bool get isRare => kind == 'rare';
+  bool get isCharm => kind == 'charm';
   bool get isStory => acquisition == 'story';
   bool get isHome => acquisition == 'home';
   bool get forSale => shop != null && listPrice != null && !isStory;
@@ -296,11 +297,42 @@ const catalog = <String, CatalogItem>{
   'starseed': CatalogItem(
       id: 'starseed', name: 'Starseed', category: ItemCategory.consumable, kind: 'rare', rarity: 'rare', stackable: true, shop: null,
       acquisition: 'drop', tradable: false,
-      desc: 'A seed with a tiny star caught inside. It will grow Starfruit once the garden has room for it.'),
+      desc: 'A seed with a tiny star caught inside. Set it in a glass bead (with a Glowleaf) for the Starseed Charm; one day it will grow Starfruit too.'),
   'prism_scale': CatalogItem(
       id: 'prism_scale', name: 'Prism Scale', category: ItemCategory.consumable, kind: 'rare', rarity: 'legendary', stackable: true, shop: null,
       acquisition: 'drop', tradable: false,
-      desc: 'An iridescent scale that throws rainbows. One day it will give your Evochi a shimmer of its own.'),
+      desc: 'An iridescent scale that throws rainbows. Set it in silver (with 2 Lumen Shards) for the Prism Charm; one day it will give your Evochi a shimmer of its own.'),
+  // ---- charms: worn in the Wilds, one at a time; they grow (ranks I-III) as you calm creatures wearing
+  // them (game/wilds/charms.dart). Found in the Wilds, sold now and then at the Starlight Caravan; the
+  // Prism and Starseed charms are only set from a Prism Scale or a Starseed.
+  'emberfang_charm': CatalogItem(
+      id: 'emberfang_charm', name: 'Emberfang Charm', category: ItemCategory.consumable, kind: 'charm', rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'drop', tradable: false, glimmer: 220,
+      desc: 'A fang of red amber, warm to hold. Worn in the Wilds: your hits sometimes set a foe alight.'),
+  'frostbell_charm': CatalogItem(
+      id: 'frostbell_charm', name: 'Frostmint Bell', category: ItemCategory.consumable, kind: 'charm', rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'drop', tradable: false, glimmer: 220,
+      desc: 'A little bell of blue ice that never melts. Worn in the Wilds: your hits sometimes chill a foe.'),
+  'static_acorn': CatalogItem(
+      id: 'static_acorn', name: 'Static Acorn', category: ItemCategory.consumable, kind: 'charm', rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'drop', tradable: false, glimmer: 240,
+      desc: 'An acorn that makes your fur stand up. Worn in the Wilds: every few hits spark to another foe.'),
+  'sap_locket': CatalogItem(
+      id: 'sap_locket', name: 'Sap Locket', category: ItemCategory.consumable, kind: 'charm', rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'drop', tradable: false, glimmer: 180,
+      desc: 'A locket of green sap with a seedling inside. Worn in the Wilds: your hits heal you a little.'),
+  'dazzle_pebble': CatalogItem(
+      id: 'dazzle_pebble', name: 'Dazzle Pebble', category: ItemCategory.consumable, kind: 'charm', rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'drop', tradable: false, glimmer: 260,
+      desc: 'A pebble that glitters whichever way you turn it. Worn in the Wilds: your hits build dizziness until a foe reels.'),
+  'prism_charm': CatalogItem(
+      id: 'prism_charm', name: 'Prism Charm', category: ItemCategory.consumable, kind: 'charm', rarity: 'legendary', stackable: true, shop: null,
+      acquisition: 'drop', tradable: false,
+      desc: 'A Prism Scale set in silver. Worn in the Wilds: your Bolt splits into three.'),
+  'starseed_charm': CatalogItem(
+      id: 'starseed_charm', name: 'Starseed Charm', category: ItemCategory.consumable, kind: 'charm', rarity: 'epic', stackable: true, shop: null,
+      acquisition: 'drop', tradable: false,
+      desc: 'A Starseed in a glass bead, glowing softly. Worn in the Wilds: every creature you calm leaves a bloom of light that heals you.'),
   // ---- Season 1: First Light. Pass rewards; their wearable art arrives with the season.
   'season_dawn_circlet': CatalogItem(
       id: 'season_dawn_circlet', name: 'Dawn Circlet', category: ItemCategory.wearable, slot: 'head', rarity: 'epic', shop: null,

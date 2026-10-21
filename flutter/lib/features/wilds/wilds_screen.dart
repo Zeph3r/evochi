@@ -32,6 +32,7 @@ import '../../core/services/haptics.dart';
 import '../../game/economy/economy.dart' as econ;
 import '../../game/engine.dart' as ge;
 import '../../game/trails/trails.dart' as trails;
+import '../../game/wilds/charms.dart' as charms;
 import '../../game/wilds/wilds.dart' as w;
 import '../shared/ambience.dart';
 import '../shared/kit.dart';
@@ -98,7 +99,9 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   bool _clearFirst = true;
   final String _runId = 'r${DateTime.now().millisecondsSinceEpoch}';
   int _banks = 0;
+  int _calmBanked = 0; // calms already counted toward the worn charm
   double _shakeX = 0, _shakeY = 0;
+  double _flashT = 0; // a Sunflare's flash over everything
   final _rng = math.Random();
   bool _snap = true; // the camera jumps (the start, after an evacuation)
   late final GameController _c;
@@ -211,6 +214,9 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       bossCleared: cleared,
       level: level,
       stage: c.state.pet?.stage ?? 1,
+      charm: charms.wornCharm(c.state),
+      palette: c.state.pet?.paletteId ?? 'amber',
+      charmRank: math.max(1, charms.charmRank(c.state, charms.wornCharm(c.state) ?? '')),
       seed: DateTime.now().millisecondsSinceEpoch & 0xffff,
       // the economy: rare finds from calmed creatures, and an armed Hollow Ward
       lootRoll: (r) => econ.rollDrops('wilds_foe', r),
@@ -267,6 +273,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     _last = now;
     _t += dt;
     if (_sealOpen && _sealT < 1) _sealT = math.min(1.0, _sealT + dt / 1.8);
+    if (_flashT > 0) _flashT = math.max(0, _flashT - dt);
     final m = _map, r = _raid;
     if (m == null || r == null || _view == Size.zero) return;
     final pet = r.pet;
@@ -545,6 +552,15 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
           a.buzz(Haptic.hit);
         case 'hoof':
           _sfx('enc_rumble', 0.22, gap: 0.12);
+        case 'sig_ready':
+          _sfx('reward_chime', 0.6);
+          a.buzz(Haptic.reward);
+          _showBanner('${r.sigName} is ready!', 1.6);
+        case 'signature':
+          _sfx(switch (e.text) { 'ocean' => 'enc_whoosh', 'coral' => 'enc_soothe', 'amber' => 'enc_surge', _ => 'wild_crash' }, 0.9);
+          _sfx('enc_rumble', 0.6);
+          a.buzz(Haptic.thump);
+          if (e.text == 'amber' || e.text == null) _flashT = 0.35;
         case 'zap':
           _sfx('enc_surge', 0.35, gap: 0.12);
         case 'leap':
@@ -769,14 +785,20 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   /// The satchel into the save (once per bank: a retry adds nothing).
   bool _bank() {
     final r = _raid;
-    if (r == null || (r.coins <= 0 && r.items.isEmpty)) return false;
+    final calmed = r == null ? 0 : r.calmed - _calmBanked;
+    if (r == null || (r.coins <= 0 && r.items.isEmpty && calmed <= 0)) return false;
     final c = context.read<GameController>();
     final coins = r.coins;
     final items = Map<String, int>.of(r.items);
-    final res = c.run((s, n) => w.wildsBank(s, '$_runId-$_banks', coins, items, n), quiet: true);
+    final res = c.run((s, n) => w.wildsBank(s, '$_runId-$_banks', coins, items, n, calmed: calmed), quiet: true);
     if (!res.ok) return false;
     r.coins = 0;
     r.items.clear();
+    _calmBanked = r.calmed;
+    if (coins <= 0 && items.isEmpty) {
+      _banks++;
+      return true;
+    }
     _banks++;
     final parts = ['+$coins EvoCoins', for (final e in items.entries) '+${e.value} ${_lootName(e.key)}'];
     c.toast('Satchel brought home: ${parts.join(', ')}', icon: 'coin');
@@ -847,6 +869,17 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                   ),
                 ),
                 if (_stickOrigin != null && _stick != null) _Stick(origin: _stickOrigin!, knob: _stick!),
+                // a Sunflare's flash
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: ValueListenableBuilder<int>(
+                      valueListenable: _repaint,
+                      builder: (_, __, ___) => _flashT <= 0 || rm
+                          ? const SizedBox.shrink()
+                          : ColoredBox(color: Color.fromRGBO(255, 246, 214, (_flashT / 0.35) * 0.75)),
+                    ),
+                  ),
+                ),
                 // a soft shade at the top so the HUD reads
                 Positioned(
                   left: 0,
@@ -977,6 +1010,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
         if (k == LogicalKeyboardKey.keyJ) _press('attack');
         if (k == LogicalKeyboardKey.keyK) _press('bolt');
         if (k == LogicalKeyboardKey.keyL) _press('pulse');
+        if (k == LogicalKeyboardKey.keyU) _press('signature');
         if (k == LogicalKeyboardKey.space) _press('dodge');
         if (k == LogicalKeyboardKey.keyQ) _press('item');
       }
@@ -1269,7 +1303,7 @@ class _MapPainter extends CustomPainter {
       _wave(canvas, wv);
     }
     for (final b in r.bursts) {
-      if (const {'pulse', 'spores', 'sweep', 'dust', 'scar'}.contains(b.kind)) _burst(canvas, b);
+      if (const {'pulse', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare'}.contains(b.kind)) _burst(canvas, b);
     }
     // the target ring
     final lock = r.lock;
@@ -1388,7 +1422,7 @@ class _MapPainter extends CustomPainter {
     _vignette(canvas, size);
     // above everything: sparks, motes, stars, numbers
     for (final b in r.bursts) {
-      if (!const {'pulse', 'spores', 'sweep', 'dust', 'scar'}.contains(b.kind)) _burst(canvas, b);
+      if (!const {'pulse', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare'}.contains(b.kind)) _burst(canvas, b);
     }
     // a glint where something waits to be found
     for (final sp in m.spots) {
@@ -1896,6 +1930,19 @@ class _MapPainter extends CustomPainter {
     }
     final g = s._toScreen(p.x, p.z) - Offset(0, (6 + math.sin(s._t * 3 + p.x) * 2) * _up);
     final fade = p.t > 17 ? (20 - p.t) / 3 : 1.0;
+    if (p.kind == 'bloom') {
+      // the Starseed Charm's bloom of light: petals opening round a star
+      final u = s._u / 2.7, open = Curves.easeOutBack.transform((p.t / 0.6).clamp(0.0, 1.0));
+      final base = s._toScreen(p.x, p.z);
+      _glow(canvas, base - Offset(0, 4 * _up), 18 * u, Color.fromRGBO(255, 236, 170, 0.55 * fade));
+      for (var i = 0; i < 5; i++) {
+        final a = i * math.pi * 2 / 5 + s._t * 0.6;
+        canvas.drawOval(Rect.fromCenter(center: base - Offset(0, 3 * _up) + Offset(math.cos(a) * 5 * u, math.sin(a) * 2.6 * u) * open, width: 6 * u * open, height: 3.6 * u * open),
+            Paint()..color = Color.fromRGBO(255, 214, 236, fade));
+      }
+      _star(canvas, base - Offset(0, 4 * _up), 3.6 * u * open, Color.fromRGBO(255, 250, 220, fade));
+      return;
+    }
     _glow(canvas, g, 12 * s._u / 2.7, Color.fromRGBO(255, 240, 160, 0.6 * fade));
     canvas.drawCircle(g, 3.5 * s._u / 2.7, Paint()..color = Color.fromRGBO(255, 253, 230, fade));
   }
@@ -1909,8 +1956,11 @@ class _MapPainter extends CustomPainter {
           final t = s._toScreen(sh.x - sh.vx / sp * i * 5, sh.z - sh.vz / sp * i * 5) - Offset(0, sh.height * _up);
           canvas.drawCircle(t, (4 - i) * 1.3 * s._u / 2.7, Paint()..color = Color.fromRGBO(159, 240, 218, 0.25 * (4 - i) / 3));
         }
-        _glow(canvas, g, 12 * s._u / 2.7, const Color(0x999FF0DA));
-        canvas.drawCircle(g, 4 * s._u / 2.7, Paint()..color = const Color(0xFFE8FFF8));
+        final hue = sh.prism
+            ? HSVColor.fromAHSV(1, (s._t * 240 + sh.x * 3) % 360, 0.55, 1).toColor()
+            : (sh.shard ? const Color(0xFFC6A2FF) : const Color(0xFF9FF0DA));
+        _glow(canvas, g, 12 * s._u / 2.7, hue.withAlpha(153));
+        canvas.drawCircle(g, (sh.prism ? 3 : 4) * s._u / 2.7, Paint()..color = const Color(0xFFE8FFF8));
       case ShotKind.spore:
         _glow(canvas, g, 10 * s._u / 2.7, const Color(0x88A27BD6));
         canvas.drawCircle(g, 5 * s._u / 2.7, Paint()..color = const Color(0xFF6B4C95));
@@ -2025,6 +2075,89 @@ class _MapPainter extends CustomPainter {
               ..strokeJoin = StrokeJoin.round
               ..color = Color.fromRGBO(255, 236, 110, 1 - k));
         _glow(canvas, to, 16 * u, Color.fromRGBO(255, 236, 110, 0.6 * (1 - k)));
+      case 'tide':
+        // Tidal Surge: a wall of water rolling out ahead, foam on its crest
+        final along = b.size * Curves.easeOutCubic.transform(k);
+        final nx = -b.dz, nz = b.dx;
+        final fade = 1 - k * k;
+        for (var i = 0; i < 3; i++) {
+          final d = along - i * 14;
+          if (d < 0) continue;
+          final cx = b.x + b.dx * d, cz = b.z + b.dz * d;
+          final a = s._toScreen(cx + nx * 34, cz + nz * 34), c = s._toScreen(cx - nx * 34, cz - nz * 34);
+          canvas.drawLine(
+              a - Offset(0, (10 - i * 3) * _up),
+              c - Offset(0, (10 - i * 3) * _up),
+              Paint()
+                ..strokeWidth = (14 - i * 4) * u
+                ..strokeCap = StrokeCap.round
+                ..color = Color.fromRGBO(i == 0 ? 220 : 90, i == 0 ? 245 : 170, 255, (i == 0 ? 0.9 : 0.6) * fade));
+        }
+      case 'crystal':
+        // Crystal Shards: a ring of violet light as they leave
+        canvas.drawOval(
+            _ellipse(b.x, b.z, b.size * (0.4 + k)),
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 5 * (1 - k)
+              ..color = Color.fromRGBO(200, 160, 255, 0.9 * (1 - k)));
+        _glow(canvas, g - Offset(0, 8 * _up), 30 * u, Color.fromRGBO(190, 150, 255, 0.6 * (1 - k)));
+      case 'snare':
+        // Thorn Snare: thorns burst up in a ring and hold, then sink
+        final rise = k < 0.15 ? k / 0.15 : (k > 0.8 ? (1 - k) / 0.2 : 1.0);
+        canvas.drawOval(_ellipse(b.x, b.z, b.size), Paint()..color = Color.fromRGBO(60, 90, 40, 0.25 * rise));
+        final tp = Paint()..color = Color.fromRGBO(70, 110, 46, rise);
+        final hi = Paint()..color = Color.fromRGBO(140, 190, 90, rise);
+        for (var i = 0; i < 26; i++) {
+          final a = i * 2.39996;
+          final rr = b.size * (0.25 + 0.75 * ((i * 0.37) % 1.0));
+          final base = s._toScreen(b.x + math.cos(a) * rr, b.z + math.sin(a) * rr);
+          final h = (10 + 8 * ((i * 0.61) % 1.0)) * _up * rise;
+          final w2 = 3 * u;
+          canvas.drawPath(Path()..moveTo(base.dx - w2, base.dy)..lineTo(base.dx + w2, base.dy)..lineTo(base.dx + 1, base.dy - h)..close(), tp);
+          canvas.drawLine(base, base - Offset(-1, h * 0.8), hi..strokeWidth = 1);
+        }
+      case 'reef':
+        // Reef Bloom: coral and soft light underfoot that heals
+        final rise = k < 0.1 ? k / 0.1 : (k > 0.85 ? (1 - k) / 0.15 : 1.0);
+        canvas.drawOval(_ellipse(b.x, b.z, b.size), Paint()..color = Color.fromRGBO(255, 150, 140, 0.18 * rise));
+        canvas.drawOval(
+            _ellipse(b.x, b.z, b.size),
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2.5
+              ..color = Color.fromRGBO(255, 190, 170, 0.7 * rise));
+        for (var i = 0; i < 9; i++) {
+          final a = i * 2.39996 + 0.5;
+          final rr = b.size * (0.3 + 0.6 * ((i * 0.53) % 1.0));
+          final base = s._toScreen(b.x + math.cos(a) * rr, b.z + math.sin(a) * rr);
+          final sway = math.sin(s._t * 2 + i) * 2 * u;
+          final cp = Paint()
+            ..strokeWidth = 3 * u
+            ..strokeCap = StrokeCap.round
+            ..color = (i.isEven ? const Color(0xFFFF8A80) : const Color(0xFFFFB3A0)).withAlpha((rise * 255).round());
+          canvas.drawLine(base, base + Offset(sway - 3 * u, -9 * _up * rise), cp);
+          canvas.drawLine(base, base + Offset(sway + 3 * u, -7 * _up * rise), cp);
+        }
+        for (var i = 0; i < 6; i++) {
+          final ph = (s._t * 0.5 + i / 6) % 1.0;
+          final a = i * 1.7;
+          final at = s._toScreen(b.x + math.cos(a) * b.size * 0.5, b.z + math.sin(a) * b.size * 0.5) - Offset(0, ph * 26 * _up);
+          canvas.drawCircle(at, 2.2 * u, Paint()..color = Color.fromRGBO(255, 230, 220, (1 - ph) * 0.8 * rise));
+        }
+      case 'sunflare':
+        // Sunflare: a burst of light rays from your Evochi
+        final c = g - Offset(0, 10 * _up);
+        final rays = Paint()
+          ..strokeWidth = 4 * u * (1 - k)
+          ..strokeCap = StrokeCap.round
+          ..color = Color.fromRGBO(255, 230, 140, 0.9 * (1 - k));
+        for (var i = 0; i < 16; i++) {
+          final a = i * math.pi / 8 + k;
+          final r0 = 12 * u + b.size * 0.3 * k * u, r1 = r0 + (30 + 40 * k) * u;
+          canvas.drawLine(c + Offset(math.cos(a), math.sin(a) * 0.6) * r0, c + Offset(math.cos(a), math.sin(a) * 0.6) * r1, rays);
+        }
+        _glow(canvas, c, (30 + 90 * k) * u, Color.fromRGBO(255, 236, 160, 0.7 * (1 - k)));
       case 'scar':
         // moss torn up behind the charge: a dark furrow that fades
         final a = s._toScreen(b.x - b.dx * 7, b.z - b.dz * 7), c = s._toScreen(b.x + b.dx * 7, b.z + b.dz * 7);
@@ -2332,6 +2465,28 @@ class _PartyPanel extends StatelessWidget {
                   hp: sher.maxHp <= 0 ? 0 : sher.hp / sher.maxHp,
                   tag: r.sherWinded > 0 ? 'Winded' : null,
                   child: const SherFace(size: 31),
+                ),
+              ],
+              // the charm it wears, with its rank
+              if (r.charm != null) ...[
+                const SizedBox(width: 6),
+                Tooltip(
+                  message: '${item(r.charm!).name} (Rank ${charms.rankLabel(r.charmRank)}): ${charms.charmDefs[r.charm]?.short ?? ''}',
+                  child: Container(
+                    width: 28,
+                    height: 28,
+                    decoration: BoxDecoration(shape: BoxShape.circle, color: const Color(0x55000000), border: Border.all(color: const Color(0xFFE9C46A), width: 1.5)),
+                    alignment: Alignment.center,
+                    child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
+                      ItemImage(r.charm!, size: 21),
+                      Positioned(
+                        right: -6,
+                        bottom: -5,
+                        child: Text(charms.rankLabel(r.charmRank),
+                            style: EvochiText.tiny.copyWith(color: const Color(0xFFFFE9A8), fontSize: 9, fontWeight: FontWeight.w900, shadows: const [Shadow(blurRadius: 3)])),
+                      ),
+                    ]),
+                  ),
                 ),
               ],
               // the brews at work: each one's bottle with its time running down round it
@@ -2644,6 +2799,22 @@ class _CombatPad extends StatelessWidget {
                   onDown: () => s._press('item'),
                 ),
               ),
+              // an Elder's signature move: fills from perfect dodges, counters and close calls
+              if (r.stage >= 3)
+                Positioned(
+                  right: 62,
+                  bottom: 118,
+                  child: _PadButton(
+                    label: r.sigReady ? '${r.sigName}: ready' : '${r.sigName}: ${r.sig.round()}%',
+                    icon: 'star',
+                    size: 48,
+                    tone: r.sigReady ? const Color(0xFFFFE27A) : const Color(0xFFB79AE8),
+                    cooldown: (100 - r.sig) / 100,
+                    dim: !r.sigReady,
+                    badge: r.sigReady ? '!' : null,
+                    onDown: () => s._press('signature'),
+                  ),
+                ),
               // the brews: a flask; with more than one kind, it opens a little shelf of them
               Positioned(
                 right: 134,

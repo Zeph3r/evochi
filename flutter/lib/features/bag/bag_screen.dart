@@ -19,6 +19,7 @@ import '../../core/models/game_state.dart';
 import '../../game/economy/economy.dart' as econ;
 import '../../game/engine.dart' as g;
 import '../../game/home/home.dart' as h;
+import '../../game/wilds/charms.dart' as ch;
 import '../caravan/caravan_screen.dart';
 import '../home/home_widgets.dart';
 import '../nest/sheets.dart';
@@ -631,6 +632,33 @@ class _ItemCard extends StatelessWidget {
             onPressed: eq ? () => c.run((s, n) => g.unequip(s, it.slot!)) : null,
           ),
         ];
+      case ItemCategory.consumable when it.isCharm:
+        // a charm: worn in the Wilds, one at a time; it ranks up as you calm creatures wearing it
+        final rank = ch.charmRank(c.state, id);
+        final worn = ch.wornCharm(c.state) == id;
+        final d = ch.charmDefs[id];
+        tag = 'Charm · Rank ${ch.rankLabel(rank)}';
+        buttons = [
+          EvochiButton(
+            label: worn ? 'Worn in the Wilds' : 'Wear in the Wilds',
+            small: true,
+            tone: ButtonTone.green,
+            onPressed: worn
+                ? null
+                : () {
+                    if (c.run((s, n) => ch.wearCharm(s, id)).ok) {
+                      c.audio.play('reward_chime', volume: 0.5);
+                      c.toast('${it.name} worn in the Wilds', icon: 'item:$id');
+                    }
+                  },
+          ),
+          EvochiButton(label: 'Take off', small: true, tone: ButtonTone.cream, onPressed: worn ? () => c.run((s, n) => ch.wearCharm(s, '')) : null),
+        ];
+        final next = ch.charmNext(c.state, id);
+        note = [
+          if (d != null) '${d.ranks[rank.clamp(1, 3) - 1]}.',
+          next == null ? 'Fully grown (Rank III).' : 'Rank ${ch.rankLabel(rank + 1)}: ${next.$1}/${next.$2} creatures calmed while worn.',
+        ].join(' ');
       case ItemCategory.consumable when it.isRare:
         tag = 'Rare find';
         buttons = List<Widget>.of(rareActions(context, id).whereType<EvochiButton>());

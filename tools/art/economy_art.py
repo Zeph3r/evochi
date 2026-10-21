@@ -543,7 +543,140 @@ def hushwater():
     return M, Camera(yaw=-20, pitch=16)
 
 
+# ------------------------------------------------------------------ charms (worn in the Wilds)
+SILVER, SILVER_HI, SILVER_LO = '#C9D2DE', '#F2F6FB', '#8E99AA'
+
+
+def _cord(M, top, r=1.9):
+    """a cord loop over the top, the way every charm hangs"""
+    rr = np.sqrt(M.X ** 2 + (M.Y - (top + r)) ** 2)
+    put(M, (rr <= r + 0.5) & (rr >= r - 0.4) & (np.abs(M.Z) <= 0.6) & (M.m == 0), TWINE)
+
+
+def emberfang_charm():
+    """a curved fang of red amber with a flame flickering in it"""
+    M = M_((-9, -2, -5), (9, 20, 5), res=2)
+    for t in np.linspace(0, 1, 26):
+        a = t * 1.15
+        c = (-2.5 + 5.0 * math.sin(a) * 0.9, 13.5 - 12.0 * t, 0.0)
+        rad = 2.9 * (1 - t) + 0.45
+        put(M, ell(M, c, (rad, rad * 0.9, rad * 0.75)) & (M.m == 0), '#D9532E' if t > 0.18 else '#B23B22', glow=0.35)
+    put(M, (M.m > 0) & (M.X < -1.5) & (M.Z > 0.3), '#FF8A4C', glow=0.6)
+    flame = ell(M, (-0.8, 9.0, 1.0), (1.3, 2.4, 0.9)) & (M.m > 0)
+    put(M, flame, '#FFD36A', glow=1.0)
+    put(M, ycyl(M, (-2.5, 0), 3.2, 13.4, 15.0), GOLD)
+    _cord(M, 15.0)
+    return M, Camera(yaw=-18, pitch=10)
+
+
+def frostbell_charm():
+    """a little bell of blue ice, frost on its rim, a snowflake clapper"""
+    M = M_((-9, -2, -9), (9, 20, 9), res=2)
+    rr = np.sqrt(M.X ** 2 + M.Z ** 2)
+    h = M.Y
+    prof = 2.2 + 3.8 * np.clip((12.0 - h) / 9.0, 0, 1) ** 1.6
+    shell_ = (rr <= prof) & (rr >= prof - 1.4) & (h >= 3.0) & (h <= 12.4)
+    put(M, shell_, '#8DD6F2', glow=0.4)
+    put(M, (rr <= 2.6) & (h > 11.6) & (h <= 12.8), '#8DD6F2', glow=0.4)
+    put(M, shell_ & (M.X < -1) & (M.Z > 0), '#D8F4FF', glow=0.6)
+    put(M, shell_ & (h < 4.2), '#F4FCFF', glow=0.7)
+    put(M, ell(M, (0, 2.2, 0), (1.3, 1.3, 1.3)), '#FFFFFF', glow=0.9)
+    put(M, ycyl(M, (0, 0), 1.0, 12.8, 14.6), SILVER)
+    _cord(M, 14.6)
+    star4(M, (4.8, 14.0, 2.0), 1.4)
+    return M, Camera(yaw=-18, pitch=14)
+
+
+def static_acorn():
+    """an acorn that makes your fur stand up: sparks jump off it"""
+    M = M_((-9, -1, -9), (9, 20, 9), res=2)
+    nut = ell(M, (0, 5.6, 0), (4.2, 5.4, 4.2), p=2.1) & (M.Y < 8.5)
+    nut |= ell(M, (0, 1.0, 0), (0.9, 1.2, 0.9))
+    put(M, nut, '#C98A45')
+    put(M, nut & (M.X < -1.2) & (M.Y > 3.2) & (M.Z > 0), '#E2AE6A')
+    cap = ell(M, (0, 8.6, 0), (5.2, 3.0, 5.2), p=2.2) & (M.Y >= 7.6)
+    put(M, cap, CAP)
+    ch = (np.floor(M.X * 1.2).astype(int) + np.floor(M.Y * 1.2).astype(int) + np.floor(M.Z * 1.2).astype(int)) % 2 == 0
+    put(M, cap & ch, CAP_HI)
+    for zig in ([(5.2, 4.0), (6.6, 6.0), (5.6, 7.0), (7.4, 9.4)], [(-5.2, 3.0), (-6.8, 5.2), (-5.6, 6.0), (-7.2, 8.4)]):
+        for (x0, y0), (x1, y1) in zip(zig, zig[1:]):
+            for t in np.linspace(0, 1, 6):
+                put(M, ell(M, (x0 + (x1 - x0) * t, y0 + (y1 - y0) * t, 1.0), (0.45, 0.45, 0.45)) & (M.m == 0), '#FFE45C', glow=1.0)
+    put(M, ycyl(M, (0, 0), 0.8, 10.8, 12.6), '#7A5A2C')
+    _cord(M, 12.6)
+    return M, Camera(yaw=-20, pitch=14)
+
+
+def sap_locket():
+    """a gold locket with a window of green sap and a seedling inside"""
+    M = M_((-9, -1, -4), (9, 20, 4), res=2)
+    c = (0.0, 8.0, 0.0)
+    r = plane_dist(M, c)
+    disc = (r <= 6.4) & (np.abs(M.Z) <= 1.4)
+    put(M, disc, GOLD)
+    put(M, disc & (M.X < -1) & (M.Y > c[1]), GOLD_HI)
+    win = (r <= 4.6) & (M.Z > 0.6) & (M.Z <= 1.8)
+    put(M, win, '#8FCB3E', glow=0.55)
+    put(M, win & (M.X < -1.2) & (M.Y > c[1] + 1.2), '#D6F28A', glow=0.8)
+    put(M, (np.abs(M.X) <= 0.5) & (M.Y > c[1] - 3.0) & (M.Y < c[1] + 1.0) & (M.Z > 1.6) & (M.Z <= 2.4), '#3F6E2A')
+    for sx in (-1, 1):
+        put(M, ell(M, (sx * 1.3, c[1] + 1.4, 2.0), (1.2, 0.6, 0.4)), '#5E8C3E')
+    put(M, ycyl(M, (0, 0), 1.0, 14.0, 15.4), GOLD_LO)
+    _cord(M, 15.4)
+    return M, Camera(yaw=-14, pitch=6)
+
+
+def dazzle_pebble():
+    """a faceted pebble that glitters whichever way you turn it"""
+    M = M_((-9, -1, -9), (9, 20, 9), res=2)
+    peb = (np.abs(M.X) * 0.9 + np.abs(M.Y - 7.0) * 0.8 + np.abs(M.Z) * 1.1 <= 5.4)
+    put(M, peb, '#F2E6C4', glow=0.3)
+    face = (np.floor(M.X * 0.8).astype(int) + np.floor((M.Y - 7) * 0.8).astype(int) * 2 + np.floor(M.Z * 0.8).astype(int)) % 3
+    put(M, peb & (face == 0), '#FFF6D8', glow=0.5)
+    put(M, peb & (face == 1), '#E2CF9E', glow=0.2)
+    put(M, peb & (M.X < -1) & (M.Y > 8), '#FFFFFF', glow=0.8)
+    star4(M, (4.6, 12.0, 2.4), 2.0)
+    star4(M, (-5.0, 4.0, 2.0), 1.4)
+    put(M, ycyl(M, (0, 0), 0.9, 11.2, 13.0), SILVER)
+    _cord(M, 13.0)
+    return M, Camera(yaw=-20, pitch=14)
+
+
+def prism_charm():
+    """a Prism Scale set in a silver frame"""
+    M, _ = prism_scale()
+    c = (0.0, 9.0)
+    x, y = M.X, M.Y
+    ring = (((x / 7.4) ** 2 + ((y - c[1]) / 7.8) ** 2 <= 1) & ~((x / 6.4) ** 2 + ((y - c[1]) / 6.8) ** 2 <= 1)
+            & (y >= c[1] - 1) & (np.abs(M.Z) <= 1.2))
+    put(M, ring & (M.m == 0), SILVER)
+    put(M, ring & (x < -2) & (y > c[1] + 2), SILVER_HI)
+    put(M, ycyl(M, (0, 0), 1.0, 16.4, 17.6) & (M.m == 0), SILVER_LO)
+    _cord(M, 17.6)
+    return M, Camera(yaw=-14, pitch=6)
+
+
+def starseed_charm():
+    """a Starseed in a glass bead, glowing softly"""
+    M = M_((-9, -1, -9), (9, 20, 9), res=2)
+    # the glass: only its back half and a rim, so the seed and its star show through the front
+    bead = ell(M, (0, 7.0, 0), (5.4, 5.4, 5.4)) & ~ell(M, (0, 7.0, 0), (4.6, 4.6, 4.6))
+    put(M, bead & (M.Z < 0.4), '#9FD4F0', glow=0.4)
+    rim = bead & (np.abs(M.Z) <= 1.2)
+    put(M, rim, '#D8F2FF', glow=0.6)
+    put(M, ell(M, (-2.6, 9.6, 3.6), (0.9, 0.9, 0.5)), '#FFFFFF', glow=0.9)
+    t = np.clip((M.Y - 4.6) / 4.8, 0, 1)
+    rad = 1.8 * np.sqrt(np.clip(np.sin(np.pi * t), 0, 1))
+    put(M, (np.sqrt(M.X ** 2 + M.Z ** 2) <= rad) & (M.Y > 4.6) & (M.Y < 9.4) & (M.m == 0), SEED)
+    star5(M, (0.0, 7.6, 2.6), 1.6, 0.7, 0.6, STAR, STAR_HI, glow=1.0)
+    put(M, ycyl(M, (0, 0), 1.0, 12.2, 13.6), SILVER)
+    _cord(M, 13.6)
+    return M, Camera(yaw=-18, pitch=12)
+
+
 ITEMS = {
+    'emberfang_charm': emberfang_charm, 'frostbell_charm': frostbell_charm, 'static_acorn': static_acorn,
+    'sap_locket': sap_locket, 'dazzle_pebble': dazzle_pebble, 'prism_charm': prism_charm, 'starseed_charm': starseed_charm,
     'ember_draught': ember_draught, 'thornskin_tonic': thornskin_tonic,
     'frostmint_tonic': frostmint_tonic, 'fizzleberry_soda': fizzleberry_soda, 'sapling_syrup': sapling_syrup,
     'dazzle_dew': dazzle_dew, 'hushwater': hushwater,

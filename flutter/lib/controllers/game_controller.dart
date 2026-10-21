@@ -229,6 +229,7 @@ class GameController extends ChangeNotifier {
         k: Toast(econ.economyError(k, r.info), icon: k == 'need_glimmer' ? 'glimmer' : 'star', kind: 'warn'),
       'art_pending': const Toast("This Season 1 reward's look arrives with the season art", icon: 'season', kind: 'warn'),
       'use_rare': const Toast('Rare finds are used from their own button', icon: 'star', kind: 'warn'),
+      'charm_needs': const Toast('Not enough to set this charm yet', icon: 'star', kind: 'warn'),
       'already_owned': const Toast('Already yours', icon: 'star'),
     };
     _toasts.add(m[r.error] ?? const Toast('Something went wrong - please try again', icon: 'warning', kind: 'err'));
@@ -288,6 +289,14 @@ class GameController extends ChangeNotifier {
           toast('The Heartbloom opens. $name wakes at full Vitality!', icon: 'item:heartbloom');
           audio.play('evolve_fanfare', volume: 0.7);
         }
+      case 'charm_rank':
+        final id = e.data['id'] as String;
+        toast('${item(id).name} grew to Rank ${const ['', 'I', 'II', 'III'][(e.data['rank'] as int).clamp(0, 3)]}!', icon: 'item:$id');
+        audio.play('level_up', volume: 0.7);
+        analytics.track('charm_rank', {'item': id, 'rank': e.data['rank']});
+      case 'charm_dupe':
+        final id = e.data['id'] as String;
+        toast('Another ${item(id).name}: it becomes +${e.data['xp']} toward its next rank', icon: 'item:$id');
       case 'caravan_bought':
         audio.play('purchase');
         analytics.track('glimmer_spent', {'item': e.data['itemId'], 'qty': e.data['qty'], 'price': e.data['price']});

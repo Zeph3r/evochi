@@ -18,6 +18,7 @@ import '../../core/utils/day_keys.dart';
 import '../../core/utils/ids.dart';
 import '../../game/economy/economy.dart' as e;
 import '../../game/engine.dart' as g;
+import '../../game/wilds/charms.dart' as ch;
 import '../home/home_widgets.dart' show openGarden;
 import '../shared/widgets.dart';
 import 'season_screen.dart';
@@ -128,6 +129,12 @@ class _CaravanScreenState extends State<CaravanScreen> {
         ],
       ]),
       const SizedBox(height: 18),
+      const _Head('This week\'s charms', 'Worn in the Wilds. They grow stronger as you calm creatures wearing them'),
+      for (final o in stock.where((o) => o.section == 'charms')) ...[
+        _CharmRow(offer: o, owned: ch.ownsCharm(c.state, o.itemId), onBuy: () => _buy(context, c, o)),
+        const SizedBox(height: 8),
+      ],
+      const SizedBox(height: 10),
       const _Head('Rare finds', 'They drop rarely out there. Five-packs are 10% off'),
       for (final id in e.activeRares) ...[
         _RareRow(
@@ -525,6 +532,38 @@ class _RareRow extends StatelessWidget {
   }
 }
 
+/// A charm the Caravan has this week: rank I, one each; owned ones say so.
+class _CharmRow extends StatelessWidget {
+  const _CharmRow({required this.offer, required this.owned, required this.onBuy});
+  final e.CaravanOffer offer;
+  final bool owned;
+  final VoidCallback onBuy;
+  @override
+  Widget build(BuildContext context) {
+    final id = offer.itemId;
+    final d = ch.charmDefs[id];
+    return _NightCard(
+      padding: const EdgeInsets.fromLTRB(8, 8, 10, 8),
+      child: Row(children: [
+        GestureDetector(onTap: () => showRareInfo(context, id), child: ItemImage(id, size: 52)),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(item(id).name, style: EvochiText.cardTitle.copyWith(color: Night.text, fontSize: 15)),
+            Text(d?.short ?? '', maxLines: 2, overflow: TextOverflow.ellipsis, style: EvochiText.tiny.copyWith(color: Night.soft, fontWeight: FontWeight.w400)),
+            Text(owned ? 'You have it: wear it from the Bag' : 'Rank I · grows to III as you play',
+                style: EvochiText.tiny.copyWith(color: owned ? Night.glimmer : Night.soft)),
+          ]),
+        ),
+        const SizedBox(width: 6),
+        owned
+            ? Text('Owned', style: EvochiText.tag.copyWith(color: Night.glimmer))
+            : _PriceButton(label: fmt(offer.price), onTap: onBuy),
+      ]),
+    );
+  }
+}
+
 const _shortUse = {
   'sunstone': 'Ripens a garden bed at once',
   'moonwell_dew': 'Waters every bed, +25% growth each',
@@ -754,6 +793,30 @@ List<Widget> rareActions(BuildContext context, String id, {bool close = false}) 
                 }
               : null,
         ),
+      ];
+    case 'prism_scale' || 'starseed':
+      // set into its charm
+      final charm = id == 'prism_scale' ? 'prism_charm' : 'starseed_charm';
+      final has = ch.ownsCharm(c.state, charm);
+      final d = ch.charmDefs[charm]!;
+      return [
+        EvochiButton(
+          label: has ? '${d.name} already set' : 'Set into the ${d.name}',
+          small: true,
+          tone: ButtonTone.green,
+          onPressed: has
+              ? null
+              : () {
+                  final r = c.run((s, n) => ch.setCharm(s, charm, n));
+                  if (r.ok) {
+                    c.audio.play('reward_chime', volume: 0.6);
+                    c.toast('${d.name} set. Wear it in the Wilds: ${d.short.toLowerCase()}', icon: 'item:$charm');
+                    done();
+                  }
+                },
+        ),
+        const SizedBox(height: 4),
+        Text('Needs ${d.forge.entries.map((e) => '${e.value} ${catalog[e.key]?.name ?? e.key}').join(' and ')}.', style: EvochiText.caption, textAlign: TextAlign.center),
       ];
     case 'golden_acorn' || 'wayfinder_compass' || 'hollow_ward':
       final armed = e.isArmed(c.state, id);
