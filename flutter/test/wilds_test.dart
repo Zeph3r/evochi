@@ -394,9 +394,90 @@ void main() {
     });
   });
 
+  group('the Deep Wilds and the Hollow Surge', () {
+    test('going down remembers the deepest floor; every fifth, a little Glimmer the first time', () {
+      var s = freshPet();
+      expect(w.deepestFloor(s), 1);
+      for (var d = 2; d <= 5; d++) {
+        s = w.wildsDescend(s, d, 100 + d, t0).state;
+      }
+      expect(w.deepestFloor(s), 5);
+      final again = w.wildsDescend(s, 5, 999, t0);
+      expect(again.events.where((e) => e.type == 'wilds_reached'), isEmpty);
+    });
+
+    test('no Surge above F5; from F5 a small chance that grows, at most 8%', () {
+      expect(w.surgeChance(4), 0);
+      expect(w.surgeChance(5), closeTo(0.03, 1e-9));
+      expect(w.surgeChance(9), greaterThan(w.surgeChance(5)));
+      expect(w.surgeChance(40), 0.08);
+      var s = freshPet();
+      for (var i = 0; i < 60; i++) {
+        final r = w.wildsDescend(s, 2 + i % 3, 5000 + i, t0);
+        expect(r.events.any((e) => e.type == 'hollow_surge'), isFalse);
+        s = r.state;
+      }
+    });
+
+    test('a Surge at least once in 25 floors gone down from F5 (the pity), and the count starts over', () {
+      var s = freshPet();
+      var since = 0, seen = 0;
+      for (var i = 0; i < 200; i++) {
+        final r = w.wildsDescend(s, 5, 7000 + i, t0);
+        s = r.state;
+        if (r.events.any((e) => e.type == 'hollow_surge')) {
+          seen++;
+          since = 0;
+        } else {
+          since++;
+        }
+        expect(since, lessThan(w.surgePity));
+      }
+      expect(seen, greaterThanOrEqualTo(200 ~/ w.surgePity));
+      expect(s.trails.stats['surges'], seen);
+    });
+
+    test('the same floor asked twice rolls once and gives the same answer', () {
+      final s = freshPet();
+      // to the brink of the pity: the next new floor is a Surge
+      s.trails.stats['surge_pity'] = w.surgePity - 1;
+      final a = w.wildsDescend(s, 6, 4242, t0);
+      expect(a.events.any((e) => e.type == 'hollow_surge'), isTrue);
+      final b = w.wildsDescend(a.state, 6, 4242, t0 + 50);
+      expect(b.events.any((e) => e.type == 'hollow_surge'), isTrue);
+      expect(b.state.trails.stats['surges'], 1);
+      expect(b.state.trails.stats['surge_pity'], 0);
+    });
+
+    test('a Surge floor\'s creatures leave more coins, and an elite two rare rolls', () {
+      Raid duel({double coinMul = 1, bool surge = false}) {
+        final r = Raid(
+            ground: meadow(),
+            pet: petAt(0, 34, hp: 100000),
+            spawns: const [FoeSpawn('elite_1_0', 'thornling', 'z', 0, 16)],
+            coinMul: coinMul,
+            surge: surge,
+            seed: 3,
+            lootRoll: (_) => const {'lumen_shard': 1});
+        r.foes.first
+          ..maxHp = 10
+          ..hp = 10;
+        return r;
+      }
+
+      final plain = duel(), rich = duel(coinMul: 1.5, surge: true);
+      for (final r in [plain, rich]) {
+        run(r, 3, (_) => RaidInput()..attack = true);
+        expect(r.foes.first.calm, isTrue);
+      }
+      expect(rich.coins, greaterThan(plain.coins));
+      expect(rich.items['lumen_shard']!, greaterThan(plain.items['lumen_shard']!));
+    });
+  });
+
   group('brews and feel', () {
     test('a brew drunk in a fight leaves the Bag and names its buff', () {
-      var s = freshPet();
+      final s = freshPet();
       expect(w.wildsDrink(s, 'berry_snack', t0).error, 'not_a_brew');
       expect(w.wildsDrink(s, 'ember_draught', t0).error, 'not_owned');
       final c = s.copy();

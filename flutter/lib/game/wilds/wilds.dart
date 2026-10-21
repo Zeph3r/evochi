@@ -6,6 +6,8 @@
 // the save, and each grants once: a retried bank or clear (a double tap, a reconnect) finds its
 // transaction already there and adds nothing.
 
+import 'dart:math' as math;
+
 import '../../core/models/catalog.dart';
 import '../../core/models/game_state.dart';
 import '../../core/utils/day_keys.dart';
@@ -161,6 +163,41 @@ ActionResult wildsReach(GameState state, int floor, int now) {
   // every fifth floor, the first time: a little Glimmer for the explorer
   final m = floor % 5 == 0 ? econ.milestoneGlimmer(s, 'deep_f$floor', 25, now) : null;
   return ActionResult(s, events: [GameEvent('wilds_reached', {'floor': floor, 'glimmer': m == null ? 0 : 25})]);
+}
+
+// ---- the Hollow Surge: now and then, from F5, a floor you go down to is churning with the Hollow. Its
+// creatures are tougher; calming it breaks the Surge and spills a Lumen cache (the Wilds screen). It is
+// only ever found by going down the steps: never bought, never sold, no Glimmer anywhere near it.
+const surgeFrom = 5;
+
+/// A Surge at least once in this many floors gone down (from F5): the pity.
+const surgePity = 25;
+
+/// The chance of a Surge on a floor: 3% at F5, half a point more a floor, at most 8%.
+double surgeChance(int depth) => depth < surgeFrom ? 0 : math.min(0.08, 0.03 + 0.005 * (depth - surgeFrom));
+
+/// Down the steps to [depth] (the floor made from [seed]): reached (see [wildsReach]) and, from F5, the
+/// Surge's roll. The same floor asked twice (a retry) rolls once and answers the same.
+ActionResult wildsDescend(GameState state, int depth, int seed, int now) {
+  final reach = wildsReach(state, depth, now);
+  final s = reach.state == state ? state.copy() : reach.state;
+  final st = s.trails.stats;
+  final events = [...reach.events];
+  if (depth >= surgeFrom) {
+    final bool hit;
+    if (st['surge_seed'] == seed) {
+      hit = st['surge_hit'] == 1;
+    } else {
+      final pity = st['surge_pity'] ?? 0;
+      hit = pity >= surgePity - 1 || seededRandom('${s.player?.id ?? 'guest'}:surge:$depth:$seed').nextDouble() < surgeChance(depth);
+      st['surge_seed'] = seed;
+      st['surge_hit'] = hit ? 1 : 0;
+      st['surge_pity'] = hit ? 0 : pity + 1;
+      if (hit) st['surges'] = (st['surges'] ?? 0) + 1;
+    }
+    if (hit) events.add(GameEvent('hollow_surge', {'floor': depth}));
+  }
+  return ActionResult(s, events: events);
 }
 
 /// Sher's welcome: the first time he joins, a few Berry Snacks for the road.

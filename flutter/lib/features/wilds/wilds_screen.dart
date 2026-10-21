@@ -45,22 +45,27 @@ import 'deep_floor.dart';
 import 'wilds_art.dart';
 import 'wilds_combat.dart';
 
-/// What you carry from one Deep Wilds floor down to the next: Raid HP and the satchel.
+/// What you carry from one Deep Wilds floor down to the next: Raid HP, the satchel, and the creatures
+/// calmed on the way (not yet counted toward the worn charm).
 class DeepCarry {
-  const DeepCarry(this.hp, this.coins, this.items);
+  const DeepCarry(this.hp, this.coins, this.items, {this.calmed = 0});
   final double hp;
   final int coins;
   final Map<String, int> items;
+  final int calmed;
 }
 
 class WildsScreen extends StatefulWidget {
-  const WildsScreen({super.key, this.mapId = 'thicket', this.depth, this.seed, this.carry});
+  const WildsScreen({super.key, this.mapId = 'thicket', this.depth, this.seed, this.carry, this.surge = false});
   final String mapId;
 
   /// A Deep Wilds floor (F2 and down), made fresh from [seed]; null for a hand-made map.
   final int? depth;
   final int? seed;
   final DeepCarry? carry;
+
+  /// A Hollow Surge floor (rolled on the way down: game/wilds/wilds.dart wildsDescend).
+  final bool surge;
   @override
   State<WildsScreen> createState() => _WildsScreenState();
 }
@@ -207,6 +212,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final ar = b == null ? null : (b['arena'] as Map).cast<String, dynamic>();
     List<(double, double)> pts(Object? l) => [for (final p in (l as List? ?? const [])) (((p as List)[0] as num).toDouble(), (p[1] as num).toDouble())];
     final fire = m.fx.where((f) => f.$3 == 'fire').toList();
+    final deep = m.depth == null ? null : floorFight(m.depth!, m.mods, surge: widget.surge);
     final raid = Raid(
       ground: RaidGround(wet: m.blocked, blocks: m.blocks, bounds: m.bounds),
       pet: pet,
@@ -238,16 +244,21 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       lootLabel: (id, n) => id == econ.glimmer ? '+$n Glimmer!' : '+$n ${_lootName(id)}!',
       ward: _takeWard(c),
       bossScale: _soloBoss,
-      // the Deep Wilds: the creatures grow tougher and hit harder the further down you go
-      foeHp: m.depth == null ? 1.0 : 1 + 0.22 * (m.depth! - 1),
-      foeHarm: m.depth == null ? 1.0 : 1 + 0.12 * (m.depth! - 1),
+      // the Deep Wilds: the creatures grow tougher and hit harder the further down you go, and a floor's
+      // twists and a Surge change them again
+      foeHp: deep?.hp ?? 1.0,
+      foeHarm: deep?.harm ?? 1.0,
+      coinMul: deep?.coins ?? 1.0,
+      surge: m.depth != null && widget.surge,
     );
     final carry = widget.carry;
     if (carry != null) {
       raid.pet.hp = carry.hp.clamp(1.0, raid.pet.maxHp);
       raid.coins = carry.coins;
       raid.items.addAll(carry.items);
+      _calmBanked = -carry.calmed; // the floors above's calms still count toward the charm
     }
+    if (m.depth != null) _arrive(m);
     return raid;
   }
 
@@ -305,7 +316,11 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       // the floor is calm: the way down opens
       _sealOpen = true;
       _sealT = 0;
-      _showBanner('The way down opens!', 2.6);
+      if (r.surge) {
+        _surgeBreak();
+      } else {
+        _showBanner('The way down opens!', 2.6);
+      }
       _sfx('level_up', 0.6);
     }
     final pet = r.pet;
@@ -493,10 +508,16 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     _bubbleT = secs;
   }
 
-  void _showBanner(String text, [double secs = 2.6]) {
+  /// A line across the screen for [secs]. A [hold] one (a Surge breaking) is not talked over by the small
+  /// news that comes right after it (a clearing calm in the same moment).
+  void _showBanner(String text, [double secs = 2.6, bool hold = false]) {
+    if (!hold && _t < _bannerHold) return;
+    if (hold) _bannerHold = _t + secs - 0.6;
     setState(() => _banner = text);
     _bannerT = secs;
   }
+
+  double _bannerHold = -1;
 
   void _events(Raid r) {
     if (r.events.isEmpty) return;
@@ -853,15 +874,55 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final r = _raid;
     if (r == null) return;
     final c = context.read<GameController>();
-    c.run((s, n) => w.wildsReach(s, depth, n), quiet: true);
+    final seed = DateTime.now().microsecondsSinceEpoch & 0x7fffffff;
+    final res = c.run((s, n) => w.wildsDescend(s, depth, seed, n), quiet: true);
+    final surge = res.events.any((e) => e.type == 'hollow_surge');
     c.audio.play('enc_whoosh', volume: 0.6);
-    c.analytics.track('wilds_descend', {'floor': depth});
-    final carry = DeepCarry(r.pet.hp, r.coins, Map.of(r.items));
+    c.analytics.track('wilds_descend', {'floor': depth, 'surge': surge});
+    final carry = DeepCarry(r.pet.hp, r.coins, Map.of(r.items), calmed: r.calmed - _calmBanked);
     Navigator.of(context).pushReplacement(PageRouteBuilder<void>(
       transitionDuration: const Duration(milliseconds: 700),
-      pageBuilder: (_, __, ___) => WildsScreen(depth: depth, seed: DateTime.now().microsecondsSinceEpoch & 0x7fffffff, carry: carry),
+      pageBuilder: (_, __, ___) => WildsScreen(depth: depth, seed: seed, carry: carry, surge: surge),
       transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: a, child: child),
     ));
+  }
+
+  /// A new floor: its name and twists on a banner; a Surge announces itself.
+  void _arrive(WildsMap m) {
+    final names = [for (final id in m.mods) floorModDefs[id]!.$1];
+    Future.delayed(const Duration(milliseconds: 600), () {
+      if (!mounted) return;
+      if (widget.surge) {
+        _showBanner('A Hollow Surge! This floor churns with the Hollow. Calm it to break the Surge.', 4.2, true);
+        _sfx('enc_rumble', 0.7);
+        context.read<GameController>().analytics.track('wilds_surge', {'floor': m.depth});
+      } else if (names.isNotEmpty) {
+        _showBanner('${m.floor}: ${names.join(' · ')}', 3.2);
+      }
+    });
+  }
+
+  /// The floor calmed on a Surge: the Hollow breaks, and a Lumen cache spills into the satchel.
+  void _surgeBreak() {
+    final r = _raid, m = _map;
+    if (r == null || m == null) return;
+    final depth = m.depth ?? 1;
+    final rng = math.Random(widget.seed ?? depth);
+    final coins = 60 + depth * 12 + rng.nextInt(20);
+    final shards = 3 + depth ~/ 3;
+    r.coins += coins;
+    r.items['lumen_shard'] = (r.items['lumen_shard'] ?? 0) + shards;
+    final found = <String>['$coins EvoCoins', '$shards Lumen Shards'];
+    // two rolls at the guardian's rare finds (charms among them)
+    for (var i = 0; i < 2; i++) {
+      econ.rollDrops('wilds_boss', rng).forEach((id, n) {
+        r.items[id] = (r.items[id] ?? 0) + n;
+        found.add('$n ${_lootName(id)}');
+      });
+    }
+    _flashT = 0.35;
+    _showBanner('The Surge breaks! ${found.join(', ')}', 4.4, true);
+    _sfx('reward_chime', 0.8);
   }
 
   /// A shrine's two blessings (decided by where it stands, so it offers the same two every time you look).
@@ -987,6 +1048,29 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                     ),
                   ),
                 ),
+                // a Surge: the Hollow's violet hangs at the edges of the floor until it breaks
+                if (widget.surge && m != null && m.depth != null)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: ValueListenableBuilder<int>(
+                        valueListenable: _repaint,
+                        builder: (_, __, ___) {
+                          final on = _sealOpen ? (1 - _sealT).clamp(0.0, 1.0) : 1.0;
+                          if (on <= 0) return const SizedBox.shrink();
+                          final pulse = rm ? 0.0 : 0.06 * math.sin(_t * 1.7);
+                          return DecoratedBox(
+                            decoration: BoxDecoration(
+                              gradient: RadialGradient(radius: 1.05, colors: [
+                                const Color(0x00000000),
+                                Color.fromRGBO(70, 24, 120, (0.30 + pulse) * on),
+                                Color.fromRGBO(40, 10, 70, (0.55 + pulse) * on),
+                              ], stops: const [0.45, 0.82, 1.0]),
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
                 // a soft shade at the top so the HUD reads
                 Positioned(
                   left: 0,
@@ -1128,7 +1212,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
 
   /// Playtesting shortcuts (debug builds only): 1-3 the clearings, 4 the arena's edge, 5 the arena, G
   /// keeps your Evochi's Raid HP full, B takes a fifth of the guardian's health, I replays its entrance, N
-  /// goes down to the next Deep Wilds floor.
+  /// goes down to the next Deep Wilds floor, H opens a Surge floor, C calms every creature on the floor.
   void _debugKey(LogicalKeyboardKey k) {
     final r = _raid, m = _map;
     if (r == null || m == null) return;
@@ -1147,6 +1231,13 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     if (k == LogicalKeyboardKey.keyB) r.debugHurtBoss(0.2);
     // N: straight down to the next Deep Wilds floor
     if (k == LogicalKeyboardKey.keyN) _descend((m.depth ?? 1) + 1);
+    if (k == LogicalKeyboardKey.keyH) {
+      // a Surge floor at least F5 deep, to look at
+      final depth = math.max(5, m.depth ?? 5);
+      Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => WildsScreen(depth: depth, seed: 4242 + depth, surge: true)));
+    }
+    // calm every creature on the floor (to try the way down, and a Surge's break)
+    if (k == LogicalKeyboardKey.keyC) r.calmAllForTesting();
     // I: play the guardian's entrance again (the full cut)
     if (k == LogicalKeyboardKey.keyI && _introArt != null) setState(() => _cine = IntroCut.full);
     // the gate's seal: up again (R), or drawn back as if the guardian had just been calmed (T)
@@ -1917,7 +2008,12 @@ class _MapPainter extends CustomPainter {
 
   void _foe(Canvas canvas, Foe f, FoeArt a, Offset g) {
     final k = s._u / a.scale * f.size;
-    if (f.elite && !f.calm) _glow(canvas, g - Offset(0, a.top * k * 0.35), a.top * k * 0.7, Color.fromRGBO(150, 90, 230, 0.32 + 0.1 * math.sin(s._t * 4)));
+    if (f.elite && !f.calm) {
+      _glow(canvas, g - Offset(0, a.top * k * 0.35), a.top * k * 0.7, Color.fromRGBO(150, 90, 230, 0.32 + 0.1 * math.sin(s._t * 4)));
+    } else if (!f.calm && (s._raid?.surge ?? false)) {
+      // a Surge: every creature churns with the Hollow
+      _glow(canvas, g - Offset(0, a.top * k * 0.3), a.top * k * 0.55, Color.fromRGBO(130, 60, 210, 0.22 + 0.08 * math.sin(s._t * 3 + f.x)));
+    }
     final pose = f.pose;
     final pi = pose == null ? null : a.poses[pose];
     final ui.Image img;
@@ -2829,6 +2925,10 @@ class _TopCenter extends StatelessWidget {
             child: Column(mainAxisSize: MainAxisSize.min, children: [
               Text(state._map!.depth == null ? state._map!.name.toUpperCase() : '${state._map!.name.toUpperCase()} · ${state._map!.floor}',
                   style: _hudText(10, const Color(0xCCFFE7B8)).copyWith(letterSpacing: 1.6)),
+              if (deep && (r.surge || state._map!.mods.isNotEmpty))
+                Text(
+                    [if (r.surge) 'HOLLOW SURGE', for (final id in state._map!.mods) floorModDefs[id]!.$1.toUpperCase()].join(' · '),
+                    style: _hudText(9, r.surge ? const Color(0xFFD9B8FF) : const Color(0xAAE8F0C8)).copyWith(letterSpacing: 1.2)),
               const SizedBox(height: 1),
               Text(text, textAlign: TextAlign.center, style: _hudText(14)),
             ]),

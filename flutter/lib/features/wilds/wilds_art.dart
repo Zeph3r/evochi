@@ -190,6 +190,9 @@ class WildsMap {
 
   /// A Deep Wilds floor: its depth (F number), or null for a hand-made map.
   int? get depth => ((j['deep'] as Map?)?['depth'] as num?)?.toInt();
+
+  /// A Deep Wilds floor's twists (deep_floor.dart floorModDefs).
+  List<String> get mods => [for (final m in ((j['deep'] as Map?)?['mods'] as List? ?? const [])) m as String];
   final Map<String, dynamic> j;
   late final List<GroundTile> tiles;
   late final Map<String, PropArt> propArt;

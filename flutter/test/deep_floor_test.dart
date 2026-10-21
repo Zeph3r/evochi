@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import 'package:evochi/features/wilds/deep_floor.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,8 +20,8 @@ Set<int> reach(FloorPlan p, double x, double z) {
     if (p.blocked(cx, cz) || p.blocked(cx + 5.4, cz) || p.blocked(cx - 5.4, cz) || p.blocked(cx, cz + 4.5) || p.blocked(cx, cz - 4.5)) return true;
     for (final (bx, bz, r) in p.blocks) {
       final dx = bx - cx, dz = bz - cz;
-      // an Evochi's body (radius 9) has to fit past the trunks
-      if (dx * dx + dz * dz < (r + 9) * (r + 9)) return true;
+      // an Evochi's body (radius up to 12: an Elder) has to fit past the trunks
+      if (dx * dx + dz * dz < (r + 12) * (r + 12)) return true;
     }
     return false;
   }
@@ -87,8 +88,8 @@ void main() {
   });
 
   test('every floor can be walked: the start reaches every room, every creature and the doorway down', () {
-    for (var seed = 1; seed <= 80; seed++) {
-      final depth = 2 + seed % 9;
+    for (var seed = 1; seed <= 160; seed++) {
+      final depth = 2 + seed % 13;
       final p = planFloor(k, depth, seed, rd);
       final r = reach(p, p.start.$1, p.start.$2);
       for (final room in p.rooms) {
@@ -104,6 +105,57 @@ void main() {
         expect(inReach(p, r, s['x'] as double, s['z'] as double, 24), isTrue, reason: 'seed $seed: ${s['id']} out of reach');
       }
     }
+  });
+
+  test('a floor\'s twists: none before F4, then one, two from F8, three from F12; the seed decides', () {
+    for (var seed = 1; seed <= 40; seed++) {
+      expect(floorMods(3, seed), isEmpty);
+      expect(floorMods(4, seed).length, 1);
+      expect(floorMods(8, seed).length, 2);
+      expect(floorMods(13, seed).length, 3);
+      expect(floorMods(9, seed), floorMods(9, seed));
+      expect(floorMods(13, seed).toSet().length, 3);
+      expect(floorMods(13, seed).every(floorModDefs.containsKey), isTrue);
+    }
+    // the fight's multiples
+    final plain = floorFight(6, const []), hard = floorFight(6, const ['thick', 'fierce']), rich = floorFight(6, const ['lumen']);
+    expect(hard.hp, greaterThan(plain.hp));
+    expect(hard.harm, greaterThan(plain.harm));
+    expect(rich.coins, greaterThan(plain.coins));
+    expect(floorFight(6, const [], surge: true).hp, greaterThan(plain.hp));
+  });
+
+  test('a swarm brings more creatures to every clearing; spore season fills it with sporecaps', () {
+    int most(FloorPlan p) {
+      final per = <String, int>{};
+      for (final f in p.foes) {
+        if ((f['id'] as String).startsWith('f')) per[f['zone'] as String] = (per[f['zone'] as String] ?? 0) + 1;
+      }
+      return per.values.fold(0, math.max);
+    }
+
+    var swarms = 0, spores = 0, sporecaps = 0, all = 0;
+    for (var seed = 1; seed <= 60; seed++) {
+      final p = planFloor(k, 6, seed, rd);
+      if (p.mods.contains('swarm')) {
+        swarms++;
+        expect(most(p), 4, reason: 'seed $seed');
+      } else {
+        expect(most(p), lessThanOrEqualTo(3), reason: 'seed $seed');
+      }
+      if (p.mods.contains('spores')) {
+        spores++;
+        for (final f in p.foes) {
+          if ((f['id'] as String).startsWith('f')) {
+            all++;
+            if (f['kind'] == 'sporecap') sporecaps++;
+          }
+        }
+      }
+    }
+    expect(swarms, greaterThan(0));
+    expect(spores, greaterThan(0));
+    expect(sporecaps / all, greaterThan(0.65));
   });
 
   test('deeper floors are bigger and busier, and from F3 an elite guards the way down', () {

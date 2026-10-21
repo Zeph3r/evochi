@@ -14,11 +14,11 @@
 // the Thicket.
 //
 // Deeper floors are bigger, with more creatures in each room, and from F3 a tough elite guards the way
-// to the doorway down.
+// to the doorway down. From F4 a floor has a twist or two ([floorMods]): hardier creatures, fiercer
+// ones, a swarm, spore season, or (a kind one) Lumen-rich creatures that leave more coins.
 
 import 'dart:convert';
 import 'dart:math' as math;
-import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/painting.dart';
@@ -30,6 +30,32 @@ const deepTrail = 'Fernwood Trail';
 
 /// The floor numbers: the Thicket is F1, the Deep Wilds start at F2.
 const firstDeepFloor = 2;
+
+// ------------------------------------------------------------------------------------- the twists
+/// A floor's twists: id -> (name, what it does). The fight's half is on the Wilds screen (the Raid's
+/// foeHp, foeHarm, coinMul); swarm and spores are the plan's (more creatures; mostly sporecaps).
+const floorModDefs = {
+  'thick': ('Thick Hollow', 'Creatures are hardier'),
+  'fierce': ('Restless', 'Creatures hit harder'),
+  'swarm': ('Swarming', 'More creatures in every clearing'),
+  'spores': ('Spore Season', 'Sporecaps everywhere'),
+  'lumen': ('Lumen-rich', 'Creatures leave more coins'),
+};
+
+/// The floor's twists, decided by its seed: none before F4, one from F4, two from F8, three from F12.
+List<String> floorMods(int depth, int seed) {
+  final n = depth >= 12 ? 3 : (depth >= 8 ? 2 : (depth >= 4 ? 1 : 0));
+  if (n == 0) return const [];
+  final ids = floorModDefs.keys.toList()..shuffle(math.Random(seed * 13 + depth * 7 + 1));
+  return ids.take(n).toList()..sort();
+}
+
+/// The fight's multiples for a floor: creature health, the harm they do, the coins they leave.
+({double hp, double harm, double coins}) floorFight(int depth, List<String> mods, {bool surge = false}) => (
+      hp: (1 + 0.22 * (depth - 1)) * (mods.contains('thick') ? 1.25 : 1) * (surge ? 1.3 : 1),
+      harm: (1 + 0.12 * (depth - 1)) * (mods.contains('fierce') ? 1.2 : 1) * (surge ? 1.1 : 1),
+      coins: (mods.contains('lumen') ? 1.5 : 1) * (surge ? 1.5 : 1),
+    );
 
 // ------------------------------------------------------------------------------------- the kit
 class KitChunk {
@@ -88,6 +114,7 @@ class FloorPlan {
   final foes = <Map<String, Object>>[];
   final spots = <Map<String, Object>>[];
   final fx = <Map<String, Object>>[];
+  late final List<String> mods = floorMods(depth, seed);
   late Uint8List grid; // walkable bits, 1 = blocked
   late int cols, rows;
   late double cell, x0, z0;
@@ -250,7 +277,7 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii)
   for (var gz = -1; gz <= gh; gz++) {
     for (var gx = -1; gx <= gw; gx++) {
       final r = byCell[(gx, gz)];
-      final id = r == null ? 'fill' : '${r.hall ? 'hall' : 'room'}_${r.mask.toString().padLeft(2, '0')}';
+      final id = r == null ? 'fill' : _chunkId(r);
       plan.placed.add((kit.chunks.containsKey(id) ? id : 'fill', gx * C, gz * C));
     }
   }
@@ -265,7 +292,7 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii)
   // the middle of it
   const lane = 32.0;
   for (final r in plan.rooms) {
-    final k = kit.chunks['${r.hall ? 'hall' : 'room'}_${r.mask.toString().padLeft(2, '0')}']!;
+    final k = kit.chunks[_chunkId(r)]!;
     final ox = r.gx * C, oz = r.gz * C;
     final ci0 = ((ox - plan.x0) / plan.cell).floor(), ck0 = ((oz - plan.z0) / plan.cell).floor();
     final n = (C / plan.cell).round();
@@ -328,10 +355,40 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii)
     return false;
   }
 
-  void add(String kind, double x, double z, {double s = 1, bool? flip}) {
-    plan.props.add({'kind': kind, 'x': (x * 10).round() / 10, 'z': (z * 10).round() / 10, 'flip': flip ?? rng.p(0.5), 's': (s * 100).round() / 100});
+  // every dirt path's centre line, in world units: nothing solid may stand near one, so a way is never
+  // closed off (an Evochi's body, up to radius 12, always fits past whatever lines it)
+  final ways = <(Offset, Offset)>[];
+  for (final r in plan.rooms) {
+    final k = kit.chunks[_chunkId(r)]!;
+    final o = Offset(r.gx * C, r.gz * C);
+    for (final p in k.paths) {
+      for (var s = 1; s < p.length; s++) {
+        ways.add((p[s - 1] + o, p[s] + o));
+      }
+    }
+  }
+  bool clearOfWays(double x, double z, double r) {
+    for (final (a, b) in ways) {
+      if (_segDist(a, b, x, z) < r + _bodyRoom) return false;
+    }
+    return true;
+  }
+
+  /// A prop; one that would stand in a way is left out (unless [force]d: a dead end's own centrepiece).
+  bool add(String kind, double x, double z, {double s = 1, bool? flip, bool force = false}) {
     final r = (radii[kind] ?? 0) * s;
+    if (r > 0 && !force && !clearOfWays(x, z, r)) return false;
+    plan.props.add({'kind': kind, 'x': (x * 10).round() / 10, 'z': (z * 10).round() / 10, 'flip': flip ?? rng.p(0.5), 's': (s * 100).round() / 100});
     if (r > 0) plan.blocks.add((x, z, r));
+    return true;
+  }
+
+  /// The first of [offsets] round (cx, cz) where something of radius [r] stands clear of every way.
+  (double, double) clearSpot(double cx, double cz, List<(double, double)> offsets, double r) {
+    for (final (dx, dz) in offsets) {
+      if (clearOfWays(cx + dx, cz + dz, r)) return (cx + dx, cz + dz);
+    }
+    return (cx + offsets.first.$1, cz + offsets.first.$2);
   }
 
   // the walk grid's blocked bits (trees block through the fight's own blocks, not the grid)
@@ -343,7 +400,7 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii)
   // ---- the forest: trees in stands (a smooth field picks the species), the edge of the walkable ground
   // lined thick; low things only where a tree would hide the way north of it
   const pines = ['pine_a', 'pine_b', 'pine_c'], oaks = ['oak_a', 'oak_b', 'oak_c'], birches = ['birch', 'birch_b'];
-  final step = 17.0;
+  const step = 17.0;
   for (var z = plan.z0 + 6; z < plan.z0 + plan.rows * plan.cell - 6; z += step) {
     for (var x = plan.x0 + 6; x < plan.x0 + plan.cols * plan.cell - 6; x += step) {
       final px = x + rng.d(-6, 6), pz = z + rng.d(-6, 6);
@@ -359,15 +416,14 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii)
       final kinds = sp < 0.38 ? pines : (sp < 0.72 ? oaks : birches);
       final kind = rng.p(0.04) ? 'oak_old' : rng.pick(kinds);
       final s = rng.d(0.88, 1.12);
-      add(kind, px, pz, s: s);
-      plan.shade.add((px + 3, pz + 2, 16 * s));
+      if (add(kind, px, pz, s: s)) plan.shade.add((px + 3, pz + 2, 16 * s));
     }
   }
   // ---- the rooms
-  final wantFoes = 2 + (depth >= 4 ? 1 : 0) + (depth >= 7 ? 1 : 0);
+  final wantFoes = 2 + (depth >= 4 ? 1 : 0) + (depth >= 7 ? 1 : 0) + (plan.mods.contains('swarm') ? 1 : 0);
   for (final r in plan.rooms) {
     final (cx, cz) = plan.centre(r);
-    final k = kit.chunks['${r.hall ? 'hall' : 'room'}_${r.mask.toString().padLeft(2, '0')}']!;
+    final k = kit.chunks[_chunkId(r)]!;
     final rr = k.r;
     // a little life round the clearing's rim
     if (!r.hall) {
@@ -382,9 +438,10 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii)
     switch (r.role) {
       case 'start':
         plan.start = (cx, cz + rr * 0.45);
-        add('sign', cx + 26, cz + rr * 0.3, flip: false);
+        final (sx, sz) = clearSpot(cx, cz, [(26, rr * 0.3), (-26, rr * 0.3), (30, -rr * 0.25), (-30, -rr * 0.25)], radii['sign'] ?? 3);
+        add('sign', sx, sz, flip: false, force: true);
         plan.spots.add({
-          'id': 'sign', 'kind': 'read', 'x': cx + 26, 'z': cz + rr * 0.3 + 6, 'r': 20, 'label': 'Read', 'title': 'F$depth · $deepTrail',
+          'id': 'sign', 'kind': 'read', 'x': sx, 'z': sz + 6, 'r': 20, 'label': 'Read', 'title': 'F$depth · $deepTrail',
           'text': depth == firstDeepFloor
               ? 'F$depth · $deepTrail. Past the Thicket the old trail winds down through deeper wood. Each floor ends at an old doorway down, sealed until the floor is calm.'
               : 'F$depth · $deepTrail. Deeper still. The Hollow is thicker down here.',
@@ -417,22 +474,25 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii)
         }
         _foes(plan, rng, r, cx, cz, rr * 0.5, wantFoes - 1, depth, elite: true);
       case 'treasure':
-        add('chest', cx, cz - 6, flip: false);
+        add('chest', cx, cz - 6, flip: false, force: true); // a dead end: the chest is what you came for
         plan.spots.add({
           'id': 'chest_${r.i}', 'kind': 'chest', 'x': cx, 'z': cz - 2, 'r': 20, 'label': 'Open', 'title': 'An old chest',
           'text': 'Moss on the lid, a little light leaking out of the seam.',
         });
         if (depth >= 4) _foes(plan, rng, r, cx, cz, rr * 0.5, 2, depth);
       case 'shrine':
-        add('pillar_low', cx, cz - 8, flip: false);
+        add('pillar_low', cx, cz - 8, flip: false, force: true);
         plan.fx.add({'kind': 'shrine', 'x': cx, 'z': cz - 8});
         plan.spots.add({
           'id': 'shrine_${r.i}', 'kind': 'shrine', 'x': cx, 'z': cz, 'r': 20, 'label': 'Pray', 'title': 'A Lumen shrine',
           'text': 'An old stone, still warm with Lumen. It offers a blessing for this floor.',
         });
       case 'camp':
-        add('tent', cx - 22, cz - 14, flip: false);
-        add('seat', cx + 20, cz + 6, flip: false);
+        // the tent stands back from the way in, the seat across the fire from it
+        final ring = [for (var i = 0; i < 8; i++) (math.cos(i * math.pi / 4 + 0.6) * 32, math.sin(i * math.pi / 4 + 0.6) * 28)];
+        final (tx, tz) = clearSpot(cx, cz, ring, radii['tent'] ?? 14);
+        add('tent', tx, tz, flip: tx > cx, force: true);
+        add('seat', cx - (tx - cx) * 0.7, cz - (tz - cz) * 0.7, flip: false);
         plan.fx.add({'kind': 'fire', 'x': cx, 'z': cz});
         plan.spots.add({
           'id': 'camp_${r.i}', 'kind': 'camp', 'x': cx, 'z': cz + 10, 'r': 22, 'label': 'Rest', 'title': 'A quiet camp',
@@ -445,6 +505,12 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii)
   }
   return plan;
 }
+
+String _chunkId(FloorRoom r) => '${r.hall ? 'hall' : 'room'}_${r.mask.toString().padLeft(2, '0')}';
+
+/// How far a solid prop's edge keeps from a way's centre line: an Evochi's body (radius up to 12) and a
+/// little room to spare.
+const _bodyRoom = 15.0;
 
 bool _nearPath(KitChunk k, double u, double v, double d) {
   for (final p in k.paths) {
@@ -462,7 +528,8 @@ void _foes(FloorPlan plan, _Rng rng, FloorRoom r, double cx, double cz, double s
       final x = cx + math.cos(a) * d, z = cz + math.sin(a) * d * 0.9;
       if (plan.blocked(x, z)) continue;
       final big = elite && i == 0;
-      final kind = big ? 'thornling' : (rng.p(depth >= 3 ? 0.45 : 0.35) ? 'sporecap' : 'thornling');
+      final spores = plan.mods.contains('spores') ? 0.8 : (depth >= 3 ? 0.45 : 0.35);
+      final kind = big ? 'thornling' : (rng.p(spores) ? 'sporecap' : 'thornling');
       plan.foes.add({'id': '${big ? 'elite' : 'f'}_${r.i}_$i', 'kind': kind, 'zone': 'r${r.i}', 'x': x, 'z': z});
       break;
     }
@@ -528,7 +595,7 @@ Future<WildsMap> makeFloor(int depth, int seed) async {
     'zones': plan.zones,
     'foes': plan.foes,
     'gate': {'x': gx, 'z': gz, 'emit': 21.0, 'beams': [14.0, 26.0, 38.0]},
-    'deep': {'depth': depth, 'seed': seed},
+    'deep': {'depth': depth, 'seed': seed, 'mods': plan.mods},
   };
   return WildsMap.made(
     j,

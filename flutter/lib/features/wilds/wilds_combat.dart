@@ -347,6 +347,8 @@ class Raid {
     double bossScale = 1.0,
     this.foeHp = 1.0,
     this.foeHarm = 1.0,
+    this.coinMul = 1.0,
+    this.surge = false,
   })  : rng = math.Random(seed),
         lootRng = math.Random(seed * 31 + 7) {
     startX = pet.x;
@@ -406,6 +408,13 @@ class Raid {
   int get _ci => (charmRank - 1).clamp(0, 2);
   /// Deeper floors: the creatures' health and the harm they do, as multiples.
   final double foeHp, foeHarm;
+
+  /// The coins a calmed creature leaves, as a multiple (a Lumen-rich floor, a Surge).
+  final double coinMul;
+
+  /// A Hollow Surge floor: every creature churns with the Hollow (drawn so), and an elite leaves twice the
+  /// rare rolls.
+  final bool surge;
   final math.Random rng;
   /// Rare finds a calmed foe can leave (the economy's drop table); its own random, so the fight's dice
   /// never change when the loot does.
@@ -2431,6 +2440,13 @@ class Raid {
   }
 
   // ---- defeated: the Hollow lifts
+  /// Playtesting (debug builds' C key): every creature still fighting is calmed where it stands.
+  void calmAllForTesting() {
+    for (final f in foes) {
+      if (!f.calm) _calm(f);
+    }
+  }
+
   void _calm(Foe f) {
     _endMark(f);
     f
@@ -2462,17 +2478,19 @@ class Raid {
     }
     calmed += f.summoned ? 0 : 1;
     // what it leaves: coins into the satchel, sometimes a shard, a mote of light that heals
-    final c = ((f.kind == 'sporecap' ? 3 : 2) + rng.nextInt(3)) * (f.elite ? 5 : 1) + (foeHp > 1 ? (foeHp * 2).round() : 0);
+    final c = ((((f.kind == 'sporecap' ? 3 : 2) + rng.nextInt(3)) * (f.elite ? 5 : 1) + (foeHp > 1 ? (foeHp * 2).round() : 0)) * coinMul).round();
     coins += c;
     if (f.elite) {
       // an elite always leaves a shard, and gets a second roll at something rare
       items['lumen_shard'] = (items['lumen_shard'] ?? 0) + 1;
       _float('+1 Lumen Shard', f.x, f.z - 20, 'loot', ttl: 1.6);
-      lootRoll?.call(lootRng).forEach((id, n) {
-        items[id] = (items[id] ?? 0) + n;
-        _float(lootLabel?.call(id, n) ?? '+$n $id', f.x, f.z - 27, 'loot', ttl: 2.0);
-        _emit('rare_drop', text: id, x: f.x, z: f.z);
-      });
+      for (var i = 0; i < (surge ? 2 : 1); i++) {
+        lootRoll?.call(lootRng).forEach((id, n) {
+          items[id] = (items[id] ?? 0) + n;
+          _float(lootLabel?.call(id, n) ?? '+$n $id', f.x, f.z - 27 - 7 * i, 'loot', ttl: 2.0);
+          _emit('rare_drop', text: id, x: f.x, z: f.z);
+        });
+      }
     }
     _float('+$c coins', f.x, f.z, 'loot', ttl: 1.2);
     if (!f.summoned && rng.nextDouble() < 0.18) {
