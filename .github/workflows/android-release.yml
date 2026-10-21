@@ -46,7 +46,7 @@ jobs:
           KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
         run: |
           if [ -z "$KEYSTORE_B64" ]; then echo "No upload key in secrets: this bundle is debug-signed and cannot go to Play"; exit 0; fi
-          echo "$KEYSTORE_B64" | base64 -d > android/upload-keystore.jks
+          echo "$KEYSTORE_B64" | base64 -d > android/app/upload-keystore.jks
           cat > android/key.properties <<PROPS
           storeFile=upload-keystore.jks
           storePassword=${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
