@@ -307,6 +307,9 @@ class GameController extends ChangeNotifier {
       case 'plus_daily':
         toast('Evochi Plus: +${e.data['glimmer']} Glimmer and +${e.data['xp']} Season XP', icon: 'plus');
         audio.play('coin', volume: 0.7);
+      case 'wilds_reached':
+        final g = e.data['glimmer'] as int? ?? 0;
+        toast('Deepest yet: F${e.data['floor']}${g > 0 ? ' · +$g Glimmer' : ''}', icon: g > 0 ? 'glimmer' : 'journey');
       case 'play_granted':
         audio.play('level_up');
         analytics.track('purchase_completed', {'product': e.data['product']});

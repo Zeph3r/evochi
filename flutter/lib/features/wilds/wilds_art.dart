@@ -170,6 +170,26 @@ class GroundTile {
 
 class WildsMap {
   WildsMap._(this.j);
+
+  /// A floor made at runtime (the Deep Wilds, features/wilds/deep_floor.dart): the same data the json would
+  /// hold, with its pictures already loaded.
+  WildsMap.made(this.j,
+      {required this.tiles,
+      required this.propArt,
+      required this.props,
+      required this.blocks,
+      required this.spots,
+      required this.minimap,
+      required Uint8List grid,
+      this.shade = const []})
+      : _grid = grid;
+
+  /// Shadows the canopy casts (x, z, r), drawn on the ground of a made floor (the Thicket's are in its
+  /// render).
+  List<(double, double, double)> shade = const [];
+
+  /// A Deep Wilds floor: its depth (F number), or null for a hand-made map.
+  int? get depth => ((j['deep'] as Map?)?['depth'] as num?)?.toInt();
   final Map<String, dynamic> j;
   late final List<GroundTile> tiles;
   late final Map<String, PropArt> propArt;
