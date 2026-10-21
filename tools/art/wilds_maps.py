@@ -37,8 +37,8 @@ from walk import MAP_PITCH
 HERE = os.path.dirname(os.path.abspath(__file__))
 GROUND_SCALE = 5.0           # ground and props: px per world unit
 TILE = 1024
-X0, X1, Z0, Z1 = -200, 200, -600, 600      # the slab
-BOUNDS = (-186, -498, 186, 592)            # where walkers may stand (up to the gate)
+X0, X1, Z0, Z1 = -200, 200, -740, 600      # the slab
+BOUNDS = (-186, -626, 186, 592)            # where walkers may stand (up to the gate)
 CELL = 4                                    # walk grid cell (world units)
 
 GRASS = ['#3F6A2E', '#467334', '#4E7C39', '#57853F', '#618F45']     # a shaded wood: mossy, not lime
@@ -70,21 +70,21 @@ def norm(a):
 
 # ------------------------------------------------------------------ the plan (2D, 1 unit cells) ----
 MAIN_PATH = [(0, 640), (6, 560), (30, 490), (58, 430), (46, 360), (8, 290), (-22, 215), (-34, 150), (-12, 70),
-             (24, 0), (42, -70), (44, -135), (36, -200), (6, -270), (-28, -330), (-30, -410), (-6, -470), (0, -515),
-             (0, -640)]
+             (24, 0), (42, -70), (44, -135), (36, -200), (6, -270), (-28, -330), (-34, -420), (-20, -500), (-6, -570),
+             (0, -632), (0, -760)]
 BRANCHES = [
     ([(58, 430), (78, 390), (96, 352)], 16),           # to Sher's camp
     ([(-34, 150), (-58, 150), (-72, 160)], 14),        # down to the pond shore
-    ([(-28, -330), (-70, -352), (-112, -372), (-146, -390)], 11),   # the overgrown way to the nook
+    ([(-9, -297), (-60, -312), (-114, -332), (-162, -352)], 11),    # the overgrown way to the nook
 ]
 # where the fights are: clearings off the trail (the foes wait there), and the guardian's arena before the
 # gate. Each zone: id, name, centre x, z, radius.
 ZONES = [('fern', 'Fern Clearing', -8, 250, 64), ('ring', 'Mushroom Ring', 4, 26, 60), ('stand', 'Thorn Stand', 28, -218, 60)]
-ARENA = (-14, -390, 92)                                # the Briarback's arena: centre x, z, radius
+ARENA = (-14, -470, 135)                               # the Briarback's arena: centre x, z, radius
 CAMP = (100, 340)
 POND = (-118, 112, 62, 44)                             # centre x, z, radius x, z
-NOOK = (-152, -392)
-GATE = (0, -512)
+NOOK = (-168, -352)
+GATE = (0, -640)
 SIGN = (34, 548)
 
 
@@ -131,7 +131,7 @@ def plan():
     water = water_art & ~bridge                          # where nobody can walk
     path &= ~water
     clear = np.zeros_like(path)
-    for (cx, cz, r) in ((CAMP[0], CAMP[1], 54), (0, 548, 58), (0, -500, 54), (NOOK[0], NOOK[1], 22), ARENA[:3],
+    for (cx, cz, r) in ((CAMP[0], CAMP[1], 54), (0, 548, 58), (GATE[0], GATE[1] + 12, 54), (NOOK[0], NOOK[1], 22), ARENA[:3],
                         *[(z[2], z[3], z[4]) for z in ZONES]):
         clear |= (X - cx) ** 2 + (Z - cz) ** 2 < r * r
     return dict(X=X, Z=Z, path=path, water=water, water_art=water_art, stream=stream, pond=pond, bridge=bridge,
@@ -805,15 +805,13 @@ def place_props(pl, rng):
     ax, az, ar = ARENA
     for (dx, dz, k) in ARENA_ROCKS:
         add(k, ax + dx, az + dz, 0, flip=False)
-    for k in range(22):
-        a = 2 * math.pi * k / 22
+    for k in range(32):
+        a = 2 * math.pi * k / 32
         x, z = ax + math.cos(a) * (ar - 4), az + math.sin(a) * (ar - 4) * 0.92
         if z > az + ar * 0.55 and abs(x - arena_entry()[0]) < 40:
             continue                                   # the way in stays open (until the fight)
         if z < GATE[1] + 30 or (z < az - ar * 0.5 and abs(x + 8) < 30):
             continue                                   # not in front of the gate, nor across the way to it
-        if math.hypot(x - NOOK[0], z - NOOK[1]) < 90 and x < ax - 40 and abs(z - (-362)) < 26:
-            continue                                   # the overgrown way to the nook
         add('bramble', x, z, 0, flip=bool(k % 2))
     # the Hollow creeping in at the Thorn Stand
     zx, zz, zr = ZONES[2][2], ZONES[2][3], ZONES[2][4]
@@ -827,7 +825,8 @@ def place_props(pl, rng):
     return props
 
 
-ARENA_ROCKS = [(-60, -22, 'pillar'), (50, -38, 'pillar_low'), (-38, 42, 'boulder'), (42, 38, 'pillar'), (4, -50, 'pillar_low')]
+ARENA_ROCKS = [(-88, -30, 'pillar'), (72, -56, 'pillar_low'), (-60, 62, 'boulder'), (62, 56, 'pillar'), (6, -76, 'pillar_low'),
+               (98, 6, 'boulder'), (-100, -78, 'pillar_low'), (34, 104, 'pillar_low')]
 
 
 def arena_entry():
@@ -973,8 +972,8 @@ def data(out, name, pl, props, ground_meta, prop_meta):
         {'id': 'stand_3', 'kind': 'sporecap', 'zone': 'stand', 'x': 30, 'z': -252},
     ]
     boss = {'id': 'briarback', 'kind': 'briarback', 'name': 'Briarback', 'title': 'Guardian of the Thicket',
-            'x': ax + 4, 'z': az - 34, 'arena': {'x': ax, 'z': az, 'r': ar}, 'wall': arena_wall(),
-            'summon': [[ax - 36, az + 6], [ax + ar - 30, az - 8], [ax - 26, az - ar + 34], [ax + 26, az - ar + 34]]}
+            'x': ax + 4, 'z': az - 48, 'arena': {'x': ax, 'z': az, 'r': ar}, 'wall': arena_wall(),
+            'summon': [[ax - 52, az + 8], [ax + ar - 40, az - 10], [ax - 36, az - ar + 48], [ax + 36, az - ar + 48]]}
     meta = {
         'id': name, 'name': 'Sunlit Thicket', 'floor': 'F1', 'level': 3, 'pitch': MAP_PITCH, 'scale': GROUND_SCALE,
         'ground': ground_meta, 'bounds': list(BOUNDS), 'grid': walk_grid(pl),

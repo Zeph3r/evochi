@@ -170,6 +170,29 @@ Raid zone(List<FoeSpawn> spawns, int seed, {bool withSher = false}) {
   return r;
 }
 
+/// The arena as the map has it now (tools/art/wilds_maps.py ARENA, ARENA_ROCKS, the boss and summon spots).
+Raid wideArena(int seed, {double bossScale = 0.85}) {
+  const ax = -14.0, az = -470.0, ar = 135.0;
+  final blocks = <(double, double, double)>[
+    for (final (dx, dz, r) in const [(-88.0, -30.0, 6.5), (72.0, -56.0, 6.5), (-60.0, 62.0, 15.0), (62.0, 56.0, 6.5), (6.0, -76.0, 6.5),
+      (98.0, 6.0, 15.0), (-100.0, -78.0, 6.5), (34.0, 104.0, 6.5)])
+      (ax + dx, az + dz, r),
+  ];
+  for (var k = 0; k < 32; k++) {
+    final a = 2 * math.pi * k / 32;
+    blocks.add((ax + math.cos(a) * (ar - 4), az + math.sin(a) * (ar - 4) * 0.92, 9.5));
+  }
+  return Raid(
+    ground: field(blocks),
+    pet: pet(-20, -410), // a few steps in: where the guardian wakes
+    bossDef: const BossDef(
+        x: ax + 4, z: az - 48, ax: ax, az: az, ar: ar, wall: [], summon: [(ax - 52, az + 8), (ax + ar - 40, az - 10), (ax - 36, az - ar + 48), (ax + 36, az - ar + 48)]),
+    level: 3,
+    seed: seed,
+    bossScale: bossScale,
+  );
+}
+
 Raid arena(int seed, {bool withSher = false, double bossScale = 1.0}) {
   // the arena's pillars and boulder, its rim of brambles
   final blocks = <(double, double, double)>[(-62.0, -416.0, 6.5), (26.0, -428.0, 6.5), (-44.0, -364.0, 15.0), (20.0, -368.0, 6.5)];
@@ -232,5 +255,13 @@ void main() {
     print('Briarback solo, eased: ${solo.join(' | ')}');
     expect(solo.where((o) => o.won).length, greaterThanOrEqualTo(4));
     expect(solo.where((o) => o.won).every((o) => o.secs > 30), isTrue);
+  });
+
+  test('the Briarback in the full-size arena: room to move, still won, not a slog', () {
+    final solo = [for (var seed = 1; seed <= 5; seed++) fight(wideArena(seed), seed: seed, boss: true, limit: 300)];
+    // ignore: avoid_print
+    print('Briarback, wide arena: ${solo.join(' | ')}');
+    expect(solo.where((o) => o.won).length, greaterThanOrEqualTo(4));
+    expect(solo.where((o) => o.won).every((o) => o.secs > 30 && o.secs < 100), isTrue);
   });
 }

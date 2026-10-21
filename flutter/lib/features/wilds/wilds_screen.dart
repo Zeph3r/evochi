@@ -359,7 +359,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     // room to move: the view widens to fit the fight
     var wantW = 180.0;
     if (bossFight) {
-      wantW = 235;
+      wantW = 265; // the arena is wide: room to see the guardian's sweeps and charges coming
     } else if (r.inCombat) {
       var spread = 0.0;
       for (final f in r.hostile) {
@@ -892,8 +892,13 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     if (k == LogicalKeyboardKey.digit1 && zs.isNotEmpty) to = (zs[0].$3 + 10, zs[0].$4 + 60);
     if (k == LogicalKeyboardKey.digit2 && zs.length > 1) to = (zs[1].$3 + 10, zs[1].$4 + 60);
     if (k == LogicalKeyboardKey.digit3 && zs.length > 2) to = (zs[2].$3 + 10, zs[2].$4 + 60);
-    if (k == LogicalKeyboardKey.digit4) to = (-10, -300);
-    if (k == LogicalKeyboardKey.digit5) to = (-14, -370);
+    // 4: at the arena's way in; 5: a few steps inside, where the guardian wakes
+    final ar = (m.boss?['arena'] as Map?)?.cast<String, dynamic>();
+    if (ar != null) {
+      final ax = (ar['x'] as num).toDouble(), az = (ar['z'] as num).toDouble(), rr = (ar['r'] as num).toDouble();
+      if (k == LogicalKeyboardKey.digit4) to = (ax - 12, az + rr + 16);
+      if (k == LogicalKeyboardKey.digit5) to = (ax - 6, az + rr * 0.45);
+    }
     if (k == LogicalKeyboardKey.keyB) r.debugHurtBoss(0.2);
     // the gate's seal: up again (R), or drawn back as if the guardian had just been calmed (T)
     if (k == LogicalKeyboardKey.keyR) setState(() => _sealOpen = false);
