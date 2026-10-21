@@ -264,4 +264,17 @@ void main() {
     expect(solo.where((o) => o.won).length, greaterThanOrEqualTo(4));
     expect(solo.where((o) => o.won).every((o) => o.secs > 30 && o.secs < 100), isTrue);
   });
+
+  test('the guardian\'s entrance hands straight over to the fight, with no second roar', () {
+    final r = wideArena(1);
+    r.tick(dt, RaidInput());
+    expect(r.bossState, BossState.intro);
+    r.events.clear();
+    r.skipIntro();
+    for (var i = 0; i < 6; i++) {
+      r.tick(dt, RaidInput());
+    }
+    expect(r.bossState, BossState.fight);
+    expect(r.events.where((e) => e.type == 'roar'), isEmpty);
+  });
 }

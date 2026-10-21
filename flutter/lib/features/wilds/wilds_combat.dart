@@ -445,6 +445,13 @@ class Raid {
   final cleared = <String>{};
 
   List<(double, double, double)> _blocks = const [];
+  // the guardian's charge leaves its mark: afterimages and torn moss behind it, and a pillar it runs
+  // into cracks (two crashes bring a pillar down, three a boulder: the arena changes as you fight)
+  final bossTrail = <(double, double, double)>[]; // x, z, time
+  final damage = <int, int>{}; // ground block -> crashes taken
+  final broken = <int>{};
+  double _hoofT = 0, _trailT = 0;
+  bool _closeCall = false;
 
   Iterable<Foe> get allFoes sync* {
     yield* foes;
@@ -472,9 +479,58 @@ class Raid {
   void _rebuildBlocks() {
     final b = bossDef;
     _blocks = [
-      ...ground.blocks,
+      for (var i = 0; i < ground.blocks.length; i++)
+        if (!broken.contains(i)) ground.blocks[i],
       if (wallUp && b != null) for (final (x, z) in b.wall) (x, z, 10.0),
     ];
+  }
+
+  /// For the arena's pillars and boulders: -1 if the guardian has brought it down, else the crashes it has
+  /// taken (0 if none, or nothing breakable stands there).
+  int crackAt(double x, double z) {
+    if (damage.isEmpty && broken.isEmpty) return 0;
+    var best = 12.0, at = -1;
+    for (var i = 0; i < ground.blocks.length; i++) {
+      final (bx, bz, _) = ground.blocks[i];
+      final d = _len(bx - x, bz - z);
+      if (d < best) {
+        best = d;
+        at = i;
+      }
+    }
+    if (at < 0) return 0;
+    if (broken.contains(at)) return -1;
+    return damage[at] ?? 0;
+  }
+
+  /// The block the guardian just ran into: crack it, and bring it down after enough crashes.
+  void _crashInto(Boss b) {
+    final hx = b.x + b.ax * b.radius, hz = b.z + b.az * b.radius;
+    var best = double.infinity, at = -1;
+    for (var i = 0; i < ground.blocks.length; i++) {
+      if (broken.contains(i)) continue;
+      final (bx, bz, br) = ground.blocks[i];
+      final d = _len(bx - hx, bz - hz) - br;
+      if (d < best && _len(bx - b.ax0, bz - b.az0) < b.ar - 6) {
+        best = d;
+        at = i;
+      }
+    }
+    if (at < 0 || best > 10) return;
+    final (bx, bz, br) = ground.blocks[at];
+    final n = (damage[at] ?? 0) + 1;
+    damage[at] = n;
+    bursts.add(Burst('debris', bx, bz, 0.9, dx: -b.ax, dz: -b.az, size: br > 10 ? 1.6 : 1.1));
+    if (n >= (br > 10 ? 3 : 2)) {
+      broken.add(at);
+      _rebuildBlocks();
+      bursts.add(Burst('rubble', bx, bz, 1.2, size: br > 10 ? 1.8 : 1.3));
+      shake = math.max(shake, 1.1);
+      _emit('pillar_break', x: bx, z: bz);
+      say(br > 10 ? 'The boulder\'s gone! Find other cover!' : 'It smashed the pillar! Use another one!', gap: 2);
+    } else {
+      _emit('pillar_crack', x: bx, z: bz);
+    }
   }
 
   void _emit(String type, {String? text, double value = 0, double x = 0, double z = 0}) =>
@@ -2366,6 +2422,7 @@ class Raid {
 
   // ================================================================== the guardian
   void _tickBoss(Boss b, double dt) {
+    bossTrail.removeWhere((e) => time - e.$3 > 0.32);
     b.t += dt;
     b.sx = b.sy = 1;
     b.lift = 0;
@@ -2553,6 +2610,8 @@ class Raid {
       ..feinted = false
       ..moving = false;
     b.hit.clear();
+    _closeCall = false;
+    _hoofT = 0;
     _endMark(b);
     final d = math.max(b.dist(t), 1e-6);
     switch (move) {
@@ -2620,6 +2679,15 @@ class Raid {
         case 'charge':
           b.pose = k < 0.45 ? 'lower1' : 'lower2';
           b.sx = 1 + 0.03 * math.sin(b.t * 35);
+          // it paws the moss twice before it goes: dust off a front hoof and a thud you feel
+          final k0 = b.windup <= 0 ? 1.0 : (b.t - dt) / b.windup;
+          for (final at in const [0.22, 0.55]) {
+            if (k0 < at && k >= at) {
+              bursts.add(Burst('dust', b.x + b.fx * b.radius * 0.9, b.z + b.fz * b.radius * 0.9, 0.5, size: 1.1));
+              shake = math.max(shake, 0.18);
+              _emit('paw', x: b.x, z: b.z);
+            }
+          }
           if (k < 0.65 || (b.feinted && b.windup - b.t > 0.2)) {
             final lx = t.x + t.vx * 0.15, lz = t.z + t.vz * 0.15;
             final dd = math.max(_len(lx - b.x, lz - b.z), 1e-6);
@@ -2672,6 +2740,31 @@ class Raid {
           b.running = true;
           b.phase = (b.phase + moved / 30) % 1.0;
           b.dir = dirOf(b.ax, b.az);
+          // afterimages, a dust trail and the moss torn up behind it; a thud on every stride
+          _trailT -= dt;
+          if (_trailT <= 0) {
+            _trailT = 0.045;
+            bossTrail.add((b.x, b.z, time));
+            bursts.add(Burst('dust', b.x - b.ax * b.radius * 0.7, b.z - b.az * b.radius * 0.7, 0.55, size: 1.2));
+            bursts.add(Burst('scar', b.x - b.ax * 4, b.z - b.az * 4, 3.0, dx: b.ax, dz: b.az, size: 1));
+          }
+          _hoofT -= dt;
+          if (_hoofT <= 0) {
+            _hoofT = 0.17;
+            shake = math.max(shake, 0.16);
+            _emit('hoof', x: b.x, z: b.z);
+          }
+          // a close call: it thunders past within a hair and you are untouched: the world slows, a counter is ready
+          if (!_closeCall && !b.hit.contains(pet) && pet.alive && b.travelled > 20 && b.dist(pet) < b.radius + pet.radius + 14) {
+            final ahead = (pet.x - b.x) * b.ax + (pet.z - b.z) * b.az;
+            if (ahead < 4) {
+              _closeCall = true;
+              slowmo = math.max(slowmo, 0.4);
+              counterT = math.max(counterT, 1.1);
+              _float('Close call!', pet.x, pet.z, 'crit', ttl: 0.9);
+              _emit('close_call', x: pet.x, z: pet.z);
+            }
+          }
           for (final a in [pet, if (sher != null && party) sher!]) {
             if (b.hit.contains(a) || !a.alive) continue;
             if (b.dist(a) < b.radius + a.radius) {
@@ -2689,8 +2782,9 @@ class Raid {
             b.kx = -b.ax * 40;
             b.kz = -b.az * 40;
             b.chain = 0;
-            shake = 0.9;
-            hitstop = 0.08;
+            shake = 1.0;
+            hitstop = 0.14;
+            _crashInto(b);
             bursts.add(Burst('stars', b.x, b.z, 2.6, size: 2));
             bursts.add(Burst('dust', b.x + b.ax * b.radius, b.z + b.az * b.radius, 0.8, size: 2));
             _emit('crash', x: b.x, z: b.z);
@@ -2882,6 +2976,13 @@ class Raid {
   }
 
   /// The guardian again, after it has been calmed: it stands ready to spar.
+  /// The entrance played as a cinematic: straight into the fight (no second roar).
+  void skipIntro() {
+    final b = boss;
+    if (b == null || bossState != BossState.intro) return;
+    b.t = math.max(b.t, 2.19);
+  }
+
   void rematch() {
     final b = boss;
     if (b == null) return;
@@ -2897,5 +2998,9 @@ class Raid {
       ..ghost = false;
     b.threat.clear();
     bossState = BossState.dormant;
+    damage.clear();
+    broken.clear();
+    bossTrail.clear();
+    _rebuildBlocks();
   }
 }

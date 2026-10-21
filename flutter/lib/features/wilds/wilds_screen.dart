@@ -31,6 +31,7 @@ import '../../core/models/catalog.dart';
 import '../../core/services/haptics.dart';
 import '../../game/economy/economy.dart' as econ;
 import '../../game/engine.dart' as ge;
+import '../../game/trails/trails.dart' as trails;
 import '../../game/wilds/wilds.dart' as w;
 import '../shared/ambience.dart';
 import '../shared/kit.dart';
@@ -38,6 +39,7 @@ import '../shared/live_scene.dart' show SceneFx;
 import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import '../village/story_widgets.dart';
+import 'boss_intro.dart';
 import 'wilds_art.dart';
 import 'wilds_combat.dart';
 
@@ -52,6 +54,10 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   WildsMap? _map;
   Raid? _raid;
   WalkerArt? _petArt, _sherArt;
+  // the guardian's entrance (loaded in the background; without it the fight starts as before)
+  BossIntroArt? _introArt;
+  CineEvochiArt? _cineEvochi;
+  IntroCut? _cine; // playing now
   final _foeArt = <String, FoeArt>{};
   late final Ticker _ticker = createTicker(_tick);
   Duration _last = Duration.zero;
@@ -142,7 +148,17 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       });
       // Sher keeps the camp by the fire: he gives berries and a tip, and the trail is yours to walk
       _ticker.start();
+      _loadIntro(pet?.stage ?? 1, palette, wearing);
     });
+  }
+
+  Future<void> _loadIntro(int stage, String palette, List<String> wearing) async {
+    try {
+      _introArt = await BossIntroArt.load('briarback');
+      _cineEvochi = await CineEvochiArt.load(stage, palette, wearing);
+    } catch (e) {
+      debugPrint('boss intro art: $e');
+    }
   }
 
   /// The guardian's Raid HP for a party of one (the plan: Sher stays at the camp, the fight eases a little).
@@ -208,6 +224,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     WidgetsBinding.instance.removeObserver(this);
     if (_music != null) _c.audio.setMusic(null);
     _ticker.dispose();
+    _introArt?.dispose();
     for (final sh in _fx.values) {
       sh.dispose();
     }
@@ -241,7 +258,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     return Offset(p.dx / m.scale, p.dy / (m.sinP * m.scale));
   }
 
-  bool get _paused => _card != null;
+  bool get _paused => _card != null || _cine != null;
 
   // ---- the loop
   void _tick(Duration now) {
@@ -403,6 +420,34 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     _c.audio.play(name, volume: vol);
   }
 
+  /// The entrance's sounds and rumbles.
+  void _introCue(String cue) {
+    final a = _c.audio;
+    switch (cue) {
+      case 'open':
+        _sfx('enc_awaken', 0.8);
+      case 'roar':
+        _sfx('wild_roar', 0.95, gap: 0.3);
+        a.buzz(Haptic.rumble);
+      case 'blast':
+        _sfx('enc_whoosh', 0.8);
+        _sfx('enc_rumble', 0.6);
+        a.buzz(Haptic.rumble, strength: 0.8);
+      case 'dig':
+        _sfx('wild_dodge', 0.5);
+        a.buzz(Haptic.hit);
+      case 'slam':
+        _sfx('wild_crash', 0.95);
+        _sfx('enc_rumble', 0.7);
+        a.buzz(Haptic.thump);
+      case 'whoosh':
+        _sfx('enc_whoosh', 0.5);
+      case 'ready':
+        _sfx('enc_surge', 0.6);
+        a.buzz(Haptic.perfect);
+    }
+  }
+
   void _say(String text, [double secs = 2.8]) {
     _bubble = text;
     _bubbleT = secs;
@@ -469,9 +514,19 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
         case 'sher_heal':
           _sfx('enc_soothe', 0.45);
         case 'boss_intro':
-          _sfx('enc_awaken', 0.8);
-          a.buzz(Haptic.rumble);
-          _showBanner('The Briarback wakes!', 2.4);
+          // the entrance: in full the first time, a short slam and title after (a still card with
+          // reduced motion); the old banner if its art has not loaded
+          final seen = c.state.trails.seen['briarback_intro'] == true;
+          final reduce = MediaQuery.of(context).disableAnimations;
+          if (_introArt != null) {
+            r.shake = 0;
+            setState(() => _cine = reduce ? IntroCut.still : (seen ? IntroCut.short : IntroCut.full));
+            if (!seen) c.run((s, n) => trails.markTrailSeen(s, 'briarback_intro'), quiet: true);
+          } else {
+            _sfx('enc_awaken', 0.8);
+            a.buzz(Haptic.rumble);
+            _showBanner('The Briarback wakes!', 2.4);
+          }
         case 'roar':
           _sfx('wild_roar', 0.75, gap: 0.5);
           a.buzz(Haptic.rumble, strength: 0.7);
@@ -483,6 +538,20 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
           _sfx('enc_rumble', 0.5);
         case 'crash':
           _sfx('wild_crash', 0.85);
+          a.buzz(Haptic.thump);
+        case 'paw':
+          _sfx('enc_rumble', 0.35, gap: 0.15);
+          a.buzz(Haptic.hit);
+        case 'hoof':
+          _sfx('enc_rumble', 0.22, gap: 0.12);
+        case 'close_call':
+          _sfx('enc_soothe', 0.6);
+          a.buzz(Haptic.perfect);
+        case 'pillar_crack':
+          _sfx('wild_crash', 0.5, gap: 0.1);
+        case 'pillar_break':
+          _sfx('wild_crash', 1.0, gap: 0.1);
+          _sfx('enc_rumble', 0.8);
           a.buzz(Haptic.thump);
         case 'stomp':
           _sfx('enc_rumble', 0.6, gap: 0.2);
@@ -837,6 +906,25 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                     ),
                 ],
                 if (card != null && m != null && _raid != null) _cardFor(card, m),
+                if (_cine != null && _introArt != null)
+                  Positioned.fill(
+                    child: BossIntro(
+                      art: _introArt!,
+                      evochi: _cineEvochi,
+                      cut: _cine!,
+                      name: 'Briarback',
+                      title: 'Guardian of the Thicket',
+                      petName: _c.state.pet?.name ?? 'Your Evochi',
+                      tint: cineTint(_c.state.pet?.paletteId ?? 'amber'),
+                      onCue: _introCue,
+                      onDone: () {
+                        setState(() => _cine = null);
+                        _raid?.skipIntro();
+                        // let the pictures go, but keep a rematch's opening ready
+                        _introArt?.want(const [22, 23, 24]);
+                      },
+                    ),
+                  ),
               ]),
             );
           }),
@@ -883,7 +971,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   }
 
   /// Playtesting shortcuts (debug builds only): 1-3 the clearings, 4 the arena's edge, 5 the arena, G
-  /// keeps your Evochi's Raid HP full, B takes a fifth of the guardian's health.
+  /// keeps your Evochi's Raid HP full, B takes a fifth of the guardian's health, I replays its entrance.
   void _debugKey(LogicalKeyboardKey k) {
     final r = _raid, m = _map;
     if (r == null || m == null) return;
@@ -900,6 +988,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       if (k == LogicalKeyboardKey.digit5) to = (ax - 6, az + rr * 0.45);
     }
     if (k == LogicalKeyboardKey.keyB) r.debugHurtBoss(0.2);
+    // I: play the guardian's entrance again (the full cut)
+    if (k == LogicalKeyboardKey.keyI && _introArt != null) setState(() => _cine = IntroCut.full);
     // the gate's seal: up again (R), or drawn back as if the guardian had just been calmed (T)
     if (k == LogicalKeyboardKey.keyR) setState(() => _sealOpen = false);
     if (k == LogicalKeyboardKey.keyT) {
@@ -1164,7 +1254,7 @@ class _MapPainter extends CustomPainter {
       _wave(canvas, wv);
     }
     for (final b in r.bursts) {
-      if (const {'pulse', 'spores', 'sweep', 'dust'}.contains(b.kind)) _burst(canvas, b);
+      if (const {'pulse', 'spores', 'sweep', 'dust', 'scar'}.contains(b.kind)) _burst(canvas, b);
     }
     // the target ring
     final lock = r.lock;
@@ -1219,7 +1309,14 @@ class _MapPainter extends CustomPainter {
       final tall = p.kind.startsWith('oak') || p.kind.startsWith('pine') || p.kind.startsWith('birch') || p.kind == 'gate' || p.kind == 'tent' || p.kind.startsWith('pillar');
       final see = tall && hidden.any((h) => p.z > h.$1 && rect.deflate(rect.width * 0.12).overlaps(h.$2));
       final sh = rm || a.mask == null ? null : s._fxFor(p);
+      final stone = p.kind.startsWith('pillar') || p.kind == 'boulder';
+      final dmg = stone ? r.crackAt(p.x, p.z) : 0;
+      if (dmg < 0) {
+        items.add((p.z, () => _rubble(canvas, g, k * a.img.width * 0.5, p.x)));
+        continue;
+      }
       items.add((p.z, () => _prop(canvas, p.flip, a, g, k, see ? _see : pq, sh, s._toGround(p.x, p.z))));
+      if (dmg > 0) items.add((p.z + 0.05, () => _cracks(canvas, rect, dmg, p.x)));
       if (p.kind == 'gate') items.add((p.z + 0.5, () => _seal(canvas)));
     }
     // the brambles that close the arena
@@ -1242,6 +1339,21 @@ class _MapPainter extends CustomPainter {
       if (a is Foe) {
         final art = s._foeArt[a.kind];
         if (art != null) items.add((a.z, () => _foe(canvas, a, art, g)));
+        // the charge's afterimages: the guardian a breath behind itself, fading violet
+        if (a is Boss && art != null && r.bossTrail.isNotEmpty && !rm) {
+          for (final (x, z, t0) in r.bossTrail) {
+            final age = ((r.time - t0) / 0.32).clamp(0.0, 1.0);
+            if (age >= 1) continue;
+            items.add((z - 0.1, () {
+              final keep = (a.alpha, a.flash);
+              a.alpha = 0.32 * (1 - age);
+              a.flash = 0.1;
+              _foe(canvas, a, art, s._toScreen(x, z));
+              a.alpha = keep.$1;
+              a.flash = keep.$2;
+            }));
+          }
+        }
       } else {
         items.add((a.z, () => _walker(canvas, a, a == pet ? s._petArt! : s._sherArt!, g, a == pet)));
       }
@@ -1261,7 +1373,7 @@ class _MapPainter extends CustomPainter {
     _vignette(canvas, size);
     // above everything: sparks, motes, stars, numbers
     for (final b in r.bursts) {
-      if (!const {'pulse', 'spores', 'sweep', 'dust'}.contains(b.kind)) _burst(canvas, b);
+      if (!const {'pulse', 'spores', 'sweep', 'dust', 'scar'}.contains(b.kind)) _burst(canvas, b);
     }
     // a glint where something waits to be found
     for (final sp in m.spots) {
@@ -1462,6 +1574,52 @@ class _MapPainter extends CustomPainter {
     canvas.restore();
   }
 
+  /// Cracks across a pillar or boulder the guardian has run into (more of them after each crash).
+  void _cracks(Canvas canvas, Rect r, int n, double seed) {
+    final p = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = const Color(0xDD2A2024);
+    final hi = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1
+      ..color = const Color(0x66FFF4E0);
+    for (var c = 0; c < n * 2; c++) {
+      var x = r.left + r.width * (0.3 + 0.4 * ((seed * 7.3 + c * 3.1) % 1.0));
+      var y = r.top + r.height * (0.25 + 0.15 * c);
+      final path = Path()..moveTo(x, y);
+      for (var i = 0; i < 4; i++) {
+        x += r.width * (((seed + c * 5 + i * 3) % 2 == 0) ? 0.08 : -0.07);
+        y += r.height * 0.09;
+        path.lineTo(x, y);
+      }
+      canvas.drawPath(path, p);
+      canvas.drawPath(path.shift(const Offset(1.2, 0.6)), hi);
+    }
+  }
+
+  /// What is left of a pillar or boulder the guardian brought down: a heap of mossy stones.
+  void _rubble(Canvas canvas, Offset g, double w, double seed) {
+    canvas.drawOval(Rect.fromCenter(center: g, width: w * 1.6, height: w * 0.55), Paint()..color = const Color(0x40000000));
+    final cols = [const Color(0xFF8E897F), const Color(0xFF827D73), const Color(0xFF9A958A), const Color(0xFF5E8C40)];
+    for (var i = 0; i < 9; i++) {
+      final a = i * 2.39996 + seed;
+      final d = w * 0.5 * ((i * 0.37 + seed * 0.13) % 1.0);
+      final c = g + Offset(math.cos(a) * d, math.sin(a) * d * 0.4 - w * 0.08);
+      final sz = w * (0.16 + 0.12 * ((i * 0.61) % 1.0));
+      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: c, width: sz, height: sz * 0.7), Radius.circular(sz * 0.2)),
+          Paint()..color = cols[i % cols.length]);
+      canvas.drawRRect(
+          RRect.fromRectAndRadius(Rect.fromCenter(center: c, width: sz, height: sz * 0.7), Radius.circular(sz * 0.2)),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.2
+            ..color = const Color(0xAA3B2923));
+    }
+  }
+
   void _rising(Canvas canvas, PropArt a, Offset g, double k, double rise, bool flip) {
     if (rise <= 0) return;
     canvas.save();
@@ -1644,14 +1802,16 @@ class _MapPainter extends CustomPainter {
             ];
         canvas.drawPath(_poly(rect(mk.len)), fill);
         canvas.drawPath(_poly(rect(mk.len * p)), grow);
-        canvas.drawPath(_poly(rect(mk.len)), edge);
+        // about to go: the edge flashes white
+        if (p > 0.72) edge.color = Color.lerp(edge.color, const Color(0xFFFFFFFF), 0.5 + 0.5 * math.sin(s._t * 30))!;
+        canvas.drawPath(_poly(rect(mk.len)), edge..strokeWidth = p > 0.72 ? 3.5 : 2);
         // chevrons along it, pointing the way it will come
         final ch = Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2.5
           ..strokeCap = StrokeCap.round
           ..color = const Color(0xCCFFE2D6);
-        for (var d = 16.0; d < mk.len - 6; d += 22) {
+        for (var d = 16.0 + (rm ? 0 : (s._t * 70) % 22); d < mk.len - 6; d += 22) {
           final cx = mk.x + mk.dx * d, cz = mk.z + mk.dz * d;
           final a = s._toScreen(cx - mk.dx * 5 + nx * 5, cz - mk.dz * 5 + nz * 5);
           final b = s._toScreen(cx, cz);
@@ -1773,6 +1933,39 @@ class _MapPainter extends CustomPainter {
     final g = s._toScreen(b.x, b.z);
     final u = s._u / 2.7;
     switch (b.kind) {
+      case 'scar':
+        // moss torn up behind the charge: a dark furrow that fades
+        final a = s._toScreen(b.x - b.dx * 7, b.z - b.dz * 7), c = s._toScreen(b.x + b.dx * 7, b.z + b.dz * 7);
+        final fade = (1 - k) * (k < 0.05 ? k / 0.05 : 1.0);
+        for (final side in const [-1.0, 1.0]) {
+          final o = Offset(-b.dz, b.dx * s._map!.sinP) * 6 * side * u;
+          canvas.drawLine(
+              a + o,
+              c + o,
+              Paint()
+                ..strokeWidth = 4 * u
+                ..strokeCap = StrokeCap.round
+                ..color = Color.fromRGBO(70, 50, 34, 0.55 * fade));
+        }
+      case 'debris':
+      case 'rubble':
+        // chunks of stone thrown off the pillar, falling back
+        final n = b.kind == 'rubble' ? 14 : 8;
+        final pc = Paint();
+        for (var i = 0; i < n; i++) {
+          final a = (i / n) * math.pi * 2 + b.x;
+          final out = Offset(math.cos(a) + b.dx * 0.8, math.sin(a) * 0.5 + b.dz * 0.4);
+          final dist = (18 + 26 * ((i * 0.37) % 1.0)) * b.size * Curves.easeOutCubic.transform(k);
+          final up = 40 * b.size * math.sin(k * math.pi) * (0.6 + ((i * 0.53) % 0.6));
+          final c = g + out * dist * u - Offset(0, up * u);
+          pc.color = (i.isEven ? const Color(0xFF8E897F) : const Color(0xFF6E695F)).withAlpha(((1 - k * k) * 255).round());
+          canvas.save();
+          canvas.translate(c.dx, c.dy);
+          canvas.rotate(k * 8 + i);
+          canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: 6 * u * b.size, height: 4 * u * b.size), pc);
+          canvas.restore();
+        }
+        if (b.kind == 'rubble') _glow(canvas, g - Offset(0, 10 * _up), 40 * u * b.size, Color.fromRGBO(220, 210, 190, 0.5 * (1 - k)));
       case 'spark':
         final p = Paint()
           ..strokeWidth = 2.2
@@ -1874,14 +2067,6 @@ class _MapPainter extends CustomPainter {
               ..strokeWidth = 5 * (1 - k)
               ..color = Color.fromRGBO(255, 248, 225, 0.85 * (1 - k)));
         _glow(canvas, g - Offset(0, 8 * _up), (10 + 20 * k) * u * b.size, Color.fromRGBO(255, 250, 230, 0.7 * (1 - k)));
-      case 'dust':
-        // a kicked-up puff: a few soft grains drifting out and fading
-        for (var i = 0; i < 4; i++) {
-          final a = i * 1.7 + b.x * 0.3;
-          final c = g + Offset(math.cos(a) * (3 + 9 * k) * b.size * u, -(1 + 5 * k) * _up * b.size + math.sin(a) * 1.5 * u);
-          canvas.drawCircle(c, (2.2 + 2.6 * k) * u * b.size,
-              Paint()..color = Color.fromRGBO(226, 214, 190, 0.45 * (1 - k)));
-        }
       case 'ember':
         final p = Paint()..color = Color.lerp(const Color(0xFFFFD25E), const Color(0xFFE2522F), k)!.withAlpha(((1 - k) * 230).round());
         for (var i = 0; i < 3; i++) {

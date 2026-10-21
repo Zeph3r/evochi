@@ -1,0 +1,204 @@
+{
+ "faces": [
+  "shout",
+  "strain",
+  "fierce"
+ ],
+ "yaw": -32,
+ "pitch": -7,
+ "s01": {
+  "w": 646,
+  "h": 738,
+  "anchors": {
+   "ground": [
+    318.4,
+    690.7
+   ],
+   "face": [
+    450.3,
+    426.3
+   ],
+   "head_top": [
+    324.0,
+    18.3
+   ]
+  },
+  "sheets": {
+   "amber": "cine_s01_amber.webp",
+   "forest": "cine_s01_forest.webp",
+   "coral": "cine_s01_coral.webp",
+   "ocean": "cine_s01_ocean.webp",
+   "amethyst": "cine_s01_amethyst.webp",
+   "obsidian": "cine_s01_obsidian.webp"
+  },
+  "wear": {
+   "leaf_scarf": [
+    0,
+    0
+   ],
+   "blue_scarf": [
+    1,
+    0
+   ],
+   "tiny_crown": [
+    2,
+    0
+   ],
+   "golden_crest_crown": [
+    0,
+    1
+   ],
+   "explorer_hat": [
+    1,
+    1
+   ],
+   "butterfly_clip": [
+    2,
+    1
+   ],
+   "red_backpack": [
+    0,
+    2
+   ],
+   "explorer_pack": [
+    1,
+    2
+   ],
+   "reward_windtrail_mantle": [
+    2,
+    2
+   ]
+  },
+  "wearSheet": "cine_s01_wear.webp"
+ },
+ "s02": {
+  "w": 670,
+  "h": 740,
+  "anchors": {
+   "ground": [
+    308.9,
+    700.9
+   ],
+   "face": [
+    516.6,
+    323.0
+   ],
+   "head_top": [
+    414.9,
+    94.7
+   ]
+  },
+  "sheets": {
+   "amber": "cine_s02_amber.webp",
+   "forest": "cine_s02_forest.webp",
+   "coral": "cine_s02_coral.webp",
+   "ocean": "cine_s02_ocean.webp",
+   "amethyst": "cine_s02_amethyst.webp",
+   "obsidian": "cine_s02_obsidian.webp"
+  },
+  "wear": {
+   "leaf_scarf": [
+    0,
+    0
+   ],
+   "blue_scarf": [
+    1,
+    0
+   ],
+   "tiny_crown": [
+    2,
+    0
+   ],
+   "golden_crest_crown": [
+    0,
+    1
+   ],
+   "explorer_hat": [
+    1,
+    1
+   ],
+   "butterfly_clip": [
+    2,
+    1
+   ],
+   "red_backpack": [
+    0,
+    2
+   ],
+   "explorer_pack": [
+    1,
+    2
+   ],
+   "reward_windtrail_mantle": [
+    2,
+    2
+   ]
+  },
+  "wearSheet": "cine_s02_wear.webp"
+ },
+ "s03": {
+  "w": 888,
+  "h": 742,
+  "anchors": {
+   "ground": [
+    468.4,
+    684.6
+   ],
+   "face": [
+    792.5,
+    352.0
+   ],
+   "head_top": [
+    669.7,
+    196.4
+   ]
+  },
+  "sheets": {
+   "amber": "cine_s03_amber.webp",
+   "forest": "cine_s03_forest.webp",
+   "coral": "cine_s03_coral.webp",
+   "ocean": "cine_s03_ocean.webp",
+   "amethyst": "cine_s03_amethyst.webp",
+   "obsidian": "cine_s03_obsidian.webp"
+  },
+  "wear": {
+   "leaf_scarf": [
+    0,
+    0
+   ],
+   "blue_scarf": [
+    1,
+    0
+   ],
+   "tiny_crown": [
+    2,
+    0
+   ],
+   "golden_crest_crown": [
+    0,
+    1
+   ],
+   "explorer_hat": [
+    1,
+    1
+   ],
+   "butterfly_clip": [
+    2,
+    1
+   ],
+   "red_backpack": [
+    0,
+    2
+   ],
+   "explorer_pack": [
+    1,
+    2
+   ],
+   "reward_windtrail_mantle": [
+    2,
+    2
+   ]
+  },
+  "wearSheet": "cine_s03_wear.webp"
+ }
+}

@@ -279,6 +279,28 @@ def paint_face(ch: Character, cv: Canvas, pal: dict, expr: str):
             t = cv.m_ellipse(0, c0 - h * 0.78, w * 0.3, h * 0.42) & m
             cv.paint(t, pal['tongue'], lit=0.0)
 
+    def teeth(w, h, dv=0.0):
+        # a gritted row of teeth (the cinematics)
+        c0 = mv - 0.3 + dv
+        cv.paint(cv.m_rect(0, c0, w + lw * 0.9, h + lw * 0.9, h * 0.48), pal['mouth_in'], lit=0.0)
+        cv.paint(cv.m_rect(0, c0, w, h, h * 0.42), '#FFFDF6', lit=0.0)
+        cv.paint(cv.m_stroke([(-w / 2, c0), (w / 2, c0)], lw * 0.42), pal['mouth_in'], lit=0.0)
+        for x in (-w * 0.24, w * 0.24):
+            cv.paint(cv.m_stroke([(x, c0 - h / 2), (x, c0 + h / 2)], lw * 0.38), pal['mouth_in'], lit=0.0)
+
+    def sweat():
+        su = eu + ew * 1.6
+        cv.paint(cv.m_ellipse(su, ev + eh * 0.25, 0.55, 0.7) | cv.m_poly(
+            [(su - 0.48, ev + eh * 0.32), (su + 0.48, ev + eh * 0.32), (su, ev + eh * 0.32 + 1.2)]),
+                 pal['sweat'], lit=0.0)
+
+    def brows(lift=1.0, inner=0.64, weight=1.25):
+        # pinched toward the middle: cross, set
+        for s in (-1, 1):
+            cu = s * eu
+            cv.paint(cv.m_stroke([(cu + s * ew * 0.95, ev + eh * lift), (cu - s * ew * 0.62, ev + eh * inner)], lw * weight),
+                     E, lit=0.0)
+
     if expr == 'default':
         cheeks(); eyes(); smile()
     elif expr == 'blink':
@@ -366,6 +388,39 @@ def paint_face(ch: Character, cv: Canvas, pal: dict, expr: str):
         for s in (-1, 1):
             cv.paint(cv.m_arc(s * eu, ev - eh * 0.05, ew * 0.75, 0.6, 195, 345, lw), E, lit=0.0)
         smile(1.0, 0.4)
+    # ---- the cinematics only (the Wilds' boss entrance; not in the sprite sheets)
+    elif expr == 'strain':
+        # squeezed shut against a blast, brows pinched, teeth gritted, a bead of sweat
+        cheeks(w=1.15)
+        for s in (-1, 1):
+            cu = s * eu
+            a = 0.95 * ew
+            pts = [(cu - s * a, ev + eh * 0.34), (cu + s * a * 0.6, ev - eh * 0.04), (cu - s * a, ev - eh * 0.42)]
+            cv.paint(cv.m_stroke(pts, lw * 1.45), E, lit=0.0)
+        brows(1.02, 0.66, 1.3)
+        teeth(3.4, 1.5)
+        sweat()
+    elif expr == 'fierce':
+        # ready: narrowed eyes under set brows, a gritted grin
+        cheeks(0.9)
+        for s in (-1, 1):
+            cu = s * eu
+            m = cv.m_rect(cu, ev - 0.35, ew, eh * 0.74, r)
+            inner = -s
+            cut = (cv.V - (ev - 0.35 + eh * 0.33)) > -((cv.U - cu) * inner + ew / 2) * 1.05
+            cv.paint(m & ~cut, E, lit=0.0)
+            hw = ew * 0.36
+            cv.paint(cv.m_rect(cu - 0.2 * ew, ev - 0.35 + eh * 0.08, hw, hw, 0.1), H, lit=0.0)
+        brows(0.82, 0.4, 1.45)
+        teeth(2.8, 1.25, dv=0.1)
+    elif expr == 'shout':
+        # the blast lands: eyes wide, brows up, mouth open in a yell
+        cheeks()
+        eyes(h=eh * 1.1)
+        for s in (-1, 1):
+            cu = s * eu
+            cv.paint(cv.m_stroke([(cu + s * ew * 0.9, ev + eh * 0.95), (cu - s * ew * 0.6, ev + eh * 1.15)], lw * 1.1), E, lit=0.0)
+        open_mouth(3.3, 2.8, tongue=False)
     # ---- villager-only expressions (Village Tales NPCs; Evochi sprites never use these)
     elif expr == 'worried':
         cheeks(0.6)
