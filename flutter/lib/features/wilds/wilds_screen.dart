@@ -2276,7 +2276,7 @@ class _MapPainter extends CustomPainter {
     for (final (wd, col) in [
       (16.0, Color.fromRGBO(150, 90, 240, 0.28 * flick)),
       (8.0, Color.fromRGBO(200, 160, 255, 0.6 * flick)),
-      (3.0, Color.fromRGBO(255, 245, 255, 0.95)),
+      (3.0, const Color.fromRGBO(255, 245, 255, 0.95)),
     ]) {
       canvas.drawLine(from, to, Paint()
         ..strokeWidth = wd * s._u / 2.7

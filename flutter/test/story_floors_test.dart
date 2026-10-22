@@ -251,7 +251,7 @@ void main() {
       expect(st.hp, hp);
       expect(r.sentinelShield, r.sentinelShieldMax);
       r.applyBuff('lantern');
-      var broke = <String>[];
+      final broke = <String>[];
       for (var i = 0; i < 60 * 10 && r.sentinelShield > 0; i++) {
         r.tick(dt, swing());
         broke.addAll(r.events.map((e) => e.type));

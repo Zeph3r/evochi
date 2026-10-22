@@ -29,7 +29,6 @@ import '../village/story_widgets.dart';
 import '../village/village_screen.dart';
 import '../wilds/story_brief.dart';
 import 'guild_screen.dart';
-import 'prep_screen.dart';
 import 'creature_page.dart';
 import 'trail_place_screen.dart';
 import '../shared/live_scene.dart';
@@ -51,14 +50,10 @@ Route<void> guildRoute() => MaterialPageRoute<void>(settings: const RouteSetting
 void openGuild(BuildContext context) => _pushTrail(context, guildRouteName, (_) => const Ambience('lodge', child: GuildScreen()));
 void openTrailPlace(BuildContext context, String id) =>
     _pushTrail(context, 'trailplace:$id', (_) => Ambience(id == 'gate' ? 'dusk' : 'forest', child: TrailPlaceScreen(placeId: id)));
-/// A Trail Guild job's place: in the Deep Wilds now (the Mossy Ruins at F3, the Sentinel's Gate at F5).
+/// A Trail Guild job's place: a story floor in the Deep Wilds (the Mossy Ruins at F3, the Sentinel's Gate
+/// at F5). Its brief shows what the job still needs and the way down.
 void openPrep(BuildContext context, String questId) {
-  final f = sf.storyFloors[questId];
-  if (f != null && sf.playableBeats.contains(f.beat)) {
-    showStoryFloorBrief(context, questId);
-    return;
-  }
-  _pushTrail(context, 'prep:$questId', (_) => Ambience(scenePlace(tr.encounterDefs[questId]?.scene), child: PrepScreen(questId: questId)));
+  if (sf.storyFloors.containsKey(questId)) showStoryFloorBrief(context, questId);
 }
 
 /// Where a discovery is inspected: a village place, a trail place, or somewhere at home.

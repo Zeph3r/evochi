@@ -145,6 +145,8 @@ class GameController extends ChangeNotifier {
     ready = true;
     // story walks re-check progress on open (e.g. a quest whose target was met by the last sync)
     if (state.player != null) run((s, n) => story.storyTick(s, n), quiet: true);
+    // an old save's encounter left open on the turn-based stage: settled once (nothing is lost)
+    if (state.trails.oldEncounter != null) run((s, n) => tr.settleOldEncounter(s, n));
     notifyListeners();
     if (state.pet != null && state.steps.connection != 'none') unawaited(sync());
   }
@@ -219,11 +221,6 @@ class GameController extends ChangeNotifier {
       'use_in_garden': const Toast('Use this on a garden bed', icon: 'skill_farming', kind: 'warn'),
       'discovery_not_ready': Toast('Walk ${fmtSteps(r.info['need'])} more steps first', icon: 'steps', kind: 'warn'),
       'not_posted': const Toast("That discovery is not on today's board", icon: 'discover', kind: 'warn'),
-      'no_energy': Toast('Not enough Energy (${r.info['need'] ?? 0} needed). Soothe to rest, or use an item', icon: 'energy', kind: 'warn'),
-      'encounter_busy': const Toast('Finish or retreat from the current encounter first', icon: 'encounter', kind: 'warn'),
-      'encounter_over': const Toast('This encounter is over', icon: 'encounter'),
-      'companion_used': const Toast('Petalune already helped this time', icon: 'creature_petalune', kind: 'warn'),
-      'no_companion': const Toast('No companion can help here', icon: 'encounter', kind: 'warn'),
       // the economy (rare finds, the Caravan, the Season Pass, Evochi Plus)
       for (final k in ['need_glimmer', 'no_beds', 'already_armed', 'not_dead', 'season_over', 'not_on_sale', 'not_member'])
         k: Toast(econ.economyError(k, r.info), icon: k == 'need_glimmer' ? 'glimmer' : 'star', kind: 'warn'),
@@ -366,8 +363,13 @@ class GameController extends ChangeNotifier {
       case 'companion_joined':
         final id = e.data['creature'] as String?;
         toast('${tr.creatureDefs[id]?.name ?? 'A new friend'} joined you as a companion!', icon: id == null ? 'encounter' : 'creature_$id');
-      case 'encounter_retreat':
-        toast('You slipped away. Items used are back in your Bag', icon: 'bag');
+      case 'old_encounter_settled':
+        // an old save's open encounter (the Guild's jobs are story floors in the Deep Wilds now)
+        toast(
+            e.data['handedIn'] == true
+                ? 'Your Trail Guild job is complete!'
+                : 'The Trail Guild\'s jobs now lead down Fernwood Trail. What you offered is back in your Bag',
+            icon: e.data['handedIn'] == true ? 'journey' : 'bag');
       case 'story_completed':
         analytics.track('story_quest_completed', {'quest': e.data['questId']});
       case 'sync_failed':

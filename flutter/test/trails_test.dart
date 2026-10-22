@@ -1,5 +1,5 @@
-// Lumen Trails: daily discoveries, the Trail Guild, encounter quests, the encounter engine and
-// companions. Mirrors web/test/trails.test.mjs so both clients are held to the same trail rules.
+// Lumen Trails: daily discoveries, the Trail Guild, encounter quests (their beats are the Deep Wilds'
+// story floors: game/wilds/story_floors.dart), companions, and old saves' open encounters settled.
 
 import 'dart:convert';
 
@@ -12,6 +12,8 @@ import 'package:evochi/game/engine.dart' as g;
 import 'package:evochi/game/home/home.dart' as h;
 import 'package:evochi/game/story/story.dart' as q;
 import 'package:evochi/game/trails/trails.dart' as tr;
+import 'package:evochi/game/wilds/story_floors.dart' as sf;
+import 'package:evochi/game/wilds/wilds.dart' as w;
 import 'package:flutter_test/flutter_test.dart';
 
 const tzName = 'America/New_York';
@@ -100,30 +102,6 @@ QuestState doneState(int now, {int resolved = 1000, bool seen = false}) => Quest
   }
   return (s, now);
 }
-
-/// Play an encounter to the end with Lumen Glow, resting when out of Energy. Returns the state and
-/// how many turns it took.
-(GameState, int) playOut(GameState s, int now, {String? item}) {
-  var turns = 0;
-  while (tr.encounterView(s, now)!.done == null) {
-    final v = tr.encounterView(s, now)!;
-    final comp = v.actions.where((a) => a.id == 'petal_hush' && a.can).firstOrNull;
-    if (item != null && g.ownedQty(s, item) > 0 && turns == 0) {
-      s = must(tr.encounterAct(s, 'item', item, now));
-    } else if (comp != null) {
-      s = must(tr.encounterAct(s, 'petal_hush', null, now));
-    } else if (v.energy >= 24) {
-      s = must(tr.encounterAct(s, 'lumen_glow', null, now));
-    } else {
-      s = must(tr.encounterAct(s, 'soothe', null, now));
-    }
-    turns++;
-    expect(turns < 80, isTrue, reason: 'encounter runaway');
-  }
-  return (s, turns);
-}
-
-List<String> logLines(GameState s) => [for (final l in s.trails.encounter!.log) '${l.who}: ${l.text}'];
 
 int balance(GameState s) => g.balanceOf(s);
 
@@ -227,8 +205,8 @@ void main() {
     expect(q.npcConversation(s, 'npc_pip', now).start, 'VQ02_PIP00'); // the greeting, then straight into the Guild job
     expect(q.npcConversation(s, 'npc_pip', now).nodes['VQ02_PIP00']!.choices[0].next, 'EQ01_P00');
     s = must(q.acceptStoryQuest(s, 'eq01', now));
-    // the encounter waits for the walk
-    expect(tr.startEncounter(s, 'eq01', now).error, 'story_not_ready');
+    // its place (the Mossy Ruins, F3) waits for the walk
+    expect(sf.storyFloorOpen(s, 'eq01'), isFalse);
     s = sync(s, walkAt(now + minMs, 1600, 'eq01'), now + 2 * hourMs).state;
     now += 2 * hourMs;
     expect(q.questPhase(s, 'eq01'), 'ruins_ready');
@@ -240,40 +218,16 @@ void main() {
     expect(q.storyStatus(s, now).encounters.any((v) => v.id == 'eq01'), isTrue);
     // the optional tart is never required
     expect(q.questView(s, 'eq01', now).objectives.firstWhere((o) => o.id == 'tart').optional, isTrue);
-    s = must(tr.startEncounter(s, 'eq01', now));
-    var v = tr.encounterView(s, now)!;
-    expect(v.goal, 'befriend');
-    expect(v.meter, 0);
-    expect(v.stateKey, 'wary');
-    expect(v.energy, 100);
-    expect(v.intro, 'rare');
-    // the same attempt always plays the same way
-    final a1 = tr.encounterAct(s, 'lumen_glow', null, now);
-    final a2 = tr.encounterAct(s, 'lumen_glow', null, now);
-    expect(logLines(a1.state), equals(logLines(a2.state)));
-    expect(a1.state.trails.encounter!.energy, 76);
-    // the turn event carries what the screen choreographs
-    final turn = a1.events.firstWhere((e) => e.type == 'encounter_turn');
-    expect(turn.data['you'], 16);
-    expect(turn.data['kind'], 'light');
-    expect(turn.data['item'], isNull);
-    expect(turn.data['drain'], 0);
-    expect(turn.data['mood'], a1.state.trails.encounter!.mood);
-    expect(turn.data['wild'], isA<int>());
-    // an item you don't have is refused; no energy means no glow
-    expect(tr.encounterAct(s, 'item', 'sunberry_tart', now).error, 'not_owned');
-    int turns;
-    (s, turns) = playOut(s, now);
-    v = tr.encounterView(s, now)!;
-    expect(v.done, 'success');
-    expect(v.stateKey, 'happy');
-    expect(turns > 3 && turns < 40, isTrue, reason: 'took $turns turns');
+    // the job's place: the Mossy Ruins at F3 of Fernwood Trail, while the job is open
+    expect(sf.storyFloorAt(s, 3)?.quest, 'eq01');
+    expect(tr.encounterDefs['eq01']!.creature, 'petalune');
+    // Petalune's trust earned on the floor: the job hands in
+    final coins = balance(s);
+    final r = sf.wildsStoryDone(s, 'eq01', now);
+    s = must(r);
     expect(s.trails.companions['petalune']!.since, now);
     expect(s.trails.stat('befriended'), 1);
-    final coins = balance(s);
-    final r = tr.completeEncounter(s, now);
-    s = must(r);
-    expect(s.trails.encounter, isNull);
+    expect(sf.storyFloorAt(s, 3), isNull, reason: 'done: F3 is an ordinary floor again');
     expect(q.questPhase(s, 'eq01'), 'completed');
     expect(q.pouchQty(s, 'q_mossy_clue'), 0);
     expect(balance(s), coins + 150);
@@ -291,7 +245,7 @@ void main() {
     expect(tr.pickDiscoveries(s, addDays(k0, 2)).length, 3);
   });
 
-  test('a liked treat calms faster; retreating returns the items used', () {
+  test('old saves: an encounter left open on the turn-based stage gives back what was offered', () {
     var s = freshPet();
     s = levelUp(s, 3, t0);
     var now = t0 + hourMs;
@@ -301,33 +255,48 @@ void main() {
     s = must(q.acceptStoryQuest(s, 'eq01', now));
     s = sync(s, walkAt(now + minMs, 1600, 'eq01'), now + 2 * hourMs).state;
     now += 2 * hourMs;
-    s = give(s, 'sunberry_tart', 1);
-    s = must(tr.startEncounter(s, 'eq01', now));
-    expect(tr.itemEffect('sunberry_tart', 'befriend', 'petalune')!.amount, 39);
-    expect(tr.itemEffect('sunberry_tart', 'befriend', 'petalune')!.liked, isTrue);
-    // the starter care items (berry snack, healing herb) can be offered too
-    expect(tr.encounterView(s, now)!.items.map((i) => i.id), contains('sunberry_tart'));
-    final r = tr.encounterAct(s, 'item', 'sunberry_tart', now);
-    final after = must(r);
-    expect(g.ownedQty(after, 'sunberry_tart'), 0);
-    expect(after.trails.encounter!.meter >= 39, isTrue, reason: 'tart counted');
-    expect(after.trails.encounter!.used['sunberry_tart'], 1);
-    final turn = r.events.firstWhere((e) => e.type == 'encounter_turn');
-    expect(turn.data['kind'], 'item');
-    expect(turn.data['item'], 'sunberry_tart');
-    expect(turn.data['you'], 39);
-    // retreat: the tart comes back, the quest stays ready
-    final rr = tr.encounterAct(after, 'retreat', null, now);
-    final back = must(rr);
-    expect(rr.events.any((e) => e.type == 'encounter_retreat'), isTrue);
-    expect(back.trails.encounter, isNull);
+    // a save from before: the tart already offered, the encounter unfinished
+    final j = s.toJson();
+    (j['trails'] as Map)['encounter'] = {
+      'quest': 'eq01', 'creature': 'petalune', 'goal': 'befriend', 'meter': 39, 'max': 100, 'energy': 76, 'energyMax': 100,
+      'turn': 1, 'seed': 'old:eq01:1', 'mood': 'curious', 'used': {'sunberry_tart': 1}, 'log': [], 'startedAt': now,
+    };
+    final old = GameState.fromJson((jsonDecode(jsonEncode(j)) as Map).cast<String, dynamic>());
+    expect(old.trails.oldEncounter?.used['sunberry_tart'], 1);
+    final r = tr.settleOldEncounter(old, now);
+    final back = must(r);
+    expect(back.trails.oldEncounter, isNull);
+    expect(back.toJson()['trails'], isNot(contains('encounter')));
     expect(g.ownedQty(back, 'sunberry_tart'), 1);
-    expect(q.questPhase(back, 'eq01'), 'ruins_ready');
-    expect(back.trails.stat('retreats'), 1);
-    // a second attempt reseeds
-    final again = must(tr.startEncounter(back, 'eq01', now + hourMs));
-    expect(again.trails.encounter!.seed, isNot(after.trails.encounter!.seed));
-    expect(again.trails.attempts['eq01'], 2);
+    expect(q.questPhase(back, 'eq01'), 'ruins_ready', reason: 'the job still waits, now on its story floor');
+    expect(r.events.single.data['handedIn'], isFalse);
+    // settled once: nothing more
+    expect(identical(tr.settleOldEncounter(back, now).state, back), isTrue);
+  });
+
+  test('old saves: an encounter already won but not yet handed in finishes its job', () {
+    var s = freshPet();
+    s = levelUp(s, 3, t0);
+    var now = t0 + hourMs;
+    s = finishVq01(s, now);
+    now += 3 * hourMs;
+    (s, now) = doDiscoveries(s, 2, now);
+    s = must(q.acceptStoryQuest(s, 'eq01', now));
+    s = sync(s, walkAt(now + minMs, 1600, 'eq01'), now + 2 * hourMs).state;
+    now += 2 * hourMs;
+    final j = s.toJson();
+    (j['trails'] as Map)['encounter'] = {
+      'quest': 'eq01', 'creature': 'petalune', 'goal': 'befriend', 'seed': 'old:eq01:1', 'used': <String, int>{}, 'done': 'success',
+    };
+    (j['trails'] as Map)['companions'] = {'petalune': {'since': now, 'encounters': 0}};
+    final old = GameState.fromJson((jsonDecode(jsonEncode(j)) as Map).cast<String, dynamic>());
+    final coins = balance(old);
+    final r = tr.settleOldEncounter(old, now);
+    final done = must(r);
+    expect(q.questPhase(done, 'eq01'), 'completed');
+    expect(balance(done), coins + 150);
+    expect(r.events.any((e) => e.type == 'old_encounter_settled' && e.data['handedIn'] == true), isTrue);
+    expect(done.trails.oldEncounter, isNull);
   });
 
   test('Tangled Lumen: a Hollow is restored (Instability to 0); Glowleaf is required and Light hits harder', () {
@@ -340,9 +309,7 @@ void main() {
     s = must(q.acceptStoryQuest(s, 'eq01', now));
     s = sync(s, walkAt(now + minMs, 1600, 'eq01'), now + 2 * hourMs).state;
     now += 2 * hourMs;
-    s = must(tr.startEncounter(s, 'eq01', now));
-    (s, _) = playOut(s, now);
-    s = must(tr.completeEncounter(s, now));
+    s = must(sf.wildsStoryDone(s, 'eq01', now));
     // hq01 (the cottage) is also a prerequisite
     expect(q.questPhase(s, 'eq02'), 'locked');
     s = s.copy();
@@ -354,35 +321,12 @@ void main() {
     s = sync(s, walkAt(now + minMs, 2100, 'eq02'), now + 2 * hourMs).state;
     now += 2 * hourMs;
     expect(q.nextStep(s, 'eq02').kind, 'gather');
-    expect(tr.startEncounter(s, 'eq02', now).error, 'story_missing_items');
+    expect(sf.storyFloorAt(s, 3), isNull, reason: 'the Glowleaf first');
     s = give(s, 'glowleaf', 2);
     expect(q.nextStep(s, 'eq02').kind, 'encounter');
-    s = must(tr.startEncounter(s, 'eq02', now));
-    var v = tr.encounterView(s, now)!;
-    expect(v.goal, 'restore');
-    expect(v.meter, 100);
-    expect(v.max, 100);
-    expect(v.stateKey, 'hollow');
-    expect(v.intro, 'hollow');
-    expect(v.meterLabel, 'Instability');
-    expect(v.actions.firstWhere((a) => a.id == 'lumen_glow').power, 21, reason: 'Light x1.3 against the Hollow');
-    expect(v.actions.any((a) => a.id == 'petal_hush' && a.can), isTrue, reason: 'Petalune helps');
-    final one = tr.encounterAct(s, 'lumen_glow', null, now).state.trails.encounter!;
-    expect(one.meter <= 100 - 21 + 9, isTrue, reason: 'instability fell');
-    // the companion's hum, once
-    final hum = tr.encounterAct(s, 'petal_hush', null, now);
-    expect(must(hum).trails.encounter!.companionUsed, isTrue);
-    expect(hum.events.firstWhere((e) => e.type == 'encounter_turn').data['kind'], 'companion');
-    expect(tr.encounterAct(hum.state, 'petal_hush', null, now).error, 'companion_used');
-    int turns;
-    (s, turns) = playOut(s, now);
-    v = tr.encounterView(s, now)!;
-    expect(v.done, 'success');
-    expect(v.stateKey, 'restored');
-    expect(v.meter, 0);
-    expect(s.trails.encounter!.companionUsed, isTrue);
-    expect(turns > 1, isTrue);
-    s = must(tr.completeEncounter(s, now));
+    expect(sf.storyFloorAt(s, 3)?.beat, 'sprout');
+    // the Hollow Sprout calmed on the floor: restored, and the job hands in
+    s = must(sf.wildsStoryDone(s, 'eq02', now));
     expect(g.ownedQty(s, 'glowleaf'), 0, reason: 'the Glowleaf poultice was used');
     expect(s.story.flags['sprout_restored'], isTrue);
     expect(s.trails.restored['hollow_sprout'], now);
@@ -425,17 +369,14 @@ void main() {
     s = must(q.acceptStoryQuest(s, 'eq03', now));
     s = sync(s, walkAt(now + minMs, 3100, 'eq03'), now + 2 * hourMs).state;
     s = give(s, 'lantern_tonic', 1);
-    s = must(tr.startEncounter(s, 'eq03', now + 2 * hourMs));
-    // offer the only tonic in the fight
-    (s, _) = playOut(s, now + 2 * hourMs, item: 'lantern_tonic');
-    expect(tr.encounterView(s, now)!.done, 'success');
+    expect(sf.storyFloorAt(s, 5)?.beat, 'sentinel');
+    // the only tonic drunk in the fight (its light breaks the Sentinel's shield)
+    s = must(w.wildsDrink(s, 'lantern_tonic', now + 2 * hourMs));
     expect(g.ownedQty(s, 'lantern_tonic'), 0);
-    // the gate accepts the tonic you already gave the Sentinel: no "you still need 1 more Lantern Tonic"
-    s = must(tr.completeEncounter(s, now + 3 * hourMs));
+    // the gate accepts the tonic already spent on it: no "you still need 1 more Lantern Tonic"
+    s = must(sf.wildsStoryDone(s, 'eq03', now + 3 * hourMs, spent: const {'lantern_tonic': 1}));
     expect(q.questPhase(s, 'eq03'), 'completed');
-    expect(tr.encounterView(s, now), isNull);
     expect(g.ownedQty(s, 'lantern_tonic'), 0);
-    // and the Bag still pays first when it can: two tonics, one offered, one taken at the gate (the test below)
   });
 
   test('The Forgotten Sentinel: after the Waystone, a long restore with a second phase; the relic and title', () {
@@ -463,35 +404,12 @@ void main() {
     expect(q.nextStep(s, 'eq03').kind, 'gather'); // the Lantern Tonic
     s = give(s, 'lantern_tonic', 2);
     expect(q.nextStep(s, 'eq03').place, 'gate');
-    s = must(tr.startEncounter(s, 'eq03', now + 2 * hourMs));
-    var v = tr.encounterView(s, now)!;
-    expect(v.boss, isTrue);
-    expect(v.max, 200);
-    expect(v.meter, 200);
-    expect(v.phase2, isFalse);
-    expect(v.intro, 'boss');
-    expect(v.scene, 'sentinel_gate');
-    expect(v.energy, tr.maxEnergy(s));
-    expect(tr.itemEffect('lantern_tonic', 'restore', 'sentinel')!.amount, 66);
-    // the tonic alone never reaches half way; phase 2 opens once Instability is at or below 100
-    final tonic = must(tr.encounterAct(s, 'item', 'lantern_tonic', now + 2 * hourMs));
-    expect(tr.encounterView(tonic, now)!.meter <= 200 - 66 + 9, isTrue);
-    var mid = tonic;
-    var guard = 0;
-    while (!tr.encounterView(mid, now)!.phase2 && tr.encounterView(mid, now)!.done == null && guard++ < 40) {
-      final vv = tr.encounterView(mid, now)!;
-      mid = must(tr.encounterAct(mid, vv.energy >= 24 ? 'lumen_glow' : 'soothe', null, now + 2 * hourMs));
-    }
-    expect(tr.encounterView(mid, now)!.phase2, isTrue);
-    expect(tr.encounterView(mid, now)!.stateKey, 'waking');
-    int turns;
-    (s, turns) = playOut(s, now + 2 * hourMs, item: 'lantern_tonic');
-    v = tr.encounterView(s, now)!;
-    expect(v.done, 'success');
-    expect(v.stateKey, 'restored');
-    expect(turns >= 4, isTrue, reason: 'a boss takes a while ($turns)');
+    expect(tr.encounterDefs['eq03']!.scene, 'sentinel_gate');
+    expect(sf.storyFloorAt(s, 5)?.quest, 'eq03');
+    // one tonic drunk in the fight, the other taken at the gate
+    s = must(w.wildsDrink(s, 'lantern_tonic', now + 2 * hourMs));
     final coins = balance(s);
-    s = must(tr.completeEncounter(s, now + 3 * hourMs));
+    s = must(sf.wildsStoryDone(s, 'eq03', now + 3 * hourMs));
     expect(q.questPhase(s, 'eq03'), 'completed');
     expect(g.ownedQty(s, 'lantern_tonic'), 0, reason: 'one tonic used in the encounter, one at the gate');
     expect(g.ownedQty(s, 'ancient_relic'), 1);

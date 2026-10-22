@@ -1,5 +1,5 @@
 // Lumen Trails state: the Trail Guild's daily discovery boards, guild XP, companions, restored
-// guardians, the live encounter (if any) and a few counters. Like the story and the home it belongs
+// guardians, an old save's open encounter (until settled) and a few counters. Like the story and the home it belongs
 // to the player account, not to one Evochi. JSON keys match the web build (`state.trails`), so saves
 // stay portable between the two clients. Old saves without a trails object start a fresh one.
 
@@ -50,92 +50,29 @@ class CompanionState {
   Map<String, dynamic> toJson() => {'since': since, 'encounters': encounters};
 }
 
-/// One line of the encounter log ('you' or 'wild').
-class LogLine {
-  const LogLine(this.who, this.text);
-  final String who;
-  final String text;
-
-  factory LogLine.fromJson(Map<String, dynamic> j) => LogLine((j['who'] as String?) ?? 'wild', (j['text'] as String?) ?? '');
-  Map<String, dynamic> toJson() => {'who': who, 'text': text};
-}
-
-/// The live encounter: a pure turn-based state machine, seeded per attempt.
-class EncounterState {
-  EncounterState({
-    required this.quest,
-    required this.creature,
-    required this.goal,
-    required this.meter,
-    required this.max,
-    required this.energy,
-    required this.energyMax,
-    required this.seed,
-    required this.mood,
-    required this.startedAt,
-    this.turn = 0,
-    this.curious = false,
-    Map<String, int>? used,
-    this.companionUsed = false,
-    this.done,
-    List<LogLine>? log,
-  })  : used = used ?? {},
-        log = log ?? [];
-
+/// An encounter an old save left open (the Guild's jobs once played out on a turn-based stage; they are
+/// story floors in the Deep Wilds now). Only what settling it needs is kept: whose job, whether it was won,
+/// and what was offered during it (game/trails/trails.dart settleOldEncounter).
+class OldEncounter {
+  OldEncounter({required this.quest, required this.creature, required this.goal, required this.seed, Map<String, int>? used, this.done})
+      : used = used ?? {};
   final String quest;
   final String creature;
   final String goal; // befriend | restore
-  int meter; // Calm (befriend: 0 -> max) or Instability (restore: max -> 0)
-  final int max;
-  int energy;
-  final int energyMax;
-  int turn;
   final String seed;
-  String mood;
-  bool curious;
-  final Map<String, int> used; // items offered this attempt (returned on a retreat)
-  bool companionUsed;
-  String? done; // 'success' once the meter is full / empty
-  final List<LogLine> log;
-  final int startedAt;
+  final Map<String, int> used; // items offered during it
+  final String? done; // 'success' if it was won
 
-  factory EncounterState.fromJson(Map<String, dynamic> j) => EncounterState(
-        quest: j['quest'] as String,
-        creature: j['creature'] as String,
+  factory OldEncounter.fromJson(Map<String, dynamic> j) => OldEncounter(
+        quest: (j['quest'] as String?) ?? '',
+        creature: (j['creature'] as String?) ?? '',
         goal: (j['goal'] as String?) ?? 'befriend',
-        meter: _i(j['meter']),
-        max: _i(j['max'], 100),
-        energy: _i(j['energy']),
-        energyMax: _i(j['energyMax'], 100),
-        turn: _i(j['turn']),
         seed: (j['seed'] as String?) ?? '',
-        mood: (j['mood'] as String?) ?? 'wary',
-        curious: j['curious'] == true,
         used: _m(j['used']).map((k, v) => MapEntry(k, _i(v))),
-        companionUsed: j['companionUsed'] == true,
         done: j['done'] as String?,
-        log: _l(j['log']).map((e) => LogLine.fromJson(_m(e))).toList(),
-        startedAt: _i(j['startedAt']),
       );
 
-  Map<String, dynamic> toJson() => {
-        'quest': quest,
-        'creature': creature,
-        'goal': goal,
-        'meter': meter,
-        'max': max,
-        'energy': energy,
-        'energyMax': energyMax,
-        'turn': turn,
-        'seed': seed,
-        'mood': mood,
-        'curious': curious,
-        'used': used,
-        'companionUsed': companionUsed,
-        'done': done,
-        'log': log.map((e) => e.toJson()).toList(),
-        'startedAt': startedAt,
-      };
+  Map<String, dynamic> toJson() => {'quest': quest, 'creature': creature, 'goal': goal, 'seed': seed, 'used': used, 'done': done};
 }
 
 class TrailsState {
@@ -145,7 +82,7 @@ class TrailsState {
     Map<String, TrailDay>? days,
     Map<String, CompanionState>? companions,
     Map<String, int>? restored,
-    this.encounter,
+    this.oldEncounter,
     Map<String, int>? attempts,
     Map<String, bool>? seen,
     Map<String, int>? stats,
@@ -161,8 +98,8 @@ class TrailsState {
   final Map<String, TrailDay> days; // dayKey -> that day's board
   final Map<String, CompanionState> companions; // creatureId -> since / encounters
   final Map<String, int> restored; // creatureId -> restored at
-  EncounterState? encounter; // the live encounter, or null
-  final Map<String, int> attempts; // questId -> n (seeds each attempt)
+  OldEncounter? oldEncounter; // an old save's open encounter, until it is settled on load
+  final Map<String, int> attempts; // questId -> n (old saves: the turn-based encounter's attempts)
   final Map<String, bool> seen; // one-time scenes: guild_intro
   final Map<String, int> stats; // discoveries | encounters | befriended | restored | retreats
 
@@ -178,7 +115,7 @@ class TrailsState {
       days: _m(j['days']).map((k, v) => MapEntry(k, TrailDay.fromJson(_m(v)))),
       companions: _m(j['companions']).map((k, v) => MapEntry(k, CompanionState.fromJson(_m(v)))),
       restored: _m(j['restored']).map((k, v) => MapEntry(k, _i(v))),
-      encounter: j['encounter'] is Map ? EncounterState.fromJson(_m(j['encounter'])) : null,
+      oldEncounter: j['encounter'] is Map ? OldEncounter.fromJson(_m(j['encounter'])) : null,
       attempts: _m(j['attempts']).map((k, v) => MapEntry(k, _i(v))),
       seen: _m(j['seen']).map((k, v) => MapEntry(k, v == true)),
       stats: _m(j['stats']).map((k, v) => MapEntry(k, _i(v))),
@@ -191,7 +128,7 @@ class TrailsState {
         'days': days.map((k, v) => MapEntry(k, v.toJson())),
         'companions': companions.map((k, v) => MapEntry(k, v.toJson())),
         'restored': restored,
-        'encounter': encounter?.toJson(),
+        if (oldEncounter != null) 'encounter': oldEncounter!.toJson(),
         'attempts': attempts,
         'seen': seen,
         'stats': stats,

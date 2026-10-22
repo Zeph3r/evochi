@@ -1,5 +1,5 @@
-// Lumen Trails: the Trail Guild's daily discoveries, encounter quests, the encounter engine (calm,
-// befriend, restore) and companions. Mirrors web/src/game/trails.js.
+// Lumen Trails: the Trail Guild's daily discoveries, its jobs (the creatures they lead to) and
+// companions. The jobs themselves are played in the Deep Wilds now (game/wilds/story_floors.dart).
 //
 // Lore: ancient Lumen Trails once joined every corner of the Evochi world. Lumen is made by movement,
 // exploration and bonds, so your real steps restore the trails. Encounters are never fights to the
@@ -9,8 +9,8 @@
 // Rules of thumb:
 //  - three authored discoveries a day, picked deterministically per account and day, never random
 //  - discovery walks count steps after you begin them (same fresh-sample counting as the story)
-//  - encounter quests live in the story engine (line 'trail'); the encounter itself is the hand-in
-//  - the encounter is a pure turn-based state machine seeded per attempt, so it replays the same way
+//  - encounter quests live in the story engine (line 'trail'); the job's beat on its story floor is
+//    the hand-in
 //
 // Every action is `(state, ..., now) -> ActionResult` and never mutates its input.
 
@@ -19,7 +19,6 @@ import 'dart:math' as math;
 import '../../core/models/catalog.dart';
 import '../../core/models/game_state.dart';
 import '../../core/utils/day_keys.dart';
-import '../../core/models/trails_state.dart';
 import '../economy/economy.dart' as econ;
 import '../engine.dart';
 import '../story/story.dart' as story;
@@ -504,7 +503,6 @@ class TrailsStatus {
     required this.rank,
     required this.companions,
     required this.restored,
-    required this.encounter,
     required this.stats,
     required this.seen,
     required this.dayKey,
@@ -514,7 +512,6 @@ class TrailsStatus {
   final GuildRankView rank;
   final List<CompanionView> companions;
   final Map<String, int> restored;
-  final EncounterView? encounter;
   final Map<String, int> stats;
   final Map<String, bool> seen;
   final String dayKey;
@@ -540,7 +537,6 @@ TrailsStatus trailsStatus(GameState s, int now) {
     rank: guildRank(tr.guildXp),
     companions: [for (final e in tr.companions.entries) if (creatureDefs.containsKey(e.key)) CompanionView(creatureDefs[e.key]!, e.value)],
     restored: Map.of(tr.restored),
-    encounter: tr.encounter == null ? null : encounterView(s, now),
     stats: Map.of(tr.stats),
     seen: Map.of(tr.seen),
     dayKey: key,
@@ -625,8 +621,8 @@ ActionResult markTrailSeen(GameState state, String key) {
 }
 
 // ---------------------------------------------------------------- encounters ----
-// Each encounter quest's hand-in names a creature; the encounter is played out here and the story
-// hand-in runs on success. Befriend: fill Calm to 100. Restore: bring Instability to 0.
+// Each encounter quest's hand-in names a creature, and the place it waits: the Guild's cards and the
+// places show these; the beat itself is played on the job's story floor in the Deep Wilds.
 class Recommended {
   const Recommended({required this.items, required this.stage, required this.affinity});
   final List<String> items;
@@ -688,347 +684,35 @@ const encounterDefs = <String, EncounterDef>{
       recommended: Recommended(items: ['lantern_tonic'], stage: 2, affinity: 'celestial')),
 };
 
-class EncounterActionDef {
-  const EncounterActionDef(this.id, this.name, this.kind, this.icon, this.energy, this.power, this.text);
-  final String id;
-  final String name;
-  final String kind; // light | physical | restore | item | companion | retreat
-  final String icon;
-  final int energy; // cost (negative: restores)
-  final int power;
-  final String text;
-}
-
-const encounterActions = <String, EncounterActionDef>{
-  'lumen_glow': EncounterActionDef('lumen_glow', 'Lumen Glow', 'light', 'star', 24, 16, 'A warm pulse of Lumen. Strong against the Hollow.'),
-  'gentle_nudge': EncounterActionDef('gentle_nudge', 'Gentle Nudge', 'physical', 'play', 10, 9, 'A playful bump. Cheap, and it makes a wild Evochi curious.'),
-  'soothe': EncounterActionDef('soothe', 'Soothe', 'restore', 'calm', -30, 5, 'Sit quietly together. Restores 30 Energy and adds a little Calm.'),
-  'item': EncounterActionDef('item', 'Use Item', 'item', 'bag', 0, 0, 'Offer food or a tonic from your Bag.'),
-  'petal_hush': EncounterActionDef('petal_hush', 'Petal Hush', 'companion', 'creature_petalune', 0, 12, 'Petalune hums. Once an encounter, no Energy.'),
-  'retreat': EncounterActionDef('retreat', 'Retreat', 'retreat', 'back', 0, 0, 'Leave quietly. Items used are returned.'),
-};
-
-class ItemEffect {
-  const ItemEffect(this.amount, this.liked);
-  final int amount;
-  final bool liked;
-}
-
-const _itemBase = <String, (int, int)>{
-  // (befriend, restore)
-  'sunberry_tart': (26, 6),
-  'carrot_stew': (22, 6),
-  'golden_bun': (18, 4),
-  'moonshroom_pie': (30, 10),
-  'berry_snack': (12, 2),
-  'glowleaf': (10, 18),
-  'healing_herb': (6, 16),
-  'meadow_tea': (16, 16),
-  'glowleaf_tonic': (14, 24),
-  'moonlight_draught': (12, 30),
-  'lantern_tonic': (20, 44),
-};
-
-/// What an item does in an encounter (Calm for befriending, Instability for restoring), or null.
-ItemEffect? itemEffect(String itemId, String goal, String creature) {
-  if (!catalog.containsKey(itemId)) return null;
-  final base = _itemBase[itemId];
-  if (base == null) return null;
-  final liked = creatureDefs[creature]?.likes.contains(itemId) ?? false;
-  final raw = goal == 'befriend' ? base.$1 : base.$2;
-  return ItemEffect((raw * (liked ? 1.5 : 1)).round(), liked);
-}
-
-class EncounterItem {
-  const EncounterItem(this.id, this.qty, this.effect);
-  final String id;
-  final int qty;
-  final ItemEffect effect;
-  String get name => catalog[id]?.name ?? id;
-  int get amount => effect.amount;
-  bool get liked => effect.liked;
-}
-
-/// Bag items that help in this encounter, with what they would do.
-List<EncounterItem> encounterItems(GameState s, String goal, String creature) {
-  final out = <EncounterItem>[];
-  for (final id in s.inventory.keys) {
-    if (ownedQty(s, id) <= 0) continue;
-    final fx = itemEffect(id, goal, creature);
-    if (fx != null) out.add(EncounterItem(id, ownedQty(s, id), fx));
-  }
-  return out;
-}
-
-int _petStage(GameState s) => s.pet?.stage ?? 1;
-
-int maxEnergy(GameState s) => const {1: 100, 2: 120, 3: 140}[_petStage(s)] ?? 100;
-
-/// Start the encounter for a quest whose hand-in is ready.
-ActionResult startEncounter(GameState state, String qid, int now) {
-  final e = encounterDefs[qid];
-  if (e == null) return _fail(state, 'unknown_encounter');
-  if (state.pet == null || state.player == null) return _fail(state, 'no_pet');
-  final q = story.storyQuests[qid]!;
-  final t = q.turnIns.firstWhere((x) => x.encounter != null);
-  if (story.questPhase(state, qid) != t.from) return _fail(state, 'story_not_ready');
-  final n = story.nextStep(state, qid);
-  if (n.kind == 'gather') return _fail(state, 'story_missing_items', {'missing': n.needs.where((x) => !x.ok).toList()});
-  final cur = state.trails.encounter;
-  if (cur != null && cur.quest != qid) return _fail(state, 'encounter_busy');
-  final s = state.copy();
-  final tr = s.trails;
-  tr.attempts[qid] = (tr.attempts[qid] ?? 0) + 1;
-  final c = creatureDefs[e.creature]!;
-  tr.encounter = EncounterState(
-    quest: qid,
-    creature: e.creature,
-    goal: e.goal,
-    meter: e.goal == 'befriend' ? 0 : e.meter,
-    max: e.meter,
-    energy: maxEnergy(s),
-    energyMax: maxEnergy(s),
-    seed: '${s.player!.id}:$qid:${tr.attempts[qid]}',
-    mood: e.goal == 'befriend' ? 'wary' : 'surging',
-    startedAt: now,
-    log: [LogLine('wild', e.goal == 'befriend' ? '${c.name} watches you from a distance.' : '${c.name} shudders with Hollow energy.')],
-  );
-  tr.stats['encounters'] = tr.stat('encounters') + 1;
-  return _ok(s, [GameEvent('encounter_started', {'quest': qid, 'creature': e.creature})]);
-}
-
-double _pct(EncounterState e) => e.goal == 'befriend' ? e.meter / e.max : 1 - e.meter / e.max;
-
-/// One action as the encounter screen shows it: whether it can be used now and its effective power.
-class ActionView {
-  const ActionView(this.def, {required this.can, required this.power});
-  final EncounterActionDef def;
-  final bool can;
-  final int power;
-  String get id => def.id;
-  String get name => def.name;
-  String get kind => def.kind;
-  String get icon => def.icon;
-  int get energy => def.energy;
-  String get text => def.text;
-}
-
-/// Everything the encounter screen needs.
-class EncounterView {
-  EncounterView({
-    required this.e,
-    required this.creature,
-    required this.def,
-    required this.pct,
-    required this.stateKey,
-    required this.actions,
-    required this.items,
-  });
-  final EncounterState e;
-  final Creature creature;
-  final EncounterDef def;
-  final double pct;
-  final String stateKey; // the creature sprite state to draw
-  final List<ActionView> actions;
-  final List<EncounterItem> items;
-
-  String get quest => e.quest;
-  String get goal => e.goal;
-  int get meter => e.meter;
-  int get max => e.max;
-  int get energy => e.energy;
-  int get energyMax => e.energyMax;
-  int get turn => e.turn;
-  String get seed => e.seed;
-  String get mood => e.mood;
-  bool get companionUsed => e.companionUsed;
-  Map<String, int> get used => e.used;
-  String? get done => e.done;
-  List<LogLine> get log => e.log;
-  String get scene => def.scene;
-  String get intro => def.intro;
-  Recommended get recommended => def.recommended;
-  int get pctLabel => (pct * 100).round();
-  String get meterLabel => goal == 'befriend' ? 'Calm' : 'Instability';
-  int get meterShown => meter;
-  bool get boss => creature.boss;
-  bool get phase2 => creature.boss && pct >= 0.5;
-  bool get success => done == 'success';
-}
-
-EncounterView? encounterView(GameState s, int now) {
-  final e = s.trails.encounter;
-  if (e == null) return null;
-  final c = creatureDefs[e.creature]!;
-  final def = encounterDefs[e.quest]!;
-  final p = _pct(e);
-  final stateKey = e.done == 'success' ? c.states.done : (p >= 0.5 ? c.states.mid : c.states.start);
-  final companion = s.trails.companions.containsKey('petalune') && e.creature != 'petalune' ? encounterActions['petal_hush'] : null;
-  final actions = <ActionView>[
-    for (final id in const ['lumen_glow', 'gentle_nudge', 'soothe', 'item'])
-      ActionView(
-        encounterActions[id]!,
-        can: e.done == null && (encounterActions[id]!.energy <= 0 || e.energy >= encounterActions[id]!.energy),
-        power: encounterActions[id]!.kind == 'light' && c.kind == 'hollow' ? (encounterActions[id]!.power * 1.3).round() : encounterActions[id]!.power,
-      ),
-    if (companion != null) ActionView(companion, can: e.done == null && !e.companionUsed, power: companion.power),
-  ];
-  return EncounterView(e: e, creature: c, def: def, pct: p, stateKey: stateKey, actions: actions, items: encounterItems(s, e.goal, e.creature));
-}
-
-/// More Calm, or less Instability; never past the ends.
-void _gain(EncounterState e, int amount) {
-  if (e.goal == 'befriend') {
-    e.meter = math.max(0, math.min(e.max, e.meter + amount));
-  } else {
-    e.meter = math.max(0, math.min(e.max, e.meter - amount));
-  }
-}
-
-class _WildReply {
-  const _WildReply(this.text, {this.delta = 0, this.energy = 0, required this.mood});
-  final String text;
-  final int delta;
-  final int energy;
-  final String mood;
-}
-
-/// The creature's reply, seeded so an attempt always plays the same way.
-_WildReply _wildTurn(EncounterState e, _Rng r, Creature c, String lastKind) {
-  final roll = r();
-  if (e.goal == 'befriend') {
-    final p = _pct(e);
-    if (lastKind == 'item' && roll < 0.8) return _WildReply('${c.name} nibbles, and edges a little closer.', delta: 4, mood: 'curious');
-    if (p < 0.35 && roll < 0.35) return _WildReply('${c.name} skitters back behind the stones.', delta: -6, mood: 'wary');
-    if (p < 0.7 && roll < 0.2) return _WildReply('${c.name} hides, peeking out at you.', delta: -3, mood: 'wary');
-    if (roll < 0.5) return _WildReply('${c.name} tilts its head and watches ${e.curious ? 'with bright eyes' : 'carefully'}.', mood: 'curious');
-    return _WildReply('${c.name} sniffs the air and settles.', delta: 2, mood: p > 0.6 ? 'calm' : 'curious');
-  }
-  final p = _pct(e);
-  final boss = c.boss;
-  if (boss && p >= 0.5 && roll < 0.45) return const _WildReply('The Sentinel wakes a little more. Hollow light lashes out!', energy: -18, mood: 'waking');
-  if (roll < (boss ? 0.4 : 0.35)) return _WildReply('Hollow energy surges through ${c.name}.', delta: -(boss ? 9 : 7), mood: 'surging');
-  if (roll < 0.6) return _WildReply('${c.name} flickers. The vines loosen for a moment.', mood: 'flickering');
-  if (roll < 0.75) return const _WildReply('A tendril of Hollow whips past you.', energy: -12, mood: 'surging');
-  return _WildReply('${c.name} goes still, listening.', delta: 3, mood: 'settling');
-}
-
-/// One turn: your action (plus an item id for 'item'), then the creature's reply.
-ActionResult encounterAct(GameState state, String actionId, String? itemId, int now) {
-  final e0 = state.trails.encounter;
-  if (e0 == null) return _fail(state, 'no_encounter');
-  if (e0.done != null) return _fail(state, 'encounter_over');
-  final a = encounterActions[actionId];
-  if (a == null) return _fail(state, 'unknown_action');
-  final s = state.copy();
-  final tr = s.trails;
-  final e = tr.encounter!;
-  final c = creatureDefs[e.creature]!;
-  final events = <GameEvent>[];
-  void log(String who, String text) => e.log.add(LogLine(who, text));
-  if (actionId == 'retreat') {
-    // items used come back: nothing is ever wasted on a retreat
-    e.used.forEach((id, n) => grantItem(s, id, n, 'retreat', now, 'retreat:${e.seed}:$id'));
-    tr.encounter = null;
-    tr.stats['retreats'] = tr.stat('retreats') + 1;
-    return _ok(s, [GameEvent('encounter_retreat', {'quest': e.quest, 'creature': e.creature})]);
-  }
-  var amount = 0;
-  final kind = a.kind;
-  if (actionId == 'item') {
-    final fx = itemId == null ? null : itemEffect(itemId, e.goal, e.creature);
-    if (fx == null || ownedQty(s, itemId!) < 1) return _fail(state, 'not_owned');
-    s.inventory[itemId]!.quantity -= 1;
-    e.used[itemId] = (e.used[itemId] ?? 0) + 1;
-    amount = fx.amount;
-    log('you', 'You offer ${catalog[itemId]!.name}.${fx.liked ? ' ${c.name} loves it!' : ''}');
-  } else if (actionId == 'petal_hush') {
-    if (!tr.companions.containsKey('petalune') || e.creature == 'petalune') return _fail(state, 'no_companion');
-    if (e.companionUsed) return _fail(state, 'companion_used');
-    e.companionUsed = true;
-    amount = a.power;
-    log('you', 'Petalune hums a soft, green note.');
-  } else {
-    if (a.energy > 0 && e.energy < a.energy) return _fail(state, 'no_energy', {'need': a.energy});
-    e.energy = math.max(0, math.min(e.energyMax, e.energy - a.energy));
-    amount = a.power;
-    if (a.kind == 'light' && c.kind == 'hollow') amount = (amount * 1.3).round();
-    if (a.kind == 'light' && c.boss && _pct(e) >= 0.5) amount = (amount * 1.25).round();
-    if (a.kind == 'physical' && e.goal == 'befriend') {
-      if (e.curious) amount += 4;
-      e.curious = true;
-    }
-    if (a.kind == 'restore') e.curious = false;
-    final petName = s.pet?.name ?? 'Your Evochi';
-    log('you', switch (a.kind) {
-      'light' => '$petName glows with Lumen.',
-      'physical' => '$petName gives ${c.name} a gentle nudge.',
-      _ => '$petName sits down quietly. Energy returns.',
-    });
-  }
-  _gain(e, amount);
-  e.turn++;
-  if (_pct(e) >= 1) {
-    // the winning move: no reply, but the screen still gets the turn (marked final) before the win
-    events.add(GameEvent('encounter_turn', {'turn': e.turn, 'you': amount, 'wild': 0, 'mood': null, 'drain': 0, 'kind': kind, 'item': itemId, 'final': true}));
-    return _finishEncounter(s, e, events, now);
-  }
-  final r = _Rng('${e.seed}:${e.turn}');
-  final w = _wildTurn(e, r, c, kind);
-  if (w.delta != 0) _gain(e, w.delta);
-  if (w.energy != 0) e.energy = math.max(0, e.energy + w.energy);
-  e.mood = w.mood;
-  log('wild', w.text);
-  if (_pct(e) >= 1) return _finishEncounter(s, e, events, now);
-  // what the screen choreographs: your gain, the reply's delta and mood, and the Energy it drained
-  // (0 when none), plus the kind of move and the item offered
-  events.add(GameEvent('encounter_turn', {'turn': e.turn, 'you': amount, 'wild': w.delta, 'mood': w.mood, 'drain': w.energy, 'kind': kind, 'item': itemId}));
-  return _ok(s, events);
-}
-
-ActionResult _finishEncounter(GameState s, EncounterState e, List<GameEvent> events, int now) {
-  final tr = s.trails;
-  final c = creatureDefs[e.creature]!;
-  e.done = 'success';
-  final petName = s.pet?.name ?? 'your Evochi';
-  e.log.add(LogLine('wild', e.goal == 'befriend' ? '${c.name} nuzzles $petName. It trusts you.' : 'The Hollow dissolves into motes of light. ${c.name} remembers.'));
-  if (e.goal == 'befriend') {
-    tr.companions.putIfAbsent(e.creature, () => CompanionState(since: now));
-    tr.stats['befriended'] = tr.stat('befriended') + 1;
-  } else {
-    tr.restored[e.creature] = now;
-    tr.stats['restored'] = tr.stat('restored') + 1;
-  }
-  events.add(GameEvent('encounter_won', {'quest': e.quest, 'creature': e.creature, 'goal': e.goal}));
-  return _ok(s, events);
-}
-
-/// Close a finished encounter (after the result screen): the quest's hand-in runs and pays out.
-ActionResult completeEncounter(GameState state, int now) {
-  final e = state.trails.encounter;
+/// Old saves: an encounter left open when the Guild's jobs still played out on the turn-based stage
+/// (before they moved to the Deep Wilds' story floors) is settled once on load. One already won runs its
+/// job's hand-in (what was offered during it counts toward the job); one left unfinished gives back what
+/// was offered, as a retreat always did. Nothing is lost either way.
+ActionResult settleOldEncounter(GameState state, int now) {
+  final e = state.trails.oldEncounter;
   if (e == null) return _ok(state);
-  if (e.done != 'success') return _fail(state, 'encounter_not_won');
-  final q = story.storyQuests[e.quest]!;
-  final t = q.turnIns.firstWhere((x) => x.encounter != null);
   var s = state.copy();
-  s.trails.encounter = null;
-  // a Lantern Tonic (or Glowleaf) offered during the fight counts as the one you brought: winning with
-  // every tonic spent must still finish the quest
-  final r = story.storyHandIn(s, e.quest, t.id, now, spent: Map<String, int>.from(e.used));
-  if (!r.ok) return _fail(state, r.error!, r.info);
-  s = r.state;
-  return _ok(s, [
-    ...r.events,
-    if (e.goal == 'befriend') GameEvent('companion_joined', {'creature': e.creature}),
-  ]);
-}
-
-/// Drop an unfinished encounter without a result (e.g. the app was closed mid-way).
-ActionResult abandonEncounter(GameState state) {
-  if (state.trails.encounter == null) return _ok(state);
-  final s = state.copy();
-  s.trails.encounter = null;
-  return _ok(s);
+  s.trails.oldEncounter = null;
+  final events = <GameEvent>[];
+  var handedIn = false;
+  final q = story.storyQuests[e.quest];
+  if (e.done == 'success' && q != null) {
+    final t = q.turnIns.where((x) => x.encounter != null).firstOrNull;
+    if (t != null && story.questPhase(s, e.quest) == t.from) {
+      final r = story.storyHandIn(s, e.quest, t.id, now, spent: e.used);
+      if (r.ok) {
+        s = r.state;
+        handedIn = true;
+        events.addAll(r.events);
+        if (e.goal == 'befriend') events.add(GameEvent('companion_joined', {'creature': e.creature}));
+      }
+    }
+  }
+  if (!handedIn) {
+    e.used.forEach((id, n) => grantItem(s, id, n, 'retreat', now, 'retreat:${e.seed}:$id'));
+  }
+  events.add(GameEvent('old_encounter_settled', {'quest': e.quest, 'handedIn': handedIn, 'returned': handedIn ? const {} : e.used}));
+  return _ok(s, events);
 }
 
 CompanionView? companionView(GameState s, String id) {
