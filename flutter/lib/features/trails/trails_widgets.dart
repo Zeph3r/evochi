@@ -51,8 +51,7 @@ Route<void> guildRoute() => MaterialPageRoute<void>(settings: const RouteSetting
 void openGuild(BuildContext context) => _pushTrail(context, guildRouteName, (_) => const Ambience('lodge', child: GuildScreen()));
 void openTrailPlace(BuildContext context, String id) =>
     _pushTrail(context, 'trailplace:$id', (_) => Ambience(id == 'gate' ? 'dusk' : 'forest', child: TrailPlaceScreen(placeId: id)));
-/// A Trail Guild job's place: in the Deep Wilds now (the Mossy Ruins' jobs); the Sentinel's gate is
-/// still the old encounter until its floor is ready.
+/// A Trail Guild job's place: in the Deep Wilds now (the Mossy Ruins at F3, the Sentinel's Gate at F5).
 void openPrep(BuildContext context, String questId) {
   final f = sf.storyFloors[questId];
   if (f != null && sf.playableBeats.contains(f.beat)) {

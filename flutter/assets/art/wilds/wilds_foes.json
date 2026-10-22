@@ -370,6 +370,75 @@
     ]
    },
    "top": 162.1
+  },
+  "sentinel": {
+   "frameW": 282,
+   "frameH": 282,
+   "ground": [
+    141.0,
+    206.2
+   ],
+   "scale": 5.0,
+   "radius": 22.0,
+   "gaits": {
+    "walk": {
+     "sheets": {
+      "hollow": "foe_sentinel_walk_hollow.webp",
+      "calm": "foe_sentinel_walk_calm.webp"
+     },
+     "roll": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      -0.0,
+      -0.0,
+      -0.0
+     ],
+     "squash": [
+      1.0,
+      0.98,
+      0.999,
+      1.0,
+      0.999,
+      0.98,
+      0.999,
+      1.0,
+      0.999
+     ],
+     "lift": [
+      0.0,
+      0.0,
+      2.0,
+      4.1,
+      2.0,
+      0.0,
+      2.0,
+      4.1,
+      2.0
+     ],
+     "cycle": 7.0
+    }
+   },
+   "act": {
+    "sheet": "foe_sentinel_act.webp",
+    "poses": [
+     "dormant",
+     "waking",
+     "up",
+     "slam",
+     "slam_r",
+     "slam_l",
+     "beam",
+     "cast",
+     "shield",
+     "hurt",
+     "bow"
+    ]
+   },
+   "top": 163.2
   }
  }
 }

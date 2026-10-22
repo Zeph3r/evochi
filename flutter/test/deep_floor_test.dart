@@ -158,6 +158,28 @@ void main() {
     expect(sporecaps / all, greaterThan(0.65));
   });
 
+  test('a story floor: the Sentinel\'s Gate opens out round its guardian, and the way there can be walked', () {
+    for (var seed = 1; seed <= 30; seed++) {
+      final p = planFloor(k, 5, seed, rd, story: 'sentinel');
+      expect(p.mods, isEmpty);
+      expect(p.foes.any((f) => (f['id'] as String).startsWith('elite')), isFalse);
+      final at = p.storyAt!;
+      expect(p.blocked(at.$1, at.$2), isFalse);
+      final r = reach(p, p.start.$1, p.start.$2);
+      expect(inReach(p, r, at.$1, at.$2 + 40, 24), isTrue, reason: 'seed $seed: the Sentinel is cut off');
+      // room to fight: open ground well round it
+      final (ax, az) = sentinelArena;
+      var open = 0, all = 0;
+      for (var a = 0.0; a < 6.28; a += 0.3) {
+        for (final d in const [0.4, 0.6]) {
+          all++;
+          if (!p.blocked(at.$1 + math.cos(a) * ax * d, at.$2 + 8 + math.sin(a) * az * d)) open++;
+        }
+      }
+      expect(open / all, greaterThan(0.9), reason: 'seed $seed');
+    }
+  });
+
   test('deeper floors are bigger and busier, and from F3 an elite guards the way down', () {
     final shallow = planFloor(k, 2, 7, rd), deep = planFloor(k, 9, 7, rd);
     expect(deep.rooms.length, greaterThan(shallow.rooms.length));

@@ -10,6 +10,7 @@ import 'package:evochi/features/wilds/wilds_combat.dart';
 import 'package:evochi/game/engine.dart' as g;
 import 'package:evochi/game/story/story.dart' as q;
 import 'package:evochi/game/wilds/story_floors.dart' as sf;
+import 'package:evochi/game/wilds/wilds.dart' as w;
 import 'package:flutter_test/flutter_test.dart';
 
 const tzName = 'America/New_York';
@@ -78,12 +79,27 @@ void main() {
       expect(sf.storyFloorAt(s, 3), isNull);
     });
 
-    test('the Sprout\'s floor needs the Glowleaf in the Bag; the Sentinel\'s gate is not a Wilds floor yet', () {
+    test('the Sprout\'s floor needs the Glowleaf in the Bag; the Sentinel\'s Gate (F5) a Lantern Tonic', () {
       var s = ready(freshPet(), 'eq02');
       expect(sf.storyFloorAt(s, 3), isNull);
       s = give(s, 'glowleaf', 2);
       expect(sf.storyFloorAt(s, 3)?.quest, 'eq02');
-      expect(sf.storyFloorAt(ready(freshPet(), 'eq03'), 5), isNull);
+      var g3 = ready(freshPet(), 'eq03');
+      expect(sf.storyFloorAt(g3, 5), isNull);
+      g3 = give(g3, 'lantern_tonic', 1);
+      expect(sf.storyFloorAt(g3, 5)?.quest, 'eq03');
+      expect(sf.storyFloorAt(g3, 5)?.beat, 'sentinel');
+    });
+
+    test('restoring the Sentinel: the Lantern Tonic drunk in the fight still counts toward the job', () {
+      var s = give(ready(freshPet(), 'eq03'), 'lantern_tonic', 1);
+      s = must(w.wildsDrink(s, 'lantern_tonic', t0));
+      expect(g.ownedQty(s, 'lantern_tonic'), 0);
+      s = must(sf.wildsStoryDone(s, 'eq03', t0, spent: const {'lantern_tonic': 1}));
+      expect(q.questPhase(s, 'eq03'), 'completed');
+      expect(s.trails.restored.containsKey('sentinel'), isTrue);
+      expect(s.story.flags['sentinel_restored'], isTrue);
+      expect(sf.storyFloorAt(s, 5), isNull, reason: 'done: F5 is an ordinary floor again');
     });
 
     test('earning Petalune\'s trust finishes the job once: a companion, the quest\'s reward, no second payout', () {
@@ -184,6 +200,102 @@ void main() {
       final before = r.pet.hp;
       run(r, 20);
       expect(r.events.any((e) => e.type == 'hush') || r.pet.hp > before, isTrue);
+    });
+  });
+
+  group('the Forgotten Sentinel', () {
+    /// Ticks, gathering the fight's events.
+    List<String> watch(Raid r, double secs, [RaidInput Function()? inp]) {
+      final seen = <String>[];
+      for (var i = 0; i < secs / dt; i++) {
+        r.tick(dt, inp?.call() ?? RaidInput());
+        seen.addAll(r.events.map((e) => e.type));
+      }
+      return seen;
+    }
+
+    RaidInput swing() => RaidInput()..attack = true;
+
+    test('it sleeps against its gate (blows shrugged off) until you come near; then it wakes and fights', () {
+      final r = Raid(ground: meadow(), pet: petAt(0, 300), storyBeat: 'sentinel', storyX: 0, storyZ: 0, seed: 5);
+      final st = r.sentinel!;
+      expect(r.foeTotal, 1);
+      watch(r, 2);
+      expect(st.st, FoeState.dormant);
+      r.pet
+        ..x = 0
+        ..z = 100;
+      final woke = watch(r, 3);
+      expect(woke, contains('sentinel_wake'));
+      expect(woke, contains('sentinel_rise'));
+      expect(st.st, isNot(FoeState.dormant));
+      expect(st.st, isNot(FoeState.roar));
+      final fight = watch(r, 12);
+      expect(fight.where((e) => const {'slam', 'beam', 'runes'}.contains(e)).length, greaterThanOrEqualTo(2), reason: 'it attacks');
+      expect(r.pet.hp, lessThan(r.pet.maxHp), reason: 'and something lands on a pet that never moves');
+    });
+
+    test('at two thirds it kneels behind a shield: only Lumen gets through (a Lantern Tonic), then it staggers', () {
+      final r = Raid(ground: meadow(), pet: petAt(0, 36), storyBeat: 'sentinel', storyX: 0, storyZ: 0, seed: 5);
+      final st = r.sentinel!;
+      watch(r, 3); // awake
+      st.hp = st.maxHp * 0.67;
+      for (var i = 0; i < 60 * 4 && r.sentinelShield <= 0; i++) {
+        r.tick(dt, swing());
+      }
+      expect(r.sentinelShield, greaterThan(0));
+      expect(r.foes.where((f) => f.summoned).length, 2, reason: 'it calls creatures out of the dark');
+      final hp = st.hp;
+      final blocked = watch(r, 2, swing);
+      expect(blocked, contains('shielded'));
+      expect(st.hp, hp);
+      expect(r.sentinelShield, r.sentinelShieldMax);
+      r.applyBuff('lantern');
+      var broke = <String>[];
+      for (var i = 0; i < 60 * 10 && r.sentinelShield > 0; i++) {
+        r.tick(dt, swing());
+        broke.addAll(r.events.map((e) => e.type));
+      }
+      expect(r.sentinelShield, lessThanOrEqualTo(0));
+      expect(broke, contains('shield_break'));
+      expect(st.st, FoeState.stagger);
+    });
+
+    test('calming what it called breaks the shield too; a second shield comes at a third', () {
+      final r = Raid(ground: meadow(), pet: petAt(0, 36), storyBeat: 'sentinel', storyX: 0, storyZ: 0, seed: 7);
+      final st = r.sentinel!;
+      watch(r, 3);
+      st.hp = st.maxHp * 0.67;
+      for (var i = 0; i < 60 * 4 && r.sentinelShield <= 0; i++) {
+        r.tick(dt, swing());
+      }
+      expect(r.sentinelShields, 1);
+      r.calmAllForTesting(where: (f) => f.summoned);
+      expect(r.sentinelShield, lessThanOrEqualTo(0));
+      expect(st.st, FoeState.stagger);
+      expect(r.calmed, 0, reason: 'what it called is not counted among the floor\'s creatures');
+      watch(r, 3.5);
+      st.hp = st.maxHp * 0.34;
+      for (var i = 0; i < 60 * 4 && r.sentinelShield <= 0; i++) {
+        r.tick(dt, swing());
+      }
+      expect(r.sentinelShields, 2);
+      expect(r.foes.where((f) => f.summoned && !f.calm).length, 3);
+    });
+
+    test('calmed, it is restored: it bows and stays at its gate, and the story is done', () {
+      final r = Raid(ground: meadow(), pet: petAt(0, 100), storyBeat: 'sentinel', storyX: 0, storyZ: 0, seed: 5);
+      final st = r.sentinel!;
+      watch(r, 3);
+      r.calmAllForTesting();
+      final ev = watch(r, 1);
+      expect(r.storyDone, isTrue);
+      expect(st.pose, 'bow');
+      expect(r.foes.contains(st), isTrue);
+      expect(r.calmed, 1);
+      expect(ev, isNot(contains('beam')));
+      watch(r, 4);
+      expect(st.alpha, 1, reason: 'it does not wander off into the wood');
     });
   });
 

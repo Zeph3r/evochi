@@ -8,6 +8,9 @@ flat renderer, the map camera, 8 directions) so they share the floor with your E
   Sporecap    a toadstool that hops on two stubby feet. It swells its cap and puffs spores.
   Briarback   the Thicket's guardian, a hart with antlers of bramble. It walks, gallops head-down (the
               charge), lowers its antlers, sweeps them, rears and stomps, roars, staggers.
+  Sentinel    the Forgotten Sentinel at its gate (F5): asleep, waking, fists up and slammed down (both,
+              or one and then the other), a beam from its eyes, runes cast wide, a shield held out, and
+              restored, bowing.
 
 Every foe also has a calm walk: the same creature with the Hollow lifted (the vines gone, the colours
 back), for the moment it is purified and trots off.
@@ -594,6 +597,40 @@ def hollow_sprout(pose=None, variant='hollow'):
     return M, {'ground': (0, 0, 0), 'top': anc['top']}
 
 
+def sentinel(pose=None, variant='hollow'):
+    """The Forgotten Sentinel, waking at its gate (F5, the Sentinel's Gate): a hunched guardian of stacked
+    stone with no legs to speak of, so it lumbers (a sway and a heave) and fights with its fists, its eyes
+    and the runes in its chest"""
+    import trail_art as TA
+    p = pose or {}
+    state = p.get('state') or ('hollow' if variant == 'hollow' else 'restored')
+    arms = p.get('arms') or {'r': 'rest', 'l': 'raised'}
+    M, anc = TA.sentinel(state, arms=arms)
+    if p.get('glow'):
+        # the runes and eyes burn brighter (a beam gathering, a shield raised)
+        g = M.glow > 0
+        M.glow[g] = np.minimum(1.0, M.glow[g] + 0.35)
+    if p.get('lean'):
+        M = turn(M, (0, 0, 0), rot(rx=p['lean']))
+    if p.get('tilt'):
+        M = turn(M, (0, 0, 0), rot(rz=p['tilt']))
+    if p.get('turn'):
+        M = turn(M, (0, 0, 0), rot(ry=p['turn']))
+    return M, {'ground': (0, 0, 0), 'top': anc['top']}
+
+
+def lumber_cycle(sway, heave):
+    """no legs: it rocks its weight from side to side and heaves itself forward"""
+    def pose(i):
+        if i is None:
+            return {'arms': {'r': 'rest', 'l': 'rest'}}, 0.0
+        t = i / FRAMES
+        side = math.sin(2 * math.pi * t)
+        p = {'arms': {'r': 'rest', 'l': 'rest'}, 'tilt': round(sway * side, 3), 'lean': round(0.05 + 0.04 * abs(math.cos(2 * math.pi * t)), 3)}
+        return p, q(heave * abs(side))
+    return pose
+
+
 class Foe:
     def __init__(self, key, build, scale, radius, gaits, act, variants=('hollow', 'calm')):
         self.key, self.build, self.scale, self.radius = key, build, scale, radius
@@ -641,6 +678,20 @@ FOES = {
         {'walk': (hop_cycle(2.2), dict(waddle=0.0, squash=0.12, cycle=8.0, hop=True))},
         [('lash', {'lean': 0.4}, 0.0), ('rear', {'lean': -0.3, 'glow': True}, 1.0), ('slam', {'lean': 0.55}, 0.0),
          ('hurt', {'tilt': 0.3}, 0.0), ('swell', {'glow': True}, 0.5)]),
+    'sentinel': lambda: Foe(
+        'sentinel', sentinel, 5.0, 22.0,
+        {'walk': (lumber_cycle(0.07, 0.8), dict(waddle=0.0, squash=0.02, cycle=7.0))},
+        [('dormant', {'state': 'dormant', 'lean': 0.16, 'arms': {'r': 'rest', 'l': 'rest'}}, 0.0),
+         ('waking', {'state': 'waking', 'lean': 0.06, 'arms': {'r': 'rest', 'l': 'raised'}}, 0.0),
+         ('up', {'arms': {'r': 'up', 'l': 'up'}, 'lean': -0.1, 'glow': True}, 0.0),
+         ('slam', {'arms': {'r': 'down', 'l': 'down'}, 'lean': 0.16}, 0.0),
+         ('slam_r', {'arms': {'r': 'down', 'l': 'up'}, 'lean': 0.1, 'tilt': -0.06}, 0.0),
+         ('slam_l', {'arms': {'r': 'up', 'l': 'down'}, 'lean': 0.1, 'tilt': 0.06}, 0.0),
+         ('beam', {'arms': {'r': 'raised', 'l': 'raised'}, 'lean': -0.06, 'glow': True}, 0.0),
+         ('cast', {'arms': {'r': 'wide', 'l': 'wide'}, 'lean': -0.04, 'glow': True}, 0.0),
+         ('shield', {'arms': {'r': 'out', 'l': 'out'}, 'lean': 0.08, 'glow': True}, 0.0),
+         ('hurt', {'arms': {'r': 'rest', 'l': 'raised'}, 'tilt': 0.12, 'lean': -0.08}, 0.0),
+         ('bow', {'state': 'restored', 'arms': {'r': 'rest', 'l': 'rest'}, 'lean': 0.3}, 0.0)]),
 }
 
 

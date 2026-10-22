@@ -373,6 +373,7 @@ class Raid {
         ..alpha = 1);
     }
     if (storyBeat == 'sprout') foes.add(_sprout(storyX, storyZ));
+    if (storyBeat == 'sentinel') foes.add(_sentinel(storyX, storyZ));
     foeTotal = foes.length;
     final b = bossDef;
     if (b != null) {
@@ -449,8 +450,20 @@ class Raid {
   double trust = 0;
   static const trustDrift = 70.0;
 
-  /// The story's beat is done: Petalune trusts you, or the Sprout is restored.
+  /// The story's beat is done: Petalune trusts you, or the Sprout or the Sentinel is restored.
   bool storyDone = false;
+
+  // ---- the Forgotten Sentinel (the Sentinel's Gate, F5)
+  /// Its Hollow shield while it kneels behind it (0: down). Only Lumen breaks it (your Evochi lit by a
+  /// Lantern Tonic), or calming what it called out of the dark.
+  double sentinelShield = 0, sentinelShieldMax = 1;
+  int sentinelShields = 0; // raised so far (at two thirds and a third of its Hollow)
+  double _shieldT = 0;
+
+  /// Its eyes' beam while it sweeps (for drawing): from (x, z) along (dx, dz), [len] long; [k] 0..1 through
+  /// the sweep.
+  ({double x, double z, double dx, double dz, double len, double k})? beam;
+  Foe? get sentinel => foes.where((f) => f.kind == 'sentinel').firstOrNull;
   double _humCd = 0, _startleCd = 0, _friendPoseT = 0, _hushT = 8, _wasAct = 0;
   Foe? get petalune => friends.where((f) => f.kind == 'petalune').firstOrNull;
   bool get humReady => _humCd <= 0;
@@ -1457,6 +1470,20 @@ class Raid {
       _float('Shrugged off', a.x, a.z, 'info', ttl: 0.6);
       return false;
     }
+    if (a is Foe && a.kind == 'sentinel' && sentinelShield > 0) {
+      // the Hollow shield: only Lumen gets through (a Lantern Tonic's light on your Evochi)
+      bursts.add(Burst('spark', a.x, a.z - 6, 0.3, tag: 'hollow'));
+      if (from == pet && has('lantern')) {
+        sentinelShield -= dmg;
+        _float('Lumen!', a.x, a.z, 'crit', ttl: 0.6);
+        _emit('shield_hit', x: a.x, z: a.z);
+        if (sentinelShield <= 0) _shieldBreak(a);
+        return true;
+      }
+      _float('Shielded', a.x, a.z, 'info', ttl: 0.6);
+      _emit('shielded', x: a.x, z: a.z);
+      return false;
+    }
     if (a.iframes > 0 || a.mercy > 0) {
       if (a == pet && act == PetAct.dodge && !_dodgeRewarded) {
         _dodgeRewarded = true;
@@ -1592,7 +1619,7 @@ class Raid {
     if (f.poise <= 0 && f.st != FoeState.strike) {
       f.poise = f.maxPoise;
       _stagger(f, f is Boss ? 1.9 : 0.9);
-    } else if (f is! Boss && (f.st == FoeState.engage || f.st == FoeState.idle) && poise >= 8) {
+    } else if (f is! Boss && f.kind != 'sentinel' && (f.st == FoeState.engage || f.st == FoeState.idle) && poise >= 8) {
       f.pose = 'hurt';
       f.t = 0;
       f.stun = 0.22;
@@ -1602,6 +1629,8 @@ class Raid {
       _calm(f);
     } else if (f is Boss) {
       _bossHealthCheck(f);
+    } else if (f.kind == 'sentinel') {
+      _sentinelHealthCheck(f);
     }
     return true;
   }
@@ -2021,6 +2050,10 @@ class Raid {
       return;
     }
     if (!f.alive) return;
+    if (f.kind == 'sentinel') {
+      _tickSentinel(f, dt);
+      return;
+    }
     f.cd -= dt;
     f.cd2 -= dt;
     f.sx = f.sy = 1;
@@ -2224,6 +2257,11 @@ class Raid {
     f.face(f.ax, f.az);
     _endMark(f);
     _lastSwing[t] = time;
+    if (f.kind == 'sentinel') {
+      _sentinelMarks(f, move, windup, t);
+      if (f.mark != null) marks.add(f.mark!);
+      return;
+    }
     switch (move) {
       case 'roll':
         f.travelMax = 74;
@@ -2699,6 +2737,347 @@ class Raid {
     _emit('hush', x: f.x, z: f.z);
   }
 
+  // ---- the Forgotten Sentinel: asleep against its gate until you come near. Awake, it lumbers after you
+  // and slams its fists down (past half its Hollow, one fist and then the other), sweeps a beam from its
+  // eyes, and raises runes under you. At two thirds and at a third of its Hollow it kneels behind a
+  // Hollow shield and calls creatures out of the dark: calm them, or break the shield with Lumen (a
+  // Lantern Tonic's light), and it staggers.
+  Foe _sentinel(double x, double z) {
+    final f = Foe(id: 'sentinel', kind: 'sentinel', x: x, z: z, radius: 21, health: 720 * foeHp, zone: 'gate');
+    f
+      ..size = 1.55
+      ..cycle = 7
+      ..poise = 240
+      ..maxPoise = 240
+      ..st = FoeState.dormant
+      ..pose = 'dormant'
+      ..face(0, 1);
+    return f;
+  }
+
+  static const sentinelWakeR = 118.0;
+
+  void _tickSentinel(Foe f, double dt) {
+    f.cd -= dt;
+    f.cd2 -= dt;
+    f.sx = f.sy = 1;
+    f.lift = 0;
+    if (f.st != FoeState.strike || f.move != 'beam') beam = null;
+    switch (f.st) {
+      case FoeState.dormant:
+        // asleep against the gate: it wakes when your Evochi comes near
+        f.moving = false;
+        f.pose = 'dormant';
+        if (phase == RaidPhase.explore && pet.alive && pet.dist(f) < sentinelWakeR) {
+          f
+            ..st = FoeState.roar
+            ..t = 0
+            ..target = pet;
+          _emit('sentinel_wake', x: f.x, z: f.z);
+        }
+        return;
+      case FoeState.roar:
+        // waking: its eyes light, it heaves itself up and lifts its fists
+        f.moving = false;
+        f.pose = f.t < 1.5 ? 'waking' : 'up';
+        f.glow = (f.t / 2.4).clamp(0.0, 1.0);
+        if (f.t > 0.4 && f.t < 2.2) shake = math.max(shake, 0.12);
+        if (f.t > 1.5 && f.t - dt <= 1.5) {
+          shake = math.max(shake, 0.5);
+          bursts.add(Burst('quake', f.x, f.z + 10, 0.7, size: 52));
+          _emit('sentinel_rise', x: f.x, z: f.z);
+        }
+        if (f.t >= 2.4) {
+          f
+            ..st = FoeState.engage
+            ..t = 0
+            ..glow = 0
+            ..pose = null
+            ..cd = 0.6
+            ..cd2 = 6;
+        }
+        return;
+      default:
+        break;
+    }
+    if (sentinelShield > 0) {
+      _sentinelShielded(f, dt);
+      return;
+    }
+    if (f.stun > 0 || f.st == FoeState.stagger) {
+      f.moving = false;
+      f.pose = 'hurt';
+      if (f.stun <= 0) {
+        f
+          ..st = FoeState.engage
+          ..t = 0
+          ..pose = null
+          ..cd = math.max(f.cd, 0.5);
+      }
+      return;
+    }
+    switch (f.st) {
+      case FoeState.windup:
+      case FoeState.strike:
+      case FoeState.recover:
+        _sentinelAttack(f, dt);
+      default:
+        f.st = FoeState.engage;
+        _sentinelEngage(f, dt);
+    }
+  }
+
+  void _sentinelEngage(Foe f, double dt) {
+    final t = f.target = pet.alive ? pet : null;
+    if (t == null) {
+      f.moving = false;
+      return;
+    }
+    final d = f.dist(t);
+    final rage = f.hpFrac < 0.5;
+    if (f.cd <= 0) {
+      final r = rng.nextDouble();
+      if (d < 78) {
+        _startAttack(f, r < 0.62 ? 'fists' : 'runes', r < 0.62 ? (rage ? 0.78 : 0.95) : 1.15, 0.25, 0.75);
+      } else if (d < 215) {
+        _startAttack(f, r < 0.55 ? 'beam' : 'runes', r < 0.55 ? 1.0 : 1.15, r < 0.55 ? 1.7 : 0.25, 0.8);
+      } else {
+        _startAttack(f, 'runes', 1.2, 0.25, 0.8);
+      }
+      return;
+    }
+    // it lumbers after you, but never far from its gate
+    f.face(t.x - f.x, t.z - f.z);
+    if (d > 70 && f.distTo(f.homeX, f.homeZ) < 95) {
+      final (vx, vz) = _steer(f, t.x - f.x, t.z - f.z, look: 30);
+      _move(f, vx, vz, rage ? 13 : 10, dt, faceIt: false);
+      f.moving = true;
+    } else if (f.distTo(f.homeX, f.homeZ) >= 95) {
+      final (vx, vz) = _steer(f, f.homeX - f.x, f.homeZ - f.z, look: 30);
+      _move(f, vx, vz, 10, dt, faceIt: false);
+      f.moving = true;
+    } else {
+      f.moving = false;
+    }
+  }
+
+  /// The marks for the Sentinel's moves (from [_startAttack]).
+  void _sentinelMarks(Foe f, String move, double windup, Actor t) {
+    switch (move) {
+      case 'fists':
+        // both fists into the ground in front of it (past half its Hollow: one, then the other)
+        if (f.hpFrac < 0.5) {
+          // its left fist first (the side to its left as it faces you), then its right
+          final side = f.lashes.isEven ? 1.0 : -1.0;
+          f.mark = Mark(MarkShape.circle, f.x + f.ax * 34 - f.az * 20 * side, f.z + f.az * 34 + f.ax * 20 * side, windup, r: 30, owner: f);
+        } else {
+          f.mark = Mark(MarkShape.circle, f.x + f.ax * 34, f.z + f.az * 34, windup, r: 42, owner: f);
+        }
+      case 'beam':
+        // the arc its eyes will sweep, faint while it gathers
+        f.mark = Mark(MarkShape.cone, f.x, f.z, windup + 1.7, r: 215, dx: f.ax, dz: f.az, half: 0.95, owner: f);
+      case 'runes':
+        // where you stand, where you are going, and round you
+        final lx = t.x + t.vx * 0.4, lz = t.z + t.vz * 0.4;
+        f.mark = Mark(MarkShape.circle, lx, lz, windup, r: 19, owner: f);
+        final a0 = rng.nextDouble() * math.pi * 2;
+        for (var k = 0; k < (f.hpFrac < 0.5 ? 4 : 3); k++) {
+          final a = a0 + k * math.pi * 2 / (f.hpFrac < 0.5 ? 4 : 3);
+          f.extra.add(Mark(MarkShape.circle, lx + math.cos(a) * 44, lz + math.sin(a) * 44, windup, r: 19, owner: f));
+        }
+        marks.addAll(f.extra);
+    }
+  }
+
+  void _sentinelAttack(Foe f, double dt) {
+    final t = f.target;
+    final rage = f.hpFrac < 0.5;
+    if (f.st == FoeState.windup) {
+      final k = f.t / f.windup;
+      // fists: both raised (past half its Hollow, the one about to come down); beam: its eyes gather
+      // light; runes: its arms flung wide
+      f.pose = switch (f.move) { 'fists' => rage ? (f.lashes.isEven ? 'slam_r' : 'slam_l') : 'up', 'beam' => 'beam', _ => 'cast' };
+      f.glow = k;
+      if (f.mark != null) f.mark!.t = f.t;
+      for (final m in f.extra) {
+        m.t = f.t;
+      }
+      // the fists' aim follows you until the last moment
+      if (f.move == 'fists' && t != null && k < 0.55) {
+        final d = math.max(f.dist(t), 1e-6);
+        f.ax = (t.x - f.x) / d;
+        f.az = (t.z - f.z) / d;
+        f.face(f.ax, f.az);
+        final m = f.mark;
+        if (m != null) {
+          final side = rage ? (f.lashes.isEven ? 1.0 : -1.0) : 0.0;
+          m
+            ..x = f.x + f.ax * 34 - f.az * 20 * side
+            ..z = f.z + f.az * 34 + f.ax * 20 * side;
+        }
+      }
+      if (f.t < f.windup) return;
+      f.st = FoeState.strike;
+      f.t = 0;
+      f.glow = 0;
+      f.hit.clear();
+      switch (f.move) {
+        case 'fists':
+          final m = f.mark;
+          _endMark(f);
+          if (m == null) return;
+          f.pose = rage ? (f.lashes.isEven ? 'slam_l' : 'slam_r') : 'slam';
+          bursts.add(Burst('quake', m.x, m.z, 0.7, size: m.r + 6));
+          shake = math.max(shake, 0.55);
+          hitstop = math.max(hitstop, 0.05);
+          _emit('slam', x: m.x, z: m.z);
+          for (final a in [pet, if (sher != null && party) sher!]) {
+            if (m.covers(a.x, a.z, a.radius)) {
+              final d = math.max(_len(a.x - m.x, a.z - m.z), 1e-6);
+              _hurt(a, 20, from: f, kx: (a.x - m.x) / d * 220, kz: (a.z - m.z) / d * 220, stun: 0.3, cause: 'slam');
+            }
+          }
+        case 'beam':
+          // the mark stays up as the sweep's path
+          f.pose = 'beam';
+          f.aimX = math.atan2(f.az, f.ax); // the sweep's middle (an angle)
+          _emit('beam', x: f.x, z: f.z);
+        case 'runes':
+          final hits = [f.mark, ...f.extra].whereType<Mark>().toList();
+          _endMark(f);
+          f.pose = 'slam';
+          shake = math.max(shake, 0.35);
+          _emit('runes', x: f.x, z: f.z);
+          for (final m in hits) {
+            bursts.add(Burst('snare', m.x, m.z, 0.9, size: m.r, tag: 'rune'));
+          }
+          for (final a in [pet, if (sher != null && party) sher!]) {
+            if (hits.any((m) => m.covers(a.x, a.z, a.radius))) {
+              _hurt(a, 14, from: f, stun: 0.3, cause: 'runes');
+            }
+          }
+      }
+      return;
+    }
+    if (f.st == FoeState.strike) {
+      if (f.move == 'beam') {
+        // the sweep: from one side of the arc to the other, burning what it crosses
+        final k = (f.t / f.active).clamp(0.0, 1.0);
+        final side = (f.lashes.isEven ? 1 : -1).toDouble();
+        final a = f.aimX + side * (-0.95 + 1.9 * k);
+        final dx = math.cos(a), dz = math.sin(a);
+        f.face(dx, dz);
+        final ex = f.x + dx * 6, ez = f.z + dz * 6;
+        beam = (x: ex, z: ez, dx: dx, dz: dz, len: 215.0, k: k);
+        for (final who in [pet, if (sher != null && party) sher!]) {
+          if (f.hit.contains(who)) continue;
+          final ox = who.x - ex, oz = who.z - ez;
+          final along = ox * dx + oz * dz;
+          if (along < 0 || along > 215) continue;
+          if ((ox * dz - oz * dx).abs() < 9 + who.radius * 0.7) {
+            if (_hurt(who, 16, from: f, kx: -dz * side * 120, kz: dx * side * 120, cause: 'beam')) f.hit.add(who);
+          }
+        }
+        if (f.t < f.active) return;
+        _endMark(f);
+        beam = null;
+      } else if (f.t < f.active) {
+        return;
+      }
+      f.st = FoeState.recover;
+      f.t = 0;
+      return;
+    }
+    f.pose = null;
+    if (f.t < f.recover * (rage ? 0.7 : 1)) return;
+    f.lashes++;
+    // past half its Hollow the fists come down twice: the other one follows at once
+    if (f.move == 'fists' && rage && f.lashes.isOdd && t != null) {
+      _startAttack(f, 'fists', 0.45, 0.25, 0.75);
+      return;
+    }
+    f.st = FoeState.engage;
+    f.t = 0;
+    f.cd = (rage ? 1.3 : 1.9) + rng.nextDouble() * 0.8;
+  }
+
+  /// At two thirds and at a third of its Hollow: it kneels behind a shield and calls the dark's creatures.
+  void _sentinelHealthCheck(Foe f) {
+    if (storyDone || f.calm) return;
+    final want = sentinelShields == 0 ? 0.66 : (sentinelShields == 1 ? 0.33 : -1.0);
+    if (f.hpFrac > want) return;
+    sentinelShields++;
+    _endMark(f);
+    beam = null;
+    sentinelShieldMax = sentinelShield = 110 * foeHp;
+    _shieldT = 0;
+    f
+      ..st = FoeState.engage
+      ..t = 0
+      ..pose = 'shield'
+      ..stun = 0
+      ..moving = false;
+    shake = math.max(shake, 0.4);
+    _emit('shield_up', x: f.x, z: f.z, value: sentinelShields.toDouble());
+    // two (then three) creatures out of the dark round the arena's edge, far from your Evochi
+    final n = sentinelShields == 1 ? 2 : 3;
+    for (var i = 0; i < n; i++) {
+      final a = math.atan2(pet.z - f.z, pet.x - f.x) + math.pi + (i - (n - 1) / 2) * 0.9;
+      final x = f.x + math.cos(a) * 60, z = f.z + math.sin(a) * 55;
+      final o = _spawn('shield_${sentinelShields}_$i', i.isEven ? 'thornling' : 'sporecap', 'gate', x, z)
+        ..summoned = true
+        ..maxHp = 46 * foeHp
+        ..hp = 46 * foeHp
+        ..cd = 1.0 + i * 0.6;
+      o.homeX = f.x;
+      o.homeZ = f.z;
+      foes.add(o);
+      bursts.add(Burst('motes', x, z, 0.9, size: 1));
+      o
+        ..target = pet
+        ..st = FoeState.alert
+        ..alertDelay = 0.4 + i * 0.3;
+      o.face(pet.x - x, pet.z - z);
+    }
+  }
+
+  void _sentinelShielded(Foe f, double dt) {
+    _shieldT += dt;
+    f.moving = false;
+    f.pose = 'shield';
+    f.face(pet.x - f.x, pet.z - f.z);
+    // runes now and then while it waits behind its shield
+    if (f.st == FoeState.windup || f.st == FoeState.strike || f.st == FoeState.recover) {
+      if (f.move == 'runes') {
+        _sentinelAttack(f, dt);
+        f.pose = 'shield';
+        return;
+      }
+      _endMark(f);
+      f.st = FoeState.engage;
+    }
+    if (f.cd <= 0 && pet.alive) {
+      f.target = pet;
+      _startAttack(f, 'runes', 1.3, 0.25, 0.6);
+      f.cd = 3.6;
+      return;
+    }
+    // a shield that nobody can break (no Lumen, the creatures run off) gives out on its own
+    if (_shieldT > 30) _shieldBreak(f);
+  }
+
+  void _shieldBreak(Foe f) {
+    if (sentinelShield <= 0 && f.st == FoeState.stagger) return;
+    sentinelShield = 0;
+    _endMark(f);
+    shake = math.max(shake, 0.5);
+    bursts.add(Burst('motes', f.x, f.z - 10, 1.4, size: 3));
+    _float('The shield shatters!', f.x, f.z - 30, 'crit', ttl: 1.4);
+    _emit('shield_break', x: f.x, z: f.z);
+    _stagger(f, 3.2);
+    f.cd = 1.0;
+  }
+
   // ---- the Hollow Sprout: rooted in the ruins, it lashes vines, sends thorns up under you, and bursts
   // with spores when you crowd it. Past half its Hollow, it lashes twice.
   void _sproutEngage(Foe f, Actor t, double d, double dt) {
@@ -2834,10 +3213,11 @@ class Raid {
   }
 
   // ---- defeated: the Hollow lifts
-  /// Playtesting (debug builds' C key): every creature still fighting is calmed where it stands.
-  void calmAllForTesting() {
-    for (final f in foes) {
-      if (!f.calm) _calm(f);
+  /// Playtesting (debug builds' C key): every creature still fighting (or those [where] picks) is calmed
+  /// where it stands.
+  void calmAllForTesting({bool Function(Foe f)? where}) {
+    for (final f in foes.toList()) {
+      if (!f.calm && (where == null || where(f))) _calm(f);
     }
   }
 
@@ -2860,12 +3240,26 @@ class Raid {
       _victory(f);
       return;
     }
-    if (f.kind == 'hollow_sprout' && storyBeat == 'sprout') {
+    if ((f.kind == 'hollow_sprout' && storyBeat == 'sprout') || (f.kind == 'sentinel' && storyBeat == 'sentinel')) {
       storyDone = true;
       shake = math.max(shake, 0.6);
       slowmo = 0.8;
       bursts.add(Burst('motes', f.x, f.z, 2.2, size: 3));
-      _emit('story_done', text: 'hollow_sprout', x: f.x, z: f.z);
+      if (f.kind == 'sentinel') {
+        sentinelShield = 0;
+        beam = null;
+        f.pose = 'bow';
+        // what it called out of the dark goes quiet with it
+        for (final o in foes) {
+          if (o.summoned && !o.calm && o.alive) _calm(o);
+        }
+      }
+      _emit('story_done', text: f.kind, x: f.x, z: f.z);
+    }
+    if (f.summoned && sentinelShield > 0 && foes.every((o) => !o.summoned || o.calm || o == f)) {
+      // the last of what the Sentinel called is calm: its shield has nothing left to hold it up
+      final st = sentinel;
+      if (st != null) _shieldBreak(st);
     }
     _emit('calm', x: f.x, z: f.z);
     hitstop = math.max(hitstop, 0.06);
@@ -2934,6 +3328,13 @@ class Raid {
         // it lingers by the gate, at peace; turns to you when you come near
         if (pet.dist(f) < 90) f.face(pet.x - f.x, pet.z - f.z);
       }
+      return;
+    }
+    if (f.kind == 'sentinel') {
+      // restored, it bows to you, then stands at its gate again, keeping it (turned to you when you are near)
+      f.moving = false;
+      f.pose = f.t < 3.2 ? 'bow' : null;
+      if (f.t >= 3.2 && pet.dist(f) < 120) f.face(pet.x - f.x, pet.z - f.z);
       return;
     }
     if (f.kind == 'hollow_sprout') {

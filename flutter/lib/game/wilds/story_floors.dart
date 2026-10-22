@@ -49,8 +49,8 @@ const storyFloors = <String, StoryFloor>{
       line: 'The old gate past the bridge. Something huge sleeps against it, tangled in Hollow.'),
 };
 
-/// The beats the Wilds can play so far (the Sentinel's gate is still the old encounter).
-const playableBeats = {'trust', 'sprout'};
+/// The beats the Wilds can play (all three: every Trail Guild job's place is a story floor now).
+const playableBeats = {'trust', 'sprout', 'sentinel'};
 
 /// A job's place is open: its hand-in is ready (the walk done, what it needs in the Bag).
 bool storyFloorOpen(GameState s, String qid) {

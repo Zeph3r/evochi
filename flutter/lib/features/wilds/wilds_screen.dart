@@ -163,7 +163,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     _story = story;
     final seed = widget.seed ?? DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
     final friendly = story?.beat == 'trust' || sf.petaluneWithYou(c.state);
-    final extra = [if (friendly) 'petalune', if (story?.beat == 'sprout') 'hollow_sprout'];
+    final extra = [if (friendly) 'petalune', if (story?.beat == 'sprout') 'hollow_sprout', if (story?.beat == 'sentinel') 'sentinel'];
     Future.wait([
       depth == null ? WildsMap.load(widget.mapId) : makeFloor(depth, seed, story: story?.beat, place: story?.place, quest: story?.quest),
       WalkerArt.load(key, palette, wearing: wearing),
@@ -453,10 +453,15 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     var fx = pet.x, fz = pet.z;
     final bb = r.boss;
     final bossFight = bb != null && (r.bossState == BossState.intro || r.bossState == BossState.fight);
+    // the Forgotten Sentinel: the camera turns to it as it wakes, then keeps it in view
+    final sent = r.sentinel;
+    final sentFight = sent != null && !sent.calm && sent.st != FoeState.dormant;
     // room to move: the view widens to fit the fight
     var wantW = 180.0;
     if (bossFight) {
       wantW = 265; // the arena is wide: room to see the guardian's sweeps and charges coming
+    } else if (sentFight) {
+      wantW = 250; // room to see its beam sweep and its runes coming
     } else if (r.inCombat) {
       var spread = 0.0;
       for (final f in r.hostile) {
@@ -472,6 +477,10 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     if (bossFight) {
       fx += (bb.x - pet.x) * 0.35;
       fz += (bb.z - pet.z) * 0.35;
+    } else if (sentFight) {
+      final lean = sent.st == FoeState.roar ? 0.7 : 0.35;
+      fx += (sent.x - pet.x) * lean;
+      fz += (sent.z - pet.z) * lean;
     }
     final p = _toGround(fx, fz) * _gk;
     final gw = m.groundW * _gk, gh = m.groundH * _gk;
@@ -632,6 +641,37 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
           _sfx('enc_rumble', 0.22, gap: 0.12);
         case 'story_done':
           _storyDone();
+        case 'sentinel_wake':
+          _sfx('enc_awaken', 0.8);
+          a.buzz(Haptic.rumble);
+          _showBanner('Something huge stirs against the gate...', 2.0);
+        case 'sentinel_rise':
+          _sfx('wild_crash', 0.8);
+          _sfx('enc_rumble', 0.7);
+          a.buzz(Haptic.thump);
+          _showBanner('The Forgotten Sentinel wakes!', 2.4);
+        case 'slam':
+          _sfx('wild_crash', 0.7);
+          a.buzz(Haptic.thump, strength: 0.8);
+        case 'beam':
+          _sfx('enc_surge', 0.7);
+        case 'runes':
+          _sfx('enc_rumble', 0.45, gap: 0.2);
+        case 'shield_up':
+          _sfx('enc_awaken', 0.6);
+          _showBanner(
+              e.value <= 1
+                  ? 'It kneels behind a Hollow shield! Calm what it called, or break the shield with Lumen (a Lantern Tonic).'
+                  : 'The shield again! Calm them, or light your Evochi with Lumen.',
+              4.0);
+        case 'shielded':
+          _sfx('enc_glow', 0.35, gap: 0.25);
+        case 'shield_hit':
+          _sfx('wild_hit', 0.5, gap: 0.08);
+        case 'shield_break':
+          _sfx('wild_crash', 0.8);
+          a.buzz(Haptic.thump);
+          _showBanner('The shield shatters! It staggers: now!', 2.2);
         case 'hum':
           _sfx('enc_soothe', 0.6);
         case 'treat':
@@ -1318,7 +1358,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   /// Playtesting shortcuts (debug builds only): 1-3 the clearings, 4 the arena's edge, 5 the arena, G
   /// keeps your Evochi's Raid HP full, B takes a fifth of the guardian's health, I replays its entrance, N
   /// goes down to the next Deep Wilds floor, H opens a Surge floor, C calms every creature on the floor, P and O
-  /// open the Mossy Ruins' story floors (Petalune, the Hollow Sprout), 9 goes to a story floor's beat.
+  /// open the Mossy Ruins' story floors (Petalune, the Hollow Sprout) and Y the Sentinel's Gate, 9 goes to a
+  /// story floor's beat.
   void _debugKey(LogicalKeyboardKey k) {
     final r = _raid, m = _map;
     if (r == null || m == null) return;
@@ -1347,10 +1388,11 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     }
     // calm every creature on the floor (to try the way down, and a Surge's break)
     if (k == LogicalKeyboardKey.keyC) r.calmAllForTesting();
-    // the Mossy Ruins' story floors, whatever the jobs say: P Petalune, O the Hollow Sprout
-    if (k == LogicalKeyboardKey.keyP || k == LogicalKeyboardKey.keyO) {
-      final q = k == LogicalKeyboardKey.keyP ? 'eq01' : 'eq02';
-      Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => WildsScreen(depth: 3, seed: 777, story: q, forceStory: true)));
+    // the story floors, whatever the jobs say: P Petalune, O the Hollow Sprout, Y the Sentinel's Gate
+    if (k == LogicalKeyboardKey.keyP || k == LogicalKeyboardKey.keyO || k == LogicalKeyboardKey.keyY) {
+      final q = k == LogicalKeyboardKey.keyP ? 'eq01' : (k == LogicalKeyboardKey.keyO ? 'eq02' : 'eq03');
+      final f = sf.storyFloors[q]!;
+      Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => WildsScreen(depth: f.depth, seed: 777, story: q, forceStory: true)));
     }
     // I: play the guardian's entrance again (the full cut)
     if (k == LogicalKeyboardKey.keyI && _introArt != null) setState(() => _cine = IntroCut.full);
@@ -1806,6 +1848,7 @@ class _MapPainter extends CustomPainter {
     for (final it in items) {
       it.$2();
     }
+    _sentinelBeam(canvas, r);
     // the wood's own life: leaves coming down, fireflies in the shade; the edges sink into shadow
     if (!rm) _ambient(canvas, size);
     _vignette(canvas, size);
@@ -2176,7 +2219,72 @@ class _MapPainter extends CustomPainter {
     }
     canvas.drawImageRect(img, src, Rect.fromLTWH(-a.gx * k, -a.gy * k, a.fw * k, a.fh * k), _spritePaint(f));
     canvas.restore();
-    if (f.st == FoeState.stagger && f is Boss) _stars(canvas, g - Offset(0, a.top * k * 0.95), 2, 1);
+    if (f.st == FoeState.stagger && (f is Boss || f.kind == 'sentinel')) _stars(canvas, g - Offset(0, a.top * k * 0.95), 2, 1);
+    if (f.kind == 'sentinel' && !f.calm) _sentinelShield(canvas, f, a, g, k);
+  }
+
+  /// The Sentinel's Hollow shield: a violet dome over it, cracking as Lumen wears it down.
+  void _sentinelShield(Canvas canvas, Foe f, FoeArt a, Offset g, double k) {
+    final r = s._raid!;
+    if (r.sentinelShield <= 0) return;
+    final left = (r.sentinelShield / r.sentinelShieldMax).clamp(0.0, 1.0);
+    final h = a.top * k * 1.05, w = f.radius * 2.6 * s._u;
+    final pulse = rm ? 0.0 : 0.05 * math.sin(s._t * 3);
+    final dome = Rect.fromLTRB(g.dx - w / 2, g.dy - h, g.dx + w / 2, g.dy + w * 0.18);
+    canvas.drawOval(dome, Paint()..color = Color.fromRGBO(150, 100, 230, 0.16 + pulse + 0.1 * left));
+    canvas.drawOval(
+        dome,
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.2
+          ..color = Color.fromRGBO(220, 200, 255, 0.55 + 0.3 * left));
+    // cracks as it weakens
+    final cracks = ((1 - left) * 7).floor();
+    final cp = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.4
+      ..color = const Color(0xDDFFF6FF);
+    for (var i = 0; i < cracks; i++) {
+      final a0 = -math.pi * (0.15 + 0.7 * ((i * 0.618) % 1.0));
+      final start = dome.center + Offset(math.cos(a0) * w / 2 * 0.95, math.sin(a0) * dome.height / 2 * 0.95);
+      final path = Path()..moveTo(start.dx, start.dy);
+      var p = start;
+      for (var j = 0; j < 3; j++) {
+        p = p + Offset((((i + j) * 0.37) % 1.0 - 0.5) * 10, 7 + j * 2.0);
+        path.lineTo(p.dx, p.dy);
+      }
+      canvas.drawPath(path, cp);
+    }
+  }
+
+  /// The Sentinel's eyes' beam: from its eyes down to the ground, sweeping.
+  void _sentinelBeam(Canvas canvas, Raid r) {
+    final b = r.beam;
+    final f = r.sentinel;
+    if (b == null || f == null) return;
+    final a = s._foeArt['sentinel'];
+    final eyeH = a == null ? 40.0 : a.top * s._u / a.scale * f.size * 0.78;
+    final from = s._toScreen(f.x, f.z) - Offset(0, eyeH);
+    final to = s._toScreen(b.x + b.dx * b.len, b.z + b.dz * b.len);
+    final ground = s._toScreen(b.x + b.dx * 20, b.z + b.dz * 20);
+    final flick = rm ? 1.0 : 0.85 + 0.15 * math.sin(s._t * 40);
+    // the burn along the ground
+    canvas.drawLine(ground, to, Paint()
+      ..strokeWidth = 7 * s._u / 2.7
+      ..strokeCap = StrokeCap.round
+      ..color = Color.fromRGBO(120, 70, 200, 0.35 * flick));
+    for (final (wd, col) in [
+      (16.0, Color.fromRGBO(150, 90, 240, 0.28 * flick)),
+      (8.0, Color.fromRGBO(200, 160, 255, 0.6 * flick)),
+      (3.0, Color.fromRGBO(255, 245, 255, 0.95)),
+    ]) {
+      canvas.drawLine(from, to, Paint()
+        ..strokeWidth = wd * s._u / 2.7
+        ..strokeCap = StrokeCap.round
+        ..color = col);
+    }
+    _glow(canvas, to, 16 * s._u / 2.7, Color.fromRGBO(210, 170, 255, 0.6 * flick));
+    _glow(canvas, from, 10 * s._u / 2.7, const Color(0xCCF1E6FF));
   }
 
   void _heart(Canvas canvas, Offset c, double r, Color col) {
@@ -2584,6 +2692,33 @@ class _MapPainter extends CustomPainter {
           final a = i * 0.628 + k * 1.5;
           final rr = b.size * Curves.easeOut.transform(k) * 0.9;
           _heart(canvas, s._toScreen(b.x + math.cos(a) * rr, b.z + math.sin(a) * rr) - Offset(0, 6 * _up), 3.5 * u, Color.fromRGBO(255, 210, 225, 1 - k));
+        }
+      case 'snare' when b.tag == 'rune':
+        // the Sentinel's runes: a ring of old light bursts up out of the ground
+        final rise = k < 0.12 ? k / 0.12 : (k > 0.7 ? (1 - k) / 0.3 : 1.0);
+        final e = _ellipse(b.x, b.z, b.size);
+        canvas.drawOval(e, Paint()..color = Color.fromRGBO(150, 100, 230, 0.35 * rise));
+        canvas.drawOval(
+            e,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2.5
+              ..color = Color.fromRGBO(230, 210, 255, 0.9 * rise));
+        canvas.drawOval(
+            e.deflate(e.width * 0.18),
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.5
+              ..color = Color.fromRGBO(200, 170, 250, 0.7 * rise));
+        // shafts of light up out of it
+        for (var i = 0; i < 7; i++) {
+          final a = i * math.pi * 2 / 7 + b.x * 0.1;
+          final base = s._toScreen(b.x + math.cos(a) * b.size * 0.7, b.z + math.sin(a) * b.size * 0.7);
+          final h = (24 + 10 * ((i * 0.37) % 1.0)) * _up * rise;
+          canvas.drawLine(base, base - Offset(0, h), Paint()
+            ..strokeWidth = 3 * u
+            ..strokeCap = StrokeCap.round
+            ..color = Color.fromRGBO(210, 180, 255, 0.55 * rise));
         }
       case 'snare':
         // Thorn Snare: thorns burst up in a ring and hold, then sink (violet: the Hollow Sprout's)
@@ -3118,6 +3253,10 @@ class _TopCenter extends StatelessWidget {
           if (b != null && (r.bossState == BossState.intro || r.bossState == BossState.fight) && !b.calm) {
             return _BossBar(boss: b);
           }
+          final sent = r.sentinel;
+          if (sent != null && !sent.calm && sent.st != FoeState.dormant) {
+            return _SentinelBar(sentinel: sent, shield: r.sentinelShield / r.sentinelShieldMax);
+          }
           final String text;
           final deep = state._map!.depth != null;
           if (r.storyBeat == 'trust' && !r.storyDone) {
@@ -3183,6 +3322,44 @@ class _BossBar extends StatelessWidget {
                 _Bar(width: w, height: 9, frac: f, color: col),
                 for (final n in const [0.6, 0.3])
                   Positioned(left: w * n - 1, top: 1, bottom: 1, child: Container(width: 2, color: const Color(0xCCFFF3DC))),
+              ]),
+            );
+          }),
+        ]),
+      ),
+    );
+  }
+}
+
+class _SentinelBar extends StatelessWidget {
+  const _SentinelBar({required this.sentinel, required this.shield});
+  final Foe sentinel;
+  final double shield; // 0..1 while its Hollow shield is up
+  @override
+  Widget build(BuildContext context) {
+    final f = sentinel.hpFrac;
+    return Semantics(
+      label: 'The Forgotten Sentinel, ${(f * 100).round()} percent${shield > 0 ? ', shielded' : ''}',
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 320),
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            Text('The Forgotten Sentinel', style: _hudText(14)),
+            const SizedBox(width: 6),
+            Text(shield > 0 ? 'Shielded' : (f < 0.5 ? 'Waking fury' : 'Guardian of the Gate'), style: _hudText(11, const Color(0xFFD9C2FF))),
+          ]),
+          const SizedBox(height: 4),
+          LayoutBuilder(builder: (context, cons) {
+            final w = math.min(cons.maxWidth, 280.0);
+            return SizedBox(
+              width: w,
+              height: shield > 0 ? 14 : 9,
+              child: Stack(children: [
+                _Bar(width: w, height: 9, frac: f, color: f < 0.5 ? const Color(0xFFE0526B) : const Color(0xFF9B7BD6)),
+                for (final n in const [0.66, 0.33])
+                  Positioned(left: w * n - 1, top: 1, height: 7, child: Container(width: 2, color: const Color(0xCCFFF3DC))),
+                if (shield > 0)
+                  Positioned(left: 0, top: 10, child: _Bar(width: w, height: 4, frac: shield, color: const Color(0xFFC8B1E4))),
               ]),
             );
           }),

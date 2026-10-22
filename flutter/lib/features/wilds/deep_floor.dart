@@ -330,6 +330,19 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
       }
     }
   }
+  // the Sentinel's Gate: the last clearing opens out into an arena round the sleeping guardian (the
+  // forest floor beyond the grass is open ground too, so the trees stand back)
+  if (story == 'sentinel') {
+    final ex = plan.rooms.firstWhere((r) => r.role == 'exit');
+    final (acx, acz) = plan.centre(ex);
+    for (var k = 0; k < plan.rows; k++) {
+      for (var i = 0; i < plan.cols; i++) {
+        final x = plan.x0 + (i + 0.5) * plan.cell, z = plan.z0 + (k + 0.5) * plan.cell;
+        final ux = (x - acx) / sentinelArena.$1, uz = (z - (acz + 4)) / sentinelArena.$2;
+        if (ux * ux + uz * uz < 1) walk[k * plan.cols + i] = 1;
+      }
+    }
+  }
   // distance (in cells) from every cell to the nearest walkable one: where trees may stand, and how near
   final far = List<int>.filled(plan.cols * plan.rows, 1 << 20);
   final q = <int>[];
@@ -475,6 +488,21 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
         });
         if (story == null) {
           _foes(plan, rng, r, cx, cz, rr * 0.55, wantFoes, depth);
+        } else if (story == 'sentinel') {
+          // the old gate past the bridge: broken pillars round the arena's rim, rubble, the guardian
+          // asleep against the gate
+          final (ax, az) = sentinelArena;
+          for (var i = 0; i < 9; i++) {
+            final a = math.pi * (0.62 + i * 0.22) + rng.d(-0.05, 0.05);
+            final x = cx + math.cos(a) * ax * 0.86, z = cz + 4 + math.sin(a) * az * 0.86;
+            add(i.isEven ? 'pillar' : 'pillar_low', x, z, flip: rng.p(0.5));
+          }
+          for (var i = 0; i < 6; i++) {
+            final a = rng.d(0, math.pi * 2), d = rng.d(0.55, 0.8);
+            add(rng.pick(const ['rock', 'shrooms', 'rock']), cx + math.cos(a) * ax * d, cz + 4 + math.sin(a) * az * d, s: rng.d(0.6, 0.8));
+          }
+          plan.storyAt = (cx, gz + 30);
+          plan.zones.add({'id': 'gate', 'name': "Sentinel's Gate", 'x': cx, 'z': cz + 4, 'r': ax});
         } else {
           // the ruins: fallen stones round the clearing, moss and old light; the story's creature waits
           // in the middle
@@ -539,6 +567,9 @@ String _chunkId(FloorRoom r) => '${r.hall ? 'hall' : 'room'}_${r.mask.toString()
 /// How far a solid prop's edge keeps from a way's centre line: an Evochi's body (radius up to 12) and a
 /// little room to spare.
 const _bodyRoom = 15.0;
+
+/// The Sentinel's arena round the last clearing: its half width and half depth.
+const sentinelArena = (112.0, 100.0);
 
 bool _nearPath(KitChunk k, double u, double v, double d) {
   for (final p in k.paths) {
@@ -614,7 +645,7 @@ Future<WildsMap> makeFloor(int depth, int seed, {String? story, String? place, S
     'level': 2 + depth,
     'pitch': kit.pitch,
     'scale': s,
-    'objective': story == null ? 'Calm the floor and find the way down' : 'Find what waits in the ruins',
+    'objective': switch (story) { null => 'Calm the floor and find the way down', 'sentinel' => 'Find the old gate past the bridge', _ => 'Find what waits in the ruins' },
     'ground': {'w': gw, 'h': gh, 'origin': [origin.dx, origin.dy], 'scale': s},
     'bounds': [plan.bounds.left, plan.bounds.top, plan.bounds.right, plan.bounds.bottom],
     'grid': {'cell': plan.cell, 'x0': plan.x0, 'z0': plan.z0, 'cols': plan.cols, 'rows': plan.rows, 'blocked': base64Encode(plan.grid)},

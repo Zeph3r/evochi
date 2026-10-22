@@ -21,7 +21,9 @@ String _how(sf.StoryFloor f) => switch (f.beat) {
           'Hum to it, and offer a treat from your Bag (it loves Sunberry Tarts).',
       'sprout' => 'The Hollow has tangled the sprout and it lashes out: vines, thorns underfoot, bursts of spores. '
           'Calm its Hollow in a fight and it comes back to itself.',
-      _ => 'An old guardian sleeps against the gate, tangled in Hollow. Wake it, weather it, and help it remember.',
+      _ => 'An old guardian sleeps against the gate, tangled in Hollow. Wake it and weather its fists, its eyes\' beam and '
+          'its runes. When it hides behind a Hollow shield, calm what it calls, or drink your Lantern Tonic: '
+          'its light breaks the shield.',
     };
 
 /// The job's place: open it, or see what it still needs.
