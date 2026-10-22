@@ -2757,6 +2757,20 @@ class Raid {
 
   static const sentinelWakeR = 118.0;
 
+  /// Its entrance has played (the cinematic): it is up and fighting at once, the in-fight waking skipped.
+  void sentinelAwake() {
+    final f = sentinel;
+    if (f == null || f.calm || (f.st != FoeState.dormant && f.st != FoeState.roar)) return;
+    f
+      ..st = FoeState.engage
+      ..t = 0
+      ..glow = 0
+      ..pose = null
+      ..cd = 1.0
+      ..cd2 = 6
+      ..target = pet;
+  }
+
   void _tickSentinel(Foe f, double dt) {
     f.cd -= dt;
     f.cd2 -= dt;

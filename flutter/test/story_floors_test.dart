@@ -283,6 +283,18 @@ void main() {
       expect(r.foes.where((f) => f.summoned && !f.calm).length, 3);
     });
 
+    test('after its entrance (the cinematic) it is up and fighting at once', () {
+      final r = Raid(ground: meadow(), pet: petAt(0, 300), storyBeat: 'sentinel', storyX: 0, storyZ: 0, seed: 5);
+      final st = r.sentinel!;
+      r.pet.z = 100;
+      final ev = watch(r, 0.2);
+      expect(ev, contains('sentinel_wake'));
+      r.sentinelAwake();
+      expect(st.st, FoeState.engage);
+      final after = watch(r, 3);
+      expect(after, isNot(contains('sentinel_rise')), reason: 'the in-fight waking is skipped');
+    });
+
     test('calmed, it is restored: it bows and stays at its gate, and the story is done', () {
       final r = Raid(ground: meadow(), pet: petAt(0, 100), storyBeat: 'sentinel', storyX: 0, storyZ: 0, seed: 5);
       final st = r.sentinel!;

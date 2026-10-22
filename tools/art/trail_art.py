@@ -258,7 +258,9 @@ def sentinel(state='hollow', arms=None):
     put(M, shell(M, body, 1) & (M.X < -4.0) & (M.Z > 0) & (M.Y > 10), STONE_B_HI)
     # arms: a big resting arm on the right, a raised one on the left (or a fighting pose)
     def arm(side, s):
-        (uc, ur), (fc, fr) = SENTINEL_ARMS[arms[side]]
+        # a pose by name, or its numbers given outright (the intro eases from one pose to the next)
+        spec = arms[side]
+        (uc, ur), (fc, fr) = SENTINEL_ARMS[spec] if isinstance(spec, str) else spec
         return (ell(M, (uc[0] * s, uc[1], uc[2]), ur, p=2.4) | ell(M, (fc[0] * s, fc[1], fc[2]), fr, p=2.4)), uc[1]
     (arm_r, band_r), (arm_l, band_l) = arm('r', 1), arm('l', -1)
     for a in (arm_r, arm_l):

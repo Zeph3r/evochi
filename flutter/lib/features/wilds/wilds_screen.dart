@@ -85,6 +85,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   BossIntroArt? _introArt;
   CineEvochiArt? _cineEvochi;
   IntroCut? _cine; // playing now
+  BossIntroArt? _sentArt; // the Forgotten Sentinel's entrance (its story floor only)
+  IntroCut? _sentCine;
   final _foeArt = <String, FoeArt>{};
   late final Ticker _ticker = createTicker(_tick);
   Duration _last = Duration.zero;
@@ -189,13 +191,18 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       });
       // Sher keeps the camp by the fire: he gives berries and a tip, and the trail is yours to walk
       _ticker.start();
-      _loadIntro(pet?.stage ?? 1, palette, wearing);
+      _loadIntro(m, pet?.stage ?? 1, palette, wearing);
     });
   }
 
-  Future<void> _loadIntro(int stage, String palette, List<String> wearing) async {
+  /// The entrances this map can play (the Briarback's in the Thicket, the Sentinel's at its gate), and
+  /// your Evochi's heroic cut-out for them. Nothing for a floor without a guardian.
+  Future<void> _loadIntro(WildsMap m, int stage, String palette, List<String> wearing) async {
     try {
-      _introArt = await BossIntroArt.load('briarback');
+      final sentinel = m.story?.beat == 'sentinel';
+      if (m.boss == null && !sentinel) return;
+      if (m.boss != null) _introArt = await BossIntroArt.load('briarback');
+      if (sentinel) _sentArt = await BossIntroArt.load('sentinel', warm: const [0, 1, 2, 3, 4, 26, 27, 28]);
       _cineEvochi = await CineEvochiArt.load(stage, palette, wearing);
     } catch (e) {
       debugPrint('boss intro art: $e');
@@ -290,6 +297,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     if (_music != null) _c.audio.setMusic(null);
     _ticker.dispose();
     _introArt?.dispose();
+    _sentArt?.dispose();
     for (final sh in _fx.values) {
       sh.dispose();
     }
@@ -323,7 +331,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     return Offset(p.dx / m.scale, p.dy / (m.sinP * m.scale));
   }
 
-  bool get _paused => _card != null || _cine != null;
+  bool get _paused => _card != null || _cine != null || _sentCine != null;
 
   // ---- the loop
   void _tick(Duration now) {
@@ -537,6 +545,42 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     }
   }
 
+  /// The Sentinel's entrance's sounds and rumbles.
+  void _sentCue(String cue) {
+    final a = _c.audio;
+    switch (cue) {
+      case 'open':
+        _sfx('enc_rumble', 0.4);
+      case 'ignite':
+        _sfx('enc_awaken', 0.85);
+        a.buzz(Haptic.hit);
+      case 'rise':
+        _sfx('enc_rumble', 0.75);
+        a.buzz(Haptic.rumble, strength: 0.6);
+      case 'roar':
+        _sfx('wild_roar', 0.85, gap: 0.3);
+        _sfx('enc_rumble', 0.8);
+        a.buzz(Haptic.rumble);
+      case 'charge':
+        _sfx('enc_glow', 0.8);
+      case 'beam':
+        _sfx('enc_surge', 0.9);
+        a.buzz(Haptic.rumble, strength: 0.8);
+      case 'leap':
+        _sfx('wild_dodge', 0.7);
+      case 'blast':
+        _sfx('wild_crash', 0.9);
+        a.buzz(Haptic.thump);
+      case 'land':
+        _sfx('wild_hit', 0.4);
+        a.buzz(Haptic.hit);
+      case 'title':
+        _sfx('wild_crash', 0.95);
+        _sfx('enc_rumble', 0.7);
+        a.buzz(Haptic.thump);
+    }
+  }
+
   void _say(String text, [double secs = 2.8]) {
     _bubble = text;
     _bubbleT = secs;
@@ -642,9 +686,19 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
         case 'story_done':
           _storyDone();
         case 'sentinel_wake':
-          _sfx('enc_awaken', 0.8);
-          a.buzz(Haptic.rumble);
-          _showBanner('Something huge stirs against the gate...', 2.0);
+          // its entrance: in full the first time, the looming shot and the title after (a still card with
+          // reduced motion); without its art, it simply wakes in the fight
+          if (_sentArt != null) {
+            final seen = c.state.trails.seen['sentinel_intro'] == true;
+            final reduce = MediaQuery.of(context).disableAnimations;
+            r.shake = 0;
+            setState(() => _sentCine = reduce ? IntroCut.still : (seen ? IntroCut.short : IntroCut.full));
+            if (!seen) c.run((s, n) => trails.markTrailSeen(s, 'sentinel_intro'), quiet: true);
+          } else {
+            _sfx('enc_awaken', 0.8);
+            a.buzz(Haptic.rumble);
+            _showBanner('Something huge stirs against the gate...', 2.0);
+          }
         case 'sentinel_rise':
           _sfx('wild_crash', 0.8);
           _sfx('enc_rumble', 0.7);
@@ -1309,6 +1363,22 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                       },
                     ),
                   ),
+                if (_sentCine != null && _sentArt != null)
+                  Positioned.fill(
+                    child: SentinelIntro(
+                      art: _sentArt!,
+                      evochi: _cineEvochi,
+                      cut: _sentCine!,
+                      petName: _c.state.pet?.name ?? 'Your Evochi',
+                      tint: cineTint(_c.state.pet?.paletteId ?? 'amber'),
+                      onCue: _sentCue,
+                      onDone: () {
+                        setState(() => _sentCine = null);
+                        _raid?.sentinelAwake();
+                        _sentArt?.want(const [26, 27, 28]);
+                      },
+                    ),
+                  ),
               ]),
             );
           }),
@@ -1396,6 +1466,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     }
     // I: play the guardian's entrance again (the full cut)
     if (k == LogicalKeyboardKey.keyI && _introArt != null) setState(() => _cine = IntroCut.full);
+    if (k == LogicalKeyboardKey.keyI && _sentArt != null) setState(() => _sentCine = IntroCut.full);
     // the gate's seal: up again (R), or drawn back as if the guardian had just been calmed (T)
     if (k == LogicalKeyboardKey.keyR) setState(() => _sealOpen = false);
     if (k == LogicalKeyboardKey.keyT) {

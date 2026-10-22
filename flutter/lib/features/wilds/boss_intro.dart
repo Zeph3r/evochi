@@ -13,7 +13,7 @@
 // colour and stage at a low heroic angle with the cinematic faces, wearing what it wears
 // (tools/art/cine_evochi.py). Everything else (wind, rings, dust, light, letterbox, title) is drawn here.
 // Tap to skip. The full version plays the first time; after that a short one (the slam and the title);
-// with reduced motion, a still title card.
+// with reduced motion, a still title card. The Forgotten Sentinel's entrance is in sentinel_intro.dart.
 
 import 'dart:convert';
 import 'dart:math' as math;
@@ -25,6 +25,8 @@ import 'package:flutter/services.dart';
 
 import '../../app/theme.dart';
 import 'wilds_art.dart' show wildsBase;
+
+part 'sentinel_intro.dart';
 
 Future<ui.Image> _img(String path) async {
   final data = await rootBundle.load(path);
@@ -38,7 +40,7 @@ Offset _pt(dynamic p) => Offset(((p as List)[0] as num).toDouble(), (p[1] as num
 /// needed: a few ahead of the playhead are decoded and the ones behind are let go, so a phone never
 /// holds the whole sequence as pictures at once.
 class BossIntroArt {
-  BossIntroArt._(this.bytes, this.size, this.impact, this.ground, this.mouth, this.hooves, {this.decode = true});
+  BossIntroArt._(this.bytes, this.size, this.impact, this.ground, this.mouth, this.hooves, {this.decode = true, this.meta = const {}});
 
   /// A stand-in with no pictures (tests: the timeline, the cues, skipping).
   @visibleForTesting
@@ -57,28 +59,33 @@ class BossIntroArt {
   final List<Offset> ground, mouth;
   final List<List<Offset>> hooves;
   final bool decode;
+
+  /// The sequence's own marks (the Sentinel's: where its runes and shots start, its chest per frame).
+  final Map<String, dynamic> meta;
   final _decoded = <int, ui.Image>{};
   final _pending = <int>{};
 
   int get count => bytes.length;
 
-  static Future<BossIntroArt> load(String key) async {
+  /// [warm]: the frames to have ready before it starts (the openings of its cuts).
+  static Future<BossIntroArt> load(String key, {List<int> warm = const [0, 1, 2, 22, 23, 24]}) async {
     final j = (jsonDecode(await rootBundle.loadString('$wildsBase${key}_intro.json')) as Map).cast<String, dynamic>();
     final n = (j['frames'] as num).toInt();
     final bytes = await Future.wait([
       for (var i = 0; i < n; i++)
         rootBundle.load('$wildsBase${key}_intro_${i.toString().padLeft(2, '0')}.webp').then((d) => d.buffer.asUint8List()),
     ]);
+    // the Briarback's mouth and hooves; the Sentinel's eyes and fists
     final art = BossIntroArt._(
       bytes,
       Size((j['w'] as num).toDouble(), (j['h'] as num).toDouble()),
-      (j['impact'] as num).toInt(),
+      ((j['impact'] ?? j['menace']) as num).toInt(),
       [for (final p in j['ground'] as List) _pt(p)],
-      [for (final p in j['mouth'] as List) _pt(p)],
-      [for (final h in j['hooves'] as List) [for (final p in h as List) _pt(p)]],
+      [for (final p in (j['mouth'] ?? j['eyes']) as List) _pt(p)],
+      [for (final h in (j['hooves'] ?? j['fists']) as List) [for (final p in h as List) _pt(p)]],
+      meta: j,
     );
-    // the openings of both cuts, ready to go
-    await art.want([0, 1, 2, 22, 23, 24, n - 1]);
+    await art.want([...warm, n - 1]);
     return art;
   }
 
@@ -350,9 +357,10 @@ double _h(int i, int k) {
   return v - v.floorToDouble();
 }
 
-class _IntroPainter extends CustomPainter {
+class _IntroPainter extends CustomPainter with _IntroFx {
   _IntroPainter(this.s, this.t, this.shake);
   final _BossIntroState s;
+  @override
   final double t;
   final Offset shake;
 
@@ -476,81 +484,9 @@ class _IntroPainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTWH(0, H - bh, W, bh), bp);
   }
 
-  // dark trunks and brambles at the edges, a mossy floor
-  void _woods(Canvas canvas, Size size, double env, bool blastShot) {
-    final W = size.width, H = size.height;
-    final floor = H * (blastShot ? 0.78 : 0.8);
-    canvas.drawRect(
-        Rect.fromLTWH(0, floor, W, H - floor),
-        Paint()
-          ..shader = ui.Gradient.linear(Offset(0, floor), Offset(0, H), [Color.fromRGBO(34, 52, 34, env), Color.fromRGBO(18, 26, 18, env)]));
-    final p = Paint()..color = Color.fromRGBO(9, 8, 14, 0.9 * env);
-    for (var i = 0; i < 7; i++) {
-      final left = i.isEven;
-      final x = left ? W * (0.02 + 0.09 * _h(i, 1)) - 30 : W * (0.9 + 0.09 * _h(i, 1)) + 10;
-      final wid = W * (0.05 + 0.06 * _h(i, 2));
-      final sway = math.sin(t * 0.6 + i) * 3;
-      canvas.drawPath(
-          Path()
-            ..moveTo(x - wid * 0.7 + sway, -10)
-            ..lineTo(x + wid * 0.7 + sway, -10)
-            ..lineTo(x + wid, floor + 6)
-            ..lineTo(x - wid, floor + 6)
-            ..close(),
-          p);
-    }
-    // a tangle of brambles along the floor
-    final bp = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3
-      ..strokeCap = StrokeCap.round
-      ..color = Color.fromRGBO(52, 34, 70, 0.95 * env);
-    for (var i = 0; i < 9; i++) {
-      final x0 = W * (i / 8.0) + (_h(i, 3) - 0.5) * 40;
-      final path = Path()..moveTo(x0, H);
-      for (var k = 1; k <= 4; k++) {
-        path.quadraticBezierTo(x0 + (k.isEven ? 30 : -30), H - k * 22 + 10, x0 + (_h(i, k) - 0.5) * 50, H - k * 24);
-      }
-      canvas.drawPath(path, bp);
-    }
-  }
 
-  void _rays(Canvas canvas, Size size, double env) {
-    final W = size.width, H = size.height;
-    for (var i = 0; i < 3; i++) {
-      final x = W * (0.12 + 0.22 * i) + math.sin(t * 0.5 + i) * 12;
-      final a = (0.05 + 0.03 * math.sin(t * 1.3 + i * 2)) * env;
-      canvas.drawPath(
-          Path()
-            ..moveTo(x, -10)
-            ..lineTo(x + W * 0.1, -10)
-            ..lineTo(x + W * 0.45, H * 0.85)
-            ..lineTo(x + W * 0.18, H * 0.85)
-            ..close(),
-          Paint()
-            ..shader = ui.Gradient.linear(Offset(x, 0), Offset(x + W * 0.3, H * 0.85),
-                [Color.fromRGBO(226, 214, 255, a), const Color.fromRGBO(226, 214, 255, 0)]));
-    }
-  }
 
-  // Hollow motes rising
-  void _motes(Canvas canvas, Size size, double env) {
-    final W = size.width, H = size.height;
-    final p = Paint();
-    for (var i = 0; i < 34; i++) {
-      final sp = 0.05 + 0.08 * _h(i, 5);
-      final y = H - ((t * sp + _h(i, 6)) % 1.0) * H * 1.1;
-      final x = W * _h(i, 7) + math.sin(t * 1.5 + i) * 10;
-      final tw = 0.5 + 0.5 * math.sin(t * 4 + i * 1.7);
-      p.color = Color.fromRGBO(196, 160, 255, (0.25 + 0.5 * tw) * env);
-      canvas.drawCircle(Offset(x, y), 1.2 + 2.2 * _h(i, 8), p);
-    }
-  }
 
-  void _shadow(Canvas canvas, Offset at, double r, double a) {
-    canvas.drawOval(Rect.fromCenter(center: at, width: r * 2, height: r * 0.42),
-        Paint()..shader = ui.Gradient.radial(at, r, [Color.fromRGBO(0, 0, 0, a), const Color(0x00000000)]));
-  }
 
   // the roar's rings, sweeping out of its mouth (toward your Evochi on the left while it braces)
   void _rings(Canvas canvas, Offset mouth, double W, double env, bool blastShot) {
@@ -571,28 +507,7 @@ class _IntroPainter extends CustomPainter {
     }
   }
 
-  void _dust(Canvas canvas, Offset at, double since, double spread, double env, int n, Offset drift) {
-    final k = (since / 0.9).clamp(0.0, 1.0);
-    final p = Paint();
-    for (var i = 0; i < n; i++) {
-      final dir = (i / n - 0.5) * 2;
-      final x = at.dx + dir * spread * Curves.easeOutCubic.transform(k) * (0.5 + _h(i, 9));
-      final y = at.dy - (20 + 50 * _h(i, 10)) * math.sin(k * math.pi * 0.8) + drift.dy * k * 20;
-      p.color = Color.fromRGBO(196, 182, 160, (1 - k) * 0.6 * env);
-      canvas.drawCircle(Offset(x, y), (6 + 14 * _h(i, 11)) * (0.6 + k), p);
-    }
-  }
 
-  void _shock(Canvas canvas, Offset at, double since, double W, double env) {
-    final k = (since / 0.7).clamp(0.0, 1.0);
-    final r = W * 0.08 + W * 0.75 * Curves.easeOutCubic.transform(k);
-    canvas.drawOval(
-        Rect.fromCenter(center: at, width: r * 2, height: r * 0.5),
-        Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 10 * (1 - k) + 1
-          ..color = Color.fromRGBO(240, 232, 214, (1 - k) * 0.8 * env));
-  }
 
   // ---- the blast: your Evochi in the roar
   void _blastShot(Canvas canvas, Size size, double env) {
@@ -673,6 +588,159 @@ class _IntroPainter extends CustomPainter {
     _wind(canvas, size, gust * env * 0.6, true);
   }
 
+
+
+  // ---- the face-off: your Evochi low on the left, the guardian up on the right
+  void _faceOffShot(Canvas canvas, Size size, double env) {
+    final W = size.width, H = size.height;
+    final ev = s.widget.evochi;
+    final u = t - _faceOff;
+    final inK = Curves.easeOutBack.transform((u / 0.5).clamp(0.0, 1.0));
+    // a slash of light between them
+    final sl = (u / 0.3).clamp(0.0, 1.0) * env;
+    canvas.drawLine(
+        Offset(-20, H * 0.98),
+        Offset(W + 20, H * 0.22),
+        Paint()
+          ..strokeWidth = 3
+          ..color = Color.fromRGBO(255, 250, 240, 0.55 * sl));
+    if (ev == null) return;
+    final h = math.min(H * 0.34, W * 0.6);
+    final feet = Offset(-W * 0.3 + (W * 0.68) * inK, H * 0.88);
+    // its colour pouring off it, speed lines behind
+    final c = feet - Offset(0, h * 0.45);
+    canvas.drawCircle(c, h * 0.95, Paint()..shader = ui.Gradient.radial(c, h * 0.95, [tint.withAlpha(_a(0.55 * env)), tint.withAlpha(0)]));
+    final lp = Paint()..strokeCap = StrokeCap.round;
+    for (var i = 0; i < 18; i++) {
+      final a = math.pi * 2 * _h(i, 40);
+      final ph = (t * 1.6 + _h(i, 41)) % 1.0;
+      final r0 = h * (0.5 + ph * 0.9);
+      lp
+        ..strokeWidth = 2 + 3 * _h(i, 42)
+        ..color = Color.lerp(tint, Colors.white, 0.5)!.withAlpha(_a((1 - ph) * 0.6 * env));
+      canvas.drawLine(c + Offset(math.cos(a), math.sin(a)) * r0, c + Offset(math.cos(a), math.sin(a)) * (r0 + h * 0.3), lp);
+    }
+    _shadow(canvas, feet, h * 0.42, 0.5 * env);
+    canvas.save();
+    canvas.translate(feet.dx, feet.dy);
+    // it plants its feet as it lands
+    final plant = (u > 0.42 && u < 0.62) ? math.sin((u - 0.42) / 0.2 * math.pi) : 0.0;
+    canvas.transform((Matrix4.identity()..setEntry(0, 1, -0.08)).storage);
+    canvas.scale(1 + 0.06 * plant, 1 - 0.08 * plant);
+    ev.draw(canvas, 'fierce', h, Paint()
+      ..filterQuality = FilterQuality.medium
+      ..color = Color.fromRGBO(0, 0, 0, env));
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(covariant _IntroPainter old) => true;
+}
+
+/// The scenery and effects both entrances share: the dark wood, light shafts, Hollow motes, shadows, dust,
+/// shock rings and the wind.
+mixin _IntroFx {
+  double get t;
+
+  // dark trunks and brambles at the edges, a mossy floor
+  void _woods(Canvas canvas, Size size, double env, bool blastShot) {
+    final W = size.width, H = size.height;
+    final floor = H * (blastShot ? 0.78 : 0.8);
+    canvas.drawRect(
+        Rect.fromLTWH(0, floor, W, H - floor),
+        Paint()
+          ..shader = ui.Gradient.linear(Offset(0, floor), Offset(0, H), [Color.fromRGBO(34, 52, 34, env), Color.fromRGBO(18, 26, 18, env)]));
+    final p = Paint()..color = Color.fromRGBO(9, 8, 14, 0.9 * env);
+    for (var i = 0; i < 7; i++) {
+      final left = i.isEven;
+      final x = left ? W * (0.02 + 0.09 * _h(i, 1)) - 30 : W * (0.9 + 0.09 * _h(i, 1)) + 10;
+      final wid = W * (0.05 + 0.06 * _h(i, 2));
+      final sway = math.sin(t * 0.6 + i) * 3;
+      canvas.drawPath(
+          Path()
+            ..moveTo(x - wid * 0.7 + sway, -10)
+            ..lineTo(x + wid * 0.7 + sway, -10)
+            ..lineTo(x + wid, floor + 6)
+            ..lineTo(x - wid, floor + 6)
+            ..close(),
+          p);
+    }
+    // a tangle of brambles along the floor
+    final bp = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..strokeCap = StrokeCap.round
+      ..color = Color.fromRGBO(52, 34, 70, 0.95 * env);
+    for (var i = 0; i < 9; i++) {
+      final x0 = W * (i / 8.0) + (_h(i, 3) - 0.5) * 40;
+      final path = Path()..moveTo(x0, H);
+      for (var k = 1; k <= 4; k++) {
+        path.quadraticBezierTo(x0 + (k.isEven ? 30 : -30), H - k * 22 + 10, x0 + (_h(i, k) - 0.5) * 50, H - k * 24);
+      }
+      canvas.drawPath(path, bp);
+    }
+  }
+
+  void _rays(Canvas canvas, Size size, double env) {
+    final W = size.width, H = size.height;
+    for (var i = 0; i < 3; i++) {
+      final x = W * (0.12 + 0.22 * i) + math.sin(t * 0.5 + i) * 12;
+      final a = (0.05 + 0.03 * math.sin(t * 1.3 + i * 2)) * env;
+      canvas.drawPath(
+          Path()
+            ..moveTo(x, -10)
+            ..lineTo(x + W * 0.1, -10)
+            ..lineTo(x + W * 0.45, H * 0.85)
+            ..lineTo(x + W * 0.18, H * 0.85)
+            ..close(),
+          Paint()
+            ..shader = ui.Gradient.linear(Offset(x, 0), Offset(x + W * 0.3, H * 0.85),
+                [Color.fromRGBO(226, 214, 255, a), const Color.fromRGBO(226, 214, 255, 0)]));
+    }
+  }
+
+  // Hollow motes rising
+  void _motes(Canvas canvas, Size size, double env) {
+    final W = size.width, H = size.height;
+    final p = Paint();
+    for (var i = 0; i < 34; i++) {
+      final sp = 0.05 + 0.08 * _h(i, 5);
+      final y = H - ((t * sp + _h(i, 6)) % 1.0) * H * 1.1;
+      final x = W * _h(i, 7) + math.sin(t * 1.5 + i) * 10;
+      final tw = 0.5 + 0.5 * math.sin(t * 4 + i * 1.7);
+      p.color = Color.fromRGBO(196, 160, 255, (0.25 + 0.5 * tw) * env);
+      canvas.drawCircle(Offset(x, y), 1.2 + 2.2 * _h(i, 8), p);
+    }
+  }
+
+  void _shadow(Canvas canvas, Offset at, double r, double a) {
+    canvas.drawOval(Rect.fromCenter(center: at, width: r * 2, height: r * 0.42),
+        Paint()..shader = ui.Gradient.radial(at, r, [Color.fromRGBO(0, 0, 0, a), const Color(0x00000000)]));
+  }
+
+  void _dust(Canvas canvas, Offset at, double since, double spread, double env, int n, Offset drift) {
+    final k = (since / 0.9).clamp(0.0, 1.0);
+    final p = Paint();
+    for (var i = 0; i < n; i++) {
+      final dir = (i / n - 0.5) * 2;
+      final x = at.dx + dir * spread * Curves.easeOutCubic.transform(k) * (0.5 + _h(i, 9));
+      final y = at.dy - (20 + 50 * _h(i, 10)) * math.sin(k * math.pi * 0.8) + drift.dy * k * 20;
+      p.color = Color.fromRGBO(196, 182, 160, (1 - k) * 0.6 * env);
+      canvas.drawCircle(Offset(x, y), (6 + 14 * _h(i, 11)) * (0.6 + k), p);
+    }
+  }
+
+  void _shock(Canvas canvas, Offset at, double since, double W, double env) {
+    final k = (since / 0.7).clamp(0.0, 1.0);
+    final r = W * 0.08 + W * 0.75 * Curves.easeOutCubic.transform(k);
+    canvas.drawOval(
+        Rect.fromCenter(center: at, width: r * 2, height: r * 0.5),
+        Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 10 * (1 - k) + 1
+          ..color = Color.fromRGBO(240, 232, 214, (1 - k) * 0.8 * env));
+  }
+
   // anime gusts: bright curved strokes that wrap round it and tear off to the left
   void _swooshes(Canvas canvas, Offset c, double h, double a) {
     if (a <= 0.01) return;
@@ -735,52 +803,6 @@ class _IntroPainter extends CustomPainter {
       canvas.restore();
     }
   }
-
-  // ---- the face-off: your Evochi low on the left, the guardian up on the right
-  void _faceOffShot(Canvas canvas, Size size, double env) {
-    final W = size.width, H = size.height;
-    final ev = s.widget.evochi;
-    final u = t - _faceOff;
-    final inK = Curves.easeOutBack.transform((u / 0.5).clamp(0.0, 1.0));
-    // a slash of light between them
-    final sl = (u / 0.3).clamp(0.0, 1.0) * env;
-    canvas.drawLine(
-        Offset(-20, H * 0.98),
-        Offset(W + 20, H * 0.22),
-        Paint()
-          ..strokeWidth = 3
-          ..color = Color.fromRGBO(255, 250, 240, 0.55 * sl));
-    if (ev == null) return;
-    final h = math.min(H * 0.34, W * 0.6);
-    final feet = Offset(-W * 0.3 + (W * 0.68) * inK, H * 0.88);
-    // its colour pouring off it, speed lines behind
-    final c = feet - Offset(0, h * 0.45);
-    canvas.drawCircle(c, h * 0.95, Paint()..shader = ui.Gradient.radial(c, h * 0.95, [tint.withAlpha(_a(0.55 * env)), tint.withAlpha(0)]));
-    final lp = Paint()..strokeCap = StrokeCap.round;
-    for (var i = 0; i < 18; i++) {
-      final a = math.pi * 2 * _h(i, 40);
-      final ph = (t * 1.6 + _h(i, 41)) % 1.0;
-      final r0 = h * (0.5 + ph * 0.9);
-      lp
-        ..strokeWidth = 2 + 3 * _h(i, 42)
-        ..color = Color.lerp(tint, Colors.white, 0.5)!.withAlpha(_a((1 - ph) * 0.6 * env));
-      canvas.drawLine(c + Offset(math.cos(a), math.sin(a)) * r0, c + Offset(math.cos(a), math.sin(a)) * (r0 + h * 0.3), lp);
-    }
-    _shadow(canvas, feet, h * 0.42, 0.5 * env);
-    canvas.save();
-    canvas.translate(feet.dx, feet.dy);
-    // it plants its feet as it lands
-    final plant = (u > 0.42 && u < 0.62) ? math.sin((u - 0.42) / 0.2 * math.pi) : 0.0;
-    canvas.transform((Matrix4.identity()..setEntry(0, 1, -0.08)).storage);
-    canvas.scale(1 + 0.06 * plant, 1 - 0.08 * plant);
-    ev.draw(canvas, 'fierce', h, Paint()
-      ..filterQuality = FilterQuality.medium
-      ..color = Color.fromRGBO(0, 0, 0, env));
-    canvas.restore();
-  }
-
-  @override
-  bool shouldRepaint(covariant _IntroPainter old) => true;
 }
 
 class _Title extends StatelessWidget {
