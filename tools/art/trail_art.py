@@ -223,8 +223,22 @@ def hollow_sprout(state='hollow'):
 
 
 # ------------------------------------------------------------------ Forgotten Sentinel (Hollow -> Celestial)
-def sentinel(state='hollow'):
-    M = M_((-22, -1, -18), (22, 40, 18), res=2)
+# The Sentinel's arms: (upper arm centre, radii), (fist centre, radii), for the right arm (x > 0); the left
+# is the mirror. 'rest' and 'raised' are the pose the encounter art has always had (right resting, left
+# raised); the rest are for the Wilds fight (tools/art/wilds_foes.py).
+SENTINEL_ARMS = {
+    'rest': (((13.0, 7.0, 4.0), (4.6, 7.0, 4.6)), ((16.0, 2.0, 6.0), (5.0, 2.4, 4.6))),
+    'raised': (((14.5, 15.0, 2.0), (4.2, 7.5, 4.2)), ((15.5, 8.0, 5.0), (4.6, 2.6, 4.4))),
+    'up': (((13.5, 26.5, 1.0), (4.2, 7.5, 4.2)), ((11.5, 34.5, 2.5), (5.2, 3.4, 4.8))),       # fists overhead
+    'down': (((12.5, 9.5, 7.0), (4.4, 6.5, 5.0)), ((11.0, 2.6, 12.0), (5.6, 2.6, 5.2))),       # slammed down in front
+    'out': (((15.0, 18.0, 7.5), (4.2, 4.4, 7.0)), ((14.0, 18.5, 13.0), (4.4, 4.2, 3.4))),      # reaching forward
+    'wide': (((18.0, 19.0, 1.0), (7.0, 4.2, 4.2)), ((23.0, 21.5, 2.0), (3.6, 4.6, 4.4))),      # flung out wide
+}
+
+
+def sentinel(state='hollow', arms=None):
+    M = M_((-27, -1, -18), (27, 40, 18), res=2) if arms else M_((-22, -1, -18), (22, 40, 18), res=2)
+    arms = arms or {'r': 'rest', 'l': 'raised'}
     dormant = state == 'dormant'          # before it wakes (the awakening cinematic): eyes and cracks dark
     hollow = state in ('hollow', 'waking', 'dormant')
     waking = state == 'waking'
@@ -242,9 +256,11 @@ def sentinel(state='hollow'):
     put(M, seams, STONE_B_LO)
     put(M, shell(M, body, 1) & (M.Y < 3.0), STONE_B_LO)
     put(M, shell(M, body, 1) & (M.X < -4.0) & (M.Z > 0) & (M.Y > 10), STONE_B_HI)
-    # arms: a big resting arm on the right, a raised one on the left
-    arm_r = ell(M, (13.0, 7.0, 4.0), (4.6, 7.0, 4.6), p=2.4) | ell(M, (16.0, 2.0, 6.0), (5.0, 2.4, 4.6), p=2.4)
-    arm_l = ell(M, (-14.5, 15.0, 2.0), (4.2, 7.5, 4.2), p=2.4) | ell(M, (-15.5, 8.0, 5.0), (4.6, 2.6, 4.4), p=2.4)
+    # arms: a big resting arm on the right, a raised one on the left (or a fighting pose)
+    def arm(side, s):
+        (uc, ur), (fc, fr) = SENTINEL_ARMS[arms[side]]
+        return (ell(M, (uc[0] * s, uc[1], uc[2]), ur, p=2.4) | ell(M, (fc[0] * s, fc[1], fc[2]), fr, p=2.4)), uc[1]
+    (arm_r, band_r), (arm_l, band_l) = arm('r', 1), arm('l', -1)
     for a in (arm_r, arm_l):
         put(M, a & (M.m == 0), STONE_B)
         put(M, shell(M, a, 1) & (M.Y < 1.2), STONE_B_LO)
@@ -269,7 +285,7 @@ def sentinel(state='hollow'):
     put(M, rune, glowc if (not hollow or waking) else STONE_B_LO, glow=0.8 if (not hollow or waking) else 0.0)
     put(M, front(M, torso, 0, 14.0, 0, 0.5, 0.5, 1.4, depth=2), STONE_B_LO if dormant else glowc, glow=0.0 if dormant else 0.9 if (not hollow or waking) else 0.35)
     for s in (-1, 1):
-        band = shell(M, arm_r if s > 0 else arm_l, 1) & (np.abs(M.Y - (9.0 if s > 0 else 15.0)) < 0.5)
+        band = shell(M, arm_r if s > 0 else arm_l, 1) & (np.abs(M.Y - ((band_r + 2.0) if s > 0 else band_l)) < 0.5)
         put(M, band, glowc if not hollow else VIOLET_LO, glow=0.6 if not hollow else 0.25)
     # cracks glowing with Hollow energy
     if hollow:
