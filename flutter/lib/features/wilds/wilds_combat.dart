@@ -2757,6 +2757,9 @@ class Raid {
 
   static const sentinelWakeR = 118.0;
 
+  /// Recording a Short: it stays asleep, however near your Evochi comes, until this is let go.
+  bool holdSentinel = false;
+
   /// Its entrance has played (the cinematic): it is up and fighting at once, the in-fight waking skipped.
   void sentinelAwake() {
     final f = sentinel;
@@ -2782,7 +2785,7 @@ class Raid {
         // asleep against the gate: it wakes when your Evochi comes near
         f.moving = false;
         f.pose = 'dormant';
-        if (phase == RaidPhase.explore && pet.alive && pet.dist(f) < sentinelWakeR) {
+        if (phase == RaidPhase.explore && pet.alive && pet.dist(f) < sentinelWakeR && !holdSentinel) {
           f
             ..st = FoeState.roar
             ..t = 0

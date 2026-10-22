@@ -82,7 +82,12 @@ class _Place {
 }
 
 class AudioService {
-  final List<AudioPlayer> _pool = List.generate(4, (_) => AudioPlayer());
+  /// Recording a Short (flutter/tool/shorts): nothing is played. Every sound and every change of music is
+  /// written down with the moment it happened ([clock], in the video's seconds) for the mix.
+  static List<Map<String, Object?>>? record;
+  static double Function()? clock;
+
+  late final List<AudioPlayer> _pool = List.generate(4, (_) => AudioPlayer());
   int _next = 0;
   bool sound = true;
   bool music = true;
@@ -115,6 +120,11 @@ class AudioService {
   }
 
   Future<void> play(String name, {double volume = 0.8}) async {
+    final rec = record;
+    if (rec != null) {
+      rec.add({'t': clock?.call() ?? 0, 'sfx': name, 'vol': volume});
+      return;
+    }
     var feel = _soundFeel[name];
     // a quiet chime (a toggle, a small confirm) is only a notch
     if (feel == Haptic.reward && volume < 0.5) feel = Haptic.tick;
@@ -155,6 +165,11 @@ class AudioService {
   /// is silence until it's cleared.
   void setMusic(String? name, {double fade = 0.8}) {
     _override = name;
+    final rec = record;
+    if (rec != null) {
+      rec.add({'t': clock?.call() ?? 0, 'music': name, 'fade': fade});
+      return;
+    }
     _applyMusic();
   }
 
@@ -189,7 +204,7 @@ class AudioService {
   }
 
   void _applyBed({double fade = 1.2}) {
-    if (_paused) return;
+    if (_paused || record != null) return;
     final want = sound ? _sounds.bed : null;
     final gain = _places.isEmpty ? 1.0 : _places.last.gain;
     final vol = want == null ? 0.0 : (_bedVolumes[want] ?? 0.4) * gain;
@@ -209,7 +224,7 @@ class AudioService {
   }
 
   void _applyMusic() {
-    if (_paused) return;
+    if (_paused || record != null) return;
     if (!music) {
       _bus.stop(fade: 1.0);
       return;
@@ -228,7 +243,7 @@ class AudioService {
 
   /// Play a named feel (behind the Haptics switch).
   void buzz(Haptic h, {double strength = 1}) {
-    if (haptics) hx.play(h, strength: strength);
+    if (haptics && record == null) hx.play(h, strength: strength);
   }
 
   void tick() => buzz(Haptic.tick);

@@ -56,6 +56,21 @@ class DeepCarry {
   final int calmed;
 }
 
+/// What the Short recorder can reach on the Wilds screen that is up.
+abstract class WildsDirectorHandle {
+  Raid? get raid;
+  WildsMap? get map;
+
+  /// A playtesting shortcut (debug builds), as if the key were pressed.
+  void key(LogicalKeyboardKey k);
+
+  /// A line across the screen, as the game shows them.
+  void banner(String text, [double secs]);
+
+  /// How the screen is doing (the recorder's log).
+  String get debugLine;
+}
+
 class WildsScreen extends StatefulWidget {
   const WildsScreen({super.key, this.mapId = 'thicket', this.depth, this.seed, this.carry, this.surge = false, this.story, this.forceStory = false});
   final String mapId;
@@ -68,6 +83,23 @@ class WildsScreen extends StatefulWidget {
   /// A Hollow Surge floor (rolled on the way down: game/wilds/wilds.dart wildsDescend).
   final bool surge;
 
+  /// Recording a Short (flutter/tool/shorts): something else plays your Evochi. Called every frame before
+  /// the fight steps, with the input it may set (steer, attack, bolt, pulse, dodge) and the screen's clock.
+  static void Function(Raid r, RaidInput input, double t)? director;
+
+  /// Recording a Short: the screen that is up (its fight, its map, its debug shortcuts).
+  static WildsDirectorHandle? current;
+
+  /// Recording a Short without a GPU: the living-scene shader is left off (it costs seconds a frame in
+  /// software).
+  static bool plainArt = false;
+
+  /// Recording a Short: the camera's width as a share of the game's (below 1: closer in on the action).
+  static double recordZoom = 1.0;
+
+  /// While recording: leave out the "clearing is calm" banner (it sits over the action).
+  static bool recordQuiet = false;
+
   /// A story floor: the Trail Guild job whose place this floor is (game/wilds/story_floors.dart).
   final String? story;
 
@@ -77,7 +109,23 @@ class WildsScreen extends StatefulWidget {
   State<WildsScreen> createState() => _WildsScreenState();
 }
 
-class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver {
+class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStateMixin, WidgetsBindingObserver implements WildsDirectorHandle {
+  @override
+  Raid? get raid => _raid;
+  @override
+  WildsMap? get map => _map;
+  @override
+  void key(LogicalKeyboardKey k) {
+    if (kDebugMode) _debugKey(k);
+  }
+
+  @override
+  void banner(String text, [double secs = 2.6]) => _showBanner(text, secs);
+
+  @override
+  String get debugLine => 't=${_t.toStringAsFixed(2)} ticking=${_tk?.isActive} paused=$_paused card=$_card cine=$_cine sent=$_sentCine '
+      'view=$_view pet=(${_raid?.pet.x.toStringAsFixed(1)}, ${_raid?.pet.z.toStringAsFixed(1)})';
+
   WildsMap? _map;
   Raid? _raid;
   WalkerArt? _petArt, _sherArt;
@@ -88,7 +136,9 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   BossIntroArt? _sentArt; // the Forgotten Sentinel's entrance (its story floor only)
   IntroCut? _sentCine;
   final _foeArt = <String, FoeArt>{};
-  late final Ticker _ticker = createTicker(_tick);
+  // made when the floor has loaded (a screen left before then has none to stop)
+  Ticker? _tk;
+  Ticker get _ticker => _tk ??= createTicker(_tick);
   Duration _last = Duration.zero;
   double _t = 0; // seconds, for the fire, glints and effects
   final _focus = FocusNode();
@@ -142,13 +192,14 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
 
   ui.FragmentShader? _fxFor(Object key) {
     final p = _fxProgram;
-    if (p == null) return null;
+    if (p == null || WildsScreen.plainArt) return null;
     return _fx[key] ??= p.fragmentShader();
   }
 
   @override
   void initState() {
     super.initState();
+    WildsScreen.current = this;
     WidgetsBinding.instance.addObserver(this);
     _c = context.read<GameController>();
     SceneFx.program().then((p) {
@@ -204,8 +255,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       if (m.boss != null) _introArt = await BossIntroArt.load('briarback');
       if (sentinel) _sentArt = await BossIntroArt.load('sentinel', warm: const [0, 1, 2, 3, 4, 26, 27, 28]);
       _cineEvochi = await CineEvochiArt.load(stage, palette, wearing);
-    } catch (e) {
-      debugPrint('boss intro art: $e');
+    } catch (e, st) {
+      debugPrint('boss intro art: $e\n$st');
     }
   }
 
@@ -293,9 +344,10 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
 
   @override
   void dispose() {
+    if (identical(WildsScreen.current, this)) WildsScreen.current = null;
     WidgetsBinding.instance.removeObserver(this);
     if (_music != null) _c.audio.setMusic(null);
-    _ticker.dispose();
+    _tk?.dispose();
     _introArt?.dispose();
     _sentArt?.dispose();
     for (final sh in _fx.values) {
@@ -406,6 +458,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     _itemCd = math.max(0, _itemCd - dt);
     _brewCd = math.max(0, _brewCd - dt);
     if (_god) r.pet.hp = r.pet.maxHp;
+    final dir = WildsScreen.director;
+    if (dir != null && !_paused) dir(r, _input, _t);
     if (!_paused) r.tick(dt, _input);
     _events(r);
     // the music: the guardian's theme while it fights, the wild theme in a skirmish
@@ -478,6 +532,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       }
       wantW = (spread * 2 + 90).clamp(180.0, 230.0);
     }
+    if (WildsScreen.director != null) wantW *= WildsScreen.recordZoom;
     _zoomW += (wantW - _zoomW) * math.min(1.0, dt * 1.6);
     if (_view.width > 0) {
       _u = math.max((_view.width / _zoomW).clamp(1.7, 3.6), _view.width / (m.groundW / m.scale));
@@ -645,7 +700,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
           a.buzz(Haptic.win, strength: 0.6);
         case 'zone':
           _sfx('reward_chime', 0.6);
-          _showBanner('${e.text ?? 'The clearing'} is calm');
+          if (!(WildsScreen.director != null && WildsScreen.recordQuiet)) _showBanner('${e.text ?? 'The clearing'} is calm');
         case 'say':
           if (e.text != null) _say(e.text!);
         case 'pickup':
@@ -1054,7 +1109,10 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     _sfx('level_up', 0.8);
     c.audio.buzz(Haptic.win);
     c.analytics.track('wilds_story_done', {'quest': st.quest});
-    _showBanner(st.beat == 'trust' ? 'Petalune trusts you!' : 'The Hollow Sprout is restored!', 3.0, true);
+    _showBanner(
+        switch (st.beat) { 'trust' => 'Petalune trusts you!', 'sentinel' => 'The Forgotten Sentinel is restored!', _ => 'The Hollow Sprout is restored!' },
+        3.0,
+        true);
     if (!res.ok) return;
     Future.delayed(const Duration(milliseconds: 2400), () async {
       if (!mounted) return;
@@ -1332,9 +1390,9 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                       bottom: 12 + mq.padding.bottom + 96,
                       child: _BrewShelf(brews: w.ownedBrews(context.read<GameController>().state), onPick: _drink),
                     ),
-                  if (_hintT > 0 && card == null && _hint == null)
+                  if (_hintT > 0 && card == null && _hint == null && WildsScreen.director == null)
                     _bottomHint(mq, _hintT > 1, 'Drag to walk · push far to run'),
-                  if (_hint != null && card == null) _bottomHint(mq, _hintT2 > 0.6, _hint!),
+                  if (_hint != null && card == null && WildsScreen.director == null) _bottomHint(mq, _hintT2 > 0.6, _hint!),
                   if (_banner != null && card == null)
                     Positioned(
                       left: 0,

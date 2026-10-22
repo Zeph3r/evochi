@@ -13,6 +13,23 @@ if not defined FLUTTER (
   exit /b 2
 )
 echo flutter=!FLUTTER!>> "%LOG%\status.txt"
+rem Recording Shorts instead (Claude drops _transfer\run_shorts.flag, its first line naming them)
+if exist "_transfer\run_shorts.flag" (
+  set "SHORTS="
+  set /p SHORTS=<"_transfer\run_shorts.flag"
+  del "_transfer\run_shorts.flag"
+  if not defined SHORTS set "SHORTS=all"
+  echo %date% %time% === shorts !SHORTS! ===>> "%LOG%\status.txt"
+  rem one Short per run of the recorder (a clean slate each)
+  if exist "%LOG%\shorts.txt" del "%LOG%\shorts.txt"
+  set "LIST=!SHORTS:,= !"
+  for %%S in (!LIST!) do (
+    echo %date% %time% short %%S>> "%LOG%\status.txt"
+    call "%FLUTTER%" test tool\shorts\record_test.dart --dart-define=SHORTS=%%S >> "%LOG%\shorts.txt" 2>&1
+  )
+  echo %date% %time% === shorts done ===>> "%LOG%\status.txt"
+  exit /b 0
+)
 echo %date% %time% === check ===>> "%LOG%\status.txt"
 call :step doctor "doctor -v"
 if not exist windows\runner\main.cpp (

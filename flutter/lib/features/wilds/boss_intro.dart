@@ -71,10 +71,13 @@ class BossIntroArt {
   static Future<BossIntroArt> load(String key, {List<int> warm = const [0, 1, 2, 22, 23, 24]}) async {
     final j = (jsonDecode(await rootBundle.loadString('$wildsBase${key}_intro.json')) as Map).cast<String, dynamic>();
     final n = (j['frames'] as num).toInt();
-    final bytes = await Future.wait([
-      for (var i = 0; i < n; i++)
-        rootBundle.load('$wildsBase${key}_intro_${i.toString().padLeft(2, '0')}.webp').then((d) => d.buffer.asUint8List()),
-    ]);
+    // one at a time: a bundle may hand back already-finished futures (tests do), and Future.wait loses
+    // those
+    final bytes = <Uint8List>[];
+    for (var i = 0; i < n; i++) {
+      final d = await rootBundle.load('$wildsBase${key}_intro_${i.toString().padLeft(2, '0')}.webp');
+      bytes.add(d.buffer.asUint8List(d.offsetInBytes, d.lengthInBytes));
+    }
     // the Briarback's mouth and hooves; the Sentinel's eyes and fists
     final art = BossIntroArt._(
       bytes,
@@ -85,6 +88,7 @@ class BossIntroArt {
       [for (final h in (j['hooves'] ?? j['fists']) as List) [for (final p in h as List) _pt(p)]],
       meta: j,
     );
+    if (art.count == 0) throw StateError('$key intro: no frames (json says $n, loaded ${bytes.length})');
     await art.want([...warm, n - 1]);
     return art;
   }
