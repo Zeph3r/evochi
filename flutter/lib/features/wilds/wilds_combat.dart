@@ -122,6 +122,8 @@ class Foe extends Actor {
   double alertDelay = 0;
   double windup = 0.5, active = 0.2, recover = 0.5;
   bool elite = false; // a Deep Wilds elite: bigger, tougher, hits harder, drops more
+  int lashes = 0; // the Hollow Sprout's lashes in a row
+  final extra = <Mark>[]; // more than one telegraph at once (the Hollow Sprout's thorns)
   Mark? mark;
   double leaveT = 0; // calm: trotting off
 
@@ -349,6 +351,10 @@ class Raid {
     this.foeHarm = 1.0,
     this.coinMul = 1.0,
     this.surge = false,
+    this.storyBeat,
+    this.storyX = 0,
+    this.storyZ = 0,
+    this.companion = false,
   })  : rng = math.Random(seed),
         lootRng = math.Random(seed * 31 + 7) {
     startX = pet.x;
@@ -358,6 +364,15 @@ class Raid {
     for (final s in spawns) {
       foes.add(_spawn(s.id, s.kind, s.zone, s.x, s.z));
     }
+    // a story floor's creature; Petalune at your side once it trusts you
+    if (storyBeat == 'trust') {
+      friends.add(_friend(storyX, storyZ));
+    } else if (companion) {
+      friends.add(_friend(pet.x - 16, pet.z + 12)
+        ..calm = true
+        ..alpha = 1);
+    }
+    if (storyBeat == 'sprout') foes.add(_sprout(storyX, storyZ));
     foeTotal = foes.length;
     final b = bossDef;
     if (b != null) {
@@ -415,6 +430,30 @@ class Raid {
   /// A Hollow Surge floor: every creature churns with the Hollow (drawn so), and an elite leaves twice the
   /// rare rolls.
   final bool surge;
+
+  // ---- story floors (game/wilds/story_floors.dart): the beat, where it plays, and Petalune
+  /// trust (earn Petalune's trust: it is never fought) | sprout (restore the Hollow Sprout) | null.
+  final String? storyBeat;
+  final double storyX, storyZ;
+
+  /// Round Petalune's ruins, a haven: no Hollow creature follows you in while it learns to trust you.
+  static const havenR = 74.0;
+
+  /// Petalune walks with you (befriended before): it casts Petal Hush when a fight goes on.
+  final bool companion;
+
+  /// Creatures on your side that nobody fights: Petalune (wary, then a friend).
+  final friends = <Foe>[];
+
+  /// Petalune's trust, 0 to 100. Being near and gentle grows it to 70; a hum or a treat takes it the rest.
+  double trust = 0;
+  static const trustDrift = 70.0;
+
+  /// The story's beat is done: Petalune trusts you, or the Sprout is restored.
+  bool storyDone = false;
+  double _humCd = 0, _startleCd = 0, _friendPoseT = 0, _hushT = 8, _wasAct = 0;
+  Foe? get petalune => friends.where((f) => f.kind == 'petalune').firstOrNull;
+  bool get humReady => _humCd <= 0;
   final math.Random rng;
   /// Rare finds a calmed foe can leave (the economy's drop table); its own random, so the fight's dice
   /// never change when the loot does.
@@ -661,6 +700,9 @@ class Raid {
     _tickPet(dt, inp);
     final s = sher;
     if (s != null) _tickSher(s, dt);
+    for (final f in friends) {
+      _tickFriend(f, dt);
+    }
     for (final f in foes.toList()) {
       _cool(f, dt);
       _tickFoe(f, f.chillT > 0 ? dt * 0.62 : dt);
@@ -1577,6 +1619,10 @@ class Raid {
   }
 
   void _endMark(Foe f) {
+    for (final m in f.extra) {
+      m.done = true;
+    }
+    f.extra.clear();
     f.mark?.done = true;
     f.mark = null;
   }
@@ -2005,7 +2051,7 @@ class Raid {
         for (final a in [pet, if (sher != null && party && sherWinded <= 0) sher!]) {
           final b = boss;
           if (wallUp && b != null && !f.summoned && a.distTo(b.ax0, b.az0) < b.ar) continue;
-          if (_sees(f, a, f.kind == 'sporecap' ? 100 : 78)) {
+          if (_sees(f, a, f.kind == 'hollow_sprout' ? 125 : (f.kind == 'sporecap' ? 100 : 78))) {
             _alert(f, a);
             break;
           }
@@ -2041,6 +2087,8 @@ class Raid {
       case FoeState.recover:
         if (f.kind == 'thornling') {
           _thornAttack(f, dt);
+        } else if (f.kind == 'hollow_sprout') {
+          _sproutAttack(f, dt);
         } else {
           _sporeAttack(f, dt);
         }
@@ -2086,13 +2134,17 @@ class Raid {
     // you while they are closed
     final b = boss;
     final walled = wallUp && b != null && !f.summoned && t.distTo(b.ax0, b.az0) < b.ar;
-    if (f.distTo(f.homeX, f.homeZ) > 190 || (t.dist(f) > 240) || walled) {
+    // and the Mossy Ruins' old Lumen keeps the Hollow out while Petalune is learning to trust you
+    final haven = storyBeat == 'trust' && !storyDone && t.distTo(storyX, storyZ) < havenR;
+    if (f.distTo(f.homeX, f.homeZ) > 190 || (t.dist(f) > 240) || walled || haven) {
       _goHome(f);
       return;
     }
     final d = f.dist(t);
     if (f.kind == 'thornling') {
       _thornEngage(f, t, d, dt);
+    } else if (f.kind == 'hollow_sprout') {
+      _sproutEngage(f, t, d, dt);
     } else {
       _sporeEngage(f, t, d, dt);
     }
@@ -2182,6 +2234,20 @@ class Raid {
         break;
       case 'puff':
         f.mark = Mark(MarkShape.circle, f.x, f.z, windup, r: 30, owner: f);
+      case 'burst':
+        f.mark = Mark(MarkShape.circle, f.x, f.z, windup, r: 46, owner: f);
+      case 'lash':
+        f.mark = Mark(MarkShape.line, f.x, f.z, windup, dx: f.ax, dz: f.az, len: 104, width: 20, owner: f);
+      case 'thorns':
+        // where you stand and where you might step: three patches of ground the thorns come up through
+        final a0 = rng.nextDouble() * math.pi * 2;
+        final lx = t.x + t.vx * 0.35, lz = t.z + t.vz * 0.35;
+        f.mark = Mark(MarkShape.circle, lx, lz, windup, r: 17, owner: f);
+        for (final k in const [0, 1]) {
+          final a = a0 + k * math.pi;
+          f.extra.add(Mark(MarkShape.circle, lx + math.cos(a) * 34, lz + math.sin(a) * 34, windup, r: 17, owner: f));
+        }
+        marks.addAll(f.extra);
     }
     if (f.mark != null) marks.add(f.mark!);
   }
@@ -2439,6 +2505,334 @@ class Raid {
     }
   }
 
+  // ================================================================== story floors
+  Foe _friend(double x, double z) => Foe(id: 'petalune', kind: 'petalune', x: x, z: z, radius: 7, health: 100, zone: 'ruins')
+    ..ghost = true
+    ..cycle = 9
+    ..st = FoeState.idle
+    ..face(0, 1);
+
+  /// The Hollow Sprout: a mini-boss rooted in the ruins (it never strays far from them).
+  Foe _sprout(double x, double z) {
+    final f = Foe(id: 'sprout', kind: 'hollow_sprout', x: x, z: z, radius: 14, health: 420 * foeHp, zone: 'ruins');
+    f
+      ..size = 1.7
+      ..cycle = 14
+      ..poise = 90
+      ..maxPoise = 90
+      ..cd = 1.2
+      ..cd2 = 2.0
+      ..face(0, 1);
+    return f;
+  }
+
+  /// Hum to Petalune (the interact button, near it): warms its trust past where being gentle takes it.
+  bool hum() {
+    final f = petalune;
+    if (f == null || storyDone || storyBeat != 'trust' || _humCd > 0 || pet.dist(f) > 64) return false;
+    _humCd = 5;
+    _addTrust(trust < trustDrift ? 9 : 12, f);
+    f.pose = 'hum';
+    _friendPoseT = 1.4;
+    pet.face(f.x - pet.x, f.z - pet.z);
+    bursts.add(Burst('notes', pet.x, pet.z, 1.6));
+    _emit('hum', x: pet.x, z: pet.z);
+    return true;
+  }
+
+  /// A treat offered to Petalune (the save took it from the Bag): [amount] of trust.
+  void treat(int amount) {
+    final f = petalune;
+    if (f == null || storyDone) return;
+    _addTrust(amount.toDouble(), f);
+    f.pose = 'happy';
+    _friendPoseT = 1.6;
+    bursts.add(Burst('hearts', f.x, f.z, 1.4));
+    _emit('treat', x: f.x, z: f.z);
+  }
+
+  void _addTrust(double n, Foe f) {
+    final before = trust;
+    trust = (trust + n).clamp(0.0, 100.0);
+    if (trust >= 99.5) trust = 100; // what shows as 100% is 100%
+    if (n > 0 && trust > before) _float('+${(trust - before).round()} trust', f.x, f.z - 14, 'heal', ttl: 1.0);
+    if (trust >= 100 && !storyDone) {
+      storyDone = true;
+      f
+        ..calm = true
+        ..pose = 'nuzzle'
+        ..t = 0;
+      _friendPoseT = 1.8;
+      slowmo = 0.6;
+      bursts.add(Burst('hearts', f.x, f.z, 2.2, size: 2));
+      bursts.add(Burst('motes', f.x, f.z, 1.6, size: 2));
+      _emit('story_done', text: 'petalune', x: f.x, z: f.z);
+    }
+  }
+
+  void _tickFriend(Foe f, double dt) {
+    f.t += dt;
+    _friendPoseT -= dt;
+    if (_friendPoseT <= 0 && f.pose != null && f.pose != 'wary') f.pose = null;
+    f.lift = 0;
+    if (storyBeat == 'trust' && !storyDone) {
+      _tickTrust(f, dt);
+    } else {
+      _friendFollow(f, dt);
+      _tickHush(f, dt);
+    }
+  }
+
+  /// Wary Petalune: gentle company grows its trust; a fight near it, a charge at it or a swing near it
+  /// frightens it back.
+  void _tickTrust(Foe f, double dt) {
+    _humCd -= dt;
+    _startleCd -= dt;
+    final p = pet;
+    final d = f.dist(p);
+    final fightNear = hostile.any((o) => o.fighting && o.distTo(f.x, f.z) < 170);
+    final striking = act == PetAct.swing || act == PetAct.bolt || act == PetAct.pulse;
+    final struck = striking && _wasAct == 0;
+    _wasAct = striking ? 1 : 0;
+    if ((struck && d < 90) || (p.running && p.moving && d < 54)) {
+      if (_startleCd <= 0) {
+        _startleCd = 1.6;
+        final before = trust;
+        trust = math.max(0, trust - (struck ? 12 : 8));
+        f.pose = 'startle';
+        _friendPoseT = 0.8;
+        if (before > trust) _float('Startled!', f.x, f.z - 14, 'info', ttl: 0.9);
+        _emit('startle', x: f.x, z: f.z);
+        // it skips back among the stones
+        f.wx = f.homeX + (f.x - p.x).sign * 22;
+        f.wz = f.homeZ + (f.z - p.z).sign * 14;
+      }
+    } else if (!fightNear && d < 74 && !p.running && trust < trustDrift) {
+      // being near and gentle: the closer and the stiller, the faster
+      final still = p.moving ? 0.6 : 1.0;
+      trust = math.min(trustDrift, trust + (d < 40 ? 4.2 : 2.6) * still * dt);
+    }
+    // where it goes: wary, it keeps its distance; warming up, it stays put and watches; trusting, it
+    // comes closer
+    double tx = f.wx ?? f.homeX, tz = f.wz ?? f.homeZ, sp = 16;
+    if (fightNear) {
+      tx = f.homeX;
+      tz = f.homeZ - 18;
+      sp = 26;
+    } else if (trust < 30 && d < 46) {
+      final k = 1 / math.max(d, 1e-6);
+      tx = f.x + (f.x - p.x) * k * 30;
+      tz = f.z + (f.z - p.z) * k * 30;
+      sp = 18;
+    } else if (trust >= 55 && d > 28 && d < 110) {
+      final k = 1 / math.max(d, 1e-6);
+      tx = p.x + (f.x - p.x) * k * 26;
+      tz = p.z + (f.z - p.z) * k * 26;
+      sp = 12;
+    }
+    // never far from the ruins
+    final hx = tx - f.homeX, hz = tz - f.homeZ, hd = _len(hx, hz);
+    if (hd > 60) {
+      tx = f.homeX + hx / hd * 60;
+      tz = f.homeZ + hz / hd * 60;
+    }
+    final dx = tx - f.x, dz = tz - f.z;
+    if (_len(dx, dz) > 3) {
+      final ph = f.phase;
+      _move(f, dx, dz, sp * (math.sin(f.phase * math.pi).abs() * 1.6 + 0.2), dt);
+      f.phase = (ph + dt * 1.5) % 1.0;
+      f.moving = true;
+    } else {
+      f.moving = false;
+      f.wx = f.wz = null;
+    }
+    if (d < 140 && (!f.moving || trust >= 30)) f.face(p.x - f.x, p.z - f.z);
+    if (_friendPoseT <= 0) f.pose = fightNear || trust < 30 ? 'wary' : (trust >= 55 ? 'happy' : null);
+  }
+
+  /// A friend at your heels (a step behind and to the side), hopping to keep up.
+  void _friendFollow(Foe f, double dt) {
+    final p = pet;
+    final d = f.dist(p);
+    if (d > 260) {
+      // left far behind (a dodge through a doorway): it catches up out of sight
+      f
+        ..x = p.x - p.fx * 20
+        ..z = p.z - p.fz * 20;
+      return;
+    }
+    if (d > 30) {
+      final tx = p.x - p.fx * 18 + p.fz * 12, tz = p.z - p.fz * 18 - p.fx * 12;
+      final (vx, vz) = _steer(f, tx - f.x, tz - f.z, look: 14);
+      final ph = f.phase;
+      _move(f, vx, vz, (d > 70 ? _petRun * 1.05 : _petWalk * 1.1) * (math.sin(f.phase * math.pi).abs() * 1.5 + 0.35), dt);
+      f.phase = (ph + dt * (d > 70 ? 2.6 : 1.7)) % 1.0;
+      f.moving = true;
+    } else {
+      f.moving = false;
+      f.face(p.x - f.x, p.z - f.z);
+    }
+  }
+
+  /// Petal Hush: while a fight goes on, every so often Petalune hums: your Evochi mends a little and the
+  /// creatures close by drift off for a moment.
+  void _tickHush(Foe f, double dt) {
+    if (!f.calm || !inCombat) return;
+    _hushT -= dt;
+    if (_hushT > 0) return;
+    _hushT = 16;
+    f.pose = 'hum';
+    _friendPoseT = 1.2;
+    final heal = pet.maxHp * 0.08;
+    if (pet.alive) pet.hp = math.min(pet.maxHp, pet.hp + heal);
+    _float('+${heal.round()}', pet.x, pet.z - 16, 'heal', ttl: 1.0);
+    for (final o in hostile) {
+      if (o.distTo(pet.x, pet.z) > 80) continue;
+      if (o is Boss) {
+        _chill(o, 2.0);
+      } else {
+        o.stun = math.max(o.stun, 1.1);
+        o.moving = false;
+      }
+    }
+    bursts.add(Burst('hush', pet.x, pet.z, 1.2, size: 80));
+    _emit('hush', x: f.x, z: f.z);
+  }
+
+  // ---- the Hollow Sprout: rooted in the ruins, it lashes vines, sends thorns up under you, and bursts
+  // with spores when you crowd it. Past half its Hollow, it lashes twice.
+  void _sproutEngage(Foe f, Actor t, double d, double dt) {
+    final rage = f.hpFrac < 0.5;
+    if (d < f.radius + t.radius + 20 && f.cd2 <= 0) {
+      _startAttack(f, 'burst', 0.7, 0.2, 0.6);
+      return;
+    }
+    if (f.cd <= 0 && _tokens(t, ranged: true) < 2) {
+      if (d < 120 && rng.nextDouble() < 0.6) {
+        _startAttack(f, 'lash', rage ? 0.62 : 0.85, 0.22, 0.6);
+      } else {
+        _startAttack(f, 'thorns', rage ? 0.85 : 1.1, 0.25, 0.7);
+      }
+      return;
+    }
+    // it hops slowly, keeping 55 to 95 off you, never far from the ruins
+    double vx, vz, sp;
+    if (d > 95 && f.distTo(f.homeX, f.homeZ) < 70) {
+      (vx, vz) = _steer(f, t.x - f.x, t.z - f.z);
+      sp = 11;
+    } else if (d < 52) {
+      (vx, vz) = _escape(f, t);
+      sp = 13;
+    } else {
+      f.strafeT -= dt;
+      if (f.strafeT <= 0) {
+        f.strafe = -f.strafe;
+        f.strafeT = 2.5 + rng.nextDouble() * 2;
+      }
+      final rx = (f.x - t.x) / d, rz = (f.z - t.z) / d;
+      (vx, vz) = _steer(f, -rz * f.strafe, rx * f.strafe, look: 16);
+      sp = 7;
+    }
+    final ph = f.phase;
+    _move(f, vx, vz, sp * (math.sin(f.phase * math.pi).abs() * 1.6 + 0.15), dt, faceIt: false);
+    f.phase = (ph + dt * 1.2) % 1.0;
+    f.moving = true;
+    f.face(t.x - f.x, t.z - f.z);
+  }
+
+  void _sproutAttack(Foe f, double dt) {
+    final t = f.target;
+    final rage = f.hpFrac < 0.5;
+    if (f.st == FoeState.windup) {
+      final k = f.t / f.windup;
+      f.pose = f.move == 'lash' ? 'rear' : 'swell';
+      f.glow = k;
+      if (f.mark != null) f.mark!.t = f.t;
+      for (final m in f.extra) {
+        m.t = f.t;
+      }
+      // the lash's aim follows you until the last moment
+      if (f.move == 'lash' && t != null && k < 0.6) {
+        final d = math.max(f.dist(t), 1e-6);
+        f.ax = (t.x - f.x) / d;
+        f.az = (t.z - f.z) / d;
+        f.face(f.ax, f.az);
+        final m = f.mark;
+        if (m != null) {
+          m.dx = f.ax;
+          m.dz = f.az;
+        }
+      }
+      if (f.t < f.windup) return;
+      final hits = [f.mark, ...f.extra].whereType<Mark>().toList();
+      _endMark(f);
+      f.st = FoeState.strike;
+      f.t = 0;
+      f.glow = 0;
+      switch (f.move) {
+        case 'lash':
+          bursts.add(Burst('lash', f.x, f.z, 0.45, dx: f.ax, dz: f.az, size: 104));
+          shake = math.max(shake, 0.25);
+          _emit('lash', x: f.x, z: f.z);
+          for (final a in [pet, if (sher != null && party) sher!]) {
+            if (hits.any((m) => m.covers(a.x, a.z, a.radius))) {
+              _hurt(a, 15, from: f, kx: f.ax * 160, kz: f.az * 160, cause: 'lash');
+            }
+          }
+        case 'thorns':
+          shake = math.max(shake, 0.35);
+          _emit('thorns', x: f.x, z: f.z);
+          for (final m in hits) {
+            bursts.add(Burst('snare', m.x, m.z, 0.9, size: m.r, tag: 'hollow'));
+          }
+          for (final a in [pet, if (sher != null && party) sher!]) {
+            if (hits.any((m) => m.covers(a.x, a.z, a.radius))) {
+              _hurt(a, 13, from: f, stun: 0.25, cause: 'thorns');
+            }
+          }
+        case 'burst':
+          bursts.add(Burst('spores', f.x, f.z, 0.9, size: 46));
+          _emit('puff', x: f.x, z: f.z);
+          for (final a in [pet, if (sher != null && party) sher!]) {
+            final d = f.dist(a);
+            if (d < 46 + a.radius * 0.6) {
+              final k = 1 / math.max(d, 1e-6);
+              if (_hurt(a, 10, from: f, kx: (a.x - f.x) * k * 170, kz: (a.z - f.z) * k * 170, cause: 'puff')) {
+                a.slowT = math.max(a.slowT, 2.0);
+              }
+            }
+          }
+          hazards.add(Hazard(f.x, f.z, 30, 2.4));
+      }
+      return;
+    }
+    if (f.st == FoeState.strike) {
+      f.pose = f.move == 'lash' ? 'lash' : 'slam';
+      if (f.t > f.active) {
+        f.st = FoeState.recover;
+        f.t = 0;
+      }
+      return;
+    }
+    f.pose = null;
+    if (f.t < f.recover * (rage ? 0.6 : 1)) return;
+    // past half its Hollow, a lash comes back the other way
+    if (f.move == 'lash' && rage && f.lashes == 0 && t != null) {
+      f.lashes = 1;
+      _startAttack(f, 'lash', 0.4, 0.22, 0.5);
+      return;
+    }
+    f.lashes = 0;
+    f.st = FoeState.engage;
+    f.t = 0;
+    if (f.move == 'burst') {
+      f.cd2 = 5.0;
+      f.cd = math.max(f.cd, 0.9);
+    } else {
+      f.cd = (rage ? 1.3 : 2.0) + rng.nextDouble() * 0.8;
+    }
+  }
+
   // ---- defeated: the Hollow lifts
   /// Playtesting (debug builds' C key): every creature still fighting is calmed where it stands.
   void calmAllForTesting() {
@@ -2465,6 +2859,13 @@ class Raid {
     if (f is Boss) {
       _victory(f);
       return;
+    }
+    if (f.kind == 'hollow_sprout' && storyBeat == 'sprout') {
+      storyDone = true;
+      shake = math.max(shake, 0.6);
+      slowmo = 0.8;
+      bursts.add(Burst('motes', f.x, f.z, 2.2, size: 3));
+      _emit('story_done', text: 'hollow_sprout', x: f.x, z: f.z);
     }
     _emit('calm', x: f.x, z: f.z);
     hitstop = math.max(hitstop, 0.06);
@@ -2533,6 +2934,13 @@ class Raid {
         // it lingers by the gate, at peace; turns to you when you come near
         if (pet.dist(f) < 90) f.face(pet.x - f.x, pet.z - f.z);
       }
+      return;
+    }
+    if (f.kind == 'hollow_sprout') {
+      // restored, it stays among the ruins: little happy hops, turned to you
+      f.moving = false;
+      f.lift = math.max(0, math.sin(f.t * 5)) * 3;
+      if (pet.dist(f) < 120) f.face(pet.x - f.x, pet.z - f.z);
       return;
     }
     if (f.t < 0.9) {

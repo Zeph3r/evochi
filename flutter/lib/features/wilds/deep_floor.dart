@@ -114,7 +114,11 @@ class FloorPlan {
   final foes = <Map<String, Object>>[];
   final spots = <Map<String, Object>>[];
   final fx = <Map<String, Object>>[];
-  late final List<String> mods = floorMods(depth, seed);
+  late final List<String> mods = story == null ? floorMods(depth, seed) : const <String>[];
+
+  /// A story floor's beat (game/wilds/story_floors.dart: trust | sprout | sentinel), and where it plays.
+  String? story;
+  (double, double)? storyAt;
   late Uint8List grid; // walkable bits, 1 = blocked
   late int cols, rows;
   late double cell, x0, z0;
@@ -266,9 +270,16 @@ double _segDist(Offset a, Offset b, double x, double z) {
 }
 
 /// The whole floor: the layout, then where you can walk, the forest, the creatures, the spots.
-/// [radii] gives each prop kind's trunk (footprint) radius.
-FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii) {
-  final plan = planLayout(kit, depth, seed);
+/// [radii] gives each prop kind's trunk (footprint) radius. A [story] floor (its beat) keeps the last
+/// room for the story: the Mossy Ruins' stones round it, the creature waiting there, no other foes in it
+/// and no elite on the way (and no twists).
+FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii, {String? story}) {
+  final plan = planLayout(kit, depth, seed)..story = story;
+  if (story != null) {
+    for (final r in plan.rooms) {
+      if (r.role == 'elite') r.role = 'fight';
+    }
+  }
   final rng = _Rng(seed * 31 + 7);
   final C = kit.chunk;
   final gw = plan.gw, gh = plan.gh;
@@ -462,7 +473,24 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii)
           'id': 'gate', 'kind': 'gate', 'x': cx, 'z': gz + 14, 'r': 30, 'label': 'Descend', 'title': 'F${depth + 1} · $deepTrail',
           'text': 'Worn steps lead down through the old doorway, deeper into the Wilds.',
         });
-        _foes(plan, rng, r, cx, cz, rr * 0.55, wantFoes, depth);
+        if (story == null) {
+          _foes(plan, rng, r, cx, cz, rr * 0.55, wantFoes, depth);
+        } else {
+          // the ruins: fallen stones round the clearing, moss and old light; the story's creature waits
+          // in the middle
+          for (var i = 0; i < 7; i++) {
+            final a = math.pi * (0.15 + i * 0.26) + rng.d(-0.1, 0.1);
+            final x = cx + math.cos(a) * rr * 0.78, z = cz + math.sin(a) * rr * 0.72;
+            add(i.isEven ? 'pillar_low' : (i == 3 ? 'boulder' : 'pillar'), x, z, flip: rng.p(0.5));
+          }
+          for (var i = 0; i < 5; i++) {
+            final a = rng.d(0, math.pi * 2);
+            add(rng.pick(const ['shrooms', 'rock', 'stump']), cx + math.cos(a) * rr * 0.6, cz + math.sin(a) * rr * 0.55, s: rng.d(0.7, 0.9));
+          }
+          plan.fx.add({'kind': 'ruins', 'x': cx, 'z': cz + 4});
+          plan.storyAt = (cx, cz + 6);
+          plan.zones.add({'id': 'ruins', 'name': 'Mossy Ruins', 'x': cx, 'z': cz, 'r': rr});
+        }
       case 'fight':
         _foes(plan, rng, r, cx, cz, rr * 0.55, wantFoes, depth);
       case 'elite':
@@ -538,14 +566,14 @@ void _foes(FloorPlan plan, _Rng rng, FloorRoom r, double cx, double cz, double s
 
 // ------------------------------------------------------------------------------------- the map
 /// Loads the pictures and makes the floor's [WildsMap]. Props come from the Thicket's sprites.
-Future<WildsMap> makeFloor(int depth, int seed) async {
+Future<WildsMap> makeFloor(int depth, int seed, {String? story, String? place, String? quest}) async {
   final kit = await RoomKit.load();
   final thicket = (jsonDecode(await rootBundle.loadString('${wildsBase}wilds_map_thicket.json')) as Map).cast<String, dynamic>();
   final images = (thicket['images'] as Map).cast<String, dynamic>();
   final radii = {for (final e in images.entries) e.key: ((e.value as Map)['radius'] as num? ?? 0).toDouble()};
   radii['gate'] = 0; // its footprint is its own shape (below)
   radii['chest'] = 6;
-  final plan = planFloor(kit, depth, seed, radii);
+  final plan = planFloor(kit, depth, seed, radii, story: story);
   // the gate's footprint: its pillars and the sealed opening (as in tools/art/wilds_maps.py SHAPES)
   final (gx, gz) = plan.gate;
   for (final (dx, dz, r) in const [(-30.0, 0.0, 11.0), (30.0, 0.0, 11.0), (-16.0, 0.0, 3.5), (-8.0, 0.0, 3.5), (0.0, 0.0, 3.5), (8.0, 0.0, 3.5), (16.0, 0.0, 3.5), (42.0, 8.0, 6.0)]) {
@@ -581,12 +609,12 @@ Future<WildsMap> makeFloor(int depth, int seed) async {
   }
   final j = <String, dynamic>{
     'id': 'deep_$depth',
-    'name': deepTrail,
+    'name': place ?? deepTrail,
     'floor': 'F$depth',
     'level': 2 + depth,
     'pitch': kit.pitch,
     'scale': s,
-    'objective': 'Calm the floor and find the way down',
+    'objective': story == null ? 'Calm the floor and find the way down' : 'Find what waits in the ruins',
     'ground': {'w': gw, 'h': gh, 'origin': [origin.dx, origin.dy], 'scale': s},
     'bounds': [plan.bounds.left, plan.bounds.top, plan.bounds.right, plan.bounds.bottom],
     'grid': {'cell': plan.cell, 'x0': plan.x0, 'z0': plan.z0, 'cols': plan.cols, 'rows': plan.rows, 'blocked': base64Encode(plan.grid)},
@@ -596,6 +624,7 @@ Future<WildsMap> makeFloor(int depth, int seed) async {
     'foes': plan.foes,
     'gate': {'x': gx, 'z': gz, 'emit': 21.0, 'beams': [14.0, 26.0, 38.0]},
     'deep': {'depth': depth, 'seed': seed, 'mods': plan.mods},
+    if (story != null && plan.storyAt != null) 'story': {'beat': story, 'quest': quest, 'x': plan.storyAt!.$1, 'z': plan.storyAt!.$2},
   };
   return WildsMap.made(
     j,

@@ -33,6 +33,7 @@ import '../../game/economy/economy.dart' as econ;
 import '../../game/engine.dart' as ge;
 import '../../game/trails/trails.dart' as trails;
 import '../../game/wilds/charms.dart' as charms;
+import '../../game/wilds/story_floors.dart' as sf;
 import '../../game/wilds/wilds.dart' as w;
 import '../shared/ambience.dart';
 import '../shared/kit.dart';
@@ -56,7 +57,7 @@ class DeepCarry {
 }
 
 class WildsScreen extends StatefulWidget {
-  const WildsScreen({super.key, this.mapId = 'thicket', this.depth, this.seed, this.carry, this.surge = false});
+  const WildsScreen({super.key, this.mapId = 'thicket', this.depth, this.seed, this.carry, this.surge = false, this.story, this.forceStory = false});
   final String mapId;
 
   /// A Deep Wilds floor (F2 and down), made fresh from [seed]; null for a hand-made map.
@@ -66,6 +67,12 @@ class WildsScreen extends StatefulWidget {
 
   /// A Hollow Surge floor (rolled on the way down: game/wilds/wilds.dart wildsDescend).
   final bool surge;
+
+  /// A story floor: the Trail Guild job whose place this floor is (game/wilds/story_floors.dart).
+  final String? story;
+
+  /// Playtesting (debug builds): the story floor even though its job is not open.
+  final bool forceStory;
   @override
   State<WildsScreen> createState() => _WildsScreenState();
 }
@@ -98,6 +105,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   Offset _cam = Offset.zero; // top-left of the view, in screen px of the scaled ground
   String? _card; // a spot id, 'sher', 'map', 'retreat', 'knocked', 'victory', 'pause', 'spar'
   MapSpot? _near;
+  bool _nearFriend = false; // close enough to Petalune to hum or offer a treat
   bool _nearSher = false, _nearBoss = false;
   String? _bubble;
   double _bubbleT = 0;
@@ -150,13 +158,20 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final palette = pet?.paletteId ?? 'amber';
     final wearing = pet?.equipped.values.toList() ?? const <String>[];
     final depth = widget.depth;
+    // a story floor only while its job is open (a stale link to it is an ordinary floor)
+    final story = widget.story != null && (sf.storyFloorOpen(c.state, widget.story!) || (kDebugMode && widget.forceStory)) ? sf.storyFloors[widget.story!] : null;
+    _story = story;
+    final seed = widget.seed ?? DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
+    final friendly = story?.beat == 'trust' || sf.petaluneWithYou(c.state);
+    final extra = [if (friendly) 'petalune', if (story?.beat == 'sprout') 'hollow_sprout'];
     Future.wait([
-      depth == null ? WildsMap.load(widget.mapId) : makeFloor(depth, widget.seed ?? DateTime.now().millisecondsSinceEpoch & 0x7fffffff),
+      depth == null ? WildsMap.load(widget.mapId) : makeFloor(depth, seed, story: story?.beat, place: story?.place, quest: story?.quest),
       WalkerArt.load(key, palette, wearing: wearing),
       WalkerArt.load('sher', 'sher'),
       FoeArt.load('thornling'),
       FoeArt.load('sporecap'),
       FoeArt.load('briarback'),
+      for (final k in extra) FoeArt.load(k),
     ]).then((r) {
       if (!mounted) return;
       final m = r[0] as WildsMap;
@@ -165,6 +180,9 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       _foeArt['thornling'] = r[3] as FoeArt;
       _foeArt['sporecap'] = r[4] as FoeArt;
       _foeArt['briarback'] = r[5] as FoeArt;
+      for (var i = 0; i < extra.length; i++) {
+        _foeArt[extra[i]] = r[6 + i] as FoeArt;
+      }
       setState(() {
         _map = m;
         _raid = _newRaid(m);
@@ -250,6 +268,10 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       foeHarm: deep?.harm ?? 1.0,
       coinMul: deep?.coins ?? 1.0,
       surge: m.depth != null && widget.surge,
+      storyBeat: m.story?.beat,
+      storyX: m.story?.x ?? 0,
+      storyZ: m.story?.z ?? 0,
+      companion: m.story?.beat != 'trust' && sf.petaluneWithYou(c.state),
     );
     final carry = widget.carry;
     if (carry != null) {
@@ -312,7 +334,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     if (_flashT > 0) _flashT = math.max(0, _flashT - dt);
     final m = _map, r = _raid;
     if (m == null || r == null || _view == Size.zero) return;
-    if (m.depth != null && !_sealOpen && r.foeTotal > 0 && r.calmed >= r.foeTotal) {
+    if (m.depth != null && !_sealOpen && r.calmed >= r.foeTotal && (r.foeTotal > 0 || m.story != null) && (m.story == null || r.storyDone)) {
       // the floor is calm: the way down opens
       _sealOpen = true;
       _sealT = 0;
@@ -408,6 +430,9 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
         near = s;
       }
     }
+    final pl = r.petalune;
+    final nearFriend = pl != null && r.storyBeat == 'trust' && !r.storyDone && pet.dist(pl) < 58;
+    if (nearFriend != _nearFriend) setState(() => _nearFriend = nearFriend);
     final nearSher = sher != null && pet.dist(sher) < 52 && (!r.inCombat || !r.party);
     final b = r.boss;
     final nearBoss = b != null && r.bossState == BossState.calm && pet.dist(b) < 80;
@@ -605,6 +630,28 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
           a.buzz(Haptic.hit);
         case 'hoof':
           _sfx('enc_rumble', 0.22, gap: 0.12);
+        case 'story_done':
+          _storyDone();
+        case 'hum':
+          _sfx('enc_soothe', 0.6);
+        case 'treat':
+          _sfx('reward_chime', 0.5);
+          a.buzz(Haptic.reward, strength: 0.5);
+        case 'startle':
+          _sfx('pet_chirp', 0.5, gap: 0.4);
+          if (!_startleTold) {
+            _startleTold = true;
+            _showBanner('Petalune startles! Walk gently near it, and keep your attacks away.', 3.0);
+          }
+        case 'hush':
+          _sfx('enc_soothe', 0.55);
+          _showBanner('Petalune hums: Petal Hush!', 1.4);
+        case 'lash':
+          _sfx('enc_whoosh', 0.6, gap: 0.15);
+          a.buzz(Haptic.hit, strength: 0.5);
+        case 'thorns':
+          _sfx('wild_crash', 0.45, gap: 0.15);
+          a.buzz(Haptic.thump, strength: 0.5);
         case 'sig_ready':
           _sfx('reward_chime', 0.6);
           a.buzz(Haptic.reward);
@@ -740,6 +787,14 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
 
   void _interact() {
     if (_card != null) return;
+    if (_nearFriend) {
+      context.read<GameController>().audio.play('ui_tap', volume: 0.4);
+      setState(() {
+        _card = 'petalune';
+        _target = null;
+      });
+      return;
+    }
     // a spot you are standing at comes first (the calm guardian likes to wander by the gate)
     if (_nearBoss && _near == null) {
       setState(() => _card = 'spar');
@@ -826,6 +881,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final ev = res.events.where((e) => e.type == 'wilds_drink').firstOrNull;
     if (ev == null) return;
     final buff = ev.data['buff'] as String;
+    if (_story != null) _storySpent[id] = (_storySpent[id] ?? 0) + 1;
     final before = r.coating;
     r.applyBuff(buff);
     // one coating at a time: the new one washes the last off
@@ -880,11 +936,57 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     c.audio.play('enc_whoosh', volume: 0.6);
     c.analytics.track('wilds_descend', {'floor': depth, 'surge': surge});
     final carry = DeepCarry(r.pet.hp, r.coins, Map.of(r.items), calmed: r.calmed - _calmBanked);
+    // a Trail Guild job's place waiting at this depth: the floor is the story's (and no Surge on it)
+    final story = sf.storyFloorAt(c.state, depth);
     Navigator.of(context).pushReplacement(PageRouteBuilder<void>(
       transitionDuration: const Duration(milliseconds: 700),
-      pageBuilder: (_, __, ___) => WildsScreen(depth: depth, seed: seed, carry: carry, surge: surge),
+      pageBuilder: (_, __, ___) => WildsScreen(depth: depth, seed: seed, carry: carry, surge: surge && story == null, story: story?.quest),
       transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: a, child: child),
     ));
+  }
+
+  // ---- story floors
+  sf.StoryFloor? _story;
+  final _storySpent = <String, int>{}; // the job's hand-in items used up on the floor (a brew drunk)
+  bool _storyHandedIn = false, _startleTold = false;
+
+  /// The beat is done: the job hands in (once), a moment to take it in, then the quest's reward.
+  void _storyDone() {
+    final st = _story;
+    if (st == null || _storyHandedIn) return;
+    _storyHandedIn = true;
+    final c = context.read<GameController>();
+    final res = c.run((s, n) => sf.wildsStoryDone(s, st.quest, n, spent: _storySpent));
+    _sfx('level_up', 0.8);
+    c.audio.buzz(Haptic.win);
+    c.analytics.track('wilds_story_done', {'quest': st.quest});
+    _showBanner(st.beat == 'trust' ? 'Petalune trusts you!' : 'The Hollow Sprout is restored!', 3.0, true);
+    if (!res.ok) return;
+    Future.delayed(const Duration(milliseconds: 2400), () async {
+      if (!mounted) return;
+      setState(() => _card = 'story');
+      await showStoryReward(context, st.quest, backToVillage: false);
+      if (mounted) setState(() => _card = null);
+    });
+  }
+
+  /// Hum to Petalune (from its card).
+  void _hum() {
+    setState(() => _card = null);
+    if (!(_raid?.hum() ?? false)) _showBanner('Give it a moment', 1.2);
+  }
+
+  /// Offer Petalune a treat from the Bag.
+  void _offer(String id) {
+    final r = _raid;
+    if (r == null) return;
+    final c = context.read<GameController>();
+    final res = c.run((s, n) => sf.wildsOffer(s, id, n));
+    setState(() => _card = null);
+    final ev = res.events.where((e) => e.type == 'wilds_treat').firstOrNull;
+    if (ev == null) return;
+    r.treat(ev.data['trust'] as int);
+    c.analytics.track('wilds_treat', {'item': id});
   }
 
   /// A new floor: its name and twists on a banner; a Surge announces itself.
@@ -892,7 +994,10 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final names = [for (final id in m.mods) floorModDefs[id]!.$1];
     Future.delayed(const Duration(milliseconds: 600), () {
       if (!mounted) return;
-      if (widget.surge) {
+      final st = _story;
+      if (st != null) {
+        _showBanner(st.line, 4.4, true);
+      } else if (widget.surge) {
         _showBanner('A Hollow Surge! This floor churns with the Hollow. Calm it to break the Surge.', 4.2, true);
         _sfx('enc_rumble', 0.7);
         context.read<GameController>().analytics.track('wilds_surge', {'floor': m.depth});
@@ -1212,7 +1317,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
 
   /// Playtesting shortcuts (debug builds only): 1-3 the clearings, 4 the arena's edge, 5 the arena, G
   /// keeps your Evochi's Raid HP full, B takes a fifth of the guardian's health, I replays its entrance, N
-  /// goes down to the next Deep Wilds floor, H opens a Surge floor, C calms every creature on the floor.
+  /// goes down to the next Deep Wilds floor, H opens a Surge floor, C calms every creature on the floor, P and O
+  /// open the Mossy Ruins' story floors (Petalune, the Hollow Sprout), 9 goes to a story floor's beat.
   void _debugKey(LogicalKeyboardKey k) {
     final r = _raid, m = _map;
     if (r == null || m == null) return;
@@ -1221,6 +1327,9 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     if (k == LogicalKeyboardKey.digit1 && zs.isNotEmpty) to = (zs[0].$3 + 10, zs[0].$4 + 60);
     if (k == LogicalKeyboardKey.digit2 && zs.length > 1) to = (zs[1].$3 + 10, zs[1].$4 + 60);
     if (k == LogicalKeyboardKey.digit3 && zs.length > 2) to = (zs[2].$3 + 10, zs[2].$4 + 60);
+    // 9: a story floor's beat (a few steps south of it)
+    final st = m.story;
+    if (k == LogicalKeyboardKey.digit9 && st != null) to = (st.x, st.z + 62);
     // 4: at the arena's way in; 5: a few steps inside, where the guardian wakes
     final ar = (m.boss?['arena'] as Map?)?.cast<String, dynamic>();
     if (ar != null) {
@@ -1238,6 +1347,11 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     }
     // calm every creature on the floor (to try the way down, and a Surge's break)
     if (k == LogicalKeyboardKey.keyC) r.calmAllForTesting();
+    // the Mossy Ruins' story floors, whatever the jobs say: P Petalune, O the Hollow Sprout
+    if (k == LogicalKeyboardKey.keyP || k == LogicalKeyboardKey.keyO) {
+      final q = k == LogicalKeyboardKey.keyP ? 'eq01' : 'eq02';
+      Navigator.of(context).pushReplacement(MaterialPageRoute<void>(builder: (_) => WildsScreen(depth: 3, seed: 777, story: q, forceStory: true)));
+    }
     // I: play the guardian's entrance again (the full cut)
     if (k == LogicalKeyboardKey.keyI && _introArt != null) setState(() => _cine = IntroCut.full);
     // the gate's seal: up again (R), or drawn back as if the guardian had just been calmed (T)
@@ -1276,8 +1390,20 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     if (card == 'map') {
       return Positioned.fill(child: _FullMap(state: this, onClose: close));
     }
+    // the quest's reward is up (a dialog over the floor): the fight waits behind it
+    if (card == 'story') return const Positioned(left: 0, top: 0, child: SizedBox.shrink());
     final Widget body;
     switch (card) {
+      case 'petalune':
+        final treats = sf.treatsFor(c.state);
+        body = _PetaluneCard(
+          trust: r.trust,
+          humReady: r.humReady,
+          treats: [for (final id in treats.take(3)) (id: id, name: catalog[id]?.name ?? id, have: ge.ownedQty(c.state, id), trust: sf.treatTrust(id))],
+          onHum: _hum,
+          onOffer: _offer,
+          onClose: close,
+        );
       case 'sher':
         // Sher keeps the camp: berries for the road (once) and a tip each time you stop by
         final gifted = c.state.flags['wilds_sher_gift'] == true;
@@ -1575,7 +1701,7 @@ class _MapPainter extends CustomPainter {
     final shadow = Paint()
       ..color = const Color(0x40000000)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
-    final actors = <Actor>[pet, if (sher != null) sher, ...r.allFoes];
+    final actors = <Actor>[pet, if (sher != null) sher, ...r.friends, ...r.allFoes];
     for (final a in actors) {
       if (a.alpha <= 0.02) continue;
       final g = s._toScreen(a.x, a.z);
@@ -1695,6 +1821,7 @@ class _MapPainter extends CustomPainter {
     for (final f in r.allFoes) {
       _foeBar(canvas, f);
     }
+    _trustBar(canvas, r);
     for (final f in r.floaters) {
       _floater(canvas, f);
     }
@@ -2052,6 +2179,30 @@ class _MapPainter extends CustomPainter {
     if (f.st == FoeState.stagger && f is Boss) _stars(canvas, g - Offset(0, a.top * k * 0.95), 2, 1);
   }
 
+  void _heart(Canvas canvas, Offset c, double r, Color col) {
+    final p = Path()
+      ..moveTo(c.dx, c.dy + r * 0.9)
+      ..cubicTo(c.dx - r * 1.6, c.dy - r * 0.2, c.dx - r * 0.7, c.dy - r * 1.3, c.dx, c.dy - r * 0.45)
+      ..cubicTo(c.dx + r * 0.7, c.dy - r * 1.3, c.dx + r * 1.6, c.dy - r * 0.2, c.dx, c.dy + r * 0.9)
+      ..close();
+    canvas.drawPath(p, Paint()..color = col);
+  }
+
+  /// Petalune's trust, a little pink bar over it while you earn it.
+  void _trustBar(Canvas canvas, Raid r) {
+    final f = r.petalune;
+    if (f == null || r.storyBeat != 'trust' || r.storyDone || r.pet.dist(f) > 160) return;
+    final a = s._foeArt['petalune'];
+    if (a == null) return;
+    final g = s._toScreen(f.x, f.z) - Offset(0, a.top * s._u / a.scale + 10);
+    const w = 40.0, h = 6.0;
+    final rect = Rect.fromCenter(center: g, width: w, height: h);
+    canvas.drawRRect(RRect.fromRectAndRadius(rect.inflate(1.5), const Radius.circular(4)), Paint()..color = const Color(0xCC3B2923));
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(rect.left, rect.top, w * r.trust / 100, h), const Radius.circular(3)),
+        Paint()..color = const Color(0xFFF5A3B5));
+    _heart(canvas, Offset(rect.left - 7, rect.center.dy), 4, const Color(0xFFE0849A));
+  }
+
   void _foeBar(Canvas canvas, Foe f) {
     if (f is Boss || f.calm || !f.alive || f.hp >= f.maxHp || f.alpha < 0.5) return;
     final a = s._foeArt[f.kind];
@@ -2371,12 +2522,76 @@ class _MapPainter extends CustomPainter {
               ..strokeWidth = 5 * (1 - k)
               ..color = Color.fromRGBO(200, 160, 255, 0.9 * (1 - k)));
         _glow(canvas, g - Offset(0, 8 * _up), 30 * u, Color.fromRGBO(190, 150, 255, 0.6 * (1 - k)));
+      case 'lash':
+        // the Hollow Sprout's vine: it whips out along the telegraph and snaps back
+        final out = k < 0.35 ? k / 0.35 : 1 - (k - 0.35) / 0.65;
+        final path = Path();
+        final px = -b.dz, pz = b.dx;
+        for (var i = 0; i <= 16; i++) {
+          final f = i / 16 * out;
+          final wv = math.sin(f * 9 + k * 14) * 5 * (1 - f * 0.5);
+          final p = s._toScreen(b.x + b.dx * b.size * f + px * wv, b.z + b.dz * b.size * f + pz * wv) - Offset(0, 6 * _up);
+          if (i == 0) {
+            path.moveTo(p.dx, p.dy);
+          } else {
+            path.lineTo(p.dx, p.dy);
+          }
+        }
+        canvas.drawPath(
+            path,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 7 * u
+              ..strokeCap = StrokeCap.round
+              ..color = const Color(0xFF43306B));
+        canvas.drawPath(
+            path,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 2.5 * u
+              ..strokeCap = StrokeCap.round
+              ..color = const Color(0xFFD9C2FF).withAlpha(((1 - k) * 230).round()));
+      case 'notes':
+        // a hum: little notes drifting up from your Evochi
+        for (var i = 0; i < 4; i++) {
+          final kk = ((k * 1.3) - i * 0.12).clamp(0.0, 1.0);
+          if (kk <= 0) continue;
+          final p = g - Offset(-10 * u + i * 7 * u + math.sin(kk * 6 + i) * 5 * u, (22 + 40 * kk) * _up);
+          final a = ((1 - kk) * 255).round();
+          final tp = TextPainter(
+              text: TextSpan(text: i.isEven ? '♪' : '♫', style: TextStyle(fontSize: 15 * u, color: Color.fromARGB(a, 255, 240, 200), fontWeight: FontWeight.w700)),
+              textDirection: TextDirection.ltr)
+            ..layout();
+          tp.paint(canvas, p - Offset(tp.width / 2, tp.height / 2));
+        }
+      case 'hearts':
+        // a treat, or trust won: hearts float up
+        for (var i = 0; i < 3 + (b.size * 2).round(); i++) {
+          final kk = ((k * 1.2) - i * 0.08).clamp(0.0, 1.0);
+          if (kk <= 0) continue;
+          final p = g - Offset(math.sin(i * 2.1) * 14 * u + math.sin(kk * 5 + i) * 4 * u, (18 + 46 * kk) * _up);
+          _heart(canvas, p, (5 + i % 3) * u, Color.fromRGBO(245, 130, 160, 1 - kk));
+        }
+      case 'hush':
+        // Petal Hush: a soft pink ring rolls out over the fight
+        canvas.drawOval(
+            _ellipse(b.x, b.z, b.size * Curves.easeOut.transform(k)),
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 4 * (1 - k) + 1
+              ..color = Color.fromRGBO(250, 190, 210, 0.8 * (1 - k)));
+        for (var i = 0; i < 10; i++) {
+          final a = i * 0.628 + k * 1.5;
+          final rr = b.size * Curves.easeOut.transform(k) * 0.9;
+          _heart(canvas, s._toScreen(b.x + math.cos(a) * rr, b.z + math.sin(a) * rr) - Offset(0, 6 * _up), 3.5 * u, Color.fromRGBO(255, 210, 225, 1 - k));
+        }
       case 'snare':
-        // Thorn Snare: thorns burst up in a ring and hold, then sink
+        // Thorn Snare: thorns burst up in a ring and hold, then sink (violet: the Hollow Sprout's)
         final rise = k < 0.15 ? k / 0.15 : (k > 0.8 ? (1 - k) / 0.2 : 1.0);
-        canvas.drawOval(_ellipse(b.x, b.z, b.size), Paint()..color = Color.fromRGBO(60, 90, 40, 0.25 * rise));
-        final tp = Paint()..color = Color.fromRGBO(70, 110, 46, rise);
-        final hi = Paint()..color = Color.fromRGBO(140, 190, 90, rise);
+        final hollow = b.tag == 'hollow';
+        canvas.drawOval(_ellipse(b.x, b.z, b.size), Paint()..color = hollow ? Color.fromRGBO(70, 40, 110, 0.3 * rise) : Color.fromRGBO(60, 90, 40, 0.25 * rise));
+        final tp = Paint()..color = hollow ? Color.fromRGBO(67, 48, 107, rise) : Color.fromRGBO(70, 110, 46, rise);
+        final hi = Paint()..color = hollow ? Color.fromRGBO(200, 170, 240, rise) : Color.fromRGBO(140, 190, 90, rise);
         for (var i = 0; i < 26; i++) {
           final a = i * 2.39996;
           final rr = b.size * (0.25 + 0.75 * ((i * 0.37) % 1.0));
@@ -2905,7 +3120,11 @@ class _TopCenter extends StatelessWidget {
           }
           final String text;
           final deep = state._map!.depth != null;
-          if (r.calmed < r.foeTotal) {
+          if (r.storyBeat == 'trust' && !r.storyDone) {
+            text = r.pet.dist(r.petalune ?? r.pet) < 160 ? 'Earn Petalune\'s trust  ${r.trust.round()}%' : 'Find what waits in the ruins';
+          } else if (r.storyBeat == 'sprout' && !r.storyDone) {
+            text = 'Restore the Hollow Sprout';
+          } else if (r.calmed < r.foeTotal) {
             text = 'Calm the Hollow creatures  ${r.calmed}/${r.foeTotal}';
           } else if (deep) {
             text = 'The way down is open';
@@ -3262,12 +3481,16 @@ class _NearLabel extends StatelessWidget {
           final s = state;
           final r = s._raid!;
           final near = s._near;
-          final talk = (s._nearSher && (near == null || !r.party)) || s._nearBoss;
+          final talk = (s._nearSher && (near == null || !r.party)) || s._nearBoss || s._nearFriend;
           // (positioned even when empty: a bare box in the Stack would size it to nothing)
           if (!talk && near == null) return const Positioned(left: 0, top: 0, child: SizedBox.shrink());
           final String label;
           final Offset at;
-          if (s._nearBoss) {
+          final pl = r.petalune;
+          if (s._nearFriend && pl != null) {
+            label = 'Petalune';
+            at = s._toScreen(pl.x, pl.z) - Offset(0, 40 * s._u / 2.7);
+          } else if (s._nearBoss) {
             label = 'Spar';
             at = s._toScreen(r.boss!.x, r.boss!.z) - Offset(0, 48 * s._u / 2.7);
           } else if (talk) {
@@ -3430,6 +3653,11 @@ class _MiniPainter extends CustomPainter {
         canvas.drawCircle(at(x, z), whole ? 5 : 4, dot);
       }
     }
+    // Petalune (pink)
+    for (final f in r.friends) {
+      dot.color = const Color(0xFFF5A3B5);
+      canvas.drawCircle(at(f.x, f.z), whole ? 5 : 4, dot);
+    }
     // the foes still tangled, the guardian
     for (final f in r.allFoes) {
       if (f.calm || !f.alive) continue;
@@ -3476,7 +3704,11 @@ class _FullMap extends StatelessWidget {
     final m = state._map!;
     final r = state._raid!;
     final mq = MediaQuery.of(context);
-    final objective = m.depth != null
+    final objective = r.storyBeat != null && !r.storyDone
+        ? (r.storyBeat == 'trust'
+            ? 'Petalune waits in the Mossy Ruins, north. Stay near and gentle, hum, offer a treat: earn its trust.'
+            : 'The Hollow Sprout lashes out in the Mossy Ruins, north. Calm its Hollow to restore it.')
+        : m.depth != null
         ? (r.calmed >= r.foeTotal
             ? 'The floor is calm: the old doorway down is open.'
             : 'Calm the Hollow creatures (${r.calmed}/${r.foeTotal}), then take the old doorway down.')
@@ -3540,6 +3772,60 @@ class _FullMap extends StatelessWidget {
 }
 
 /// Something you found or reached: a focused card with what it says and what you can do.
+/// Near Petalune: how far its trust has come, a hum, and a treat from the Bag (the ones it loves warm it
+/// half again as much).
+class _PetaluneCard extends StatelessWidget {
+  const _PetaluneCard({required this.trust, required this.humReady, required this.treats, required this.onHum, required this.onOffer, required this.onClose});
+  final double trust;
+  final bool humReady;
+  final List<({String id, String name, int have, int trust})> treats;
+  final VoidCallback onHum, onClose;
+  final void Function(String id) onOffer;
+  @override
+  Widget build(BuildContext context) {
+    final mood = trust < 30 ? 'It watches you, ready to bolt.' : (trust < Raid.trustDrift ? 'It has stopped backing away. It is curious.' : 'It edges closer. Almost there.');
+    return Container(
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+      decoration: Kit.parchment(radius: 16),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Text('Petalune', style: EvochiText.cardTitle.copyWith(fontSize: 18)),
+        const SizedBox(height: 4),
+        Text('$mood Stay near and gentle; a hum or a treat helps it trust you.', style: EvochiText.bodyText.copyWith(height: 1.35)),
+        const SizedBox(height: 8),
+        Row(children: [
+          const Icon(Icons.favorite_rounded, size: 16, color: Color(0xFFE0849A)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(6),
+              child: LinearProgressIndicator(
+                value: trust / 100,
+                minHeight: 10,
+                backgroundColor: const Color(0x333B2923),
+                valueColor: const AlwaysStoppedAnimation(Color(0xFFF5A3B5)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          Text('${trust.round()}%', style: EvochiText.tag.copyWith(color: EvochiColor.ink)),
+        ]),
+        const SizedBox(height: 10),
+        EvochiButton(label: humReady ? 'Hum a soft tune' : 'Humming...', tone: ButtonTone.green, onPressed: humReady ? onHum : null),
+        for (final t in treats) ...[
+          const SizedBox(height: 6),
+          EvochiButton(label: 'Offer ${t.name} (${t.have})${t.trust > 20 ? ' · loves it' : ''}', tone: ButtonTone.cream, onPressed: () => onOffer(t.id)),
+        ],
+        if (treats.isEmpty) ...[
+          const SizedBox(height: 6),
+          Text('No food in your Bag to offer. It loves Sunberry Tarts.', style: EvochiText.caption.copyWith(color: EvochiColor.textSecondary), textAlign: TextAlign.center),
+        ],
+        const SizedBox(height: 6),
+        TextButton(onPressed: onClose, child: const Text('Let it be')),
+      ]),
+    );
+  }
+}
+
 class _SpotCard extends StatelessWidget {
   const _SpotCard({required this.spot, required this.primary, required this.onPrimary, this.secondary, this.onSecondary, this.note});
   final MapSpot spot;

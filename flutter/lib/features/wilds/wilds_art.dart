@@ -191,6 +191,13 @@ class WildsMap {
   /// A Deep Wilds floor: its depth (F number), or null for a hand-made map.
   int? get depth => ((j['deep'] as Map?)?['depth'] as num?)?.toInt();
 
+  /// A story floor (game/wilds/story_floors.dart): its beat, its quest, and where the beat plays.
+  ({String beat, String quest, double x, double z})? get story {
+    final st = j['story'] as Map?;
+    if (st == null) return null;
+    return (beat: st['beat'] as String, quest: st['quest'] as String? ?? '', x: (st['x'] as num).toDouble(), z: (st['z'] as num).toDouble());
+  }
+
   /// A Deep Wilds floor's twists (deep_floor.dart floorModDefs).
   List<String> get mods => [for (final m in ((j['deep'] as Map?)?['mods'] as List? ?? const [])) m as String];
   final Map<String, dynamic> j;

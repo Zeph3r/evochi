@@ -563,6 +563,37 @@ def hop_cycle(height):
     return pose
 
 
+# ------------------------------------------------------------------ the Trail Guild's creatures, in the Wilds
+# The Lumen Trails' three (tools/art/trail_art.py): the same models, turned and drawn like the foes so they
+# share the floor. Petalune is never fought (you earn its trust), so its two looks are wary (as 'hollow')
+# and befriended (as 'calm'); the Hollow Sprout's are tangled and restored.
+def petalune(pose=None, variant='hollow'):
+    import trail_art as TA
+    p = pose or {}
+    state = p.get('state') or ('wary' if variant == 'hollow' else 'happy')
+    M, anc = TA.petalune(state)
+    if p.get('tilt'):
+        M = turn(M, (0, 0, 0), rot(rz=p['tilt']))
+    if p.get('lean'):
+        M = turn(M, (0, 0, 0), rot(rx=p['lean']))
+    return M, {'ground': (0, 0, 0), 'top': anc['top']}
+
+
+def hollow_sprout(pose=None, variant='hollow'):
+    import trail_art as TA
+    p = pose or {}
+    M, anc = TA.hollow_sprout('hollow' if variant == 'hollow' else 'restored')
+    if p.get('lean'):
+        M = turn(M, (0, 0, 0), rot(rx=p['lean']))
+    if p.get('tilt'):
+        M = turn(M, (0, 0, 0), rot(rz=p['tilt']))
+    if p.get('glow'):
+        # gathering Lumen: every glowing voxel burns brighter
+        g = M.glow > 0
+        M.glow[g] = np.minimum(1.0, M.glow[g] + 0.35)
+    return M, {'ground': (0, 0, 0), 'top': anc['top']}
+
+
 class Foe:
     def __init__(self, key, build, scale, radius, gaits, act, variants=('hollow', 'calm')):
         self.key, self.build, self.scale, self.radius = key, build, scale, radius
@@ -599,6 +630,17 @@ FOES = {
          ('roar', {'head': -0.6, 'mouth': True, 'glow': 1.0}, 0.0),
          ('stagger', {'head': 0.55, 'tilt': 0.4, 'daze': True, 'splay': 1.5, 'low': 3.0, 'roll': 0.08}, 0.0),
          ('hurt', {'head': -0.25, 'tilt': -0.18, 'daze': True}, 0.0)]),
+    'petalune': lambda: Foe(
+        'petalune', petalune, 6.0, 7.0,
+        {'walk': (hop_cycle(2.8), dict(waddle=0.0, squash=0.1, cycle=9.0, hop=True))},
+        [('wary', {'state': 'wary'}, 0.0), ('neutral', {'state': 'neutral'}, 0.0), ('happy', {'state': 'happy'}, 0.0),
+         ('hum', {'state': 'shy'}, 0.0), ('startle', {'state': 'wary', 'lean': -0.25}, 1.5),
+         ('nuzzle', {'state': 'happy', 'lean': 0.3}, 0.0)]),
+    'hollow_sprout': lambda: Foe(
+        'hollow_sprout', hollow_sprout, 10.0, 9.0,
+        {'walk': (hop_cycle(2.2), dict(waddle=0.0, squash=0.12, cycle=8.0, hop=True))},
+        [('lash', {'lean': 0.4}, 0.0), ('rear', {'lean': -0.3, 'glow': True}, 1.0), ('slam', {'lean': 0.55}, 0.0),
+         ('hurt', {'tilt': 0.3}, 0.0), ('swell', {'glow': True}, 0.5)]),
 }
 
 

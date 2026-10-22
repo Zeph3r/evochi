@@ -243,6 +243,133 @@
     ]
    },
    "top": 172.0
+  },
+  "petalune": {
+   "frameW": 186,
+   "frameH": 182,
+   "ground": [
+    93.0,
+    137.3
+   ],
+   "scale": 6.0,
+   "radius": 7.0,
+   "gaits": {
+    "walk": {
+     "sheets": {
+      "hollow": "foe_petalune_walk_hollow.webp",
+      "calm": "foe_petalune_walk_calm.webp"
+     },
+     "roll": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      -0.0,
+      -0.0,
+      -0.0
+     ],
+     "squash": [
+      1.0,
+      0.9,
+      0.938,
+      0.988,
+      1.0,
+      1.0,
+      1.0,
+      0.988,
+      0.938
+     ],
+     "lift": [
+      0.0,
+      0.0,
+      4.9,
+      9.8,
+      12.3,
+      14.7,
+      12.3,
+      9.8,
+      4.9
+     ],
+     "cycle": 9.0
+    }
+   },
+   "act": {
+    "sheet": "foe_petalune_act.webp",
+    "poses": [
+     "wary",
+     "neutral",
+     "happy",
+     "hum",
+     "startle",
+     "nuzzle"
+    ]
+   },
+   "top": 101.3
+  },
+  "hollow_sprout": {
+   "frameW": 256,
+   "frameH": 276,
+   "ground": [
+    128.0,
+    202.1
+   ],
+   "scale": 10.0,
+   "radius": 9.0,
+   "gaits": {
+    "walk": {
+     "sheets": {
+      "hollow": "foe_hollow_sprout_walk_hollow.webp",
+      "calm": "foe_hollow_sprout_walk_calm.webp"
+     },
+     "roll": [
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      0.0,
+      -0.0,
+      -0.0,
+      -0.0
+     ],
+     "squash": [
+      1.0,
+      0.88,
+      0.925,
+      0.985,
+      1.0,
+      1.0,
+      1.0,
+      0.985,
+      0.925
+     ],
+     "lift": [
+      0.0,
+      0.0,
+      8.2,
+      12.3,
+      16.4,
+      16.4,
+      16.4,
+      12.3,
+      8.2
+     ],
+     "cycle": 8.0
+    }
+   },
+   "act": {
+    "sheet": "foe_hollow_sprout_act.webp",
+    "poses": [
+     "lash",
+     "rear",
+     "slam",
+     "hurt",
+     "swell"
+    ]
+   },
+   "top": 162.1
   }
  }
 }
