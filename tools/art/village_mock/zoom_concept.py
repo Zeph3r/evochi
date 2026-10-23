@@ -14,7 +14,7 @@ import village_concept as VC
 VC.VW, OUT = sys.argv[1], sys.argv[2]
 X = VC.X
 FW, FH = 824, 1100                    # a phone frame's picture, px (412 x 550 dp)
-PET = (0.8, -15.0)                    # walking down from the bridge to the plaza
+PET = (0.8, -19.0)                    # walking down from the bridge to the plaza (clear of the waystone)
 PIP, ALDER = (-4.5, -31.0), (4.6, -31.0)
 
 
