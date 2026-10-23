@@ -75,8 +75,7 @@ def main():
     # a conversation: the camera eases in to frame you both
     t = VC.View('zoom_talk')
     hx, hy = VC.npc(t, 'pip', *PIP, 'happy')
-    VC.npc(t, 'alder', *ALDER)
-    VC.evochi(t, -2.3, -28.4, 'NW')
+    VC.evochi(t, -0.6, -28.2, 'NW')
     t.img = tilt_shift(t.img)
     VC.chip(t.img, hx, hy - 16 * X, 'Pip')
     VC.bubble(t.img, hx + 40 * X, hy - 38 * X,
