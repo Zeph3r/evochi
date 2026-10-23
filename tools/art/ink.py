@@ -8,7 +8,8 @@ render's own depth (world z) and height per pixel, and a touch more contrast and
 import numpy as np
 from scipy import ndimage
 
-INK = np.array([59, 41, 35], np.float32)       # the characters' outline colour (#3B2923)
+BROWN = np.array([78, 54, 38], np.float32)     # stone, wood, roofs, paths: a dark brown line
+OLIVE = np.array([61, 71, 34], np.float32)     # grass, leaves, hedges: a dark olive one
 
 
 def edges(z, a, y, dz=1.0, dy=0.9):
@@ -25,14 +26,20 @@ def edges(z, a, y, dz=1.0, dy=0.9):
     return e & (a > 0.5)
 
 
-def ink(rgb, z, a, y, width=3, strength=0.72, pop=0.08, sharpen=True):
+def ink(rgb, z, a, y, width=2, strength=0.58, pop=0.08, sharpen=True):
+    """Softer than the characters' black ink: thin lines, dark brown on stone and wood, dark olive on
+    plants, so the world reads crisply without looking cut out."""
     rgb = rgb.astype(np.float32)
     e = edges(z, a, y)
     if width > 1:
         e = ndimage.binary_dilation(e, iterations=width - 1) & (a > 0.5)
     soft = ndimage.gaussian_filter(e.astype(np.float32), 0.6)
-    k = np.clip(soft * 1.4, 0, 1)[..., None] * strength
-    out = rgb * (1 - k) + INK * k
+    k = np.clip(soft * 1.3, 0, 1)[..., None] * strength
+    r_, g_, b_ = rgb[..., 0], rgb[..., 1], rgb[..., 2]
+    green = ((g_ > r_ * 1.05) & (g_ > b_ * 1.08)).astype(np.float32)
+    green = ndimage.uniform_filter(green, 5)[..., None]          # what the line runs along: plant or not
+    line = OLIVE * green + BROWN * (1 - green)
+    out = rgb * (1 - k) + line * k
     # a little more contrast and colour, so the world reads as crisply as the sprites on it
     lum = out.mean(-1, keepdims=True)
     out = lum + (out - lum) * (1 + pop * 1.6)
