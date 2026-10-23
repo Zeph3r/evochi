@@ -4957,9 +4957,9 @@
      {
       "part": "head",
       "box": [
-       67,
+       65,
        4,
-       293,
+       296,
        197
       ],
       "pivot": [
@@ -4984,7 +4984,7 @@
        "classic": {
         "file": "village/npc_pip_blink_c.webp",
         "box": [
-         140,
+         139,
          89,
          274,
          153
@@ -4993,7 +4993,7 @@
        "lit": {
         "file": "village/npc_pip_blink.webp",
         "box": [
-         140,
+         139,
          89,
          274,
          153
