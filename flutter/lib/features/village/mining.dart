@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/theme.dart';
+import '../shared/kit.dart';
 
 /// The strike's timeline, seconds (MINES_PLAN.md: wind-up, lunge, impact, recovery, ready).
 const pounceWindup = 0.11, pounceContact = 0.195, pounceImpactEnd = 0.25, pounceRecoverEnd = 0.40, pounceEnd = 0.48;
@@ -199,27 +200,23 @@ class PounceButton extends StatelessWidget {
           onPointerDown: (_) => onDown(),
           onPointerUp: (_) => onUp(),
           onPointerCancel: (_) => onUp(),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 120),
-            width: 86,
-            height: 86,
-            transform: Matrix4.translationValues(0, ready ? -2 : 1, 0),
+          // a kit game button, round: gold and glowing when a strike is ready, cream while one plays out
+          child: DecoratedBox(
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: ready ? const Color(0xFFF4B84E) : const Color(0xFFD9B989),
-              border: Border.all(color: const Color(0xFF4A2A14), width: 3),
-              boxShadow: [
-                BoxShadow(color: const Color(0x66000000), blurRadius: ready ? 10 : 4, offset: Offset(0, ready ? 5 : 2)),
-                if (ready) const BoxShadow(color: Color(0x88FFE3A0), blurRadius: 16, spreadRadius: 1),
-              ],
+              boxShadow: [if (ready) const BoxShadow(color: Color(0x88FFE3A0), blurRadius: 18, spreadRadius: 2)],
             ),
-            child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-              CustomPaint(size: const Size(38, 34), painter: _PickPainter()),
-              const SizedBox(height: 1),
-              const ExcludeSemantics(
-                child: Text('Pounce', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 13, color: EvochiColor.ink)),
-              ),
-            ]),
+            child: Container(
+              width: 88,
+              height: 88,
+              transform: Matrix4.translationValues(0, ready ? 0 : 3, 0),
+              decoration: Kit.button(ready ? KitButtonPalette.gold : KitButtonPalette.cream, radius: 44, pressed: !ready, dot: false),
+              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                CustomPaint(size: const Size(38, 34), painter: _PickPainter()),
+                const SizedBox(height: 1),
+                ExcludeSemantics(child: Text('Pounce', style: EvochiText.button.copyWith(fontSize: 13.5, color: KitColor.signInk))),
+              ]),
+            ),
           ),
         ),
       );
@@ -275,20 +272,16 @@ class SatchelChip extends StatelessWidget {
         scale: scale,
         child: Container(
           key: anchor,
-          padding: const EdgeInsets.fromLTRB(8, 5, 12, 5),
-          decoration: BoxDecoration(
-            color: const Color(0xEEFFF8E8),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: EvochiColor.border, width: 1.5),
-            boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 6, offset: Offset(0, 2))],
-          ),
+          height: 42,
+          padding: const EdgeInsets.fromLTRB(8, 0, 6, 0),
+          decoration: Kit.parchment(radius: 12),
           child: ExcludeSemantics(
             child: Row(mainAxisSize: MainAxisSize.min, children: [
               for (final e in counts.entries)
                 if (e.value > 0) ...[
                   RawImage(image: art.ores[e.key]?.nugget.img, width: 24, height: 24, filterQuality: FilterQuality.medium),
                   const SizedBox(width: 4),
-                  Text('${e.value}', style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 16, color: EvochiColor.ink)),
+                  Text('${e.value}', style: EvochiText.number.copyWith(fontSize: 16, color: KitColor.signInk)),
                   const SizedBox(width: 6),
                 ],
             ]),

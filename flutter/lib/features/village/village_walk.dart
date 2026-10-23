@@ -1802,7 +1802,7 @@ class _MapWindow extends StatelessWidget {
           );
         }),
         const SizedBox(height: 10),
-        Text('Tap a place and your Evochi walks there.', textAlign: TextAlign.center, style: EvochiText.caption),
+        const Text('Tap a place and your Evochi walks there.', textAlign: TextAlign.center, style: EvochiText.caption),
         const SizedBox(height: 8),
         Center(child: EvochiButton(label: 'Close', tone: ButtonTone.cream, small: true, expand: false, onPressed: () => Navigator.of(context).pop())),
       ]);
