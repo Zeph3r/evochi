@@ -57,8 +57,8 @@ def _village():
         },
         # where you arrive, by the way you came in (the first is where a fresh visit starts)
         arrive={'home': (0.0, 45.0),                       # in through the south gate, from the road home
-                'trail': (57.5, 5.2)},                     # back from the Old Trail, at the east gate
-        spots={'waystone': (0.0, 6.0), 'gate': (0.0, 47.0), 'trail': (57.5, 5.2), 'falls': (-15.0, -50.0)},
+                'trail': (57.0, 4.4)},                     # back from the Old Trail, at the east gate
+        spots={'waystone': (0.0, 6.0), 'gate': (0.0, 47.0), 'trail': (57.0, 4.4), 'falls': (-15.0, -50.0)},
         # walk into one and you leave: x, z, radius, and the map and arrival it leads to (none: the game decides)
         exits={'home': (0.0, 55.0, 4.0, None, None),
                'trail': (63.0, 4.6, 3.0, 'trail', 'village')},
