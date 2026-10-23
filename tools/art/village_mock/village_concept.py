@@ -230,10 +230,14 @@ sx, sy = rd.at(50.0, 4.0, 3.6)
 bubble(rd.img, sx, sy - 4 * X, 'East: the Crossing. The old mine, and the trail into the Sunlit Thicket.', 220)
 road = phone(rd)
 
+fa = View('falls')
+evochi(fa, -18.0, -44.0, 'N')
+falls = phone(fa)
+
 s = 0.5
 panels = [(n, p.resize((int(p.width * s), int(p.height * s)), Image.LANCZOS)) for n, p in
           (('The plaza: the Guild across the bridge', plaza), ('Bram outside his workshop: tap to talk', workshop_),
-           ('The Old Trail east, to the Crossing', road))]
+           ('The Old Trail east, to the Crossing', road), ('The waterfall, the pool and the creek', falls))]
 board('Sunlit Village, walkable', 'Same buildings, spaced out, seen from the Wilds camera. No labels: names show when you tap or walk up; "!" marks who has something for you.',
       panels, f'{OUT}/village_walk_views.jpg')
 
@@ -242,7 +246,7 @@ al = View('all')
 im = al.img
 d = ImageDraw.Draw(im)
 calls = [('Trail Guild', 0, -39, 12), ('Glasshouse (Mira)', -33, -4, 10), ('Workshop (Bram)', 34, -5, 14), ('Waystone', 0, 0, 10),
-         ('Market', -16, 24, 8), ('Road home', 0, 56, 0), ('Old Trail to the Crossing', 58, 6, 4), ('Bridge', 0, -26, 3)]
+         ('Market', -16, 24, 8), ('Road home', 0, 56, 0), ('Old Trail to the Crossing', 50, 6, 4), ('Bridge', 0, -26, 3)]
 for (t, x, z, y) in calls:
     cx, cy = al.at(x, z, y)
     f = font('black', 15, 1.2)
@@ -267,7 +271,7 @@ faces = Image.new('RGBA', (f_['happy'].width // 2 * 2 + 40, H), (232, 226, 214, 
 faces.alpha_composite(f_['happy'].resize((f_['happy'].width // 2, f_['happy'].height // 2), Image.LANCZOS), (10, 30))
 faces.alpha_composite(f_['thinking'].resize((f_['thinking'].width // 2, f_['thinking'].height // 2), Image.LANCZOS), (10, 30 + H // 2))
 s = 0.62
-board('Flint, keeper of the mines', 'About 1.4x an Elder. Hard hat with a headlamp, round brass spectacles, bushy grey brows, frosted spikes, a red bandana, a tool belt and a pickaxe.',
+board('Flint, keeper of the mines', 'About 1.4x an Elder. Hard hat and headlamp, heavy-lidded old eyes, no blush, grey brows and chin tuft, frosted spikes, a red bandana, a tool belt and a pickaxe.',
       [('Beside an ordinary Obsidian Elder', pan.resize((int(pan.width * s), int(pan.height * s)), Image.LANCZOS)),
        ('Happy / thinking', faces.resize((int(faces.width * s), int(faces.height * s)), Image.LANCZOS))],
       f'{OUT}/flint_concept.jpg')

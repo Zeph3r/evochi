@@ -141,6 +141,20 @@ def market(S, P, M, rng, lamp):
     crate(P, M, mx_ - 5.0, mz_ + 1.6, 0.9)
 
 
+def give_way(models):
+    """Empty each model's voxels wherever a later one in the list is filled (all at the same res)."""
+    for a, A in enumerate(models):
+        a0, a1 = A.lo, A.lo + np.array(A.m.shape)
+        for B in models[a + 1:]:
+            b0, b1 = B.lo, B.lo + np.array(B.m.shape)
+            lo, hi = np.maximum(a0, b0), np.minimum(a1, b1)
+            if np.any(hi <= lo):
+                continue
+            sa = tuple(slice(int(l - o), int(h - o)) for l, h, o in zip(lo, hi, a0))
+            sb = tuple(slice(int(l - o), int(h - o)) for l, h, o in zip(lo, hi, b0))
+            A.m[sa][B.m[sb] > 0] = 0
+
+
 def piece(S, lo, hi, fn, dx, dz, seed, *a):
     """Build [fn] in its own model over [lo, hi] (scene_square's coordinates), then move it by (dx, dz)."""
     M = Model(lo, hi, [], res=RES)
@@ -170,10 +184,18 @@ COTTAGES = [  # (scene_square's box, move) -> spread round the edges
     ((-38.0, -30.0, -8.0, 2.0, 'SLATE', 'SANDWALL'), (-18.0, 26.0)),
 ]
 STREAM_Z = -26.0
+FALLS_DZ = -14.0                                   # the cliffs and their waterfall, brought close
+CREEK = [(-24.0, -60.0), (-25.0, -52.0), (-21.5, -42.0), (-23.0, -33.0), (-21.0, -26.0)]
 GATE_Z = 50.0
 ROAD_EAST = [(10.0, -1.5), (26.0, -2.2)]          # plaza -> Bram's door
 TRAIL_EAST = [(18.0, 6.0), (40.0, 8.0), (66.0, 4.0)]   # the Old Trail, east to the Crossing
-BOUNDS = (-66.0, 66.0, -80.0, 62.0)
+BOUNDS = (-66.0, 66.0, -58.0, 62.0)
+TREES = [(-52.0, -52.0, 8, 5.0), (-36.0, -50.0, 7, 4.6), (28.0, -52.0, 7, 4.4), (52.0, -50.0, 8, 5.0), (-58.0, -20.0, 7, 4.6),
+         (58.0, -24.0, 7, 4.8), (-60.0, 6.0, 6, 4.2), (60.0, 26.0, 6, 4.4), (-56.0, 40.0, 6, 4.4), (56.0, 44.0, 6, 4.0),
+         (-26.0, 40.0, 5, 3.8), (24.0, 40.0, 5, 3.6), (-20.0, -40.0, 6, 4.0), (20.0, -42.0, 6, 4.0), (-44.0, -2.0, 5, 3.6),
+         (40.0, -14.0, 5, 3.6), (14.0, 24.0, 5, 3.4)]
+TRAIL_LANTERNS = ((30.0, 10.5), (44.0, 9.5), (58.0, 6.5))
+WELL = (15.0, 15.0)
 
 
 def seg(X, Z, a, b, w):
@@ -212,6 +234,14 @@ def scene_village_walk(state='day_dim'):
     G.m[(np.abs(G.Z - sz) < 2.0) & (G.Y >= -1.0) & (G.Y < 0)] = 0
     P.fill((np.abs(G.Z - sz) >= 2.0) & (np.abs(G.Z - sz) < 2.8) & (G.Y >= -1.0) & (G.Y < 0), ['#C9C2AE', '#BDB5A0', '#B0A993'], cell=1.0)
     P.fill((np.abs(G.Z - sz) < 2.0) & (G.Y >= -1.4) & (G.Y < -0.4), WATERC, cell=1.0)
+    # the creek: from the waterfall's pool (north-west, under the cliffs) down into the stream
+    creek = polyline(X2, Z2, CREEK, 1.5)
+    banks = polyline(X2, Z2, CREEK, 2.3) & ~creek
+    G.m[creek[:, None, :] & (G.Y >= -1.0) & (G.Y < 0)] = 0
+    P.fill(banks[:, None, :] & (G.Y >= -1.0) & (G.Y < 0), ['#C9C2AE', '#BDB5A0', '#B0A993'], cell=1.0)
+    P.fill(creek[:, None, :] & (G.Y >= -1.4) & (G.Y < -0.4), WATERC, cell=1.0)
+    for (rx_, rz_) in ((-26.5, -52.0), (-21.0, -44.0), (-23.5, -36.0)):
+        P.fill(ball(G, (rx_, -0.2, rz_), 0.9, 0.6) & (G.Y >= -0.6), STONE, cell=0.5)
     bz = STREAM_Z
     bridge = (np.abs(G.X) < 3.0) & (np.abs(G.Z - bz) < 3.6) & (G.Y >= 0) & (G.Y < 0.6 + 0.6 * np.cos((G.Z - bz) / 3.6 * 1.4))
     P.fill(bridge & (G.Y >= 0.2 * np.cos((G.Z - bz) / 3.6 * 1.4)), HONEY, cell=(9, 1, 1.0))
@@ -260,7 +290,7 @@ def scene_village_walk(state='day_dim'):
     for (lx, lz) in ((10.5, 7.5), (-10.5, 7.5), (-10.5, -8.0), (10.5, -8.0)):
         outdoor_lantern(S, P, G, lx, lz, 6.0, lit=lamp, power=14.0, s=0.75)
     outdoor_lantern(S, P, G, 9.0, 14.0, 6.0, lit=lamp, power=30.0 if lamp else 0.0, s=0.95, kelvin=2400)
-    keep_off = paths | (np.sqrt(X2 ** 2 + Z2 ** 2) < 13.0) | (np.abs(Z2 - STREAM_Z) < 4.0)
+    keep_off = paths | (np.sqrt(X2 ** 2 + Z2 ** 2) < 13.0) | (np.abs(Z2 - STREAM_Z) < 4.0) | polyline(X2, Z2, CREEK, 3.5)
     for _ in range(70):
         fx, fz = rng.uniform(x0 + 4, x1 - 4), rng.uniform(z0 + 6, z1 - 6)
         i, k = int((fx - x0) * RES), int((fz - z0) * RES)
@@ -292,7 +322,7 @@ def scene_village_walk(state='day_dim'):
         for k in range(3):
             PB.fill(box(B, (gx_ - 2.4 + k * 2.0, 0.5, gz_ - 1.4), (gx_ - 1.6 + k * 2.0, 1.2, gz_ + 1.4)), ['#7FC45E', '#6FB24E'], cell=0.5)
     S.models.append((B, ()))
-    for (lx, lz) in ((30.0, 10.5), (44.0, 9.5), (58.0, 6.5)):
+    for (lx, lz) in TRAIL_LANTERNS:
         L_ = Model((int(lx) - 2, -1, int(lz) - 2), (int(lx) + 2, 9, int(lz) + 2), [], res=RES)
         outdoor_lantern(S, CPainter(L_, 60), L_, lx, lz, 4.6, lit=lamp, power=8.0, s=0.6)
         S.models.append((L_, ()))
@@ -310,24 +340,90 @@ def scene_village_walk(state='day_dim'):
     # ---- trees round the edges and between the buildings
     T = Model((x0, -1, z0), (x1, 21, z1), [], res=RES)
     PT = CPainter(T, 58)
-    trees = [(-52.0, -60.0, 8, 5.0), (-30.0, -58.0, 7, 4.6), (28.0, -60.0, 7, 4.4), (52.0, -58.0, 8, 5.0), (-58.0, -20.0, 7, 4.6),
-             (58.0, -24.0, 7, 4.8), (-60.0, 6.0, 6, 4.2), (60.0, 26.0, 6, 4.4), (-56.0, 40.0, 6, 4.4), (56.0, 44.0, 6, 4.0),
-             (-26.0, 40.0, 5, 3.8), (24.0, 40.0, 5, 3.6), (-20.0, -40.0, 6, 4.0), (20.0, -42.0, 6, 4.0), (-44.0, -2.0, 5, 3.6),
-             (40.0, -14.0, 5, 3.6), (14.0, 24.0, 5, 3.4)]
-    for (tx, tz, th, tr) in trees:
+    for (tx, tz, th, tr) in TREES:
         tree2(PT, T, tx, tz, th, tr, fruit=['#D85F51'] if (tx > 0 and tz > 20) else None)
     S.models.append((T, ()))
     if lamp:
         fireflies2(S, P, G, np.random.default_rng(3), 8, (7.0, 11.0), (6.0, 10.0), (12.0, 16.0), light_every=99)
+    S.models.append((falls_cliff(rng), (), {'water': WATERC}))
     F = far_terrain(seed=41)
-    F.lo = F.lo + np.array([0, 0, -40], np.int32) * F.res
+    # the creek leaves the pool through a notch in the lowest step (far_terrain's coordinates)
+    ch_ = (np.abs(F.X - (-24.0 + 0.12 * (F.Z + 50.0))) < 1.6) & (F.Z > -53.0)
+    F.m[ch_ & (F.Y >= 1.0)] = 0
+    F.m[ch_ & (F.Y >= 0.0) & (F.Y < 1.0)] = F.mid(WATERC[0])
+    # foam where the falls land, on the pool (far_terrain's coordinates: z is ours less FALLS_DZ)
+    fz_ = FALLS_FACE + 2.0 - FALLS_DZ
+    foam = ((F.X - FALLS_X) ** 2 / 20.0 + (F.Z - fz_) ** 2 / 5.0 <= 1.0) & (F.Y >= 1.0) & (F.Y < 3.0) & (F.Z > FALLS_FACE - FALLS_DZ)
+    F.m[foam] = F.mid('#F4FBFF')
+    F.m[foam & (F.Y >= 2.0) & ((np.floor(F.X) + np.floor(F.Z)) % 2 == 0)] = F.mid('#FFFFFF')
+    F.lo = F.lo + np.array([0, 0, int(FALLS_DZ)], np.int32) * F.res
     S.models.append((F, (), {'water': WATERC}))
-    S.grade = {'bloom': {'day_dim': 0.12, 'lamp_lit': 0.3, 'waystone_restored': 0.4}[state], 'vignette': 0.08}
+    # where two models fill the same voxel they draw coplanar faces that shade each other black: the
+    # far hills give way to everything, then the ground, the bushes and the trees; the cliff wins
+    rank = {id(F): 0, id(G): 1, id(B): 2, id(T): 3}
+    give_way([it[0] for it in sorted(S.models, key=lambda it: rank.get(id(it[0]), 4))])
+    S.grade ={'bloom': {'day_dim': 0.12, 'lamp_lit': 0.3, 'waystone_restored': 0.4}[state], 'vignette': 0.08}
     return S
 
 
+FALLS_X = -24.0                     # the waterfall's middle; it drops down the cliff's face into the pool
+FALLS_FACE = -78.6                  # the cliff face (z); far_terrain's falling sheet hangs just in front
+CLIFF_TOP = 23.0
+CLIFF_TREES = ((-36.0, -88.0), (-14.0, -90.0), (-42.0, -100.0), (-8.0, -102.0), (-30.0, -104.0))
+
+
+def cliff_height(x):
+    """The cliff's ledge height at x (without its small bumps)."""
+    dx = abs(x - FALLS_X)
+    return math.floor((CLIFF_TOP - 0.035 * max(dx - 7.0, 0.0) ** 1.7) / 2.0) * 2.0 + 1.0
+
+
+def falls_cliff(rng):
+    """A rock cliff behind the waterfall: stepped strata, wet dark rock round the falls, grass and trees on
+    top, the stream running across the top to a notch at the lip and down the face; foam where it lands."""
+    C = Model((-52, -2, -112), (4, 30, -75), [], res=RES)
+    P = CPainter(C, 61)
+    xs, zs = C.X[:, 0, 0], C.Z[0, 0, :]
+    X2, Z2 = np.meshgrid(xs, zs, indexing='ij')
+    dx = np.abs(X2 - FALLS_X)
+    # height: tallest round the falls, stepping down to the sides in 2-unit ledges
+    hc = CLIFF_TOP - 0.035 * np.clip(dx - 7.0, 0, None) ** 1.7
+    hc = np.floor(hc / 2.0) * 2.0 + 1.0
+    rough = np.floor((np.sin(X2 * 0.9) * np.cos(Z2 * 0.7) + np.sin(X2 * 0.37 + Z2 * 0.21)) * 0.8)
+    face = FALLS_FACE - 0.6 - 0.9 * (np.sin(X2 * 0.8) * 0.5 + 0.5) - 0.12 * dx       # a ragged face, set back at the sides
+    H = np.where(Z2 <= face, np.clip(hc + rough * 0.5, 0, None), -10)
+    solid = (C.Y < H[:, None, :]) & (C.Y >= -1.0)
+    top = solid & (C.Y >= H[:, None, :] - 1.0)
+    strata = (np.floor(C.Y / 1.5).astype(int) % 3)
+    rock = solid & ~top
+    P.fill(rock & (strata == 0), ['#B9A889', '#A99877'], cell=(1.5, 1.0, 1.5))
+    P.fill(rock & (strata == 1), ['#C4B597', '#B5A585'], cell=(1.5, 1.0, 1.5))
+    P.fill(rock & (strata == 2), ['#9E8E70', '#A99877'], cell=(1.5, 1.0, 1.5))
+    P.fill(top, ['#7FAE5F', '#86B566', '#8DBD6C'], cell=1.0)
+    wet = rock & (np.abs(C.X - FALLS_X) < 5.0)
+    P.fill(wet, ['#7E847C', '#6F766F', '#8A8F85'], cell=(1.0, 1.0, 1.0))           # spray-darkened rock
+    moss = rock & (np.abs(C.X - FALLS_X) < 6.5) & (np.abs(C.X - FALLS_X) >= 3.4) & (np.random.default_rng(3).random(C.m.shape) < 0.25)
+    P.fill(moss, ['#5E9646', '#6FA552'], cell=0.5)
+    # the stream across the top, through a notch in the lip
+    run = (np.abs(C.X - (FALLS_X + 1.2 * np.sin((C.Z + 80.0) * 0.18))) < 2.6) & (C.Z <= FALLS_FACE + 0.2)
+    lip = H[:, None, :]
+    C.m[run & (C.Y >= lip - 1.0)] = 0
+    P.fill(run & (C.Y >= lip - 2.0) & (C.Y < lip - 1.0), WATERC, cell=1.0)
+    # the falling water, flush with the face from the lip to the pool
+    sheet = (np.abs(C.X - FALLS_X) <= 2.8) & (C.Z > FALLS_FACE - 0.4) & (C.Z <= FALLS_FACE + 0.8) & (C.Y < CLIFF_TOP - 1.5) & (C.Y >= 0)
+    P.fill(sheet, ['#DFF4FC', '#BFE8FA', '#FFFFFF', '#A9DDF5'], cell=(1.0, 1.5, 1.0))
+    # trees along the top, clear of the stream
+    for (tx, tz) in CLIFF_TREES:
+        i, k = int((tx + 52) * RES), int((tz + 112) * RES)
+        ty = float(H[i, k])
+        if ty > 2:
+            tree2(P, C, tx, tz, 6.0, 3.8, y=ty)
+    return C
+
+
 VIEWS = {   # centre (x, z) and width in world units; the image height follows from the aspect
-    'all': ((0.0, -14.0), 132.0, (1500, 1084)),
+    'all': ((0.0, -28.0), 132.0, (1500, 1200)),
+    'falls': ((-20.0, -72.0), 36.0, (824, 1100)),
     'plaza': ((-2.0, -4.0), 36.0, (824, 1100)),
     'workshop': ((24.0, -2.0), 36.0, (824, 1100)),
     'road': ((46.0, 2.0), 36.0, (824, 1100)),

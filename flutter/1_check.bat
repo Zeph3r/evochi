@@ -13,6 +13,16 @@ if not defined FLUTTER (
   exit /b 2
 )
 echo flutter=!FLUTTER!>> "%LOG%\status.txt"
+rem Recording a living scene instead (Claude drops _transfer\run_live.flag, its first line naming the pictures)
+if exist "_transfer\run_live.flag" (
+  set "LIVE="
+  set /p LIVE=<"_transfer\run_live.flag"
+  del "_transfer\run_live.flag"
+  echo %date% %time% === live !LIVE! ===>> "%LOG%\status.txt"
+  call "%FLUTTER%" test tool\shorts\live_test.dart --dart-define=LIVE=!LIVE! > "%LOG%\live.txt" 2>&1
+  echo %date% %time% === live done ===>> "%LOG%\status.txt"
+  exit /b 0
+)
 rem Recording Shorts instead (Claude drops _transfer\run_shorts.flag, its first line naming them)
 if exist "_transfer\run_shorts.flag" (
   set "SHORTS="

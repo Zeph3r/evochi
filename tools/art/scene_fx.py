@@ -60,6 +60,10 @@ Coordinates are the image's own pixels. Run:
 
     python3 tools/art/scene_fx.py            # writes flutter/assets/art/fx/*.webp + assets/config/scene_fx.json
     python3 tools/art/scene_fx.py --preview DIR   # also writes colourised previews to DIR
+
+Concept art not in the game yet keeps its zones elsewhere; bake it into a copy of the json:
+
+    python3 tools/art/scene_fx.py --zones tools/art/village_mock/fx_village_walk.py --json OUT.json village/walk_falls.webp
 """
 import importlib.util
 import json
@@ -188,12 +192,12 @@ def _shape_mask(shape, w, h):
     return np.array(m) > 0
 
 
-def _load_zones():
+def _load_zones(extra=()):
     scenes = {}
-    for f in sorted(os.listdir(ZONES)):
-        if not f.endswith('.py') or f.startswith('_'):
-            continue
-        spec = importlib.util.spec_from_file_location('fx_zones_' + f[:-3], os.path.join(ZONES, f))
+    files = [os.path.join(ZONES, f) for f in sorted(os.listdir(ZONES)) if f.endswith('.py') and not f.startswith('_')]
+    for path in files + list(extra):
+        f = os.path.basename(path)
+        spec = importlib.util.spec_from_file_location('fx_zones_' + f[:-3], path)
         mod = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(mod)
         for k, v in mod.SCENES.items():
@@ -307,12 +311,17 @@ def main():
     args = sys.argv[1:]
     prev = None
     only = None
+    extra, out_json = [], OUT_JSON
     if '--preview' in args:
         i = args.index('--preview'); prev = args[i + 1]; del args[i:i + 2]
+    while '--zones' in args:
+        i = args.index('--zones'); extra.append(os.path.abspath(args[i + 1])); del args[i:i + 2]
+    if '--json' in args:
+        i = args.index('--json'); out_json = os.path.abspath(args[i + 1]); del args[i:i + 2]
     if args:
         only = set(args)
     os.makedirs(OUT_DIR, exist_ok=True)
-    scenes = _load_zones()
+    scenes = _load_zones(extra)
     data = {}
     if os.path.exists(OUT_JSON) and only:
         data = json.load(open(OUT_JSON))
@@ -330,9 +339,9 @@ def main():
     for f in os.listdir(OUT_DIR):
         if f not in keep and not only:
             os.remove(os.path.join(OUT_DIR, f))
-    with open(OUT_JSON, 'w') as f:
+    with open(out_json, 'w') as f:
         json.dump(dict(sorted(data.items())), f, indent=1)
-    print('wrote', OUT_JSON, len(data), 'scenes')
+    print('wrote', out_json, len(data), 'scenes')
 
 
 if __name__ == '__main__':
