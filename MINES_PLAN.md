@@ -21,6 +21,23 @@ Mockups price some gear in Glimmer. Glimmer is the premium currency, and paid th
 gear with stats costs EvoCoins and ore only; Glimmer can buy looks (a finish, an engraving, a lantern
 color), never light radius, mining power or carry. Steps are never sold; health data never reaches ads.
 
+## Decisions since (in chat)
+
+- Mining gear is its own loadout (helmet, harness, paw guards, satchel, lantern, tool), worn and shown
+  only on the Old Trail and in the mines. It never takes off a wearable; a helmet only covers a hat
+  while you're out mining.
+- Flint sells the tools of the trade (headlamps, picks, satchels, lanterns) for EvoCoins, plus ore from
+  the iron tier up; Bram forges the armour (harnesses, paw guards) from your ore. Gear sets the ore you
+  can break and your mining power.
+- No diamonds, and nothing that reads as a block game's ore: no grey stone with coloured specks. Each
+  ore is a rounded boulder with its ore growing out of it in its own shapes (copper nodules on
+  sandstone, iron ribs across rust rock, lumen buds from slate, obsidian glass shards on basalt).
+- Lumen is the game's mint-green light (the Lumenbud, Lumen Shards, the Lantern Tonic); the purple is the
+  Hollow that tangles the Thicket's creatures. Lumen crystal is soft glowing buds, breathing light and
+  brightening as your Evochi comes near. A Hollow-tainted crystal could live in the sealed shafts.
+- Ores have ambient life: lumen glows and sheds motes, obsidian has a sliding violet sheen, copper and
+  iron catch small glints.
+
 ## The Pounce (one hit, ~480 ms)
 
 | phase | ms | what happens |
