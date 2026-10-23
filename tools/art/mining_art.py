@@ -82,6 +82,19 @@ def _prism(M, base, d, r, length):
     return (t > -0.4) & (t < length) & (u + v < r * taper + 0.1)
 
 
+def _bud(M, base, d, r, length):
+    """A lumen bud: a soft, rounded swelling from [base] along [d], fattest past its middle and round at the
+    tip (no facets, nothing like a cut gem). Returns the shape and how far along it each voxel is (0-1)."""
+    X, Y, Z = M.X, M.Y, M.Z
+    d = np.asarray(d, float) / np.linalg.norm(d)
+    px, py, pz = X - base[0], Y - base[1], Z - base[2]
+    t = px * d[0] + py * d[1] + pz * d[2]
+    perp = np.sqrt(np.maximum(px * px + py * py + pz * pz - t * t, 0))
+    u = np.clip(t / length, 0, 1)
+    prof = r * np.sqrt(np.clip(1 - ((u - 0.55) / 0.55) ** 2, 0, 1)) * (0.75 + 0.25 * u)
+    return (t > -0.3) & (t < length) & (perp < prof + 0.08), u
+
+
 def _flake(M, c, n, r, thick=0.32, spin=0.0):
     """A flake of volcanic glass: a thin angular shard (a diamond outline in its own plane, longer one
     way), thickest in the middle and sharp at its rim."""
@@ -108,7 +121,9 @@ ROCK = {   # each ore's rock: none of them a grey stone with specks
 COPPER = ['#D9844A', '#C46B34', '#E8945A']
 IRON_SILVER = ['#B9C0C8', '#A3AAB3', '#CDD3DA']
 IRON_RUST = ['#9A4B3A', '#8A4232']
-LUMEN = ['#9FF0DA', '#7FE3C8', '#C8FFEF']
+LUMEN = ['#6FE3C0', '#62D6B3', '#7FEBCB']                 # the game's lumen mint (the Lumenbud, the shards)
+LUMEN_CORE = ['#2E8F82', '#2A8076']
+LUMEN_TIP = ['#C9F8E8', '#B5F2DD']
 GLASS = ['#1E1724', '#251C2C', '#2E2338']
 
 
@@ -157,18 +172,19 @@ def ore_node(kind, stage, seed=7):
             M.set(rib & ~np.roll(rib, -1, 1) & (rng.random(M.m.shape) < 0.6), '#EEF2F6')   # catching the light
             M.set(rib & (np.abs(dd - c) > w - 0.2), '#7E858E')                             # its darker edges
         P.fill(rock & (np.abs(dd + 0.5) < 0.3) & ~np.roll(rock, -1, 2), IRON_RUST, cell=0.67)   # rust weeping between
-    elif kind == 'lumen':
-        crown = ((0.0, 4.6, 0.2, (0.0, 1.0, 0.15), 1.1, 5.2), (-1.4, 4.2, 0.9, (-0.45, 1.0, 0.3), 0.9, 4.0), (1.5, 4.3, 0.6, (0.5, 1.0, 0.2), 0.95, 4.3),
-                 (0.3, 4.2, -1.3, (0.1, 1.0, -0.45), 0.8, 3.4), (-0.6, 4.0, 2.0, (-0.1, 0.8, 0.7), 0.75, 2.9), (2.6, 3.2, 2.0, (0.7, 0.6, 0.6), 0.6, 2.2),
-                 (-3.0, 2.6, 1.8, (-0.8, 0.5, 0.5), 0.55, 1.9))
-        hole = ((X ** 2) / 2.6 ** 2 + ((Y - 5.4) ** 2) / 1.6 ** 2 + (Z ** 2) / 2.2 ** 2 < 1.0)  # the top cracked open round the cluster
-        M.m[hole & rock & (Y > 4.6)] = 0
-        for i, (x, y, z, d, r, ln) in enumerate(crown):
+    elif kind == 'lumen':   # soft glowing buds swelling out of a crack in the top, like Lumenbuds in stone
+        buds = ((0.0, 4.4, 0.3, (0.05, 1.0, 0.2), 1.35, 4.2), (-1.7, 4.0, 0.9, (-0.6, 1.0, 0.35), 1.1, 3.3), (1.8, 4.1, 0.5, (0.6, 1.0, 0.25), 1.15, 3.5),
+                (0.4, 4.0, -1.5, (0.15, 1.0, -0.5), 0.95, 2.8), (-0.7, 3.8, 2.1, (-0.15, 0.8, 0.8), 0.9, 2.5), (2.9, 2.9, 2.0, (0.8, 0.6, 0.6), 0.7, 1.9),
+                (-3.1, 2.5, 1.7, (-0.85, 0.5, 0.5), 0.65, 1.7))
+        hole = ((X ** 2) / 2.8 ** 2 + ((Y - 5.4) ** 2) / 1.6 ** 2 + (Z ** 2) / 2.4 ** 2 < 1.0)  # the top split open round the cluster
+        M.m[hole & rock & (Y > 4.5)] = 0
+        for i, (x, y, z, d, r, ln) in enumerate(buds):
             if not keep(i):
                 continue
-            cr = _prism(M, (x, y, z), d, r, ln * (0.55 if stage == 2 and i == 0 else 1.0))
-            P.fill(cr & (M.m == 0), LUMEN, glow=0.9, cell=0.34)
-            M.set(cr & (np.abs((X - x) + (Z - z) * 0.6) < 0.25), '#E8FFF8', glow=1.0)   # a bright facet edge
+            body, t = _bud(M, (x, y, z), d, r * 0.9, ln * 1.3 * (0.6 if stage == 2 and i == 0 else 1.0))
+            P.fill(body & (t < 0.38), LUMEN_CORE, glow=0.35, cell=0.34)        # a deep teal heart low down
+            P.fill(body & (t >= 0.38) & (t < 0.78), LUMEN, glow=0.75, cell=0.34)
+            P.fill(body & (t >= 0.78), LUMEN_TIP, glow=1.0, cell=0.34)         # brightest at the tip
     else:   # obsidian: a low basalt bed under a heap of big glass shards leaning every way
         M.m[rock & (Y > 2.4 + 0.4 * np.sin(X * 0.9))] = 0
         flakes = ((-1.8, 3.8, 1.2, (-0.6, 0.35, 1.0), 3.0, 0.3), (1.9, 4.4, 0.6, (0.8, 0.4, 0.9), 2.9, 1.2), (0.0, 5.0, -1.4, (0.1, 0.45, 1.0), 3.2, 0.0),
@@ -210,8 +226,10 @@ def nugget(kind, seed=3):
         P.fill(rib, IRON_SILVER, cell=0.25)
         M.set(rib & ~np.roll(rib, -1, 1), '#EEF2F6')
     elif kind == 'lumen':
-        b = _prism(M, (0, 0, 0), (0.15, 1.0, 0.1), 0.75, 3.0)
-        P.fill(b, LUMEN, glow=0.9, cell=0.25)
+        b, t = _bud(M, (0, 0, 0), (0.15, 1.0, 0.1), 1.0, 2.8)
+        P.fill(b & (t < 0.38), LUMEN_CORE, glow=0.35, cell=0.25)
+        P.fill(b & (t >= 0.38) & (t < 0.78), LUMEN, glow=0.75, cell=0.25)
+        P.fill(b & (t >= 0.78), LUMEN_TIP, glow=1.0, cell=0.25)
     else:
         b, q = _flake(M, (0, 1.2, 0), (0.35, 0.55, 0.9), 1.4, 0.45, 0.9)
         P.fill(b, GLASS, cell=0.25)

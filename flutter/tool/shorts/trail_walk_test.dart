@@ -173,7 +173,7 @@ void main() {
       await hold(hit < 2 ? 0.5 : 2.2);
     }
     // the iron by the mine: too hard without gear
-    s.mineOre(s.ores.last);
+    s.mineOre(s.ores.firstWhere((o) => o.kind == 'iron'));
     for (var i = 0; i < 12 * _fps && s.me.moving; i++) {
       await grab();
     }
@@ -181,6 +181,10 @@ void main() {
     s.pounceDown();
     s.pounceUp();
     await hold(2.4);
+    // past the mine's mouth, the lumen crystal brightens as you come near
+    final lumen = s.ores.firstWhere((o) => o.kind == 'lumen');
+    await walk(lumen.x - 1.0, lumen.z + 3.2);
+    await hold(3.0);
     VillageWalkScreenState.onExit = null;
     await tester.runAsync(() async {
       raw!.closeSync();

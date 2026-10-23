@@ -112,28 +112,28 @@
     {
      "src": "assets/art/mining/ore_lumen_0.webp",
      "w": 192,
-     "h": 170,
+     "h": 176,
      "ground": [
       95.3,
-      130.6
+      136.7
      ]
     },
     {
      "src": "assets/art/mining/ore_lumen_1.webp",
      "w": 192,
-     "h": 170,
+     "h": 176,
      "ground": [
       95.3,
-      130.6
+      136.7
      ]
     },
     {
      "src": "assets/art/mining/ore_lumen_2.webp",
      "w": 192,
-     "h": 170,
+     "h": 176,
      "ground": [
       95.3,
-      130.6
+      136.7
      ]
     },
     {
@@ -146,16 +146,16 @@
      ]
     }
    ],
-   "unit": 0.01958,
+   "unit": 0.01865,
    "nugget": {
     "src": "assets/art/mining/nugget_lumen.webp",
-    "w": 76,
-    "h": 122,
+    "w": 84,
+    "h": 112,
     "ground": [
      34.0,
-     84.0
+     91.3
     ],
-    "unit": 0.00979
+    "unit": 0.00932
    }
   },
   "obsidian": {

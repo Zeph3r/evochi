@@ -413,6 +413,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   final _satchelKey = GlobalKey();
   final _mapKey = GlobalKey();
   int _stage = 3;
+  bool _reduced = false; // the system asks for less motion
   double _power = 1; // hits a strike is worth (an Obsidian Evochi's edge)
   static const _gearTier = 1; // no mining gear yet (Flint's shop): copper only
   static const _regrow = 40.0; // seconds until a burst node is whole again (the preview's pace)
@@ -918,6 +919,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   // ------------------------------------------------------------------------------------ the screen
   @override
   Widget build(BuildContext context) {
+    _reduced = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     final c = context.watch<GameController>();
     final marks = q.npcMarkers(c.state);
     return Scaffold(
@@ -1141,7 +1143,8 @@ class _WalkPainter extends CustomPainter {
             Paint()
               ..color = const Color(0x3316241F)
               ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
-        canvas.drawImageRect(sp.img, Rect.fromLTWH(0, 0, sp.img.width.toDouble(), sp.img.height.toDouble()), dst, Paint()..filterQuality = FilterQuality.medium);
+        final d = math.sqrt(math.pow(s.me.x - o.x, 2) + math.pow(s.me.z - o.z, 2));
+        paintOre(canvas, sp.img, dst, o.kind, o.state, s._t, (1 - (d - 2.6) / 3.5).clamp(0.0, 1.0), s._reduced, o.x * 0.37 + o.z * 0.11);
         cover(dst, o.z);
       }));
     }

@@ -370,3 +370,79 @@ void stepBits(List<MineBit> bits, double now, double dt, double Function(double 
   }
   bits.removeWhere((b) => b.kind != 'nugget' && now - b.born > b.life);
 }
+
+/// An ore node drawn with its ambient life: lumen crystal breathes mint light, brighter as your Evochi
+/// comes close (crystals answering footsteps), with a few motes drifting up from it; obsidian has a
+/// violet sheen sliding across its glass now and then; copper and iron catch the light in small glints.
+/// [near] 0-1: how close your Evochi is. [reduced]: the system's reduced motion (a steady glow only).
+void paintOre(Canvas canvas, ui.Image img, Rect dst, String kind, int state, double t, double near, bool reduced, double seed) {
+  final src = Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble());
+  final paint = Paint()..filterQuality = FilterQuality.medium;
+  final alive = state < 3;
+  if (kind == 'obsidian' && alive && !reduced) {
+    final u = ((t + seed * 3) % 5.0) / 1.3;
+    if (u < 1) {
+      // the sprite, then a slanted band of light over its pixels only
+      canvas.saveLayer(dst.inflate(2), Paint());
+      canvas.drawImageRect(img, src, dst, paint);
+      final x = dst.left + (-0.25 + 1.5 * u) * dst.width, w = dst.width * 0.13;
+      final band = Path()
+        ..moveTo(x, dst.top)
+        ..lineTo(x + w, dst.top)
+        ..lineTo(x + w - dst.height * 0.35, dst.bottom)
+        ..lineTo(x - dst.height * 0.35, dst.bottom)
+        ..close();
+      canvas.drawPath(band, Paint()
+        ..blendMode = BlendMode.srcATop
+        ..color = const Color(0x70E9DCFF));
+      canvas.restore();
+      return;
+    }
+  }
+  canvas.drawImageRect(img, src, dst, paint);
+  if (!alive) return;
+  final crown = Offset(dst.center.dx, dst.top + dst.height * 0.32);
+  if (kind == 'lumen') {
+    final pulse = reduced ? 0.0 : math.sin(t * 1.7 + seed);
+    final a = (0.20 + 0.08 * pulse + 0.28 * near).clamp(0.0, 0.6);
+    final r = dst.width * (0.62 + 0.04 * pulse + 0.12 * near);
+    canvas.drawCircle(
+        crown,
+        r,
+        Paint()
+          ..blendMode = BlendMode.plus
+          ..shader = ui.Gradient.radial(crown, r, [Color.fromRGBO(111, 227, 192, a), const Color.fromRGBO(111, 227, 192, 0)]));
+    if (reduced) return;
+    for (var k = 0; k < 4; k++) {
+      final p = (t * 0.28 + k * 0.25 + seed) % 1.0;
+      final at = crown + Offset(math.sin(k * 2.3 + t * 0.9) * dst.width * 0.22, -p * dst.height * 0.95);
+      final ma = math.sin(p * math.pi) * (0.55 + 0.45 * near);
+      canvas.drawCircle(at, 2.4, Paint()..color = Color.fromRGBO(201, 248, 232, ma));
+      canvas.drawCircle(at, 6, Paint()
+        ..color = Color.fromRGBO(111, 227, 192, ma * 0.35)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+    }
+    return;
+  }
+  if (reduced || (kind != 'copper' && kind != 'iron')) return;
+  // a glint now and then where the metal catches the sun
+  const spots = {
+    'copper': [Offset(0.30, 0.30), Offset(0.62, 0.22), Offset(0.74, 0.55)],
+    'iron': [Offset(0.28, 0.36), Offset(0.50, 0.24), Offset(0.66, 0.48)],
+  };
+  var i = 0;
+  for (final sp in spots[kind]!) {
+    final a = math.pow(math.max(0.0, math.sin(t * 1.1 + i * 2.1 + seed * 5)), 14).toDouble();
+    i++;
+    if (a < 0.02) continue;
+    final c = Offset(dst.left + sp.dx * dst.width, dst.top + sp.dy * dst.height);
+    final s = 5.0 + 3.0 * a;
+    final pen = Paint()
+      ..color = Color.fromRGBO(255, 250, 235, a)
+      ..strokeWidth = 1.6
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(c - Offset(s, 0), c + Offset(s, 0), pen);
+    canvas.drawLine(c - Offset(0, s), c + Offset(0, s), pen);
+    canvas.drawCircle(c, 1.8, Paint()..color = Color.fromRGBO(255, 255, 255, a));
+  }
+}

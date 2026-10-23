@@ -79,9 +79,11 @@ def _trail():
                'mine': (mx, mz + 2.0, 2.0, None, None),
                'thicket': (VT.GATE_X + 2.4, on_path(VT.GATE_X + 2.4), 2.4, None, None)},
         fx='fx_trail.py', tiles='trail/walk', art_npcs={'flint': 'trail/flint.json'},
-        # ore to Pounce: a copper vein at the edge of the Crossing's yard (Flint's first lesson), and a lone
-        # iron node by the mine, too hard without gear (MINES_PLAN.md: the too-hard answer)
-        ores=[('copper', 92.0, -9.5), ('copper', 89.4, -12.2), ('iron', 113.5, -17.5)])
+        # ore to Pounce: a copper vein at the edge of the Crossing's yard (Flint's first lesson), a lone
+        # iron node by the mine, too hard without gear (MINES_PLAN.md: the too-hard answer), and a lumen
+        # crystal past the mine's mouth, glowing brighter as you come near (the lore's crystals that answer
+        # footsteps), a taste of the deep floors
+        ores=[('copper', 92.0, -9.5), ('copper', 89.4, -12.2), ('iron', 113.5, -17.5), ('lumen', 122.6, -19.2)])
 
 
 MAPS = {'village': _village, 'trail': _trail}
