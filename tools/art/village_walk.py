@@ -198,7 +198,7 @@ COTTAGES = [  # (scene_square's box, move) -> spread round the edges
 STREAM_Z = -26.0
 FORD_X = -15.0                                     # stepping stones over the stream, up to the waterfall
 FALLS_DZ = -14.0                                   # the cliffs and their waterfall, brought close
-CREEK = [(-24.0, -60.0), (-25.0, -52.0), (-21.5, -42.0), (-23.0, -33.0), (-21.0, -26.0)]
+CREEK = [(-24.2, -60.0), (-25.0, -52.0), (-21.5, -42.0), (-23.0, -34.0), (-22.6, -29.5), (-21.6, -25.0)]
 GATE_Z = 50.0
 ROAD_EAST = [(10.0, -1.5), (26.0, -2.2)]          # plaza -> Bram's door
 TRAIL_EAST = [(18.0, 6.0), (40.0, 8.0), (66.0, 4.0)]   # the Old Trail, east to the Crossing
@@ -249,7 +249,8 @@ def scene_village_walk(state='day_dim'):
     P.fill((np.abs(G.Z - sz) < 2.0) & (G.Y >= -1.4) & (G.Y < -0.4), WATERC, cell=1.0)
     # the creek: from the waterfall's pool (north-west, under the cliffs) down into the stream
     creek = polyline(X2, Z2, CREEK, 1.5)
-    banks = polyline(X2, Z2, CREEK, 2.3) & ~creek
+    # its banks stop where the stream's begin, so it runs into the stream rather than walled off from it
+    banks = polyline(X2, Z2, CREEK, 2.3) & ~creek & (np.abs(Z2 - (STREAM_Z + 1.6 * np.sin(X2 * 0.18))) >= 2.8)
     G.m[creek[:, None, :] & (G.Y >= -1.0) & (G.Y < 0)] = 0
     P.fill(banks[:, None, :] & (G.Y >= -1.0) & (G.Y < 0), ['#C9C2AE', '#BDB5A0', '#B0A993'], cell=1.0)
     P.fill(creek[:, None, :] & (G.Y >= -1.4) & (G.Y < -0.4), WATERC, cell=1.0)
@@ -368,17 +369,15 @@ def scene_village_walk(state='day_dim'):
         fireflies2(S, P, G, np.random.default_rng(3), 8, (7.0, 11.0), (6.0, 10.0), (12.0, 16.0), light_every=99)
     S.models.append((falls_cliff(rng), (), {'water': WATERC}))
     F = far_terrain(seed=41)
-    # the creek leaves the pool through a notch in the lowest step (far_terrain's coordinates)
-    ch_ = (np.abs(F.X - (-24.0 + 0.12 * (F.Z + 50.0))) < 1.6) & (F.Z > -53.0)
-    F.m[ch_ & (F.Y >= 1.0)] = 0
-    F.m[ch_ & (F.Y >= 0.0) & (F.Y < 1.0)] = F.mid(WATERC[0])
-    # foam where the falls land, on the pool (far_terrain's coordinates: z is ours less FALLS_DZ)
-    fz_ = FALLS_FACE + 2.0 - FALLS_DZ
-    foam = ((F.X - FALLS_X) ** 2 / 20.0 + (F.Z - fz_) ** 2 / 5.0 <= 1.0) & (F.Y >= 1.0) & (F.Y < 3.0) & (F.Z > FALLS_FACE - FALLS_DZ)
-    F.m[foam] = F.mid('#F4FBFF')
-    F.m[foam & (F.Y >= 2.0) & ((np.floor(F.X) + np.floor(F.Z)) % 2 == 0)] = F.mid('#FFFFFF')
+    # the falls land in a rocky basin of their own (falls_basin), finer than the far hills: clear the far
+    # hills' coarse pool and the way out of it (far_terrain's coordinates: z is ours less FALLS_DZ)
+    fzw = F.Z + FALLS_DZ
+    clear = ((F.X - FALLS_X) ** 2 / (BASIN_R[0] + 1.6) ** 2 + (fzw - BASIN_Z) ** 2 / (BASIN_R[1] + 1.6) ** 2 <= 1.0)
+    clear |= (np.abs(F.X - _outlet_x(fzw)) < OUTLET_W + 1.2) & (fzw > BASIN_Z) & (fzw < -57.0)
+    F.m[clear & (F.Y >= -1.0) & (F.Z + FALLS_DZ > FALLS_FACE + 0.4)] = 0
     F.lo = F.lo + np.array([0, 0, int(FALLS_DZ)], np.int32) * F.res
     S.models.append((F, (), {'water': WATERC}))
+    S.models.append((falls_basin(), (), {'water': WATERC + POOLC}))
     # where two models fill the same voxel they draw coplanar faces that shade each other black: the
     # far hills give way to everything, then the ground, the bushes and the trees; the cliff wins
     rank = {id(F): 0, id(G): 1, id(B): 2, id(T): 3}
@@ -397,6 +396,89 @@ def cliff_height(x):
     """The cliff's ledge height at x (without its small bumps)."""
     dx = abs(x - FALLS_X)
     return math.floor((CLIFF_TOP - 0.035 * max(dx - 7.0, 0.0) ** 1.7) / 2.0) * 2.0 + 1.0
+
+
+POOLC = ['#3F84C2', '#4A90CC', '#3878B5', '#5599D4']        # deep water in the basin
+BASIN_Z = -71.6                     # the basin's middle (z): its north end runs under the falls
+BASIN_R = (7.6, 5.6)                # its water's half widths (x, z)
+OUTLET_W = 1.5                      # the creek's half width where it leaves the basin
+
+
+def _outlet_x(z):
+    """The way out of the basin, south and a little west, down to where the creek begins."""
+    t = np.clip((np.asarray(z, float) - (BASIN_Z + 4.6)) / (-58.0 - (BASIN_Z + 4.6)), 0, 1)
+    return -21.8 - 2.4 * t
+
+
+def falls_basin():
+    """Where the falls land: a basin of blocky stones round deep blue water (deepest where the falls hit,
+    paler at its edges), white water churning at the foot of the falls with spray above it, lily pads in
+    the still corners, and a gap in the stones to the south where the creek slips out and down two
+    little steps (each a short white spill) to the village's ground."""
+    W = Model((-36, -2, -82), (-12, 6, -56), [], res=RES)
+    P = CPainter(W, 66)
+    rng = np.random.default_rng(66)
+    X, Y, Z = W.X, W.Y, W.Z
+    X2, Z2 = X[:, 0, :], Z[:, 0, :]
+    e = (X2 - FALLS_X) ** 2 / BASIN_R[0] ** 2 + (Z2 - BASIN_Z) ** 2 / BASIN_R[1] ** 2
+    noise = 0.07 * np.sin(X2 * 1.3 + 0.4) * np.cos(Z2 * 1.1) + 0.05 * np.sin(X2 * 2.9 + Z2 * 2.3)
+    e = e + noise
+    north = Z2 < FALLS_FACE + 1.0                                   # under the cliff: no stones there
+    water = (e <= 1.0) & (Z2 > FALLS_FACE + 0.4)
+    ring = (e > 1.0) & (e <= 1.42)
+    outz = (Z2 > BASIN_Z + 3.0) & (Z2 < -57.6)
+    chan = (np.abs(X2 - _outlet_x(Z2)) < OUTLET_W) & outz
+    gap = (np.abs(X2 - _outlet_x(Z2)) < OUTLET_W + 0.3) & (Z2 > BASIN_Z)
+    banks = (np.abs(X2 - _outlet_x(Z2)) < OUTLET_W + 1.3) & ~chan & outz
+    fill = (e <= 1.42 + 0.35) | banks
+    # the ground round it, up to the far hills' first step (2 units up)
+    P.fill((fill & ~water & ~chan & ~north)[:, None, :] & (Y >= -1.0) & (Y < 1.5), ['#A99877', '#B9A889'], cell=1.0)
+    P.fill((fill & ~water & ~chan & ~north)[:, None, :] & (Y >= 1.5) & (Y < 2.0), ['#7FAE5F', '#86B566', '#8DBD6C'], cell=1.0)
+    # the water: deepest blue in the middle, paler toward the edges; a dark stone floor under it
+    depth = np.clip(1.0 - e, 0, 1)
+    bottom = 1.5 - 0.5 - 2.0 * depth
+    P.fill(water[:, None, :] & (Y >= bottom[:, None, :] - 0.5) & (Y < bottom[:, None, :]), ['#5E5A54', '#6A655E'], cell=1.0)
+    deep = water & (depth > 0.5)
+    mid = water & (depth > 0.2) & ~deep
+    P.fill(deep[:, None, :] & (Y >= bottom[:, None, :]) & (Y < 1.5), POOLC, cell=1.0)
+    P.fill(mid[:, None, :] & (Y >= bottom[:, None, :]) & (Y < 1.5), ['#5AA4D6', '#62AACA', '#5F9FD0'], cell=1.0)
+    P.fill((water & ~deep & ~mid)[:, None, :] & (Y >= bottom[:, None, :]) & (Y < 1.5), WATERC, cell=1.0)
+    # the stones round it: blocks of different heights, moss on some tops; a gap where the creek leaves
+    stones = ring & ~gap & ~north
+    hs = 2.0 + 0.5 * np.floor(np.clip(np.sin(X2 * 1.7 + 0.3) * np.cos(Z2 * 1.9) * 2.2 + 1.2 + rng.random(X2.shape) * 0.6, 0, 2.6))
+    blk = (np.floor(X2 / 1.0) + np.floor(Z2 / 1.0)) % 2
+    P.fill(stones[:, None, :] & (Y >= -1.0) & (Y < hs[:, None, :]), STONE, cell=(1.0, 1.0, 1.0))
+    P.fill((stones & (blk == 1))[:, None, :] & (Y >= -1.0) & (Y < hs[:, None, :] - 0.5), ['#8E887E', '#837D74'], cell=(1.0, 1.0, 1.0))
+    mtop = stones[:, None, :] & (Y >= hs[:, None, :] - 0.5) & (Y < hs[:, None, :]) & (rng.random(W.m.shape) < 0.35)
+    P.fill(mtop & (W.m > 0), ['#6FA552', '#7FB35F'], cell=0.5)
+    W.m[mtop & (W.m == 0)] = 0
+    # white water at the foot of the falls, holes of blue in it, spray above
+    fe = (X2 - FALLS_X) ** 2 / 3.9 ** 2 + (Z2 - (FALLS_FACE + 2.2)) ** 2 / 1.9 ** 2 + 0.25 * rng.random(X2.shape)
+    churn = water & (fe < 1.0)
+    P.fill(churn[:, None, :] & (Y >= 1.0) & (Y < 1.5), ['#EAF7FF', '#FFFFFF', '#D6EFFA'], cell=0.5)
+    W.m[(water & (fe >= 0.75) & (fe < 1.0) & (rng.random(X2.shape) < 0.35))[:, None, :] & (Y >= 1.0) & (Y < 1.5)] = W.mid(POOLC[1])
+    ring2 = water & (fe >= 1.0) & (fe < 1.9) & (rng.random(X2.shape) < 0.45)       # a pale ring spreading out
+    P.fill(ring2[:, None, :] & (Y >= 1.0) & (Y < 1.5), ['#9FD4EE', '#B5E0F4'], cell=0.5)
+    spray = churn[:, None, :] & (Y >= 1.5) & (Y < 1.5 + 2.5 * (1.0 - fe)[:, None, :]) & (rng.random(W.m.shape) < 0.16)
+    P.fill(spray, ['#FFFFFF', '#EAF7FF'], cell=0.5)
+    # lily pads in the still corners
+    for (lx, lz, fl) in ((FALLS_X - 5.2, BASIN_Z + 1.8, '#FFFDF6'), (FALLS_X - 3.6, BASIN_Z + 3.6, None), (FALLS_X + 5.0, BASIN_Z + 2.0, '#F5A3B5'),
+                         (FALLS_X + 3.4, BASIN_Z + 3.9, None)):
+        pad = ((X - lx) ** 2 + (Z - lz) ** 2 < 1.05 ** 2) & ~((X - lx - 0.55) ** 2 + (Z - lz - 0.3) ** 2 < 0.32 ** 2) & (Y >= 1.5) & (Y < 1.75)
+        P.fill(pad, ['#4F8A3C', '#5E9646'], cell=9)
+        if fl:
+            P.fill(box(W, (lx - 0.25, 1.75, lz - 0.25), (lx + 0.25, 2.25, lz + 0.25)), [fl], cell=9)
+    # the way out: the creek's channel, stepping down to the village's ground in two little spills
+    step = np.where(Z2 < -63.0, 1.5, np.where(Z2 < -60.2, 1.0, 0.5))
+    P.fill(chan[:, None, :] & (Y >= -1.0) & (Y < step[:, None, :] - 0.5), ['#6A655E', '#5E5A54'], cell=1.0)
+    P.fill(chan[:, None, :] & (Y >= step[:, None, :] - 0.5) & (Y < step[:, None, :]), WATERC, cell=1.0)
+    for zl, top in ((-63.0, 1.5), (-60.2, 1.0), (-57.9, 0.5)):        # each step's lip: a short white spill
+        lip = chan & (Z2 >= zl) & (Z2 < zl + 0.6)
+        P.fill(lip[:, None, :] & (Y >= top - 1.5) & (Y < top), ['#EAF7FF', '#D6EFFA', '#FFFFFF'], cell=0.5)
+    bk = banks
+    hb = 2.0 - np.clip((Z2 + 64.0) / 6.0, 0, 1) * 2.0                 # the banks come down with the ground
+    P.fill(bk[:, None, :] & (Y >= -1.0) & (Y < np.maximum(hb, 0.0)[:, None, :] + 0.5), STONE, cell=(1.0, 1.0, 1.0))
+    return W
 
 
 def falls_cliff(rng):

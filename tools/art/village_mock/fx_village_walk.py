@@ -78,7 +78,10 @@ def zones(view, lamp=False):
         cx, cy = at(tx, tz, ty)
         if -3 * r * ppu < cx < w + 3 * r * ppu and -3 * r * ppu < cy < h + 3 * r * ppu:
             fx.append(('tree', ('e', round(cx), round(cy), round(r * 1.2 * ppu), round(r * 1.05 * ppu)), 'green', {'amp': 0.6}))
-    fx.append(('fall', _rect(at, V.FALLS_X - 3.4, V.FALLS_X + 3.4, 0, V.CLIFF_TOP, V.FALLS_FACE - 0.4, -76.0 + 14 + V.FALLS_DZ), 'waterfall'))
+    fx.append(('fall', _rect(at, V.FALLS_X - 3.4, V.FALLS_X + 3.4, 1.5, V.CLIFF_TOP, V.FALLS_FACE - 0.4, V.FALLS_FACE + 0.8), 'waterfall'))
+    # the white water at the foot of the falls, and the creek's two little spills on its way out
+    fx.append(('fall', _rect(at, V.FALLS_X - 4.2, V.FALLS_X + 4.2, 1.0, 4.0, V.FALLS_FACE + 0.4, V.FALLS_FACE + 4.2), 'white'))
+    fx.append(('fall', _rect(at, -26.2, -19.6, -1.0, 1.6, -63.4, -57.2), 'white'))
     for (tx, tz) in V.CLIFF_TREES:                          # the trees on the cliff top
         cx, cy = at(tx, tz, V.cliff_height(tx) + 6.0 + 3.8 * 0.35)
         fx.append(('tree', ('e', round(cx), round(cy), round(3.8 * 1.3 * ppu), round(3.8 * 1.15 * ppu)), 'green'))
