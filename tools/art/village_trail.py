@@ -49,8 +49,21 @@ FLINT = (103.0, -13.5)
 MINE = (116.5, -26.0)    # the mine's mouth (centre of its opening, at the cliff's foot)
 GATE_X = 126.0           # the Sunlit Thicket's gate
 CART_Z = float(-15.0 + 2.6 * np.sin(MINE[0] * 0.07) + 1.3 * np.sin(MINE[0] * 0.19 + 1.0) - 9.0) + 10.5   # the ore cart, at the rails' end
-LANTERNS = ((9.0, -2.8), (31.0, 1.6), (52.0, -2.6), (70.0, 2.6), (90.0, -4.6), (110.0, -9.0))
+LANTERNS = ((9.0, -2.8), (31.0, 1.6), (52.0, -2.6), (70.0, 2.6), (90.0, -4.6))
 SIGNS = ((3.0, -1.6, 'village'), (84.0, -3.8, 'crossing'))
+RAIL_END = float(np.interp(MINE[0], [p[0] for p in PATH], [p[1] for p in PATH])) - 1.5    # the rails run out to the path
+MINE_POSTS = ((MINE[0] - 3.4, RAIL_END - 1.4, -1.0), (MINE[0] + 3.4, RAIL_END - 1.4, 1.0))  # lamp posts either side of the rails
+MINE_LAMPS = ((MINE[0] - 2.2, 5.4, MINE[1] + 0.2), (MINE[0] + 2.2, 5.4, MINE[1] + 0.2),    # either side of the mouth
+              (MINE[0] - 1.2, 4.2, MINE[1] - 2.2))                                          # and one just inside
+ORES = ((92.0, -9.5), (89.4, -12.2), (113.5, -17.5), (122.6, -19.2))   # village_walk_pack.py's trail ores, kept clear
+
+
+def _clear(x, z, r=4.5):
+    """Nothing scattered within r of what you walk up to: ores, signs, lamps, Flint, the bridge, the rails."""
+    pts = list(ORES) + [s[:2] for s in SIGNS] + [p[:2] for p in MINE_POSTS] + list(LANTERNS) + [FLINT, (STREAM_X, 0.0)]
+    if any((x - a) ** 2 + (z - b) ** 2 < r * r for a, b in pts):
+        return False
+    return not (abs(x - MINE[0]) < 5.5 and z < RAIL_END + 1.0)
 
 
 def _trees():
@@ -81,8 +94,7 @@ def _trees():
             out.append(('pine', x, z, -9.0, 8 + 3 * hp, 2.6 + 0.8 * rp, li))
         else:
             out.append(('tree', x, z, -9.0, 4.0 + 1.5 * hp, 3.0 + 1.2 * rp, li))
-    for (x, z, kind) in ((6.0, -9.5, 0), (18.0, 6.5, 1), (24.0, -10.0, 2), (31.5, 7.0, 0), (36.0, -7.5, 2), (55.5, 7.4, 2), (62.0, -9.0, 1),
-                         (66.0, 7.5, 2), (78.0, -8.5, 0), (82.0, 7.0, 1)):
+    for (x, z, kind) in ((6.0, -9.5, 0), (24.0, -10.0, 2), (36.0, -7.5, 2), (62.0, -9.0, 1), (78.0, -8.5, 0)):   # north side only: the path stays open
         out.append(('pine', x, z, 0.0, 8.5, 2.8, 0) if kind == 2 else ('tree', x, z, 0.0, 4.2, 3.2, kind))
     return out
 
@@ -320,14 +332,16 @@ def scene_trail(state='day_dim'):
     for xa, xb in ((0.0, 20.0), (26.0, 39.0), (50.0, 68.0), (74.0, 90.0)):
         pts = [(x, float(zs(x)) - 1.3) for x in np.linspace(xa, xb, 6)]
         fence(PD, D, pts)
-    for (x, z, r, sd) in ((14.0, -7.5, 1.6, 1), (33.0, 5.8, 1.3, 2), (47.5, -6.5, 1.8, 3), (59.0, 5.0, 1.2, 4), (76.0, -6.0, 1.5, 5),
+    for (x, z, r, sd) in ((14.0, -7.5, 1.6, 1), (33.0, 5.8, 1.3, 2), (59.0, 5.0, 1.2, 4), (76.0, -6.0, 1.5, 5),
                           (92.0, 8.0, 1.4, 6), (122.0, 6.0, 1.8, 7), (97.0, -18.5, 1.2, 8)):
         boulder(PD, D, x, z, r, seed=sd)
-    # bushes and stones along the ledge, so the path runs through something
-    for _ in range(46):
+    for (x, z, sd) in MINE_POSTS:                         # lamp posts where the rails meet the path
+        lamp_post(S, PD, D, x, z, side=sd)
+    # bushes and stones along the ledge, fewer and further from the path (room to read it on a phone)
+    for _ in range(32):
         x = rng.uniform(0, CROSSING + 30)
         z = rng.uniform(float(zn(x)) + 0.8, float(zs(x)) - 1.6)
-        if abs(x - STREAM_X) < 5 or abs(z - float(np.interp(x, [p[0] for p in PATH], [p[1] for p in PATH]))) < 3.4:
+        if abs(x - STREAM_X) < 5 or abs(z - float(np.interp(x, [p[0] for p in PATH], [p[1] for p in PATH]))) < 4.4 or not _clear(x, z):
             continue
         if x > CROSSING - 2 and (x - 106) ** 2 / 400 + (z + 10) ** 2 / 90 < 1.2:
             continue
@@ -389,9 +403,30 @@ def scene_trail(state='day_dim'):
         for sx_ in (-1, 1):
             PC.fill(box(C, (mx + sx_ * 3.4 - 0.5, 0, fz - 0.5), (mx + sx_ * 3.4 + 0.5, fh, fz + 0.5)), ['#7A4E2E', '#6E4529'], cell=9)
         PC.fill(box(C, (mx - 4.2, fh, fz - 0.6), (mx + 4.2, fh + 1.0, fz + 0.6)), ['#7A4E2E', '#6E4529'], cell=9)
-    PC.fill(box(C, (mx - 3.0, 0, mz - 13.5), (mx + 3.0, 6.4, mz - 13.0)), ['#1E1A22'], cell=9)              # the dark beyond
-    lantern(S, PC, C, (mx + 2.2, 5.4, mz + 0.2), s=0.6, lit=True, power=8.0, hang_to=7.2)
-    rail_z0, rail_z1 = mz - 12.0, float(zn(mx)) + 13.0
+    PC.fill(box(C, (mx - 3.0, 0, mz - 13.5), (mx + 3.0, 6.4, mz - 13.0)), ['#2B1F1A'], cell=9)              # the dark beyond, warm
+    for (lx, ly, lz) in MINE_LAMPS:                       # lanterns either side of the mouth and one inside: a warm glow
+        lantern(S, PC, C, (lx, ly, lz), s=0.6, lit=True, power=11.0, hang_to=7.2 if lz > mz else 6.4)
+    S.lights.append({'type': 'point', 'pos': (mx, 2.5, mz - 6.0), 'power': 4.0, 'color': 2200, 'radius': 0.3})   # deeper in
+    # a board over the mouth: MINE in big letters, raised dark on honey, readable across the yard
+    font = {'M': ('10001', '11011', '10101', '10001', '10001'), 'I': ('111', '010', '010', '010', '111'),
+            'N': ('1001', '1101', '1011', '1001', '1001'), 'E': ('111', '100', '110', '100', '111')}
+    v = 0.5                                               # a letter's pixel is one voxel
+    wpx = sum(len(font[c][0]) for c in 'MINE') + 3 + 4    # letters, gaps, a border and a margin each side
+    sx0, sx1 = mx - wpx * v / 2, mx + wpx * v / 2
+    sy0, sy1 = 8.2, 8.2 + 9 * v
+    szf = mz + 0.4                                        # the board's front face
+    board = box(C, (sx0, sy0, mz - 0.2), (sx1, sy1, szf))
+    PC.fill(board, HONEY, cell=9)
+    PC.fill(board & ~box(C, (sx0 + v, sy0 + v, mz - 0.3), (sx1 - v, sy1 - v, szf + 0.1)), OAK_DARK, cell=9)
+    col = 2
+    for ch in 'MINE':
+        for j, row in enumerate(font[ch]):
+            for i, b in enumerate(row):
+                if b == '1':
+                    x0, y1 = sx0 + (col + i) * v, sy1 - (2 + j) * v
+                    PC.fill(box(C, (x0, y1 - v, szf), (x0 + v, y1, szf + v)), ['#3A2414'], cell=9)
+        col += len(font[ch][0]) + 1
+    rail_z0, rail_z1 = mz - 12.0, RAIL_END
     for rx_ in (mx - 1.1, mx + 1.1):
         PC.fill(box(C, (rx_ - 0.25, 0, rail_z0), (rx_ + 0.25, 0.5, rail_z1)), IRON, cell=9)
     PC.fill((np.abs(C.X - mx) < 1.8) & (C.Z >= rail_z0) & (C.Z < rail_z1) & ((np.floor(C.Z / 1.2) % 2) == 0) & (C.Y >= 0) & (C.Y < 0.3),

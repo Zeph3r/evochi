@@ -39,7 +39,7 @@ def zones(view):
     cz0 = cz1 - 7.1
     fx.append(('none', _rect(at, 95.0, 109.0, 0, 10.5, cz0, cz1 + 4.2)))          # his dwelling keeps still
     mx, mz = T.MINE
-    fx.append(('none', _rect(at, mx - 4.6, mx + 4.6, 0, 8.2, mz - 8.5, mz + 0.6)))  # the mine's timbers
+    fx.append(('none', _rect(at, mx - 5.6, mx + 5.6, 0, 12.8, mz - 8.5, mz + 0.9)))  # the mine's timbers and its sign
     for (kind, x, z, y, th, r, _) in T.TREES:
         if kind == 'pine':
             cx, cy = at(x, z, y + th * 0.55)
@@ -59,9 +59,10 @@ def zones(view):
     fx.append(('cloth', _rect(at, T.GATE_X - 1.2, T.GATE_X - 0.6, 5.2, 8.6, gz - 1.9, gz + 1.3), 'all', {'amp': 0.35, 'fade': 0.0}))
     # lamps: the lanterns on their posts, the ones at Flint's and the mine's, his windows
     lamps = [(x + (1.0 if z < 0 else -1.0) * 2.2, 3.4, z) for (x, z) in T.LANTERNS]
-    lamps += [(95.3, 5.6, cz1 + 3.9), (108.2, 5.0, cz1 + 0.8), (mx + 2.2, 5.4, mz + 0.2)]
+    lamps += [(x + sd * 2.2, 3.4, z) for (x, z, sd) in T.MINE_POSTS]
+    lamps += [(95.3, 5.6, cz1 + 3.9), (108.2, 5.0, cz1 + 0.8)] + list(T.MINE_LAMPS)
     for (x, y, z) in lamps:
-        fx.append(('lamp', _rect(at, x - 0.6, x + 0.6, y - 0.8, y + 0.8, z - 0.6, z + 0.6, 1), 'warm'))
+        fx.append(('fire', _rect(at, x - 0.6, x + 0.6, y - 0.8, y + 0.8, z - 0.6, z + 0.6, 1), 'warm'))   # flames flicker
     for wx in (98.0, 107.0):
         fx.append(('lamp', _rect(at, wx - 1.0, wx + 1.0, 2.6, 4.2, cz1, cz1 + 0.2, 1), 'warm'))
     # emitters
@@ -69,7 +70,9 @@ def zones(view):
             {'t': 'motes', 'kind': 'pollen', 'x': 0, 'y': round(h * 0.3), 'w': w, 'h': round(h * 0.6), 'n': 8, 'c': '#fff6c8', 's': 3}]
     for (x, y, z) in lamps:
         gx, gy = at(x, z, y)
-        emit.append({'t': 'glow', 'x': round(gx), 'y': round(gy), 'r': round(1.3 * ppu), 'c': '#ffc561', 'kind': 'lamp', 'a': 0.4})
+        emit.append({'t': 'glow', 'x': round(gx), 'y': round(gy), 'r': round(1.3 * ppu), 'c': '#ffc561', 'kind': 'fire', 'a': 0.4})
+    gx, gy = at(mx, mz - 1.0, 2.6)                        # the mine's mouth glows warm
+    emit.append({'t': 'glow', 'x': round(gx), 'y': round(gy), 'r': round(3.4 * ppu), 'c': '#ffb04a', 'kind': 'fire', 'a': 0.32})
     for wx in (98.0, 107.0):
         gx, gy = at(wx, cz1, 3.4)
         emit.append({'t': 'glow', 'x': round(gx), 'y': round(gy), 'r': round(1.5 * ppu), 'c': '#ffc561', 'kind': 'lamp', 'a': 0.4})
