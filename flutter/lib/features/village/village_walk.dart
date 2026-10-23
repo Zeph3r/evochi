@@ -73,10 +73,13 @@ class WalkLayout {
         },
         sun = [for (final v in j['sun'] as List) (v as num).toDouble()] {
     final rowsData = ((j['grid'] as Map)['walk'] as List).cast<String>();
+    final hData = (((j['grid'] as Map)['height'] as List?) ?? const []).cast<String>();
     walk = Uint8List(cols * rows);
+    height = Uint8List(cols * rows);
     for (var r = 0; r < rows; r++) {
       for (var c = 0; c < cols; c++) {
         walk[r * cols + c] = rowsData[r].codeUnitAt(c) == 49 ? 1 : 0;
+        if (r < hData.length) height[r * cols + c] = hData[r].codeUnitAt(c) - 48;
       }
     }
   }
@@ -84,6 +87,7 @@ class WalkLayout {
   final double w, h, ppu, cx, cz, sinP, cosP, z0, z1, gx0, gz0, cell;
   final int cols, rows;
   late final Uint8List walk;
+  late final Uint8List height; // what you stand on, in quarter units (the bridge's deck is a unit up)
   final List<(String, double, double, String)> npcs; // id, x, z, place
   final Offset spawn;
   final Map<String, Offset> spots;
@@ -103,6 +107,13 @@ class WalkLayout {
   bool _ok(int c, int r) => c >= 0 && r >= 0 && c < cols && r < rows && walk[r * cols + c] == 1;
   Offset _centre(int c, int r) => Offset(gx0 + (c + 0.5) * cell, gz0 + (r + 0.5) * cell);
   bool walkable(double x, double z) => _ok(_c(x), _r(z));
+
+  /// The height of what you walk on at (x, z).
+  double heightAt(double x, double z) {
+    final c = _c(x), r = _r(z);
+    if (c < 0 || r < 0 || c >= cols || r >= rows) return 0;
+    return height[r * cols + c] * 0.25;
+  }
 
   /// The walkable cell nearest (c, r), within [reach] cells.
   (int, int)? _nearest(int c, int r, {int reach = 16}) {
@@ -252,6 +263,7 @@ class _Heap {
 class VillageWalker {
   VillageWalker(this.x, this.z);
   double x, z;
+  double y = 0; // how high it stands (eased, so stepping up onto the bridge isn't a jump)
   int dir = 4; // S SE E NE N NW W SW
   bool moving = false;
   double phase = 0;
@@ -348,7 +360,8 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       }
       me
         ..x = l.spawn.dx
-        ..z = l.spawn.dy;
+        ..z = l.spawn.dy
+        ..y = l.heightAt(l.spawn.dx, l.spawn.dy);
     });
     _ticker = createTicker(_tick)..start();
   }
@@ -393,6 +406,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       me.moving = me.path.isNotEmpty;
       if (!me.moving) _arrived();
     }
+    me.y += (l.heightAt(me.x, me.z) - me.y) * math.min(1.0, dt * 14);
     if (me.wait > 0) {
       me.wait -= dt;
       if (me.wait <= 0) _openTalk();
@@ -408,7 +422,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     final l = lay!;
     if (_view.isEmpty) return;
     final k = _k;
-    final p = l.toImage(me.x, me.z);
+    final p = l.toImage(me.x, me.z, me.y);
     // your Evochi a little below the middle, as in the Wilds
     var want = Offset(p.dx, p.dy - 0.08 * _view.height / k);
     final hw = _view.width / 2 / k, hh = _view.height / 2 / k;
@@ -614,7 +628,7 @@ class _WalkPainter extends CustomPainter {
     final mk = s._mark;
     if (mk != null && s._t - mk.$3 < 0.7) {
       final a = (s._t - mk.$3) / 0.7;
-      final c = scr(l.toImage(mk.$1, mk.$2));
+      final c = scr(l.toImage(mk.$1, mk.$2, l.heightAt(mk.$1, mk.$2)));
       final rw = (0.9 + 0.8 * a) * l.ppu * k;
       for (final (grow, op) in const [(0.0, 0.9), (0.35, 0.45)]) {
         canvas.drawOval(Rect.fromCenter(center: c, width: rw * 2 * (1 + grow), height: rw * 2 * (1 + grow) * l.sinP),
@@ -645,7 +659,7 @@ class _WalkPainter extends CustomPainter {
       }));
     }
     items.add((s.me.z, () {
-      final rect = _pet(canvas, scr(l.toImage(s.me.x, s.me.z)), upk, l);
+      final rect = _pet(canvas, scr(l.toImage(s.me.x, s.me.z, s.me.y)), upk, l);
       if (si < s._shaders.length) _scene(canvas, s._shaders[si++], whole, rect.inflate(2), l.depthQ(s.me.z + _frontBias));
     }));
     items.sort((a, b) => a.$1.compareTo(b.$1));

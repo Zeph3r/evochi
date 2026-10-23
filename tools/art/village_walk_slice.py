@@ -73,6 +73,8 @@ def walk_grid(vs):
     for (nx, nz) in NPCS.values():
         block |= (X - nx) ** 2 + (Z - nz) ** 2 < 1.4 ** 2
     solid = block | wet | (top < -5)
+    # what you walk on: the ground at 0, the bridge's deck a unit up (the top of the highest low voxel)
+    surface = np.clip(np.where(top < -5, 0.0, top + 0.5 / 2), 0.0, 2.0)
     # your Evochi's middle keeps PET_R clear of anything solid
     dist = ndimage.distance_transform_edt(~solid) * CELL
     walk = dist > PET_R
@@ -80,19 +82,29 @@ def walk_grid(vs):
     lab, _ = ndimage.label(walk)
     sx, sz = int((SPAWN[0] - x0) / CELL), int((SPAWN[1] - z0) / CELL)
     walk &= lab == lab[sx, sz]
-    return walk, solid
+    return walk, solid, surface
 
 
-def pack_depth(npy, out_png):
+def pack_depth(npy, out_png, surface=None):
     d = np.load(npy)
     z, a, y = d[..., 0], d[..., 1], d[..., 2]
+    # the height of what you walk on under each pixel (the deck of the bridge is a unit up)
+    base = np.zeros_like(y)
+    if surface is not None:
+        (cx, cz), width, (w, h) = V.VIEWS['slice']
+        x = cx + (np.arange(w) + 0.5 - w / 2) / (w / width)
+        x0, x1, gz0, gz1 = AREA
+        ci = np.floor((x - x0) / CELL).astype(int)
+        rj = np.floor((z - gz0) / CELL).astype(int)
+        ok = (ci[None, :] >= 0) & (ci[None, :] < surface.shape[0]) & (rj >= 0) & (rj < surface.shape[1])
+        base = np.where(ok, surface[np.clip(ci, 0, surface.shape[0] - 1)[None, :].repeat(h, 0), np.clip(rj, 0, surface.shape[1] - 1)], 0.0)
     z0, z1 = V.DEPTH_RANGE
     q = np.clip((z - z0) / (z1 - z0), 0, 1)
     q = np.where(a > 0.5, q, 0.0)
     v = np.round(q * 65535).astype(np.uint32)
-    # B: 255 where the surface stands up off the ground (walls, trunks, posts, rails, bushes); only those
-    # are drawn over a character, so its feet are never cut by the path in front of them
-    tall = ((y > 0.7) & (a > 0.5)).astype(np.uint8) * 255
+    # B: 255 where the surface stands up off what you walk on there (walls, trunks, posts, rails, bushes);
+    # only those are drawn over a character, so its feet are never cut by the path or the bridge's deck
+    tall = ((y > base + 0.7) & (a > 0.5)).astype(np.uint8) * 255
     rgb = np.dstack([(v >> 8).astype(np.uint8), (v & 255).astype(np.uint8), tall])
     Image.fromarray(rgb, 'RGB').save(out_png, optimize=True)
 
@@ -101,10 +113,10 @@ def main():
     src = sys.argv[1]
     (cx, cz), width, (w, h) = V.VIEWS['slice']
     vs = V.scene_village_walk('day_dim')
-    walk, solid = walk_grid(vs)
+    walk, solid, surface = walk_grid(vs)
     art = os.path.join(FLUTTER, 'assets', 'art', 'village')
     Image.open(os.path.join(src, 'village_walk_slice.png')).convert('RGB').save(os.path.join(art, 'walk_slice.webp'), quality=90, method=6)
-    pack_depth(os.path.join(src, 'village_walk_slice_depth.npy'), os.path.join(art, 'walk_slice_depth.png'))
+    pack_depth(os.path.join(src, 'village_walk_slice_depth.npy'), os.path.join(art, 'walk_slice_depth.png'), surface)
     x0, x1, z0, z1 = AREA
     rows = [''.join('1' if walk[i, j] else '0' for i in range(walk.shape[0])) for j in range(walk.shape[1])]
     lay = {
@@ -112,7 +124,9 @@ def main():
         'depth': 'assets/art/village/walk_slice_depth.png',
         'w': w, 'h': h, 'ppu': w / width, 'centre': [cx, cz], 'pitch': V.PITCH,
         'depthRange': list(V.DEPTH_RANGE),
-        'grid': {'x0': x0, 'z0': z0, 'cell': CELL, 'cols': walk.shape[0], 'rows': walk.shape[1], 'walk': rows},
+        'grid': {'x0': x0, 'z0': z0, 'cell': CELL, 'cols': walk.shape[0], 'rows': walk.shape[1], 'walk': rows,
+                 # the height you stand at, in quarter units ('0'-'8')
+                 'height': [''.join(str(int(round(min(surface[i, j], 2.0) * 4))) for i in range(walk.shape[0])) for j in range(walk.shape[1])]},
         'npcs': [{'id': k, 'x': v[0], 'z': v[1], 'place': 'lodge'} for k, v in NPCS.items()],
         'spawn': list(SPAWN),
         'spots': {'guild': [0.0, -29.0], 'waystone': [0.0, 4.8], 'bridge': [0.0, -26.0]},
