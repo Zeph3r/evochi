@@ -6,10 +6,12 @@ import 'dart:convert';
 import 'economy_state.dart';
 import 'home_state.dart';
 import 'story_state.dart';
+import 'mining_state.dart';
 import 'trails_state.dart';
 
 export 'home_state.dart';
 export 'story_state.dart';
+export 'mining_state.dart';
 export 'trails_state.dart';
 
 const int schemaVersion = 1;
@@ -384,6 +386,7 @@ class GameState {
     HomeState? home,
     TrailsState? trails,
     EconomyState? economy,
+    MiningState? mining,
     this.clockOffset = 0,
     this.configVersion = '1.0.0',
     this.savedAtMs = 0,
@@ -400,7 +403,8 @@ class GameState {
         story = story ?? StoryState(),
         home = home ?? HomeState(),
         trails = trails ?? TrailsState(),
-        economy = economy ?? EconomyState();
+        economy = economy ?? EconomyState(),
+        mining = mining ?? MiningState();
 
   Player? player;
   Onboarding onboarding;
@@ -418,6 +422,7 @@ class GameState {
   final HomeState home; // Home Tales: garden, skills, starter gift; account-level too (home_state.dart)
   final TrailsState trails; // Lumen Trails: discoveries, guild XP, companions, the live encounter (trails_state.dart)
   final EconomyState economy; // Plus, the Season Pass, the Caravan, armed rare items, Play purchases (economy_state.dart)
+  final MiningState mining; // mining gear and the loadout worn on the trail and in the mines (mining_state.dart)
   int clockOffset; // playtest tools only
   final int createdAt;
   String tzHint;
@@ -447,6 +452,7 @@ class GameState {
       home: HomeState.fromJson(j['home']),
       trails: TrailsState.fromJson(j['trails']),
       economy: EconomyState.fromJson(j['economy']),
+      mining: MiningState.fromJson(j['mining']),
       clockOffset: _i(_m(j['debug'])['clockOffset']),
       configVersion: (j['configVersion'] as String?) ?? '1.0.0',
       savedAtMs: _i(j['savedAtMs']),
@@ -477,6 +483,7 @@ class GameState {
         'home': home.toJson(),
         'trails': trails.toJson(),
         'economy': economy.toJson(),
+        'mining': mining.toJson(),
         'debug': {'clockOffset': clockOffset},
         'tzHint': tzHint,
         'createdAt': createdAt,

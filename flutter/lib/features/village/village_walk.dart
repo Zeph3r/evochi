@@ -414,8 +414,6 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   final _mapKey = GlobalKey();
   int _stage = 3;
   bool _reduced = false; // the system asks for less motion
-  double _power = 1; // hits a strike is worth (an Obsidian Evochi's edge)
-  static const _gearTier = 1; // no mining gear yet (Flint's shop): copper only
   static const _regrow = 40.0; // seconds until a burst node is whole again (the preview's pace)
 
   /// Loaded, with the picture round you in (the recorder waits for this).
@@ -478,7 +476,6 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       _mining = mining;
       ores.addAll([for (final (k, x, z) in l.ores) OreNode(k, x, z)]);
       _stage = (pet?.stage ?? 3).clamp(1, 3);
-      _power = pet?.paletteId == 'obsidian' ? 1.34 : 1.0;
       final at = l.arrive[widget.arrive] ?? l.spawn;
       me
         ..x = at.dx
@@ -814,7 +811,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       ..node = o
       ..t = 0
       ..contacted = false
-      ..tooHard = (oreTier[o.kind] ?? 1) > _gearTier;
+      ..tooHard = (oreTier[o.kind] ?? 1) > mine.oreTierOf(context.read<GameController>().state); // your loadout decides
   }
 
   void _mineTick(WalkLayout l, double dt) {
@@ -872,7 +869,9 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       return;
     }
     final first = o.damage == 0;
-    final broke = o.strike(_power, art.hits);
+    final c0 = context.read<GameController>();
+    c0.run((st, now) => mine.markFirstTrip(st, now), quiet: true); // gear on its first trip remembers it
+    final broke = o.strike(mine.miningPowerOf(c0.state), art.hits);
     audio.play('mine_${o.kind}_${broke ? 'break' : first ? 'chip' : 'crack'}', volume: broke ? 0.8 : 0.6);
     _bits.addAll(contactBits(o, _t, toward, broke: broke, reduced: reduced));
     if (broke) {
