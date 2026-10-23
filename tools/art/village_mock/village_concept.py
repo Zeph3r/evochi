@@ -12,7 +12,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 ART = '/home/claude/evochi/flutter/assets/art/'
 UI = '/home/claude/evochi/flutter/assets/ui/'
 FONTS = '/home/claude/evochi/flutter/assets/fonts/'
-VW, FL, OUT = sys.argv[1], sys.argv[2], sys.argv[3]
+VW = FL = OUT = None        # set by main(), or by a script that imports this one
 man = json.load(open(ART + 'manifest.json'))
 INK = (59, 41, 35)
 X = 2                     # px per dp in the phone frames
@@ -205,74 +205,81 @@ def board(title, sub, panels, out, gap=40):
     return b
 
 
-# ---------------------------------------------------------------- the phone views
-pl = View('plaza')
-ex, ey, eh = evochi(pl, 2.0, 5.0, 'NE')
-px_, py_ = npc(pl, 'pip', -4.5, -31.0, 'happy')
-marker(pl.img, px_, py_ - 6 * X, 'quest')
-npc(pl, 'alder', 4.6, -31.0)
-plaza = phone(pl, marks={'Guild'})
+def main():
+    global VW, FL, OUT
+    VW, FL, OUT = sys.argv[1], sys.argv[2], sys.argv[3]
+    # ---------------------------------------------------------------- the phone views
+    pl = View('plaza')
+    ex, ey, eh = evochi(pl, 2.0, 5.0, 'NE')
+    px_, py_ = npc(pl, 'pip', -4.5, -31.0, 'happy')
+    marker(pl.img, px_, py_ - 6 * X, 'quest')
+    npc(pl, 'alder', 4.6, -31.0)
+    plaza = phone(pl, marks={'Guild'})
 
-ws = View('workshop')
-bx, by_top = npc(ws, 'bram', 24.4, -1.2, 'happy')
-bpx, bpy = ws.at(24.4, -1.2)
-tap_ring(ws.img, bpx, bpy, 26 * X)
-evochi(ws, 17.5, -0.6, 'E')
-chip(ws.img, bx, by_top - 20 * X, 'Bram')
-bubble(ws.img, bx, by_top - 42 * X, "Back again? Bring me some ore and I'll make you something sturdy.")
-workshop_ = phone(ws)
+    ws = View('workshop')
+    bx, by_top = npc(ws, 'bram', 24.4, -1.2, 'happy')
+    bpx, bpy = ws.at(24.4, -1.2)
+    tap_ring(ws.img, bpx, bpy, 26 * X)
+    evochi(ws, 17.5, -0.6, 'E')
+    chip(ws.img, bx, by_top - 20 * X, 'Bram')
+    bubble(ws.img, bx, by_top - 42 * X, "Back again? Bring me some ore and I'll make you something sturdy.")
+    workshop_ = phone(ws)
 
-rd = View('road')
-trail = [rd.at(38, 8.4), rd.at(48, 7.6), rd.at(56, 5.6), rd.at(66, 4.0)]
-motes(rd.img, trail)
-evochi(rd, 34.0, 8.6, 'E')
-sx, sy = rd.at(50.0, 4.0, 3.6)
-bubble(rd.img, sx, sy - 4 * X, 'East: the Crossing. The old mine, and the trail into the Sunlit Thicket.', 220)
-road = phone(rd)
+    rd = View('road')
+    trail = [rd.at(38, 8.4), rd.at(48, 7.6), rd.at(56, 5.6), rd.at(66, 4.0)]
+    motes(rd.img, trail)
+    evochi(rd, 34.0, 8.6, 'E')
+    sx, sy = rd.at(50.0, 4.0, 3.6)
+    bubble(rd.img, sx, sy - 4 * X, 'East: the Crossing. The old mine, and the trail into the Sunlit Thicket.', 220)
+    road = phone(rd)
 
-fa = View('falls')
-evochi(fa, -18.0, -44.0, 'N')
-falls = phone(fa)
+    fa = View('falls')
+    evochi(fa, -18.0, -44.0, 'N')
+    falls = phone(fa)
 
-s = 0.5
-panels = [(n, p.resize((int(p.width * s), int(p.height * s)), Image.LANCZOS)) for n, p in
-          (('The plaza: the Guild across the bridge', plaza), ('Bram outside his workshop: tap to talk', workshop_),
-           ('The Old Trail east, to the Crossing', road), ('The waterfall, the pool and the creek', falls))]
-board('Sunlit Village, walkable', 'Same buildings, spaced out, seen from the Wilds camera. No labels: names show when you tap or walk up; "!" marks who has something for you.',
-      panels, f'{OUT}/village_walk_views.jpg')
+    s = 0.5
+    panels = [(n, p.resize((int(p.width * s), int(p.height * s)), Image.LANCZOS)) for n, p in
+              (('The plaza: the Guild across the bridge', plaza), ('Bram outside his workshop: tap to talk', workshop_),
+               ('The Old Trail east, to the Crossing', road), ('The waterfall, the pool and the creek', falls))]
+    board('Sunlit Village, walkable', 'Same buildings, spaced out, seen from the Wilds camera. No labels: names show when you tap or walk up; "!" marks who has something for you.',
+          panels, f'{OUT}/village_walk_views.jpg')
 
-# ---------------------------------------------------------------- the whole map, with callouts (for the concept only)
-al = View('all')
-im = al.img
-d = ImageDraw.Draw(im)
-calls = [('Trail Guild', 0, -39, 12), ('Glasshouse (Mira)', -33, -4, 10), ('Workshop (Bram)', 34, -5, 14), ('Waystone', 0, 0, 10),
-         ('Market', -16, 24, 8), ('Road home', 0, 56, 0), ('Old Trail to the Crossing', 50, 6, 4), ('Bridge', 0, -26, 3)]
-for (t, x, z, y) in calls:
-    cx, cy = al.at(x, z, y)
-    f = font('black', 15, 1.2)
-    tw = d.textlength(t, font=f)
-    d.rounded_rectangle((cx - tw / 2 - 10, cy - 34, cx + tw / 2 + 10, cy - 6), radius=10, fill=(36, 32, 44, 225))
-    d.text((cx - tw / 2, cy - 31), t, font=f, fill=(255, 236, 200))
-board('Sunlit Village: the new layout', 'The callouts are for this picture only; in the game the buildings have no labels.',
-      [('The whole village from the walking camera', im)], f'{OUT}/village_walk_map.jpg')
+    # ---------------------------------------------------------------- the whole map, with callouts (for the concept only)
+    al = View('all')
+    im = al.img
+    d = ImageDraw.Draw(im)
+    calls = [('Trail Guild', 0, -39, 12), ('Glasshouse (Mira)', -33, -4, 10), ('Workshop (Bram)', 34, -5, 14), ('Waystone', 0, 0, 10),
+             ('Market', -16, 24, 8), ('Road home', 0, 56, 0), ('Old Trail to the Crossing', 50, 6, 4), ('Bridge', 0, -26, 3)]
+    for (t, x, z, y) in calls:
+        cx, cy = al.at(x, z, y)
+        f = font('black', 15, 1.2)
+        tw = d.textlength(t, font=f)
+        d.rounded_rectangle((cx - tw / 2 - 10, cy - 34, cx + tw / 2 + 10, cy - 6), radius=10, fill=(36, 32, 44, 225))
+        d.text((cx - tw / 2, cy - 31), t, font=f, fill=(255, 236, 200))
+    board('Sunlit Village: the new layout', 'The callouts are for this picture only; in the game the buildings have no labels.',
+          [('The whole village from the walking camera', im)], f'{OUT}/village_walk_map.jpg')
 
-# ---------------------------------------------------------------- Flint
-f_ = {e: Image.open(f'{FL}/flint_{e}.png').convert('RGBA') for e in ('default', 'happy', 'thinking')}
-el = Image.open(f'{FL}/elder_obsidian.png').convert('RGBA')
-H = f_['default'].height + 40
-pan = Image.new('RGBA', (el.width + f_['default'].width + 80, H), (232, 226, 214, 255))
-pan.alpha_composite(el, (20, H - 20 - el.height))
-pan.alpha_composite(f_['default'], (el.width + 60, 20))
-d = ImageDraw.Draw(pan)
-lf = font('black', 22, 1)
-d.text((24, 20), 'An Obsidian Elder', font=lf, fill=INK)
-d.text((el.width + 64, 20), 'Flint', font=font('black', 30, 1), fill=INK)
-faces = Image.new('RGBA', (f_['happy'].width // 2 * 2 + 40, H), (232, 226, 214, 255))
-faces.alpha_composite(f_['happy'].resize((f_['happy'].width // 2, f_['happy'].height // 2), Image.LANCZOS), (10, 30))
-faces.alpha_composite(f_['thinking'].resize((f_['thinking'].width // 2, f_['thinking'].height // 2), Image.LANCZOS), (10, 30 + H // 2))
-s = 0.62
-board('Flint, keeper of the mines', 'About 1.4x an Elder. Hard hat and headlamp, heavy-lidded old eyes, no blush, grey brows and chin tuft, frosted spikes, a red bandana, a tool belt and a pickaxe.',
-      [('Beside an ordinary Obsidian Elder', pan.resize((int(pan.width * s), int(pan.height * s)), Image.LANCZOS)),
-       ('Happy / thinking', faces.resize((int(faces.width * s), int(faces.height * s)), Image.LANCZOS))],
-      f'{OUT}/flint_concept.jpg')
-print('ok')
+    # ---------------------------------------------------------------- Flint
+    f_ = {e: Image.open(f'{FL}/flint_{e}.png').convert('RGBA') for e in ('default', 'happy', 'thinking')}
+    el = Image.open(f'{FL}/elder_obsidian.png').convert('RGBA')
+    H = f_['default'].height + 40
+    pan = Image.new('RGBA', (el.width + f_['default'].width + 80, H), (232, 226, 214, 255))
+    pan.alpha_composite(el, (20, H - 20 - el.height))
+    pan.alpha_composite(f_['default'], (el.width + 60, 20))
+    d = ImageDraw.Draw(pan)
+    lf = font('black', 22, 1)
+    d.text((24, 20), 'An Obsidian Elder', font=lf, fill=INK)
+    d.text((el.width + 64, 20), 'Flint', font=font('black', 30, 1), fill=INK)
+    faces = Image.new('RGBA', (f_['happy'].width // 2 * 2 + 40, H), (232, 226, 214, 255))
+    faces.alpha_composite(f_['happy'].resize((f_['happy'].width // 2, f_['happy'].height // 2), Image.LANCZOS), (10, 30))
+    faces.alpha_composite(f_['thinking'].resize((f_['thinking'].width // 2, f_['thinking'].height // 2), Image.LANCZOS), (10, 30 + H // 2))
+    s = 0.62
+    board('Flint, keeper of the mines', 'About 1.4x an Elder. Hard hat and headlamp, heavy-lidded old eyes, no blush, grey brows and chin tuft, frosted spikes, a red bandana, a tool belt and a pickaxe.',
+          [('Beside an ordinary Obsidian Elder', pan.resize((int(pan.width * s), int(pan.height * s)), Image.LANCZOS)),
+           ('Happy / thinking', faces.resize((int(faces.width * s), int(faces.height * s)), Image.LANCZOS))],
+          f'{OUT}/flint_concept.jpg')
+    print('ok')
+
+
+if __name__ == '__main__':
+    main()

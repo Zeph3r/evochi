@@ -439,6 +439,10 @@ VIEWS = {   # centre (x, z) and width in world units; the image height follows f
     'plaza': ((-2.0, -4.0), 36.0, (824, 1100)),
     'workshop': ((24.0, -2.0), 36.0, (824, 1100)),
     'road': ((46.0, 2.0), 36.0, (824, 1100)),
+    # the zoom study (village_mock/zoom_concept.py): the path north of the plaza at twice the detail, so
+    # it can be cropped to 1x, 1.5x and 2x; and a close-up by the Guild's door for a conversation
+    'zoom_hd': ((0.8, -21.7), 36.0, (1648, 2200)),
+    'zoom_talk': ((-3.35, -33.2), 14.4, (824, 1100)),
 }
 
 
