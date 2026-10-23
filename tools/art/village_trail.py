@@ -48,8 +48,43 @@ CROSSING = 88.0          # from here east the ledge opens into the Crossing's ya
 FLINT = (103.0, -13.5)
 MINE = (116.5, -26.0)    # the mine's mouth (centre of its opening, at the cliff's foot)
 GATE_X = 126.0           # the Sunlit Thicket's gate
+CART_Z = float(-15.0 + 2.6 * np.sin(MINE[0] * 0.07) + 1.3 * np.sin(MINE[0] * 0.19 + 1.0) - 9.0) + 10.5   # the ore cart, at the rails' end
 LANTERNS = ((9.0, -2.8), (31.0, 1.6), (52.0, -2.6), (70.0, 2.6), (90.0, -4.6), (110.0, -9.0))
 SIGNS = ((3.0, -1.6, 'village'), (84.0, -3.8, 'crossing'))
+
+
+def _trees():
+    """Every tree: (kind, x, z, the ground it stands on, height, crown radius, autumn palette): on the
+    cliffs' terraces autumn colour among pines, a forest on the meadow below, a handful by the path."""
+    rng = np.random.default_rng(731)
+    out = []
+    for _ in range(90):
+        x = rng.uniform(X0 + 2, X1 - 2)
+        z = rng.uniform(Z0 + 3, float(zn(x)) - 1.5)
+        pick, hp, rp, li = rng.random(), rng.random(), rng.random(), int(rng.integers(3))
+        if abs(x - STREAM_X) < 5 or (x > CROSSING - 4 and z > float(zn(x)) - 9):
+            continue
+        if (float(zn(x)) - z) % TER_D < 1.6:         # too near a terrace's edge
+            continue
+        hb = min(TER_H + TER_H * math.floor((float(zn(x)) - z) / TER_D), 30.0)
+        if pick < 0.45:
+            out.append(('pine', x, z, hb, 7 + 3 * hp, 2.4 + 0.8 * rp, li))
+        else:
+            out.append(('tree', x, z, hb, 3.5 + 1.5 * hp, 2.8 + 1.0 * rp, li))
+    for _ in range(26):
+        x = rng.uniform(X0 + 2, X1 - 2)
+        z = rng.uniform(float(zs(x)) + 4, Z1 - 1)
+        pick, hp, rp, li = rng.random(), rng.random(), rng.random(), int(rng.integers(3))
+        if abs(x - STREAM_X - 2) < 8:
+            continue
+        if pick < 0.5:
+            out.append(('pine', x, z, -9.0, 8 + 3 * hp, 2.6 + 0.8 * rp, li))
+        else:
+            out.append(('tree', x, z, -9.0, 4.0 + 1.5 * hp, 3.0 + 1.2 * rp, li))
+    for (x, z, kind) in ((6.0, -9.5, 0), (18.0, 6.5, 1), (24.0, -10.0, 2), (31.5, 7.0, 0), (36.0, -7.5, 2), (55.5, 7.4, 2), (62.0, -9.0, 1),
+                         (66.0, 7.5, 2), (78.0, -8.5, 0), (82.0, 7.0, 1)):
+        out.append(('pine', x, z, 0.0, 8.5, 2.8, 0) if kind == 2 else ('tree', x, z, 0.0, 4.2, 3.2, kind))
+    return out
 
 
 def yard(x):
@@ -156,6 +191,9 @@ def fence(P, M, pts, h=2.2):
         for ry in (0.9, 1.8):
             P.fill(on & (perp <= 0.3) & (np.abs(M.Y - ry) <= 0.28), ['#9A6A44', '#8D5D3B'], cell=9)
         P.fill(on & (perp <= 0.45) & ((t % 2.8) < 0.9) & (M.Y >= 0) & (M.Y < h), ['#7A4E2E', '#6E4529'], cell=9)
+
+
+TREES = _trees()
 
 
 def scene_trail(state='day_dim'):
@@ -265,37 +303,11 @@ def scene_trail(state='day_dim'):
     # ---- things on the ledge and the cliffs
     T = Model((X0, -12, Z0), (X1, 46, Z1), [], res=RES)
     PT = CPainter(T, 75)
-    # trees on the terraces: autumn colour among pines
-    for _ in range(90):
-        x = rng.uniform(X0 + 2, X1 - 2)
-        z = rng.uniform(Z0 + 3, float(zn(x)) - 1.5)
-        if abs(x - STREAM_X) < 5 or (x > CROSSING - 4 and z > float(zn(x)) - 9):
-            continue
-        hb = TER_H + TER_H * math.floor((float(zn(x)) - z) / TER_D)
-        hb = min(hb, 30.0)
-        if (float(zn(x)) - z) % TER_D < 1.6:         # too near a terrace's edge
-            continue
-        if rng.random() < 0.45:
-            pine(PT, T, x, z, h=rng.uniform(7, 10), r=rng.uniform(2.4, 3.2), y=hb, rng=rng)
+    for (kind, x, z, y, h, r, li) in TREES:
+        if kind == 'pine':
+            pine(PT, T, x, z, h=h, r=r, y=y, rng=rng)
         else:
-            tree2(PT, T, x, z, h=rng.uniform(3.5, 5.0), r=rng.uniform(2.8, 3.8), y=hb, leaves=AUTUMN[rng.integers(3)], rng=rng)
-    # on the lower meadow, south: a few, so the ledge has a forest below it
-    for _ in range(26):
-        x = rng.uniform(X0 + 2, X1 - 2)
-        z = rng.uniform(float(zs(x)) + 4, Z1 - 1)
-        if abs(x - STREAM_X - 2) < 8:
-            continue
-        if rng.random() < 0.5:
-            pine(PT, T, x, z, h=rng.uniform(8, 11), r=rng.uniform(2.6, 3.4), y=-9.0, rng=rng)
-        else:
-            tree2(PT, T, x, z, h=rng.uniform(4.0, 5.5), r=rng.uniform(3.0, 4.2), y=-9.0, leaves=AUTUMN[rng.integers(3)], rng=rng)
-    # by the path: a handful, clear of it
-    for (x, z, kind) in ((6.0, -9.5, 0), (18.0, 6.5, 1), (24.0, -10.0, 2), (31.5, 7.0, 0), (36.0, -7.5, 2), (55.5, 7.4, 2), (62.0, -9.0, 1), (66.0, 7.5, 2),
-                         (78.0, -8.5, 0), (82.0, 7.0, 1)):
-        if kind == 2:
-            pine(PT, T, x, z, h=8.5, r=2.8, rng=rng)
-        else:
-            tree2(PT, T, x, z, h=4.2, r=3.2, leaves=AUTUMN[kind], rng=rng)
+            tree2(PT, T, x, z, h=h, r=r, y=y, leaves=AUTUMN[li], rng=rng)
     S.models.append((T, ()))
 
     D = Model((X0, -1, Z0), (X1, 14, Z1), [], res=RES)
@@ -384,7 +396,7 @@ def scene_trail(state='day_dim'):
         PC.fill(box(C, (rx_ - 0.25, 0, rail_z0), (rx_ + 0.25, 0.5, rail_z1)), IRON, cell=9)
     PC.fill((np.abs(C.X - mx) < 1.8) & (C.Z >= rail_z0) & (C.Z < rail_z1) & ((np.floor(C.Z / 1.2) % 2) == 0) & (C.Y >= 0) & (C.Y < 0.3),
             WALNUT, cell=9)
-    cart_z = mz + 7.0
+    cart_z = CART_Z                                       # down at the rails' end, leaving the mouth clear to walk in
     PC.fill(box(C, (mx - 1.6, 0.9, cart_z - 1.8), (mx + 1.6, 3.0, cart_z + 1.8)) & ~box(C, (mx - 1.1, 1.4, cart_z - 1.3), (mx + 1.1, 3.1, cart_z + 1.3)),
             ['#5A5560', '#4C4752'], cell=9)
     for wz in (cart_z - 1.2, cart_z + 1.2):

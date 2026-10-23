@@ -1,6 +1,6 @@
 // Records the walkable village under the test clock, a tour: in through the south gate, up to the
-// plaza, over to Bram at his Workshop, across to Mira at her Glasshouse, then over the stepping stones
-// and up the creek to the waterfall. Frames at 30 fps, 412 x 892 dp at 2x. The clock holds while
+// plaza, over to Bram at his Workshop, up to Pip and Alder at the Guild's bridge, across to Mira at her
+// Glasshouse, then over the stepping stones and up the creek to the waterfall. Frames at 30 fps, 412 x 892 dp at 2x. The clock holds while
 // tiles of the picture load, so no frame shows one missing.
 //
 //   flutter test tool/shorts/village_walk_test.dart
@@ -140,6 +140,8 @@ void main() {
     await walk(0.0, 10.0); // up the road to the plaza
     await hold(0.4);
     await walk(20.6, 1.6); // over to Bram
+    await hold(1.2);
+    await walk(0.2, -16.6); // up to the Guild's bridge, where Pip and Alder wait
     await hold(1.2);
     await walk(-21.6, 6.8); // across to Mira
     await hold(1.2);

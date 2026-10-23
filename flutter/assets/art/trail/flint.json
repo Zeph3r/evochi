@@ -1,0 +1,81 @@
+{
+ "art": "assets/art/trail/flint_walk.webp",
+ "w": 412,
+ "h_px": 499,
+ "ground": [
+  201.7,
+  379.6
+ ],
+ "top": [
+  201.7,
+  4.0
+ ],
+ "height": 5.7,
+ "faces": {
+  "default": {
+   "src": "assets/art/trail/flint_face_default.webp",
+   "w": 614,
+   "h": 530,
+   "face": [
+    87.6,
+    347.0
+   ],
+   "headTop": [
+    168.2,
+    198.7
+   ]
+  },
+  "happy": {
+   "src": "assets/art/trail/flint_face_happy.webp",
+   "w": 614,
+   "h": 530,
+   "face": [
+    87.6,
+    347.0
+   ],
+   "headTop": [
+    168.2,
+    198.7
+   ]
+  },
+  "thinking": {
+   "src": "assets/art/trail/flint_face_thinking.webp",
+   "w": 614,
+   "h": 530,
+   "face": [
+    87.6,
+    347.0
+   ],
+   "headTop": [
+    168.2,
+    198.7
+   ]
+  },
+  "surprised": {
+   "src": "assets/art/trail/flint_face_surprised.webp",
+   "w": 614,
+   "h": 530,
+   "face": [
+    87.6,
+    347.0
+   ],
+   "headTop": [
+    168.2,
+    198.7
+   ]
+  },
+  "determined": {
+   "src": "assets/art/trail/flint_face_determined.webp",
+   "w": 614,
+   "h": 530,
+   "face": [
+    87.6,
+    347.0
+   ],
+   "headTop": [
+    168.2,
+    198.7
+   ]
+  }
+ }
+}

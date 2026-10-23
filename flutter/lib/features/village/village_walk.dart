@@ -1,4 +1,4 @@
-// The walkable Sunlit Village.
+// The walkable maps: the Sunlit Village, and the Old Trail east of it to the Crossing.
 //
 // The whole village pictured at the walking camera's detail (tools/art/village_walk_pack.py), in
 // 1024 px tiles loaded as you walk, drawn through shaders/village_fx.frag so it lives like the other
@@ -7,7 +7,9 @@
 // villagers outside in the classic look (Pip and Alder by the Guild's bridge, Bram at his Workshop,
 // Mira at her Glasshouse). Tap one and your Evochi walks over, turns to them, and the conversation
 // opens. No labels on the buildings: a name shows when you walk up, a "!" marks who has something for
-// you. The road home leaves south through the gate; the Old Trail leaves east.
+// you. The road home leaves south through the gate; the Old Trail leaves east, and is a map of its own
+// (the same screen with tools/art/village_trail.py's picture): a ledge under autumn cliffs, the bridge by
+// the waterfall, and Flint at the Crossing beside the mine. Walk off one map's edge onto the next.
 //
 // Depth: the picture knows the world z of what each pixel shows (and whether it stands up off the
 // ground). After each character is drawn, the picture is drawn again over it, only where something
@@ -30,14 +32,15 @@ import '../shared/ambience.dart';
 import '../shared/live_scene.dart';
 import '../shared/widgets.dart';
 import '../wilds/wilds_art.dart';
+import 'flint_talk.dart';
 import 'story_widgets.dart';
 import 'village_screen.dart';
 
-const _layoutAsset = 'assets/config/village_walk.json';
+String _layoutAsset(String map) => 'assets/config/${map}_walk.json';
 const _evochiH = 3.4 * 1.2; // world units: an Elder, drawn 1.2x in the village (the Wilds keep theirs)
 const _sheetH = 202.0; // an Elder's height on its walk sheet, px
-const _npcH = {'pip': 3.4, 'alder': 3.8, 'bram': 4.0, 'mira': 4.2};
-const _npcName = {'pip': 'Pip', 'alder': 'Alder', 'bram': 'Bram', 'mira': 'Mira'};
+const _npcH = {'pip': 3.4, 'alder': 3.8, 'bram': 4.0, 'mira': 4.2}; // world units (Flint's comes with his art)
+const _npcName = {'pip': 'Pip', 'alder': 'Alder', 'bram': 'Bram', 'mira': 'Mira', 'flint': 'Flint'};
 const _unitsAcross = 18.0; // the walking camera: 18 world units across the screen (2x the concept's)
 const _speed = 5.0; // world units a second
 const _frontBias = 1.0; // world units: what is this much nearer than a character's feet covers it (half a body)
@@ -47,10 +50,40 @@ const _shadowLong = 2.0; // characters' shadows drawn this much longer than the 
 void openVillageWalk(BuildContext context) =>
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const Ambience('village', child: VillageWalkScreen())));
 
-/// The piece of village: its picture, camera and walk grid (assets/config/village_walk.json).
+/// From one map to the next: this screen gives way to the other map's, arriving by [at].
+Route<void> _mapRoute(String map, String? at) => PageRouteBuilder<void>(
+      transitionDuration: const Duration(milliseconds: 450),
+      reverseTransitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (_, __, ___) => Ambience('village', child: VillageWalkScreen(map: map, arrive: at)),
+      transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: CurvedAnimation(parent: a, curve: Curves.easeInOut), child: child),
+    );
+
+/// Someone standing on a map: where, the place their conversation opens in, and (for those who aren't
+/// villagers, like Flint) their own sprite: its file, the point under their feet, the top of their head,
+/// and their height in world units.
+class WalkNpc {
+  WalkNpc(Map j)
+      : id = j['id'] as String,
+        x = (j['x'] as num).toDouble(),
+        z = (j['z'] as num).toDouble(),
+        place = j['place'] as String,
+        art = j['art'] as String?,
+        ground = j['ground'] == null ? null : Offset(((j['ground'] as List)[0] as num).toDouble(), ((j['ground'] as List)[1] as num).toDouble()),
+        top = j['top'] == null ? null : Offset(((j['top'] as List)[0] as num).toDouble(), ((j['top'] as List)[1] as num).toDouble()),
+        height = (j['height'] as num?)?.toDouble();
+  final String id, place;
+  final double x, z;
+  final String? art;
+  final Offset? ground, top;
+  final double? height;
+}
+
+/// A walkable map: its picture, camera and walk grid (assets/config/<map>_walk.json).
 class WalkLayout {
   WalkLayout(Map<String, dynamic> j)
-      : tileDir = (j['tiles'] as Map)['dir'] as String,
+      : map = (j['map'] as String?) ?? 'village',
+        title = (j['title'] as String?) ?? 'Sunlit Village',
+        tileDir = (j['tiles'] as Map)['dir'] as String,
         tiles = [
           for (final t in ((j['tiles'] as Map)['list'] as List).cast<Map>())
             WalkTile(
@@ -64,7 +97,13 @@ class WalkLayout {
         emit = (j['emit'] as List?) ?? const [],
         exits = {
           for (final e in ((j['exits'] as Map?) ?? const {}).entries)
-            e.key as String: (((e.value as List)[0] as num).toDouble(), ((e.value as List)[1] as num).toDouble(), ((e.value as List)[2] as num).toDouble())
+            e.key as String: (
+              ((e.value as List)[0] as num).toDouble(),
+              ((e.value as List)[1] as num).toDouble(),
+              ((e.value as List)[2] as num).toDouble(),
+              (e.value as List).length > 3 ? (e.value as List)[3] as String? : null,
+              (e.value as List).length > 4 ? (e.value as List)[4] as String? : null,
+            )
         },
         w = (j['w'] as num).toDouble(),
         h = (j['h'] as num).toDouble(),
@@ -80,10 +119,12 @@ class WalkLayout {
         cell = ((j['grid'] as Map)['cell'] as num).toDouble(),
         cols = ((j['grid'] as Map)['cols'] as num).toInt(),
         rows = ((j['grid'] as Map)['rows'] as num).toInt(),
-        npcs = [
-          for (final n in (j['npcs'] as List).cast<Map>()) (n['id'] as String, (n['x'] as num).toDouble(), (n['z'] as num).toDouble(), n['place'] as String)
-        ],
+        npcs = [for (final n in (j['npcs'] as List).cast<Map>()) WalkNpc(n)],
         spawn = Offset(((j['spawn'] as List)[0] as num).toDouble(), ((j['spawn'] as List)[1] as num).toDouble()),
+        arrive = {
+          for (final e in ((j['arrive'] as Map?) ?? const {}).entries)
+            e.key as String: Offset(((e.value as List)[0] as num).toDouble(), ((e.value as List)[1] as num).toDouble())
+        },
         spots = {
           for (final e in (j['spots'] as Map).entries) e.key as String: Offset(((e.value as List)[0] as num).toDouble(), ((e.value as List)[1] as num).toDouble())
         },
@@ -99,16 +140,18 @@ class WalkLayout {
       }
     }
   }
+  final String map, title;
   final String tileDir;
   final List<WalkTile> tiles;
   final List<dynamic> emit; // the emitters, in the whole picture's px (SceneFx)
-  final Map<String, (double, double, double)> exits; // x, z, radius: walk in and you leave
+  final Map<String, (double, double, double, String?, String?)> exits; // x, z, radius, the map it leads to and where you arrive there
   final double w, h, ppu, cx, cz, sinP, cosP, z0, z1, gx0, gz0, cell;
   final int cols, rows;
   late final Uint8List walk;
   late final Uint8List height; // what you stand on, in quarter units (the bridge's deck is a unit up)
-  final List<(String, double, double, String)> npcs; // id, x, z, place
-  final Offset spawn;
+  final List<WalkNpc> npcs;
+  final Offset spawn; // a fresh visit starts here
+  final Map<String, Offset> arrive; // where you arrive, by the way you came in
   final Map<String, Offset> spots;
   final List<double> sun;
 
@@ -312,15 +355,20 @@ class VillageWalker {
 }
 
 class _Npc {
-  _Npc(this.id, this.x, this.z, this.place, this.img, this.ground, this.top);
+  _Npc(this.id, this.x, this.z, this.place, this.img, this.ground, this.top, this.h);
   final String id, place;
   final double x, z;
   final ui.Image img;
   final Offset ground, top;
+  final double h; // world units, feet to the top of the head
 }
 
 class VillageWalkScreen extends StatefulWidget {
-  const VillageWalkScreen({super.key});
+  const VillageWalkScreen({super.key, this.map = 'village', this.arrive});
+
+  /// Which map ('village', 'trail'), and the way you came in (null: a fresh visit).
+  final String map;
+  final String? arrive;
 
   /// The one on screen (the recorder drives it).
   static VillageWalkScreenState? current;
@@ -369,16 +417,31 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   Future<void> _load() async {
     final c = context.read<GameController>();
     final pet = c.state.pet;
-    final l = WalkLayout((jsonDecode(await rootBundle.loadString(_layoutAsset)) as Map).cast<String, dynamic>());
+    final WalkLayout l;
+    try {
+      l = WalkLayout((jsonDecode(await rootBundle.loadString(_layoutAsset(widget.map))) as Map).cast<String, dynamic>());
+    } catch (e) {
+      debugPrint('walk map ${widget.map}: $e'); // not built yet
+      if (!mounted) return;
+      ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(content: Text('This way opens soon.')));
+      Navigator.of(context).maybePop();
+      return;
+    }
     final r = await Future.wait<Object?>([
       WalkerArt.load('s0${(pet?.stage ?? 1).clamp(1, 3)}', pet?.paletteId ?? 'amber', wearing: pet?.equipped.values.toList() ?? const []),
       SceneFx.program(),
       ui.FragmentProgram.fromAsset('shaders/village_fx.frag'),
     ]);
     final npcs = <_Npc>[];
-    for (final (id, x, z, place) in l.npcs) {
-      final key = 'npc_$id';
-      npcs.add(_Npc(id, x, z, place, await _image(villageArt.npc(key, 'neutral', true)), villageArt.npcGround(key), villageArt.npcTop(key)));
+    for (final n in l.npcs) {
+      final art = n.art;
+      if (art != null) {
+        npcs.add(_Npc(n.id, n.x, n.z, n.place, await _image(art), n.ground!, n.top!, n.height ?? 4.0));
+      } else {
+        final key = 'npc_${n.id}';
+        npcs.add(_Npc(n.id, n.x, n.z, n.place, await _image(villageArt.npc(key, 'neutral', true)), villageArt.npcGround(key), villageArt.npcTop(key),
+            _npcH[n.id] ?? 4.0));
+      }
     }
     if (!mounted) return;
     final prog = r[2] as ui.FragmentProgram;
@@ -388,10 +451,14 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       _pet = r[0] as WalkerArt;
       _npcs.addAll(npcs);
       _prog = prog;
+      final at = l.arrive[widget.arrive] ?? l.spawn;
       me
-        ..x = l.spawn.dx
-        ..z = l.spawn.dy
-        ..y = l.heightAt(l.spawn.dx, l.spawn.dy);
+        ..x = at.dx
+        ..z = at.dy
+        ..y = l.heightAt(at.dx, at.dy);
+      // coming in from another map, face the way you were going (away from the edge you came over)
+      final from = l.exits[widget.arrive];
+      if (from != null) me.dir = VillageWalker.dirOf(at.dx - from.$1, at.dy - from.$2);
     });
     _ticker = createTicker(_tick)..start();
   }
@@ -450,13 +517,16 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     _frame.value = t;
   }
 
+  /// Go to another map now (the recorder uses it after its exit hook), arriving by [at].
+  void goTo(String map, String? at) => Navigator.of(context).pushReplacement(_mapRoute(map, at));
+
   /// Hooks for the recorder: what happens when you walk out (null: leave as the game does).
   static void Function(String exit)? onExit;
 
   void _checkExits(WalkLayout l) {
     if (_leaving || _talking) return;
     for (final e in l.exits.entries) {
-      final (x, z, r) = e.value;
+      final (x, z, r, to, at) = e.value;
       if ((me.x - x) * (me.x - x) + (me.z - z) * (me.z - z) > r * r) continue;
       _leaving = true;
       me.path = const [];
@@ -464,10 +534,17 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       final hook = onExit;
       if (hook != null) {
         hook(e.key);
+      } else if (to != null) {
+        Navigator.of(context).pushReplacement(_mapRoute(to, at));
       } else if (e.key == 'home') {
         Navigator.of(context).maybePop();
       } else {
-        ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(content: Text('The Old Trail to the Crossing opens soon.')));
+        final say = switch (e.key) {
+          'mine' => "Flint's still shoring up the mine's timbers. It opens soon.",
+          'thicket' => 'The Sunlit Thicket lies on past the gate. Its paths open soon.',
+          _ => 'This way opens soon.',
+        };
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(SnackBar(content: Text(say)));
       }
       return;
     }
@@ -578,6 +655,12 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     if (id == null || !mounted) return;
     final n = _npcs.firstWhere((v) => v.id == id);
     setState(() => _talking = true);
+    if (n.place == 'crossing') {
+      showFlintTalk(context).then((_) {
+        if (mounted) setState(() => _talking = false);
+      });
+      return;
+    }
     Navigator.of(context)
         .push(MaterialPageRoute<void>(
             settings: const RouteSettings(name: 'place'),
@@ -630,7 +713,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   /// A villager's sprite, in picture px.
   Rect _npcRect(_Npc n) {
     final l = lay!;
-    final s = _npcH[n.id]! * l.ppu / (n.ground.dy - n.top.dy);
+    final s = n.h * l.ppu / (n.ground.dy - n.top.dy);
     final g = l.toImage(n.x, n.z);
     return Rect.fromLTWH(g.dx - n.ground.dx * s, g.dy - n.ground.dy * s, n.img.width * s, n.img.height * s);
   }
@@ -647,7 +730,11 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
           color: EvochiColor.panel,
           child: SafeArea(
             bottom: false,
-            child: PlaceHeader(title: 'Sunlit Village', short: 'Village', backLabel: 'Back', onBack: () => Navigator.of(context).maybePop()),
+            child: PlaceHeader(
+                title: lay?.title ?? (widget.map == 'trail' ? 'The Old Trail' : 'Sunlit Village'),
+                short: widget.map == 'trail' ? 'Trail' : 'Village',
+                backLabel: 'Back',
+                onBack: () => Navigator.of(context).maybePop()),
           ),
         ),
         Expanded(
@@ -666,7 +753,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
             );
           }),
         ),
-        _QuickTravel(onPick: _quick),
+        _QuickTravel(items: widget.map == 'trail' ? _trailTravel : _villageTravel, onPick: _quick),
       ]),
     );
   }
@@ -681,20 +768,28 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         talkTo('mira');
       case 'workshop':
         talkTo('bram');
+      case 'flint':
+        talkTo('flint');
+      case 'village': // back along the trail: walk to its west end and over
+        final e = l.exits['village'];
+        if (e != null) walkTo(e.$1, e.$2);
       default:
-        final w = l.spots[id]!;
-        walkTo(w.dx, w.dy);
+        final w = l.spots[id];
+        if (w != null) walkTo(w.dx, w.dy);
     }
   }
 }
 
-/// The bottom row: the places, a walk away (to whoever keeps them, or to the Waystone).
+const _villageTravel = [('lodge', 'mail', 'Guild'), ('glasshouse', 'care', 'Glasshouse'), ('workshop', 'bell', 'Workshop'), ('waystone', 'star', 'Waystone')];
+const _trailTravel = [('village', 'home', 'Village'), ('bridge', 'aff_water', 'Falls'), ('flint', 'shop', 'Flint'), ('mine', 'aff_stone', 'Mine')];
+
+/// The bottom row: the places, a walk away (to whoever keeps them, or to a landmark).
 class _QuickTravel extends StatelessWidget {
-  const _QuickTravel({required this.onPick});
+  const _QuickTravel({required this.items, required this.onPick});
+  final List<(String, String, String)> items; // id, icon, label
   final void Function(String) onPick;
   @override
   Widget build(BuildContext context) {
-    const items = [('lodge', 'mail', 'Guild'), ('glasshouse', 'care', 'Glasshouse'), ('workshop', 'bell', 'Workshop'), ('waystone', 'star', 'Waystone')];
     return Container(
       decoration: const BoxDecoration(
         color: Color(0xFF6B4528),
@@ -796,7 +891,7 @@ class _WalkPainter extends CustomPainter {
       items.add((n.z, () {
         final r = s._npcRect(n);
         final g = scr(l.toImage(n.x, n.z));
-        final sc = upk * _npcH[n.id]! / (n.ground.dy - n.top.dy);
+        final sc = upk * n.h / (n.ground.dy - n.top.dy);
         _castShadow(canvas, n.img, Rect.fromLTWH(0, 0, n.img.width.toDouble(), n.img.height.toDouble()), g, n.ground * sc, sc, l);
         final breathe = 1 + 0.012 * math.sin(s._t * 2.3 + n.x);
         canvas.save();
@@ -826,7 +921,7 @@ class _WalkPainter extends CustomPainter {
     }
     // a "!" over whoever has something for you; a name when you are close
     for (final n in s._npcs) {
-      final head = scr(l.toImage(n.x, n.z)) - Offset(0, _npcH[n.id]! * upk * 1.0);
+      final head = scr(l.toImage(n.x, n.z)) - Offset(0, n.h * upk * 1.0);
       final near = math.sqrt(math.pow(s.me.x - n.x, 2) + math.pow(s.me.z - n.z, 2)) < 6.5;
       final mark = marks['npc_${n.id}'];
       var y = head.dy - 8;
