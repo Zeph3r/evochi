@@ -38,7 +38,7 @@ const _npcH = {'pip': 3.4, 'alder': 3.8, 'bram': 4.0, 'mira': 4.2};
 const _npcName = {'pip': 'Pip', 'alder': 'Alder', 'bram': 'Bram', 'mira': 'Mira'};
 const _unitsAcross = 18.0; // the walking camera: 18 world units across the screen (2x the concept's)
 const _speed = 5.0; // world units a second
-const _frontBias = 0.4; // world units: what is this much nearer than a character's feet covers it
+const _frontBias = 1.0; // world units: what is this much nearer than a character's feet covers it (half a body)
 const _shadowLong = 2.0; // characters' shadows drawn this much longer than the sun makes them
 
 /// Open the walkable village (the preview).
@@ -294,6 +294,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   Offset? _cam; // picture px at the middle of the view
   Size _view = Size.zero;
   bool _talking = false;
+  (double, double, double)? _mark; // where you tapped (x, z) and when: a ring on the ground
 
   /// Loaded and drawn (the recorder waits for this).
   bool get ready => lay != null && _img != null && _pet != null;
@@ -447,6 +448,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     me.wait = -1;
     me.path = l.path(Offset(me.x, me.z), Offset(x, z));
     me.moving = me.path.isNotEmpty;
+    if (me.moving) _mark = (me.path.last.dx, me.path.last.dy, _t);
   }
 
   /// Walk up to a villager and talk.
@@ -608,6 +610,20 @@ class _WalkPainter extends CustomPainter {
     // the picture
     var si = 0;
     _scene(canvas, s._shaders.isEmpty ? null : s._shaders[si++], whole, view, -1);
+    // where you tapped: a ring on the ground that opens and fades
+    final mk = s._mark;
+    if (mk != null && s._t - mk.$3 < 0.7) {
+      final a = (s._t - mk.$3) / 0.7;
+      final c = scr(l.toImage(mk.$1, mk.$2));
+      final rw = (0.9 + 0.8 * a) * l.ppu * k;
+      for (final (grow, op) in const [(0.0, 0.9), (0.35, 0.45)]) {
+        canvas.drawOval(Rect.fromCenter(center: c, width: rw * 2 * (1 + grow), height: rw * 2 * (1 + grow) * l.sinP),
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 3
+              ..color = Color.fromRGBO(255, 250, 230, op * (1 - a)));
+      }
+    }
     // shadows, then the characters from the back, each covered by whatever stands in front of it
     final upk = l.ppu * k; // dp per world unit
     final items = <(double, void Function())>[];
@@ -648,7 +664,7 @@ class _WalkPainter extends CustomPainter {
     // a "!" over whoever has something for you; a name when you are close
     for (final n in s._npcs) {
       final head = scr(l.toImage(n.x, n.z)) - Offset(0, _npcH[n.id]! * upk * 1.0);
-      final near = math.sqrt(math.pow(s.me.x - n.x, 2) + math.pow(s.me.z - n.z, 2)) < 5.0;
+      final near = math.sqrt(math.pow(s.me.x - n.x, 2) + math.pow(s.me.z - n.z, 2)) < 6.5;
       final mark = marks['npc_${n.id}'];
       var y = head.dy - 8;
       if (near) {

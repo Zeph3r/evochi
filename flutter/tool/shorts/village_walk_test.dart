@@ -64,8 +64,12 @@ void main() {
     tester.view.devicePixelRatio = _dpr;
     addTearDown(tester.view.reset);
     AudioService.record = [];
+    // Chapter 1's first quest done, so Pip has the next one for you (his "!")
+    final st = mochi('amber');
+    st.story.questStates['vq01'] = QuestState.fromJson(
+        {'phase': 'completed', 'acceptedAt': 0, 'acceptedDay': '2026-10-20', 'resolvedSteps': 2000, 'completedAt': 1});
     final controller = GameController(repo: _NoSave())
-      ..state = mochi('amber')
+      ..state = st
       ..ready = true;
     final shot = GlobalKey();
     await tester.pumpWidget(ChangeNotifierProvider.value(
@@ -116,12 +120,12 @@ void main() {
 
     final s = VillageWalkScreen.current!;
     await hold(1.2);
-    // up the path, round the Waystone
-    s.walkTo(-2.6, -14.0);
+    // across the plaza, round behind the lamp post (it stands in front of you as you pass)
+    s.walkTo(-10.2, -10.8);
     for (var i = 0; i < 12 * _fps && s.me.moving; i++) {
       await grab();
     }
-    await hold(0.4);
+    await hold(0.6);
     // over the bridge to Pip, who has something for you: the conversation opens on arrival
     s.talkTo('pip');
     for (var i = 0; i < 14 * _fps && VillageWalkScreen.current != null && (s.me.moving || s.me.talkTo != null); i++) {

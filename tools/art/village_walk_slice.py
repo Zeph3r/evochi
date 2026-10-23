@@ -31,7 +31,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FLUTTER = os.path.join(HERE, '..', '..', 'flutter')
 CELL = 0.5
 AREA = (-20.0, 20.0, -40.0, 16.0)              # x0, x1, z0, z1 of the grid
-PET_R = 0.9                                    # how close your Evochi's middle comes to anything solid
+PET_R = 1.4                                    # how close your Evochi's middle comes to anything solid (its body is ~3 long)
 NPCS = {'pip': (-4.5, -31.0), 'alder': (4.6, -31.0)}
 SPAWN = (0.0, 8.0)
 
