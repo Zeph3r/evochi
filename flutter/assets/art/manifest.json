@@ -3999,7 +3999,21 @@
   "wild_spore": "sfx/wild_spore.mp3",
   "wild_calm": "sfx/wild_calm.mp3",
   "wild_roar": "sfx/wild_roar.mp3",
-  "wild_crash": "sfx/wild_crash.mp3"
+  "wild_crash": "sfx/wild_crash.mp3",
+  "mine_copper_chip": "sfx/mine_copper_chip.mp3",
+  "mine_copper_crack": "sfx/mine_copper_crack.mp3",
+  "mine_copper_break": "sfx/mine_copper_break.mp3",
+  "mine_iron_chip": "sfx/mine_iron_chip.mp3",
+  "mine_iron_crack": "sfx/mine_iron_crack.mp3",
+  "mine_iron_break": "sfx/mine_iron_break.mp3",
+  "mine_lumen_chip": "sfx/mine_lumen_chip.mp3",
+  "mine_lumen_crack": "sfx/mine_lumen_crack.mp3",
+  "mine_lumen_break": "sfx/mine_lumen_break.mp3",
+  "mine_obsidian_chip": "sfx/mine_obsidian_chip.mp3",
+  "mine_obsidian_crack": "sfx/mine_obsidian_crack.mp3",
+  "mine_obsidian_break": "sfx/mine_obsidian_break.mp3",
+  "mine_collect": "sfx/mine_collect.mp3",
+  "mine_clink": "sfx/mine_clink.mp3"
  },
  "thumbs": {
   "file": "chars/thumbs.webp",

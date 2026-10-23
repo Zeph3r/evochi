@@ -33,6 +33,21 @@ const _soundFeel = <String, Haptic>{
   'enc_surge': Haptic.surge,
   'enc_rumble': Haptic.rumble,
   'enc_awaken': Haptic.thump,
+  // mining: the feel lands with the sound, on the Pounce's contact (and plays with the sound off)
+  'mine_copper_chip': Haptic.mineLight,
+  'mine_copper_crack': Haptic.mineMedium,
+  'mine_copper_break': Haptic.mineHeavy,
+  'mine_iron_chip': Haptic.mineMedium,
+  'mine_iron_crack': Haptic.mineMedium,
+  'mine_iron_break': Haptic.mineHeavy,
+  'mine_lumen_chip': Haptic.mineChime,
+  'mine_lumen_crack': Haptic.mineChime,
+  'mine_lumen_break': Haptic.mineHeavy,
+  'mine_obsidian_chip': Haptic.mineSnap,
+  'mine_obsidian_crack': Haptic.mineSnap,
+  'mine_obsidian_break': Haptic.mineShatter,
+  'mine_collect': Haptic.mineCollect,
+  'mine_clink': Haptic.mineClink,
 };
 
 /// What a place sounds like: an optional ambient bed and a playlist.

@@ -40,6 +40,7 @@ FLUTTER = os.path.join(HERE, '..', '..', 'flutter')
 CELL = 0.5
 PET_R = 1.4                                    # how close your Evochi's middle comes to anything solid (its body is ~3 long)
 NPC_R = 1.4
+ORE_R = 1.2                                    # an ore node's footprint (it is ~2.6 across)
 TILE, PAD = 1024, 8
 
 
@@ -61,7 +62,7 @@ def _village():
         # walk into one and you leave: x, z, radius, and the map and arrival it leads to (none: the game decides)
         exits={'home': (0.0, 55.0, 4.0, None, None),
                'trail': (63.0, 4.6, 3.0, 'trail', 'village')},
-        fx='fx_village_walk.py', tiles='village/walk', art_npcs={})
+        fx='fx_village_walk.py', tiles='village/walk', art_npcs={}, ores=[])
 
 
 def _trail():
@@ -77,7 +78,10 @@ def _trail():
         exits={'village': (-1.4, on_path(-1.4), 2.2, 'village', 'trail'),
                'mine': (mx, mz + 2.0, 2.0, None, None),
                'thicket': (VT.GATE_X + 2.4, on_path(VT.GATE_X + 2.4), 2.4, None, None)},
-        fx='fx_trail.py', tiles='trail/walk', art_npcs={'flint': 'trail/flint.json'})
+        fx='fx_trail.py', tiles='trail/walk', art_npcs={'flint': 'trail/flint.json'},
+        # ore to Pounce: a copper vein at the edge of the Crossing's yard (Flint's first lesson), and a lone
+        # iron node by the mine, too hard without gear (MINES_PLAN.md: the too-hard answer)
+        ores=[('copper', 92.0, -9.5), ('copper', 89.4, -12.2), ('iron', 113.5, -17.5)])
 
 
 MAPS = {'village': _village, 'trail': _trail}
@@ -123,6 +127,8 @@ def walk_grid(vs, m):
         top = np.maximum(top, ty)
     for (nx, nz, _, nr) in m['npcs'].values():
         block |= (X - nx) ** 2 + (Z - nz) ** 2 < nr ** 2
+    for (_, ox, oz) in m['ores']:
+        block |= (X - ox) ** 2 + (Z - oz) ** 2 < ORE_R ** 2
     solid = block | wet | (top < -5)
     surface = np.clip(np.where(top < -5, 0.0, top + 0.5 / 2), 0.0, 2.0)
     dist = ndimage.distance_transform_edt(~solid) * CELL
@@ -240,6 +246,7 @@ def layout(key, m, walk, surface, w, h, width, cx, cz, tdir, tmeta, emit):
                  # the height you stand at, in quarter units ('0'-'8')
                  'height': [''.join(str(int(round(min(surface[i, j], 2.0) * 4))) for i in range(walk.shape[0])) for j in range(walk.shape[1])]},
         'npcs': npcs,
+        'ores': [{'kind': k, 'x': x, 'z': z} for (k, x, z) in m['ores']],
         'spawn': list(next(iter(m['arrive'].values()))),
         'arrive': {k: list(v) for k, v in m['arrive'].items()},
         'spots': {k: list(v) for k, v in m['spots'].items()},
@@ -251,7 +258,8 @@ def layout(key, m, walk, surface, w, h, width, cx, cz, tdir, tmeta, emit):
 def check(m, walk):
     """Every spot, way out and villager can be reached."""
     x0, _, z0, _ = m['area']
-    pts = [*m['spots'].items(), *[(k, v[:2]) for k, v in m['exits'].items()], *[(k, (v[0], v[1] + 2.3)) for k, v in m['npcs'].items()]]
+    pts = [*m['spots'].items(), *[(k, v[:2]) for k, v in m['exits'].items()], *[(k, (v[0], v[1] + 2.3)) for k, v in m['npcs'].items()],
+           *[(k, (x, z + 2.6)) for (k, x, z) in m['ores']]]
     ok = True
     for name, (sx, sz) in pts:
         i, j = int((sx - x0) / CELL), int((sz - z0) / CELL)

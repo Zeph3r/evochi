@@ -33,6 +33,15 @@ enum Haptic {
   error, // a short double buzz
   perfect, // a perfect bake or brew
   good, // a good one
+  // mining (MINES_PLAN.md): crisp contacts, never a long buzz; each ore known by its feel
+  mineLight, // copper's first hits
+  mineMedium, // a later hit; iron's every hit
+  mineHeavy, // the break
+  mineChime, // lumen: short and crisp with a faint trail
+  mineSnap, // obsidian: a short precise tap
+  mineShatter, // obsidian's break: a tap and a final snap
+  mineCollect, // ore into the satchel: a selection click
+  mineClink, // too hard: a light double knock
 }
 
 /// (wait, buzz, wait, buzz...) in ms with a strength 1-255 for each step (0 for the waits), and a
@@ -80,6 +89,14 @@ const _feels = <Haptic, _Feel>{
   Haptic.error: _Feel([0, 40, 60, 40], [0, 170, 0, 170], [(0, _Tap.medium), (100, _Tap.medium)]),
   Haptic.perfect: _Feel([0, 40, 50, 80], [0, 200, 0, 255], [(0, _Tap.medium), (90, _Tap.heavy)]),
   Haptic.good: _Feel([0, 30], [0, 150], [(0, _Tap.medium)]),
+  Haptic.mineLight: _Feel([0, 14], [0, 120], [(0, _Tap.light)]),
+  Haptic.mineMedium: _Feel([0, 24], [0, 185], [(0, _Tap.medium)]),
+  Haptic.mineHeavy: _Feel([0, 42, 24, 30], [0, 255, 0, 110], [(0, _Tap.heavy), (70, _Tap.light)]),
+  Haptic.mineChime: _Feel([0, 12, 26, 18, 26, 12], [0, 190, 0, 70, 0, 35], [(0, _Tap.light), (45, _Tap.selection)]),
+  Haptic.mineSnap: _Feel([0, 8], [0, 230], [(0, _Tap.selection)]),
+  Haptic.mineShatter: _Feel([0, 10, 50, 26], [0, 200, 0, 255], [(0, _Tap.light), (60, _Tap.heavy)]),
+  Haptic.mineCollect: _Feel([0, 8], [0, 90], [(0, _Tap.selection)]),
+  Haptic.mineClink: _Feel([0, 10, 60, 8], [0, 130, 0, 70], [(0, _Tap.light), (70, _Tap.selection)]),
 };
 
 class Haptics {

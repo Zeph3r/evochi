@@ -1,6 +1,7 @@
 // Records the Old Trail under the test clock, a tour: in from the village's east gate, along the ledge
 // past the lanterns, over the bridge by the waterfall (a look at the falls), on to the Crossing, up to
-// Flint, and a word with him. Frames at 30 fps, 412 x 892 dp at 2x. The clock holds while tiles of the
+// Flint, and a word with him; then the copper vein by the yard, three Pounces to burst a node, and the
+// iron by the mine, too hard without gear. Frames at 30 fps, 412 x 892 dp at 2x. The clock holds while tiles of the
 // picture load, so no frame shows one missing.
 //
 //   flutter test tool/shorts/trail_walk_test.dart
@@ -150,7 +151,36 @@ void main() {
     await tester.tap(find.text('Ask about the mines'));
     await hold(2.6);
     await tester.tap(find.text('Next'));
-    await hold(3.0);
+    await hold(2.6);
+    await tester.tap(find.text('Next'));
+    await hold(2.2);
+    await tester.tap(find.text('Next'));
+    await hold(0.6);
+    await tester.tap(find.text('Leave'));
+    await hold(0.8);
+    // the copper vein by the yard: walk up, then three Pounces (the last bursts it)
+    s.mineOre(s.ores.first);
+    for (var i = 0; i < 10 * _fps && s.me.moving; i++) {
+      await grab();
+    }
+    await hold(0.6);
+    for (var hit = 0; hit < 3; hit++) {
+      s.pounceDown();
+      s.pounceUp();
+      for (var i = 0; i < 2 * _fps && s.pounce.active; i++) {
+        await grab();
+      }
+      await hold(hit < 2 ? 0.5 : 2.2);
+    }
+    // the iron by the mine: too hard without gear
+    s.mineOre(s.ores.last);
+    for (var i = 0; i < 12 * _fps && s.me.moving; i++) {
+      await grab();
+    }
+    await hold(0.4);
+    s.pounceDown();
+    s.pounceUp();
+    await hold(2.4);
     VillageWalkScreenState.onExit = null;
     await tester.runAsync(() async {
       raw!.closeSync();

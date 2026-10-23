@@ -39,6 +39,7 @@ const _hello = <_Line>[
 const _topics = <String, List<_Line>>{
   'mines': [
     ('default', "It's a working mine, not a battlefield. I keep the corridors lit and shored. You'll find ore, old fossils, and the odd burrowing critter minding its own business."),
+    ('happy', "Want a feel for it first? There's a copper vein right by the yard. Walk up to it and Pounce. Your Evochi already knows the move."),
     ('thinking', "Lately, though... some of the lumen crystals hum when someone walks past. Like the Heartroot does. Old tunnels have shifted, and shafts I sealed years back are opening up again."),
     ('determined', "Stay to the lit corridors and you'll come home with a full satchel. The deep shafts can wait till you're ready for them."),
   ],

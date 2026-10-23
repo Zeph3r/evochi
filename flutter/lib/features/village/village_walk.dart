@@ -33,6 +33,7 @@ import '../shared/live_scene.dart';
 import '../shared/widgets.dart';
 import '../wilds/wilds_art.dart';
 import 'flint_talk.dart';
+import 'mining.dart';
 import 'story_widgets.dart';
 import 'village_screen.dart';
 
@@ -120,6 +121,9 @@ class WalkLayout {
         cols = ((j['grid'] as Map)['cols'] as num).toInt(),
         rows = ((j['grid'] as Map)['rows'] as num).toInt(),
         npcs = [for (final n in (j['npcs'] as List).cast<Map>()) WalkNpc(n)],
+        ores = [
+          for (final o in ((j['ores'] as List?) ?? const []).cast<Map>()) (o['kind'] as String, (o['x'] as num).toDouble(), (o['z'] as num).toDouble())
+        ],
         spawn = Offset(((j['spawn'] as List)[0] as num).toDouble(), ((j['spawn'] as List)[1] as num).toDouble()),
         arrive = {
           for (final e in ((j['arrive'] as Map?) ?? const {}).entries)
@@ -150,6 +154,7 @@ class WalkLayout {
   late final Uint8List walk;
   late final Uint8List height; // what you stand on, in quarter units (the bridge's deck is a unit up)
   final List<WalkNpc> npcs;
+  final List<(String, double, double)> ores; // ore nodes to Pounce: kind, x, z
   final Offset spawn; // a fresh visit starts here
   final Map<String, Offset> arrive; // where you arrive, by the way you came in
   final Map<String, Offset> spots;
@@ -395,6 +400,22 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
 
   bool _leaving = false;
 
+  // mining (mining.dart)
+  MiningArt? _mining;
+  final ores = <OreNode>[];
+  OreNode? _goingTo; // walking up to it
+  OreNode? target; // standing at it, ready to strike
+  final pounce = Pounce();
+  final _bits = <MineBit>[];
+  final satchel = <String, int>{}; // this trip's ore
+  double _bumpAt = -9;
+  final _satchelKey = GlobalKey();
+  final _mapKey = GlobalKey();
+  int _stage = 3;
+  double _power = 1; // hits a strike is worth (an Obsidian Evochi's edge)
+  static const _gearTier = 1; // no mining gear yet (Flint's shop): copper only
+  static const _regrow = 40.0; // seconds until a burst node is whole again (the preview's pace)
+
   /// Loaded, with the picture round you in (the recorder waits for this).
   bool get ready => lay != null && _pet != null && _cam != null && _viewTiles().every((t) => t.ready);
 
@@ -443,6 +464,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
             _npcH[n.id] ?? 4.0));
       }
     }
+    final mining = l.ores.isEmpty ? null : await MiningArt.load(l.ores.map((o) => o.$1));
     if (!mounted) return;
     final prog = r[2] as ui.FragmentProgram;
     setState(() {
@@ -451,6 +473,10 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       _pet = r[0] as WalkerArt;
       _npcs.addAll(npcs);
       _prog = prog;
+      _mining = mining;
+      ores.addAll([for (final (k, x, z) in l.ores) OreNode(k, x, z)]);
+      _stage = (pet?.stage ?? 3).clamp(1, 3);
+      _power = pet?.paletteId == 'obsidian' ? 1.34 : 1.0;
       final at = l.arrive[widget.arrive] ?? l.spawn;
       me
         ..x = at.dx
@@ -507,6 +533,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       if (!me.moving) _arrived();
     }
     me.y += (l.heightAt(me.x, me.z) - me.y) * math.min(1.0, dt * 14);
+    _mineTick(l, dt);
     _checkExits(l);
     if (me.wait > 0) {
       me.wait -= dt;
@@ -641,6 +668,14 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   }
 
   void _arrived() {
+    final ore = _goingTo;
+    if (ore != null) {
+      _goingTo = null;
+      target = ore;
+      me.dir = VillageWalker.dirOf(ore.x - me.x, ore.z - me.z);
+      setState(() {});
+      return;
+    }
     final id = me.talkTo;
     if (id == null) return;
     final n = _npcs.firstWhere((v) => v.id == id);
@@ -675,6 +710,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     final l = lay;
     if (l == null || _talking) return;
     _rearm();
+    _leaveOre();
     me.talkTo = null;
     me.wait = -1;
     me.path = l.path(Offset(me.x, me.z), Offset(x, z));
@@ -687,6 +723,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     final l = lay;
     if (l == null || _talking) return;
     _rearm();
+    _leaveOre();
     final n = _npcs.firstWhere((v) => v.id == id);
     // stand in front of them, a little to the side you come from
     final side = me.x >= n.x ? 1.0 : -1.0;
@@ -706,8 +743,157 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     for (final n in _npcs.reversed) {
       if (_npcRect(n).inflate(6).contains(p)) return talkTo(n.id);
     }
+    for (final o in ores) {
+      final r = _oreRect(o);
+      if (r != null && r.inflate(8).contains(p)) return mineOre(o);
+    }
     final g = l.toGround(p);
     walkTo(g.dx, g.dy);
+  }
+
+  // ------------------------------------------------------------------------------------ mining
+  /// Walk up to an ore node and face it (the Pounce button shows when you're there). Never strikes by itself.
+  void mineOre(OreNode o) {
+    final l = lay;
+    if (l == null || _talking) return;
+    if (target == o && !me.moving) return; // already there: the button is the way to strike
+    _rearm();
+    _leaveOre();
+    me.talkTo = null;
+    me.wait = -1;
+    // stand in front of it, on the side you come from (or the nearest side you can stand on)
+    final a = math.atan2(me.z - o.z, me.x - o.x);
+    Offset? at;
+    for (final da in const [0.0, 0.5, -0.5, 1.0, -1.0, 1.6, -1.6, 2.4, -2.4, 3.1]) {
+      final c = Offset(o.x + math.cos(a + da) * 2.6, o.z + math.sin(a + da) * 2.6);
+      if (l.walkable(c.dx, c.dy)) {
+        at = c;
+        break;
+      }
+    }
+    at ??= Offset(o.x, o.z + 2.6);
+    me.path = l.path(Offset(me.x, me.z), at);
+    me.moving = me.path.isNotEmpty;
+    _goingTo = o;
+    if (!me.moving) _arrived();
+  }
+
+  /// Off somewhere else: a strike that hasn't landed yet is called off (no loot without a contact).
+  void _leaveOre() {
+    _goingTo = null;
+    target = null;
+    if (pounce.active && !pounce.contacted) pounce.t = -1;
+    pounce
+      ..held = false
+      ..queued = false;
+  }
+
+  /// The Pounce button went down: strike now, or (mid-strike, past its contact) queue one more.
+  void pounceDown() {
+    final o = target;
+    pounce.held = true;
+    if (o == null || o.broken || me.moving) return;
+    if (!pounce.active) {
+      _strike(o);
+    } else if (pounce.contacted && !pounce.tooHard) {
+      pounce.queued = true;
+    }
+  }
+
+  void pounceUp() => pounce.held = false;
+
+  bool get pounceReady => target != null && !target!.broken && !me.moving && (!pounce.active || pounce.contacted);
+
+  void _strike(OreNode o) {
+    me.dir = VillageWalker.dirOf(o.x - me.x, o.z - me.z);
+    pounce
+      ..node = o
+      ..t = 0
+      ..contacted = false
+      ..tooHard = (oreTier[o.kind] ?? 1) > _gearTier;
+  }
+
+  void _mineTick(WalkLayout l, double dt) {
+    final p = pounce;
+    if (p.active) {
+      p.t += dt;
+      if (!p.contacted && p.t >= pounceContact) {
+        p.contacted = true;
+        _contact();
+      }
+      if (p.t >= pounceEnd) {
+        final o = p.node;
+        final again = o != null && o == target && !o.broken && !p.tooHard && (p.queued || p.held);
+        p.queued = false;
+        if (again) {
+          _strike(o);
+        } else {
+          p.t = -1;
+          p.contacted = false;
+        }
+      }
+    }
+    // the bits in the air; nuggets that reach the satchel go in it
+    stepBits(_bits, _t, dt, (x, z) => l.heightAt(x, z));
+    final done = _bits.where((b) => b.kind == 'nugget' && b.flyAt > 0 && _t - b.flyAt >= _flyTime).toList();
+    for (final b in done) {
+      _bits.remove(b);
+      satchel[b.ore!] = (satchel[b.ore!] ?? 0) + 1;
+      _bumpAt = _t;
+      context.read<GameController>().audio.play('mine_collect', volume: 0.5);
+    }
+    if (done.isNotEmpty) setState(() {});
+    for (final o in ores) {
+      if (o.broken && _t - o.brokeAt > _regrow) o.regrow();
+    }
+  }
+
+  static const _flyTime = 0.45;
+
+  /// The contact: everything the hit does, once.
+  void _contact() {
+    final o = pounce.node, art = _mining?.ores[pounce.node?.kind];
+    if (o == null || art == null) return;
+    final to = Offset(me.x - o.x, me.z - o.z);
+    final toward = to.distance > 0 ? to / to.distance : const Offset(0, 1);
+    o.hitAt = _t;
+    o.hitDir = me.x <= o.x ? 1 : -1; // shoved away from you
+    final reduced = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    final audio = context.read<GameController>().audio;
+    if (pounce.tooHard) {
+      o.noteAt = _t;
+      pounce.tiltAt = _t;
+      audio.play('mine_clink', volume: 0.6);
+      _bits.addAll(contactBits(o, _t, toward, broke: false, reduced: true).where((b) => b.kind == 'dust'));
+      return;
+    }
+    final first = o.damage == 0;
+    final broke = o.strike(_power, art.hits);
+    audio.play('mine_${o.kind}_${broke ? 'break' : first ? 'chip' : 'crack'}', volume: broke ? 0.8 : 0.6);
+    _bits.addAll(contactBits(o, _t, toward, broke: broke, reduced: reduced));
+    if (broke) {
+      o.brokeAt = _t;
+      _bits.addAll(nuggets(o, _t, toward, o.kind == 'copper' ? 3 : 2));
+      setState(() {});
+    }
+  }
+
+  /// An ore node's sprite, in picture px (null: no art).
+  Rect? _oreRect(OreNode o) {
+    final l = lay, art = _mining?.ores[o.kind];
+    if (l == null || art == null) return null;
+    final sp = art.states[o.state];
+    final s = art.unit * l.ppu;
+    final g = l.toImage(o.x, o.z, l.heightAt(o.x, o.z));
+    return Rect.fromLTWH(g.dx - sp.ground.dx * s, g.dy - sp.ground.dy * s, sp.img.width * s, sp.img.height * s);
+  }
+
+  /// The satchel's middle, in the map's own coordinates (where the nuggets fly to).
+  Offset? satchelPoint() {
+    final sb = _satchelKey.currentContext?.findRenderObject() as RenderBox?;
+    final mb = _mapKey.currentContext?.findRenderObject() as RenderBox?;
+    if (sb == null || mb == null || !sb.attached || !mb.attached) return null;
+    return mb.globalToLocal(sb.localToGlobal(sb.size.center(Offset.zero)));
   }
 
   /// A villager's sprite, in picture px.
@@ -746,11 +932,36 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
             }
             if (lay == null || _pet == null) return const Center(child: CircularProgressIndicator());
             if (_cam == null) _follow(1);
-            return GestureDetector(
+            final map = GestureDetector(
+              key: _mapKey,
               behavior: HitTestBehavior.opaque,
               onTapUp: (d) => _tap(d.localPosition),
               child: CustomPaint(size: size, painter: _WalkPainter(this, marks)),
             );
+            final mining = _mining;
+            if (mining == null) return map;
+            return Stack(children: [
+              map,
+              Positioned(
+                top: 10,
+                right: 10,
+                child: ValueListenableBuilder<double>(
+                  valueListenable: _frame,
+                  builder: (_, t, __) => satchel.values.any((v) => v > 0)
+                      ? SatchelChip(counts: satchel, bumpAt: _bumpAt, now: t, art: mining, anchor: _satchelKey)
+                      : SizedBox(key: _satchelKey, width: 40, height: 34),
+                ),
+              ),
+              if (target != null)
+                Positioned(
+                  right: 14,
+                  bottom: 14,
+                  child: ValueListenableBuilder<double>(
+                    valueListenable: _frame,
+                    builder: (_, __, ___) => PounceButton(ready: pounceReady, onDown: pounceDown, onUp: pounceUp),
+                  ),
+                ),
+            ]);
           }),
         ),
         _QuickTravel(items: widget.map == 'trail' ? _trailTravel : _villageTravel, onPick: _quick),
@@ -903,6 +1114,26 @@ class _WalkPainter extends CustomPainter {
         cover(scrR(r), n.z);
       }));
     }
+    final mining = s._mining;
+    for (final o in s.ores) {
+      final art = mining?.ores[o.kind];
+      if (art == null) continue;
+      items.add((o.z, () {
+        final r = s._oreRect(o)!;
+        final sp = art.states[o.state];
+        var dst = scrR(r);
+        // a hit shoves it 2-4 px and it settles; a regrown node pops back in
+        final h = s._t - o.hitAt;
+        if (h >= 0 && h < 0.24) dst = dst.shift(Offset(o.hitDir * 3.2 * math.sin(h / 0.24 * math.pi * 3) * (1 - h / 0.24), 0));
+        final g = scr(l.toImage(o.x, o.z, l.heightAt(o.x, o.z)));
+        canvas.drawOval(Rect.fromCenter(center: g + Offset(0, -upk * 0.1), width: upk * 2.6, height: upk * 0.8),
+            Paint()
+              ..color = const Color(0x3316241F)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+        canvas.drawImageRect(sp.img, Rect.fromLTWH(0, 0, sp.img.width.toDouble(), sp.img.height.toDouble()), dst, Paint()..filterQuality = FilterQuality.medium);
+        cover(dst, o.z);
+      }));
+    }
     items.add((s.me.z, () {
       cover(_pet(canvas, scr(l.toImage(s.me.x, s.me.z, s.me.y)), upk, l), s.me.z);
     }));
@@ -910,6 +1141,8 @@ class _WalkPainter extends CustomPainter {
     for (final (_, draw) in items) {
       draw();
     }
+    // the mining in the air: chips, dust, sparks, ore popping out and off to the satchel
+    if (mining != null) _paintBits(canvas, l, upk, scr, mining);
     // the air: glows, smoke, leaves, motes
     final fx = s._fx;
     if (fx != null) {
@@ -917,6 +1150,14 @@ class _WalkPainter extends CustomPainter {
       canvas.translate(whole.left, whole.top);
       canvas.scale(k, k);
       SceneFx.paintEmitters(canvas, fx, s._t);
+      canvas.restore();
+    }
+    for (final o in s.ores) {
+      final a = s._t - o.noteAt;
+      if (a < 0 || a > 1.8) continue;
+      final top = scr(l.toImage(o.x, o.z, 3.2)) - Offset(0, 10 + 8 * math.min(1.0, a / 0.2));
+      canvas.saveLayer(null, Paint()..color = Color.fromRGBO(0, 0, 0, a > 1.5 ? (1.8 - a) / 0.3 : 1));
+      _chip(canvas, top, 'Needs better gear');
       canvas.restore();
     }
     // a "!" over whoever has something for you; a name when you are close
@@ -966,12 +1207,28 @@ class _WalkPainter extends CustomPainter {
   }
 
   /// Your Evochi (and what it wears): its shade, the sun's shadow, the sprite. Returns where it drew.
-  Rect _pet(Canvas canvas, Offset g, double upk, WalkLayout l) {
+  Rect _pet(Canvas canvas, Offset feet, double upk, WalkLayout l) {
+    var g = feet; // (moves with a strike's lunge)
     final art = s._pet!;
     final me = s.me;
     final gait = art.gait(false);
-    final col = me.moving ? 1 + (me.phase * 8).floor() % 8 : 0;
+    var col = me.moving ? 1 + (me.phase * 8).floor() % 8 : 0;
     final kp = upk * _evochiH / _sheetH; // dp per sheet px
+    // a strike: the walk sheet posed in code (crouch, lunge, contact, recover)
+    var sx = 1.0, sy = 1.0, lean = 0.0;
+    final pn = s.pounce, node = pn.node;
+    if (pn.active && node != null) {
+      final (adv, px, py, ln, c) = pouncePose(pn.t, s._stage, hard: pn.tooHard);
+      final d = Offset(node.x - me.x, node.z - me.z);
+      final u = d.distance > 0 ? d / d.distance : Offset.zero;
+      g = (g - (l.toImage(me.x, me.z, me.y) - l.toImage(me.x + u.dx * adv, me.z + u.dy * adv, me.y)) * (upk / l.ppu));
+      sx = px;
+      sy = py;
+      lean = ln * (u.dx.abs() > 0.2 ? u.dx.sign : 0); // leaning into it, as the screen sees it
+      col = c;
+    }
+    final tilt = s._t - pn.tiltAt;
+    if (tilt >= 0 && tilt < 0.7) lean += 0.16 * math.sin(tilt / 0.7 * math.pi) * (me.dir <= 4 ? 1 : -1); // puzzled
     final src = Rect.fromLTWH(col * art.fw, me.dir * art.fh, art.fw, art.fh);
     // a soft pool of shade under the body
     canvas.drawOval(Rect.fromCenter(center: g + Offset(art.fw * kp * 0.02, -kp * 4), width: art.fw * kp * 0.62, height: art.fw * kp * 0.17),
@@ -982,8 +1239,8 @@ class _WalkPainter extends CustomPainter {
     final dst = Rect.fromLTWH(-art.gx * kp, -art.gy * kp, art.fw * kp, art.fh * kp);
     canvas.save();
     canvas.translate(g.dx, g.dy);
-    canvas.rotate(gait.roll[col] * math.pi / 180 * math.cos(me.dir * math.pi / 4));
-    canvas.scale(1, gait.squash[col]);
+    canvas.rotate(gait.roll[col] * math.pi / 180 * math.cos(me.dir * math.pi / 4) + lean);
+    canvas.scale(sx, gait.squash[col] * sy);
     final p = Paint()..filterQuality = FilterQuality.medium;
     canvas.drawImageRect(gait.img, src, dst, p);
     final lift = col < gait.lift.length ? gait.lift[col] : 0.0;
@@ -992,6 +1249,53 @@ class _WalkPainter extends CustomPainter {
     }
     canvas.restore();
     return dst.shift(g);
+  }
+
+  /// Chips, dust and sparks where they fly; nuggets popping out, then off to the satchel.
+  void _paintBits(Canvas canvas, WalkLayout l, double upk, Offset Function(Offset) scr, MiningArt art) {
+    final now = s._t;
+    final to = s.satchelPoint();
+    for (final b in s._bits) {
+      final age = now - b.born;
+      final p = scr(l.toImage(b.x, b.z, b.y));
+      switch (b.kind) {
+        case 'dust':
+          final a = (1 - age / b.life).clamp(0.0, 1.0);
+          canvas.drawCircle(p, upk * b.size * (0.5 + age / b.life), Paint()
+            ..color = b.color.withAlpha(((0.45 * a) * 255).round())
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
+        case 'spark':
+          final a = (1 - age / b.life).clamp(0.0, 1.0);
+          canvas.drawCircle(p, upk * b.size * (1 + a), Paint()..color = b.color.withAlpha(((a) * 255).round()));
+        case 'chip':
+          final a = age > b.life - 0.15 ? ((b.life - age) / 0.15).clamp(0.0, 1.0) : 1.0;
+          final sz = upk * b.size;
+          canvas.save();
+          canvas.translate(p.dx, p.dy);
+          canvas.rotate(age * 9 + b.size * 40);
+          canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: sz, height: sz), Paint()..color = b.color.withAlpha(((a) * 255).round()));
+          canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: sz, height: sz), Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1
+            ..color = const Color(0xFF3B2923).withAlpha(((0.7 * a) * 255).round()));
+          canvas.restore();
+        case 'nugget':
+          final n = art.ores[b.ore]?.nugget;
+          if (n == null) continue;
+          final unit = art.ores[b.ore]!.nuggetUnit;
+          var at = p;
+          var k = upk * unit;
+          if (now >= b.flyAt && to != null) {
+            b.from ??= p;
+            final e = ((now - b.flyAt) / VillageWalkScreenState._flyTime).clamp(0.0, 1.0);
+            final f = Curves.easeIn.transform(e);
+            at = Offset.lerp(b.from, to, f)! - Offset(0, 60 * math.sin(e * math.pi));
+            k *= 1 - 0.45 * f;
+          }
+          canvas.drawImageRect(n.img, Rect.fromLTWH(0, 0, n.img.width.toDouble(), n.img.height.toDouble()),
+              Rect.fromLTWH(at.dx - n.ground.dx * k, at.dy - n.ground.dy * k, n.img.width * k, n.img.height * k), Paint()..filterQuality = FilterQuality.medium);
+      }
+    }
   }
 
   /// The sun's shadow of a standing sprite: each point above the ground lands where the sun's ray
