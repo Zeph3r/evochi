@@ -59,7 +59,7 @@ RAIL_END = float(np.interp(MINE_X, [p[0] for p in PATH], [p[1] for p in PATH])) 
 CART_Z = (MINE_FZ + RAIL_END) / 2                                                       # the ore cart, halfway out
 MINE_POSTS = ((MINE_X - 3.4, RAIL_END - 1.4, -1.0), (MINE_X + 3.4, RAIL_END - 1.4, 1.0))  # lamp posts either side of the rails
 MINE_LAMPS = ((MINE_X - 5.25, 7.4, MINE_FZ + 0.8), (MINE_X + 5.25, 7.4, MINE_FZ + 0.8),  # on the portal, either side of the arch
-              (MINE_X, 4.8, MINE_FZ - 3.0))                                              # and one hanging just inside
+              (MINE_X, 4.4, MINE_FZ - 2.25))                                             # and one inside, on the first timber set
 TENT = (95.5, -21.0, -16.0, 4.6, 3.2)      # Flint's tent: centre x, back, front, ridge height, half-width at the ground
 TENT_LAMP = (TENT[0], TENT[3] - 1.3, TENT[2] + 0.55)
 CAMPFIRE = (95.5, -12.6)
@@ -232,6 +232,283 @@ def fence(P, M, pts, h=2.2):
 
 
 TREES = _trees()
+
+
+def _shade(hexc, f):
+    c = tuple(int(hexc[i:i + 2], 16) for i in (1, 3, 5))
+    return '#%02X%02X%02X' % tuple(max(0, min(255, round(v * f))) for v in c)
+
+
+RUNES5 = {   # Elder Futhark, 5 x 7: thurisaz, ehwaz, a word divider, mannaz, isa, naudiz
+    'th': ('10000', '11000', '10100', '10010', '10100', '11000', '10000'),
+    'e': ('10001', '11011', '10101', '10001', '10001', '10001', '10001'),
+    '.': ('0', '0', '0', '1', '0', '0', '0'),
+    'm': ('10001', '11011', '10101', '11011', '10001', '10001', '10001'),
+    'i': ('00100',) * 7,
+    'n': ('00100', '10100', '01100', '00100', '00110', '00101', '00100'),
+}
+
+
+def mine_portal(S):
+    """The mine's portal, finer than the rest of the trail (a quarter-unit voxel): dressed stone in
+    courses with sunken joints and quoins, a plinth, jamb stones and imposts, an arch of red voussoirs
+    under a keystone set with a lumen crystal, a recessed frieze of brass runes ("the mine"), a moulded
+    cornice on dentils, a stepped gable with the crossed hammer and pick on a round plaque, a coped
+    pediment; iron gates with spear tops swung back against the stone, lanterns on braced brackets,
+    timber sets inside the tunnel, rubble wing walls with end piers; and its age: moss on every ledge
+    and dripping from them, rain stains, cracks, ivy, grass and flowers at its foot, fallen stones, a
+    pick left against the wall and a bucket of copper."""
+    mx, fz = MINE_X, MINE_FZ
+    zb = fz - 1.5                                          # the portal's back
+    M = Model((mx - 13, -1, fz - 16), (mx + 13, 21, fz + WING_L + 1), [], res=4)
+    P = CPainter(M, 79)
+    rng = np.random.default_rng(81)
+    X, Y, Z = M.X, M.Y, M.Z
+    q = 0.25
+    dx = X - mx
+    adx = np.abs(dx)
+    R = rng.random(M.m.shape)
+    nx_, ny_, nz_ = M.m.shape
+    stone = np.zeros(M.m.shape, bool)                      # what is masonry (moss and stains go on it)
+
+    def put(mask, cols, cell=9, glow=None, is_stone=False):
+        P.fill(mask, cols, cell=cell, glow=glow)
+        if is_stone:
+            stone[mask] = True
+
+    def courses(y0, y1, half):
+        """Dressed stone in courses 0.75 high, blocks 1.5 long, every other course shifted; the joints
+        sunk a quarter onto dark mortar, a chip out of the odd block's corner."""
+        body = (adx < half) & (Y >= y0) & (Y < y1) & (Z >= zb) & (Z < fz)
+        c = np.floor(Y / 0.75)
+        sh = (c % 2) * 0.75
+        b = np.floor((X - sh) / 1.5)
+        joint = ((Y - c * 0.75) < q) | (((X - sh) % 1.5) < q)
+        front = body & (Z >= fz - q)
+        put(body & ~front, ['#7E776B', '#756E63'], is_stone=True)
+        h = (c.astype(np.int64) * 7919 + b.astype(np.int64) * 104729) % 97
+        chip = (h % 17 == 3) & (((X - sh) % 1.5) > 1.0) & ((Y - c * 0.75) > 0.5)
+        for k, col in enumerate(('#BDB6A6', '#C8C1B1', '#B0A99A', '#B8B09E', '#C3BBA8', '#A9A293')):
+            put(front & ~joint & ~chip & (h % 6 == k), [col, _shade(col, 0.95), _shade(col, 1.04)], cell=0.5, is_stone=True)
+        return c
+
+    def bitmap(rows, x0, ytop, z0, z1):
+        bm = np.array([[ch in '1X' for ch in row] for row in rows], bool)
+        ix = np.floor((X - x0) / q).astype(int)
+        iy = np.floor((ytop - Y) / q).astype(int)
+        ok = (ix >= 0) & (ix < bm.shape[1]) & (iy >= 0) & (iy < bm.shape[0]) & (Z >= z0) & (Z < z1)
+        out = np.zeros(M.m.shape, bool)
+        out[ok] = bm[iy[ok], ix[ok]]
+        return out
+
+    # ---- the wall: courses, the opening cut, a plinth, quoins at the corners, jambs and imposts
+    crs = courses(0.0, 12.0, MINE_W)
+    opening = (adx < ARCH_R) & (Y < ARCH_JAMB + np.sqrt(np.clip(ARCH_R ** 2 - dx ** 2, 0, None)))
+    M.m[opening & (Z >= zb)] = 0
+    longc = (crs % 2 == 0)
+    hjoint = (Y - crs * 0.75) < q
+    put((adx >= ARCH_R) & (adx < MINE_W + q) & (Y >= 0) & (Y < 1.0) & (Z >= zb) & (Z < fz + q) & ~((Y >= 0.75) & (Z >= fz)),
+        ['#9C9586', '#948D7E', '#A39C8C'], cell=0.5, is_stone=True)
+    put((adx >= np.where(longc, MINE_W - 1.25, MINE_W - 0.75)) & (adx < MINE_W) & (Y >= 1.0) & (Y < 12.0) & (Z >= fz - q) & (Z < fz + q) & ~hjoint,
+        ['#D2CBBB', '#CBC4B4'], cell=0.5, is_stone=True)
+    put((adx >= ARCH_R) & (adx < ARCH_R + np.where(longc, 1.25, 0.75)) & (Y >= 1.0) & (Y < ARCH_JAMB) & (Z >= fz - q) & (Z < fz + q) & ~hjoint,
+        ['#CFC8B8', '#C8C1B1'], cell=0.5, is_stone=True)
+    put((adx >= ARCH_R) & (adx < ARCH_R + q) & (Y >= 0) & (Y < ARCH_JAMB) & (Z >= zb) & (Z < fz), ['#B8B1A2'], is_stone=True)
+    put((adx >= ARCH_R) & (adx < ARCH_R + 1.0) & (Y >= ARCH_JAMB - q) & (Y < ARCH_JAMB + q) & (Z >= zb) & (Z < fz + 0.5),
+        ['#B3AC9D', '#ADA697'], is_stone=True)
+    # ---- the arch: thirteen voussoirs, sunken joints, a keystone standing proud with a lumen crystal set in it
+    ry = Y - ARCH_JAMB
+    rr = np.hypot(dx, ry)
+    n = 13
+    ang = np.arctan2(np.maximum(ry, 0), dx)
+    seg = np.clip(np.floor(ang / (np.pi / n)), 0, n - 1).astype(int)
+    vj = ((ang % (np.pi / n)) * rr) < q
+    ring = (rr >= ARCH_R) & (rr < 4.75) & (ry >= 0) & (Z >= zb) & (Z < fz + q)
+    ringf = ring & (Z >= fz - q)
+    put(ring & ~ringf, ['#6E5148'], is_stone=True)
+    M.m[ringf] = 0
+    for k, cols in enumerate((['#B97A66', '#C48670'], ['#A8685A', '#B5735F'], ['#D19A84', '#C98C76'])):
+        put(ringf & ~vj & (seg % 3 == k) & (seg != n // 2), cols, cell=0.5, is_stone=True)
+    keystone = (seg == n // 2) & (rr >= ARCH_R) & (rr < 5.0) & (ry >= 0) & (Z >= zb) & (Z < fz + 0.5) & ~(vj & (Z >= fz - q))
+    put(keystone, ['#D8CCB8', '#D2C6B0'], cell=0.5, is_stone=True)
+    P.fill((adx < 0.375) & (np.abs(Y - (ARCH_JAMB + 4.375)) < 0.375) & (Z >= fz + 0.5) & (Z < fz + 0.75), ['#9FF0DA', '#C8FFF0'], glow=0.8, cell=q)
+    # ---- the frieze: a sunken panel in a raised border, brass runes on it, lit on top and shaded below
+    fx0, fx1, fy0, fy1 = mx - 6.0, mx + 5.75, 9.0, 11.25
+    panel = (X >= fx0) & (X < fx1) & (Y >= fy0) & (Y < fy1)
+    inner = (X >= fx0 + q) & (X < fx1 - q) & (Y >= fy0 + q) & (Y < fy1 - q)
+    M.m[inner & (Z >= fz - q) & (Z < fz + q)] = 0
+    put(inner & (Z >= fz - 0.5) & (Z < fz - q), ['#9A9385', '#948D7F'], cell=0.5, is_stone=True)
+    put(panel & ~inner & (Z >= fz - q) & (Z < fz + q), ['#CFC8B8'], is_stone=True)
+    word = ('th', 'e', '.', 'm', 'i', 'n', 'e')
+    rows = [''.join(RUNES5[c][j] + ('00' if k < len(word) - 1 else '') for k, c in enumerate(word)) for j in range(7)]
+    rune = bitmap(rows, mx - 5.5, fy1 - q, fz - q, fz)
+    top = rune & ~np.roll(rune, -1, axis=1)
+    low = rune & ~np.roll(rune, 1, axis=1)
+    put(rune & ~top & ~low, ['#D9A441', '#D19C3A'], cell=q)
+    put(top, ['#F2C65E'])
+    put(low & ~top, ['#B07E28'])
+    # ---- the cornice: three steps of moulding on a row of dentils
+    for (y0, half, zf, col) in ((12.0, MINE_W + q, fz + q, '#ADA697'), (12.25, MINE_W + 0.5, fz + 0.5, '#B8B1A2'), (12.5, MINE_W + 0.75, fz + 0.75, '#C2BBAC')):
+        put((adx < half) & (Y >= y0) & (Y < y0 + q) & (Z >= zb - q) & (Z < zf), [col, _shade(col, 0.96)], cell=0.5, is_stone=True)
+    put((adx < MINE_W) & (Y >= 11.5) & (Y < 12.0) & (Z >= fz) & (Z < fz + q) & ((np.floor(dx / 0.5) % 2) == 0), ['#B3AC9D'], is_stone=True)
+    # ---- the gable: courses again, stepped shoulders, a cornice, a coped pediment and a finial
+    courses(12.75, 17.5, 3.75)
+    for (half, y0, y1) in ((4.75, 12.75, 13.5), (4.25, 13.5, 14.25)):
+        sh_ = (adx >= 3.75) & (adx < half) & (Y >= y0) & (Y < y1) & (Z >= zb) & (Z < fz)
+        put(sh_, ['#B6AE9C', '#BDB6A6'], cell=0.5, is_stone=True)
+        put(sh_ & (Y >= y1 - q), ['#C9C2B2'], is_stone=True)
+    put((adx < 4.0) & (Y >= 17.5) & (Y < 17.75) & (Z >= zb - q) & (Z < fz + q), ['#B8B1A2'], is_stone=True)
+    put((adx < 4.25) & (Y >= 17.75) & (Y < 18.0) & (Z >= zb - q) & (Z < fz + 0.5), ['#C2BBAC'], is_stone=True)
+    w_ = 3.75 * (1 - (Y - 18.0) / 1.75)
+    ped = (adx < w_) & (Y >= 18.0) & (Y < 19.75)
+    put(ped & (Z >= zb) & (Z < fz), ['#BDB6A6', '#B6AE9C'], cell=0.5, is_stone=True)
+    put(ped & (adx >= w_ - 0.4) & (Z >= zb - q) & (Z < fz + q), ['#CFC8B8', '#C9C2B2'], cell=0.5, is_stone=True)
+    put((adx < 0.375) & (Y >= 19.75) & (Y < 20.5) & (Z >= fz - 1.0) & (Z < fz), ['#CFC8B8'], is_stone=True)
+    # ---- the round plaque and the crossed hammer and pick, iron, lit along their tops
+    u, v = dx, Y - 15.0
+    d2 = u * u + v * v
+    put((d2 < 1.75 ** 2) & (Z >= fz - q) & (Z < fz + q), ['#D2CBBB', '#CDC6B6'], cell=0.5, is_stone=True)
+    put((d2 < 1.75 ** 2) & (d2 >= 1.5 ** 2) & (Z >= fz) & (Z < fz + 0.5), ['#9E9788'], is_stone=True)
+
+    def segd(ax, ay, bx, by):
+        px, py, ex, ey = u - ax, v - ay, bx - ax, by - ay
+        t = np.clip((px * ex + py * ey) / (ex * ex + ey * ey), 0, 1)
+        return np.hypot(px - t * ex, py - t * ey)
+    haft = (segd(1.15, -1.25, -0.75, 0.75) < 0.17) | (segd(-1.15, -1.25, 0.75, 0.75) < 0.17)
+    pick = (segd(-1.45, 0.1, -0.88, 0.92) < 0.2) | (segd(-0.88, 0.92, -0.05, 1.42) < 0.2)
+    ca, cb = (u - 0.82) * -0.73 + (v - 0.82) * 0.69, (u - 0.82) * 0.69 + (v - 0.82) * 0.73
+    hammer = (np.abs(ca) < 0.55) & (np.abs(cb) < 0.28)
+    E = (haft | pick | hammer) & (d2 < 1.5 ** 2) & (Z >= fz + q) & (Z < fz + 0.5)
+    lit = E & ~np.roll(E, -1, axis=1)
+    put(E & ~lit, ['#2F2E33', '#38373D'], cell=q)
+    put(lit, ['#5A5961'])
+    put(hammer & E & ~lit & (cb > 0.1), ['#46454C'])
+    # ---- the gates, swung back flat against the stone: bars, rails, spear tips, a brace, hinge straps; rust
+    for sgn in (-1, 1):
+        inner_x, outer_x = mx + sgn * ARCH_R, mx + sgn * 7.0
+        leaf = (X >= min(inner_x, outer_x)) & (X < max(inner_x, outer_x)) & (Z >= fz) & (Z < fz + q) & (Y >= 0)
+        ci = np.floor(np.abs(X - inner_x) / q).astype(int)
+        last = int(round(abs(outer_x - inner_x) / q)) - 1
+        bar = leaf & (ci % 2 == 1) & (Y < 6.25)
+        tips = leaf & (((ci % 4 == 1) & (Y >= 6.25) & (Y < 6.75)) | ((ci % 4 != 3) & (Y >= 6.25) & (Y < 6.5)))
+        rails_ = leaf & (((Y >= 0.5) & (Y < 0.75)) | ((Y >= 3.25) & (Y < 3.5)) | ((Y >= 6.0) & (Y < 6.25)))
+        stiles = leaf & ((ci == 0) | (ci == last)) & (Y < 6.25)
+        t = (Y - 0.75) / 5.25
+        brace = leaf & (np.abs(X - (outer_x + (inner_x - outer_x) * t)) < 0.16) & (Y >= 0.75) & (Y < 6.0)
+        straps = leaf & (ci <= 5) & (((Y >= 1.0) & (Y < 1.25)) | ((Y >= 5.25) & (Y < 5.5)))
+        iron = bar | tips | rails_ | stiles | brace | straps
+        put(iron & (R >= 0.1), ['#3A3638', '#2E2B2D'], cell=q)
+        put(iron & (R < 0.1), ['#6B4A3A', '#7A5040'], cell=q)
+    # ---- lanterns on braced brackets either side of the arch; timber sets in the tunnel, one with a lantern
+    for (lx, ly, lz) in MINE_LAMPS:
+        if lz <= fz:
+            continue
+        on = (X >= lx - q) & (X < lx + q)
+        put(on & (Y >= ly + 0.25) & (Y < ly + 2.0) & (Z >= fz) & (Z < fz + q) & (np.abs(X - lx) < 0.4), ['#3A3638'])
+        put(on & (Y >= ly + 1.5) & (Y < ly + 1.75) & (Z >= fz) & (Z < lz + q), ['#2E2B2D'])
+        tt = (Z - fz) / (lz - fz)
+        put(on & (np.abs(Y - (ly + 0.5 + tt)) < 0.15) & (Z >= fz) & (Z < lz), ['#2E2B2D'])
+        lantern(S, P, M, (lx, ly, lz), s=0.6, lit=True, power=11.0, hang_to=ly + 1.5)
+    tun = (Z < zb) & (Z >= fz - 15.0)
+    lining = tun & (((adx >= ARCH_R) & (adx < ARCH_R + 0.5) & (Y >= 0) & (Y < ARCH_JAMB)) | ((rr >= ARCH_R) & (rr < ARCH_R + 0.5) & (ry >= 0)))
+    put(lining, ['#6E675D', '#625B52', '#776F64', '#5A544B'], cell=(0.5, 0.5, 0.75))
+    put(opening & (Z >= fz - 15.0) & (Z < fz - 14.75) & (Y >= 0), ['#2B1F1A'])
+    for tz in (fz - 2.25, fz - 5.25, fz - 8.25):
+        fr = (Z >= tz - q) & (Z < tz + q)
+        put(fr & (adx >= 2.75) & (adx < 3.25) & (Y >= 0) & (Y < 5.75), ['#7A4E2E', '#6E4529'], cell=(9, 0.5, 9))
+        put(fr & opening & (Y >= 5.75) & (Y < 6.25), ['#7A4E2E', '#6E4529'], cell=(0.5, 9, 9))
+    lx, ly, lz = MINE_LAMPS[2]
+    lantern(S, P, M, (lx, ly, lz), s=0.6, lit=True, power=11.0, hang_to=5.75)
+    S.lights.append({'type': 'point', 'pos': (mx, 2.5, fz - 7.0), 'power': 4.0, 'color': 2200, 'radius': 0.3})
+    # ---- the wing walls: rubble in uneven courses, dark joints, coping stones, a pier at each end
+    cww = MINE_W + (Z - fz) * WING_FLARE
+    cwh = WING_H0 - (Z - fz) / WING_L * (WING_H0 - WING_H1)
+    inw = (Z >= fz) & (Z < fz + WING_L)
+    wing = inw & (adx >= cww) & (adx < cww + 1.2) & (Y >= 0) & (Y < cwh - 0.5)
+    c2 = np.floor(Y / 0.75)
+    L2 = 0.9 + 0.35 * ((c2.astype(np.int64) * 5) % 3)
+    s2 = Z + c2 * 0.37 + adx * 0.6
+    b2 = np.floor(s2 / L2)
+    j2 = ((Y - c2 * 0.75) < q) | ((s2 % L2) < q)
+    h2 = (c2.astype(np.int64) * 7919 + b2.astype(np.int64) * 104729) % 5
+    for k, col in enumerate(('#8E877A', '#9A9385', '#7F786C', '#A39C8E', '#878074')):
+        put(wing & ~j2 & (h2 == k), [col, _shade(col, 0.94)], cell=0.5, is_stone=True)
+    put(wing & j2, ['#5F594F'], is_stone=True)
+    put(inw & (adx >= cww - q) & (adx < cww + 1.2 + q) & (Y >= cwh - 0.5) & (Y < cwh), ['#B5AE9F', '#A8A192', '#BCB5A6'], cell=0.5, is_stone=True)
+    pier = (Z >= fz + WING_L - 0.75) & (Z < fz + WING_L) & (adx >= cww - q) & (adx < cww + 1.45) & (Y >= 0) & (Y < WING_H1 + 0.75)
+    put(pier, ['#A39C8E', '#9A9385'], cell=0.5, is_stone=True)
+    put(pier & (Y >= WING_H1 + 0.5), ['#C2BBAC'], is_stone=True)
+    # ---- age: cracks sunk into the face, rain stains under the cornice, moss on every ledge and dripping, ivy
+    crack2 = np.zeros((nx_, ny_), bool)
+    for _ in range(11):
+        x, y = rng.uniform(mx - 7.0, mx + 7.0), rng.uniform(2.0, 11.0)
+        for _ in range(int(rng.integers(8, 24))):
+            i, j = int(x * 4) - M.lo[0], int(y * 4) - M.lo[1]
+            if 0 <= i < nx_ and 0 <= j < ny_:
+                crack2[i, j] = True
+            y -= q
+            x += float(rng.choice([-q, 0, 0, q]))
+    M.m[crack2[:, :, None] & stone & (Z >= fz - q) & (Z < fz + q) & ~opening] = 0
+    stain2 = np.zeros((nx_, ny_), bool)
+    for _ in range(12):
+        x, ln = rng.uniform(mx - 7.25, mx + 7.25), rng.uniform(1.5, 4.5)
+        i = int(x * 4) - M.lo[0]
+        j1, j0 = int(11.75 * 4) - M.lo[1], int((11.75 - ln) * 4) - M.lo[1]
+        if 0 <= i < nx_:
+            stain2[i, max(0, j0):j1] = True
+    stained = stain2[:, :, None] & stone & (M.m > 0) & (Z >= fz - q) & (Z < fz + q) & (R < 0.8)
+    put(stained, ['#9A9384', '#928B7C'], cell=q)
+    filled = M.m > 0
+    above = np.roll(filled, -1, axis=1)
+    ledge = stone & filled & ~above & ~np.roll(above, 1, axis=2)       # real ledges, not the tops of sunken joints
+    noise = np.sin(X * 2.3 + Z * 1.7) + np.cos(X * 1.1 - Y * 0.9) + R * 0.8
+    moss = ledge & (noise > 0.85)
+    moss |= stone & filled & (Y < 1.0) & (R < 0.2 + (1.0 - Y) * 0.3)
+    for _ in range(1):
+        moss |= stone & filled & np.roll(moss, -1, axis=1) & (R < 0.45) & (Z >= fz - q)
+    put(moss, ['#6F9A45', '#5E8A3C', '#7FAE52', '#4F7A36'], cell=q)
+    ivy2 = np.zeros((nx_, ny_), bool)
+    for _ in range(9):
+        x, y = mx + float(rng.choice([-1, 1])) * rng.uniform(6.2, 7.6), 12.0
+        for _ in range(int(rng.integers(4, 18))):
+            y -= q
+            if rng.random() < 0.3:
+                x += float(rng.choice([-q, q]))
+            i, j = int(x * 4) - M.lo[0], int(y * 4) - M.lo[1]
+            if 0 <= i < nx_ and 0 <= j < ny_:
+                ivy2[i, j] = True
+                for di in (-1, 1):
+                    if rng.random() < 0.45 and 0 <= i + di < nx_:
+                        ivy2[i + di, j] = True
+    ivy = ivy2[:, :, None] & (Z >= fz) & (Z < fz + q) & (M.m == 0)
+    put(ivy & (R >= 0.08), ['#4F8A3C', '#5E9646', '#6FA552'], cell=q)
+    put(ivy & (R < 0.08), ['#B8482A', '#D3742A'], cell=q)
+    # ---- at its foot: grass and a few flowers, fallen stones, a pick left against the wall, a bucket of copper
+    col2 = rng.random((nx_, 1, nz_))
+    near = (((Z >= fz) & (Z < fz + 1.25) & (adx >= ARCH_R + 0.5) & (adx < MINE_W + 0.5)) |
+            (inw & (adx >= cww - 1.0) & (adx < cww)))
+    tuft = near & (col2 < 0.42) & (Y >= 0) & (Y < 0.25 + 1.0 * col2 / 0.42) & (M.m == 0)
+    put(tuft, ['#6FA552', '#7FB35F', '#5E9646', '#8DBD6C'], cell=q)
+    put(tuft & (col2 < 0.03) & (Y >= 0.25 + 1.0 * col2 / 0.42 - q), ['#FFFDF6', '#F4C04E'], cell=q)
+    for (sx_, sz_, r) in ((mx - 7.9, fz + 2.6, 0.375), (mx + 8.5, fz + 3.4, 0.5), (mx - 9.1, fz + 4.8, 0.375), (mx + 6.1, fz + 1.4, 0.25)):
+        put((np.abs(X - sx_) < r) & (np.abs(Z - sz_) < r) & (Y >= 0) & (Y < 1.5 * r), ['#8E877A', '#9A9385', '#A39C8E'], cell=q, is_stone=True)
+
+    def seg3(a, b, w, z0, z1):
+        ax, ay = a
+        bx, by = b
+        ex, ey = bx - ax, by - ay
+        t = np.clip(((X - ax) * ex + (Y - ay) * ey) / (ex * ex + ey * ey), 0, 1)
+        return (np.hypot(X - ax - t * ex, Y - ay - t * ey) < w) & (Z >= z0) & (Z < z1)
+    pz = fz + 3.5
+    px_ = mx - (MINE_W + 3.5 * WING_FLARE) + 0.6
+    put(seg3((px_ + 0.3, 0.0), (px_ - 0.2, 2.5), 0.14, pz, pz + q), ['#A8703F', '#9A6438'])
+    put(seg3((px_ - 0.75, 2.2), (px_ + 0.45, 2.75), 0.16, pz, pz + q), ['#9EA4AE', '#8E949E'])
+    bx_, bz_ = mx + 5.0, fz + 1.3
+    bucket = ((X - bx_) ** 2 + (Z - bz_) ** 2 < 0.45 ** 2) & (Y >= 0) & (Y < 0.75)
+    put(bucket, ['#A8703F', '#8E5A33'], cell=(q, 9, q))
+    put(bucket & (((Y >= 0.125) & (Y < 0.25)) | ((Y >= 0.5) & (Y < 0.625))), ['#3A3638'])
+    put(((X - bx_) ** 2 + (Z - bz_) ** 2 < 0.3 ** 2) & (Y >= 0.75) & (Y < 1.0) & (R < 0.8), ['#D9844A', '#B8622E', '#F0A56A'], cell=q)
+    return M
 
 
 def scene_trail(state='day_dim'):
@@ -415,119 +692,14 @@ def scene_trail(state='day_dim'):
     camp2 = ((X2 - 95.0) ** 2 / 81 + (Z2 + 15.5) ** 2 / 25 < 1.0) & led
     P.fill(camp2[:, None, :] & (Y >= -1) & (Y < 0), DIRT, cell=(1.5, 1, 1.5))
 
-    # the portal: dressed stone in courses, an arch of red voussoirs, a gable with the crossed hammer and
-    # pick, a line of brass runes ("the mine") between them
+    # the portal itself is its own finer model (mine_portal); the hill's bushes round it are here
     CX, CY, CZ = C.X, C.Y, C.Z
-    cdx = np.abs(CX - mx)
-    opening = (cdx < ARCH_R) & (CY < ARCH_JAMB + np.sqrt(np.clip(ARCH_R ** 2 - cdx ** 2, 0, None)))
-    wallf = (cdx < MINE_W) & (CY >= 0) & (CY < 12.0) & (CZ >= fz - 1.5) & (CZ < fz)
-    gablef = (cdx < 3.5) & (CY >= 12.5) & (CY < 17.5) & (CZ >= fz - 1.5) & (CZ < fz)
-    face = (wallf | gablef) & ~opening
-    course = np.floor(CY / 1.5)
-    shift = (course % 2) * 1.25
-    blk = np.floor((CX - shift) / 2.5)
-    joint = ((CY % 1.5) < 0.5) | (((CX - shift) % 2.5) < 0.5)
-    tint = ((course * 7 + blk * 13) % 4).astype(int)
-    for k, col in enumerate(('#BCB5A5', '#C7C0B0', '#ADA698', '#B6AE9C')):
-        PC.fill(face & ~joint & (tint == k), [col], cell=9)
-    PC.fill(face & joint, ['#8C8578'], cell=9)
-    PC.fill(face & (cdx >= ARCH_R) & (cdx < ARCH_R + 1.0) & (CY < ARCH_JAMB), ['#C9C2B2', '#D0C9B9'], cell=9)   # the jambs
-    for (y0, half) in ((12.0, MINE_W + 0.5), (17.5, 4.0)):                                                     # cornices
-        PC.fill(box(C, (mx - half, y0, fz - 2.0), (mx + half, y0 + 0.5, fz + 0.5)), ['#A8A192', '#B3AC9D'], cell=9)
-    for (y0, half) in ((18.0, 2.5), (18.5, 1.5), (19.0, 0.5)):                                                 # the pediment
-        PC.fill(box(C, (mx - half, y0, fz - 1.5), (mx + half, y0 + 0.5, fz)), ['#BCB5A5', '#ADA698'], cell=9)
-    ry = CY - ARCH_JAMB
-    rr = np.hypot(CX - mx, ry)
-    ring = (rr >= ARCH_R) & (rr < ARCH_R + 1.25) & (ry >= 0) & (CZ >= fz - 1.5) & (CZ < fz + 0.5)
-    seg_ = np.floor(np.arctan2(np.maximum(ry, 0), CX - mx) / (np.pi / 11)).astype(int)
-    PC.fill(ring & (seg_ % 2 == 0), ['#B97A66', '#C48670'], cell=9)
-    PC.fill(ring & (seg_ % 2 == 1), ['#A8685A', '#D19A84'], cell=9)
-    PC.fill(ring & (seg_ == 5), ['#D8B49A'], cell=9)                                                            # the keystone
-    # the tunnel's lining, and the dark far in, warm
-    tun = (CZ < fz - 1.5) & (CZ >= fz - 15.0)
-    lining = tun & (((cdx >= ARCH_R) & (cdx < ARCH_R + 0.5) & (CY >= 0) & (CY < ARCH_JAMB)) | ((rr >= ARCH_R) & (rr < ARCH_R + 0.5) & (ry >= 0)))
-    PC.fill(lining, ['#6E675D', '#625B52', '#776F64'], cell=(1.0, 1.0, 2.0))
-    PC.fill(opening & (CZ >= fz - 15.0) & (CZ < fz - 14.5) & (CY >= 0), ['#2B1F1A'], cell=9)
-    v = 0.5                                                                                                     # a voxel
-    RUNES = {'th': ('100', '110', '101', '110', '100'), 'e': ('101', '111', '101', '101', '101'), '.': ('0', '0', '1', '0', '0'),
-             'm': ('101', '111', '111', '101', '101'), 'i': ('010',) * 5, 'n': ('010', '011', '110', '010', '010')}
-    word = ('th', 'e', '.', 'm', 'i', 'n', 'e')
-    wv = sum(len(RUNES[c][0]) for c in word) + len(word) - 1
-    x0r, col = mx - math.floor(wv / 2) * v, 0
-    for c in word:
-        for j, row in enumerate(RUNES[c]):
-            for i, b in enumerate(row):
-                if b == '1':
-                    xa, ya = x0r + (col + i) * v, 11.0 - j * v
-                    PC.fill(box(C, (xa, ya, fz), (xa + v, ya + v, fz + v)), ['#D9A441', '#C8922F'], cell=9)
-        col += len(RUNES[c][0]) + 1
-    EMB = ('....X....', '...X.XX..', '..X...XX.', '.X.X.X.XX', 'X...X....', '...X.X...', '..X...X..', '.X.....X.')
-    for j, row in enumerate(EMB):
-        for i, b in enumerate(row):
-            if b == 'X':
-                xa, ya = mx - 2.5 + i * v, 16.5 - j * v
-                PC.fill(box(C, (xa, ya, fz), (xa + v, ya + v, fz + v)), ['#3A3A42', '#46464F'], cell=9)
-    # iron gates, swung open flat against the stone either side of the arch
-    for sgn in (-1, 1):
-        gx0, gx1 = (mx - 7.0, mx - ARCH_R) if sgn < 0 else (mx + ARCH_R, mx + 7.0)
-        leaf = (CX >= gx0) & (CX < gx1) & (CZ >= fz) & (CZ < fz + 0.5) & (CY >= 0)
-        colm = np.floor((CX - gx0) / 0.5)
-        bars = leaf & ((colm % 2) == 0) & (CY < 6.5 + 0.5 * ((colm % 4) == 0))
-        rails_ = leaf & (((CY >= 0.5) & (CY < 1.0)) | ((CY >= 3.5) & (CY < 4.0)) | ((CY >= 6.0) & (CY < 6.5)))
-        PC.fill(bars | rails_, ['#33333A', '#3E3E46'], cell=9)
-    # lanterns on brackets either side of the arch, one hanging inside, and a warm light deeper in
-    for (lx, ly, lz) in MINE_LAMPS:
-        if lz > fz:
-            PC.fill(box(C, (lx - 0.25, ly + 1.4, fz), (lx + 0.25, ly + 1.9, lz + 0.25)), IRON, cell=9)
-            lantern(S, PC, C, (lx, ly, lz), s=0.6, lit=True, power=11.0, hang_to=ly + 1.4)
-        else:
-            lantern(S, PC, C, (lx, ly, lz), s=0.6, lit=True, power=11.0, hang_to=ARCH_JAMB + ARCH_R)
-    S.lights.append({'type': 'point', 'pos': (mx, 2.5, fz - 7.0), 'power': 4.0, 'color': 2200, 'radius': 0.3})
-    # wing walls of rough stone, stepping down as they flare out toward you, moss on their caps
-    cww = MINE_W + (CZ - fz) * WING_FLARE
-    cwh = WING_H0 - (CZ - fz) / WING_L * (WING_H0 - WING_H1)
-    wing = (CZ >= fz) & (CZ < fz + WING_L) & (cdx >= cww) & (cdx < cww + 1.2) & (CY >= 0) & (CY < cwh)
-    PC.fill(wing, ['#8E877A', '#9A9385', '#7F786C', '#A39C8E', '#878074'], cell=(1.0, 0.5, 1.0))
-    cap = wing & (CY >= cwh - 0.5)
-    PC.fill(cap, ['#B5AE9F', '#A8A192'], cell=9)
-    PC.fill(cap & (rngc.random(C.m.shape) < 0.45), ['#6FA552', '#5E9646', '#7FAE52'], cell=0.5)
-    # age: moss creeping over the stone, cracks running down it, ivy hanging from the cornice, grass at its foot
-    front = face & (CZ >= fz - 0.5)
-    mossy = (np.sin(CX * 0.9 + CY * 0.5) * np.cos(CY * 1.3 - CX * 0.4) > 0.5) & ((CY < 2.5) | (CY > 10.5) | (cdx > 6.0))
-    PC.fill(front & mossy & (rngc.random(C.m.shape) < 0.6), ['#6F8F4A', '#7A9A50', '#5E8A3C'], cell=0.5)
-    PC.fill(wing & ((CY < 1.5) | (rngc.random(C.m.shape) < 0.08)) & (rngc.random(C.m.shape) < 0.5), ['#6F8F4A', '#5E8A3C'], cell=0.5)
-    for _ in range(7):
-        cx_, cy_ = rngc.uniform(mx - 7.0, mx + 7.0), rngc.uniform(3.0, 11.5)
-        for _ in range(int(rngc.integers(6, 13))):
-            C.set(box(C, (cx_, cy_, fz - 0.5), (cx_ + 0.5, cy_ + 0.5, fz)) & face, '#5A544B')
-            cy_ -= 0.5
-            cx_ += float(rngc.choice([-0.5, 0.0, 0.5]))
-    for _ in range(16):
-        ix, iy = mx + float(rngc.choice([-1, 1])) * rngc.uniform(5.9, 7.4), 12.0
-        for _ in range(int(rngc.integers(4, 13))):
-            iy -= 0.5
-            ix += float(rngc.choice([-0.5, 0, 0, 0.5]))
-            PC.fill(box(C, (ix, iy, fz), (ix + 0.5, iy + 0.5, fz + 0.5)) & (C.m == 0), ['#4F8A3C', '#5E9646', '#6FA552'], cell=0.5)
-    for _ in range(10):                                   # ivy over the wing walls' caps
-        z_ = rngc.uniform(fz, fz + WING_L - 0.5)
-        sgn = float(rngc.choice([-1, 1]))
-        ix = mx + sgn * (MINE_W + (z_ - fz) * WING_FLARE)
-        iy = WING_H0 - (z_ - fz) / WING_L * (WING_H0 - WING_H1)
-        for _ in range(int(rngc.integers(2, 7))):
-            iy -= 0.5
-            PC.fill(box(C, (ix - 0.5 * (sgn > 0), iy, z_), (ix + 0.5 * (sgn < 0), iy + 0.5, z_ + 0.5)) & (C.m == 0),
-                    ['#4F8A3C', '#5E9646'], cell=0.5)
-    near = (((CZ >= fz) & (CZ < fz + 1.0) & (cdx >= ARCH_R + 0.6) & (cdx < MINE_W)) |
-            ((CZ >= fz) & (CZ < fz + WING_L) & (cdx >= cww - 0.8) & (cdx < cww)))
-    PC.fill(near & (CY >= 0) & (CY < 0.5 + 0.5 * (rngc.random(C.m.shape) < 0.4)) & (C.m == 0) & (rngc.random(C.m.shape) < 0.4),
-            ['#6FA552', '#7FB35F', '#5E9646'], cell=0.5)
+    MP = mine_portal(S)
     for (bx_, bz_, r) in ((mx - 9.6, fz + 0.9, 1.2), (mx + 9.7, fz + 1.3, 1.3), (mx - 11.8, fz + 4.2, 1.0), (mx + 12.0, fz + 3.9, 1.1),
                           (mx - 6.0, fz - 3.0, 1.4), (mx + 6.4, fz - 3.4, 1.3), (mx - 2.6, fz - 4.6, 1.1)):
         by = float(hh[int((bx_ - X0) * RES), int((bz_ - Z0) * RES)])
         PC.fill(ball(C, (bx_, by + r * 0.4, bz_), r, 0.75) & (CY >= by - 0.5) & (C.m == 0),
                 ['#5E9646', '#6FA552', '#4F8A3C', '#7FB35F'] if bz_ > fz else AUTUMN[1], cell=0.5)
-    for (sx_, sz_, r) in ((mx - 7.8, fz + 2.6, 0.5), (mx + 8.4, fz + 3.4, 0.75), (mx - 9.0, fz + 4.8, 0.5)):    # stones fallen from the walls
-        PC.fill(box(C, (sx_ - r, 0, sz_ - r), (sx_ + r, 2 * r, sz_ + r)), ['#8E877A', '#9A9385'], cell=9)
     # rails out of the tunnel to the path, a cart of ore halfway
     rail_z0, rail_z1 = fz - 13.0, RAIL_END
     for rx_ in (mx - 1.1, mx + 1.1):
@@ -622,7 +794,8 @@ def scene_trail(state='day_dim'):
     leaf = gb & ((C.Z - gz + 0.3) ** 2 / 0.8 + (C.Y - 6.9) ** 2 / 1.3 < 1.0)
     C.set(leaf, '#F2D35B')
     S.models.append((C, (), {'water': WATER}))
-    VW.give_way([G, T, D, C])
+    S.models.append((MP, ()))
+    VW.give_way([G, T, D, C, MP])
     S.grade = {'bloom': 0.12, 'vignette': 0.06}
     return S
 
@@ -633,6 +806,7 @@ VW.VIEWS['trail'] = ((63.0, -10.45), 130.0, (5954, 2748))
 VW.VIEWS['trail_falls'] = ((44.0, 0.0), 24.0, (824, 1100))
 # a close look at the Crossing: Flint's camp and the mine's portal (for checking)
 VW.VIEWS['trail_mine'] = ((106.0, -16.0), 44.0, (2016, 1600))
+VW.VIEWS['trail_portal'] = ((MINE_X, -26.4), 24.0, (1099, 1000))   # the portal at the game's own sharpness
 
 if __name__ == '__main__':
     import village_scenes as VSC

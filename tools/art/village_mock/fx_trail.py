@@ -36,7 +36,7 @@ def zones(view):
     fx = [('grass', [0, 0, w, h], 'green'),
           ('still', [0, 0, w, h], 'water')]
     mx, fz = T.MINE_X, T.MINE_FZ
-    fx.append(('none', _rect(at, mx - 8.0, mx + 8.0, 0, 19.5, fz - 1.5, fz + 0.6)))     # the portal's stone keeps still
+    fx.append(('none', _rect(at, mx - 8.25, mx + 8.25, 0, 20.5, fz - 1.5, fz + 0.75)))     # the portal's stone keeps still
     for (kind, x, z, y, th, r, _) in T.TREES:
         if kind == 'pine':
             cx, cy = at(x, z, y + th * 0.55)
