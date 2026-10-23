@@ -461,6 +461,44 @@ VIEWS = {   # centre (x, z) and width in world units; the image height follows f
 DEPTH_RANGE = (-70.0, 30.0)   # world z the depth pass spans (0 -> 65535)
 
 
+def _render_bands(sc, out_path, bands, overlap=48):
+    """A big picture in horizontal bands (Blender's border, cropped), each overlapping the next by
+    [overlap] px and feathered across it, so no one render needs the whole picture's buffers (the whole
+    village at once runs out of memory). A band already on disk is kept: a crash loses only one band."""
+    import bpy
+    import numpy as np
+    from PIL import Image
+    W, H = sc.render.resolution_x, sc.render.resolution_y
+    step = math.ceil(H / bands)
+    acc = np.zeros((H, W, 4), np.float32)
+    wsum = np.zeros((H, 1, 1), np.float32)
+    for b in range(bands):
+        y0, y1 = max(0, b * step - overlap), min(H, (b + 1) * step + overlap)
+        part = out_path.rsplit('.', 1)[0] + f'_band{b}.png'
+        if not os.path.exists(part):
+            r = sc.render
+            r.use_border, r.use_crop_to_border = True, True
+            r.border_min_x, r.border_max_x = 0.0, 1.0
+            r.border_min_y, r.border_max_y = (H - y1) / H, (H - y0) / H       # Blender counts from the bottom
+            r.filepath = part
+            bpy.ops.render.render(write_still=True)
+            print(f'band {b + 1}/{bands} rows {y0}-{y1}', flush=True)
+        img = np.asarray(Image.open(part).convert('RGBA'), np.float32)
+        if img.shape[0] != y1 - y0:                                           # a row's rounding either way
+            d = img.shape[0] - (y1 - y0)
+            assert abs(d) <= 2, (img.shape, y0, y1)
+            img = img[:y1 - y0] if d > 0 else np.concatenate([img, np.repeat(img[-1:], -d, 0)])
+        wt = np.ones(y1 - y0, np.float32)
+        if b > 0:
+            wt[:2 * overlap] = np.linspace(0, 1, 2 * overlap)                 # fade in over the overlap
+        if b < bands - 1:
+            wt[-2 * overlap:] = np.minimum(wt[-2 * overlap:], np.linspace(1, 0, 2 * overlap))
+        wt = np.maximum(wt, 1e-4)[:, None, None]
+        acc[y0:y1] += img[:, :W] * wt
+        wsum[y0:y1] += wt
+    Image.fromarray(np.clip(acc / wsum + 0.5, 0, 255).astype(np.uint8), 'RGBA').save(out_path)
+
+
 def render_ortho(vs, view, out_path, quick=False, depth=False):
     """[depth]: instead of the picture, each pixel's world z and height (the visible surface's), for the
     game to tell what stands in front of a character: saved as a float .npy (z, alpha, height) beside
@@ -551,8 +589,12 @@ def render_ortho(vs, view, out_path, quick=False, depth=False):
     ob.rotation_euler = v.to_track_quat('-Z', 'Y').to_euler()
     sc.camera = ob
     print(f'{vs.name}/{view}: {nf} faces, {len(vs.lights)} lights', flush=True)
-    sc.render.filepath = out_path
-    bpy.ops.render.render(write_still=True)
+    bands = 1 if depth or quick else int(os.environ.get('VW_BANDS', '1'))
+    if bands > 1:
+        _render_bands(sc, out_path, bands)
+    else:
+        sc.render.filepath = out_path
+        bpy.ops.render.render(write_still=True)
     if depth:
         import numpy as _np
         im = bpy.data.images.load(out_path)

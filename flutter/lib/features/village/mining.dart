@@ -154,7 +154,7 @@ class Pounce {
   final soft = stage == 3 ? 0.6 : 1.0; // how much an elder squashes
   double ease(double v) => 1 - math.pow(1 - v.clamp(0.0, 1.0), 3).toDouble();
   // hitstop: the pose holds at the contact a moment
-  final tt = (t > pounceContact && t < pounceContact + _hitstop) ? pounceContact : (t >= pounceContact + _hitstop ? t - _hitstop * 0.5 : t);
+  final tt = (t > pounceContact && t < pounceContact + _hitstop) ? pounceContact : (t >= pounceContact + _hitstop ? t - _hitstop : t);
   if (tt < pounceWindup) {
     final e = ease(tt / pounceWindup);
     return (-0.22 * e, 1 + 0.08 * e * soft, 1 - 0.14 * e * soft, -0.10 * e, 0);
