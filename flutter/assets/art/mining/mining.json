@@ -8,28 +8,28 @@
     {
      "src": "assets/art/mining/ore_copper_0.webp",
      "w": 192,
-     "h": 174,
+     "h": 176,
      "ground": [
       95.3,
-      126.2
+      122.7
      ]
     },
     {
      "src": "assets/art/mining/ore_copper_1.webp",
      "w": 192,
-     "h": 174,
+     "h": 176,
      "ground": [
       95.3,
-      126.2
+      122.7
      ]
     },
     {
      "src": "assets/art/mining/ore_copper_2.webp",
      "w": 192,
-     "h": 174,
+     "h": 162,
      "ground": [
       95.3,
-      126.2
+      108.7
      ]
     },
     {
@@ -42,16 +42,16 @@
      ]
     }
    ],
-   "unit": 0.0203,
+   "unit": 0.02092,
    "nugget": {
     "src": "assets/art/mining/nugget_copper.webp",
     "w": 100,
-    "h": 94,
+    "h": 96,
     "ground": [
      50.0,
-     69.6
+     71.6
     ],
-    "unit": 0.01015
+    "unit": 0.01046
    }
   },
   "iron": {
@@ -59,34 +59,34 @@
    "states": [
     {
      "src": "assets/art/mining/ore_iron_0.webp",
-     "w": 192,
-     "h": 170,
+     "w": 196,
+     "h": 160,
      "ground": [
       95.3,
-      126.2
+      114.9
      ]
     },
     {
      "src": "assets/art/mining/ore_iron_1.webp",
-     "w": 192,
-     "h": 170,
+     "w": 196,
+     "h": 160,
      "ground": [
       95.3,
-      126.2
+      114.9
      ]
     },
     {
      "src": "assets/art/mining/ore_iron_2.webp",
-     "w": 192,
-     "h": 170,
+     "w": 196,
+     "h": 160,
      "ground": [
       95.3,
-      126.2
+      114.9
      ]
     },
     {
      "src": "assets/art/mining/ore_iron_3.webp",
-     "w": 192,
+     "w": 196,
      "h": 124,
      "ground": [
       95.3,
@@ -94,16 +94,16 @@
      ]
     }
    ],
-   "unit": 0.0203,
+   "unit": 0.02246,
    "nugget": {
     "src": "assets/art/mining/nugget_iron.webp",
-    "w": 100,
-    "h": 94,
+    "w": 84,
+    "h": 98,
     "ground": [
-     50.0,
-     69.6
+     42.0,
+     67.7
     ],
-    "unit": 0.01015
+    "unit": 0.01123
    }
   },
   "lumen": {
@@ -111,29 +111,29 @@
    "states": [
     {
      "src": "assets/art/mining/ore_lumen_0.webp",
-     "w": 202,
-     "h": 174,
+     "w": 192,
+     "h": 170,
      "ground": [
-      106.0,
-      129.3
+      95.3,
+      130.6
      ]
     },
     {
      "src": "assets/art/mining/ore_lumen_1.webp",
-     "w": 202,
-     "h": 174,
+     "w": 192,
+     "h": 170,
      "ground": [
-      106.0,
-      129.3
+      95.3,
+      130.6
      ]
     },
     {
      "src": "assets/art/mining/ore_lumen_2.webp",
-     "w": 202,
-     "h": 174,
+     "w": 192,
+     "h": 170,
      "ground": [
-      106.0,
-      129.3
+      95.3,
+      130.6
      ]
     },
     {
@@ -146,16 +146,16 @@
      ]
     }
    ],
-   "unit": 0.01979,
+   "unit": 0.01958,
    "nugget": {
     "src": "assets/art/mining/nugget_lumen.webp",
-    "w": 100,
-    "h": 98,
+    "w": 76,
+    "h": 122,
     "ground": [
-     50.0,
-     73.6
+     34.0,
+     84.0
     ],
-    "unit": 0.0099
+    "unit": 0.00979
    }
   },
   "obsidian": {
@@ -163,29 +163,29 @@
    "states": [
     {
      "src": "assets/art/mining/ore_obsidian_0.webp",
-     "w": 196,
-     "h": 168,
+     "w": 192,
+     "h": 164,
      "ground": [
-      100.7,
-      126.2
+      95.3,
+      123.2
      ]
     },
     {
      "src": "assets/art/mining/ore_obsidian_1.webp",
-     "w": 196,
-     "h": 168,
+     "w": 192,
+     "h": 164,
      "ground": [
-      100.7,
-      126.2
+      95.3,
+      123.2
      ]
     },
     {
      "src": "assets/art/mining/ore_obsidian_2.webp",
-     "w": 196,
-     "h": 168,
+     "w": 192,
+     "h": 164,
      "ground": [
-      100.7,
-      126.2
+      95.3,
+      123.2
      ]
     },
     {
@@ -198,16 +198,16 @@
      ]
     }
    ],
-   "unit": 0.0203,
+   "unit": 0.02084,
    "nugget": {
     "src": "assets/art/mining/nugget_obsidian.webp",
-    "w": 100,
-    "h": 98,
+    "w": 84,
+    "h": 124,
     "ground": [
-     50.0,
-     73.6
+     42.0,
+     93.9
     ],
-    "unit": 0.01015
+    "unit": 0.01042
    }
   }
  }

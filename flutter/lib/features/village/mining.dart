@@ -27,16 +27,16 @@ const oreTier = {'copper': 1, 'iron': 2, 'lumen': 3, 'obsidian': 4};
 
 /// The rock's colours (chips) and the ore's (sparks of it), per ore.
 const _stone = {
-  'copper': [Color(0xFF8E8A86), Color(0xFF7B7773), Color(0xFFA39E98)],
-  'iron': [Color(0xFF7D7A80), Color(0xFF6B6870), Color(0xFF8F8B93)],
-  'lumen': [Color(0xFF6E6A78), Color(0xFF5E5A68), Color(0xFF7F7A8A)],
-  'obsidian': [Color(0xFF4A4550), Color(0xFF3C3742), Color(0xFF57525E)],
+  'copper': [Color(0xFFBFA07C), Color(0xFFAE8F6C), Color(0xFFCCAE8A)], // sandstone
+  'iron': [Color(0xFF6E4A44), Color(0xFF5E3E3A), Color(0xFF7C5650)], // rust-stained
+  'lumen': [Color(0xFF5A5F72), Color(0xFF4E5366), Color(0xFF666B80)], // slate
+  'obsidian': [Color(0xFF3E3A42), Color(0xFF35313A), Color(0xFF47434C)], // basalt
 };
 const _ore = {
   'copper': [Color(0xFFD9844A), Color(0xFFF0A56A)],
-  'iron': [Color(0xFFC9CDD6), Color(0xFFE6E9EF)],
+  'iron': [Color(0xFFB9C0C8), Color(0xFFEEF2F6)],
   'lumen': [Color(0xFF9FF0DA), Color(0xFFD8FFF4)],
-  'obsidian': [Color(0xFF5B3B6E), Color(0xFF9A6BC0)],
+  'obsidian': [Color(0xFF251C2C), Color(0xFF9A6BC0)],
 };
 const oreName = {'copper': 'Copper', 'iron': 'Iron', 'lumen': 'Lumen crystal', 'obsidian': 'Obsidian'};
 
