@@ -142,17 +142,29 @@ def market(S, P, M, rng, lamp):
 
 
 def give_way(models):
-    """Empty each model's voxels wherever a later one in the list is filled (all at the same res)."""
+    """Empty each model's voxels wherever a later one in the list is filled. Models may differ in res
+    (the far hills are res 1, the waystone res 4): a coarse voxel gives way if any part of it is taken."""
     for a, A in enumerate(models):
-        a0, a1 = A.lo, A.lo + np.array(A.m.shape)
+        ra, sa = A.res, np.array(A.m.shape)
         for B in models[a + 1:]:
-            b0, b1 = B.lo, B.lo + np.array(B.m.shape)
-            lo, hi = np.maximum(a0, b0), np.minimum(a1, b1)
-            if np.any(hi <= lo):
+            rb, sb = B.res, np.array(B.m.shape)
+            w0 = np.maximum(A.lo / ra, B.lo / rb)                    # the overlap, in world units
+            w1 = np.minimum((A.lo + sa) / ra, (B.lo + sb) / rb)
+            if np.any(w1 <= w0):
                 continue
-            sa = tuple(slice(int(l - o), int(h - o)) for l, h, o in zip(lo, hi, a0))
-            sb = tuple(slice(int(l - o), int(h - o)) for l, h, o in zip(lo, hi, b0))
-            A.m[sa][B.m[sb] > 0] = 0
+            i0 = np.clip(np.floor(w0 * ra).astype(int) - A.lo, 0, sa)
+            i1 = np.clip(np.ceil(w1 * ra).astype(int) - A.lo, 0, sa)
+            s = max(1, rb // ra)                                      # samples per axis inside one of A's voxels
+            hit = np.zeros(tuple(i1 - i0), bool)
+            for off in np.ndindex(s, s, s):
+                ax, ok = [], []
+                for d in range(3):
+                    c = (A.lo[d] + np.arange(i0[d], i1[d]) + (off[d] + 0.5) / s) / ra
+                    bi = np.floor(c * rb).astype(int) - B.lo[d]
+                    ok.append((bi >= 0) & (bi < sb[d]))
+                    ax.append(np.clip(bi, 0, sb[d] - 1))
+                hit |= (B.m[np.ix_(*ax)] > 0) & ok[0][:, None, None] & ok[1][None, :, None] & ok[2][None, None, :]
+            A.m[i0[0]:i1[0], i0[1]:i1[1], i0[2]:i1[2]][hit] = 0
 
 
 def piece(S, lo, hi, fn, dx, dz, seed, *a):
