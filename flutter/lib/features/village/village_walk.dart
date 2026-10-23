@@ -45,7 +45,14 @@ const _evochiH = 3.4 * 1.2; // world units: an Elder, drawn 1.2x in the village 
 const _sheetH = 202.0; // an Elder's height on its walk sheet, px
 const _npcH = {'pip': 3.4, 'alder': 3.8, 'bram': 4.0, 'mira': 4.2}; // world units (Flint's comes with his art)
 const _npcName = {'pip': 'Pip', 'alder': 'Alder', 'bram': 'Bram', 'mira': 'Mira', 'flint': 'Flint'};
-const _unitsAcross = 22.0; // the walking camera: 22 world units across the screen (zoomed back from 18)
+const _unitsAcross = 25.0; // the walking camera: 25 world units across the screen (zoomed back from 18)
+const _npcRing = [Offset(1, 0), Offset(-1, 0), Offset(0, 1), Offset(0, -1), Offset(0.7, 0.7), Offset(-0.7, 0.7), Offset(0.7, -0.7), Offset(-0.7, -0.7)];
+final _npcInk = Paint()
+  ..filterQuality = FilterQuality.medium
+  ..colorFilter = const ColorFilter.mode(Color(0x8C3B2416), BlendMode.srcIn);
+final _npcPop = Paint()
+  ..filterQuality = FilterQuality.medium
+  ..colorFilter = const ColorFilter.matrix([1.1602, -0.0909, -0.0092, 0, -7.68, -0.0270, 1.0963, -0.0092, 0, -7.68, -0.0270, -0.0909, 1.1780, 0, -7.68, 0, 0, 0, 1, 0]);
 const _speed = 5.0; // world units a second
 const _frontBias = 1.0; // world units: what is this much nearer than a character's feet covers it (half a body)
 const _shadowLong = 2.0; // characters' shadows drawn this much longer than the sun makes them
@@ -1279,7 +1286,11 @@ class _WalkPainter extends CustomPainter {
           canvas.translate(g.dx, g.dy);
           canvas.rotate(gait.roll[col] * math.pi / 180 * math.cos(n.dir * math.pi / 4));
           canvas.scale(2 - breathe, gait.squash[col] * breathe);
-          canvas.drawImageRect(gait.img, src, dst, Paint()..filterQuality = FilterQuality.medium);
+          // a soft dark-brown outline and a touch more colour, so villagers stand out from the busy ground
+          for (final d in _npcRing) {
+            canvas.drawImageRect(gait.img, src, dst.shift(d * 1.4), _npcInk);
+          }
+          canvas.drawImageRect(gait.img, src, dst, _npcPop);
           canvas.restore();
           cover(dst.shift(g), n.z);
         }));
