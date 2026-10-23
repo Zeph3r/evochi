@@ -13,6 +13,16 @@ if not defined FLUTTER (
   exit /b 2
 )
 echo flutter=!FLUTTER!>> "%LOG%\status.txt"
+rem Running one test file instead (Claude drops _transfer\run_test.flag, its first line naming the file)
+if exist "_transfer\run_test.flag" (
+  set "TFILE="
+  set /p TFILE=<"_transfer\run_test.flag"
+  del "_transfer\run_test.flag"
+  echo %date% %time% === test !TFILE! ===>> "%LOG%\status.txt"
+  call "%FLUTTER%" test !TFILE! > "%LOG%\run_test.txt" 2>&1
+  echo %date% %time% === test done ===>> "%LOG%\status.txt"
+  exit /b 0
+)
 rem Recording a living scene instead (Claude drops _transfer\run_live.flag, its first line naming the pictures)
 if exist "_transfer\run_live.flag" (
   set "LIVE="

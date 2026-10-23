@@ -287,6 +287,10 @@ class VillageArt {
     return Offset((f[0] as num).toDouble(), (f[1] as num).toDouble());
   }
 
+  /// Where the villager stands (its feet) and the top of its head, on its sprite.
+  Offset npcGround(String npcId) => _off(_npc(npcId)['ground'] as List);
+  Offset npcTop(String npcId) => _off(_npc(npcId)['top'] as List);
+
   Size npcSize(String npcId) {
     final n = _npc(npcId);
     return Size((n['w'] as num).toDouble(), (n['h'] as num).toDouble());

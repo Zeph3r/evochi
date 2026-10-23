@@ -443,10 +443,17 @@ VIEWS = {   # centre (x, z) and width in world units; the image height follows f
     # it can be cropped to 1x, 1.5x and 2x; and a close-up by the Guild's door for a conversation
     'zoom_hd': ((0.8, -21.7), 36.0, (1648, 2200)),
     'zoom_talk': ((-3.35, -33.2), 14.4, (824, 1100)),
+    # the first playable piece (flutter/lib/features/village/village_walk.dart): the plaza, the bridge and
+    # the Guild at the walking camera's detail (2x: 45.8 px a unit)
+    'slice': ((0.0, -25.8), 40.0, (1832, 2200)),
 }
+DEPTH_RANGE = (-70.0, 30.0)   # world z the depth pass spans (0 -> 65535)
 
 
-def render_ortho(vs, view, out_path, quick=False):
+def render_ortho(vs, view, out_path, quick=False, depth=False):
+    """[depth]: instead of the picture, each pixel's world z and height (the visible surface's), for the
+    game to tell what stands in front of a character: saved as a float .npy (z, alpha, height) beside
+    [out_path]."""
     import bpy
     import village_blender as VB
     from mathutils import Vector
@@ -470,15 +477,52 @@ def render_ortho(vs, view, out_path, quick=False):
     sc.view_settings.view_transform = vs.view
     sc.render.image_settings.file_format = 'PNG'
     sc.render.image_settings.color_mode = 'RGBA'
+    if depth:
+        sc.cycles.samples = 1
+        sc.cycles.use_adaptive_sampling = False
+        sc.cycles.use_denoising = False
+        sc.cycles.filter_width = 0.01
+        sc.render.film_transparent = True
+        sc.view_settings.view_transform = 'Standard'
+        sc.render.image_settings.file_format = 'OPEN_EXR'
+        sc.render.image_settings.color_depth = '32'
     nf = 0
     for i, item in enumerate(vs.models):
         M, glass = item[0], item[1]
         opts = item[2] if len(item) > 2 else {}
         ob, n = VB.model_mesh(M, f'{vs.name}_{i}', glass, water=tuple(opts.get('water', ())))
         nf += n
-    for L in vs.lights:
-        VB.add_light(L)
-    VB.setup_world(vs.world[0], vs.world[1])
+    if depth:
+        m = bpy.data.materials.new('world_z')
+        m.use_nodes = True
+        nt = m.node_tree
+        for n in list(nt.nodes):
+            if n.type != 'OUTPUT_MATERIAL':
+                nt.nodes.remove(n)
+        geo = nt.nodes.new('ShaderNodeNewGeometry')
+        sep = nt.nodes.new('ShaderNodeSeparateXYZ')
+        mul = nt.nodes.new('ShaderNodeMath')
+        mul.operation = 'MULTIPLY'
+        mul.inputs[1].default_value = -1.0 / VB.SCALE          # Blender y is -z (voxel units / SCALE)
+        up = nt.nodes.new('ShaderNodeMath')
+        up.operation = 'MULTIPLY'
+        up.inputs[1].default_value = 1.0 / VB.SCALE           # Blender z is height
+        comb = nt.nodes.new('ShaderNodeCombineXYZ')
+        em = nt.nodes.new('ShaderNodeEmission')
+        nt.links.new(geo.outputs['Position'], sep.inputs[0])
+        nt.links.new(sep.outputs['Y'], mul.inputs[0])
+        nt.links.new(sep.outputs['Z'], up.inputs[0])
+        nt.links.new(mul.outputs[0], comb.inputs['X'])        # R: world z
+        nt.links.new(up.outputs[0], comb.inputs['Y'])         # G: height
+        nt.links.new(comb.outputs[0], em.inputs['Color'])
+        em.inputs['Strength'].default_value = 1.0
+        nt.links.new(em.outputs[0], nt.nodes['Material Output'].inputs['Surface'])
+        bpy.context.view_layer.material_override = m
+        VB.setup_world((0.0, 0.0, 0.0), 0.0)
+    else:
+        for L in vs.lights:
+            VB.add_light(L)
+        VB.setup_world(vs.world[0], vs.world[1])
     d = bpy.data.cameras.new('cam')
     d.type = 'ORTHO'
     d.ortho_scale = width * VB.SCALE
@@ -498,6 +542,11 @@ def render_ortho(vs, view, out_path, quick=False):
     print(f'{vs.name}/{view}: {nf} faces, {len(vs.lights)} lights', flush=True)
     sc.render.filepath = out_path
     bpy.ops.render.render(write_still=True)
+    if depth:
+        import numpy as _np
+        im = bpy.data.images.load(out_path)
+        px = _np.array(im.pixels[:], _np.float32).reshape(im.size[1], im.size[0], 4)[::-1]
+        _np.save(out_path.rsplit('.', 1)[0] + '.npy', _np.dstack([px[..., 0], px[..., 3], px[..., 1]]))   # z, alpha, height
     # the projection: world (x, y, z) -> image px
     ppu = w / width
     return {'w': w, 'h': h, 'ppu': ppu, 'centre': [cx, cz], 'pitch': PITCH,
@@ -513,6 +562,9 @@ if __name__ == '__main__':
     state = args[args.index('--state') + 1] if '--state' in args else 'day_dim'
     os.makedirs(out, exist_ok=True)
     vs = scene_village_walk(state)
+    if '--depth' in args:
+        render_ortho(vs, view, os.path.join(out, f'village_walk_{view}_depth.exr'), quick, depth=True)
+        sys.exit(0)
     raw = os.path.join(out, f'village_walk_{view}_raw.png')
     proj = render_ortho(vs, view, raw, quick)
     VSC.finish(vs, raw, os.path.join(out, f'village_walk_{view}.png'), quick)

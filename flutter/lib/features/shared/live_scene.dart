@@ -54,6 +54,14 @@ class SceneFx {
     _atlas ??= _buildAtlas();
   }
 
+  /// Paint [fx]'s emitters at time [t] (in the scene image's own px: scale the canvas first), for a
+  /// screen that draws a scene itself (the walkable village).
+  static void paintEmitters(Canvas canvas, SceneFx fx, double t, {bool moving = true, ColorFilter? filter}) {
+    final atlas = _atlas;
+    if (atlas == null || fx.emitters.isEmpty) return;
+    _Particles(atlas, t, moving).paint(canvas, fx.emitters, filter);
+  }
+
   static Future<ui.FragmentProgram?> program() => _program ??= () async {
         try {
           return await ui.FragmentProgram.fromAsset('shaders/scene_fx.frag');

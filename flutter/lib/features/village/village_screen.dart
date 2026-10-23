@@ -20,6 +20,7 @@ import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import 'npc_puppet.dart';
 import 'story_widgets.dart';
+import 'village_walk.dart';
 import '../shared/live_scene.dart';
 import '../shared/ambience.dart';
 
@@ -250,6 +251,25 @@ class _VillageScreenState extends State<VillageScreen> {
                           ),
                         ]),
                       ),
+                    if (c.devTools) ...[
+                      const SizedBox(height: 10),
+                      Semantics(
+                        button: true,
+                        label: 'Walk the village (preview)',
+                        child: GestureDetector(
+                          onTap: () => openVillageWalk(context),
+                          child: const GameCard(
+                            padding: EdgeInsets.fromLTRB(12, 10, 12, 10),
+                            child: Row(children: [
+                              VoxelIcon('star', size: 32),
+                              SizedBox(width: 10),
+                              Expanded(child: Text('Walk the village (preview)', style: EvochiText.cardTitle)),
+                              Text('›', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 24, color: EvochiColor.textHelper)),
+                            ]),
+                          ),
+                        ),
+                      ),
+                    ],
                     const SizedBox(height: 14),
                     const KitSectionHead('Places', padding: EdgeInsets.zero),
                     const SizedBox(height: 10),
