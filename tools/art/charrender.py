@@ -19,7 +19,8 @@ _surf_cache = {}
 def surface_for(ch: Character):
     key = id(ch.model)
     if key not in _surf_cache:
-        _surf_cache[key] = Surface(ch.model, sigma=0.75)
+        # the face is painted on the model without what stands in front of it (Alder's spectacles)
+        _surf_cache[key] = Surface(getattr(ch, 'decal_model', None) or ch.model, sigma=0.75)
     return _surf_cache[key]
 
 

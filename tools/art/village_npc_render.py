@@ -160,7 +160,7 @@ def face_projection(ch, C, Nf, PART, tol=0.8):
     span_u, span_v = nu * FACE_CELL, nv * FACE_CELL
     rel = C.astype(np.float64) - c
     uv = np.stack([((rel @ u) - u0) / span_u, ((rel @ v) - v0) / span_v], -1).astype(np.float32)
-    surf = Surface(ch.model, sigma=0.75)
+    surf = Surface(getattr(ch, 'decal_model', None) or ch.model, sigma=0.75)
     O = c[None] + cv.U.reshape(-1, 1) * u + cv.V.reshape(-1, 1) * v + n * fr.reach
     D = np.repeat(-n[None], len(O), 0)
     H = surf.cast(O, D, tmax=fr.reach * 1.6, step=0.04)
@@ -174,6 +174,12 @@ def face_projection(ch, C, Nf, PART, tol=0.8):
     d[ok] = depth[j[ok], i[ok]]
     facing = Nf @ n.astype(np.float32) > -0.3
     mask = ok & np.isfinite(d) & (cn >= d - tol) & facing & (PART == 1)
+    nd = getattr(ch, 'no_decal', None)
+    if nd is not None:                       # never on what stands in front of the face (spectacles)
+        M = ch.model
+        vox = np.floor((cen + c - Nf * (0.5 / M.res)) * M.res).astype(int) - M.lo
+        vox = np.clip(vox, 0, np.array(M.m.shape) - 1)
+        mask &= ~nd[vox[:, 0], vox[:, 1], vox[:, 2]]
     return uv, mask.astype(np.float32)
 
 
@@ -190,7 +196,7 @@ def eye_boxes(ch, cam, fit, pad=1.0):
     fr = ch.face
     u, v, n = fr.basis()
     c = np.array(fr.center, np.float64)
-    surf = Surface(ch.model, sigma=0.75)
+    surf = Surface(getattr(ch, 'decal_model', None) or ch.model, sigma=0.75)
     boxes = []
     for s in (-1, 1):
         us = [s * ch.eye_u - ch.eye_w * 1.35, s * ch.eye_u + ch.eye_w * 1.35]

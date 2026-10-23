@@ -352,16 +352,24 @@ def build_pip(res=2) -> Character:
         leg = box(M, (s * 2.6 - 0.45, 0.5, 0.6), (s * 2.6 + 0.45, 3.2, 1.6))
         put(M, leg, '#C98A4A')
         put(M, box(M, (s * 2.6 - 1.4, 0, 0.0), (s * 2.6 + 1.4, 0.8, 3.4)), '#C98A4A')
-    # navy post cap with a visor and a cream wing badge
-    cap = shell_region(M, head, 2) & ~core & (M.Y > 22.0) & ~((M.Z > 4.5) & (M.Y < 24.0))
+    # navy post cap with a visor and a cream wing badge. The cap wraps the whole crown down to the
+    # visor's line (it used to stop short at the front, so his feathers showed between visor and cap),
+    # and the crown under it is navy too, so nothing orange can poke through. His face is painted on
+    # him without the cap (decal_model), so no paint lands on the visor
+    bare = M.copy()
+    cap = shell_region(M, head, 2) & ~core & (M.Y > 21.6) & ~((M.Z > 4.5) & (M.Y < 22.6) & (np.abs(M.X) < 5.6))
+    recolor(M, core & (M.Y > 22.6), NAVY)
     put(M, cap, NAVY)
     put(M, box(M, (-5.2, 25.2, -4.8), (5.2, 27.6, 5.0)) & ~core, NAVY)
     recolor(M, cap & (M.Y > 25.0) & (M.X < -1.0), NAVY_HI)
-    visor = box(M, (-5.4, 22.6, 3.8), (5.4, 23.6, 9.2)) & ~core
-    put(M, visor, '#152A3A')
+    # the visor juts out past the cap's front (which now comes down to meet it)
+    zf = float(M.Z[(M.m > 0) & (np.abs(M.X) < 1.0) & (M.Y > 22.6) & (M.Y < 23.6)].max())
+    visor = box(M, (-5.4, 22.6, 3.8), (5.4, 23.6, zf + 2.4)) & ~core
+    put(M, visor, '#152A3A', empty=False)
     badge = (M.m > 0) & (M.Z > 4.0) & (np.abs(M.Y - 25.2) < 1.1) & (np.abs(M.X) < 2.2) & ~core
     recolor(M, badge, '#F3E5C9')
     recolor(M, badge & (np.abs(M.X) < 0.6), GOLD)
+    hat = (M.m > 0) & (bare.m == 0)
     # cross-body strap and a parchment satchel at the hip, rolled letter peeking out
     strap = shell_region(M, body, 1) & ~core & (np.abs((M.Y - 10.5) - M.X * 0.95) < 0.75) & (M.Z > -1)
     put(M, strap, '#6E4529')
@@ -380,6 +388,7 @@ def build_pip(res=2) -> Character:
     ch.anchors = {'ground': (0, 0, 0), 'head_top': (0, 28, 1), 'face': (0, 19.2, 8.6)}
     ch.palette = face_palette('#E69878', brow='#7A4E2E')
     ch.no_mouth = True
+    ch.decal_model, ch.no_decal = bare, hat
     ch.pivots = {'head': (0, 14.6, 0.6), 'arm': (-7.4, 13.6, 1.4)}
     ch.size = 0.84
     return ch
@@ -457,16 +466,48 @@ def build_alder(res=2) -> Character:
     ch.palette = face_palette('#E1A68C', brow='#43523D')
     eu, ev, ew, eh = ch.eye_u, ch.eye_v, ch.eye_w, ch.eye_h
 
-    def extras(cv, pal, expr):
-        # little square spectacles
-        for s in (-1, 1):
-            r = cv.m_rect(s * eu, ev, ew * 2.7, eh * 1.55, 0.25) & ~cv.m_rect(s * eu, ev, ew * 2.05, eh * 1.15, 0.15)
-            cv.paint(r, BRASS, lit=0.5)
-        cv.paint(cv.m_stroke([(-eu + ew * 1.3, ev + 0.4), (eu - ew * 1.3, ev + 0.4)], 0.45), BRASS, lit=0.5)
-    ch.face_extra = extras
+    # little square spectacles, built in 3D and standing off his face (they used to be painted on):
+    # two rims in one plane just in front of the face, a bridge, and arms back along his head to the
+    # ears. The face is painted on the head without them (decal_model), and none of the paint lands
+    # on them (no_decal)
+    ch.decal_model = M.copy()
+    glasses = spectacles(M, (eu, 21.8 + ev), (ew * 1.03, eh * 0.58), BRASS, (0, 21.6, 2.4), (7.4, 7.0))
+    tag(M, glasses, HEAD)
+    ch.no_decal = glasses
     ch.pivots = {'head': (0, 16.8, 2.2), 'arm': (0, 12.4, 3.0)}
     ch.size = 1.0
     return ch
+
+
+def spectacles(M, eye, half, col, head_c, head_r, rim=0.5, gap=0.0):
+    """Square spectacles as voxels on a face looking down +z: lenses centred on (+-eye[0], eye[1]),
+    [half] the lens opening's half-size (u, v); [rim] thick. The frame stands [gap] in front of the
+    face round the eyes (its lower rims may rest on the snout); the arms run straight back from the
+    top outer corners, then along the sides of the head (centre [head_c], radii x/z [head_r]) to the
+    ears. Returns the mask of what it added."""
+    eu, ey = eye
+    hu, hv = half
+    filled = M.m > 0
+    xs, ys = M.X[:, 0, 0], M.Y[0, :, 0]
+    zcol = np.where(filled, M.Z, -np.inf).max(axis=2)            # the front-most voxel of each (x, y) column
+    behind = (np.abs(np.abs(xs[:, None]) - eu) <= hu) & (ys[None, :] >= ey - hv * 0.3) & (ys[None, :] <= ey + hv + rim)
+    zp = float(zcol[behind].max()) + 0.5 / M.res + gap               # back of the frame
+    slab = (M.Z >= zp) & (M.Z < zp + rim)
+    du, dv = np.abs(np.abs(M.X) - eu), np.abs(M.Y - ey)
+    rims = slab & (du <= hu + rim) & (dv <= hv + rim) & ~((du < hu) & (dv < hv))
+    bridge = slab & (np.abs(M.X) < eu - hu) & (np.abs(M.Y - (ey + hv * 0.4)) < rim * 0.5 + 1e-6)
+    ay = (M.Y >= ey + hv) & (M.Y < ey + hv + rim)
+    hx, hz = head_r
+    side = np.abs(M.X) / hx >= np.abs(M.Z - head_c[2]) / hz * 0.85              # where the head faces sideways
+    hug = ay & shell_region(M, filled, 1) & side & (M.Z < zp) & (M.Z > head_c[2] - 1.0)
+    xo = eu + hu + rim * 0.5
+    z_side = float(M.Z[hug].max()) if hug.any() else zp - 3.0
+    hinge = ay & (np.abs(np.abs(M.X) - xo) < rim * 0.5 + 1e-6) & (M.Z < zp + rim) & (M.Z >= z_side - 0.5) & ~filled
+    # join the hinge to the side arm along the head's outline at that height
+    reach = ay & shell_region(M, filled, 1) & (np.abs(M.X) >= xo - 1e-6) & (M.Z >= z_side - 0.5) & (M.Z < zp + rim)
+    g = (rims | bridge | hinge | hug | reach) & ~filled
+    put(M, g, col)
+    return g
 
 
 NPC_BUILDERS = {'mira': build_mira, 'bram': build_bram, 'pip': build_pip, 'alder': build_alder}
