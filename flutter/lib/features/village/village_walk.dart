@@ -363,13 +363,37 @@ class VillageWalker {
 }
 
 class _Npc {
-  _Npc(this.id, this.x, this.z, this.place, this.img, this.ground, this.top, this.h);
+  _Npc(this.id, this.x, this.z, this.place, this.img, this.ground, this.top, this.h, {this.walker})
+      : homeX = x,
+        homeZ = z;
   final String id, place;
-  final double x, z;
-  final ui.Image img;
+  double x, z;
+  final double homeX, homeZ;
+  final ui.Image img; // the portrait sprite (the fallback when there are no outdoor sheets)
   final Offset ground, top;
   final double h; // world units, feet to the top of the head
+  final WalkerArt? walker; // their outdoor sheets: eight directions, standing and walking
+  int dir = 0; // S SE E NE N NW W SW
+  double phase = 0;
+  bool moving = false;
+  Offset? goal; // where they're walking to
+  double wait = 1.0; // seconds before the next thing they do
+  int stop = 0; // which stop of their routine is next
+  double look = 0; // seconds until they glance somewhere else while standing
+
+  /// dp per sheet px at [upk] dp a world unit.
+  double k(double upk) => upk * h / (walker?.heightPx ?? 200);
 }
+
+/// Each villager's routine outside: the stops they wander between (offsets from where they stand), how
+/// fast they walk (units a second), and how long they linger at each stop (seconds, from - to).
+const _routines = <String, (List<Offset>, double, double, double)>{
+  'bram': ([Offset(0, 0), Offset(-2.8, 2.0), Offset(2.4, 1.6)], 1.5, 3.0, 6.0), // between his door and the forge
+  'mira': ([Offset(0, 0), Offset(3.2, 2.0), Offset(-2.4, 2.4)], 1.3, 3.5, 7.0), // out to her flower beds
+  'pip': ([Offset(0, 0), Offset(-2.8, 1.8), Offset(1.6, 2.6), Offset(-0.8, 3.4)], 2.4, 1.2, 3.0), // he can't keep still
+  'alder': ([Offset(0, 0), Offset(1.0, 1.4)], 0.8, 6.0, 11.0), // mostly stands and looks about
+  'flint': ([Offset(0, 0), Offset(-3.4, -1.6), Offset(3.2, -0.8)], 1.4, 3.0, 6.0), // between his bench and his door
+};
 
 class VillageWalkScreen extends StatefulWidget {
   const VillageWalkScreen({super.key, this.map = 'village', this.arrive});
@@ -458,12 +482,15 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     final npcs = <_Npc>[];
     for (final n in l.npcs) {
       final art = n.art;
+      // their outdoor sheets when this build has them (the portrait sprite otherwise)
+      final walker = await WalkerArt.exists('npc_${n.id}') ? await WalkerArt.load('npc_${n.id}', 'default') : null;
       if (art != null) {
-        npcs.add(_Npc(n.id, n.x, n.z, n.place, await _image(art), n.ground!, n.top!, n.height ?? 4.0));
+        npcs.add(_Npc(n.id, n.x, n.z, n.place, await _image(art), n.ground!, n.top!, n.height ?? 4.0, walker: walker));
       } else {
         final key = 'npc_${n.id}';
         npcs.add(_Npc(n.id, n.x, n.z, n.place, await _image(villageArt.npc(key, 'neutral', true)), villageArt.npcGround(key), villageArt.npcTop(key),
-            _npcH[n.id] ?? 4.0));
+            _npcH[n.id] ?? 4.0,
+            walker: walker));
       }
     }
     final mining = l.ores.isEmpty ? null : await MiningArt.load(l.ores.map((o) => o.$1));
@@ -561,6 +588,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     }
     me.y += (l.heightAt(me.x, me.z) - me.y) * math.min(1.0, dt * 14);
     _mineTick(l, dt);
+    _npcTick(l, dt);
     _checkExits(l);
     if (me.wait > 0) {
       me.wait -= dt;
@@ -779,6 +807,67 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     walkTo(g.dx, g.dy);
   }
 
+  // ------------------------------------------------------------------------------------ the villagers
+  final _rnd = math.Random(5);
+
+  /// The villagers' own lives: they wander their routine, linger, glance about; when your Evochi comes
+  /// near they stop and turn to it, and while you're on your way to talk to one, they wait for you.
+  void _npcTick(WalkLayout l, double dt) {
+    for (final n in _npcs) {
+      final w = n.walker;
+      final dx = me.x - n.x, dz = me.z - n.z;
+      final near = dx * dx + dz * dz < 5.5 * 5.5;
+      final waiting = me.talkTo == n.id || (_talking && me.talkTo == null && near);
+      if (w == null) continue;
+      if (near || waiting) {
+        // stop where they are and turn to your Evochi
+        n.moving = false;
+        n.goal = null;
+        n.dir = VillageWalker.dirOf(dx, dz);
+        n.wait = math.max(n.wait, 1.5);
+        continue;
+      }
+      final r = _routines[n.id];
+      if (n.goal != null) {
+        final g = n.goal!;
+        final gx = g.dx - n.x, gz = g.dy - n.z;
+        final d = math.sqrt(gx * gx + gz * gz);
+        final speed = r?.$2 ?? 1.4;
+        if (d < 0.05) {
+          n.goal = null;
+          n.moving = false;
+          n.wait = (r?.$3 ?? 3) + _rnd.nextDouble() * ((r?.$4 ?? 6) - (r?.$3 ?? 3));
+          n.look = 1.0 + _rnd.nextDouble() * 1.5;
+        } else {
+          final s = math.min(d, speed * dt);
+          n.x += gx / d * s;
+          n.z += gz / d * s;
+          n.dir = VillageWalker.dirOf(gx, gz);
+          n.moving = true;
+          n.phase += s / (w.gait(false).cycle * walkerDrawScale * n.h / (w.heightPx ?? 200));
+        }
+        continue;
+      }
+      n.wait -= dt;
+      n.look -= dt;
+      if (n.look <= 0) {
+        // a glance one way or the other, now and then back toward the path
+        n.dir = (n.dir + (_rnd.nextBool() ? 1 : -1) + 8) % 8;
+        n.look = 1.4 + _rnd.nextDouble() * 2.6;
+      }
+      if (n.wait <= 0 && r != null && r.$1.length > 1) {
+        n.stop = (n.stop + 1) % r.$1.length;
+        final o = r.$1[n.stop];
+        final g = Offset(n.homeX + o.dx, n.homeZ + o.dy);
+        if (l.walkable(g.dx, g.dy) && l.clear(Offset(n.x, n.z), g)) {
+          n.goal = g;
+        } else {
+          n.wait = 2.0;
+        }
+      }
+    }
+  }
+
   // ------------------------------------------------------------------------------------ mining
   /// Walk up to an ore node and face it (the Pounce button shows when you're there). Never strikes by itself.
   void mineOre(OreNode o) {
@@ -939,8 +1028,13 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   /// A villager's sprite, in picture px.
   Rect _npcRect(_Npc n) {
     final l = lay!;
+    final g = l.toImage(n.x, n.z, l.heightAt(n.x, n.z));
+    final w = n.walker;
+    if (w != null) {
+      final s = n.k(l.ppu);
+      return Rect.fromLTWH(g.dx - w.gx * s, g.dy - w.gy * s, w.fw * s, w.fh * s);
+    }
     final s = n.h * l.ppu / (n.ground.dy - n.top.dy);
-    final g = l.toImage(n.x, n.z);
     return Rect.fromLTWH(g.dx - n.ground.dx * s, g.dy - n.ground.dy * s, n.img.width * s, n.img.height * s);
   }
 
@@ -1166,6 +1260,31 @@ class _WalkPainter extends CustomPainter {
     final upk = l.ppu * k; // dp per world unit
     final items = <(double, void Function())>[];
     for (final n in s._npcs) {
+      final w = n.walker;
+      if (w != null) {
+        items.add((n.z, () {
+          final g = scr(l.toImage(n.x, n.z, l.heightAt(n.x, n.z)));
+          final kp = n.k(upk);
+          final gait = w.gait(false);
+          final col = n.moving ? 1 + (n.phase * 8).floor() % 8 : 0;
+          final src = Rect.fromLTWH(col * w.fw, n.dir * w.fh, w.fw, w.fh);
+          canvas.drawOval(Rect.fromCenter(center: g + Offset(0, -kp * 3), width: w.fw * kp * 0.42, height: w.fw * kp * 0.13),
+              Paint()
+                ..color = const Color(0x3A16241F)
+                ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+          _castShadow(canvas, gait.img, src, g, Offset(w.gx * kp, w.gy * kp), kp, l);
+          final breathe = n.moving ? 1.0 : 1 + 0.012 * math.sin(s._t * 2.3 + n.homeX);
+          final dst = Rect.fromLTWH(-w.gx * kp, -w.gy * kp, w.fw * kp, w.fh * kp);
+          canvas.save();
+          canvas.translate(g.dx, g.dy);
+          canvas.rotate(gait.roll[col] * math.pi / 180 * math.cos(n.dir * math.pi / 4));
+          canvas.scale(2 - breathe, gait.squash[col] * breathe);
+          canvas.drawImageRect(gait.img, src, dst, Paint()..filterQuality = FilterQuality.medium);
+          canvas.restore();
+          cover(dst.shift(g), n.z);
+        }));
+        continue;
+      }
       items.add((n.z, () {
         final r = s._npcRect(n);
         final g = scr(l.toImage(n.x, n.z));

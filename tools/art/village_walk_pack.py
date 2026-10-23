@@ -39,7 +39,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 FLUTTER = os.path.join(HERE, '..', '..', 'flutter')
 CELL = 0.5
 PET_R = 1.4                                    # how close your Evochi's middle comes to anything solid (its body is ~3 long)
-NPC_R = 1.4
+NPC_R = 0.0                                    # the villagers walk about now: they don't block the grid (they stop for you)
 ORE_R = 1.2                                    # an ore node's footprint (it is ~2.6 across)
 TILE, PAD = 1024, 8
 
@@ -71,7 +71,7 @@ def _trail():
     mx, mz = VT.MINE
     return dict(
         title='The Old Trail', scene=VT.scene_trail, view='trail', area=(VT.X0, VT.X1, VT.Z0, VT.Z1),
-        npcs={'flint': (VT.FLINT[0], VT.FLINT[1], 'crossing', 2.2)},     # Flint is big: an Elder and a half
+        npcs={'flint': (VT.FLINT[0], VT.FLINT[1], 'crossing', NPC_R)},
         arrive={'village': (3.0, on_path(3.0))},
         spots={'bridge': (VT.STREAM_X, on_path(VT.STREAM_X)), 'crossing': (86.0, on_path(86.0)), 'mine': (mx, (mz + VT.CART_Z) / 2 - 1.0),
                'gate': (VT.GATE_X - 3.0, on_path(VT.GATE_X - 3.0))},
@@ -289,6 +289,17 @@ def main():
     picture = np.asarray(Image.open(png).convert('RGB'))
     assert picture.shape[:2] == (h, w), f'the picture is {picture.shape[1]}x{picture.shape[0]}, the view {w}x{h}'
     mask, emit = bake_mask(png, m)
+    # inked like the characters: outlines where one surface stands in front of another, a little more
+    # contrast and colour, crisper edges (ink.py), in bands to keep the memory down
+    import ink
+    dd = np.load(os.path.join(src, f'village_walk_{view}_depth.npy'), mmap_mode='r')
+    inked = np.empty_like(picture)
+    for r0 in range(0, h, 1024):
+        a0, a1 = max(0, r0 - 8), min(h, r0 + 1024 + 8)
+        part = np.asarray(dd[a0:a1])
+        out = ink.ink(picture[a0:a1], part[..., 0], part[..., 1], part[..., 2])
+        inked[r0:min(h, r0 + 1024)] = out[r0 - a0:r0 - a0 + min(1024, h - r0)]
+    picture = inked
     depth = depth_rgb(os.path.join(src, f'village_walk_{view}_depth.npy'), surface, w, h, width, cx, m['area'])
     tdir = f"assets/art/{m['tiles']}/"
     tmeta = tiles(picture, mask, depth, os.path.join(FLUTTER, tdir))

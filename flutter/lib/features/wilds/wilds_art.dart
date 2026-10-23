@@ -36,12 +36,17 @@ class WildsGait {
 }
 
 class WalkerArt {
-  WalkerArt({required this.fw, required this.fh, required this.gx, required this.gy, required this.radius, required this.gaits, required this.wear});
+  WalkerArt(
+      {required this.fw, required this.fh, required this.gx, required this.gy, required this.radius, required this.gaits, required this.wear, this.heightPx});
   final double fw, fh, gx, gy, radius;
+  final double? heightPx; // the standing sprite's height, ground to head (the villagers' sheets carry it)
   final Map<String, WildsGait> gaits; // walk, run
   final Map<String, ui.Image> wear; // item id -> one row, a direction per frame
 
   WildsGait gait(bool running) => (running ? gaits['run'] : null) ?? gaits['walk']!;
+
+  /// Is there a walker [key] (e.g. a villager's outdoor sheets) in this build's art?
+  static Future<bool> exists(String key) async => ((await _json('wilds_walk.json'))['walkers'] as Map).containsKey(key);
 
   static Future<WalkerArt> load(String key, String variant, {Iterable<String> wearing = const []}) async {
     final walk = await _json('wilds_walk.json');
@@ -77,6 +82,7 @@ class WalkerArt {
       radius: (w['radius'] as num? ?? 9).toDouble(),
       gaits: gaits,
       wear: wear,
+      heightPx: (w['heightPx'] as num?)?.toDouble(),
     );
   }
 }
