@@ -323,8 +323,9 @@ def main():
     os.makedirs(OUT_DIR, exist_ok=True)
     scenes = _load_zones(extra)
     data = {}
-    if os.path.exists(OUT_JSON) and only:
-        data = json.load(open(OUT_JSON))
+    src = out_json if os.path.exists(out_json) else OUT_JSON      # a concept json builds on itself
+    if os.path.exists(src) and only:
+        data = json.load(open(src))
     for rel, spec in scenes.items():
         if only and rel not in only:
             continue
