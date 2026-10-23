@@ -52,7 +52,7 @@ class CatalogItem {
   final String rarity;
   final String desc;
   final String? shop; // wearables | care | habitats | garden; null = not in the Market
-  final String acquisition; // shop | story | home | trail
+  final String acquisition; // shop | story | home | trail | mine
   final String? originQuest; // story rewards: the quest that grants it
   final bool tradable;
   final bool sellable;
@@ -262,6 +262,24 @@ const catalog = <String, CatalogItem>{
       id: 'ancient_relic', name: 'Ancient Relic', category: ItemCategory.decoration, decor: 'side', rarity: 'legendary',
       desc: "A stone tablet from the Sentinel's gate, its three trail grooves glowing softly. A piece of the Lumen Trails for your nest.",
       shop: null, acquisition: 'story', originQuest: 'eq03', tradable: false, sellable: false),
+  // ---- the mines (MINES_PLAN.md): ore your Evochi breaks out with the Pounce, for Bram's forge. Never sold
+  // in the Market and never bought with Glimmer: you mine it.
+  'copper_ore': CatalogItem(
+      id: 'copper_ore', name: 'Copper Ore', category: ItemCategory.ingredient, rarity: 'common', stackable: true, shop: null,
+      acquisition: 'mine', sellable: false,
+      desc: 'Warm, crumbly copper, broken out of sandstone with a Pounce. Bram works it into trim, lamps and fittings.'),
+  'iron_ore': CatalogItem(
+      id: 'iron_ore', name: 'Iron Ore', category: ItemCategory.ingredient, rarity: 'uncommon', stackable: true, shop: null,
+      acquisition: 'mine', sellable: false,
+      desc: 'Dense metal from a rust-stained vein. It takes better gear to break, and Bram forges it into frames and sturdy pieces.'),
+  'lumen_crystal': CatalogItem(
+      id: 'lumen_crystal', name: 'Lumen Crystal', category: ItemCategory.ingredient, rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'mine', sellable: false,
+      desc: 'A prism that glows on its own and hums faintly when someone walks past. Set into lamps and fittings, never melted.'),
+  'obsidian_shard': CatalogItem(
+      id: 'obsidian_shard', name: 'Obsidian Shard', category: ItemCategory.ingredient, rarity: 'epic', stackable: true, shop: null,
+      acquisition: 'mine', sellable: false,
+      desc: 'Volcanic glass, glossy and sharp. It is shaped chip by chip, never smelted: for inlays and rare fittings.'),
   // ---- Lumen Wilds: what a floor's guardian leaves once it is calm (fragments for Wilds cosmetics)
   'briar_heartwood': CatalogItem(
       id: 'briar_heartwood', name: 'Briar Heartwood', category: ItemCategory.ingredient, rarity: 'epic', stackable: true, shop: null,

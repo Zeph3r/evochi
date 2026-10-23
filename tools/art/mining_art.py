@@ -199,10 +199,16 @@ def nugget(kind, seed=3):
              (((X + 0.5) ** 2 + (Y - 1.3) ** 2 + (Z + 0.2) ** 2) < 0.45))
         P.fill(b, COPPER, cell=0.25)
         M.set(b & ~np.roll(b, -1, 1), '#FFC48E')
-    elif kind == 'iron':
-        b = (np.abs(X) < 1.1) & (np.abs(Y - 0.8) < 0.8) & (np.abs(Z) < 0.9) & (np.abs(X) + np.abs(Z) < 1.6)
-        P.fill(b & (np.floor((Y + 0.2 * X) / 0.5).astype(int) % 2 == 0), IRON_SILVER, cell=0.25)
-        P.fill(b & (M.m == 0), IRON_RUST, cell=0.25)
+    elif kind == 'iron':   # a lump of rust-red rock with a rib of bright metal standing proud across it
+        b = (np.abs(X / 1.25) ** 2.2 + np.abs((Y - 0.8) / 0.85) ** 2.2 + np.abs(Z / 1.0) ** 2.2) < 1.0
+        n = np.array([0.75, 0.6, 0.28]) / np.linalg.norm([0.75, 0.6, 0.28])
+        rib = ((np.abs(X / 1.45) ** 2.2 + np.abs((Y - 0.8) / 1.05) ** 2.2 + np.abs(Z / 1.2) ** 2.2) < 1.0) & \
+            ((np.abs(X * n[0] + (Y - 0.8) * n[1] + Z * n[2] - 0.35) < 0.2) | (np.abs(X * n[0] + (Y - 0.8) * n[1] + Z * n[2] + 0.45) < 0.14))
+        rib &= ~b                                           # only where it stands proud of the lump
+        P.fill(b, ROCK['iron'], cell=0.5)
+        P.fill(b & ~np.roll(b, -1, 1) & (np.sin(X * 3 + Z * 2) > 0.6), IRON_RUST, cell=0.5)
+        P.fill(rib, IRON_SILVER, cell=0.25)
+        M.set(rib & ~np.roll(rib, -1, 1), '#EEF2F6')
     elif kind == 'lumen':
         b = _prism(M, (0, 0, 0), (0.15, 1.0, 0.1), 0.75, 3.0)
         P.fill(b, LUMEN, glow=0.9, cell=0.25)
@@ -246,6 +252,26 @@ def main():
         print(kind, [s['w'] for s in states], flush=True)
     with open(os.path.join(OUT, 'mining.json'), 'w') as f:
         json.dump(meta, f, indent=1)
+    icons()
+
+
+ITEM_IDS = {'copper': 'copper_ore', 'iron': 'iron_ore', 'lumen': 'lumen_crystal', 'obsidian': 'obsidian_shard'}
+
+
+def icons():
+    """The ores' Bag icons (168 px, like the other items), listed in the art manifest."""
+    from build_items import render_model
+    items = os.path.join(OUT, '..', 'items')
+    mp = os.path.join(OUT, '..', 'manifest.json')
+    with open(mp) as f:
+        man = json.load(f)
+    cam = Camera(yaw=30.0, pitch=24.0)
+    for kind, item in ITEM_IDS.items():
+        rgba = render_model(nugget(kind), cam, 168, outline=2.4)
+        Image.fromarray(rgba, 'RGBA').save(os.path.join(items, f'{item}.webp'), 'WEBP', quality=92, method=6)
+        man['items'][item] = f'items/{item}.webp'
+    with open(mp, 'w') as f:
+        json.dump(man, f, indent=1)
 
 
 if __name__ == '__main__':

@@ -3839,7 +3839,11 @@
   "sap_locket": "items/sap_locket.webp",
   "dazzle_pebble": "items/dazzle_pebble.webp",
   "prism_charm": "items/prism_charm.webp",
-  "starseed_charm": "items/starseed_charm.webp"
+  "starseed_charm": "items/starseed_charm.webp",
+  "copper_ore": "items/copper_ore.webp",
+  "iron_ore": "items/iron_ore.webp",
+  "lumen_crystal": "items/lumen_crystal.webp",
+  "obsidian_shard": "items/obsidian_shard.webp"
  },
  "icons": {
   "bag": "icons/bag.webp",

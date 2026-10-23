@@ -97,11 +97,11 @@
    "unit": 0.02246,
    "nugget": {
     "src": "assets/art/mining/nugget_iron.webp",
-    "w": 84,
-    "h": 98,
+    "w": 100,
+    "h": 100,
     "ground": [
-     42.0,
-     67.7
+     50.0,
+     69.6
     ],
     "unit": 0.01123
    }

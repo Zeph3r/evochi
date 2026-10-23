@@ -551,6 +551,7 @@ class HomeSource {
 HomeSource? homeSource(String id) {
   final it = catalog[id];
   if (it == null) return null;
+  if (it.acquisition == 'mine') return null; // ore comes from the mines, not from home
   if (it.category == ItemCategory.ingredient || it.category == ItemCategory.seed) return const HomeSource(route: 'garden', verb: 'Grow', place: 'Garden');
   final r = recipeDefs[id];
   if (r != null) {

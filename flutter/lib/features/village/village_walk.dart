@@ -27,6 +27,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
+import '../../game/mining/mining.dart' as mine;
 import '../../game/story/story.dart' as q;
 import '../shared/ambience.dart';
 import '../shared/live_scene.dart';
@@ -873,7 +874,15 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     _bits.addAll(contactBits(o, _t, toward, broke: broke, reduced: reduced));
     if (broke) {
       o.brokeAt = _t;
-      _bits.addAll(nuggets(o, _t, toward, o.kind == 'copper' ? 3 : 2));
+      final n = o.kind == 'copper' ? 3 : 2;
+      _bits.addAll(nuggets(o, _t, toward, n));
+      // the loot, once, at the break (the nuggets flying to the satchel are only the show)
+      final c = context.read<GameController>();
+      final r = c.run((st, now) => mine.breakOre(st, o.kind, n, '${widget.map}:${ores.indexOf(o)}:${DateTime.now().millisecondsSinceEpoch}', now), quiet: true);
+      if (r.events.any((e) => e.type == 'ore_first')) {
+        final name = oreName[o.kind] ?? o.kind;
+        Future.delayed(const Duration(milliseconds: 900), () => c.toast('Your first $name! It is in your Bag, ready for Bram.', icon: 'gem'));
+      }
       setState(() {});
     }
   }
