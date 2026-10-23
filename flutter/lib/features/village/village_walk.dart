@@ -781,8 +781,10 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
 
   /// Off somewhere else: a strike that hasn't landed yet is called off (no loot without a contact).
   void _leaveOre() {
+    final had = target != null;
     _goingTo = null;
     target = null;
+    if (had && mounted) setState(() {}); // the Pounce button goes
     if (pounce.active && !pounce.contacted) pounce.t = -1;
     pounce
       ..held = false
