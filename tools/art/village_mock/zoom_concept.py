@@ -16,17 +16,21 @@ X = VC.X
 FW, FH = 824, 1100                    # a phone frame's picture, px (412 x 550 dp)
 PET = (0.8, -19.0)                    # walking down from the bridge to the plaza (clear of the waystone)
 PIP, ALDER = (-4.5, -31.0), (4.6, -31.0)
+PET_BIG = 1.2                         # the Evochi a little bigger than its true size
 
 
-def scene(big=1.0, classic=True):
-    """The zoom_hd picture with everyone in it; characters drawn [big] times their usual size."""
+def scene(big=1.0, classic=True, pet=1.0, cast=False):
+    """The zoom_hd picture with everyone in it; characters drawn [big] times their usual size, the
+    Evochi [pet] times more; [cast]: everyone casts the sun's shadow."""
     eh, nh = VC.EVOCHI_H, dict(VC.NPC_H)
     VC.EVOCHI_H, VC.NPC_H = eh * big, {k: h * big for k, h in nh.items()}
+    VC.EVOCHI_BIG, VC.CAST = pet, cast
     v = VC.View('zoom_hd')
     pip = VC.npc(v, 'pip', *PIP, 'happy', classic)
     VC.npc(v, 'alder', *ALDER, 'neutral', classic)
     VC.evochi(v, *PET, 'SE')
     VC.EVOCHI_H, VC.NPC_H = eh, nh
+    VC.EVOCHI_BIG, VC.CAST = 1.0, False
     return v, pip
 
 
@@ -66,14 +70,15 @@ def tilt_shift(img, band=0.2, r=5):
 
 
 def main():
-    vl, pipl = scene(classic=False)
-    vf, pipf = scene(classic=True)
-    shots = [('2x, villagers room-lit (before)', framed(vl, pipl, 2.0)),
-             ('2x, villagers drawn flat like the Evochi', framed(vf, pipf, 2.0))]
+    vf, pipf = scene()
+    vb, pipb = scene(pet=PET_BIG, cast=True)
+    shots = [('2x, classic villagers', framed(vf, pipf, 2.0)),
+             (f'Evochi {PET_BIG}x bigger, and shadows', framed(vb, pipb, 2.0))]
     # a conversation: the camera eases in to frame you both
     t = VC.View('zoom_talk')
+    VC.EVOCHI_BIG, VC.CAST = PET_BIG, True
     hx, hy = VC.npc(t, 'pip', *PIP, 'happy')
-    VC.evochi(t, -0.6, -28.2, 'NW')
+    VC.evochi(t, -0.2, -28.2, 'NW')
     t.img = tilt_shift(t.img)
     VC.chip(t.img, hx, hy - 16 * X, 'Pip')
     VC.bubble(t.img, hx + 40 * X, hy - 38 * X,
@@ -81,8 +86,8 @@ def main():
     shots.append(('Talking: the camera eases in', t.img))
     s = 0.5
     panels = [(lab, VC.phone(Pic(img)).resize((int(FW * s), int((FH + 156 * X) * s)), Image.LANCZOS)) for lab, img in shots]
-    VC.board('Walking at 2x, villagers drawn flat',
-             'Your Evochi the size it is in the Wilds. The villagers lose the room lighting and match the Evochi: flat, even light and the same dark outline.',
+    VC.board('Walking at 2x: a bigger Evochi, and shadows',
+             f"The Evochi drawn {PET_BIG}x its true size; everyone casts the sun's shadow the way the trees and buildings do (up and to the right).",
              panels, f'{OUT}/village_zoom2x.jpg', gap=34)
     print('ok')
 

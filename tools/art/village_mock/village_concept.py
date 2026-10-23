@@ -19,6 +19,10 @@ X = 2                     # px per dp in the phone frames
 EVOCHI_H = 3.4            # world units, an Elder standing
 NPC_H = {'bram': 4.0, 'mira': 4.2, 'pip': 3.4, 'alder': 3.8}
 CLASSIC = True            # villagers drawn flat like the Evochi (the game's default); False: room-lit
+EVOCHI_BIG = 1.0          # the Evochi drawn this much bigger than its true size
+CAST = False              # characters cast the sun's shadow on the ground
+SUN = (0.42, -0.78, -0.48)  # the village's day sun (village_scenes.STATE_LIGHT['day']), the way it travels
+SHADOW_LONG = 2.0         # characters' shadows drawn this much longer than that sun makes them, to read
 
 
 def font(weight, size, k=X):
@@ -55,6 +59,23 @@ def shadow(img, x, y, rx, ry, a=80):
     img.alpha_composite(sh.filter(ImageFilter.GaussianBlur(max(2, ry * 0.6))))
 
 
+def cast_shadow(v, im, px, py, gx, gy, a=0.38, long=1.0):
+    """The sun's shadow of a standing sprite [im] (its ground point at (gx, gy) in it, at (px, py) in the
+    picture): each point h above the ground lands where the sun's ray through it meets the ground,
+    seen through the walking camera. Soft, cool and see-through, like the buildings' and trees'."""
+    pitch = math.radians(v.p['pitch'])
+    dx, dy, dz = SUN
+    ka = long * (dx / -dy) / math.cos(pitch)                # screen x per screen-px of height
+    kb = long * (dz / -dy) * math.tan(pitch)                # screen y per screen-px of height (<0: up)
+    W, H = v.img.size
+    m = im.getchannel('A').transform((W, H), Image.AFFINE, (1, -ka / kb, gx - px + ka / kb * py, 0, -1 / kb, gy + py / kb),
+                                    resample=Image.BILINEAR)
+    m = m.point(lambda q: int(q * a)).filter(ImageFilter.GaussianBlur(max(1.0, v.ppu * 0.06)))
+    sh = Image.new('RGBA', (W, H), (28, 44, 46, 0))
+    sh.putalpha(m)
+    v.img.alpha_composite(sh)
+
+
 def evochi(v, x, z, d='E', f=3, palette='amber', hat=True):
     ww = json.load(open(ART + 'wilds/wilds_walk.json'))
     wk = ww['walkers']['s03']
@@ -65,10 +86,19 @@ def evochi(v, x, z, d='E', f=3, palette='amber', hat=True):
     if hat:
         h = Image.open(ART + 'wilds/wear_s03_explorer_hat.webp').convert('RGBA').crop((di * fw, 0, (di + 1) * fw, fh))
         im.alpha_composite(h, (0, -4))
-    s = EVOCHI_H * v.ppu / 202.0
+    s = EVOCHI_H * EVOCHI_BIG * v.ppu / 202.0
     im = im.resize((int(im.width * s), int(im.height * s)), Image.LANCZOS)
     px, py = v.at(x, z)
-    shadow(v.img, px, py, im.width * 0.22, 5 * s * 4)
+    if CAST:
+        # a soft pool of shade under the whole body (the camera sees the ground between its legs), then the
+        # sun's shadow, which only peeks out from behind a creature this low
+        bb = im.getbbox()
+        bw = bb[2] - bb[0]
+        cx = px - wk['ground'][0] * s + (bb[0] + bb[2]) / 2
+        shadow(v.img, cx + bw * 0.04, py - bw * 0.02, bw * 0.44, bw * 0.12, 110)
+        cast_shadow(v, im, px, py, wk['ground'][0] * s, wk['ground'][1] * s, long=SHADOW_LONG)
+    else:
+        shadow(v.img, px, py, im.width * 0.22, 5 * s * 4)
     v.img.alpha_composite(im, (int(px - wk['ground'][0] * s), int(py - wk['ground'][1] * s)))
     return px, py, im.height
 
@@ -81,6 +111,8 @@ def npc(v, who, x, z, expr='neutral', classic=None):
     s = NPC_H[who] * v.ppu / tall
     im = im.resize((int(im.width * s), int(im.height * s)), Image.LANCZOS)
     px, py = v.at(x, z)
+    if CAST:
+        cast_shadow(v, im, px, py, n['ground'][0] * s, n['ground'][1] * s, long=SHADOW_LONG)
     shadow(v.img, px, py, im.width * 0.3, 4 * X)
     v.img.alpha_composite(im, (int(px - n['ground'][0] * s), int(py - n['ground'][1] * s)))
     return px, py - tall * s
