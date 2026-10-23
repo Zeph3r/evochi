@@ -66,7 +66,7 @@ export const settings = {
           <div class="setting"><div class="grow"><div class="t">Haptics</div></div>${sw(st.haptics, 'toggle', 'Haptics', 'th')}</div>
           <div class="setting"><div class="grow"><div class="t">Larger text</div><div class="d">Bigger labels, descriptions and item text everywhere.</div></div>${sw(st.largeText, 'toggle', 'Larger text', 'tx')}</div>
           <div class="setting"><div class="grow"><div class="t">Reduce motion</div><div class="d">Crossfades instead of bounces, flashes and particles.</div></div>${sw(st.reducedMotion, 'toggle', 'Reduce motion', 'tr')}</div>
-          <div class="setting"><div class="grow"><div class="t">Classic villagers</div><div class="d">Flat, evenly lit villagers instead of ones lit by each room's lanterns and windows.</div></div>${sw(st.classicVillagers, 'toggle', 'Classic villagers', 'tv')}</div>
+          <div class="setting"><div class="grow"><div class="t">Room-lit villagers</div><div class="d">Villagers lit by each room's lanterns and windows, instead of drawn flat like your Evochi.</div></div>${sw(st.roomLitVillagers, 'toggle', 'Room-lit villagers', 'tv')}</div>
         </section>
         <section class="card" aria-label="Time zone">
           <div class="setting"><img src="${icon('pin')}" alt="" width="30" height="30"><div class="grow"><div class="t">Account time zone</div><div class="d">Decides when your day starts. Travelling doesn't change it unless you do.</div></div></div>
@@ -129,7 +129,7 @@ export const settings = {
   },
   actions: {
     toggle(ctx, arg, el) {
-      const k = { tn: 'notifications', ts: 'sound', tm: 'music', th: 'haptics', tr: 'reducedMotion', ta: 'analytics', tv: 'classicVillagers', tx: 'largeText', td: 'devTools' }[el.dataset.k];
+      const k = { tn: 'notifications', ts: 'sound', tm: 'music', th: 'haptics', tr: 'reducedMotion', ta: 'analytics', tv: 'roomLitVillagers', tx: 'largeText', td: 'devTools' }[el.dataset.k];
       const st = ctx.state.player.settings;
       ctx.act(G.updateSettings, { [k]: k === 'devTools' ? st.devTools === false : !st[k] });
       ctx.app.applySettings();

@@ -594,7 +594,7 @@ class _PlaceScreenState extends State<PlaceScreen> {
     final activeQuest = st.quests.where((v) => v.accepted && !v.completed && (v.next.npc == _npc || v.giver == _npc)).firstOrNull ??
         st.quests.where((v) => v.phase == 'available' && v.giver == _npc).firstOrNull;
     const finale = ['VQ03_MIR02', 'VQ03_BRA02', 'VQ03_PIP08', 'VQ03_ALD05'];
-    final classic = c.state.player?.settings.classicVillagers ?? false;
+    final classic = !(c.state.player?.settings.roomLitVillagers ?? false);
     final reduce = _reduce || (c.state.player?.settings.reducedMotion ?? false);
     final key = '${widget.placeId}:$_npc:${node.id}';
     _typeLine(key, text.length, reduce);

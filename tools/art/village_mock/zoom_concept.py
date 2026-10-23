@@ -1,7 +1,7 @@
-"""How close should the walking camera be? One moment on the path north of the plaza at 1x, 1.5x and 2x
-(2x draws an Evochi the size the Wilds do), 1.5x with the characters drawn 1.3x bigger, and the
-camera easing in for a conversation by the Guild's door. Composited from the zoom_hd and zoom_talk
-renders (village_walk.py --view zoom_hd / zoom_talk) with the real sprites.
+"""The walking camera at 2x (an Evochi the size the Wilds draw it), the villagers room-lit as they were
+and drawn flat like the Evochi as they are now, and the camera easing in for a conversation by the
+Guild's door. Composited from the zoom_hd and zoom_talk renders (village_walk.py --view zoom_hd /
+zoom_talk) with the real sprites. (The first pass also compared 1x, 1.5x and bigger characters; 2x won.)
 
     python3 zoom_concept.py VW_DIR OUT_DIR
 """
@@ -18,13 +18,13 @@ PET = (0.8, -19.0)                    # walking down from the bridge to the plaz
 PIP, ALDER = (-4.5, -31.0), (4.6, -31.0)
 
 
-def scene(big=1.0):
+def scene(big=1.0, classic=True):
     """The zoom_hd picture with everyone in it; characters drawn [big] times their usual size."""
     eh, nh = VC.EVOCHI_H, dict(VC.NPC_H)
     VC.EVOCHI_H, VC.NPC_H = eh * big, {k: h * big for k, h in nh.items()}
     v = VC.View('zoom_hd')
-    pip = VC.npc(v, 'pip', *PIP, 'happy')
-    VC.npc(v, 'alder', *ALDER)
+    pip = VC.npc(v, 'pip', *PIP, 'happy', classic)
+    VC.npc(v, 'alder', *ALDER, 'neutral', classic)
     VC.evochi(v, *PET, 'SE')
     VC.EVOCHI_H, VC.NPC_H = eh, nh
     return v, pip
@@ -66,12 +66,10 @@ def tilt_shift(img, band=0.2, r=5):
 
 
 def main():
-    v1, pip1 = scene()
-    shots = [('Now (1x): half its Wilds size', framed(v1, pip1, 1.0)),
-             ('1.5x', framed(v1, pip1, 1.5)),
-             ('2x: the same size as in the Wilds', framed(v1, pip1, 2.0))]
-    vb, pipb = scene(1.3)
-    shots.append(('1.5x, characters drawn 1.3x bigger', framed(vb, pipb, 1.5)))
+    vl, pipl = scene(classic=False)
+    vf, pipf = scene(classic=True)
+    shots = [('2x, villagers room-lit (before)', framed(vl, pipl, 2.0)),
+             ('2x, villagers drawn flat like the Evochi', framed(vf, pipf, 2.0))]
     # a conversation: the camera eases in to frame you both
     t = VC.View('zoom_talk')
     hx, hy = VC.npc(t, 'pip', *PIP, 'happy')
@@ -80,12 +78,12 @@ def main():
     VC.chip(t.img, hx, hy - 16 * X, 'Pip')
     VC.bubble(t.img, hx + 40 * X, hy - 38 * X,
               "Guild business! We've spotted an unusual Evochi near the Mossy Ruins. Leafy ears, a flower on its head, FAST.", 250)
-    shots.append(('Talking: it eases in to 2.5x', t.img))
+    shots.append(('Talking: the camera eases in', t.img))
     s = 0.5
     panels = [(lab, VC.phone(Pic(img)).resize((int(FW * s), int((FH + 156 * X) * s)), Image.LANCZOS)) for lab, img in shots]
-    VC.board('The walking camera: how close?',
-             'One moment on the path from the bridge. At 2x your Evochi is the size it is in the Wilds, but a building fills the screen; at 1.5x with characters a little bigger, you get both.',
-             panels, f'{OUT}/village_zoom.jpg', gap=34)
+    VC.board('Walking at 2x, villagers drawn flat',
+             'Your Evochi the size it is in the Wilds. The villagers lose the room lighting and match the Evochi: flat, even light and the same dark outline.',
+             panels, f'{OUT}/village_zoom2x.jpg', gap=34)
     print('ok')
 
 

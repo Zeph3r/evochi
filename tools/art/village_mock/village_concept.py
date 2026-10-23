@@ -18,6 +18,7 @@ INK = (59, 41, 35)
 X = 2                     # px per dp in the phone frames
 EVOCHI_H = 3.4            # world units, an Elder standing
 NPC_H = {'bram': 4.0, 'mira': 4.2, 'pip': 3.4, 'alder': 3.8}
+CLASSIC = True            # villagers drawn flat like the Evochi (the game's default); False: room-lit
 
 
 def font(weight, size, k=X):
@@ -72,9 +73,10 @@ def evochi(v, x, z, d='E', f=3, palette='amber', hat=True):
     return px, py, im.height
 
 
-def npc(v, who, x, z, expr='neutral'):
+def npc(v, who, x, z, expr='neutral', classic=None):
     n = man['village']['npcs'][who]
-    im = Image.open(ART + n['expr'][expr]).convert('RGBA')
+    flat = CLASSIC if classic is None else classic
+    im = Image.open(ART + n['exprClassic' if flat else 'expr'][expr]).convert('RGBA')
     tall = n['ground'][1] - n['top'][1]
     s = NPC_H[who] * v.ppu / tall
     im = im.resize((int(im.width * s), int(im.height * s)), Image.LANCZOS)

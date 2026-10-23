@@ -177,7 +177,7 @@ export class App {
     this.root.classList.toggle('no-dev', s?.devTools === false);
     this.root.classList.toggle('large-text', !!s?.largeText);
     this.reducedMotion = !!rm;
-    setLook(s?.classicVillagers ? 'classic' : 'lit');
+    setLook(s?.roomLitVillagers ? 'lit' : 'classic');
     audio.configure({ sound: s ? s.sound : true, music: s ? s.music : true });
   }
 

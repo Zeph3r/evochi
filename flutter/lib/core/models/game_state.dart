@@ -108,7 +108,7 @@ class Settings {
     this.quietStart = 21,
     this.quietEnd = 8,
     this.analytics = false,
-    this.classicVillagers = false,
+    this.roomLitVillagers = false,
     this.largeText = false,
     this.devTools = false,
   });
@@ -120,7 +120,9 @@ class Settings {
   int quietStart;
   int quietEnd;
   bool analytics;
-  bool classicVillagers; // flat, evenly lit villagers instead of room-lit ones
+  // villagers lit by each room's lanterns and windows; off, they are drawn flat like the Evochi (the
+  // default since the walkable village; the old 'classicVillagers' key is left behind on purpose)
+  bool roomLitVillagers;
   bool largeText; // bigger labels, descriptions and item text everywhere
   // the step simulator and playtest shortcuts (off by default here: the app reads real health data;
   // the web preview defaults it on)
@@ -134,7 +136,7 @@ class Settings {
         quietStart: _i(j['quietStart'], 21),
         quietEnd: _i(j['quietEnd'], 8),
         analytics: j['analytics'] == true,
-        classicVillagers: j['classicVillagers'] == true,
+        roomLitVillagers: j['roomLitVillagers'] == true,
         largeText: j['largeText'] == true,
         devTools: j['devTools'] == true,
       );
@@ -147,7 +149,7 @@ class Settings {
         'quietStart': quietStart,
         'quietEnd': quietEnd,
         'analytics': analytics,
-        'classicVillagers': classicVillagers,
+        'roomLitVillagers': roomLitVillagers,
         'largeText': largeText,
         'devTools': devTools,
       };
