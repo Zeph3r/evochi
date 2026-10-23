@@ -54,6 +54,11 @@ class SceneFx {
     _atlas ??= _buildAtlas();
   }
 
+  /// Emitters alone, for a picture a screen draws itself (the walkable village keeps them in its layout).
+  factory SceneFx.emitters(List<dynamic> emit, double width, double height) => SceneFx._('', width, height, [
+        for (var i = 0; i < emit.length; i++) FxEmitter.fromJson((emit[i] as Map).cast<String, dynamic>(), i),
+      ]);
+
   /// Paint [fx]'s emitters at time [t] (in the scene image's own px: scale the canvas first), for a
   /// screen that draws a scene itself (the walkable village).
   static void paintEmitters(Canvas canvas, SceneFx fx, double t, {bool moving = true, ColorFilter? filter}) {

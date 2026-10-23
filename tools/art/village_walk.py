@@ -196,6 +196,7 @@ COTTAGES = [  # (scene_square's box, move) -> spread round the edges
     ((-38.0, -30.0, -8.0, 2.0, 'SLATE', 'SANDWALL'), (-18.0, 26.0)),
 ]
 STREAM_Z = -26.0
+FORD_X = -15.0                                     # stepping stones over the stream, up to the waterfall
 FALLS_DZ = -14.0                                   # the cliffs and their waterfall, brought close
 CREEK = [(-24.0, -60.0), (-25.0, -52.0), (-21.5, -42.0), (-23.0, -33.0), (-21.0, -26.0)]
 GATE_Z = 50.0
@@ -254,6 +255,12 @@ def scene_village_walk(state='day_dim'):
     P.fill(creek[:, None, :] & (G.Y >= -1.4) & (G.Y < -0.4), WATERC, cell=1.0)
     for (rx_, rz_) in ((-26.5, -52.0), (-21.0, -44.0), (-23.5, -36.0)):
         P.fill(ball(G, (rx_, -0.2, rz_), 0.9, 0.6) & (G.Y >= -0.6), STONE, cell=0.5)
+    # a stone ford across the stream west of the Guild: the way up to the creek and the waterfall
+    fsz = STREAM_Z + 1.6 * np.sin(FORD_X * 0.18)
+    ford = (np.abs(G.X - FORD_X + 0.35 * np.sin(G.Z * 1.3)) < 2.7) & (np.abs(G.Z - fsz) < 3.0) & (G.Y >= -1.4) & (G.Y < 0)
+    G.m[ford] = 0
+    P.fill(ford, ['#B7B1A3', '#A8A193', '#C4BEB0', '#9E978A'], cell=(1.0, 1.4, 1.0))
+    P.fill(ford & (G.Y >= -0.5) & ((np.floor(G.X * 0.9) + np.floor(G.Z * 0.8)) % 3 == 0), ['#8F887C'], cell=9)
     bz = STREAM_Z
     bridge = (np.abs(G.X) < 3.0) & (np.abs(G.Z - bz) < 3.6) & (G.Y >= 0) & (G.Y < 0.6 + 0.6 * np.cos((G.Z - bz) / 3.6 * 1.4))
     P.fill(bridge & (G.Y >= 0.2 * np.cos((G.Z - bz) / 3.6 * 1.4)), HONEY, cell=(9, 1, 1.0))
@@ -268,6 +275,8 @@ def scene_village_walk(state='day_dim'):
     paths |= polyline(X2, Z2, ROAD_EAST, 2.2)                                                           # east, Bram
     paths |= polyline(X2, Z2, [(6.0, 8.0)] + TRAIL_EAST, 2.4)                                           # the Old Trail
     paths |= polyline(X2, Z2, [(0.4, 26.0), (-13.0, 24.5)], 2.0)                                        # to the market
+    paths |= polyline(X2, Z2, [(-12.5, -2.0), (-14.0, -14.0), (FORD_X, -22.5)], 1.8)                     # down to the ford
+    paths |= polyline(X2, Z2, [(FORD_X, -30.0), (-15.5, -40.0), (-16.5, -50.0), (-17.5, -57.0)], 1.8)   # up to the falls
     pathm = ground & paths[:, None, :]
     P.fill(pathm, PATHC, cell=(1.0, 1, 1.0))
     plaza = ground & (R < 11.0)
@@ -446,6 +455,8 @@ VIEWS = {   # centre (x, z) and width in world units; the image height follows f
     # the first playable piece (flutter/lib/features/village/village_walk.dart): the plaza, the bridge and
     # the Guild at the walking camera's detail (2x: 45.8 px a unit)
     'slice': ((0.0, -25.8), 40.0, (1832, 2200)),
+    # the whole village to walk through (village_walk_full.py cuts it into tiles for the game)
+    'full': ((0.0, -13.1), 132.0, (6046, 4992)),
 }
 DEPTH_RANGE = (-70.0, 30.0)   # world z the depth pass spans (0 -> 65535)
 
@@ -545,7 +556,9 @@ def render_ortho(vs, view, out_path, quick=False, depth=False):
     if depth:
         import numpy as _np
         im = bpy.data.images.load(out_path)
-        px = _np.array(im.pixels[:], _np.float32).reshape(im.size[1], im.size[0], 4)[::-1]
+        buf = _np.empty(im.size[0] * im.size[1] * 4, _np.float32)     # foreach_get: a Python list of a
+        im.pixels.foreach_get(buf)                                    # big picture's floats runs out of memory
+        px = buf.reshape(im.size[1], im.size[0], 4)[::-1]
         _np.save(out_path.rsplit('.', 1)[0] + '.npy', _np.dstack([px[..., 0], px[..., 3], px[..., 1]]))   # z, alpha, height
     # the projection: world (x, y, z) -> image px
     ppu = w / width

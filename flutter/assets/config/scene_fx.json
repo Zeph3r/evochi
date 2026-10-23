@@ -1433,43 +1433,6 @@
    }
   ]
  },
- "assets/art/village/walk_slice.webp": {
-  "mask": "assets/art/fx/village__walk_slice.webp",
-  "w": 1832,
-  "h": 2200,
-  "emit": [
-   {
-    "t": "leaves",
-    "x": 0,
-    "y": 0,
-    "w": 1832,
-    "h": 2200,
-    "n": 3
-   },
-   {
-    "t": "motes",
-    "kind": "pollen",
-    "x": 0,
-    "y": 550,
-    "w": 1832,
-    "h": 1650,
-    "n": 10,
-    "c": "#fff6c8",
-    "s": 3
-   },
-   {
-    "t": "motes",
-    "kind": "firefly",
-    "x": -458,
-    "y": -286,
-    "w": 733,
-    "h": 1381,
-    "n": 7,
-    "c": "#e8fff6",
-    "s": 4
-   }
-  ]
- },
  "assets/art/village/waystone_dormant.webp": {
   "mask": "assets/art/fx/village__waystone_dormant.webp",
   "w": 667,

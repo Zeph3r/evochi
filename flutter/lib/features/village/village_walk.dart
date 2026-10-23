@@ -1,11 +1,13 @@
-// The walkable Sunlit Village, a first playable piece: the plaza, the bridge and the Trail Guild.
+// The walkable Sunlit Village.
 //
-// One picture of the village at the walking camera's detail (tools/art/village_walk_slice.py) drawn
-// through shaders/village_fx.frag, so it lives like the other scenes (water, trees, grass, smoke,
-// glows, leaves and motes); a walk grid; your Evochi walking where you tap, drawn 1.2x its true size
-// with the sun's shadow; and the villagers standing outside in the classic look. Tap one and your
-// Evochi walks over, turns to them, and the conversation opens. No labels on the buildings: a name
-// shows when you walk up, a "!" marks who has something for you.
+// The whole village pictured at the walking camera's detail (tools/art/village_walk_pack.py), in
+// 1024 px tiles loaded as you walk, drawn through shaders/village_fx.frag so it lives like the other
+// scenes (water, trees, grass, smoke, glows, leaves and motes); a walk grid with the height you stand
+// at; your Evochi walking where you tap, drawn 1.2x its true size with the sun's shadow; and the
+// villagers outside in the classic look (Pip and Alder by the Guild's bridge, Bram at his Workshop,
+// Mira at her Glasshouse). Tap one and your Evochi walks over, turns to them, and the conversation
+// opens. No labels on the buildings: a name shows when you walk up, a "!" marks who has something for
+// you. The road home leaves south through the gate; the Old Trail leaves east.
 //
 // Depth: the picture knows the world z of what each pixel shows (and whether it stands up off the
 // ground). After each character is drawn, the picture is drawn again over it, only where something
@@ -48,8 +50,22 @@ void openVillageWalk(BuildContext context) =>
 /// The piece of village: its picture, camera and walk grid (assets/config/village_walk.json).
 class WalkLayout {
   WalkLayout(Map<String, dynamic> j)
-      : image = j['image'] as String,
-        depth = j['depth'] as String,
+      : tileDir = (j['tiles'] as Map)['dir'] as String,
+        tiles = [
+          for (final t in ((j['tiles'] as Map)['list'] as List).cast<Map>())
+            WalkTile(
+              t['i'] as int,
+              t['j'] as int,
+              Rect.fromLTWH((t['x'] as num).toDouble(), (t['y'] as num).toDouble(), (t['w'] as num).toDouble(), (t['h'] as num).toDouble()),
+              Rect.fromLTWH(((t['core'] as List)[0] as num).toDouble(), ((t['core'] as List)[1] as num).toDouble(), ((t['core'] as List)[2] as num).toDouble(),
+                  ((t['core'] as List)[3] as num).toDouble()),
+            )
+        ],
+        emit = (j['emit'] as List?) ?? const [],
+        exits = {
+          for (final e in ((j['exits'] as Map?) ?? const {}).entries)
+            e.key as String: (((e.value as List)[0] as num).toDouble(), ((e.value as List)[1] as num).toDouble(), ((e.value as List)[2] as num).toDouble())
+        },
         w = (j['w'] as num).toDouble(),
         h = (j['h'] as num).toDouble(),
         ppu = (j['ppu'] as num).toDouble(),
@@ -83,7 +99,10 @@ class WalkLayout {
       }
     }
   }
-  final String image, depth;
+  final String tileDir;
+  final List<WalkTile> tiles;
+  final List<dynamic> emit; // the emitters, in the whole picture's px (SceneFx)
+  final Map<String, (double, double, double)> exits; // x, z, radius: walk in and you leave
   final double w, h, ppu, cx, cz, sinP, cosP, z0, z1, gx0, gz0, cell;
   final int cols, rows;
   late final Uint8List walk;
@@ -214,6 +233,24 @@ class WalkLayout {
   }
 }
 
+/// One tile of the picture: the [crop] it covers (with a few px of its neighbours round it) and the
+/// [core] it draws.
+class WalkTile {
+  WalkTile(this.i, this.j, this.crop, this.core);
+  final int i, j;
+  final Rect crop, core;
+  ui.Image? pic, mask, depth;
+  bool loading = false;
+  bool get ready => pic != null && mask != null && depth != null;
+  void drop() {
+    pic?.dispose();
+    mask?.dispose();
+    depth?.dispose();
+    pic = mask = depth = null;
+    loading = false;
+  }
+}
+
 class _Heap {
   final _k = <int>[];
   final _v = <double>[];
@@ -294,8 +331,8 @@ class VillageWalkScreen extends StatefulWidget {
 
 class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerProviderStateMixin {
   WalkLayout? lay;
-  ui.Image? _img, _mask, _depth;
-  final _shaders = <ui.FragmentShader>[];
+  ui.FragmentProgram? _prog;
+  final _shaders = <ui.FragmentShader>[]; // a pool: a draw a shader (each keeps its own uniforms)
   SceneFx? _fx;
   WalkerArt? _pet;
   final _npcs = <_Npc>[];
@@ -308,8 +345,10 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   bool _talking = false;
   (double, double, double)? _mark; // where you tapped (x, z) and when: a ring on the ground
 
-  /// Loaded and drawn (the recorder waits for this).
-  bool get ready => lay != null && _img != null && _pet != null;
+  bool _leaving = false;
+
+  /// Loaded, with the picture round you in (the recorder waits for this).
+  bool get ready => lay != null && _pet != null && _cam != null && _viewTiles().every((t) => t.ready);
 
   double get _k => _view.width / (_unitsAcross * lay!.ppu); // dp per picture px
 
@@ -331,11 +370,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     final c = context.read<GameController>();
     final pet = c.state.pet;
     final l = WalkLayout((jsonDecode(await rootBundle.loadString(_layoutAsset)) as Map).cast<String, dynamic>());
-    final fx = SceneFx.of(l.image);
     final r = await Future.wait<Object?>([
-      _image(l.image),
-      fx == null ? Future.value(null) : _image(fx.mask),
-      _image(l.depth),
       WalkerArt.load('s0${(pet?.stage ?? 1).clamp(1, 3)}', pet?.paletteId ?? 'amber', wearing: pet?.equipped.values.toList() ?? const []),
       SceneFx.program(),
       ui.FragmentProgram.fromAsset('shaders/village_fx.frag'),
@@ -346,18 +381,13 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       npcs.add(_Npc(id, x, z, place, await _image(villageArt.npc(key, 'neutral', true)), villageArt.npcGround(key), villageArt.npcTop(key)));
     }
     if (!mounted) return;
-    final prog = r[5] as ui.FragmentProgram;
+    final prog = r[2] as ui.FragmentProgram;
     setState(() {
       lay = l;
-      _fx = fx;
-      _img = r[0] as ui.Image;
-      _mask = r[1] as ui.Image?;
-      _depth = r[2] as ui.Image;
-      _pet = r[3] as WalkerArt;
+      _fx = SceneFx.emitters(l.emit, l.w, l.h);
+      _pet = r[0] as WalkerArt;
       _npcs.addAll(npcs);
-      for (var i = 0; i < 2 + npcs.length; i++) {
-        _shaders.add(prog.fragmentShader());
-      }
+      _prog = prog;
       me
         ..x = l.spawn.dx
         ..z = l.spawn.dy
@@ -372,6 +402,9 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     _ticker?.dispose();
     for (final s in _shaders) {
       s.dispose();
+    }
+    for (final t in lay?.tiles ?? const <WalkTile>[]) {
+      t.drop();
     }
     _frame.dispose();
     super.dispose();
@@ -407,12 +440,112 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       if (!me.moving) _arrived();
     }
     me.y += (l.heightAt(me.x, me.z) - me.y) * math.min(1.0, dt * 14);
+    _checkExits(l);
     if (me.wait > 0) {
       me.wait -= dt;
       if (me.wait <= 0) _openTalk();
     }
     _follow(dt);
+    _streamTiles();
     _frame.value = t;
+  }
+
+  /// Hooks for the recorder: what happens when you walk out (null: leave as the game does).
+  static void Function(String exit)? onExit;
+
+  void _checkExits(WalkLayout l) {
+    if (_leaving || _talking) return;
+    for (final e in l.exits.entries) {
+      final (x, z, r) = e.value;
+      if ((me.x - x) * (me.x - x) + (me.z - z) * (me.z - z) > r * r) continue;
+      _leaving = true;
+      me.path = const [];
+      me.moving = false;
+      final hook = onExit;
+      if (hook != null) {
+        hook(e.key);
+      } else if (e.key == 'home') {
+        Navigator.of(context).maybePop();
+      } else {
+        ScaffoldMessenger.maybeOf(context)?.showSnackBar(const SnackBar(content: Text('The Old Trail to the Crossing opens soon.')));
+      }
+      return;
+    }
+  }
+
+  /// Back from a way out you didn't take (step off it and it arms again).
+  void _rearm() => _leaving = false;
+
+  // ------------------------------------------------------------------------------------ tiles
+  /// The view, in picture px.
+  Rect _viewRect() {
+    final cam = _cam, l = lay;
+    if (cam == null || l == null || _view.isEmpty) return Rect.zero;
+    final k = _k;
+    return Rect.fromCenter(center: cam, width: _view.width / k, height: _view.height / k);
+  }
+
+  Iterable<WalkTile> _viewTiles() {
+    final v = _viewRect();
+    return (lay?.tiles ?? const <WalkTile>[]).where((t) => t.core.overlaps(v));
+  }
+
+  int _inFlight = 0;
+
+  /// Load the tiles round the view (a tile's width ahead), let go of the ones far behind.
+  void _streamTiles() {
+    final l = lay;
+    final v = _viewRect();
+    if (l == null || v.isEmpty) return;
+    final want = v.inflate(700), keep = v.inflate(1800);
+    final c = v.center;
+    final need = l.tiles.where((t) => !t.ready && !t.loading && t.core.overlaps(want)).toList()
+      ..sort((a, b) => (a.core.center - c).distanceSquared.compareTo((b.core.center - c).distanceSquared));
+    for (final t in need) {
+      if (_inFlight >= 3) break;
+      _loadTile(t, l);
+    }
+    for (final t in l.tiles) {
+      if ((t.ready || t.loading) && !t.core.overlaps(keep) && !t.loading) t.drop();
+    }
+  }
+
+  Future<void> _loadTile(WalkTile t, WalkLayout l) async {
+    t.loading = true;
+    _inFlight++;
+    try {
+      final r = await Future.wait([
+        _image('${l.tileDir}t_${t.i}_${t.j}.webp'),
+        _image('${l.tileDir}m_${t.i}_${t.j}.webp'),
+        _image('${l.tileDir}d_${t.i}_${t.j}.png'),
+      ]);
+      if (!mounted || !t.loading) {
+        for (final im in r) {
+          im.dispose();
+        }
+        return;
+      }
+      t
+        ..pic = r[0]
+        ..mask = r[1]
+        ..depth = r[2]
+        ..loading = false;
+    } catch (e) {
+      t.loading = false;
+      debugPrint('village tile ${t.i},${t.j}: $e');
+    } finally {
+      _inFlight--;
+    }
+  }
+
+  /// A shader from the pool (one per draw this frame: each holds its own uniforms until drawn).
+  ui.FragmentShader? _shader(int i) {
+    final p = _prog;
+    if (p == null || i >= 64) return null;
+    while (_shaders.length <= i) {
+      _shaders.add(p.fragmentShader());
+    }
+    return _shaders[i];
   }
 
   /// World units per walk cycle: the sheet's stride, drawn at the village's size.
@@ -458,6 +591,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   void walkTo(double x, double z) {
     final l = lay;
     if (l == null || _talking) return;
+    _rearm();
     me.talkTo = null;
     me.wait = -1;
     me.path = l.path(Offset(me.x, me.z), Offset(x, z));
@@ -469,6 +603,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   void talkTo(String id) {
     final l = lay;
     if (l == null || _talking) return;
+    _rearm();
     final n = _npcs.firstWhere((v) => v.id == id);
     // stand in front of them, a little to the side you come from
     final side = me.x >= n.x ? 1.0 : -1.0;
@@ -522,7 +657,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
               _view = size;
               if (lay != null) _cam = null;
             }
-            if (!ready) return const Center(child: CircularProgressIndicator());
+            if (lay == null || _pet == null) return const Center(child: CircularProgressIndicator());
             if (_cam == null) _follow(1);
             return GestureDetector(
               behavior: HitTestBehavior.opaque,
@@ -542,18 +677,18 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     switch (id) {
       case 'lodge':
         talkTo('pip');
-      case 'waystone':
-        final w = l.spots['waystone']!;
-        walkTo(w.dx, w.dy);
+      case 'glasshouse':
+        talkTo('mira');
+      case 'workshop':
+        talkTo('bram');
       default:
-        // a room: straight in (Back returns here)
-        Navigator.of(context).push(MaterialPageRoute<void>(
-            settings: const RouteSettings(name: 'place'), builder: (_) => Ambience(villagePlace(id), child: PlaceScreen(placeId: id))));
+        final w = l.spots[id]!;
+        walkTo(w.dx, w.dy);
     }
   }
 }
 
-/// The bottom row: the places, a tap away (the Guild and the Waystone are a walk; the others open).
+/// The bottom row: the places, a walk away (to whoever keeps them, or to the Waystone).
 class _QuickTravel extends StatelessWidget {
   const _QuickTravel({required this.onPick});
   final void Function(String) onPick;
@@ -612,18 +747,34 @@ class _WalkPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final l = s.lay, cam = s._cam, img = s._img;
-    if (l == null || cam == null || img == null) return;
+    final l = s.lay, cam = s._cam;
+    if (l == null || cam == null) return;
     final k = s._k;
     final mid = size.center(Offset.zero);
     Offset scr(Offset p) => (p - cam) * k + mid;
+    Rect scrR(Rect r) => Rect.fromPoints(scr(r.topLeft), scr(r.bottomRight));
     final whole = Rect.fromLTWH(scr(Offset.zero).dx, scr(Offset.zero).dy, l.w * k, l.h * k);
     final view = Offset.zero & size;
     canvas.save();
     canvas.clipRect(view);
-    // the picture
+    canvas.drawRect(view, Paint()..color = const Color(0xFF86B566));
+    // the picture, tile by tile
     var si = 0;
-    _scene(canvas, s._shaders.isEmpty ? null : s._shaders[si++], whole, view, -1);
+    final vis = s._viewTiles().toList();
+    for (final t in vis) {
+      if (t.ready) _scene(canvas, s._shader(si++), t, scrR(t.crop), scrR(t.core).intersect(view), -1);
+    }
+    // what stands in front of a character, drawn over it: every tile under its sprite
+    void cover(Rect sprite, double z) {
+      final area = sprite.inflate(2);
+      for (final t in vis) {
+        if (!t.ready) continue;
+        final a = scrR(t.core).intersect(area);
+        if (a.isEmpty || a.width <= 0 || a.height <= 0) continue;
+        final sh = s._shader(si++);
+        if (sh != null) _scene(canvas, sh, t, scrR(t.crop), a, l.depthQ(z + _frontBias));
+      }
+    }
     // where you tapped: a ring on the ground that opens and fades
     final mk = s._mark;
     if (mk != null && s._t - mk.$3 < 0.7) {
@@ -654,13 +805,11 @@ class _WalkPainter extends CustomPainter {
         canvas.drawImageRect(n.img, Rect.fromLTWH(0, 0, n.img.width.toDouble(), n.img.height.toDouble()),
             Rect.fromLTWH(-n.ground.dx * sc, -n.ground.dy * sc, n.img.width * sc, n.img.height * sc), Paint()..filterQuality = FilterQuality.medium);
         canvas.restore();
-        final sr = Rect.fromPoints(scr(r.topLeft), scr(r.bottomRight));
-        if (si < s._shaders.length) _scene(canvas, s._shaders[si++], whole, sr.inflate(2), l.depthQ(n.z + _frontBias));
+        cover(scrR(r), n.z);
       }));
     }
     items.add((s.me.z, () {
-      final rect = _pet(canvas, scr(l.toImage(s.me.x, s.me.z, s.me.y)), upk, l);
-      if (si < s._shaders.length) _scene(canvas, s._shaders[si++], whole, rect.inflate(2), l.depthQ(s.me.z + _frontBias));
+      cover(_pet(canvas, scr(l.toImage(s.me.x, s.me.z, s.me.y)), upk, l), s.me.z);
     }));
     items.sort((a, b) => a.$1.compareTo(b.$1));
     for (final (_, draw) in items) {
@@ -690,24 +839,30 @@ class _WalkPainter extends CustomPainter {
     canvas.restore();
   }
 
-  /// The living picture over [area]; [front] >= 0 only what stands nearer than that.
-  void _scene(Canvas canvas, ui.FragmentShader? sh, Rect whole, Rect area, double front) {
-    final img = s._img!, mask = s._mask, depth = s._depth!;
-    if (sh == null || mask == null) {
-      if (front < 0) canvas.drawImageRect(img, Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()), whole, Paint()..filterQuality = FilterQuality.medium);
+  /// A tile of the living picture over [area] ([dst]: where its crop lands); [front] >= 0 only what
+  /// stands nearer than that.
+  void _scene(Canvas canvas, ui.FragmentShader? sh, WalkTile t, Rect dst, Rect area, double front) {
+    final img = t.pic!, mask = t.mask!, depth = t.depth!;
+    if (sh == null) {
+      if (front < 0) {
+        canvas.save();
+        canvas.clipRect(area);
+        canvas.drawImageRect(img, Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()), dst, Paint()..filterQuality = FilterQuality.medium);
+        canvas.restore();
+      }
       return;
     }
     sh
-      ..setFloat(0, whole.left)
-      ..setFloat(1, whole.top)
-      ..setFloat(2, whole.width)
-      ..setFloat(3, whole.height)
+      ..setFloat(0, dst.left)
+      ..setFloat(1, dst.top)
+      ..setFloat(2, dst.width)
+      ..setFloat(3, dst.height)
       ..setFloat(4, img.width.toDouble())
       ..setFloat(5, img.height.toDouble())
       ..setFloat(6, s._t % 600.0)
       ..setFloat(7, 1)
-      ..setFloat(8, 0)
-      ..setFloat(9, 0)
+      ..setFloat(8, t.crop.left)
+      ..setFloat(9, t.crop.top)
       ..setFloat(10, front)
       ..setImageSampler(0, img)
       ..setImageSampler(1, mask)

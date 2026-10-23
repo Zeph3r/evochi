@@ -1,6 +1,7 @@
-// Records the walkable village's first playable piece under the test clock: your Evochi walks up from
-// the plaza round the Waystone, over the bridge, and talks to Pip at the Trail Guild (the real
-// conversation opens). Frames at 30 fps, 412 x 892 dp at 2x.
+// Records the walkable village under the test clock, a tour: in through the south gate, up to the
+// plaza, over to Bram at his Workshop, across to Mira at her Glasshouse, then over the stepping stones
+// and up the creek to the waterfall. Frames at 30 fps, 412 x 892 dp at 2x. The clock holds while
+// tiles of the picture load, so no frame shows one missing.
 //
 //   flutter test tool/shorts/village_walk_test.dart
 //
@@ -98,7 +99,15 @@ void main() {
       return File('${dir.path}/frames.rgba').openSync(mode: FileMode.write);
     });
     var frames = 0;
+    Future<void> settle() async {
+      for (var i = 0; i < 400 && !(VillageWalkScreen.current?.ready ?? true); i++) {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+        await tester.pump();
+      }
+    }
+
     Future<void> grab() async {
+      await settle();
       await tester.pump(_frame);
       final ro = shot.currentContext!.findRenderObject()! as RenderRepaintBoundary;
       final bytes = await tester.runAsync(() async {
@@ -119,19 +128,24 @@ void main() {
     }
 
     final s = VillageWalkScreen.current!;
+    VillageWalkScreenState.onExit = (_) {};
+    Future<void> walk(double x, double z, {double max = 14}) async {
+      s.walkTo(x, z);
+      for (var i = 0; i < max * _fps && s.me.moving; i++) {
+        await grab();
+      }
+    }
+
     await hold(1.2);
-    // across the plaza, round behind the lamp post (it stands in front of you as you pass)
-    s.walkTo(-10.2, -10.8);
-    for (var i = 0; i < 12 * _fps && s.me.moving; i++) {
-      await grab();
-    }
-    await hold(0.6);
-    // over the bridge to Pip, who has something for you: the conversation opens on arrival
-    s.talkTo('pip');
-    for (var i = 0; i < 14 * _fps && VillageWalkScreen.current != null && (s.me.moving || s.me.talkTo != null); i++) {
-      await grab();
-    }
-    await hold(4.5);
+    await walk(0.0, 10.0); // up the road to the plaza
+    await hold(0.4);
+    await walk(20.6, 1.6); // over to Bram
+    await hold(1.2);
+    await walk(-21.6, 6.8); // across to Mira
+    await hold(1.2);
+    await walk(-15.5, -49.0, max: 18); // over the stepping stones, up the creek to the waterfall
+    await hold(3.0);
+    VillageWalkScreenState.onExit = null;
     await tester.runAsync(() async {
       raw!.closeSync();
       File('${dir.path}/meta.json').writeAsStringSync(jsonEncode({'w': (_size.width * _dpr).round(), 'h': (_size.height * _dpr).round(), 'fps': _fps, 'frames': frames}));
