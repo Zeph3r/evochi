@@ -35,11 +35,8 @@ def zones(view):
     at, ppu, w, h = _proj(view)
     fx = [('grass', [0, 0, w, h], 'green'),
           ('still', [0, 0, w, h], 'water')]
-    cz1 = float(T.zn(100.0)) + 0.6                      # Flint's front wall
-    cz0 = cz1 - 7.1
-    fx.append(('none', _rect(at, 95.0, 109.0, 0, 10.5, cz0, cz1 + 4.2)))          # his dwelling keeps still
-    mx, mz = T.MINE
-    fx.append(('none', _rect(at, mx - 5.6, mx + 5.6, 0, 12.8, mz - 8.5, mz + 0.9)))  # the mine's timbers and its sign
+    mx, fz = T.MINE_X, T.MINE_FZ
+    fx.append(('none', _rect(at, mx - 8.0, mx + 8.0, 0, 19.5, fz - 1.5, fz + 0.6)))     # the portal's stone keeps still
     for (kind, x, z, y, th, r, _) in T.TREES:
         if kind == 'pine':
             cx, cy = at(x, z, y + th * 0.55)
@@ -52,37 +49,39 @@ def zones(view):
     fx.append(('fall', _rect(at, T.STREAM_X - 3.4, T.STREAM_X + 3.4, -1.4, 31.0, zn - T.TER_D * 6, zn + 0.6), 'waterfall'))
     lip = float(T.zs(T.STREAM_X))
     fx.append(('fall', _rect(at, T.STREAM_X - 5.2, T.STREAM_X + 5.2, -9.6, -1.9, lip - 0.6, lip + 0.6), 'waterfall'))
-    # cloth: Flint's red banner, his awning, the Thicket's banner
-    fx.append(('cloth', _rect(at, 104.6, 107.0, 2.6, 6.4, cz1, cz1 + 0.5), 'cloth', {'amp': 0.35, 'fade': 0.0}))
-    fx.append(('cloth', _rect(at, 94.5, 100.6, 4.6, 6.4, cz1, cz1 + 4.2), 'cloth', {'amp': 0.2}))
+    # cloth: Flint's red flag, the Thicket's banner
+    fgx, fgz = T.FLAG
+    fx.append(('cloth', _rect(at, fgx + 0.3, fgx + 2.7, 2.6, 6.0, fgz - 0.25, fgz + 0.25), 'cloth', {'amp': 0.35, 'fade': 0.0}))
     gz = float(T.np.interp(T.GATE_X, [p[0] for p in T.PATH], [p[1] for p in T.PATH]))
     fx.append(('cloth', _rect(at, T.GATE_X - 1.2, T.GATE_X - 0.6, 5.2, 8.6, gz - 1.9, gz + 1.3), 'all', {'amp': 0.35, 'fade': 0.0}))
-    # lamps: the lanterns on their posts, the ones at Flint's and the mine's, his windows
+    # lamps: the lanterns on their posts, the mine's, Flint's at his tent door; his campfire
     lamps = [(x + (1.0 if z < 0 else -1.0) * 2.2, 3.4, z) for (x, z) in T.LANTERNS]
     lamps += [(x + sd * 2.2, 3.4, z) for (x, z, sd) in T.MINE_POSTS]
-    lamps += [(95.3, 5.6, cz1 + 3.9), (108.2, 5.0, cz1 + 0.8)] + list(T.MINE_LAMPS)
+    lamps += list(T.MINE_LAMPS) + [T.TENT_LAMP]
     for (x, y, z) in lamps:
         fx.append(('fire', _rect(at, x - 0.6, x + 0.6, y - 0.8, y + 0.8, z - 0.6, z + 0.6, 1), 'warm'))   # flames flicker
-    for wx in (98.0, 107.0):
-        fx.append(('lamp', _rect(at, wx - 1.0, wx + 1.0, 2.6, 4.2, cz1, cz1 + 0.2, 1), 'warm'))
+    cfx, cfz = T.CAMPFIRE
+    fx.append(('fire', _rect(at, cfx - 0.8, cfx + 0.8, 0.5, 2.0, cfz - 0.8, cfz + 0.8, 1), 'warm'))
     # emitters
     emit = [{'t': 'leaves', 'x': 0, 'y': 0, 'w': w, 'h': h, 'n': 5, 'c': ['#E08A2E', '#E9B83C', '#C9552E', '#F2B04A']},
             {'t': 'motes', 'kind': 'pollen', 'x': 0, 'y': round(h * 0.3), 'w': w, 'h': round(h * 0.6), 'n': 8, 'c': '#fff6c8', 's': 3}]
     for (x, y, z) in lamps:
         gx, gy = at(x, z, y)
         emit.append({'t': 'glow', 'x': round(gx), 'y': round(gy), 'r': round(1.3 * ppu), 'c': '#ffc561', 'kind': 'fire', 'a': 0.4})
-    gx, gy = at(mx, mz - 1.0, 2.6)                        # the mine's mouth glows warm
-    emit.append({'t': 'glow', 'x': round(gx), 'y': round(gy), 'r': round(3.4 * ppu), 'c': '#ffb04a', 'kind': 'fire', 'a': 0.32})
-    for wx in (98.0, 107.0):
-        gx, gy = at(wx, cz1, 3.4)
-        emit.append({'t': 'glow', 'x': round(gx), 'y': round(gy), 'r': round(1.5 * ppu), 'c': '#ffc561', 'kind': 'lamp', 'a': 0.4})
+    gx, gy = at(mx, fz - 1.0, 3.0)                        # the mine's mouth glows warm
+    emit.append({'t': 'glow', 'x': round(gx), 'y': round(gy), 'r': round(3.8 * ppu), 'c': '#ffb04a', 'kind': 'fire', 'a': 0.32})
+    gx, gy = at(cfx, cfz, 1.0)                            # the campfire: a glow and a thread of smoke
+    emit.append({'t': 'glow', 'x': round(gx), 'y': round(gy), 'r': round(2.4 * ppu), 'c': '#ffa040', 'kind': 'fire', 'a': 0.45})
+    gx, gy = at(cfx, cfz, 2.0)
+    emit.append({'t': 'smoke', 'kind': 'smoke', 'x': round(gx), 'y': round(gy), 'n': 4, 's': round(0.6 * ppu), 'h': round(4.0 * ppu),
+                 'drift': round(0.8 * ppu), 'c': '#d8d2c8', 'a': 0.25})
     # mist where the falls land, a little spray at the bridge
     fx_, fy_ = at(T.STREAM_X, lip + 1.6, -9.2)
     emit.append({'t': 'smoke', 'kind': 'steam', 'x': round(fx_), 'y': round(fy_), 'n': 6, 's': round(1.2 * ppu), 'h': round(5.0 * ppu),
                  'drift': round(1.0 * ppu), 'c': '#f4fbff', 'a': 0.35})
     # dust hanging in the mine's mouth
-    d0x, d0y = at(mx - 2.6, mz - 2.0, 6.0)
-    d1x, d1y = at(mx + 2.6, mz + 2.0, 0.5)
+    d0x, d0y = at(mx - 2.6, fz - 2.0, 6.0)
+    d1x, d1y = at(mx + 2.6, fz + 2.0, 0.5)
     emit.append({'t': 'motes', 'kind': 'dust', 'x': round(d0x), 'y': round(d0y), 'w': round(d1x - d0x), 'h': round(d1y - d0y), 'n': 6, 'c': '#ffe2a8', 's': 3})
 
     def inside(shape):

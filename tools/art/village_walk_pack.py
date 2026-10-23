@@ -73,7 +73,7 @@ def _trail():
         title='The Old Trail', scene=VT.scene_trail, view='trail', area=(VT.X0, VT.X1, VT.Z0, VT.Z1),
         npcs={'flint': (VT.FLINT[0], VT.FLINT[1], 'crossing', NPC_R)},
         arrive={'village': (3.0, on_path(3.0))},
-        spots={'bridge': (VT.STREAM_X, on_path(VT.STREAM_X)), 'crossing': (86.0, on_path(86.0)), 'mine': (mx, (mz + VT.CART_Z) / 2 - 1.0),
+        spots={'bridge': (VT.STREAM_X, on_path(VT.STREAM_X)), 'crossing': (86.0, on_path(86.0)), 'mine': (mx + 3.0, VT.CART_Z - 1.5),
                'gate': (VT.GATE_X - 3.0, on_path(VT.GATE_X - 3.0))},
         exits={'village': (-1.4, on_path(-1.4), 2.2, 'village', 'trail'),
                'mine': (mx, mz + 2.0, 2.0, None, None),
@@ -83,7 +83,7 @@ def _trail():
         # iron node by the mine, too hard without gear (MINES_PLAN.md: the too-hard answer), and a lumen
         # crystal past the mine's mouth, glowing brighter as you come near (the lore's crystals that answer
         # footsteps), a taste of the deep floors
-        ores=[('copper', 92.0, -9.5), ('copper', 89.4, -12.2), ('iron', 113.5, -17.5), ('lumen', 122.6, -19.2)])
+        ores=list(VT.ORE_NODES))
 
 
 MAPS = {'village': _village, 'trail': _trail}
