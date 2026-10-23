@@ -1,6 +1,6 @@
 // Flint at the Crossing, on the Old Trail: a short conversation in the world rather than a new screen,
-// with the four things you come to him for (MINES_PLAN.md): about the mines, mining gear, going in, and
-// what ore is for. His shop and the mine are next to build; until then he says they're nearly ready.
+// with the four things you come to him for (MINES_PLAN.md): about the mines, mining gear (his shop opens),
+// going in, and what ore is for. The mine itself is next to build; until then he says it's nearly ready.
 
 import 'dart:convert';
 
@@ -87,10 +87,16 @@ class _FlintTalkState extends State<FlintTalk> {
 
   void _next() => setState(() => _i++);
 
-  void _pick(String topic) => setState(() {
-        _lines = _topics[topic]!;
-        _i = 0;
-      });
+  void _pick(String topic) {
+    if (topic == 'gear') {
+      Navigator.of(context).pop('gear'); // his shop opens
+      return;
+    }
+    setState(() {
+      _lines = _topics[topic]!;
+      _i = 0;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

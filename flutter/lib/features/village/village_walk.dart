@@ -27,6 +27,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
+import '../../core/models/game_state.dart';
 import '../../game/mining/mining.dart' as mine;
 import '../../game/story/story.dart' as q;
 import '../shared/ambience.dart';
@@ -35,6 +36,7 @@ import '../shared/widgets.dart';
 import '../wilds/wilds_art.dart';
 import 'flint_talk.dart';
 import 'mining.dart';
+import 'mining_gear_ui.dart';
 import 'story_widgets.dart';
 import 'village_screen.dart';
 
@@ -449,7 +451,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       return;
     }
     final r = await Future.wait<Object?>([
-      WalkerArt.load('s0${(pet?.stage ?? 1).clamp(1, 3)}', pet?.paletteId ?? 'amber', wearing: pet?.equipped.values.toList() ?? const []),
+      WalkerArt.load('s0${(pet?.stage ?? 1).clamp(1, 3)}', pet?.paletteId ?? 'amber', wearing: _wearing(c.state)),
       SceneFx.program(),
       ui.FragmentProgram.fromAsset('shaders/village_fx.frag'),
     ]);
@@ -474,6 +476,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       _npcs.addAll(npcs);
       _prog = prog;
       _mining = mining;
+      _lookKey = _wearing(c.state).join(',');
       ores.addAll([for (final (k, x, z) in l.ores) OreNode(k, x, z)]);
       _stage = (pet?.stage ?? 3).clamp(1, 3);
       final at = l.arrive[widget.arrive] ?? l.spawn;
@@ -486,6 +489,31 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       if (from != null) me.dir = VillageWalker.dirOf(at.dx - from.$1, at.dy - from.$2);
     });
     _ticker = createTicker(_tick)..start();
+  }
+
+  /// What your Evochi wears here: the wearables, and on the trail and in the mines the mining loadout, a
+  /// helmet covering the head's wearable and anything on the back covering the back's (they come back
+  /// as you leave; nothing is taken off).
+  List<String> _wearing(GameState s) {
+    final eq = Map.of(s.pet?.equipped ?? const <String, String>{});
+    if (widget.map == 'village') return eq.values.toList();
+    final worn = mine.wornGear(s);
+    if (worn.containsKey('helmet')) eq.remove('head');
+    if (worn.keys.any((k) => k == 'harness' || k == 'satchel' || k == 'tool' || k == 'lantern')) eq.remove('back');
+    const order = ['paws', 'harness', 'satchel', 'lantern', 'tool', 'helmet']; // drawn in this order
+    return [...eq.values, for (final k in order) if (worn[k] != null) worn[k]!.id];
+  }
+
+  String _lookKey = '';
+
+  /// The loadout changed (bought, forged, swapped): your Evochi's sprites again.
+  Future<void> _refreshLook(GameState s) async {
+    final key = _wearing(s).join(',');
+    if (key == _lookKey || _pet == null) return;
+    _lookKey = key;
+    final pet = s.pet;
+    final art = await WalkerArt.load('s0${(pet?.stage ?? 1).clamp(1, 3)}', pet?.paletteId ?? 'amber', wearing: _wearing(s));
+    if (mounted) setState(() => _pet = art);
   }
 
   @override
@@ -690,7 +718,8 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     final n = _npcs.firstWhere((v) => v.id == id);
     setState(() => _talking = true);
     if (n.place == 'crossing') {
-      showFlintTalk(context).then((_) {
+      showFlintTalk(context).then((pick) async {
+        if (pick == 'gear' && mounted) await showFlintShop(context);
         if (mounted) setState(() => _talking = false);
       });
       return;
@@ -920,6 +949,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   Widget build(BuildContext context) {
     _reduced = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
     final c = context.watch<GameController>();
+    if (lay != null && _wearing(c.state).join(',') != _lookKey) _refreshLook(c.state);
     final marks = q.npcMarkers(c.state);
     return Scaffold(
       backgroundColor: const Color(0xFF86B566),
@@ -954,6 +984,31 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
             if (mining == null) return map;
             return Stack(children: [
               map,
+              Positioned(
+                top: 10,
+                left: 10,
+                child: Semantics(
+                  button: true,
+                  label: 'Mining gear',
+                  child: GestureDetector(
+                    onTap: () => showGearLoadout(context),
+                    child: Container(
+                      padding: const EdgeInsets.fromLTRB(8, 5, 12, 5),
+                      decoration: BoxDecoration(
+                        color: const Color(0xEEFFF8E8),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: EvochiColor.border, width: 1.5),
+                        boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 6, offset: Offset(0, 2))],
+                      ),
+                      child: const Row(mainAxisSize: MainAxisSize.min, children: [
+                        ItemImage('gear_copper_headlamp', size: 26),
+                        SizedBox(width: 4),
+                        Text('Gear', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 14, color: EvochiColor.ink)),
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
               Positioned(
                 top: 10,
                 right: 10,

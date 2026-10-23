@@ -12,12 +12,15 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
+import '../../core/models/game_state.dart';
+import '../../game/mining/mining.dart' as mine;
 import '../../game/story/story.dart' as q;
 import '../home/home_widgets.dart';
 import '../nest/sheets.dart';
 import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
+import 'mining_gear_ui.dart';
 import 'npc_puppet.dart';
 import 'story_widgets.dart';
 import 'village_walk.dart';
@@ -759,6 +762,15 @@ class _PlaceScreenState extends State<PlaceScreen> {
                         _ChoiceButton(choice: ch, onTap: () => _choose(c, ch, nodes)),
                         const SizedBox(height: 10),
                       ],
+                      // Bram's forge, once you've brought ore back from the Old Trail
+                      if (widget.placeId == 'workshop' && _npc == 'npc_bram' && _hasMined(c.state)) ...[
+                        EvochiButton(
+                            label: 'Forge mining gear',
+                            tone: ButtonTone.cream,
+                            icon: const ItemImage('gear_copper_harness', size: 26),
+                            onPressed: () => showBramForge(context)),
+                        const SizedBox(height: 10),
+                      ],
                     ]),
                   ),
                 ),
@@ -771,6 +783,9 @@ class _PlaceScreenState extends State<PlaceScreen> {
     );
   }
 }
+
+/// Any ore ever mined, or any mining gear (Bram's forge shows from then on).
+bool _hasMined(GameState s) => s.mining.gear.isNotEmpty || mine.oreItem.values.any((id) => s.inventory.containsKey(id));
 
 // the room plate sits back a touch so the villagers and the dialogue read first
 const _backdrop = <double>[
