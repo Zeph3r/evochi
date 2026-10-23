@@ -3843,7 +3843,16 @@
   "copper_ore": "items/copper_ore.webp",
   "iron_ore": "items/iron_ore.webp",
   "lumen_crystal": "items/lumen_crystal.webp",
-  "obsidian_shard": "items/obsidian_shard.webp"
+  "obsidian_shard": "items/obsidian_shard.webp",
+  "gear_copper_headlamp": "items/gear_copper_headlamp.webp",
+  "gear_copper_pick": "items/gear_copper_pick.webp",
+  "gear_copper_satchel": "items/gear_copper_satchel.webp",
+  "gear_copper_lantern": "items/gear_copper_lantern.webp",
+  "gear_copper_harness": "items/gear_copper_harness.webp",
+  "gear_copper_paw_guards": "items/gear_copper_paw_guards.webp",
+  "gear_iron_pick": "items/gear_iron_pick.webp",
+  "gear_iron_harness": "items/gear_iron_harness.webp",
+  "gear_iron_paw_guards": "items/gear_iron_paw_guards.webp"
  },
  "icons": {
   "bag": "icons/bag.webp",
