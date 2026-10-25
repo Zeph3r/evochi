@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../app/theme.dart';
+import '../shared/action_button.dart';
 import '../shared/kit.dart';
 
 /// The strike's timeline, seconds (MINES_PLAN.md: wind-up, lunge, impact, recovery, ready).
@@ -192,33 +193,16 @@ class PounceButton extends StatelessWidget {
   final VoidCallback onDown, onUp;
 
   @override
-  Widget build(BuildContext context) => Semantics(
-        button: true,
+  Widget build(BuildContext context) => ActionButton(
         label: 'Pounce',
         hint: 'Tap to strike the ore, hold to keep striking',
-        child: Listener(
-          onPointerDown: (_) => onDown(),
-          onPointerUp: (_) => onUp(),
-          onPointerCancel: (_) => onUp(),
-          // a kit game button, round: gold and glowing when a strike is ready, cream while one plays out
-          child: DecoratedBox(
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              boxShadow: [if (ready) const BoxShadow(color: Color(0x88FFE3A0), blurRadius: 18, spreadRadius: 2)],
-            ),
-            child: Container(
-              width: 88,
-              height: 88,
-              transform: Matrix4.translationValues(0, ready ? 0 : 3, 0),
-              decoration: Kit.button(ready ? KitButtonPalette.gold : KitButtonPalette.cream, radius: 44, pressed: !ready, dot: false),
-              child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                CustomPaint(size: const Size(38, 34), painter: _PickPainter()),
-                const SizedBox(height: 1),
-                ExcludeSemantics(child: Text('Pounce', style: EvochiText.button.copyWith(fontSize: 13.5, color: KitColor.signInk))),
-              ]),
-            ),
-          ),
-        ),
+        size: 86,
+        palette: ready ? KitButtonPalette.gold : KitButtonPalette.cream,
+        ready: ready,
+        held: !ready,
+        onDown: onDown,
+        onUp: onUp,
+        child: CustomPaint(size: const Size(40, 36), painter: _PickPainter()),
       );
 }
 

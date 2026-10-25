@@ -35,6 +35,7 @@ import '../../game/trails/trails.dart' as trails;
 import '../../game/wilds/charms.dart' as charms;
 import '../../game/wilds/story_floors.dart' as sf;
 import '../../game/wilds/wilds.dart' as w;
+import '../shared/action_button.dart';
 import '../shared/ambience.dart';
 import '../shared/kit.dart';
 import '../shared/live_scene.dart' show SceneFx;
@@ -166,6 +167,9 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   String? _hint;
   double _hintT2 = 0;
   final _repaint = ValueNotifier<int>(0);
+  final _purseKey = GlobalKey(); // the trip's purse in the HUD: where the coins fly to
+  final _flyers = <_CoinFlyer>[]; // coins on their way up to it (screen space)
+  double _purseBumpAt = -9;
   final _input = RaidInput();
   final _held = <String, double>{}; // a pad button held down -> time to its next repeat
   double _itemCd = 0;
@@ -558,7 +562,37 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final sh = reduce ? 0.0 : r.shake;
     _shakeX = (_rng.nextDouble() - 0.5) * 12 * sh;
     _shakeY = (_rng.nextDouble() - 0.5) * 9 * sh;
+    // coins arriving at the purse: it bumps, a tick sounds
+    for (final f in _flyers.toList()) {
+      if (_t - f.t0 >= _CoinFlyer.flight) {
+        _flyers.remove(f);
+        _purseBumpAt = _t;
+        _sfx('coin', 0.22, gap: 0.04);
+      }
+    }
     _repaint.value++;
+  }
+
+  /// The purse's middle, in the map's own coordinates (where the coins fly to).
+  Offset? _pursePoint() {
+    final pb = _purseKey.currentContext?.findRenderObject() as RenderBox?;
+    final mb = context.findRenderObject() as RenderBox?;
+    if (pb == null || mb == null || !pb.attached || !mb.attached) return null;
+    return mb.globalToLocal(pb.localToGlobal(pb.size.center(Offset.zero)));
+  }
+
+  /// What the purse shows: the trip's coins less the ones still on their way to it.
+  int get _shownCoins {
+    final r = _raid;
+    if (r == null) return 0;
+    var pending = 0;
+    for (final p in r.pickups) {
+      if (p.kind == 'coin' && p.t < 20) pending += p.amount;
+    }
+    for (final f in _flyers) {
+      pending += f.amount;
+    }
+    return math.max(0, r.coins - pending);
   }
 
   bool _padHeld = false;
@@ -858,6 +892,13 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
           a.buzz(Haptic.perfect);
         case 'loot_in':
           _sfx('coin', 0.18, gap: 0.05);
+        case 'coin_bounce':
+          _sfx('coin', 0.08, gap: 0.08);
+        case 'coin_fly':
+          _flyers.add(_CoinFlyer(_toScreen(e.x, e.z) - Offset(0, 6 * _up), e.value.round(), _t));
+        case 'signature_wind':
+          _sfx('enc_soothe', 0.7);
+          a.buzz(Haptic.rumble, strength: 0.4);
         case 'buff':
           _sfx('reward_chime', 0.5);
           a.buzz(Haptic.reward);
@@ -1372,6 +1413,11 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                     child: _MiniMap(state: this, onTap: () => setState(() => _card = 'map')),
                   ),
                   Positioned(
+                    right: 10 + mq.padding.right,
+                    top: mq.padding.top + 8 + 78 + 6,
+                    child: _Purse(state: this),
+                  ),
+                  Positioned(
                     left: narrow ? 12 : 200,
                     right: narrow ? 12 : 110,
                     top: mq.padding.top + (narrow ? 92 : 14),
@@ -1386,8 +1432,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                   // the brew shelf, beside the pad's flask
                   if (card == null && _brewPick && w.ownedBrews(context.read<GameController>().state).length > 1)
                     Positioned(
-                      right: 10 + mq.padding.right + 182,
-                      bottom: 12 + mq.padding.bottom + 96,
+                      right: 10 + mq.padding.right + 236 - 4,
+                      bottom: 12 + mq.padding.bottom + 92,
                       child: _BrewShelf(brews: w.ownedBrews(context.read<GameController>().state), onPick: _drink),
                     ),
                   if (_hintT > 0 && card == null && _hint == null && WildsScreen.director == null)
@@ -1421,6 +1467,14 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                       },
                     ),
                   ),
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: ValueListenableBuilder<int>(
+                      valueListenable: _repaint,
+                      builder: (_, __, ___) => CustomPaint(painter: _FlyerPainter(this)),
+                    ),
+                  ),
+                ),
                 if (_sentCine != null && _sentArt != null)
                   Positioned.fill(
                     child: SentinelIntro(
@@ -2000,7 +2054,24 @@ class _MapPainter extends CustomPainter {
     // Sher's bubble
     final b = s._bubble;
     if (b != null && sher != null) _bubble(canvas, sher, b);
+    // a flash over everything: a heavy hit (white), a signature move (its colour)
+    if (r.flashT > 0 && !rm) {
+      final a = (r.flashT / 0.22).clamp(0.0, 1.0);
+      canvas.drawRect(view, Paint()..color = _tint(r.flashKind).withAlpha((a * (r.flashKind == 'white' ? 90 : 120)).round()));
+    }
   }
+
+  /// The colour of an effect tagged with a palette (a signature move), or a plain white or mint.
+  static Color _tint(String tag) => switch (tag) {
+        'ocean' => const Color(0xFF7FD2FF),
+        'amber' => const Color(0xFFFFD66A),
+        'amethyst' => const Color(0xFFD9A6FF),
+        'forest' => const Color(0xFFA6E58A),
+        'coral' => const Color(0xFFFFA3B0),
+        'obsidian' => const Color(0xFFB9B4D6),
+        'mint' => const Color(0xFF9FF0DA),
+        _ => const Color(0xFFFFF6E4),
+      };
 
   static double _h(int a, int b, int c) {
     var x = (a * 73856093) ^ (b * 19349663) ^ (c * 83492791);
@@ -2282,14 +2353,15 @@ class _MapPainter extends CustomPainter {
       if (w.glow > 0) _glow(canvas, g - Offset(0, art.gy * k * 0.4), 26 * s._u / 2.7, Color.fromRGBO(159, 240, 218, 0.55 * w.glow));
       if (w.slowT > 0) _glow(canvas, g - Offset(0, art.gy * k * 0.3), 20 * s._u / 2.7, const Color(0x55A27BD6));
     }
+    final pose = gaitPose(w.phase, w.moving && w.alive, run: w.running ? 1 : 0, reduced: rm);
     canvas.save();
-    canvas.translate(g.dx, g.dy - w.lift * _up);
+    canvas.translate(g.dx, g.dy - w.lift * _up - pose.bob * art.fh * k);
     if (!rm) {
       final face = w.dir * math.pi / 4;
-      canvas.rotate(gait.roll[col] * math.pi / 180 * math.cos(face) + w.tilt);
+      canvas.rotate((gait.roll[col] + pose.roll) * math.pi / 180 * math.cos(face) + w.tilt);
       final sit = w.pose == 'sit';
       final pop = Curves.easeOut.transform(w.pop.clamp(0.0, 1.0));
-      canvas.scale(w.sx * (1 + 0.1 * pop), w.sy * gait.squash[col] * (sit ? 0.82 : 1) * (1 - 0.12 * pop));
+      canvas.scale(w.sx * pose.sx * (1 + 0.1 * pop), w.sy * pose.sy * gait.squash[col] * (sit ? 0.82 : 1) * (1 - 0.12 * pop));
     }
     final dst = Rect.fromLTWH(-art.gx * k, -art.gy * k, art.fw * k, art.fh * k);
     final paint = _spritePaint(w);
@@ -2577,6 +2649,25 @@ class _MapPainter extends CustomPainter {
   }
 
   void _pickup(Canvas canvas, Pickup p) {
+    if (p.kind == 'coin') {
+      // a coin: out of the calmed creature, spinning, bouncing, resting a beat before it flies up
+      final u = s._u / 2.7;
+      final base = s._toScreen(p.x, p.z);
+      final spin = math.cos(p.t * 14 + p.x);
+      final rest = p.t > 0.75;
+      final g = base - Offset(0, (p.y + (rest ? 3 + 2 * math.sin(s._t * 6 + p.z) : 0)) * _up);
+      canvas.drawOval(Rect.fromCenter(center: base, width: 9 * u, height: 4 * u), Paint()..color = const Color(0x3A16241F));
+      final r = 5.2 * u;
+      final rr = Rect.fromCenter(center: g, width: r * 2 * (0.25 + 0.75 * spin.abs()), height: r * 2);
+      canvas.drawOval(rr, Paint()..color = const Color(0xFFB8781E));
+      canvas.drawOval(rr.deflate(1.2), Paint()..color = spin > 0 ? const Color(0xFFFFD35A) : const Color(0xFFE9B23C));
+      canvas.drawOval(rr.deflate(r * 0.42), Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4
+        ..color = const Color(0x99B8781E));
+      if (rest) _glow(canvas, g, 10 * u, const Color(0x55FFE07A));
+      return;
+    }
     if (p.kind == 'loot') {
       // a glint of loot arcing out, then streaking to your Evochi
       final up = p.t < 0.35 ? 4 + 26 * math.sin(p.t / 0.35 * math.pi) * 0.6 : 8.0;
@@ -3023,6 +3114,61 @@ class _MapPainter extends CustomPainter {
       case 'stars':
         // the dazed stars ride on the foe's own drawing (see _foe); a small burst marks the moment
         if (k < 0.2) _star(canvas, g - Offset(0, 14 * _up * b.size), 8 * u * (1 - k * 4), const Color(0xFFFFE16E));
+      case 'impact':
+        {
+          // where a blow lands: a white flash, a ring, and spikes thrown out the way it hit
+          final col = _tint(b.tag);
+          final c = g - Offset(0, 9 * _up * b.size);
+          final a0 = math.atan2(b.dz * 0.6, b.dx);
+          final grow = Curves.easeOut.transform(k);
+          _glow(canvas, c, (8 + 14 * grow) * u * b.size, col.withAlpha(((1 - k) * 200).round()));
+          canvas.drawCircle(c, (4 + 20 * grow) * u * b.size, Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 3.5 * (1 - k)
+            ..color = col.withAlpha(((1 - k) * 230).round()));
+          final sp = Paint()
+            ..strokeCap = StrokeCap.round
+            ..strokeWidth = 3 * (1 - k) * b.size
+            ..color = Colors.white.withAlpha(((1 - k) * 240).round());
+          for (var i = 0; i < 6; i++) {
+            final a = a0 + (i - 2.5) * 0.46 + 0.2 * math.sin(i * 2.3 + b.x);
+            final ln = (9 + 22 * grow + (i % 2) * 6) * u * b.size;
+            final from = c + Offset(math.cos(a), math.sin(a)) * (4 + 10 * grow) * u * b.size;
+            canvas.drawLine(from, from + Offset(math.cos(a), math.sin(a)) * ln, sp);
+          }
+        }
+      case 'lines':
+        {
+          // speed lines flung out from your Evochi: a signature move, a pulse
+          final col = _tint(b.tag);
+          final c = g - Offset(0, 12 * _up);
+          final sp = Paint()
+            ..strokeCap = StrokeCap.round
+            ..color = col.withAlpha(((1 - k) * 200).round());
+          for (var i = 0; i < 18; i++) {
+            final a = i * math.pi * 2 / 18 + 0.17 * math.sin(i * 3.1 + b.x);
+            final r0 = (b.size * 0.25 + b.size * 0.6 * k) * u, r1 = r0 + (b.size * 0.25 + 10) * u * (1 - 0.5 * k);
+            sp.strokeWidth = (2.6 - 1.8 * k) * (i % 3 == 0 ? 1.6 : 1);
+            canvas.drawLine(c + Offset(math.cos(a) * r0, math.sin(a) * r0 * 0.6), c + Offset(math.cos(a) * r1, math.sin(a) * r1 * 0.6), sp);
+          }
+        }
+      case 'gather':
+        {
+          // light drawn in from all round into your Evochi as a signature move winds up
+          final col = _tint(b.tag);
+          final c = g - Offset(0, 14 * _up);
+          for (var i = 0; i < 12; i++) {
+            final a = i * math.pi * 2 / 12 + k * 1.4 + b.x;
+            final r0 = (60 - 52 * k) * u * b.size;
+            final at = c + Offset(math.cos(a) * r0, math.sin(a) * r0 * 0.6);
+            canvas.drawCircle(at, (1.5 + 2.5 * k) * u, Paint()..color = col.withAlpha(((0.4 + 0.6 * k) * 230).round()));
+          }
+          canvas.drawOval(Rect.fromCenter(center: c, width: (70 - 60 * k) * 2 * u * b.size, height: (70 - 60 * k) * 1.2 * u * b.size), Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.5 + 3 * k
+            ..color = col.withAlpha(((0.3 + 0.7 * k) * 200).round()));
+          _glow(canvas, c, (6 + 26 * k) * u, col.withAlpha((k * 200).round()));
+        }
       case 'slash':
         final a0 = math.atan2(b.dz, b.dx);
         canvas.drawArc(Rect.fromCenter(center: g - Offset(0, 8 * _up), width: 30 * u, height: 18 * u), a0 - 1.0 + 1.4 * k, 1.2, false,
@@ -3511,9 +3657,20 @@ class _Banner extends StatelessWidget {
 
 /// The action pad, icons only on see-through discs: Pounce (big; hold to keep at it), Dodge, Glow Bolt
 /// and Lumen Pulse (their cooldowns sweep round), a berry. Running is the stick pushed to its rim.
+/// The combat pad, bottom right: a big Pounce with the stamina ringed round it, the moves on a quarter
+/// circle round it (Dodge, Bolt, Pulse), an Elder's signature move above them with its charge ring, and
+/// the things to eat and drink in a column to the left. Every button is named under it.
 class _CombatPad extends StatelessWidget {
   const _CombatPad({required this.state});
   final _WildsScreenState state;
+
+  static const _w = 236.0, _h = 246.0;
+  static const _pounce = Offset(186, 192), _dodge = Offset(88, 192), _bolt = Offset(114, 122), _pulse = Offset(186, 94), _sig = Offset(124, 38);
+  static const _berry = Offset(28, 192), _brew = Offset(28, 130);
+
+  Widget _at(Offset c, double size, Widget child, {double ring = 0}) =>
+      Positioned(left: c.dx - size / 2 - ring, top: c.dy - size / 2 - ring, child: child);
+
   @override
   Widget build(BuildContext context) {
     final c = context.watch<GameController>();
@@ -3529,20 +3686,23 @@ class _CombatPad extends StatelessWidget {
         // the pad is quieter out of a fight
         final calm = s._combatT <= 0;
         return AnimatedOpacity(
-          opacity: calm ? 0.72 : 1,
+          opacity: calm ? 0.78 : 1,
           duration: const Duration(milliseconds: 400),
           child: SizedBox(
-            width: 178,
-            height: 170,
+            width: _w,
+            height: _h,
             child: Stack(clipBehavior: Clip.none, children: [
-              Positioned(
-                right: 0,
-                bottom: 0,
-                child: _PadButton(
+              // stamina: a green ring round the Pounce
+              _at(_pounce, 86 + 14, CustomPaint(size: const Size(100, 100), painter: _StaminaRing(st / 100.0))),
+              _at(
+                _pounce,
+                86,
+                ActionButton(
                   label: 'Pounce',
+                  hint: 'Tap to strike, hold to keep striking',
                   icon: 'paw',
-                  size: 78,
-                  tone: const Color(0xFFF4B84E),
+                  size: 86,
+                  palette: KitButtonPalette.gold,
                   dim: st < 5,
                   onDown: () {
                     s._padHeld = true;
@@ -3555,79 +3715,82 @@ class _CombatPad extends StatelessWidget {
                   },
                 ),
               ),
-              Positioned(
-                right: 84,
-                bottom: 2,
-                child: _PadButton(label: 'Dodge', icon: 'swirl', size: 54, tone: const Color(0xFFB8E68C), dim: st < 20, onDown: () => s._press('dodge')),
-              ),
-              Positioned(
-                right: 70,
-                bottom: 62,
-                child: _PadButton(
-                  label: 'Glow Bolt',
+              _at(_dodge, 56, ActionButton(label: 'Dodge', icon: 'swirl', size: 56, palette: KitButtonPalette.green, dim: st < 20, onDown: () => s._press('dodge'))),
+              _at(
+                _bolt,
+                56,
+                ActionButton(
+                  label: 'Bolt',
+                  semantic: 'Glow Bolt',
                   icon: 'energy',
-                  size: 50,
-                  tone: const Color(0xFF9FF0DA),
+                  size: 56,
+                  palette: _mint,
                   cooldown: r.boltCd / 1.0,
                   dim: st < 18,
                   onDown: () => s._press('bolt'),
                 ),
               ),
-              Positioned(
-                right: 10,
-                bottom: 86,
-                child: _PadButton(
-                  label: 'Lumen Pulse',
+              _at(
+                _pulse,
+                56,
+                ActionButton(
+                  label: 'Pulse',
+                  semantic: 'Lumen Pulse',
                   icon: 'sun',
-                  size: 50,
-                  tone: const Color(0xFFC9F5EA),
+                  size: 56,
+                  palette: _mint,
                   cooldown: r.pulseCd / 7.0,
                   dim: st < 34,
                   onDown: () => s._press('pulse'),
                 ),
               ),
-              Positioned(
-                right: 128,
-                bottom: 60,
-                child: _PadButton(
-                  label: heals > 0 ? 'Eat a berry, $heals left' : 'No berries',
+              // an Elder's signature move: fills from perfect dodges, counters and close calls
+              if (r.stage >= 3)
+                _at(
+                  _sig,
+                  64,
+                  ActionButton(
+                    label: r.sigName,
+                    semantic: r.sigReady ? '${r.sigName}: ready' : '${r.sigName}: ${r.sig.round()} percent charged',
+                    icon: 'star',
+                    size: 64,
+                    palette: r.sigReady ? KitButtonPalette.gold : KitButtonPalette.plum,
+                    charge: r.sig / 100,
+                    ready: r.sigReady,
+                    dim: !r.sigReady,
+                    badge: r.sigReady ? '!' : null,
+                    onDown: () => s._press('signature'),
+                  ),
+                  ring: 6,
+                ),
+              _at(
+                _berry,
+                46,
+                ActionButton(
+                  label: heals > 0 ? 'Eat' : 'No food',
+                  semantic: heals > 0 ? 'Eat a berry, $heals left' : 'No berries',
                   icon: 'potion',
                   image: healId,
                   badge: heals > 0 ? '$heals' : null,
-                  size: 42,
-                  tone: const Color(0xFFFFF0DE),
+                  size: 46,
+                  palette: KitButtonPalette.cream,
                   cooldown: s._itemCd / 2.5,
                   dim: heals == 0,
                   onDown: () => s._press('item'),
                 ),
               ),
-              // an Elder's signature move: fills from perfect dodges, counters and close calls
-              if (r.stage >= 3)
-                Positioned(
-                  right: 62,
-                  bottom: 118,
-                  child: _PadButton(
-                    label: r.sigReady ? '${r.sigName}: ready' : '${r.sigName}: ${r.sig.round()}%',
-                    icon: 'star',
-                    size: 48,
-                    tone: r.sigReady ? const Color(0xFFFFE27A) : const Color(0xFFB79AE8),
-                    cooldown: (100 - r.sig) / 100,
-                    dim: !r.sigReady,
-                    badge: r.sigReady ? '!' : null,
-                    onDown: () => s._press('signature'),
-                  ),
-                ),
               // the brews: a flask; with more than one kind, it opens a little shelf of them
-              Positioned(
-                right: 134,
-                bottom: 112,
-                child: _PadButton(
-                  label: brews.isEmpty ? 'No brews' : 'Drink a brew',
+              _at(
+                _brew,
+                46,
+                ActionButton(
+                  label: brews.isEmpty ? 'No brew' : 'Drink',
+                  semantic: brews.isEmpty ? 'No brews' : 'Drink a brew',
                   icon: 'potion',
                   image: brews.isEmpty ? null : brews.first,
                   badge: brews.length > 1 ? '${brews.length}' : null,
-                  size: 40,
-                  tone: const Color(0xFFBFF6FF),
+                  size: 46,
+                  palette: KitButtonPalette.cream,
                   cooldown: s._brewCd / 1.5,
                   dim: brews.isEmpty,
                   onDown: () => s._brewTap(brews),
@@ -3641,7 +3804,6 @@ class _CombatPad extends StatelessWidget {
   }
 }
 
-/// The brews on a little shelf (when there is more than one kind to choose from).
 class _BrewShelf extends StatelessWidget {
   const _BrewShelf({required this.brews, required this.onPick});
   final List<String> brews;
@@ -3679,72 +3841,40 @@ class _BrewShelf extends StatelessWidget {
   }
 }
 
-class _PadButton extends StatelessWidget {
-  const _PadButton({required this.label, required this.icon, required this.size, required this.tone, required this.onDown, this.onUp, this.cooldown = 0, this.dim = false, this.image, this.badge});
-  final String label, icon;
-  final double size, cooldown;
-  final Color tone; // the rim
-  final VoidCallback onDown;
-  final VoidCallback? onUp;
-  final bool dim;
-  final String? image, badge;
-  @override
-  Widget build(BuildContext context) {
-    final ready = cooldown <= 0.001;
-    return Semantics(
-      button: true,
-      label: label,
-      child: Listener(
-        onPointerDown: (_) => onDown(),
-        onPointerUp: (_) => onUp?.call(),
-        onPointerCancel: (_) => onUp?.call(),
-        child: ExcludeSemantics(
-          child: Opacity(
-            opacity: dim ? 0.45 : 1,
-            child: SizedBox(
-              width: size,
-              height: size,
-              child: Stack(clipBehavior: Clip.none, children: [
-                Container(
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    gradient: const RadialGradient(center: Alignment(0, -0.3), colors: [Color(0x66243020), Color(0x8C0B120A)]),
-                    border: Border.all(color: tone.withAlpha(200), width: 2),
-                  ),
-                  alignment: Alignment.center,
-                  child: image != null ? ItemImage(image!, size: size * 0.62) : VoxelIcon(icon, size: size * 0.6),
-                ),
-                if (!ready) Positioned.fill(child: CustomPaint(painter: _CooldownPainter(cooldown.clamp(0.0, 1.0)))),
-                if (badge != null)
-                  Positioned(
-                    right: -3,
-                    bottom: -3,
-                    child: Container(
-                      padding: const EdgeInsets.fromLTRB(5, 0, 5, 1),
-                      decoration: BoxDecoration(color: const Color(0xE62A1D10), borderRadius: BorderRadius.circular(8), border: Border.all(color: const Color(0x59FFF6E4))),
-                      child: Text(badge!, style: EvochiText.tag.copyWith(color: const Color(0xFFFFF6E4), fontSize: 10.5, height: 1.25)),
-                    ),
-                  ),
-              ]),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-}
+/// Lumen: a mint button for the light moves.
+const _mint = KitButtonPalette(
+  colors: [Color(0xFFE6FBF5), Color(0xFFBFF0E2), Color(0xFF9FE3D0)],
+  stops: [0, 0.5, 1],
+  border: Color(0xFF2E6E62),
+  edge: Color(0xFF235449),
+  shade: Color(0x66318A78),
+  drop: Color(0x40204A40),
+  pressed: [Color(0xFFCFF2E8), Color(0xFF8FD3BF)],
+  pressShade: Color(0x59204A40),
+  textShadow: Color(0x66FFFFFF),
+);
 
-class _CooldownPainter extends CustomPainter {
-  _CooldownPainter(this.left);
-  final double left; // 1 = just used, 0 = ready
+/// Stamina as a ring round the Pounce: green, draining clockwise, amber when it is nearly spent.
+class _StaminaRing extends CustomPainter {
+  _StaminaRing(this.frac);
+  final double frac;
   @override
   void paint(Canvas canvas, Size size) {
-    final r = Offset.zero & size;
-    canvas.drawArc(r.deflate(2), -math.pi / 2, 2 * math.pi * left, true, Paint()..color = const Color(0x990B120A));
+    final r = (Offset.zero & size).deflate(2);
+    canvas.drawOval(r, Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5
+      ..color = const Color(0x992A1D10));
+    if (frac <= 0) return;
+    canvas.drawArc(r, -math.pi / 2, 2 * math.pi * frac.clamp(0.0, 1.0), false, Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.5
+      ..strokeCap = StrokeCap.round
+      ..color = frac < 0.25 ? const Color(0xFFF2B35A) : const Color(0xFFA9E07A));
   }
 
   @override
-  bool shouldRepaint(covariant _CooldownPainter old) => old.left != left;
+  bool shouldRepaint(_StaminaRing old) => old.frac != frac;
 }
 
 /// Sher's face in a round frame, from his villager sprite (centred a little up and left of the face
@@ -3845,6 +3975,81 @@ class _NearLabel extends StatelessWidget {
 
 /// The minimap: a round window on the floor around you, north up; the gate, the camp, Sher, the foes
 /// and the guardian marked; what's in the satchel as a badge. Tap for the whole floor.
+/// The trip's purse: the coins calmed creatures have left, in a dark-wood pill under the minimap. It
+/// bumps as each coin flies in.
+class _Purse extends StatelessWidget {
+  const _Purse({required this.state});
+  final _WildsScreenState state;
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<int>(
+        valueListenable: state._repaint,
+        builder: (_, __, ___) {
+          final n = state._shownCoins;
+          final b = ((state._t - state._purseBumpAt) / 0.28).clamp(0.0, 1.0);
+          final scale = 1 + 0.16 * math.sin(b * math.pi);
+          return Semantics(
+            label: '$n coins this trip',
+            child: Transform.scale(
+              scale: scale,
+              alignment: Alignment.centerRight,
+              child: Container(
+                key: state._purseKey,
+                height: 32,
+                padding: const EdgeInsets.fromLTRB(6, 0, 10, 0),
+                decoration: Kit.coinPill(),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [
+                  const VoxelIcon('coin', size: 22),
+                  const SizedBox(width: 5),
+                  Text(fmt(n),
+                      textScaler: TextScaler.noScaling,
+                      style: EvochiText.number.copyWith(color: Colors.white, fontSize: 14, height: 1.1, shadows: kitWoodTextShadow)),
+                ]),
+              ),
+            ),
+          );
+        },
+      );
+}
+
+/// A coin flying up from the ground to the purse.
+class _CoinFlyer {
+  _CoinFlyer(this.from, this.amount, this.t0);
+  final Offset from;
+  final int amount;
+  final double t0;
+  static const flight = 0.5;
+}
+
+class _FlyerPainter extends CustomPainter {
+  _FlyerPainter(this.s);
+  final _WildsScreenState s;
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (s._flyers.isEmpty) return;
+    final to = s._pursePoint() ?? Offset(size.width - 40, 60);
+    final u = s._u / 2.7;
+    for (final f in s._flyers) {
+      final e = ((s._t - f.t0) / _CoinFlyer.flight).clamp(0.0, 1.0);
+      final k = Curves.easeInQuad.transform(e);
+      final at = Offset.lerp(f.from, to, k)! - Offset(0, 46 * math.sin(e * math.pi));
+      final r = (5.2 - 1.6 * e) * u;
+      final spin = math.cos(s._t * 18 + f.from.dx);
+      // a short trail behind it
+      canvas.drawLine(at, Offset.lerp(f.from, to, (k - 0.08).clamp(0.0, 1.0))! - Offset(0, 46 * math.sin((e - 0.08).clamp(0.0, 1.0) * math.pi)),
+          Paint()
+            ..strokeWidth = r * 0.9
+            ..strokeCap = StrokeCap.round
+            ..color = const Color(0x66FFD35A));
+      final rr = Rect.fromCenter(center: at, width: r * 2 * (0.3 + 0.7 * spin.abs()), height: r * 2);
+      canvas.drawOval(rr, Paint()..color = const Color(0xFFB8781E));
+      canvas.drawOval(rr.deflate(1.1), Paint()..color = spin > 0 ? const Color(0xFFFFD35A) : const Color(0xFFE9B23C));
+    }
+  }
+
+  @override
+  bool shouldRepaint(_FlyerPainter old) => true;
+}
+
 class _MiniMap extends StatelessWidget {
   const _MiniMap({required this.state, required this.onTap});
   final _WildsScreenState state;

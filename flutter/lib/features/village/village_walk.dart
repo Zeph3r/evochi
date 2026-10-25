@@ -367,6 +367,9 @@ class VillageWalker {
   int dir = 4; // S SE E NE N NW W SW
   bool moving = false;
   double phase = 0;
+  double speed = 0; // units a second now (it ramps up from a stop and eases in to arrive)
+  double stoppedAt = -9; // when it last came to rest (a little settle)
+  int lastStep = 0; // the footfall count (dust)
   List<Offset> path = const [];
   String? talkTo; // a villager to talk to on arrival
   double wait = -1; // seconds until that conversation opens
@@ -603,7 +606,17 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     final l = lay;
     if (l == null) return;
     if (me.path.isNotEmpty) {
-      var step = _speed * dt;
+      // how far there is to go: ease in over the last stretch; ramp up from a standstill
+      var left = 0.0;
+      var px = me.x, pz = me.z;
+      for (final q in me.path) {
+        left += (q - Offset(px, pz)).distance;
+        px = q.dx;
+        pz = q.dy;
+      }
+      final target = _speed * (left < 1.4 ? (0.35 + 0.65 * left / 1.4) : 1.0);
+      me.speed += (target - me.speed) * math.min(1.0, dt * (target > me.speed ? 7 : 10));
+      var step = me.speed * dt;
       while (step > 0 && me.path.isNotEmpty) {
         final to = me.path.first;
         final dx = to.dx - me.x, dz = to.dy - me.z;
@@ -621,7 +634,23 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         if (s >= d) me.path = me.path.sublist(1);
       }
       me.moving = me.path.isNotEmpty;
-      if (!me.moving) _arrived();
+      // dust at each footfall
+      final stepN = (me.phase * 2).floor();
+      if (stepN != me.lastStep) {
+        me.lastStep = stepN;
+        if (!_reduced && me.moving) {
+          final rnd = math.Random(stepN);
+          for (var i = 0; i < 2; i++) {
+            _bits.add(MineBit('dust', me.x + (rnd.nextDouble() - 0.5) * 0.6, 0.1, me.z + 0.2 + (rnd.nextDouble() - 0.5) * 0.3,
+                (rnd.nextDouble() - 0.5) * 0.8, 0.5 + rnd.nextDouble() * 0.4, (rnd.nextDouble() - 0.5) * 0.4, _t, 0.38, const Color(0xCCD9CCB4), 0.45));
+          }
+        }
+      }
+      if (!me.moving) {
+        me.speed = 0;
+        me.stoppedAt = _t;
+        _arrived();
+      }
     }
     me.y += (l.heightAt(me.x, me.z) - me.y) * math.min(1.0, dt * 14);
     _mineTick(l, dt);
@@ -1427,7 +1456,7 @@ class _WalkPainter extends CustomPainter {
       draw();
     }
     // the mining in the air: chips, dust, sparks, ore popping out and off to the satchel
-    if (mining != null) _paintBits(canvas, l, upk, scr, mining);
+    _paintBits(canvas, l, upk, scr, mining);
     // the air: glows, smoke, leaves, motes
     final fx = s._fx;
     if (fx != null) {
@@ -1514,18 +1543,30 @@ class _WalkPainter extends CustomPainter {
     }
     final tilt = s._t - pn.tiltAt;
     if (tilt >= 0 && tilt < 0.7) lean += 0.16 * math.sin(tilt / 0.7 * math.pi) * (me.dir <= 4 ? 1 : -1); // puzzled
+    // the walk's own motion: a bounce a step, squash and stretch, a sway; a lean into starting off and
+    // pulling up; a little settle on stopping
+    final pose = gaitPose(me.phase, me.moving && !pn.active, reduced: s._reduced);
+    final sideways = math.sin(me.dir * math.pi / 4); // facing east +1, west -1, as the screen sees it
+    if (me.moving && !s._reduced) lean += 0.11 * ((_speed - me.speed) / _speed).clamp(-1.0, 1.0) * sideways * (me.path.length > 1 || me.speed < _speed * 0.9 ? 1 : 0);
+    final since = s._t - me.stoppedAt;
+    if (since >= 0 && since < 0.32 && !s._reduced) {
+      final k = since / 0.32;
+      sy *= 1 - 0.09 * math.sin(k * math.pi) * (1 - k);
+      sx *= 1 + 0.07 * math.sin(k * math.pi) * (1 - k);
+    }
     final src = Rect.fromLTWH(col * art.fw, me.dir * art.fh, art.fw, art.fh);
-    // a soft pool of shade under the body
-    canvas.drawOval(Rect.fromCenter(center: g + Offset(art.fw * kp * 0.02, -kp * 4), width: art.fw * kp * 0.62, height: art.fw * kp * 0.17),
+    // a soft pool of shade under the body (a touch smaller as it rises in a step)
+    final shade = 1 - 8 * pose.bob;
+    canvas.drawOval(Rect.fromCenter(center: g + Offset(art.fw * kp * 0.02, -kp * 4), width: art.fw * kp * 0.62 * shade, height: art.fw * kp * 0.17 * shade),
         Paint()
           ..color = const Color(0x3A16241F)
           ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
     _castShadow(canvas, gait.img, src, g, Offset(art.gx * kp, art.gy * kp), kp, l);
     final dst = Rect.fromLTWH(-art.gx * kp, -art.gy * kp, art.fw * kp, art.fh * kp);
     canvas.save();
-    canvas.translate(g.dx, g.dy);
-    canvas.rotate(gait.roll[col] * math.pi / 180 * math.cos(me.dir * math.pi / 4) + lean);
-    canvas.scale(sx, gait.squash[col] * sy);
+    canvas.translate(g.dx, g.dy - pose.bob * art.fh * kp);
+    canvas.rotate((gait.roll[col] + pose.roll) * math.pi / 180 * math.cos(me.dir * math.pi / 4) + lean);
+    canvas.scale(sx * pose.sx, gait.squash[col] * sy * pose.sy);
     final p = Paint()..filterQuality = FilterQuality.medium;
     canvas.drawImageRect(gait.img, src, dst, p);
     final lift = col < gait.lift.length ? gait.lift[col] : 0.0;
@@ -1537,7 +1578,7 @@ class _WalkPainter extends CustomPainter {
   }
 
   /// Chips, dust and sparks where they fly; nuggets popping out, then off to the satchel.
-  void _paintBits(Canvas canvas, WalkLayout l, double upk, Offset Function(Offset) scr, MiningArt art) {
+  void _paintBits(Canvas canvas, WalkLayout l, double upk, Offset Function(Offset) scr, MiningArt? art) {
     final now = s._t;
     final to = s.satchelPoint();
     for (final b in s._bits) {
@@ -1565,8 +1606,8 @@ class _WalkPainter extends CustomPainter {
             ..color = const Color(0xFF3B2923).withAlpha(((0.7 * a) * 255).round()));
           canvas.restore();
         case 'nugget':
-          final n = art.ores[b.ore]?.nugget;
-          if (n == null) continue;
+          final n = art?.ores[b.ore]?.nugget;
+          if (n == null || art == null) continue;
           final unit = art.ores[b.ore]!.nuggetUnit;
           var at = p;
           var k = upk * unit;

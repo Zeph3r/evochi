@@ -691,7 +691,7 @@ void main() {
         r.pet.hp = r.pet.maxHp - 500;
         final hp0 = r.pet.hp;
         r.press('signature');
-        run(r, palette == 'amethyst' ? 0.6 : 0.3);
+        run(r, palette == 'amethyst' ? 1.0 : 0.7); // it winds up for a beat (the world slowed), then fires
         expect(r.sig, 0);
         expect(r.events.any((e) => e.type == 'signature') || r.floaters.any((f) => f.text == Raid.sigNames[palette]), isTrue);
         if (palette == 'coral') {

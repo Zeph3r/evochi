@@ -35,6 +35,26 @@ class WildsGait {
   final double cycle; // world units per walk cycle, as drawn
 }
 
+/// The body's own motion while walking, from the continuous walk phase (cycles), on top of the sheet's
+/// frames: a bounce for each step, a squash as the foot lands and a stretch at the top, a sway once a
+/// cycle; more of all of it at a run. Drawn only. [footfall] is true for the instant a foot lands.
+class GaitPose {
+  const GaitPose(this.bob, this.sx, this.sy, this.roll, this.footfall);
+  final double bob; // how high the body rides, as a fraction of its sprite's height
+  final double sx, sy; // squash and stretch
+  final double roll; // degrees of sway (the painter turns it by how the walker faces)
+  final bool footfall;
+  static const still = GaitPose(0, 1, 1, 0, false);
+}
+
+GaitPose gaitPose(double phase, bool moving, {double run = 0, bool reduced = false}) {
+  if (!moving || reduced) return GaitPose.still;
+  final step = phase * 2; // two footfalls a cycle
+  final b = 0.5 - 0.5 * math.cos(step * 2 * math.pi); // 0 as a foot lands, 1 mid-step
+  final amp = 1 + 0.55 * run;
+  return GaitPose(0.032 * b * amp, 1.045 - 0.06 * b, 0.955 + 0.07 * b, 4.0 * amp * math.sin(phase * 2 * math.pi), step - step.floor() < 0.09);
+}
+
 class WalkerArt {
   WalkerArt(
       {required this.fw, required this.fh, required this.gx, required this.gy, required this.radius, required this.gaits, required this.wear, this.heightPx});

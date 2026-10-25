@@ -223,11 +223,13 @@ class Wave {
 }
 
 class Pickup {
-  Pickup(this.kind, this.x, this.z, this.amount, {this.vx = 0, this.vz = 0});
-  final String kind; // mote (heals) | bloom (the Starseed Charm's: heals) | loot (a glint of what a calmed foe left: it flies to you)
+  Pickup(this.kind, this.x, this.z, this.amount, {this.vx = 0, this.vz = 0, this.vy = 0});
+  final String kind; // mote (heals) | bloom (the Starseed Charm's: heals) | loot (a glint of what a calmed foe left: it flies to you) | coin (bursts out, bounces, then flies up to your purse)
   double x, z;
   final int amount;
   double vx, vz;
+  double vy, y = 0; // a coin's height and climb (units)
+  int bounces = 0;
   double t = 0;
 }
 
@@ -495,6 +497,9 @@ class Raid {
 
   RaidPhase phase = RaidPhase.explore;
   double time = 0, hitstop = 0, shake = 0;
+  double flashT = 0; // a flash over the whole view (a heavy hit, a signature move), seconds left
+  String flashKind = 'white'; // white, or the palette a signature move is tinted by
+  double _sigWind = 0; // a signature move winding up (the world slows, then it fires)
   /// A perfect dodge slows the world for a moment (real seconds left) and opens a counter window.
   double slowmo = 0, counterT = 0;
   /// Potion buffs (an Apothecary brew drunk in the Wilds): id -> seconds left. See [buffDefs].
@@ -688,11 +693,17 @@ class Raid {
     }
     bursts.removeWhere((b) => b.t >= b.ttl);
     shake = math.max(0, shake - dt * 3);
+    flashT = math.max(0, flashT - dt);
     wallRise = (wallRise + (wallUp ? dt * 2.2 : -dt * 1.2)).clamp(0.0, 1.0);
     if (phase != RaidPhase.explore) return;
     if (hitstop > 0) {
       hitstop -= dt;
       return;
+    }
+    if (_sigWind > 0) {
+      // a signature move's wind-up runs in real time (the world is slowed round it)
+      _sigWind -= dt;
+      if (_sigWind <= 0) _signatureFire();
     }
     if (slowmo > 0) {
       slowmo -= dt;
@@ -1309,10 +1320,14 @@ class Raid {
         _emit('counter', x: f.x, z: f.z);
         _sigGain(20);
       }
+      // every hit lands with a beat of hit-stop, a shake and an impact flash that grow through the three
+      hitstop = math.max(hitstop, const [0.03, 0.045, 0.09][c]);
+      shake = math.max(shake, const [0.16, 0.26, 0.6][c]);
+      bursts.add(Burst('impact', f.x, f.z, 0.3, dx: (f.x - p.x) / d, dz: (f.z - p.z) / d, size: const [0.8, 1.0, 1.5][c]));
       if (c == 2) {
-        // the third Pounce launches small foes: a beat of hit-stop, a burst, a moment stunned
-        hitstop = math.max(hitstop, 0.07);
-        shake = math.max(shake, 0.35);
+        // the third Pounce launches small foes: a longer beat, a flash, a burst, a moment stunned
+        flashT = math.max(flashT, 0.1);
+        flashKind = 'white';
         bursts.add(Burst('launch', f.x, f.z, 0.4, size: f is Boss ? 2 : 1.4));
         if (f is! Boss && !f.calm) f.stun = math.max(f.stun, 0.35);
         _emit('launch', x: f.x, z: f.z);
@@ -1351,9 +1366,24 @@ class Raid {
 
   void _signature() {
     final p = pet;
-    hitstop = math.max(hitstop, 0.12);
-    shake = math.max(shake, 0.7);
+    // the wind-up: the world slows, light gathers into your Evochi, nothing can touch it
+    _sigWind = 0.3;
+    slowmo = math.max(slowmo, 0.42);
     p.glow = 1;
+    p.iframes = math.max(p.iframes, 0.9);
+    bursts.add(Burst('gather', p.x, p.z, 0.3, size: 1.6, tag: palette));
+    _emit('signature_wind', text: palette, x: p.x, z: p.z);
+  }
+
+  void _signatureFire() {
+    final p = pet;
+    hitstop = math.max(hitstop, 0.14);
+    shake = math.max(shake, 1.0);
+    flashT = math.max(flashT, 0.22);
+    flashKind = palette;
+    p.glow = 1;
+    bursts.add(Burst('lines', p.x, p.z, 0.55, size: 190, tag: palette));
+    bursts.add(Burst('impact', p.x, p.z, 0.4, size: 2.4, tag: palette));
     _float(sigName, p.x, p.z - 10, 'crit', ttl: 1.3);
     _emit('signature', text: palette, x: p.x, z: p.z);
     switch (palette) {
@@ -1437,8 +1467,12 @@ class Raid {
   void _pulse() {
     final p = pet;
     bursts.add(Burst('pulse', p.x, p.z, 0.45, size: pulseR));
+    bursts.add(Burst('lines', p.x, p.z, 0.4, size: pulseR * 1.2, tag: 'mint'));
     _emit('pulse');
-    shake = math.max(shake, 0.25);
+    shake = math.max(shake, 0.4);
+    hitstop = math.max(hitstop, 0.05);
+    flashT = math.max(flashT, 0.07);
+    flashKind = 'mint';
     p.slowT = 0;
     hazards.removeWhere((h) => _len(h.x - p.x, h.z - p.z) < pulseR + h.r * 0.5);
     for (final f in hostile.toList()) {
@@ -3281,17 +3315,24 @@ class Raid {
     _emit('calm', x: f.x, z: f.z);
     hitstop = math.max(hitstop, 0.06);
     shake = math.max(shake, 0.3);
-    // glints of what it leaves burst out and fly to you
-    if (!f.summoned) {
+    calmed += f.summoned ? 0 : 1;
+    // what it leaves: coins into the purse, sometimes a shard, a mote of light that heals
+    final c = ((((f.kind == 'sporecap' ? 3 : 2) + rng.nextInt(3)) * (f.elite ? 5 : 1) + (foeHp > 1 ? (foeHp * 2).round() : 0)) * coinMul).round();
+    coins += c;
+    // the coins burst out of it, bounce on the ground, then fly up to your purse (the screen counts them in)
+    if (c > 0) {
+      final n = c.clamp(3, 12);
+      for (var i = 0; i < n; i++) {
+        final a = lootRng.nextDouble() * math.pi * 2, v = 40 + lootRng.nextDouble() * 55;
+        final share = c ~/ n + (i < c % n ? 1 : 0);
+        pickups.add(Pickup('coin', f.x, f.z, share, vx: math.cos(a) * v, vz: math.sin(a) * v * 0.7, vy: 70 + lootRng.nextDouble() * 60));
+      }
+    } else if (!f.summoned) {
       for (var i = 0; i < 4; i++) {
         final a = lootRng.nextDouble() * math.pi * 2, v = 70 + lootRng.nextDouble() * 50;
         pickups.add(Pickup('loot', f.x, f.z, 0, vx: math.cos(a) * v, vz: math.sin(a) * v));
       }
     }
-    calmed += f.summoned ? 0 : 1;
-    // what it leaves: coins into the satchel, sometimes a shard, a mote of light that heals
-    final c = ((((f.kind == 'sporecap' ? 3 : 2) + rng.nextInt(3)) * (f.elite ? 5 : 1) + (foeHp > 1 ? (foeHp * 2).round() : 0)) * coinMul).round();
-    coins += c;
     if (f.elite) {
       // an elite always leaves a shard, and gets a second roll at something rare
       items['lumen_shard'] = (items['lumen_shard'] ?? 0) + 1;
@@ -3304,7 +3345,6 @@ class Raid {
         });
       }
     }
-    _float('+$c coins', f.x, f.z, 'loot', ttl: 1.2);
     if (!f.summoned && rng.nextDouble() < 0.18) {
       items['lumen_shard'] = (items['lumen_shard'] ?? 0) + 1;
       _float('+1 Lumen Shard', f.x, f.z - 6, 'loot', ttl: 1.4);
@@ -3440,6 +3480,9 @@ class Raid {
           _hurt(f, _boltDmg * atk * s.power, from: pet, kx: s.vx / sp * 50, kz: s.vz / sp * 50, poise: 10 * s.power);
           s.hits.add(f);
           bursts.add(Burst('glow', s.x, s.z, 0.35));
+          bursts.add(Burst('impact', f.x, f.z, 0.26, dx: s.vx / sp, dz: s.vz / sp, size: 0.9, tag: 'mint'));
+          hitstop = math.max(hitstop, 0.03);
+          shake = math.max(shake, 0.14);
           if (s.pierce > 0) {
             // it goes straight through and on to the next one
             s.pierce--;
@@ -3563,6 +3606,29 @@ class Raid {
   void _tickPickups(double dt) {
     for (final p in pickups) {
       p.t += dt;
+      if (p.kind == 'coin') {
+        // a coin: out and up, down with a bounce or two, a short rest, then the screen flies it to the purse
+        if (p.t < 1.1) {
+          p.x += p.vx * dt;
+          p.z += p.vz * dt;
+          p.y += p.vy * dt;
+          p.vy -= 300 * dt;
+          if (p.y <= 0 && p.vy < 0) {
+            p.y = 0;
+            p.bounces++;
+            p.vy = p.bounces < 3 ? -p.vy * 0.42 : 0;
+            p.vx *= 0.55;
+            p.vz *= 0.55;
+            if (p.bounces == 1) _emit('coin_bounce', x: p.x, z: p.z);
+          }
+          p.vx *= math.pow(0.2, dt).toDouble();
+          p.vz *= math.pow(0.2, dt).toDouble();
+        } else {
+          p.t = 999;
+          _emit('coin_fly', value: p.amount.toDouble(), x: p.x, z: p.z);
+        }
+        continue;
+      }
       if (p.kind == 'loot') {
         // a glint of loot: it bursts out, settles, then flies to your Evochi
         if (p.t < 0.35) {
