@@ -513,6 +513,8 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
           'text': mine ? 'A timbered shaft, a ladder down to the next gallery. The ore is richer below.' : 'Worn steps lead down through the old doorway, deeper into the Wilds.',
         });
         if (mine) {
+          // the shaft's gallery has ore of its own, by the way down
+          _ores(plan, rng, k, r, cx, cz, rr, depth, radii['ore'] ?? 9, clearOfWays, count: 2);
           plan.fx.add({'kind': 'lamp', 'x': cx - rr * 0.5, 'z': cz + rr * 0.3});
         } else if (story == null) {
           _foes(plan, rng, r, cx, cz, rr * 0.55, wantFoes, depth);
@@ -563,6 +565,7 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
         _foes(plan, rng, r, cx, cz, rr * 0.5, wantFoes - 1, depth, elite: true);
       case 'treasure':
         add('chest', cx, cz - 6, flip: false, force: true); // a dead end: the chest is what you came for
+        if (mine) _ores(plan, rng, k, r, cx, cz, rr, depth, radii['ore'] ?? 9, clearOfWays, count: 1);
         plan.spots.add({
           'id': 'chest_${r.i}', 'kind': 'chest', 'x': cx, 'z': cz - 2, 'r': 20, 'label': 'Open', 'title': 'An old chest',
           'text': 'Moss on the lid, a little light leaking out of the seam.',
@@ -616,10 +619,10 @@ bool _nearPath(KitChunk k, double u, double v, double d) {
 /// Which ores a floor has (MINES_PLAN.md's ladder): F1 copper and a little iron, F2 iron with copper,
 /// F3 lumen among iron, F4 and down obsidian too.
 void _ores(FloorPlan plan, _Rng rng, KitChunk k, FloorRoom r, double cx, double cz, double rr, int depth, double rad,
-    bool Function(double, double, double) clearOfWays) {
+    bool Function(double, double, double) clearOfWays, {int? count}) {
   final common = depth <= 1 ? 'copper' : (depth == 2 ? 'iron' : (depth == 3 ? 'iron' : 'lumen'));
   final rich = depth <= 1 ? 'iron' : (depth == 2 ? 'iron' : (depth == 3 ? 'lumen' : 'obsidian'));
-  final n = 3 + rng.i(2);
+  final n = count ?? 3 + rng.i(2);
   var placed = 0;
   final a0 = rng.d(0, math.pi * 2);
   // room to stand and swing: the ground on the clearing's side of the node, an Evochi's body wide, is
@@ -631,7 +634,7 @@ void _ores(FloorPlan plan, _Rng rng, KitChunk k, FloorRoom r, double cx, double 
     }
     return true;
   }
-  for (var i = 0; i < n * 4 && placed < n; i++) {
+  for (var i = 0; i < n * 7 && placed < n; i++) {
     final a = a0 + i * (math.pi * 2 / (n * 1.6)) + rng.d(-0.3, 0.3);
     final d = rr * rng.d(0.4, 0.64);
     final x = cx + math.cos(a) * d, z = cz + math.sin(a) * d * 0.9;
@@ -641,7 +644,7 @@ void _ores(FloorPlan plan, _Rng rng, KitChunk k, FloorRoom r, double cx, double 
     var near = false;
     for (final o in plan.ores) {
       final ox = o['x'] as double, oz = o['z'] as double;
-      if ((ox - x) * (ox - x) + (oz - z) * (oz - z) < 34 * 34) near = true;
+      if ((ox - x) * (ox - x) + (oz - z) * (oz - z) < 28 * 28) near = true;
     }
     if (near) continue;
     final kind = placed == 0 && rng.p(depth <= 1 ? 0.5 : 0.8) ? rich : common;
