@@ -633,6 +633,7 @@ void _ores(FloorPlan plan, _Rng rng, KitChunk k, FloorRoom r, double cx, double 
 }
 
 void _foes(FloorPlan plan, _Rng rng, FloorRoom r, double cx, double cz, double spread, int n, int depth, {bool elite = false}) {
+  if (plan.mine) return; // a working mine: no fights set up (MINES_PLAN.md)
   for (var i = 0; i < n + (elite ? 1 : 0); i++) {
     for (var tries = 0; tries < 20; tries++) {
       final a = rng.d(0, math.pi * 2), d = rng.d(0, spread);
