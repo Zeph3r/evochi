@@ -444,10 +444,12 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
         // the cave: rock lining the galleries thick (boulders and low pillars at the edge, columns and
         // rubble behind), the odd glowing cap of shrooms; the deep rock beyond is dark
         if (f > 120 && rng.p(0.55)) continue;
-        final kind = f < 26
-            ? rng.pick(const ['boulder', 'rock', 'pillar_low', 'boulder', 'rock'])
-            : (rng.p(0.3) ? 'pillar' : rng.pick(const ['boulder', 'pillar_low', 'rock', 'shrooms']));
-        add(kind, px, pz, s: kind == 'shrooms' ? rng.d(0.8, 1.0) : rng.d(0.9, 1.25));
+        // near the galleries only low, narrow things (a rock's 10.5 would pinch a hall); the big rock behind
+        final kind = f < 30
+            ? (rng.p(0.3) ? 'shrooms' : rng.pick(const ['pillar_low', 'rock', 'pillar_low']))
+            : (rng.p(0.3) ? 'pillar' : rng.pick(const ['boulder', 'pillar_low', 'rock', 'boulder']));
+        final sc = kind == 'shrooms' ? rng.d(0.8, 1.0) : (f < 30 ? rng.d(0.6, 0.8) : rng.d(0.95, 1.3));
+        add(kind, px, pz, s: sc);
         continue;
       }
       if (shadeBand(px, pz)) {
