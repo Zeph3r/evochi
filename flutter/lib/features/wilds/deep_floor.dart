@@ -620,11 +620,28 @@ void _ores(FloorPlan plan, _Rng rng, KitChunk k, FloorRoom r, double cx, double 
   final n = 3 + rng.i(2);
   var placed = 0;
   final a0 = rng.d(0, math.pi * 2);
-  for (var i = 0; i < n * 3 && placed < n; i++) {
-    final a = a0 + i * (math.pi * 2 / (n * 1.5)) + rng.d(-0.3, 0.3);
-    final d = rr * rng.d(0.45, 0.72);
+  // room to stand and swing: the ground on the clearing's side of the node, an Evochi's body wide, is
+  // open and clear of everything else that stands here
+  bool free(double x, double z) {
+    if (plan.blocked(x, z)) return false;
+    for (final (bx, bz, r) in plan.blocks) {
+      if ((bx - x) * (bx - x) + (bz - z) * (bz - z) < (r + 13) * (r + 13)) return false;
+    }
+    return true;
+  }
+  for (var i = 0; i < n * 4 && placed < n; i++) {
+    final a = a0 + i * (math.pi * 2 / (n * 1.6)) + rng.d(-0.3, 0.3);
+    final d = rr * rng.d(0.4, 0.64);
     final x = cx + math.cos(a) * d, z = cz + math.sin(a) * d * 0.9;
     if (plan.blocked(x, z) || !clearOfWays(x, z, rad)) continue;
+    final ux = (cx - x) / math.max(d, 1e-6), uz = (cz - z) / math.max(d, 1e-6);
+    if (!free(x + ux * (rad + 14), z + uz * (rad + 14)) || !free(x + ux * (rad + 26), z + uz * (rad + 26))) continue;
+    var near = false;
+    for (final o in plan.ores) {
+      final ox = o['x'] as double, oz = o['z'] as double;
+      if ((ox - x) * (ox - x) + (oz - z) * (oz - z) < 34 * 34) near = true;
+    }
+    if (near) continue;
     final kind = placed == 0 && rng.p(depth <= 1 ? 0.5 : 0.8) ? rich : common;
     plan.ores.add({'id': 'o${r.i}_$placed', 'kind': kind, 'x': (x * 10).round() / 10, 'z': (z * 10).round() / 10});
     plan.blocks.add((x, z, rad));
