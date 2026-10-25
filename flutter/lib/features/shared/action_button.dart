@@ -147,13 +147,13 @@ class _ActionButtonState extends State<ActionButton> {
                     maxLines: 1,
                     overflow: TextOverflow.visible,
                     softWrap: false,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontFamily: EvochiText.game,
                       fontWeight: FontWeight.w900,
                       fontSize: 11,
                       height: 1.1,
-                      color: const Color(0xFFFFF6E4),
-                      shadows: const [Shadow(color: Color(0xCC1E0C00), offset: Offset(0, 1), blurRadius: 2), Shadow(color: Color(0x99000000), blurRadius: 4)],
+                      color: Color(0xFFFFF6E4),
+                      shadows: [Shadow(color: Color(0xCC1E0C00), offset: Offset(0, 1), blurRadius: 2), Shadow(color: Color(0x99000000), blurRadius: 4)],
                     ),
                   ),
                 ),
