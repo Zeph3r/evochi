@@ -20,7 +20,7 @@ from village_scenes import (BRASS, HONEY, IRON, OAK, OAK_DARK, STATE_LIGHT, WALN
 from voxel import Model
 
 RES = 2
-X0, X1, Z0, Z1 = -4.0, 130.0, -48.0, 32.0
+X0, X1, Z0, Z1 = -4.0, 146.0, -48.0, 32.0
 
 ROCK = ['#6F6A7C', '#7C778A', '#625E70', '#86819A']        # purple-grey cliff stone
 ROCK_DARK = ['#57536A', '#4D4960', '#615C72']
@@ -41,18 +41,31 @@ FALLS = ['#DFF4FC', '#BFE8FA', '#FFFFFF', '#A9DDF5']
 POOL = ['#2F6FB3', '#3A7EC2', '#2A649F', '#4A8DD0']           # deep water in the basin
 
 PATH = [(-4.0, 3.0), (12.0, 1.0), (28.0, -2.0), (44.0, 0.0), (58.0, 2.0), (72.0, -1.0), (86.0, 1.0),
-        (100.0, -2.5), (114.0, -4.0), (130.0, -3.0)]
+        (100.0, -2.5), (114.0, -4.0), (124.0, -3.0), (131.0, -2.5)]
+PX, PZ = [p[0] for p in PATH], [p[1] for p in PATH]
+ROCK_OCHRE = ['#857468', '#8F7E71', '#7A6B60']            # a warm band in the strata
+COBBLE = ['#8C8378', '#9A9186', '#7E776D', '#A39A8E', '#6F695F', '#95887A']
+HOLLOW = ['#B47CFF', '#9C5CF0', '#C9A0FF']                # the Hollow's light
+HOLLOW_LEAF = ['#2F4A33', '#3E5A3C', '#35404F', '#4E3A6E', '#2B3D30', '#36503A']
 TER_H, TER_D = 6.0, 4.5   # the cliffs' terraces: each this high and this deep
 STREAM_X = 44.0          # the stream comes down the cliffs here, crosses under the bridge, falls south
 CROSSING = 88.0          # from here east the ledge opens into the Crossing's yard
-FLINT = (101.5, -14.5)   # Flint, by his tent
+FLINT = (102.0, -15.0)   # Flint, by his tent, the yard open in front of him
 MINE_X, MINE_FZ = 116.5, -16.5   # the mine's stone portal: its middle, and its front face
 MINE = (MINE_X, MINE_FZ - 1.5)   # the mouth, behind the portal's arch
 MINE_W = 7.5                     # the portal's half-width
 ARCH_R, ARCH_JAMB = 3.5, 4.0     # the arch: its radius, and how high its sides stand before it turns
 WING_FLARE, WING_L, WING_H0, WING_H1 = 0.6, 5.5, 9.0, 1.6   # the wing walls: flare, length, height at the portal and at the end
 HILL = (MINE_X, -23.0, 13.0, 8.0, 13.0)   # the hill the mine is dug into: centre x, z, half-width, half-depth, height
-GATE_X = 126.0           # the Sunlit Thicket's gate
+GATE_X = 131.0           # the way into the Sunlit Thicket: the lane turns north here, to the arch
+THICKET_Z = -13.0        # the ruined wall and its arch stand here, across the lane's end
+LANE_X0, LANE_DROP, LANE_HW = 121.0, 3.2, 3.0   # the lane sinks from here, this far, this wide (half)
+
+
+def lane_y(x):
+    """The lane's floor: level with the ledge at LANE_X0, down LANE_DROP by ten units on, level after."""
+    t = np.clip((np.asarray(x, float) - LANE_X0) / 10.0, 0, 1)
+    return -LANE_DROP * t * t * (3 - 2 * t)
 LANTERNS = ((9.0, -2.8), (31.0, 1.6), (52.0, -2.6), (70.0, 2.6), (90.0, -4.6))
 SIGNS = ((3.0, -1.6, 'village'), (84.0, -3.8, 'crossing'))
 RAIL_END = float(np.interp(MINE_X, [p[0] for p in PATH], [p[1] for p in PATH])) - 1.5    # the rails run out to the path
@@ -60,12 +73,14 @@ CART_Z = (MINE_FZ + RAIL_END) / 2                                               
 MINE_POSTS = ((MINE_X - 3.4, RAIL_END - 1.4, -1.0), (MINE_X + 3.4, RAIL_END - 1.4, 1.0))  # lamp posts either side of the rails
 MINE_LAMPS = ((MINE_X - 5.25, 7.4, MINE_FZ + 0.8), (MINE_X + 5.25, 7.4, MINE_FZ + 0.8),  # on the portal, either side of the arch
               (MINE_X, 4.4, MINE_FZ - 2.25))                                             # and one inside, on the first timber set
+TUNNEL_LAMPS = ((MINE_X - 2.2, 4.3, MINE_FZ - 5.25), (MINE_X + 2.2, 4.3, MINE_FZ - 8.25))   # further in, one side then the other
+CART = {'x': MINE_X, 'z0': MINE_FZ - 4.2, 'z1': MINE_FZ + 4.2}   # the ore cart (a sprite in the game): in the lit tunnel, and out as far as this
 TENT = (95.5, -21.0, -16.0, 4.6, 3.2)      # Flint's tent: centre x, back, front, ridge height, half-width at the ground
 TENT_LAMP = (TENT[0], TENT[3] - 1.3, TENT[2] + 0.55)
 CAMPFIRE = (95.5, -12.6)
 FLAG = (99.8, -16.4)
-WHEELBARROW = (99.2, -11.0)
-ORE_NODES = (('copper', 92.0, -9.5), ('copper', 89.4, -12.2), ('iron', 108.6, -12.4), ('lumen', 124.8, -12.2))   # the trail's ore
+WHEELBARROW = (92.6, -18.6)   # by the tool rack, out of Flint's way
+ORE_NODES = (('copper', 92.0, -9.5), ('copper', 89.4, -12.2), ('iron', 108.6, -12.4), ('lumen', 121.0, -12.6))   # the trail's ore
 ORES = tuple((x, z) for _, x, z in ORE_NODES)
 
 
@@ -82,7 +97,7 @@ def _clear(x, z, r=4.5):
     pts = list(ORES) + [s[:2] for s in SIGNS] + [p[:2] for p in MINE_POSTS] + list(LANTERNS) + [FLINT, (STREAM_X, 0.0)]
     if any((x - a) ** 2 + (z - b) ** 2 < r * r for a, b in pts):
         return False
-    if hill_h(x, z) > 0.2 or (abs(x - MINE_X) < 14 and MINE_FZ - 2 < z < MINE_FZ + WING_L + 1):
+    if hill_h(x, z) > 0.2 or (abs(x - MINE_X) < 14 and MINE_FZ - 2 < z < MINE_FZ + WING_L + 1) or x > LANE_X0 - 3:
         return False
     if (x - 95.0) ** 2 / 100 + (z + 15.5) ** 2 / 36 < 1:     # Flint's camp
         return False
@@ -95,7 +110,7 @@ def _trees():
     rng = np.random.default_rng(731)
     out = []
     for _ in range(90):
-        x = rng.uniform(X0 + 2, X1 - 2)
+        x = rng.uniform(X0 + 2, 128.0)
         z = rng.uniform(Z0 + 3, float(zn(x)) - 1.5)
         pick, hp, rp, li = rng.random(), rng.random(), rng.random(), int(rng.integers(3))
         if abs(x - STREAM_X) < 5 or (x > CROSSING - 4 and z > float(zn(x)) - 9):
@@ -108,7 +123,7 @@ def _trees():
         else:
             out.append(('tree', x, z, hb, 3.5 + 1.5 * hp, 2.8 + 1.0 * rp, li))
     for _ in range(26):
-        x = rng.uniform(X0 + 2, X1 - 2)
+        x = rng.uniform(X0 + 2, 128.0)
         z = rng.uniform(float(zs(x)) + 4, Z1 - 1)
         pick, hp, rp, li = rng.random(), rng.random(), rng.random(), int(rng.integers(3))
         if abs(x - STREAM_X - 2) < 8:
@@ -122,6 +137,11 @@ def _trees():
     for (x, z, kind, h, r, li) in ((109.5, -24.5, 'tree', 3.4, 2.5, 0), (123.5, -24.0, 'tree', 3.6, 2.6, 2),
                                    (127.0, -21.0, 'pine', 6.5, 2.0, 0), (106.5, -21.5, 'pine', 6.0, 2.0, 0)):   # on the mine's hill
         out.append((kind, x, z, float(hill_h(x, z)) - 0.5, h, r, li))
+    for (x, z, h, r) in ((GATE_X - 7.5, THICKET_Z - 7.0, 5.2, 3.6), (GATE_X - 1.0, THICKET_Z - 8.5, 6.0, 4.0), (GATE_X + 6.0, THICKET_Z - 7.0, 5.0, 3.4),
+                         (GATE_X + 10.5, THICKET_Z - 9.0, 5.6, 3.8), (GATE_X - 11.5, THICKET_Z - 10.5, 5.4, 3.6), (GATE_X + 3.0, THICKET_Z - 12.5, 6.4, 4.2),
+                         (GATE_X + 12.0, THICKET_Z + 1.0, 4.6, 3.2), (GATE_X + 12.5, THICKET_Z + 9.5, 4.2, 3.0),
+                         (GATE_X - 4.0, THICKET_Z - 14.5, 5.8, 3.8), (GATE_X + 8.0, THICKET_Z - 15.0, 5.2, 3.5)):   # the Hollow's tangle beyond the arch
+        out.append(('hollow', x, z, float(hill_h(x, z)) - 0.5, h, r, 0))
     return out
 
 
@@ -419,7 +439,9 @@ def mine_portal(S):
         put(fr & opening & (Y >= 5.75) & (Y < 6.25), ['#7A4E2E', '#6E4529'], cell=(0.5, 9, 9))
     lx, ly, lz = MINE_LAMPS[2]
     lantern(S, P, M, (lx, ly, lz), s=0.6, lit=True, power=11.0, hang_to=5.75)
-    S.lights.append({'type': 'point', 'pos': (mx, 2.5, fz - 7.0), 'power': 4.0, 'color': 2200, 'radius': 0.3})
+    for (lx, ly, lz) in TUNNEL_LAMPS:                     # deeper in, on the sets: the tunnel reads as a tunnel
+        lantern(S, P, M, (lx, ly, lz), s=0.5, lit=True, power=7.0, hang_to=5.75)
+    S.lights.append({'type': 'point', 'pos': (mx, 2.5, fz - 11.0), 'power': 3.0, 'color': 2000, 'radius': 0.3})
     # ---- the wing walls: rubble in uneven courses, dark joints, coping stones, a pier at each end
     cww = MINE_W + (Z - fz) * WING_FLARE
     cwh = WING_H0 - (Z - fz) / WING_L * (WING_H0 - WING_H1)
@@ -523,10 +545,18 @@ def scene_trail(state='day_dim'):
     north, south = zn(X2), zs(X2)
     # ---- the ledge: rock strata under a skin of grass, dropping away south to a lower meadow
     led = (Z2 >= north - 0.01) & (Z2 <= south)
-    strata = (np.floor((Y + 12) / 1.5).astype(int) % 3)
+    strata = (np.floor((Y + 12 + 0.09 * X + 0.9 * np.sin(Z * 0.23) + 0.5 * np.sin(X * 0.31)) / 1.5).astype(int) % 4)   # tilted, wavy bands
     rock_col = (Y >= -10) & (Y < -1)
-    for k, cols in enumerate((ROCK, ROCK_DARK, ROCK)):
+    for k, cols in enumerate((ROCK, ROCK_DARK, ROCK_OCHRE, ROCK)):
         P.fill(led[:, None, :] & rock_col & (strata == k), cols, cell=(1.5, 1.0, 1.5))
+    # the drop south: a lower shelf part way down in places, scree where it meets the meadow
+    shelf = (Z2 > south) & (Z2 <= south + 1.2 + 1.4 * np.sin(X2 * 0.37) + 0.8 * np.cos(X2 * 0.9)) & (np.abs(X2 - STREAM_X) > 6.5)
+    sh_y = -4.5 + np.floor(1.5 * np.sin(X2 * 0.5))
+    for k, cols in enumerate((ROCK, ROCK_DARK, ROCK_OCHRE, ROCK)):
+        P.fill(shelf[:, None, :] & (Y >= -10) & (Y < sh_y[:, None, :]) & (strata == k), cols, cell=(1.5, 1.0, 1.5))
+    P.fill(shelf[:, None, :] & (Y >= sh_y[:, None, :] - 0.5) & (Y < sh_y[:, None, :]) & (rng.random(G.m.shape) < 0.5), GRASS_DRY, cell=0.5)
+    scree = (Z2 > south + 1.0) & (Z2 < south + 3.5) & (rng.random(X2.shape) < 0.25) & (np.abs(X2 - STREAM_X) > 7)
+    P.fill(scree[:, None, :] & (Y >= -9.5) & (Y < -9.0 + 0.5 * (rng.random(G.m.shape) < 0.3)), ROCK + ROCK_LT, cell=0.5)
     P.fill(led[:, None, :] & (Y >= -1) & (Y < 0), GRASS, cell=1.0)
     dry = led & (np.sin(X2 * 0.23) * np.cos(Z2 * 0.31) > 0.45)
     P.fill(dry[:, None, :] & (Y >= -1) & (Y < 0), GRASS_DRY, cell=1.0)
@@ -534,29 +564,59 @@ def scene_trail(state='day_dim'):
     P.fill(low[:, None, :] & (Y >= -12) & (Y < -9), GRASS, cell=1.0)
     P.fill(low[:, None, :] & (Y >= -12) & (Y < -10), SOIL, cell=1.0)
     # ---- the north cliffs: terraces stepping back and up, grass and trees on each
+    # the terraces wander in plan, differ in height, and their edges are weathered into a short rise
+    # instead of a sheer step; the stream's notch keeps the steps sharp so the water falls in sheets
     back = np.clip(north - Z2, 0, None)
-    hn = np.where(Z2 < north, TER_H + TER_H * np.floor(back / TER_D) + np.floor((np.sin(X2 * 0.5) + np.cos(Z2 * 0.7)) * 0.6), -99)
+    wob = 1.1 * np.sin(X2 * 0.23 + 0.7) + 0.7 * np.sin(X2 * 0.61) + 0.5 * np.cos(Z2 * 0.47 + X2 * 0.1)
+    bk = np.clip(back + wob, 0, None)
+    k_ter = np.floor(bk / TER_D)
+    frac = bk / TER_D - k_ter
+    th = TER_H * (1 + 0.18 * np.sin(k_ter * 1.7 + X2 * 0.11))
+    rise = np.clip(frac / 0.38, 0, 1)
+    rise = rise * rise * (3 - 2 * rise)
+    bump = 0.7 * np.sin(X2 * 0.5) * np.cos(Z2 * 0.7)
+    hn_round = TER_H * 0.85 + TER_H * k_ter + th * rise + bump
+    hn_sharp = TER_H * 0.85 + TER_H * k_ter + th * (frac > 0.06) + np.floor(bump)
+    sx = STREAM_X + 1.2 * np.sin(Z2 * 0.21)
+    chan = np.abs(X2 - sx) < 2.2
+    hn = np.where(Z2 < north, np.where(chan, hn_sharp, hn_round), -99)
     hn = np.minimum(hn, 30.0)
     solid = (Y >= -10) & (Y < hn[:, None, :])
     tops = solid & (Y >= hn[:, None, :] - 1.0)
-    for k, cols in enumerate((ROCK, ROCK_DARK, ROCK_LT)):
+    faces = (frac < 0.42)[:, None, :] & solid & ~tops
+    for k, cols in enumerate((ROCK, ROCK_DARK, ROCK_OCHRE, ROCK_LT)):
         P.fill(solid & ~tops & (strata == k), cols, cell=(1.5, 1.0, 1.5))
+    crev = faces & (np.sin(X * 3.1 + Z * 0.4) + 0.6 * np.sin(Y * 1.3 + X * 0.7) > 1.25)      # dark crevices down the faces
+    P.fill(crev, ['#4A465A', '#403C4E'], cell=(0.5, 2.0, 0.5))
+    P.fill(faces & (rng.random(G.m.shape) < 0.05), ROCK_LT, cell=0.5)                        # pale chips
     P.fill(tops, GRASS, cell=1.0)
     P.fill(tops & (np.sin(X * 0.17 + Z * 0.11) > 0.6), GRASS_DRY, cell=1.0)
-    moss = solid & ~tops & (rng.random(G.m.shape) < 0.06)
+    foot = ((frac > 0.42) & (frac < 0.6))[:, None, :] & tops & (rng.random(G.m.shape) < 0.16)   # scree at each face's foot
+    P.fill(foot, ROCK + ROCK_LT, cell=0.5)
+    moss = solid & ~tops & (rng.random(G.m.shape) < 0.07)
     P.fill(moss, ['#6FA552', '#5E9646'], cell=0.5)
+    for (bx_, bz_, r, sd) in ((20.0, -19.5, 1.6, 11), (38.0, -24.0, 1.9, 12), (61.0, -20.5, 1.5, 13), (75.0, -28.0, 2.1, 14), (9.0, -27.0, 1.7, 15),
+                              (52.0, -31.0, 1.8, 16), (30.0, -33.5, 1.6, 17), (69.0, -36.0, 2.0, 18)):   # outcrops on the terraces' lips
+        by = float(hn[int((bx_ - X0) * RES), int((bz_ - Z0) * RES)]) - 0.6
+        boulder(P, G, bx_, bz_ - 0.4, r, y=by, seed=sd)
     # ---- the stream: down the terraces, across the ledge under the bridge, over the edge in a waterfall
-    sx = STREAM_X + 1.2 * np.sin(Z2 * 0.21)
-    chan = np.abs(X2 - sx) < 2.2
     banks = (np.abs(X2 - sx) < 3.0) & ~chan
-    # through the terraces: a notch with the water stepping down, sheets on each step's face
-    notch = chan[:, None, :] & (Z2 < north)[:, None, :] & (Y >= hn[:, None, :] - 1.6) & (Y < hn[:, None, :])
-    G.m[chan[:, None, :] & (Z2 < north)[:, None, :] & (Y >= hn[:, None, :] - 1.6)] = 0
+    # through the terraces: a notch with the water stepping down, a sheet wherever the ground behind a
+    # cell stands higher than the cell (so the falls sit exactly on the steps), foam where each one lands
+    up = (Z2 < north)
+    notch = chan[:, None, :] & up[:, None, :] & (Y >= hn[:, None, :] - 1.6) & (Y < hn[:, None, :])
+    G.m[chan[:, None, :] & up[:, None, :] & (Y >= hn[:, None, :] - 1.6)] = 0
     P.fill(notch & (Y < hn[:, None, :] - 1.0), WATER, cell=1.0)
-    for k in range(6):
-        zf = north - TER_D * k                   # terrace k's face (k = 0: the cliffs' foot)
-        face = chan[:, None, :] & ((Z2 >= zf) & (Z2 < zf + 0.6))[:, None, :] & (Y >= TER_H * k - 1.4) & (Y < TER_H * k + TER_H - 1.0)
-        P.fill(face, FALLS, cell=(1.0, 1.5, 1.0))
+    hb = np.roll(hn, 1, axis=1)
+    hb[:, 0] = hn[:, 0]
+    step = chan & up & (hb > hn + 0.6)
+    sheet = step[:, None, :] & (Y >= hn[:, None, :] - 1.4) & (Y < hb[:, None, :] - 0.9)
+    P.fill(sheet, FALLS, cell=(1.0, 1.5, 1.0))
+    P.fill(sheet & (np.abs(X - sx[:, None, :]) > 1.4), ['#BFE8FA', '#A9DDF5'], cell=(0.5, 1.5, 0.5))
+    land = np.roll(step, 1, axis=1) | np.roll(step, 2, axis=1)
+    P.fill((land & chan & up)[:, None, :] & (Y >= hn[:, None, :] - 1.3) & (Y < hn[:, None, :] - 0.8), ['#F4FBFF', '#FFFFFF', '#E8F7FF'], cell=0.5)
+    wetrock = (np.abs(X2 - sx) >= 2.2) & (np.abs(X2 - sx) < 3.4) & up
+    P.fill(wetrock[:, None, :] & (Y >= hn[:, None, :] - 3.0) & (Y < hn[:, None, :] - 1.0) & (rng.random(G.m.shape) < 0.5), ['#575366', '#4D4960'], cell=0.5)
     # across the ledge, under the bridge, into a deep pool in a rocky basin beside the path
     bsz = float(zs(STREAM_X))
     bcz = (bsz + 3.2) / 2                                 # the basin: from the path's edge to the lip
@@ -602,6 +662,20 @@ def scene_trail(state='day_dim'):
     # the Crossing's yard: trodden dirt
     yd = led & (X2 > CROSSING) & ((X2 - 106) ** 2 / 400 + (Z2 + 10) ** 2 / 90 < 1.0)
     P.fill(yd[:, None, :] & (Y >= -1) & (Y < 0), DIRT, cell=(1.5, 1, 1.5))
+    # ---- down to the Thicket: the path sinks into a cobbled lane between earth banks, east then north
+    # to the old arch; roots in the banks, moss in the cobbles' joints, the ledge's rock showing
+    LANE = [(LANE_X0 - 2.0, float(np.interp(LANE_X0 - 2.0, PX, PZ))), (GATE_X, float(np.interp(GATE_X, PX, PZ))), (GATE_X, THICKET_Z - 7.0)]
+    lane = polyline(X2, Z2, LANE, LANE_HW) & led
+    yl = lane_y(X2)
+    G.m[lane[:, None, :] & (Y >= yl[:, None, :]) & (Y < 0.5)] = 0
+    cob = lane[:, None, :] & (Y >= yl[:, None, :] - 0.5) & (Y < yl[:, None, :])
+    P.fill(cob, COBBLE, cell=(1.0, 9, 1.0))
+    P.fill(cob & (rng.random(G.m.shape) < 0.16), ['#5E8A3C', '#6F9A45'], cell=0.5)
+    P.fill(cob & (rng.random(G.m.shape) < 0.03) & (Z2 < THICKET_Z + 5.0)[:, None, :], HOLLOW, cell=0.5, glow=0.25)   # the Hollow's light in the cracks
+    bank = polyline(X2, Z2, LANE, LANE_HW + 0.6) & ~lane & led & (X2 > LANE_X0 - 1)
+    P.fill(bank[:, None, :] & (Y >= yl[:, None, :] - 0.5) & (Y < -0.5), SOIL + ['#6B4530', '#5C3E2A'], cell=(1.0, 0.5, 9))
+    P.fill(bank[:, None, :] & (Y >= yl[:, None, :]) & (Y < -0.5) & (np.sin(X * 2.7 + Y * 1.9 + Z * 0.8) > 0.82), ['#4A3020', '#3E2718'], cell=9)
+    P.fill(bank[:, None, :] & (Y >= -0.5) & (Y < 0) & (rng.random(G.m.shape) < 0.5), ['#5E8A3C', '#6FA552'], cell=0.5)
     # ---- the bridge over the stream, where the path crosses
     bz = float(np.interp(STREAM_X, [p[0] for p in PATH], [p[1] for p in PATH]))
     span = (np.abs(Z - bz) < 2.6) & (np.abs(X - STREAM_X) < 3.8)
@@ -621,6 +695,8 @@ def scene_trail(state='day_dim'):
     for (kind, x, z, y, h, r, li) in TREES:
         if kind == 'pine':
             pine(PT, T, x, z, h=h, r=r, y=y, rng=rng)
+        elif kind == 'hollow':
+            tree2(PT, T, x, z, h=h, r=r, y=y, leaves=HOLLOW_LEAF, rng=rng)
         else:
             tree2(PT, T, x, z, h=h, r=r, y=y, leaves=AUTUMN[li], rng=rng)
     S.models.append((T, ()))
@@ -706,16 +782,6 @@ def scene_trail(state='day_dim'):
         PC.fill(box(C, (rx_ - 0.25, 0, rail_z0), (rx_ + 0.25, 0.5, rail_z1)), IRON, cell=9)
     PC.fill((np.abs(CX - mx) < 1.8) & (CZ >= rail_z0) & (CZ < rail_z1) & ((np.floor(CZ / 1.2) % 2) == 0) & (CY >= 0) & (CY < 0.3),
             WALNUT, cell=9)
-    cart_z = CART_Z
-    PC.fill(box(C, (mx - 1.6, 0.9, cart_z - 1.8), (mx + 1.6, 3.0, cart_z + 1.8)) & ~box(C, (mx - 1.1, 1.4, cart_z - 1.3), (mx + 1.1, 3.1, cart_z + 1.3)),
-            ['#5A5560', '#4C4752'], cell=9)
-    for wz in (cart_z - 1.2, cart_z + 1.2):
-        for wx in (mx - 1.6, mx + 1.4):
-            PC.fill(box(C, (wx, 0.3, wz - 0.5), (wx + 0.5, 1.3, wz + 0.5)), IRON, cell=9)
-    for (ox, oz, col) in ((mx - 0.5, cart_z - 0.6, ['#D9844A', '#B8622E']), (mx + 0.5, cart_z + 0.4, ['#D9844A', '#F0A56A']),
-                          (mx, cart_z + 0.9, ['#8E8A86', '#7B7773']), (mx + 0.4, cart_z - 0.7, ['#8E8A86', '#A39E98'])):
-        PC.fill(ball(C, (ox, 3.0, oz), 0.7), col, cell=0.5)
-
     # Flint's camp: an A-frame tent with its flaps tied back, a lantern at the door, a fire ringed with stones
     tx, tz0, tz1, th, tw = TENT
     half = tw * (1 - CY / th)
@@ -784,15 +850,94 @@ def scene_trail(state='day_dim'):
     crate(PC, C, 86.8, -16.2, 1.0)
     crate(PC, C, 87.1, -16.3, 0.8, y=2.0)
     barrel(PC, C, 87.2, -13.4, r=0.9, h=2.2)
-    # the Sunlit Thicket's gate: two posts and a beam, a green banner with a leaf
-    gz = float(np.interp(GATE_X, [p[0] for p in PATH], [p[1] for p in PATH]))
-    for pz in (gz - 3.6, gz + 3.0):
-        PC.fill(box(C, (GATE_X - 0.6, 0, pz - 0.6), (GATE_X + 0.6, 8.6, pz + 0.6)), ['#7A4E2E', '#6E4529'], cell=9)
-    PC.fill(box(C, (GATE_X - 0.7, 8.6, gz - 4.6), (GATE_X + 0.7, 9.6, gz + 4.0)), ['#7A4E2E', '#6E4529'], cell=9)
-    gb = (np.abs(C.X - GATE_X + 0.9) < 0.25) & (np.abs(C.Z - gz + 0.3) < 1.6) & (C.Y >= 5.2) & (C.Y < 8.6)
-    PC.fill(gb, LEAF_GREEN, cell=9)
-    leaf = gb & ((C.Z - gz + 0.3) ** 2 / 0.8 + (C.Y - 6.9) ** 2 / 1.3 < 1.0)
-    C.set(leaf, '#F2D35B')
+    # ---- the way into the Sunlit Thicket: at the lane's end a ruined cobble wall with an arch in it, its
+    # pillars on the banks, the lane running under; vines over everything, the Hollow's violet light
+    # creeping along the stones and pooling in the dark beyond, where its tangle of trees closes in
+    ax, az = GATE_X, THICKET_Z
+    gy = -LANE_DROP
+    adx_ = np.abs(CX - ax)
+    rngt = np.random.default_rng(83)
+    base_y = np.where(adx_ < LANE_HW + 0.6, gy, 0.0)                       # the wall stands on the banks, and spans the lane
+    hwall = 4.2 + 1.3 * np.sin(CX * 0.9) + 0.8 * np.cos(CX * 2.3 + 1.0)      # a crumbling top
+    hwall = np.where(adx_ > 9.0, hwall - (adx_ - 9.0) * 0.9, hwall)         # falling away at its ends
+    yc, r_in, r_out = 5.2, 3.8, 5.3
+    opening = (adx_ < r_in) & (CY < yc + np.sqrt(np.clip(r_in ** 2 - (CX - ax) ** 2, 0, None)))
+    rr_ = np.hypot(CX - ax, np.maximum(CY - yc, 0))
+    ring = (rr_ >= r_in) & (rr_ < r_out) & (CY >= yc) & (adx_ < r_out)
+    pillar = (adx_ >= r_in) & (adx_ < r_in + 1.7) & (CY >= 0) & (CY < yc + 0.75)
+    wallm = (adx_ < 13.0) & (CY >= base_y) & (CY < hwall) & ~opening
+    body = (wallm | ring | pillar) & (CZ >= az - 1.5) & (CZ < az)
+    body &= ~opening
+    cobj = ((np.floor(CX / 0.75) + np.floor(CY / 0.5) * 3 + np.floor(CZ / 0.75)) % 7 == 0)     # dark joints between cobbles
+    PC.fill(body & ~cobj, COBBLE, cell=(0.75, 0.5, 0.75))
+    vseg = np.floor(np.arctan2(np.maximum(CY - yc, 0), CX - ax) / (np.pi / 9)).astype(int)         # the arch's stones, light and dark by turns
+    PC.fill(ring & (CZ >= az - 0.5) & (CZ < az) & (vseg % 2 == 0), ['#B3B2A4', '#A8A79A'], cell=9)
+    PC.fill(ring & (CZ >= az - 0.5) & (CZ < az) & (vseg % 2 == 1), ['#7E776D', '#756E64'], cell=9)
+    PC.fill(body & cobj, ['#5C564E', '#524C45'], cell=9)
+    PC.fill(body & (rngt.random(C.m.shape) < 0.05), ['#A8A79A', '#B3B2A4'], cell=0.5)
+    # the keystone and a few proud stones, the pillars' caps
+    PC.fill((adx_ < 0.5) & (CY >= yc + r_in) & (CY < yc + r_out + 0.5) & (CZ >= az - 1.5) & (CZ < az + 0.5), ['#B3B2A4', '#A8A79A'], cell=9)
+    for sgn in (-1, 1):
+        PC.fill(box(C, (ax + sgn * (r_in + 0.85) - 1.1, yc + 0.75, az - 1.8), (ax + sgn * (r_in + 0.85) + 1.1, yc + 1.25, az + 0.3)), ['#A8A79A'], cell=9)
+    # fallen stones at the pillars' feet and in the lane, a gap broken in the wall's west end
+    C.m[(CX >= ax - 11.5) & (CX < ax - 9.8) & (CY >= 1.0) & (CZ >= az - 1.5) & (CZ < az)] = 0
+    for (sx_, sz_, sy_, r) in ((ax - 10.6, az + 0.9, 0.0, 0.55), (ax - 10.0, az + 1.6, 0.0, 0.4), (ax + 4.9, az + 1.1, 0.0, 0.5), (ax - 2.6, az + 1.4, gy, 0.45),
+                               (ax + 2.2, az + 2.6, gy, 0.35)):
+        PC.fill((np.abs(CX - sx_) < r) & (np.abs(CZ - sz_) < r) & (CY >= sy_) & (CY < sy_ + 1.4 * r), COBBLE, cell=9)
+    # the dark beyond: the lane runs on under the trees, the Hollow's light low across it
+    G.m[polyline(X2, Z2, [(ax, az), (ax, az - 7.0)], LANE_HW)[:, None, :] & (Y >= gy) & (Y < 0.5)] = 0
+    PC.fill(box(C, (ax - 4.5, 0, az - 7.5), (ax + 4.5, 9.0, az - 7.0)), ['#17121F', '#1C1626'], cell=9)
+    PC.fill(box(C, (ax - 4.5, gy - 0.5, az - 7.5), (ax + 4.5, gy, az)) & ~box(C, (ax - 4.5, gy - 0.5, az - 7.5), (ax + 4.5, gy, az - 7.0)),
+            ['#3A3147', '#2F2839', '#443A52'], cell=(1.0, 9, 1.0))
+    for (lx, lz) in ((ax - 2.4, az - 2.6), (ax + 2.4, az - 4.6), (ax, az - 6.4)):
+        S.lights.append({'type': 'point', 'pos': (lx, gy + 1.8, lz), 'power': 7.0, 'color': (0.62, 0.34, 1.0), 'radius': 0.5})
+    S.lights.append({'type': 'point', 'pos': (ax, yc + 1.0, az + 1.2), 'power': 2.0, 'color': (0.62, 0.34, 1.0), 'radius': 0.6})
+    # the Hollow: violet crystal clusters at the pillars' feet, tendrils of its light over the arch and down
+    # the pillars, specks of it between the cobbles
+    for (cx_, cz_, cy_, n) in ((ax - 3.2, az + 0.9, gy, 5), (ax + 3.4, az + 0.6, gy, 4), (ax + 6.3, az + 0.8, 0.0, 3), (ax - 5.9, az + 1.1, 0.0, 3)):
+        for _ in range(n):
+            px_, pz_ = cx_ + rngt.uniform(-0.7, 0.7), cz_ + rngt.uniform(-0.5, 0.5)
+            hgt = rngt.uniform(0.8, 2.2)
+            shard = (np.abs(CX - px_) < 0.3 * (1 - (CY - cy_) / hgt)) & (np.abs(CZ - pz_) < 0.3) & (CY >= cy_) & (CY < cy_ + hgt)
+            PC.fill(shard, HOLLOW, cell=9, glow=0.75)
+    front = body & (CZ >= az - 0.5)
+    tend2 = np.zeros((C.m.shape[0], C.m.shape[1]), bool)
+    for _ in range(8):
+        x, y = ax + rngt.uniform(-6.5, 6.5), rngt.uniform(yc - 1.0, yc + r_out + 0.5)
+        for _ in range(int(rngt.integers(8, 26))):
+            i, j = int((x - (CROSSING - 4)) * RES), int((y + 1) * RES)
+            if 0 <= i < tend2.shape[0] and 0 <= j < tend2.shape[1]:
+                tend2[i, j] = True
+            y -= 0.5 * float(rngt.choice([0, 1, 1]))
+            x += 0.5 * float(rngt.choice([-1, 0, 1]))
+    PC.fill(tend2[:, :, None] & front, HOLLOW, cell=9, glow=0.6)
+    # vines: hanging from the top of the wall and the arch, green with the odd dead leaf
+    vine2 = np.zeros_like(tend2)
+    for _ in range(13):
+        x = ax + rngt.uniform(-12.0, 9.0)
+        i0 = int((x - (CROSSING - 4)) * RES)
+        if not (0 <= i0 < vine2.shape[0]):
+            continue
+        y = float(hwall[i0, 0, 0]) if abs(x - ax) >= r_out else yc + r_out + 0.3
+        for _ in range(int(rngt.integers(3, 11))):
+            y -= 0.5
+            if rngt.random() < 0.25:
+                x += 0.5 * float(rngt.choice([-1, 1]))
+            i, j = int((x - (CROSSING - 4)) * RES), int((y + 1) * RES)
+            if 0 <= i < vine2.shape[0] and 0 <= j < vine2.shape[1]:
+                vine2[i, j] = True
+    vine = vine2[:, :, None] & (CZ >= az) & (CZ < az + 0.5) & (C.m == 0)
+    PC.fill(vine & (rngt.random(C.m.shape) >= 0.07), ['#4F8A3C', '#5E9646', '#3F7A32', '#6FA552'], cell=0.5)
+    PC.fill(vine & (rngt.random(C.m.shape) < 0.07), ['#C9552E', '#A9BF5E'], cell=0.5)
+    PC.fill(body & (CY < 1.0 + base_y) & (rngt.random(C.m.shape) < 0.35), ['#5E8A3C', '#6F9A45'], cell=0.5)   # moss at its foot
+    # low cobble walls along the lane's banks, from the bend to the arch, broken here and there
+    lz_ = float(np.interp(GATE_X, PX, PZ))
+    for sgn in (-1, 1):
+        wx = ax + sgn * (LANE_HW + 0.9)
+        low = (np.abs(CX - wx) < 0.45) & (CZ < lz_ - LANE_HW - 0.8) & (CZ >= az) & (CY >= 0) & (CY < 1.1 + 0.5 * np.sin(CZ * 1.7 + sgn))
+        low &= (np.sin(CZ * 0.9 + sgn * 2.0) > -0.75)
+        PC.fill(low, COBBLE, cell=(0.75, 0.5, 0.75))
+        PC.fill(low & (rngt.random(C.m.shape) < 0.3), ['#5E8A3C', '#6F9A45'], cell=0.5)
     S.models.append((C, (), {'water': WATER}))
     S.models.append((MP, ()))
     VW.give_way([G, T, D, C, MP])
@@ -800,13 +945,45 @@ def scene_trail(state='day_dim'):
     return S
 
 
+def scene_cart():
+    """The ore cart alone, at the origin, for its sprite: it rolls out of the mine and back in the game
+    (village_walk.dart draws it on the rails, behind the arch while it is inside)."""
+    st = STATE_LIGHT['day']
+    S = VScene('cart', 275, 300, {}, world=st['world'], samples=64, transparent=True, sky=st['sky'])
+    S.lights.append({'type': 'sun', **st['sun']})
+    M = Model((-3, -1, -3), (3, 4, 3), [], res=4)
+    P = CPainter(M, 91)
+    body = box(M, (-1.6, 0.9, -1.8), (1.6, 3.0, 1.8)) & ~box(M, (-1.25, 1.4, -1.45), (1.25, 3.1, 1.45))
+    body &= ~(box(M, (-1.6, 0.9, -1.8), (-1.25, 3.0, 1.8)) & (M.Y > 2.9 - (M.Z + 1.8) * 0.0))   # (a plain tub)
+    P.fill(body, ['#5A5560', '#4C4752', '#615C68'], cell=(0.5, 0.5, 0.5))
+    rim = body & (M.Y >= 2.75)
+    P.fill(rim, ['#6B6672'], cell=9)
+    for ry in (1.4, 2.3):                                                          # iron bands round it
+        P.fill(body & (np.abs(M.Y - ry) < 0.125) & ~box(M, (-1.5, 0, -1.7), (1.5, 4, 1.7)), IRON, cell=9)
+    for wz in (-1.2, 1.2):
+        for wx in (-1.75, 1.5):
+            wheel = ((M.X - wx - 0.125) ** 2 + (M.Y - 0.8) ** 2 < 0.55 ** 2) & (M.Z >= wz - 0.5) & (M.Z < wz + 0.5)
+            P.fill(wheel, IRON, cell=9)
+            P.fill(wheel & ((M.X - wx - 0.125) ** 2 + (M.Y - 0.8) ** 2 < 0.2 ** 2), ['#8E949E'], cell=9)
+    P.fill(box(M, (-1.75, 0.6, -0.25), (1.75, 0.9, 0.25)), IRON, cell=9)          # the axle beam
+    for (ox, oz, col) in ((-0.5, -0.6, ['#D9844A', '#B8622E']), (0.5, 0.4, ['#D9844A', '#F0A56A']), (0.0, 0.9, ['#8E8A86', '#7B7773']),
+                          (0.4, -0.7, ['#8E8A86', '#A39E98']), (-0.7, 0.5, ['#C9CDD6', '#9EA4B0'])):
+        P.fill(ball(M, (ox, 3.0, oz), 0.7), col, cell=0.25)
+    S.models.append((M, ()))
+    S.grade = {'bloom': 0.0, 'vignette': 0.0}
+    return S
+
+
 # the walking camera's view of the whole trail (2x: 45.8 px a unit)
-VW.VIEWS['trail'] = ((63.0, -10.45), 130.0, (5954, 2748))
+VW.VIEWS['trail'] = ((71.0, -10.45), 150.0, (6870, 2748))
 # a close look at the waterfall by the bridge, at the walking camera's zoom (a phone's picture)
 VW.VIEWS['trail_falls'] = ((44.0, 0.0), 24.0, (824, 1100))
 # a close look at the Crossing: Flint's camp and the mine's portal (for checking)
 VW.VIEWS['trail_mine'] = ((106.0, -16.0), 44.0, (2016, 1600))
 VW.VIEWS['trail_portal'] = ((MINE_X, -26.4), 24.0, (1099, 1000))   # the portal at the game's own sharpness
+VW.VIEWS['trail_thicket'] = ((GATE_X - 1.0, -16.0), 30.0, (1374, 1300))   # the lane and the arch
+VW.VIEWS['trail_cliffs'] = ((44.0, -22.0), 44.0, (2016, 1500))           # the falls down the terraces
+VW.VIEWS['cart'] = ((0.0, 0.0), 6.0, (275, 300))                          # the ore cart alone, for its sprite
 
 if __name__ == '__main__':
     import village_scenes as VSC
@@ -814,6 +991,17 @@ if __name__ == '__main__':
     out = args[0]
     quick = '--quick' in args
     os.makedirs(out, exist_ok=True)
+    if '--cart' in args:
+        vs = scene_cart()
+        raw = os.path.join(out, 'cart_raw.png')
+        proj = VW.render_ortho(vs, 'cart', raw, quick)
+        from PIL import Image
+        im = Image.open(raw).convert('RGBA')
+        im.save(os.path.join(out, 'cart.webp'), quality=92, method=6)
+        import json
+        json.dump({'src': 'assets/art/trail/cart.webp', 'w': im.width, 'h': im.height, 'ground': [im.width / 2, im.height / 2], 'ppu': proj['ppu']},
+                  open(os.path.join(out, 'cart.json'), 'w'))
+        sys.exit(0)
     vs = scene_trail()
     if '--depth' in args:
         VW.render_ortho(vs, 'trail', os.path.join(out, 'village_walk_trail_depth.exr'), quick, depth=True)

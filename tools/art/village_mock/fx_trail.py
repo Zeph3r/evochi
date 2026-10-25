@@ -37,10 +37,15 @@ def zones(view):
           ('still', [0, 0, w, h], 'water')]
     mx, fz = T.MINE_X, T.MINE_FZ
     fx.append(('none', _rect(at, mx - 8.25, mx + 8.25, 0, 20.5, fz - 1.5, fz + 0.75)))     # the portal's stone keeps still
+    ax, az = T.GATE_X, T.THICKET_Z
+    fx.append(('none', _rect(at, ax - 13.5, ax + 13.5, -3.5, 11.0, az - 1.5, az + 0.5)))      # so does the Thicket's wall
     for (kind, x, z, y, th, r, _) in T.TREES:
         if kind == 'pine':
             cx, cy = at(x, z, y + th * 0.55)
             fx.append(('tree', ('e', round(cx), round(cy), round(r * 1.15 * ppu), round(th * 0.6 * ppu)), 'green', {'amp': 0.7}))
+        elif kind == 'hollow':
+            cx, cy = at(x, z, y + th + r * 0.35)
+            fx.append(('tree', ('e', round(cx), round(cy), round(r * 1.3 * ppu), round(r * 1.15 * ppu)), 'all', {'amp': 0.55}))
         else:
             cx, cy = at(x, z, y + th + r * 0.35)
             fx.append(('tree', ('e', round(cx), round(cy), round(r * 1.3 * ppu), round(r * 1.15 * ppu)), 'cloth'))
@@ -52,12 +57,13 @@ def zones(view):
     # cloth: Flint's red flag, the Thicket's banner
     fgx, fgz = T.FLAG
     fx.append(('cloth', _rect(at, fgx + 0.3, fgx + 2.7, 2.6, 6.0, fgz - 0.25, fgz + 0.25), 'cloth', {'amp': 0.35, 'fade': 0.0}))
-    gz = float(T.np.interp(T.GATE_X, [p[0] for p in T.PATH], [p[1] for p in T.PATH]))
-    fx.append(('cloth', _rect(at, T.GATE_X - 1.2, T.GATE_X - 0.6, 5.2, 8.6, gz - 1.9, gz + 1.3), 'all', {'amp': 0.35, 'fade': 0.0}))
+    # the Hollow's light on the arch and in the lane pulses like a crystal; its vines stir
+    fx.append(('crystal', _rect(at, ax - 13.0, ax + 13.0, -3.5, 11.0, az - 8.0, az + 3.0), 'crystal'))
+    fx.append(('cloth', _rect(at, ax - 13.0, ax + 10.0, -1.0, 11.0, az - 0.5, az + 0.6), 'green', {'amp': 0.25, 'fade': 0.0}))
     # lamps: the lanterns on their posts, the mine's, Flint's at his tent door; his campfire
     lamps = [(x + (1.0 if z < 0 else -1.0) * 2.2, 3.4, z) for (x, z) in T.LANTERNS]
     lamps += [(x + sd * 2.2, 3.4, z) for (x, z, sd) in T.MINE_POSTS]
-    lamps += list(T.MINE_LAMPS) + [T.TENT_LAMP]
+    lamps += list(T.MINE_LAMPS) + list(T.TUNNEL_LAMPS) + [T.TENT_LAMP]
     for (x, y, z) in lamps:
         fx.append(('fire', _rect(at, x - 0.6, x + 0.6, y - 0.8, y + 0.8, z - 0.6, z + 0.6, 1), 'warm'))   # flames flicker
     cfx, cfz = T.CAMPFIRE
@@ -75,6 +81,17 @@ def zones(view):
     gx, gy = at(cfx, cfz, 2.0)
     emit.append({'t': 'smoke', 'kind': 'smoke', 'x': round(gx), 'y': round(gy), 'n': 4, 's': round(0.6 * ppu), 'h': round(4.0 * ppu),
                  'drift': round(0.8 * ppu), 'c': '#d8d2c8', 'a': 0.25})
+    # the Hollow: a violet glow through the arch, motes drifting out of it, mist low along the lane
+    gx, gy = at(ax, az - 2.5, -1.5)
+    emit.append({'t': 'glow', 'x': round(gx), 'y': round(gy), 'r': round(4.2 * ppu), 'c': '#9c5cf0', 'kind': 'crystal', 'a': 0.42})
+    gx, gy = at(ax, az + 0.5, 7.5)
+    emit.append({'t': 'glow', 'x': round(gx), 'y': round(gy), 'r': round(2.2 * ppu), 'c': '#b47cff', 'kind': 'crystal', 'a': 0.3})
+    m0x, m0y = at(ax - 5.0, az - 6.0, 6.0)
+    m1x, m1y = at(ax + 5.0, az + 4.0, -3.0)
+    emit.append({'t': 'motes', 'kind': 'pollen', 'x': round(m0x), 'y': round(m0y), 'w': round(m1x - m0x), 'h': round(m1y - m0y), 'n': 10, 'c': '#d2b4ff', 's': 3})
+    sx_, sy_ = at(ax, az - 1.0, -3.0)
+    emit.append({'t': 'smoke', 'kind': 'steam', 'x': round(sx_), 'y': round(sy_), 'n': 5, 's': round(1.6 * ppu), 'h': round(2.5 * ppu),
+                 'drift': round(1.4 * ppu), 'c': '#b9a2e6', 'a': 0.22})
     # mist where the falls land, a little spray at the bridge
     fx_, fy_ = at(T.STREAM_X, lip + 1.6, -9.2)
     emit.append({'t': 'smoke', 'kind': 'steam', 'x': round(fx_), 'y': round(fy_), 'n': 6, 's': round(1.2 * ppu), 'h': round(5.0 * ppu),

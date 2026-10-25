@@ -73,11 +73,12 @@ def _trail():
         title='The Old Trail', scene=VT.scene_trail, view='trail', area=(VT.X0, VT.X1, VT.Z0, VT.Z1),
         npcs={'flint': (VT.FLINT[0], VT.FLINT[1], 'crossing', NPC_R)},
         arrive={'village': (3.0, on_path(3.0))},
-        spots={'bridge': (VT.STREAM_X, on_path(VT.STREAM_X)), 'crossing': (86.0, on_path(86.0)), 'mine': (mx + 3.0, VT.CART_Z - 1.5),
-               'gate': (VT.GATE_X - 3.0, on_path(VT.GATE_X - 3.0))},
+        spots={'bridge': (VT.STREAM_X, on_path(VT.STREAM_X)), 'crossing': (86.0, on_path(86.0)), 'mine': (mx + 3.4, VT.MINE_FZ + 7.0),
+               'thicket': (VT.GATE_X, VT.THICKET_Z + 5.0)},
+        cart=VT.CART,
         exits={'village': (-1.4, on_path(-1.4), 2.2, 'village', 'trail'),
                'mine': (mx, mz + 2.0, 2.0, None, None),
-               'thicket': (VT.GATE_X + 2.4, on_path(VT.GATE_X + 2.4), 2.4, None, None)},
+               'thicket': (VT.GATE_X, VT.THICKET_Z - 1.5, 2.4, None, None)},
         fx='fx_trail.py', tiles='trail/walk', art_npcs={'flint': 'trail/flint.json'},
         # ore to Pounce: a copper vein at the edge of the Crossing's yard (Flint's first lesson), a lone
         # iron node by the mine, too hard without gear (MINES_PLAN.md: the too-hard answer), and a lumen
@@ -132,7 +133,7 @@ def walk_grid(vs, m):
     for (_, ox, oz) in m['ores']:
         block |= (X - ox) ** 2 + (Z - oz) ** 2 < ORE_R ** 2
     solid = block | wet | (top < -5)
-    surface = np.clip(np.where(top < -5, 0.0, top + 0.5 / 2), 0.0, 2.0)
+    surface = np.clip(np.where(top < -5, 0.0, top + 0.5 / 2), -4.0, 2.0)
     dist = ndimage.distance_transform_edt(~solid) * CELL
     walk = dist > PET_R
     lab, _ = ndimage.label(walk)
@@ -245,14 +246,16 @@ def layout(key, m, walk, surface, w, h, width, cx, cz, tdir, tmeta, emit):
         'emit': emit,
         'grid': {'x0': x0, 'z0': z0, 'cell': CELL, 'cols': walk.shape[0], 'rows': walk.shape[1],
                  'walk': [''.join('1' if walk[i, j] else '0' for i in range(walk.shape[0])) for j in range(walk.shape[1])],
-                 # the height you stand at, in quarter units ('0'-'8')
-                 'height': [''.join(str(int(round(min(surface[i, j], 2.0) * 4))) for i in range(walk.shape[0])) for j in range(walk.shape[1])]},
+                 # the height you stand at, in quarter units from 'hz' below zero (chr(48 + hz + 4 * height))
+                 'hz': 16,
+                 'height': [''.join(chr(48 + 16 + int(round(min(surface[i, j], 2.0) * 4))) for i in range(walk.shape[0])) for j in range(walk.shape[1])]},
         'npcs': npcs,
         'ores': [{'kind': k, 'x': x, 'z': z} for (k, x, z) in m['ores']],
         'spawn': list(next(iter(m['arrive'].values()))),
         'arrive': {k: list(v) for k, v in m['arrive'].items()},
         'spots': {k: list(v) for k, v in m['spots'].items()},
         'exits': {k: list(v) for k, v in m['exits'].items()},
+        'cart': m.get('cart'),
         'sun': [0.42, -0.78, -0.48],
     }
 
