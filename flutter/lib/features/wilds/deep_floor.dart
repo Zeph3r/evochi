@@ -116,7 +116,7 @@ class FloorPlan {
   final ores = <Map<String, Object>>[]; // the mines: ore nodes (kind, x, z)
   bool mine = false;
   final fx = <Map<String, Object>>[];
-  late final List<String> mods = story == null ? floorMods(depth, seed) : const <String>[];
+  late final List<String> mods = story == null && !mine ? floorMods(depth, seed) : const <String>[];
 
   /// A story floor's beat (game/wilds/story_floors.dart: trust | sprout | sentinel), and where it plays.
   String? story;
@@ -284,7 +284,6 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
     for (final r in plan.rooms) {
       if (r.role == 'fight' || r.role == 'elite') r.role = 'vein';
     }
-    plan.mods.clear();
   }
   if (story != null) {
     for (final r in plan.rooms) {
