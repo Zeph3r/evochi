@@ -895,7 +895,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
         case 'coin_bounce':
           _sfx('coin', 0.08, gap: 0.08);
         case 'coin_fly':
-          _flyers.add(_CoinFlyer(_toScreen(e.x, e.z) - Offset(0, 6 * _up), e.value.round(), _t));
+          _flyers.add(_CoinFlyer(_toScreen(e.x, e.z) - Offset(0, 6 * _cosP * _u), e.value.round(), _t));
         case 'signature_wind':
           _sfx('enc_soothe', 0.7);
           a.buzz(Haptic.rumble, strength: 0.4);
