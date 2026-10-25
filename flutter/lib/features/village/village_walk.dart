@@ -42,7 +42,7 @@ import 'story_widgets.dart';
 import 'village_screen.dart';
 
 String _layoutAsset(String map) => 'assets/config/${map}_walk.json';
-const _evochiH = 3.4 * 1.2; // world units: an Elder, drawn 1.2x in the village (the Wilds keep theirs)
+const _evochiH = 3.4 * 1.45; // world units: an Elder, drawn 1.45x in the village (it is the hero of the picture) (the Wilds keep theirs)
 const _sheetH = 202.0; // an Elder's height on its walk sheet, px
 const _npcH = {'pip': 3.4, 'alder': 3.8, 'bram': 4.0, 'mira': 4.2}; // world units (Flint's comes with his art)
 const _npcName = {'pip': 'Pip', 'alder': 'Alder', 'bram': 'Bram', 'mira': 'Mira', 'flint': 'Flint'};
@@ -143,7 +143,9 @@ class WalkLayout {
         spots = {
           for (final e in (j['spots'] as Map).entries) e.key as String: Offset(((e.value as List)[0] as num).toDouble(), ((e.value as List)[1] as num).toDouble())
         },
-        sun = [for (final v in j['sun'] as List) (v as num).toDouble()] {
+        sun = [for (final v in j['sun'] as List) (v as num).toDouble()],
+        hz = (((j['grid'] as Map)['hz'] as num?) ?? 0).toInt(),
+        cart = j['cart'] is Map ? ((j['cart']['x'] as num).toDouble(), (j['cart']['z0'] as num).toDouble(), (j['cart']['z1'] as num).toDouble()) : null {
     final rowsData = ((j['grid'] as Map)['walk'] as List).cast<String>();
     final hData = (((j['grid'] as Map)['height'] as List?) ?? const []).cast<String>();
     walk = Uint8List(cols * rows);
@@ -163,7 +165,9 @@ class WalkLayout {
   final double w, h, ppu, cx, cz, sinP, cosP, z0, z1, gx0, gz0, cell;
   final int cols, rows;
   late final Uint8List walk;
-  late final Uint8List height; // what you stand on, in quarter units (the bridge's deck is a unit up)
+  late final Uint8List height; // what you stand on, in quarter units from [hz] below zero (the bridge's deck is a unit up, the lane to the Thicket sinks)
+  final int hz;
+  final (double, double, double)? cart; // the ore cart's rails: x, z inside the mine, z at the end outside
   final List<WalkNpc> npcs;
   final List<(String, double, double)> ores; // ore nodes to Pounce: kind, x, z
   final Offset spawn; // a fresh visit starts here
@@ -190,7 +194,7 @@ class WalkLayout {
   double heightAt(double x, double z) {
     final c = _c(x), r = _r(z);
     if (c < 0 || r < 0 || c >= cols || r >= rows) return 0;
-    return height[r * cols + c] * 0.25;
+    return (height[r * cols + c] - hz) * 0.25;
   }
 
   /// The walkable cell nearest (c, r), within [reach] cells.
@@ -431,7 +435,12 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   Offset? _cam; // picture px at the middle of the view
   Size _view = Size.zero;
   bool _talking = false;
-  final _signText = <String, TextPainter>{}; // the ways out's signs, laid out once
+  ui.Image? _cartImg; // the ore cart's sprite (tools/art/village_trail.py --cart), on the mine's rails
+  Offset _cartGround = Offset.zero;
+  double _cartPpu = 45.8;
+  double _cartZ = 0, _cartAt = 0; // where it is along its rails, and when its current move started
+  int _cartPhase = 0; // 0 resting inside, 1 rolling out, 2 resting outside, 3 rolling in
+  double _cartWait = 14;
   ui.Image? _mini; // the map's overview (tools/art/walk_minimap.py), for the minimap and the map window
   (double, double, double)? _mark; // where you tapped (x, z) and when: a ring on the ground
 
@@ -504,10 +513,17 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       }
     }
     final mining = l.ores.isEmpty ? null : await MiningArt.load(l.ores.map((o) => o.$1));
-    ui.Image? mini;
+    ui.Image? mini, cartImg;
+    Map<String, dynamic>? cartMeta;
     try {
       mini = await _image('${l.tileDir}mini.webp');
     } catch (_) {} // an older build without one: no minimap
+    if (l.cart != null) {
+      try {
+        cartMeta = (jsonDecode(await rootBundle.loadString('assets/art/trail/cart.json')) as Map).cast<String, dynamic>();
+        cartImg = await _image(cartMeta['src'] as String);
+      } catch (_) {}
+    }
     if (!mounted) return;
     final prog = r[2] as ui.FragmentProgram;
     setState(() {
@@ -518,6 +534,12 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       _prog = prog;
       _mining = mining;
       _mini = mini;
+      if (cartImg != null && cartMeta != null) {
+        _cartImg = cartImg;
+        _cartGround = Offset(((cartMeta['ground'] as List)[0] as num).toDouble(), ((cartMeta['ground'] as List)[1] as num).toDouble());
+        _cartPpu = (cartMeta['ppu'] as num).toDouble();
+        _cartZ = l.cart!.$2;
+      }
       _lookKey = _wearing(c.state).join(',');
       ores.addAll([for (final (k, x, z) in l.ores) OreNode(k, x, z)]);
       _stage = (pet?.stage ?? 3).clamp(1, 3);
@@ -605,6 +627,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     _mineTick(l, dt);
     _npcTick(l, dt);
     _checkExits(l);
+    _cartTick(l);
     if (me.wait > 0) {
       me.wait -= dt;
       if (me.wait <= 0) _openTalk();
@@ -638,12 +661,40 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       } else {
         final say = switch (e.key) {
           'mine' => "Flint's still shoring up the mine's timbers. It opens soon.",
-          'thicket' => 'The Sunlit Thicket lies on past the gate. Its paths open soon.',
+          'thicket' => 'The Sunlit Thicket lies beyond the arch. Its paths open soon.',
           _ => 'This way opens soon.',
         };
         context.read<GameController>().toast(say, icon: e.key == 'mine' ? 'aff_stone' : 'aff_nature');
       }
       return;
+    }
+  }
+
+  /// The ore cart: it sits in the lit tunnel, and now and then rolls out into the yard and back (while
+  /// your Evochi is clear of the rails), the portal's arch covering it while it is inside.
+  void _cartTick(WalkLayout l) {
+    final rails = l.cart;
+    if (rails == null || _cartImg == null) return;
+    final (rx, zIn, zOut) = rails;
+    final onRails = (me.x - rx).abs() < 3.0 && me.z > zIn - 2.5 && me.z < zOut + 3.0;
+    final e = _t - _cartAt;
+    const roll = 5.5;
+    switch (_cartPhase) {
+      case 0 || 2:
+        _cartZ = _cartPhase == 0 ? zIn : zOut;
+        if (e > _cartWait && !onRails && !_reduced) {
+          _cartPhase = _cartPhase == 0 ? 1 : 3;
+          _cartAt = _t;
+        }
+      case 1 || 3:
+        final f = (e / roll).clamp(0.0, 1.0);
+        final c = Curves.easeInOutSine.transform(f);
+        _cartZ = _cartPhase == 1 ? zIn + (zOut - zIn) * c : zOut + (zIn - zOut) * c;
+        if (f >= 1) {
+          _cartPhase = _cartPhase == 1 ? 2 : 0;
+          _cartAt = _t;
+          _cartWait = _cartPhase == 2 ? 9 + 8 * math.Random().nextDouble() : 16 + 20 * math.Random().nextDouble();
+        }
     }
   }
 
@@ -1185,7 +1236,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
 }
 
 const _villageTravel = [('lodge', 'mail', 'Guild'), ('glasshouse', 'care', 'Glasshouse'), ('workshop', 'bell', 'Workshop'), ('waystone', 'star', 'Waystone'), ('trail', 'trail', 'Old Trail')];
-const _trailTravel = [('village', 'home', 'Village'), ('bridge', 'aff_water', 'Falls'), ('flint', 'shop', 'Flint'), ('mine', 'aff_stone', 'Mine')];
+const _trailTravel = [('village', 'home', 'Village'), ('bridge', 'aff_water', 'Falls'), ('flint', 'shop', 'Flint'), ('mine', 'aff_stone', 'Mine'), ('thicket', 'aff_nature', 'Thicket')];
 
 /// The bottom row: the places, a walk away (to whoever keeps them, or to a landmark).
 class _QuickTravel extends StatelessWidget {
@@ -1283,40 +1334,6 @@ class _WalkPainter extends CustomPainter {
               ..color = Color.fromRGBO(255, 250, 230, op * (1 - a)));
       }
     }
-    // the ways out, marked: a gold ring breathing on the ground and a wooden sign saying where it leads
-    for (final e in l.exits.entries) {
-      final name = _placeNames[s.widget.map]?[e.key]?.$1;
-      if (name == null) continue;
-      final (x, z, r, _, _) = e.value;
-      final g = scr(l.toImage(x, z, l.heightAt(x, z)));
-      if (!view.inflate(160).contains(g)) continue;
-      final pulse = s._reduced ? 0.5 : 0.5 + 0.5 * math.sin(s._t * 2.4);
-      final rw = r * 0.8 * l.ppu * k;
-      canvas.drawOval(Rect.fromCenter(center: g, width: rw * 2, height: rw * 2 * l.sinP),
-          Paint()..color = Color.fromRGBO(255, 214, 120, 0.16 + 0.12 * pulse));
-      canvas.drawOval(Rect.fromCenter(center: g, width: rw * 2, height: rw * 2 * l.sinP),
-          Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 2.5
-            ..color = Color.fromRGBO(255, 230, 160, 0.55 + 0.35 * pulse));
-      final tp = s._signText.putIfAbsent(
-          name,
-          () => TextPainter(
-                text: TextSpan(text: '$name  \u203A', style: EvochiText.tag.copyWith(fontSize: 14, fontWeight: FontWeight.w900, color: KitColor.signInk)),
-                textDirection: TextDirection.ltr,
-              )..layout());
-      final top = g - Offset(0, 3.6 * l.ppu * k * l.cosP + tp.height);
-      final plank = Rect.fromCenter(center: top, width: tp.width + 22, height: tp.height + 10);
-      canvas.drawRect(Rect.fromLTWH(g.dx - 2.5, plank.bottom - 2, 5, g.dy - plank.bottom + 2), Paint()..color = KitColor.darkWood);
-      final rr = RRect.fromRectAndRadius(plank, const Radius.circular(6));
-      canvas.drawRRect(rr.shift(const Offset(0, 3)), Paint()..color = KitColor.woodShadow);
-      canvas.drawRRect(rr, Paint()..color = KitColor.lightWood);
-      canvas.drawRRect(rr, Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
-        ..color = KitColor.woodEdge);
-      tp.paint(canvas, plank.center - Offset(tp.width / 2, tp.height / 2));
-    }
     // shadows, then the characters from the back, each covered by whatever stands in front of it
     final upk = l.ppu * k; // dp per world unit
     final items = <(double, void Function())>[];
@@ -1384,6 +1401,22 @@ class _WalkPainter extends CustomPainter {
         final d = math.sqrt(math.pow(s.me.x - o.x, 2) + math.pow(s.me.z - o.z, 2));
         paintOre(canvas, sp.img, dst, o.kind, o.state, s._t, (1 - (d - 2.6) / 3.5).clamp(0.0, 1.0), s._reduced, o.x * 0.37 + o.z * 0.11);
         cover(dst, o.z);
+      }));
+    }
+    final cart = s._cartImg, rails = l.cart;
+    if (cart != null && rails != null) {
+      items.add((s._cartZ, () {
+        final g = scr(l.toImage(rails.$1, s._cartZ, l.heightAt(rails.$1, s._cartZ)));
+        final k = upk / s._cartPpu; // dp per sprite px
+        final rolling = s._cartPhase == 1 || s._cartPhase == 3;
+        final jolt = rolling ? 0.6 * math.sin(s._t * 23) : 0.0;
+        final dst = Rect.fromLTWH(g.dx - s._cartGround.dx * k, g.dy - s._cartGround.dy * k + jolt, cart.width * k, cart.height * k);
+        canvas.drawOval(Rect.fromCenter(center: g + Offset(0, -upk * 0.1), width: upk * 3.2, height: upk * 1.0),
+            Paint()
+              ..color = const Color(0x3316241F)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4));
+        canvas.drawImageRect(cart, Rect.fromLTWH(0, 0, cart.width.toDouble(), cart.height.toDouble()), dst, Paint()..filterQuality = FilterQuality.medium);
+        cover(dst, s._cartZ);
       }));
     }
     items.add((s.me.z, () {
@@ -1619,14 +1652,13 @@ const _placeNames = <String, Map<String, (String, String)>>{
     'pip': ('Guild', 'mail'),
     'mira': ('Glasshouse', 'care'),
     'bram': ('Workshop', 'bell'),
-    'alder': ('Alder', 'heart'),
     'waystone': ('Waystone', 'star'),
     'falls': ('Falls', 'aff_water'),
   },
   'trail': {
     'village': ('Sunlit Village', 'home'),
     'mine': ('Mine', 'aff_stone'),
-    'thicket': ('Thicket gate', 'aff_nature'),
+    'thicket': ('Sunlit Thicket', 'aff_nature'),
     'flint': ('Flint', 'shop'),
     'bridge': ('Falls', 'aff_water'),
   },
@@ -1737,7 +1769,8 @@ class _MiniPainter extends CustomPainter {
   bool shouldRepaint(_MiniPainter old) => true;
 }
 
-/// The map window: the place in a carved frame, you on it, and a pin for each place to walk to.
+/// The map window: the place in a carved frame, you on it, a small pin for each place to walk to, and
+/// the places named in a row beneath (tap either).
 class _MapWindow extends StatelessWidget {
   const _MapWindow({required this.title, required this.image, required this.picture, required this.places, required this.me});
   final String title;
@@ -1761,6 +1794,20 @@ class _MapWindow extends StatelessWidget {
                   child: ClipRRect(borderRadius: BorderRadius.circular(8), child: RawImage(image: image, fit: BoxFit.fill, filterQuality: FilterQuality.medium)),
                 ),
               ),
+              for (final (id, name, icon, at) in places)
+                Positioned(
+                  left: at.dx * k - 15,
+                  top: at.dy * k - 34,
+                  child: Semantics(
+                    button: true,
+                    label: 'Walk to $name',
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => Navigator.of(context).pop(id),
+                      child: _Pin(icon: icon),
+                    ),
+                  ),
+                ),
               Positioned(
                 left: me.dx * k - 7,
                 top: me.dy * k - 7,
@@ -1769,41 +1816,84 @@ class _MapWindow extends StatelessWidget {
                   child: Container(
                     width: 14,
                     height: 14,
-                    decoration: BoxDecoration(shape: BoxShape.circle, color: EvochiColor.primary, border: Border.all(color: KitColor.woodInk, width: 2)),
-                  ),
-                ),
-              ),
-              for (final (id, name, icon, at) in places)
-                Positioned(
-                  left: at.dx * k,
-                  top: at.dy * k,
-                  child: FractionalTranslation(
-                    translation: const Offset(-0.5, -1.1),
-                    child: Semantics(
-                      button: true,
-                      label: 'Walk to $name',
-                      child: GestureDetector(
-                        onTap: () => Navigator.of(context).pop(id),
-                        child: Container(
-                          constraints: const BoxConstraints(minHeight: 30),
-                          padding: const EdgeInsets.fromLTRB(4, 2, 9, 2),
-                          decoration: Kit.parchment(radius: 9, depth: 2, drop: false),
-                          child: Row(mainAxisSize: MainAxisSize.min, children: [
-                            VoxelIcon(icon, size: 20),
-                            const SizedBox(width: 3),
-                            ExcludeSemantics(child: Text(name, style: EvochiText.tag.copyWith(fontSize: 12, fontWeight: FontWeight.w900, color: KitColor.signInk))),
-                          ]),
-                        ),
-                      ),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: EvochiColor.primary,
+                      border: Border.all(color: KitColor.woodInk, width: 2),
+                      boxShadow: const [BoxShadow(color: Color(0x88FFE3A0), blurRadius: 8, spreadRadius: 1)],
                     ),
                   ),
                 ),
+              ),
             ]),
           );
         }),
         const SizedBox(height: 10),
+        Wrap(
+          alignment: WrapAlignment.center,
+          spacing: 6,
+          runSpacing: 6,
+          children: [
+            for (final (id, name, icon, _) in places)
+              Semantics(
+                button: true,
+                label: 'Walk to $name',
+                child: GestureDetector(
+                  onTap: () => Navigator.of(context).pop(id),
+                  child: Container(
+                    height: 30,
+                    padding: const EdgeInsets.fromLTRB(5, 0, 9, 0),
+                    decoration: Kit.parchment(radius: 9, depth: 2, drop: false),
+                    child: Row(mainAxisSize: MainAxisSize.min, children: [
+                      VoxelIcon(icon, size: 18),
+                      const SizedBox(width: 4),
+                      ExcludeSemantics(child: Text(name, style: EvochiText.tag.copyWith(fontSize: 12, fontWeight: FontWeight.w800, color: KitColor.signInk))),
+                    ]),
+                  ),
+                ),
+              ),
+          ],
+        ),
+        const SizedBox(height: 8),
         const Text('Tap a place and your Evochi walks there.', textAlign: TextAlign.center, style: EvochiText.caption),
         const SizedBox(height: 8),
         Center(child: EvochiButton(label: 'Close', tone: ButtonTone.cream, small: true, expand: false, onPressed: () => Navigator.of(context).pop())),
       ]);
+}
+
+/// A map pin: a round parchment badge with the place's icon, on a short point.
+class _Pin extends StatelessWidget {
+  const _Pin({required this.icon});
+  final String icon;
+  @override
+  Widget build(BuildContext context) => SizedBox(
+        width: 30,
+        height: 36,
+        child: CustomPaint(
+          painter: _PinPainter(),
+          child: Padding(padding: const EdgeInsets.fromLTRB(4, 4, 4, 10), child: VoxelIcon(icon, size: 22)),
+        ),
+      );
+}
+
+class _PinPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final c = Offset(size.width / 2, 15);
+    final path = Path()
+      ..addOval(Rect.fromCircle(center: c, radius: 14))
+      ..moveTo(c.dx - 6, c.dy + 11)
+      ..lineTo(c.dx, size.height)
+      ..lineTo(c.dx + 6, c.dy + 11)
+      ..close();
+    canvas.drawPath(path.shift(const Offset(0, 2)), Paint()..color = const Color(0x55000000));
+    canvas.drawPath(path, Paint()..color = const Color(0xFFFFF6E4));
+    canvas.drawPath(path, Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2
+      ..color = KitColor.woodEdge);
+  }
+
+  @override
+  bool shouldRepaint(_PinPainter old) => false;
 }
