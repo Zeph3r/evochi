@@ -35,6 +35,7 @@ import '../shared/live_scene.dart';
 import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import '../wilds/wilds_art.dart';
+import '../wilds/wilds_screen.dart';
 import 'flint_talk.dart';
 import 'mining.dart';
 import 'mining_gear_ui.dart';
@@ -687,6 +688,8 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         Navigator.of(context).pushReplacement(_mapRoute(to, at));
       } else if (e.key == 'home') {
         Navigator.of(context).maybePop();
+      } else if (e.key == 'mine') {
+        _enterMine(x, z);
       } else {
         final say = switch (e.key) {
           'mine' => "Flint's still shoring up the mine's timbers. It opens soon.",
@@ -725,6 +728,32 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
           _cartWait = _cartPhase == 2 ? 9 + 8 * math.Random().nextDouble() : 16 + 20 * math.Random().nextDouble();
         }
     }
+  }
+
+  /// Into the mine: its first gallery (a floor made by the Wilds' room kit, mine: true). Back out, your
+  /// Evochi stands in the mouth again, facing the yard.
+  Future<void> _enterMine(double x, double z) async {
+    final c = context.read<GameController>();
+    c.audio.play('enc_whoosh', volume: 0.5);
+    final day = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 86400000;
+    await Navigator.of(context).push(PageRouteBuilder<void>(
+      transitionDuration: const Duration(milliseconds: 600),
+      pageBuilder: (_, __, ___) => WildsScreen(depth: 1, seed: day * 131 + 1, mine: true),
+      transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: a, child: child),
+    ));
+    if (!mounted) return;
+    final l = lay;
+    final spot = l?.spots['mine'];
+    me
+      ..path = const []
+      ..moving = false
+      ..x = spot?.dx ?? x
+      ..z = (spot?.dy ?? z + 4)
+      ..dir = 0;
+    if (l != null) me.y = l.heightAt(me.x, me.z);
+    _leaving = false;
+    _refreshLook(c.state);
+    setState(() {});
   }
 
   /// Back from a way out you didn't take (step off it and it arms again).
@@ -844,6 +873,10 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       showFlintTalk(context).then((pick) async {
         if (pick == 'gear' && mounted) await showFlintShop(context);
         if (mounted) setState(() => _talking = false);
+        if (pick == 'enter' && mounted) {
+          final e = lay?.exits['mine'];
+          if (e != null) walkTo(e.$1, e.$2);
+        }
       });
       return;
     }

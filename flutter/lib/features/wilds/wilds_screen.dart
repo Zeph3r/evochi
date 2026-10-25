@@ -41,6 +41,8 @@ import '../shared/kit.dart';
 import '../shared/live_scene.dart' show SceneFx;
 import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
+import '../../game/mining/mining.dart' as mine;
+import '../village/mining.dart' show MiningArt, OreKindArt, oreTier, oreName, paintOre, contactBits, nuggets, stepBits, MineBit, OreNode, SatchelChip;
 import '../village/story_widgets.dart';
 import 'boss_intro.dart';
 import 'deep_floor.dart';
@@ -73,8 +75,11 @@ abstract class WildsDirectorHandle {
 }
 
 class WildsScreen extends StatefulWidget {
-  const WildsScreen({super.key, this.mapId = 'thicket', this.depth, this.seed, this.carry, this.surge = false, this.story, this.forceStory = false});
+  const WildsScreen({super.key, this.mapId = 'thicket', this.depth, this.seed, this.carry, this.surge = false, this.story, this.forceStory = false, this.mine = false});
   final String mapId;
+
+  /// A gallery of Flint's mine (deep_floor.dart, mine: true): ore to Pounce, no fights set up.
+  final bool mine;
 
   /// A Deep Wilds floor (F2 and down), made fresh from [seed]; null for a hand-made map.
   final int? depth;
@@ -168,6 +173,15 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   double _hintT2 = 0;
   final _repaint = ValueNotifier<int>(0);
   final _purseKey = GlobalKey(); // the trip's purse in the HUD: where the coins fly to
+  // the mines: the ore art, what this trip has mined (the satchel chip), the chips and nuggets in the air
+  MiningArt? _miningArt;
+  final _satchel = <String, int>{};
+  final _satchelKey = GlobalKey();
+  double _satchelBumpAt = -9;
+  final _mineBits = <(OreRock, List<MineBit>)>[];
+  final _nuggetsIn = <MineBit>{}; // nuggets that have reached the satchel chip
+  static const _oreHits = {'copper': 3, 'iron': 4, 'lumen': 4, 'obsidian': 5};
+  static const _wildsPerUnit = 11.7; // the mining art's world units (the village's), in the Wilds' units
   final _flyers = <_CoinFlyer>[]; // coins on their way up to it (screen space)
   double _purseBumpAt = -9;
   final _input = RaidInput();
@@ -222,13 +236,14 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final friendly = story?.beat == 'trust' || sf.petaluneWithYou(c.state);
     final extra = [if (friendly) 'petalune', if (story?.beat == 'sprout') 'hollow_sprout', if (story?.beat == 'sentinel') 'sentinel'];
     Future.wait([
-      depth == null ? WildsMap.load(widget.mapId) : makeFloor(depth, seed, story: story?.beat, place: story?.place, quest: story?.quest),
+      depth == null ? WildsMap.load(widget.mapId) : makeFloor(depth, seed, story: story?.beat, place: story?.place, quest: story?.quest, mine: widget.mine),
       WalkerArt.load(key, palette, wearing: wearing),
       WalkerArt.load('sher', 'sher'),
       FoeArt.load('thornling'),
       FoeArt.load('sporecap'),
       FoeArt.load('briarback'),
       for (final k in extra) FoeArt.load(k),
+      if (widget.mine) MiningArt.load(const ['copper', 'iron', 'lumen', 'obsidian']),
     ]).then((r) {
       if (!mounted) return;
       final m = r[0] as WildsMap;
@@ -240,6 +255,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       for (var i = 0; i < extra.length; i++) {
         _foeArt[extra[i]] = r[6 + i] as FoeArt;
       }
+      if (widget.mine) _miningArt = r[6 + extra.length] as MiningArt;
       setState(() {
         _map = m;
         _raid = _newRaid(m);
@@ -287,7 +303,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final b = m.boss;
     final cleared = m.depth == null && w.floorCleared(c.state, _floor);
     _clearFirst = !cleared;
-    _sealOpen = cleared;
+    _sealOpen = cleared || m.mine;
     _sealT = 1;
     final ar = b == null ? null : (b['arena'] as Map).cast<String, dynamic>();
     List<(double, double)> pts(Object? l) => [for (final p in (l as List? ?? const [])) (((p as List)[0] as num).toDouble(), (p[1] as num).toDouble())];
@@ -334,6 +350,10 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       storyX: m.story?.x ?? 0,
       storyZ: m.story?.z ?? 0,
       companion: m.story?.beat != 'trust' && sf.petaluneWithYou(c.state),
+      // the mines: the ore in the floor, and what your gear can break
+      ores: [for (final (id, kind, x, z) in m.ores) OreRock(id, kind, x, z, hits: _oreHits[kind] ?? 3, tier: oreTier[kind] ?? 1)],
+      miningPower: mine.miningPowerOf(c.state),
+      oreTier: mine.oreTierOf(c.state),
     );
     final carry = widget.carry;
     if (carry != null) {
@@ -398,6 +418,12 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     if (_flashT > 0) _flashT = math.max(0, _flashT - dt);
     final m = _map, r = _raid;
     if (m == null || r == null || _view == Size.zero) return;
+    stepBits([for (final (_, bits) in _mineBits) ...bits].toList(), _t, dt, (x, z) => 0);
+    _mineBits.removeWhere((e) {
+      final gone = e.$2.every((b) => _t - b.born > b.life + 1.2 && (b.kind != 'nugget' || _t >= b.flyAt + 0.7));
+      if (gone) _nuggetsIn.removeAll(e.$2);
+      return gone;
+    });
     if (m.depth != null && !_sealOpen && r.calmed >= r.foeTotal && (r.foeTotal > 0 || m.story != null) && (m.story == null || r.storyDone)) {
       // the floor is calm: the way down opens
       _sealOpen = true;
@@ -571,6 +597,44 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       }
     }
     _repaint.value++;
+  }
+
+  /// A Pounce landed on ore: the sound and feel, the chips and dust, and at the break the nuggets that
+  /// pop out and fly to the satchel chip, the ore itself banked at once (game/mining: once per break).
+  void _oreHit(RaidEvent e) {
+    final r = _raid, art = _miningArt;
+    if (r == null || art == null) return;
+    final o = r.ores.where((o) => (o.x - e.x).abs() < 0.01 && (o.z - e.z).abs() < 0.01).firstOrNull;
+    if (o == null) return;
+    final c = context.read<GameController>();
+    final broke = e.type == 'ore_break';
+    _sfx('mine_${o.kind}_${broke ? 'break' : e.type == 'ore_chip' ? 'chip' : 'crack'}', broke ? 0.8 : 0.6);
+    c.audio.buzz(broke ? Haptic.thump : Haptic.hit, strength: broke ? 0.8 : 0.45);
+    c.run((st, now) => mine.markFirstTrip(st, now), quiet: true);
+    final toward = Offset(r.pet.x - o.x, r.pet.z - o.z);
+    final tw = toward.distance > 0 ? toward / toward.distance : const Offset(0, 1);
+    final node = OreNode(o.kind, 0, 0)..state = o.state;
+    final rm = MediaQuery.maybeOf(context)?.disableAnimations ?? false;
+    final bits = contactBits(node, _t, tw, broke: broke, reduced: rm);
+    if (broke) {
+      final n = o.kind == 'copper' ? 3 : 2;
+      bits.addAll(nuggets(node, _t, tw, n));
+      final res = c.run((st, now) => mine.breakOre(st, o.kind, n, 'mine:${_map?.floor}:${o.id}:${DateTime.now().millisecondsSinceEpoch}', now), quiet: true);
+      if (res.events.any((ev) => ev.type == 'ore_first')) {
+        final name = oreName[o.kind] ?? o.kind;
+        Future.delayed(const Duration(milliseconds: 900), () => c.toast('Your first $name! It is in your Bag, ready for Bram.', icon: 'gem'));
+      }
+      _satchel[o.kind] = (_satchel[o.kind] ?? 0) + n;
+    }
+    _mineBits.add((o, bits));
+  }
+
+  /// The satchel chip's middle, in the map's own coordinates (where the nuggets fly to).
+  Offset? _satchelPoint() {
+    final sb = _satchelKey.currentContext?.findRenderObject() as RenderBox?;
+    final mb = context.findRenderObject() as RenderBox?;
+    if (sb == null || mb == null || !sb.attached || !mb.attached) return null;
+    return mb.globalToLocal(sb.localToGlobal(sb.size.center(Offset.zero)));
   }
 
   /// The purse's middle, in the map's own coordinates (where the coins fly to).
@@ -899,6 +963,12 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
         case 'signature_wind':
           _sfx('enc_soothe', 0.7);
           a.buzz(Haptic.rumble, strength: 0.4);
+        case 'ore_hard':
+          _sfx('mine_clink', 0.6);
+          a.buzz(Haptic.error, strength: 0.4);
+          _showBanner('Needs better gear: ${oreName[e.text] ?? e.text} is too hard', 1.8);
+        case 'ore_chip' || 'ore_crack' || 'ore_break':
+          _oreHit(e);
         case 'buff':
           _sfx('reward_chime', 0.5);
           a.buzz(Haptic.reward);
@@ -1130,7 +1200,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final story = sf.storyFloorAt(c.state, depth);
     Navigator.of(context).pushReplacement(PageRouteBuilder<void>(
       transitionDuration: const Duration(milliseconds: 700),
-      pageBuilder: (_, __, ___) => WildsScreen(depth: depth, seed: seed, carry: carry, surge: surge && story == null, story: story?.quest),
+      pageBuilder: (_, __, ___) => WildsScreen(depth: depth, seed: seed, carry: carry, surge: surge && story == null && !widget.mine, story: widget.mine ? null : story?.quest, mine: widget.mine),
       transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: a, child: child),
     ));
   }
@@ -1417,6 +1487,17 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                     top: mq.padding.top + 8 + 78 + 6,
                     child: _Purse(state: this),
                   ),
+                  if (_miningArt != null)
+                    Positioned(
+                      right: 10 + mq.padding.right,
+                      top: mq.padding.top + 8 + 78 + 6 + 32 + 6,
+                      child: ValueListenableBuilder<int>(
+                        valueListenable: _repaint,
+                        builder: (_, __, ___) => _satchel.values.any((v) => v > 0)
+                            ? SatchelChip(counts: _satchel, bumpAt: _satchelBumpAt, now: _t, art: _miningArt!, anchor: _satchelKey)
+                            : SizedBox(key: _satchelKey, width: 40, height: 40),
+                      ),
+                    ),
                   Positioned(
                     left: narrow ? 12 : 200,
                     right: narrow ? 12 : 110,
@@ -2023,6 +2104,15 @@ class _MapPainter extends CustomPainter {
     }
     for (final (x, z, kind) in m.fx) {
       if (kind == 'fire') items.add((z + 0.5, () => _fire(canvas, s._toScreen(x, z))));
+      if (kind == 'lamp') items.add((z + 0.5, () => _lamp(canvas, s._toScreen(x, z))));
+    }
+    final mart = s._miningArt;
+    if (mart != null) {
+      for (final o in r.ores) {
+        final a = mart.ores[o.kind];
+        if (a == null) continue;
+        items.add((o.z, () => _ore(canvas, o, a)));
+      }
     }
     for (final sh in r.shots) {
       items.add((sh.z + 1, () => _shot(canvas, sh)));
@@ -2033,8 +2123,10 @@ class _MapPainter extends CustomPainter {
     }
     _sentinelBeam(canvas, r);
     // the wood's own life: leaves coming down, fireflies in the shade; the edges sink into shadow
-    if (!rm) _ambient(canvas, size);
+    if (!rm && !m.mine) _ambient(canvas, size);
     _vignette(canvas, size);
+    if (m.mine) _caveDark(canvas, size, m, r);
+    if (s._miningArt != null) _mineBitsPaint(canvas);
     // above everything: sparks, motes, stars, numbers
     for (final b in r.bursts) {
       if (!const {'pulse', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare'}.contains(b.kind)) _burst(canvas, b);
@@ -2224,6 +2316,120 @@ class _MapPainter extends CustomPainter {
   static final _see = Paint()
     ..filterQuality = FilterQuality.medium
     ..color = const Color.fromRGBO(0, 0, 0, 0.42);
+
+  /// An ore node (the mines): the mining art's sprite in its crack state, shoved by a hit, glowing as
+  /// your Evochi comes near (lumen), a soft shade under it.
+  void _ore(Canvas canvas, OreRock o, OreKindArt a) {
+    final sp = a.states[o.state];
+    final k = a.unit * _WildsScreenState._wildsPerUnit * s._u; // screen px per sprite px
+    final g = s._toScreen(o.x, o.z);
+    var dst = Rect.fromLTWH(g.dx - sp.ground.dx * k, g.dy - sp.ground.dy * k, sp.img.width * k, sp.img.height * k);
+    final h = s._t - o.hitAt;
+    if (h >= 0 && h < 0.24 && !rm) dst = dst.shift(Offset(o.hitDir * 3.2 * math.sin(h / 0.24 * math.pi * 3) * (1 - h / 0.24), 0));
+    canvas.drawOval(Rect.fromCenter(center: g, width: dst.width * 0.8, height: dst.width * 0.26), Paint()..color = const Color(0x3A16241F));
+    final d = math.sqrt(math.pow(s._raid!.pet.x - o.x, 2) + math.pow(s._raid!.pet.z - o.z, 2)) / _WildsScreenState._wildsPerUnit;
+    paintOre(canvas, sp.img, dst, o.kind, o.state, s._t, (1 - (d - 2.6) / 3.5).clamp(0.0, 1.0), rm, o.x * 0.37 + o.z * 0.11);
+  }
+
+  /// The chips, dust and nuggets of a strike (kept in the mining art's own units round the node), the
+  /// nuggets flying off to the satchel chip when their time comes.
+  void _mineBitsPaint(Canvas canvas) {
+    final art = s._miningArt!;
+    const K = _WildsScreenState._wildsPerUnit;
+    final now = s._t;
+    final to = s._satchelPoint();
+    final upk = s._u * K; // screen px per mining unit
+    for (final (o, bits) in s._mineBits) {
+      for (final b in bits) {
+        final age = now - b.born;
+        final p = s._toScreen(o.x + b.x * K, o.z + b.z * K) - Offset(0, b.y * K * _up);
+        switch (b.kind) {
+          case 'dust':
+            final a = (1 - age / b.life).clamp(0.0, 1.0);
+            canvas.drawCircle(p, upk * b.size * (0.5 + age / b.life), Paint()
+              ..color = b.color.withAlpha(((0.45 * a) * 255).round())
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
+          case 'spark':
+            final a = (1 - age / b.life).clamp(0.0, 1.0);
+            canvas.drawCircle(p, upk * b.size * (1 + a), Paint()..color = b.color.withAlpha((a * 255).round()));
+          case 'chip':
+            final a = (1 - (age - b.life) / 0.6).clamp(0.0, 1.0);
+            if (a <= 0) continue;
+            final sz = upk * b.size;
+            canvas.save();
+            canvas.translate(p.dx, p.dy);
+            canvas.rotate(age * 9 + b.size * 40);
+            canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: sz, height: sz), Paint()..color = b.color.withAlpha((a * 255).round()));
+            canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: sz, height: sz), Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1
+              ..color = const Color(0xFF3B2923).withAlpha(((0.7 * a) * 255).round()));
+            canvas.restore();
+          case 'nugget':
+            final n = art.ores[b.ore]?.nugget;
+            if (n == null) continue;
+            final unit = art.ores[b.ore]!.nuggetUnit;
+            var at = p;
+            var kk = upk * unit;
+            if (now >= b.flyAt && to != null) {
+              b.from ??= p;
+              final e = ((now - b.flyAt) / 0.5).clamp(0.0, 1.0);
+              final f = Curves.easeIn.transform(e);
+              at = Offset.lerp(b.from, to, f)! - Offset(0, 60 * math.sin(e * math.pi));
+              kk *= 1 - 0.45 * f;
+              if (e >= 1) {
+                if (s._nuggetsIn.add(b)) {
+                  s._satchelBumpAt = now;
+                  s._sfx('mine_collect', 0.5);
+                }
+                continue;
+              }
+            }
+            canvas.drawImageRect(n.img, Rect.fromLTWH(0, 0, n.img.width.toDouble(), n.img.height.toDouble()),
+                Rect.fromLTWH(at.dx - n.ground.dx * kk, at.dy - n.ground.dy * kk, n.img.width * kk, n.img.height * kk), Paint()..filterQuality = FilterQuality.medium);
+        }
+      }
+    }
+  }
+
+  /// A miner's lantern hung on a post: a warm glow that breathes, the galleries' light.
+  void _lamp(Canvas canvas, Offset g) {
+    final k = s._u / 2.7;
+    final t = s._t;
+    final flick = rm ? 0.5 : (math.sin(t * 9 + g.dx) + math.sin(t * 5.3 + 1) + 2) / 4;
+    canvas.drawRect(Rect.fromCenter(center: g - Offset(0, 14 * k), width: 2.6 * k, height: 28 * k), Paint()..color = const Color(0xFF4A2E1A));
+    canvas.drawRect(Rect.fromLTWH(g.dx - 1.3 * k, g.dy - 28 * k, 9 * k, 2.2 * k), Paint()..color = const Color(0xFF4A2E1A));
+    final lc = g + Offset(7 * k, -22 * k);
+    canvas.drawCircle(lc, (14 + 4 * flick) * k, Paint()
+      ..color = Color.fromRGBO(255, 179, 71, 0.22 + 0.08 * flick)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 12 * k));
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: lc, width: 5 * k, height: 6.5 * k), Radius.circular(1.2 * k)), Paint()..color = const Color(0xFF2E2A2A));
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: lc, width: 3.4 * k, height: 4.6 * k), Radius.circular(0.8 * k)),
+        Paint()..color = Color.lerp(const Color(0xFFFFC561), const Color(0xFFFFE6A8), flick)!);
+  }
+
+  /// The cave's dark: the galleries lit only round their lamps, your Evochi's own light and the ore's
+  /// glow; the rock beyond sinks into black.
+  void _caveDark(Canvas canvas, Size size, WildsMap m, Raid r) {
+    final rec = ui.PictureRecorder();
+    final c = Canvas(rec);
+    c.drawRect(Offset.zero & size, Paint()..color = const Color(0xB40A0810));
+    final clear = Paint()..blendMode = BlendMode.dstOut;
+    void light(Offset at, double rad, double a) {
+      c.drawCircle(at, rad, clear..shader = ui.Gradient.radial(at, rad, [Color.fromRGBO(0, 0, 0, a), const Color(0x00000000)], const [0.25, 1.0]));
+    }
+    final u = s._u / 2.7;
+    light(s._toScreen(r.pet.x, r.pet.z) - Offset(0, 14 * u), 150 * u, 1.0);
+    final sh = r.sher;
+    if (sh != null) light(s._toScreen(sh.x, sh.z) - Offset(0, 14 * u), 90 * u, 0.8);
+    for (final (x, z, kind) in m.fx) {
+      if (kind == 'lamp' || kind == 'fire') light(s._toScreen(x, z) - Offset(0, 20 * u), 130 * u, 0.95);
+    }
+    for (final o in r.ores) {
+      if (o.kind == 'lumen' && !o.broken) light(s._toScreen(o.x, o.z) - Offset(0, 10 * u), 70 * u, 0.7);
+    }
+    canvas.drawPicture(rec.endRecording());
+  }
 
   double get _up => s._cosP * s._u; // screen px per world unit of height
 

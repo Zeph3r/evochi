@@ -113,6 +113,8 @@ class FloorPlan {
   final zones = <Map<String, Object>>[];
   final foes = <Map<String, Object>>[];
   final spots = <Map<String, Object>>[];
+  final ores = <Map<String, Object>>[]; // the mines: ore nodes (kind, x, z)
+  bool mine = false;
   final fx = <Map<String, Object>>[];
   late final List<String> mods = story == null ? floorMods(depth, seed) : const <String>[];
 
@@ -273,8 +275,17 @@ double _segDist(Offset a, Offset b, double x, double z) {
 /// [radii] gives each prop kind's trunk (footprint) radius. A [story] floor (its beat) keeps the last
 /// room for the story: the Mossy Ruins' stones round it, the creature waiting there, no other foes in it
 /// and no elite on the way (and no twists).
-FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii, {String? story}) {
-  final plan = planLayout(kit, depth, seed)..story = story;
+FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii, {String? story, bool mine = false}) {
+  final plan = planLayout(kit, depth, seed)
+    ..story = story
+    ..mine = mine;
+  if (mine) {
+    // a working mine (MINES_PLAN.md): galleries of ore instead of fights, nothing big waiting
+    for (final r in plan.rooms) {
+      if (r.role == 'fight' || r.role == 'elite') r.role = 'vein';
+    }
+    plan.mods.clear();
+  }
   if (story != null) {
     for (final r in plan.rooms) {
       if (r.role == 'elite') r.role = 'fight';
@@ -430,6 +441,16 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
       final px = x + rng.d(-6, 6), pz = z + rng.d(-6, 6);
       final f = farAt(px, pz) * plan.cell;
       if (f < 8) continue;
+      if (mine) {
+        // the cave: rock lining the galleries thick (boulders and low pillars at the edge, columns and
+        // rubble behind), the odd glowing cap of shrooms; the deep rock beyond is dark
+        if (f > 120 && rng.p(0.55)) continue;
+        final kind = f < 26
+            ? rng.pick(const ['boulder', 'rock', 'pillar_low', 'boulder', 'rock'])
+            : (rng.p(0.3) ? 'pillar' : rng.pick(const ['boulder', 'pillar_low', 'rock', 'shrooms']));
+        add(kind, px, pz, s: kind == 'shrooms' ? rng.d(0.8, 1.0) : rng.d(0.9, 1.25));
+        continue;
+      }
       if (shadeBand(px, pz)) {
         // low growth only, and not too much of it
         if (f < 30 && rng.p(0.42)) add(rng.pick(const ['bush', 'bush_b', 'bush', 'rock', 'stump', 'shrooms']), px, pz, s: rng.d(0.85, 1.1));
@@ -465,14 +486,18 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
         final (sx, sz) = clearSpot(cx, cz, [(26, rr * 0.3), (-26, rr * 0.3), (30, -rr * 0.25), (-30, -rr * 0.25)], radii['sign'] ?? 3);
         add('sign', sx, sz, flip: false, force: true);
         plan.spots.add({
-          'id': 'sign', 'kind': 'read', 'x': sx, 'z': sz + 6, 'r': 20, 'label': 'Read', 'title': 'F$depth · $deepTrail',
-          'text': depth == firstDeepFloor
+          'id': 'sign', 'kind': 'read', 'x': sx, 'z': sz + 6, 'r': 20, 'label': 'Read', 'title': mine ? 'The Mine · F$depth' : 'F$depth · $deepTrail',
+          'text': mine
+              ? (depth == 1
+                  ? "Flint's mine, the first gallery. Copper in the walls, and a vein of iron if you look. Walk up to a node and Pounce; the ore goes in your satchel and comes home with you."
+                  : 'Gallery $depth. The rock is harder down here, and the ore worth more.')
+              : depth == firstDeepFloor
               ? 'F$depth · $deepTrail. Past the Thicket the old trail winds down through deeper wood. Each floor ends at an old doorway down, sealed until the floor is calm.'
               : 'F$depth · $deepTrail. Deeper still. The Hollow is thicker down here.',
         });
         plan.spots.add({
-          'id': 'exit', 'kind': 'exit', 'x': cx, 'z': cz + rr * 0.85, 'r': 22, 'label': 'Leave', 'title': 'Back up the trail',
-          'text': 'Climb back up to the Thicket and the village? You take home what you have found.',
+          'id': 'exit', 'kind': 'exit', 'x': cx, 'z': cz + rr * 0.85, 'r': 22, 'label': 'Leave', 'title': mine ? 'Back out to the trail' : 'Back up the trail',
+          'text': mine ? 'Climb back out to the Old Trail? Your satchel comes with you.' : 'Climb back up to the Thicket and the village? You take home what you have found.',
         });
       case 'exit':
         // the old doorway down: a ruin gate on the north side of the clearing, sealed with Lumen beams
@@ -483,10 +508,12 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
         }
         plan.gate = (cx, gz);
         plan.spots.add({
-          'id': 'gate', 'kind': 'gate', 'x': cx, 'z': gz + 14, 'r': 30, 'label': 'Descend', 'title': 'F${depth + 1} · $deepTrail',
-          'text': 'Worn steps lead down through the old doorway, deeper into the Wilds.',
+          'id': 'gate', 'kind': 'gate', 'x': cx, 'z': gz + 14, 'r': 30, 'label': 'Descend', 'title': mine ? 'The Mine · F${depth + 1}' : 'F${depth + 1} · $deepTrail',
+          'text': mine ? 'A timbered shaft, a ladder down to the next gallery. The ore is richer below.' : 'Worn steps lead down through the old doorway, deeper into the Wilds.',
         });
-        if (story == null) {
+        if (mine) {
+          plan.fx.add({'kind': 'lamp', 'x': cx - rr * 0.5, 'z': cz + rr * 0.3});
+        } else if (story == null) {
           _foes(plan, rng, r, cx, cz, rr * 0.55, wantFoes, depth);
         } else if (story == 'sentinel') {
           // the old gate past the bridge: broken pillars round the arena's rim, rubble, the guardian
@@ -521,6 +548,10 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
         }
       case 'fight':
         _foes(plan, rng, r, cx, cz, rr * 0.55, wantFoes, depth);
+      case 'vein':
+        // a gallery of ore: nodes round the clearing, off the ways through; a lantern hung by the way in
+        _ores(plan, rng, k, r, cx, cz, rr, depth, radii['ore'] ?? 9, clearOfWays);
+        plan.fx.add({'kind': 'lamp', 'x': cx + rr * 0.6, 'z': cz + rr * 0.5});
       case 'elite':
         // ruins to fight round, and something big
         for (var i = 0; i < 3; i++) {
@@ -555,8 +586,8 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
           'text': 'Someone left a fire burning low. Rest a moment: your Raid HP comes back.',
         });
     }
-    if (const {'fight', 'elite', 'exit', 'treasure'}.contains(r.role)) {
-      plan.zones.add({'id': 'r${r.i}', 'name': r.role == 'elite' ? 'Elite\'s Hollow' : 'Clearing', 'x': cx, 'z': cz, 'r': rr});
+    if (const {'fight', 'elite', 'exit', 'treasure', 'vein'}.contains(r.role)) {
+      plan.zones.add({'id': 'r${r.i}', 'name': r.role == 'elite' ? 'Elite\'s Hollow' : (r.role == 'vein' ? 'Gallery' : 'Clearing'), 'x': cx, 'z': cz, 'r': rr});
     }
   }
   return plan;
@@ -580,6 +611,28 @@ bool _nearPath(KitChunk k, double u, double v, double d) {
   return false;
 }
 
+/// The ore in a gallery: a vein of the floor's common ore round the rim, one richer node among them.
+/// Which ores a floor has (MINES_PLAN.md's ladder): F1 copper and a little iron, F2 iron with copper,
+/// F3 lumen among iron, F4 and down obsidian too.
+void _ores(FloorPlan plan, _Rng rng, KitChunk k, FloorRoom r, double cx, double cz, double rr, int depth, double rad,
+    bool Function(double, double, double) clearOfWays) {
+  final common = depth <= 1 ? 'copper' : (depth == 2 ? 'iron' : (depth == 3 ? 'iron' : 'lumen'));
+  final rich = depth <= 1 ? 'iron' : (depth == 2 ? 'iron' : (depth == 3 ? 'lumen' : 'obsidian'));
+  final n = 3 + rng.i(2);
+  var placed = 0;
+  final a0 = rng.d(0, math.pi * 2);
+  for (var i = 0; i < n * 3 && placed < n; i++) {
+    final a = a0 + i * (math.pi * 2 / (n * 1.5)) + rng.d(-0.3, 0.3);
+    final d = rr * rng.d(0.45, 0.72);
+    final x = cx + math.cos(a) * d, z = cz + math.sin(a) * d * 0.9;
+    if (plan.blocked(x, z) || !clearOfWays(x, z, rad)) continue;
+    final kind = placed == 0 && rng.p(depth <= 1 ? 0.5 : 0.8) ? rich : common;
+    plan.ores.add({'id': 'o${r.i}_$placed', 'kind': kind, 'x': (x * 10).round() / 10, 'z': (z * 10).round() / 10});
+    plan.blocks.add((x, z, rad));
+    placed++;
+  }
+}
+
 void _foes(FloorPlan plan, _Rng rng, FloorRoom r, double cx, double cz, double spread, int n, int depth, {bool elite = false}) {
   for (var i = 0; i < n + (elite ? 1 : 0); i++) {
     for (var tries = 0; tries < 20; tries++) {
@@ -597,14 +650,15 @@ void _foes(FloorPlan plan, _Rng rng, FloorRoom r, double cx, double cz, double s
 
 // ------------------------------------------------------------------------------------- the map
 /// Loads the pictures and makes the floor's [WildsMap]. Props come from the Thicket's sprites.
-Future<WildsMap> makeFloor(int depth, int seed, {String? story, String? place, String? quest}) async {
+Future<WildsMap> makeFloor(int depth, int seed, {String? story, String? place, String? quest, bool mine = false}) async {
   final kit = await RoomKit.load();
   final thicket = (jsonDecode(await rootBundle.loadString('${wildsBase}wilds_map_thicket.json')) as Map).cast<String, dynamic>();
   final images = (thicket['images'] as Map).cast<String, dynamic>();
   final radii = {for (final e in images.entries) e.key: ((e.value as Map)['radius'] as num? ?? 0).toDouble()};
   radii['gate'] = 0; // its footprint is its own shape (below)
   radii['chest'] = 6;
-  final plan = planFloor(kit, depth, seed, radii, story: story);
+  radii['ore'] = 9;
+  final plan = planFloor(kit, depth, seed, radii, story: story, mine: mine);
   // the gate's footprint: its pillars and the sealed opening (as in tools/art/wilds_maps.py SHAPES)
   final (gx, gz) = plan.gate;
   for (final (dx, dz, r) in const [(-30.0, 0.0, 11.0), (30.0, 0.0, 11.0), (-16.0, 0.0, 3.5), (-8.0, 0.0, 3.5), (0.0, 0.0, 3.5), (8.0, 0.0, 3.5), (16.0, 0.0, 3.5), (42.0, 8.0, 6.0)]) {
@@ -617,7 +671,8 @@ Future<WildsMap> makeFloor(int depth, int seed, {String? story, String? place, S
   final gw = plan.cols * plan.cell * s, gh = plan.rows * plan.cell * s * sinP + 24;
   final chunkImg = <String, ui.Image>{};
   for (final (id, _, _) in plan.placed) {
-    chunkImg[id] ??= await _image(wildsBase + kit.chunks[id]!.image);
+    // the mine's galleries: the same chunks as cave floor (tools/art/cave_kit.py)
+    chunkImg[id] ??= await _image(wildsBase + (mine ? kit.chunks[id]!.image.replaceFirst('kit_', 'kit_cave_') : kit.chunks[id]!.image));
   }
   final tiles = [
     for (final (id, x, z) in plan.placed)
@@ -639,13 +694,15 @@ Future<WildsMap> makeFloor(int depth, int seed, {String? story, String? place, S
         (p['scale'] as num? ?? s).toDouble(), p['mask'] == null ? null : await _image(wildsBase + (p['mask'] as String)));
   }
   final j = <String, dynamic>{
-    'id': 'deep_$depth',
-    'name': place ?? deepTrail,
+    'id': mine ? 'mine_$depth' : 'deep_$depth',
+    'name': place ?? (mine ? 'The Mine' : deepTrail),
     'floor': 'F$depth',
-    'level': 2 + depth,
+    'level': mine ? 1 : 2 + depth,
     'pitch': kit.pitch,
     'scale': s,
-    'objective': switch (story) { null => 'Calm the floor and find the way down', 'sentinel' => 'Find the old gate past the bridge', _ => 'Find what waits in the ruins' },
+    'biome': mine ? 'mine' : 'wood',
+    'objective': mine ? 'Pounce the ore; the shaft down is open' : switch (story) { null => 'Calm the floor and find the way down', 'sentinel' => 'Find the old gate past the bridge', _ => 'Find what waits in the ruins' },
+    'ores': plan.ores,
     'ground': {'w': gw, 'h': gh, 'origin': [origin.dx, origin.dy], 'scale': s},
     'bounds': [plan.bounds.left, plan.bounds.top, plan.bounds.right, plan.bounds.bottom],
     'grid': {'cell': plan.cell, 'x0': plan.x0, 'z0': plan.z0, 'cols': plan.cols, 'rows': plan.rows, 'blocked': base64Encode(plan.grid)},
@@ -654,7 +711,7 @@ Future<WildsMap> makeFloor(int depth, int seed, {String? story, String? place, S
     'zones': plan.zones,
     'foes': plan.foes,
     'gate': {'x': gx, 'z': gz, 'emit': 21.0, 'beams': [14.0, 26.0, 38.0]},
-    'deep': {'depth': depth, 'seed': seed, 'mods': plan.mods},
+    'deep': {'depth': depth, 'seed': seed, 'mods': plan.mods, if (mine) 'mine': true},
     if (story != null && plan.storyAt != null) 'story': {'beat': story, 'quest': quest, 'x': plan.storyAt!.$1, 'z': plan.storyAt!.$2},
   };
   return WildsMap.made(
@@ -664,7 +721,7 @@ Future<WildsMap> makeFloor(int depth, int seed, {String? story, String? place, S
     props: [for (final p in plan.props) MapProp(p['kind'] as String, p['x'] as double, p['z'] as double, p['flip'] as bool, p['s'] as double)],
     blocks: plan.blocks,
     spots: [for (final sp in plan.spots) MapSpot(sp)],
-    minimap: await _minimap(plan),
+    minimap: await _minimap(plan, mine: mine),
     grid: plan.grid,
     shade: plan.shade,
   );
@@ -677,13 +734,13 @@ Future<ui.Image> _image(String path) async {
 }
 
 /// The floor from above for the minimap: forest, the walkable ground, the rooms' marks.
-Future<ui.Image> _minimap(FloorPlan plan) async {
+Future<ui.Image> _minimap(FloorPlan plan, {bool mine = false}) async {
   const px = 2.0; // per walk cell
   final w = (plan.cols * px).round(), h = (plan.rows * px).round();
   final rec = ui.PictureRecorder();
   final c = Canvas(rec);
-  c.drawRect(Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()), Paint()..color = const Color(0xFF26401E));
-  final ground = Paint()..color = const Color(0xFF9BC46A);
+  c.drawRect(Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()), Paint()..color = mine ? const Color(0xFF241E2A) : const Color(0xFF26401E));
+  final ground = Paint()..color = mine ? const Color(0xFF8E8476) : const Color(0xFF9BC46A);
   for (var k = 0; k < plan.rows; k++) {
     for (var i = 0; i < plan.cols; i++) {
       final bit = k * plan.cols + i;

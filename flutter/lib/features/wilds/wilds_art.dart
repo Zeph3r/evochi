@@ -216,6 +216,10 @@ class WildsMap {
 
   /// A Deep Wilds floor: its depth (F number), or null for a hand-made map.
   int? get depth => ((j['deep'] as Map?)?['depth'] as num?)?.toInt();
+  bool get mine => (j['deep'] as Map?)?['mine'] == true; // a gallery of Flint's mine (deep_floor.dart, mine: true)
+  /// The mine's ore nodes: id, kind, x, z.
+  List<(String, String, double, double)> get ores =>
+      [for (final o in (j['ores'] as List? ?? const [])) ((o as Map)['id'] as String, o['kind'] as String, (o['x'] as num).toDouble(), (o['z'] as num).toDouble())];
 
   /// A story floor (game/wilds/story_floors.dart): its beat, its quest, and where the beat plays.
   ({String beat, String quest, double x, double z})? get story {

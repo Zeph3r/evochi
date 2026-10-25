@@ -48,8 +48,8 @@ const _topics = <String, List<_Line>>{
     ('default', "I'm still sorting the stock. Come back soon and I'll fit your Evochi out proper."),
   ],
   'enter': [
-    ('determined', "Eager, eh? I like that."),
-    ('thinking', "I'm shoring up the first floor's timbers. Give me a little while and the mine's yours to explore."),
+    ('determined', "Eager, eh? I like that. The first gallery's lit and shored. Copper in every wall, and a vein of iron if you look."),
+    ('happy', "Walk up to a node and Pounce. Mind the shaft at the back: it goes down to the next gallery, and the rock's harder there."),
   ],
   'ore': [
     ('default', "Four kinds you'll meet. Copper's warm and crumbly, good for tools and trim. Iron's tougher: frames and sturdier gear."),
@@ -83,9 +83,16 @@ class FlintTalk extends StatefulWidget {
 class _FlintTalkState extends State<FlintTalk> {
   List<_Line> _lines = _hello;
   int _i = 0;
+  String? _then; // what the talk leads to once these lines are read
   bool get _last => _i >= _lines.length - 1;
 
-  void _next() => setState(() => _i++);
+  void _next() {
+    if (_last && _then != null) {
+      Navigator.of(context).pop(_then);
+      return;
+    }
+    setState(() => _i++);
+  }
 
   void _pick(String topic) {
     if (topic == 'gear') {
@@ -95,6 +102,7 @@ class _FlintTalkState extends State<FlintTalk> {
     setState(() {
       _lines = _topics[topic]!;
       _i = 0;
+      _then = topic == 'enter' ? 'enter' : null; // after his words, off to the mine
     });
   }
 
@@ -119,10 +127,10 @@ class _FlintTalkState extends State<FlintTalk> {
           ),
         ]),
         const SizedBox(height: 12),
-        if (!_last)
+        if (!_last || _then != null)
           Align(
             alignment: Alignment.centerRight,
-            child: EvochiButton(label: 'Next', tone: ButtonTone.cream, small: true, expand: false, onPressed: _next),
+            child: EvochiButton(label: _last ? 'Head in' : 'Next', tone: _last ? ButtonTone.gold : ButtonTone.cream, small: true, expand: false, onPressed: _next),
           )
         else ...[
           for (final (id, icon, title, sub) in _choices)

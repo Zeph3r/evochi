@@ -252,6 +252,30 @@ class Burst {
   double t = 0;
 }
 
+/// An ore node in the mines, struck with the Pounce (MINES_PLAN.md): it cracks whole -> chipped ->
+/// cracked -> burst over its hits (times your mining power), and grows back a while after it bursts.
+/// Too hard for your gear: a clink, nothing lost.
+class OreRock {
+  OreRock(this.id, this.kind, this.x, this.z, {required this.hits, required this.tier, this.radius = 9});
+  final String id, kind;
+  final double x, z, radius;
+  final int hits, tier;
+  double damage = 0;
+  int state = 0; // 0 whole, 1 chipped, 2 cracked, 3 burst
+  double hitAt = -9, hitDir = 1, brokeAt = -9, noteAt = -9;
+  bool get broken => state == 3;
+
+  bool strike(double power) {
+    damage += power;
+    if (damage >= hits - 1e-6) {
+      state = 3;
+      return true;
+    }
+    state = damage / hits < 0.5 ? 1 : 2;
+    return false;
+  }
+}
+
 class RaidEvent {
   const RaidEvent(this.type, {this.text, this.value = 0, this.x = 0, this.z = 0});
   final String type;
@@ -357,7 +381,11 @@ class Raid {
     this.storyX = 0,
     this.storyZ = 0,
     this.companion = false,
-  })  : rng = math.Random(seed),
+    List<OreRock> ores = const [],
+    this.miningPower = 1.0,
+    this.oreTier = 1,
+  })  : ores = List.of(ores),
+        rng = math.Random(seed),
         lootRng = math.Random(seed * 31 + 7) {
     startX = pet.x;
     startZ = pet.z;
@@ -496,6 +524,10 @@ class Raid {
   final events = <RaidEvent>[];
 
   RaidPhase phase = RaidPhase.explore;
+  /// The mines: the ore in the floor, your gear's reach (the hardest ore it breaks) and power.
+  final List<OreRock> ores;
+  final double miningPower;
+  final int oreTier;
   double time = 0, hitstop = 0, shake = 0;
   double flashT = 0; // a flash over the whole view (a heavy hit, a signature move), seconds left
   String flashKind = 'white'; // white, or the palette a signature move is tinted by
@@ -694,6 +726,13 @@ class Raid {
     bursts.removeWhere((b) => b.t >= b.ttl);
     shake = math.max(0, shake - dt * 3);
     flashT = math.max(0, flashT - dt);
+    for (final o in ores) {
+      if (o.broken && time - o.brokeAt > 45) {
+        o.damage = 0;
+        o.state = 0;
+        o.brokeAt = -9;
+      }
+    }
     wallRise = (wallRise + (wallUp ? dt * 2.2 : -dt * 1.2)).clamp(0.0, 1.0);
     if (phase != RaidPhase.explore) return;
     if (hitstop > 0) {
@@ -1302,6 +1341,7 @@ class Raid {
   void _swingHits(int c) {
     final p = pet;
     final hx = p.x + p.fx * 9, hz = p.z + p.fz * 9;
+    _swingOre(c, hx, hz);
     for (final f in hostile.toList()) {
       if (_hitThisSwing.contains(f)) continue;
       if (_len(f.x - hx, f.z - hz) > f.radius + 12) continue;
@@ -1333,6 +1373,51 @@ class Raid {
         _emit('launch', x: f.x, z: f.z);
         _sigGain(5);
       }
+    }
+  }
+
+  /// A Pounce at an ore node (the mines): a strike on the nearest one in reach, once a swing.
+  void _swingOre(int c, double hx, double hz) {
+    final p = pet;
+    OreRock? best;
+    var bd = 1e9;
+    for (final o in ores) {
+      if (o.broken) continue;
+      final d = _len(o.x - hx, o.z - hz);
+      if (d < o.radius + 13 && d < bd) {
+        best = o;
+        bd = d;
+      }
+    }
+    final o = best;
+    if (o == null) return;
+    final d = math.max(_len(o.x - p.x, o.z - p.z), 1e-6);
+    final dx = (o.x - p.x) / d, dz = (o.z - p.z) / d;
+    o.hitAt = time;
+    o.hitDir = p.x <= o.x ? 1 : -1;
+    if (o.tier > oreTier) {
+      // too hard for your gear: a clink and a bounce, nothing lost
+      o.noteAt = time;
+      p.kx -= dx * 60;
+      p.kz -= dz * 60;
+      p.tilt = 0.2 * (dx.abs() > 0.2 ? dx.sign : 1);
+      hitstop = math.max(hitstop, 0.03);
+      bursts.add(Burst('impact', o.x, o.z, 0.2, dx: dx, dz: dz, size: 0.5));
+      _emit('ore_hard', text: o.kind, x: o.x, z: o.z);
+      return;
+    }
+    final first = o.damage == 0;
+    final broke = o.strike(miningPower);
+    hitstop = math.max(hitstop, broke ? 0.09 : 0.04);
+    shake = math.max(shake, broke ? 0.5 : 0.2);
+    bursts.add(Burst('impact', o.x, o.z, 0.28, dx: dx, dz: dz, size: broke ? 1.4 : 0.9));
+    if (broke) {
+      o.brokeAt = time;
+      flashT = math.max(flashT, 0.07);
+      flashKind = 'white';
+      _emit('ore_break', text: o.kind, value: ores.indexOf(o).toDouble(), x: o.x, z: o.z);
+    } else {
+      _emit(first ? 'ore_chip' : 'ore_crack', text: o.kind, x: o.x, z: o.z);
     }
   }
 

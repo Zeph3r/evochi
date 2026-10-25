@@ -107,6 +107,27 @@ void main() {
     }
   });
 
+  test('a mine floor: galleries of ore in reach instead of fights, nothing to calm, the shaft down and the way out', () {
+    for (var seed = 1; seed <= 40; seed++) {
+      final depth = 1 + seed % 4;
+      final p = planFloor(k, depth, seed, {...rd, 'ore': 9.0}, mine: true);
+      expect(p.mine, isTrue);
+      expect(p.foes, isEmpty, reason: 'seed $seed: a working mine sets up no fights');
+      expect(p.ores.length, greaterThanOrEqualTo(3), reason: 'seed $seed F$depth: a mine has ore');
+      final kinds = {for (final o in p.ores) o['kind'] as String};
+      if (depth == 1) expect(kinds.contains('copper'), isTrue);
+      if (depth >= 3) expect(kinds.contains('lumen') || kinds.contains('obsidian'), isTrue, reason: 'seed $seed F$depth: the ladder climbs');
+      final r = reach(p, p.start.$1, p.start.$2);
+      for (final o in p.ores) {
+        expect(inReach(p, r, o['x'] as double, o['z'] as double, 26), isTrue, reason: 'seed $seed: ${o['id']} out of reach');
+      }
+      for (final sp in p.spots) {
+        expect(inReach(p, r, sp['x'] as double, sp['z'] as double, 24), isTrue, reason: 'seed $seed: ${sp['id']} out of reach');
+      }
+      expect(p.fx.any((f) => f['kind'] == 'lamp'), isTrue, reason: 'seed $seed: the galleries are lit');
+    }
+  });
+
   test('a floor\'s twists: none before F4, then one, two from F8, three from F12; the seed decides', () {
     for (var seed = 1; seed <= 40; seed++) {
       expect(floorMods(3, seed), isEmpty);
