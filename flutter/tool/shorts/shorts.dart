@@ -607,7 +607,7 @@ Widget nookStage() => const Scaffold(
     );
 
 /// Where the Nook Shorts' captions sit: over the egg's card, clear of the egg.
-const _nookY = 430.0;
+const _nookY = 276.0; // between the cradle and the egg's card: clear of the egg and of the card's small print
 
 /// Set your Evochi down just south of the nearest [kind] node (on a cut: a new floor coming up) and
 /// have it work the node: the pilot steers straight, and a gallery's rock is in the way of straight.

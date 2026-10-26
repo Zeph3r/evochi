@@ -238,7 +238,9 @@ class Recorder implements Take {
       final at = t - start;
       for (var k = 0; k < c.beats.length; k++) {
         final b = c.beats[k];
-        if (fired.contains(k) || at < b.at) continue;
+        // the hook (a beat in the short's first tenth of a second) is up from the very first frame
+        final due = _clip == 0 && b.at <= 0.1 ? 0.0 : b.at;
+        if (fired.contains(k) || at < due) continue;
         if (b.when != null && !b.when!(this)) continue;
         fired.add(k);
         await b.run(this);
@@ -366,7 +368,8 @@ class Overlays extends StatelessWidget {
   }
 
   Widget _caption(Cap c, double t) {
-    final pin = _pop(t - c.t0, 0.34);
+    // the hook is whole on the first frame (it is the video's cover); later captions pop in
+    final pin = c.t0 < 0.05 ? 1.0 : _pop(t - c.t0, 0.34);
     final out = t > c.t1 ? 1 - (t - c.t1) / 0.12 : 1.0;
     final wob = 1 + 0.005 * math.sin((t - c.t0) * 3);
     final tilt = ((c.t0 * 7) % 3 - 1.5 + 0.25 * math.sin((t - c.t0) * 1.5)) * math.pi / 180;
