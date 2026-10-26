@@ -28,6 +28,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/models/catalog.dart';
+import '../../core/models/game_state.dart';
 import '../../core/services/haptics.dart';
 import '../../game/economy/economy.dart' as econ;
 import '../../game/engine.dart' as ge;
@@ -1328,7 +1329,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
 
   /// Which egg a floor's hollow holds, and the key that makes this hollow pay once.
   String _nestEgg() => (_map?.mine ?? false) ? 'stone_egg' : ((_map?.depth ?? 1) >= 5 ? 'stone_egg' : 'forest_egg');
-  String _nestKey(MapSpot s) => '${_map?.id ?? 'deep'}:${_map?.depth ?? 0}:${widget.seed ?? 0}:${s.id}';
+  String _nestKey(MapSpot s) => '${widget.mine ? 'mine' : 'deep'}:${_map?.depth ?? 0}:${widget.seed ?? 0}:${s.id}';
 
   void _takeEgg(MapSpot s) {
     final c = context.read<GameController>();

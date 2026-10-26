@@ -93,9 +93,9 @@ def _home():
     return dict(
         title='Your Home', scene=HW.scene_home_walk, view='home', area=(HW.X0, HW.X1, HW.Z0, HW.Z1),
         npcs={},
-        arrive={'village': (HW.GATE[0], HW.GATE[1] + 4.0),        # in through the gate, from the village
-                'nest': (HW.NEST[0], HW.NEST[1] + 6.5)},            # at the nest
-        spots={'nest': (HW.NEST[0], HW.NEST[1] + 6.5), 'cottage': (-16.0, -16.0), 'garden': (-0.5, 0.0),
+        arrive={'nest': (-6.0, 5.0),                               # from the Nest: on the path up from it
+                'village': (HW.GATE[0], HW.GATE[1] + 4.0)},          # in through the gate, from the village
+        spots={'nest': (HW.NEST[0], HW.NEST[1] - 5.5), 'cottage': (-16.0, -16.0), 'garden': (-0.5, 0.0),
                'nook': ((nx0 + nx1) / 2, nz1 + 4.0), 'grove': (HW.GROVE[0] + 12.5, HW.GROVE[1] - 1.0), 'pond': (HW.POND[0] + 4.0, HW.POND[1] + 6.0)},
         # the doors: walk up to one and its room or screen opens (the game decides); the gate leads to the village
         exits={'village': (HW.GATE[0], HW.GATE[1] - 0.5, 2.6, 'village', 'home'),
@@ -103,7 +103,7 @@ def _home():
                'garden': (1.4, 0.0, 1.8, None, None),
                'nook': ((nx0 + nx1) / 2, nz1 + 1.4, 1.8, None, None),
                'grove': (HW.GROVE[0] + 9.0, HW.GROVE[1] - 1.0, 2.0, None, None),
-               'nest': (HW.NEST[0], HW.NEST[1], 3.6, None, None)},
+               'nest': (HW.NEST[0], HW.NEST[1], 6.0, None, None)},
         fx='fx_home.py', tiles='home/walk', art_npcs={}, ores=[])
 
 

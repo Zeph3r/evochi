@@ -125,7 +125,7 @@ class _NookSheetState extends State<NookSheet> with SingleTickerProviderStateMix
                 label: 'Egg collection${hatch.stored(s).isEmpty ? '' : ' (${hatch.stored(s).length})'}',
                 tone: ButtonTone.cream,
                 small: true,
-                icon: 'chest',
+                icon: const VoxelIcon('chest', size: 22),
                 onPressed: () => setState(() => _collection = true),
               ),
             ),
@@ -375,7 +375,7 @@ class _EggPanel extends StatelessWidget {
         if (ready)
           EvochiButton(
               label: 'Hatch',
-              icon: 'star',
+              icon: const VoxelIcon('star', size: 22),
               onPressed: () async {
                 await showHatch(context, egg);
                 onChanged();
@@ -387,7 +387,7 @@ class _EggPanel extends StatelessWidget {
                 label: cared ? 'Cared for today' : 'Give gentle care',
                 tone: cared ? ButtonTone.cream : ButtonTone.green,
                 small: true,
-                icon: 'heart',
+                icon: const VoxelIcon('heart', size: 22),
                 onPressed: cared
                     ? null
                     : () {
@@ -410,7 +410,7 @@ class _EggPanel extends StatelessWidget {
               onPressed: () async {
                 final ok = await showEvochiDialog<bool>(context,
                     builder: (d) => Column(mainAxisSize: MainAxisSize.min, children: [
-                          Text('Move it to the collection?', style: EvochiText.section),
+                          const Text('Move it to the collection?', style: EvochiText.section),
                           const SizedBox(height: 8),
                           const Text('It keeps everything it has. It only stops growing until it is set in a cradle again.', textAlign: TextAlign.center, style: EvochiText.bodyText),
                           const SizedBox(height: 12),
@@ -439,7 +439,7 @@ class _EmptyPanel extends StatelessWidget {
         padding: const EdgeInsets.all(12),
         decoration: Kit.inset(),
         child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text('An empty cradle', style: EvochiText.cardTitle),
+          const Text('An empty cradle', style: EvochiText.cardTitle),
           const SizedBox(height: 4),
           Text(
             stored > 0 ? 'You have $stored egg${stored == 1 ? '' : 's'} in the collection. Set one here and your walking grows it.' : 'Find an egg out in the Wilds, or choose one at the Caravan, and set it here. Your walking grows it.',
@@ -447,7 +447,7 @@ class _EmptyPanel extends StatelessWidget {
           ),
           if (stored > 0) ...[
             const SizedBox(height: 10),
-            EvochiButton(label: 'Choose an egg', icon: 'chest', small: true, onPressed: onCollection),
+            EvochiButton(label: 'Choose an egg', icon: const VoxelIcon('chest', size: 22), small: true, onPressed: onCollection),
           ],
         ]),
       );
@@ -469,7 +469,7 @@ class _Collection extends StatelessWidget {
       Row(children: [
         BackSquareButton(onTap: onBack),
         const SizedBox(width: 8),
-        Expanded(child: Text('Egg collection', style: EvochiText.section)),
+        const Expanded(child: Text('Egg collection', style: EvochiText.section)),
         Text('${eggs.length} kept · $hatched hatched', style: EvochiText.caption),
       ]),
       const SizedBox(height: 8),
@@ -786,5 +786,5 @@ class EggPreviewPainter extends CustomPainter {
   void paint(Canvas canvas, Size size) =>
       paintEgg(canvas, Offset(size.width / 2, size.height / 2), size.height * 0.42, Egg(id: 'preview:$templateId', templateId: templateId, origin: '', acquiredAt: 0), 0, 'resting', aura: true, reduced: true);
   @override
-  bool shouldRepaint(EggPreviewPainter old) => old.templateId != templateId;
+  bool shouldRepaint(EggPreviewPainter oldDelegate) => oldDelegate.templateId != templateId;
 }

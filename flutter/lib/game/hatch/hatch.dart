@@ -157,9 +157,14 @@ g.ActionResult assignEgg(GameState state, String eggId, int now) {
   if (slot == null) return _fail(state, 'no_free_cradle');
   final s = state.copy();
   final egg = eggById(s, eggId)!;
+  final zone = g.zoneOf(s);
+  final today = dayKey(now, zone);
   egg.state = 'incubating';
   egg.slot = slot;
-  egg.assignedDay = dayKey(now, g.zoneOf(s));
+  egg.assignedDay = today;
+  // what was walked today before this moment stays the day's, not the egg's
+  final sofar = aggregateDays(s.steps.samples, zone)[today]?.steps ?? 0;
+  egg.stepsAwarded[today] = math.max(egg.stepsAwarded[today] ?? 0, math.min(sofar, _dayCap));
   if (fractionOf(egg) >= 1) egg.state = 'ready';
   return _ok(s, [g.GameEvent('egg_assigned', {'egg': eggId, 'slot': slot})]);
 }

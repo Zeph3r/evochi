@@ -51,7 +51,7 @@ class _CompanionsSheetState extends State<CompanionsSheet> {
       if (p != null) return _Card(pet: p, onBack: () => setState(() => _open = null));
       _open = null;
     }
-    var list = all.where((p) {
+    final list = all.where((p) {
       if (_q.isNotEmpty && !p.name.toLowerCase().contains(_q.toLowerCase()) && !hatch.paletteLabel(p.paletteId).toLowerCase().contains(_q.toLowerCase())) return false;
       return switch (_filter) {
         'fav' => hatch.isFavorite(s, p.id),
@@ -252,10 +252,10 @@ class _CardState extends State<_Card> {
             Text('${hatch.paletteLabel(p.paletteId)} · ${stageLabels[p.stage]}', style: EvochiText.cardTitle),
             const SizedBox(height: 4),
             Text('Level ${lvl.level}', style: EvochiText.bodyText),
-            Row(children: [Text('Bond ', style: EvochiText.bodyText), Hearts(filled: bondHearts(bond), bond: bond)]),
+            Row(children: [const Text('Bond ', style: EvochiText.bodyText), Hearts(filled: bondHearts(bond), bond: bond)]),
             const SizedBox(height: 4),
             Text(p.origin ?? 'Your first Evochi', style: EvochiText.caption),
-            if (active) ...[const SizedBox(height: 6), Tag('Active now', tone: TagTone.ok)],
+            if (active) ...[const SizedBox(height: 6), const Tag('Active now', tone: TagTone.ok)],
           ]),
         ),
       ]),
@@ -306,11 +306,11 @@ class _CardState extends State<_Card> {
       ),
       const SizedBox(height: 10),
       if (active)
-        EvochiButton(label: 'This is your active Evochi', tone: ButtonTone.cream, onPressed: null)
+        const EvochiButton(label: 'This is your active Evochi', tone: ButtonTone.cream, onPressed: null)
       else
         EvochiButton(
           label: 'Set active',
-          icon: 'paw',
+          icon: const VoxelIcon('paw', size: 22),
           onPressed: () {
             final r = c.run((st, n) => hatch.setActive(st, p.id), quiet: true);
             if (r.ok) {
@@ -340,7 +340,7 @@ class _CardState extends State<_Card> {
     await showEvochiDialog<void>(context, builder: (d) {
       return StatefulBuilder(builder: (d, setD) {
         return Column(mainAxisSize: MainAxisSize.min, children: [
-          Text('A new name', style: EvochiText.section),
+          const Text('A new name', style: EvochiText.section),
           const SizedBox(height: 8),
           TextField(controller: ctl, maxLength: 16, autofocus: true, decoration: InputDecoration(errorText: err, counterText: '', border: const OutlineInputBorder())),
           const SizedBox(height: 8),
