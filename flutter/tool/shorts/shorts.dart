@@ -152,10 +152,12 @@ class Pilot {
   Offset? walkTo;
   bool walkRun = false;
 
-  /// An ore node to work: steer to it, then strike until it bursts.
+  /// An ore node to work: steer to it, then strike until it bursts, a strike every [mineEvery] seconds
+  /// (0: as fast as the swing allows).
   OreRock? mineAt;
+  double mineEvery = 0, _struck = -9;
   final _rng = math.Random(3);
-  double _last = 0, _dodgeCd = 0;
+  double _last = 0, _dodgeCd = 0, _stuck = 0, _lx = 0, _lz = 0;
 
   void reset(PilotStart? s) {
     on = s?.on ?? true;
@@ -165,6 +167,8 @@ class Pilot {
     prefer = s?.prefer;
     walkTo = null;
     mineAt = null;
+    mineEvery = 0;
+    _struck = -9;
     _last = 0;
     _dodgeCd = 0;
   }
@@ -191,20 +195,29 @@ class Pilot {
     if (o != null) {
       if (o.broken) {
         mineAt = null;
+        _stuck = 0;
       } else {
         final dx = o.x - p.x, dz = o.z - p.z;
         final d = math.sqrt(dx * dx + dz * dz);
-        if (d > p.radius + o.radius + 6) {
+        // the swing reaches 9 ahead and takes a node within 22 of that: strike from 30 out, or as soon
+        // as the rock's own footprint stops the walk (the node sits in blocked cells)
+        final moved = (p.x - _lx).abs() + (p.z - _lz).abs();
+        _lx = p.x;
+        _lz = p.z;
+        _stuck = moved < 0.2 ? _stuck + dt : 0;
+        if (d > 30 && _stuck < 0.4) {
           i
             ..mx = dx
             ..mz = dz
             ..run = d > 70;
         } else {
+          final go = t - _struck >= mineEvery;
+          if (go) _struck = t;
           i
             ..mx = dx
             ..mz = dz
-            ..speed = 0.1
-            ..attack = true;
+            ..speed = 0.08
+            ..attack = go;
         }
         return;
       }
@@ -587,11 +600,24 @@ Widget nookStage() => const Scaffold(
           child: FramedWindow(
             padding: EdgeInsets.fromLTRB(10, 8, 10, 14),
             shadow: BoxShadow(color: Color(0x4D000000), blurRadius: 18, offset: Offset(0, -6)),
-            child: SingleChildScrollView(child: NookSheet()),
+            child: SingleChildScrollView(child: NookSheet(scale: 1.55)),
           ),
         ),
       ),
     );
+
+/// Where the Nook Shorts' captions sit: over the egg's card, clear of the egg.
+const _nookY = 430.0;
+
+/// Set your Evochi down just south of the nearest [kind] node (on a cut: a new floor coming up) and
+/// have it work the node: the pilot steers straight, and a gallery's rock is in the way of straight.
+OreRock? toOre(Take s, String kind, {bool work = true}) {
+  final o = _ore(s, kind) ?? _ore(s, '');
+  if (o == null) return null;
+  placeNear(s, o.x, o.z, dist: 24);
+  if (work) s.autopilot.mineAt = o;
+  return o;
+}
 
 /// Move an egg along (the recorder's hand): [progress] steps, and ready if it is there.
 void eggTo(Take s, int progress) {
@@ -640,14 +666,17 @@ final mineShort = Short(
           s.say(const [('A step counter\n', white), ('where you ', white), ('MINE??', gold)], secs: 2.2, size: 28);
           s.walk?.walkTo(116.5, -14.6);
         }),
-        // in the mine: to the first copper
-        Beat(3.0, (s) {
-          s.autopilot.mineAt = _ore(s, 'copper');
-          s.say(const [("That's copper.", white)], secs: 1.6);
+        // in the mine (the cut is the walk through the portal): set down by the first copper, a beat to
+        // look at it, then a strike every 1.5 s so it breaks at the payoff
+        Beat(2.0, (s) => toOre(s, 'copper', work: false), when: (s) => s.raid != null),
+        Beat(4.4, (s) {
+          s.autopilot
+            ..mineEvery = 1.5
+            ..mineAt = _ore(s, 'copper');
+          s.say(const [("That's copper.", white)], secs: 1.8);
         }, when: (s) => s.raid != null),
         Beat(6.0, (s) {
-          s.say(const [('He walked here.\n', white), ('1,800 steps.', gold)], secs: 2.2, size: 27);
-          s.autopilot.mineAt = _ore(s, '');
+          s.say(const [('He walked here.\n', white), ('1,800 steps.', gold)], secs: 2.6, size: 27);
         }, when: (s) => (s.raid?.ores.any((o) => o.broken) ?? false)),
         Beat(11.5, (s) {
           s.mark = s.t;
@@ -673,16 +702,24 @@ final coinsShort = Short(
       preroll: 1.2,
       zoom: 0.64,
       quiet: true,
-      pilot: const PilotStart(signature: false, bolts: false),
+      pilot: const PilotStart(on: false, signature: false, bolts: false),
       setup: (s) async {
         await _god(s);
-        toFirstClearing(s, dist: 26);
+        toFirstClearing(s, dist: 34);
       },
       beats: [
         Beat(0.05, (s) => s.say(const [("In my game enemies\n", white), ("don't drop loot.", white)], secs: 2.3, size: 27)),
-        Beat(3.0, (s) => s.say(const [('They drop ', white), ('COINS', gold)], secs: 1.5, size: 32), when: (s) => (s.raid?.calmed ?? 0) > 0),
-        Beat(4.6, (s) => s.say(const [('...that fly to you', white)], secs: 1.8, size: 27), when: (s) => (s.raid?.calmed ?? 0) > 0),
-        Beat(9.0, (s) => s.say(const [("That's new ears\n", white), ('for him.', pink)], secs: 2.2, size: 27)),
+        Beat(1.2, (s) {
+          s.autopilot.on = true;
+          // the nearest one goes down in a few hits (the take is about what it drops)
+          final r = s.raid!;
+          final f = (r.hostile.toList()..sort((a, b) => r.pet.dist(a).compareTo(r.pet.dist(b)))).firstOrNull;
+          if (f != null) f.hp = math.min(f.hp, f.maxHp * 0.3);
+        }),
+        Beat(2.6, (s) => s.say(const [('They drop ', white), ('COINS', gold)], secs: 1.6, size: 32), when: (s) => (s.raid?.calmed ?? 0) > 0),
+        Beat(2.7, (s) => s.mark = s.t, when: (s) => (s.raid?.calmed ?? 0) > 0),
+        Beat(3.0, (s) => s.say(const [('...that fly to you', white)], secs: 1.8, size: 27), when: (s) => s.mark != null && s.t - s.mark! > 1.4),
+        Beat(9.0, (s) => s.say(const [('Coins buy his looks.\n', white), ('Never his steps.', mint)], secs: 2.4, size: 26)),
         Beat(12.3, (s) => s.say(const [('Again.', white)], secs: 1.8, size: 30)),
       ],
     ),
@@ -704,22 +741,19 @@ final eggShort = Short(
       pilot: const PilotStart(on: false),
       loaded: () => true,
       beats: [
-        Beat(0.05, (s) => s.say(const [('I walked ', white), ('2,000 steps', gold), ('\nand my egg hatched', white)], secs: 2.4, size: 27)),
-        Beat(2.8, (s) => s.say(const [('100 to go.', white)], secs: 1.6, size: 30)),
-        Beat(4.8, (s) {
-          s.say(const [('So I went outside.', white)], secs: 1.8, size: 27);
-        }),
-        Beat(6.6, (s) {
-          eggTo(s, 2500);
-          s.say(const [("...and it's ready.", gold)], secs: 1.6, size: 27);
-        }),
+        Beat(0.05, (s) => s.say(const [('I walked ', white), ('2,000 steps', gold), ('\nand my egg hatched', white)], secs: 2.4, size: 27, y: _nookY)),
+        Beat(2.8, (s) => s.say(const [('100 to go.', white)], secs: 1.6, size: 30, y: _nookY)),
+        Beat(4.6, (s) => s.say(const [('So I went outside.', white)], secs: 2.0, size: 27, y: _nookY)),
+        // the bar fills, step by step
+        for (var k = 1; k <= 10; k++) Beat(4.8 + k * 0.16, (s) => eggTo(s, 2400 + k * 10)),
+        Beat(6.9, (s) => s.say(const [("...and it's ready.", gold)], secs: 1.4, size: 28, y: _nookY)),
         Beat(8.4, (s) => s.tapText('Hatch')),
         Beat(12.2, (s) {
           final pet = hatch.allPets(s.state).where((p) => p.name == 'Little One').firstOrNull;
           if (pet != null) s.ctl.run((st, n) => hatch.renameCompanion(st, pet.id, 'Moss'), quiet: true);
-          s.say(const [('Hi, Moss.', white)], secs: 1.8, size: 32);
+          s.say(const [('Hi, Moss.', white)], secs: 1.8, size: 32, y: 72);
         }),
-        Beat(14.2, (s) => s.say(const [("He's been waiting too.", white)], secs: 1.8, size: 26)),
+        Beat(14.2, (s) => s.say(const [("He's been waiting too.", white)], secs: 1.8, size: 26, y: 72)),
       ],
     ),
   ],
@@ -742,16 +776,15 @@ final groveShort = Short(
       exits: false,
       setup: (s) async {
         final w = s.walk!;
+        // in the Grove, across the glade from the moss bed where the hatchling rests
         w.me
-          ..x = -6.0
-          ..z = 20.0
+          ..x = -23.0
+          ..z = 28.0
           ..dir = 6;
       },
       beats: [
-        Beat(0.05, (s) {
-          s.say(const [('I got a second pet.', white)], secs: 1.6, size: 28);
-          s.walk?.walkTo(-23.0, 24.4);
-        }),
+        Beat(0.05, (s) => s.say(const [('I got a second pet.', white)], secs: 1.6, size: 28)),
+        Beat(1.4, (s) => s.walk?.walkTo(-32.6, 27.2)),
         Beat(1.8, (s) => s.say(const [("I thought he'd be jealous.", white)], secs: 2.2, size: 26)),
         Beat(5.0, (s) {
           s.walk?.me.dir = 6;
@@ -871,19 +904,22 @@ final shaftShort = Short(
           if (g != null) s.autopilot.walkTo = Offset(g.$1, g.$2 + 26); // to the shaft's mouth
         }),
         Beat(3.6, (s) => s.key(LogicalKeyboardKey.keyN)),
-        Beat(4.0, (s) {
-          s.autopilot.mineAt = _ore(s, 'iron') ?? _ore(s, '');
-          s.say(const [('Iron. ', white), ("Copper won't cut it.", blue)], secs: 2.2, size: 26);
-        }, when: (s) => (s.screen?.map?.depth ?? 1) >= 2 || s.t > 5.5),
-        // the first swing bounces; then the pick that opens iron (the recorder's hand)
-        Beat(7.2, (s) => s.raid!.oreTier = 2),
-        Beat(8.5, (s) => s.say(const [("That's a copper pick's limit.", white)], secs: 2.0, size: 25), when: (s) => (s.raid?.ores.any((o) => o.broken) ?? false)),
-        Beat(12.5, (s) {
-          s.mark = s.t;
-          s.say(const [("Something's glowing\n", white), ('further down.', mint)], secs: 2.4, size: 26);
+        Beat(3.7, (s) {
+          s.autopilot
+            ..walkTo = null
+            ..mineEvery = 1.0;
+          toOre(s, 'iron');
+        }, when: (s) => (s.screen?.map?.depth ?? 1) >= 2),
+        Beat(4.4, (s) => s.say(const [('Iron. ', white), ("Copper won't cut it.", blue)], secs: 1.8, size: 26), when: (s) => (s.screen?.map?.depth ?? 1) >= 2),
+        // the first swings bounce; then the pick that opens iron (the recorder's hand)
+        Beat(6.2, (s) {
+          s.raid!.oreTier = 2;
+          s.say(const [('So: an ', white), ('Iron Pick.', gold)], secs: 1.8, size: 28);
         }),
+        Beat(8.0, (s) => s.mark = s.t, when: (s) => (s.raid?.ores.any((o) => o.broken && o.kind == 'iron') ?? false) || s.t > 13),
+        Beat(8.1, (s) => s.say(const [("Something's glowing\n", white), ('further down.', mint)], secs: 2.6, size: 26), when: (s) => s.mark != null && s.t - s.mark! > 1.5),
       ],
-      until: (s) => s.mark != null && s.t - s.mark! > 2.6,
+      until: (s) => s.mark != null && s.t - s.mark! > 4.2,
     ),
   ],
 );
@@ -904,16 +940,16 @@ final stagesShort = Short(
       pilot: const PilotStart(on: false),
       loaded: () => true,
       beats: [
-        Beat(0.05, (s) => s.say(const [('This egg came\n', white), ('from the woods.', mint)], secs: 1.4, size: 27)),
+        Beat(0.05, (s) => s.say(const [('This egg came\n', white), ('from the woods.', mint)], secs: 1.4, size: 27, y: _nookY)),
         Beat(1.1, (s) => eggTo(s, 600)),
         Beat(1.9, (s) => eggTo(s, 1300)),
         Beat(2.7, (s) => eggTo(s, 1800)),
         Beat(3.5, (s) {
           eggTo(s, 2000);
-          s.say(const [('2,500 steps', gold)], secs: 1.6, size: 32);
+          s.say(const [('2,000 steps', gold)], secs: 1.6, size: 32, y: _nookY);
         }),
         Beat(5.4, (s) => s.tapText('Hatch')),
-        Beat(8.3, (s) => s.say(const [('This came\n', white), ('out of it.', gold)], secs: 1.7, size: 30)),
+        Beat(8.3, (s) => s.say(const [('This came\n', white), ('out of it.', gold)], secs: 1.7, size: 30, y: 72)),
       ],
     ),
     Clip(
@@ -926,8 +962,8 @@ final stagesShort = Short(
       setup: (s) async {
         final w = s.walk!;
         w.me
-          ..x = -22.0
-          ..z = 24.6
+          ..x = -32.6
+          ..z = 27.2
           ..dir = 6;
       },
       beats: [],

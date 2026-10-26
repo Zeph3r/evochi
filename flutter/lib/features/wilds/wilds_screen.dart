@@ -2651,8 +2651,8 @@ class _MapPainter extends CustomPainter {
       // underground, a pale rim of its own light round the body, so it never sinks into the rock
       final rim = Paint()
         ..filterQuality = FilterQuality.low
-        ..colorFilter = const ColorFilter.mode(Color(0x9CFFF0C4), BlendMode.srcIn);
-      for (final d in const [Offset(1.6, 0), Offset(-1.6, 0), Offset(0, 1.6), Offset(0, -1.6), Offset(1.1, 1.1), Offset(-1.1, -1.1), Offset(1.1, -1.1), Offset(-1.1, 1.1)]) {
+        ..colorFilter = const ColorFilter.mode(Color(0x66FFF0C4), BlendMode.srcIn);
+      for (final d in const [Offset(1.2, 0), Offset(-1.2, 0), Offset(0, 1.2), Offset(0, -1.2)]) {
         canvas.drawImageRect(gait.img, src, dst.shift(d * (s._u / 2.7).clamp(0.8, 2.0)), rim);
       }
     }

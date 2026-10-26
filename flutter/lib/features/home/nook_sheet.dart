@@ -31,15 +31,28 @@ import 'companions_sheet.dart';
 Future<void> showNook(BuildContext context) => showEvochiSheet<void>(context, builder: (_) => const NookSheet());
 
 class NookSheet extends StatefulWidget {
-  const NookSheet({super.key});
+  const NookSheet({super.key, this.scale = 1.0});
+
+  /// How big the cradles are drawn (the Shorts film the egg up close).
+  final double scale;
   @override
   State<NookSheet> createState() => _NookSheetState();
 }
 
 class _NookSheetState extends State<NookSheet> with SingleTickerProviderStateMixin {
-  // one clock for the eggs' breathing and wobble (never wrapping, so nothing ever jumps)
-  late final Ticker _ticker = createTicker((e) => setState(() => _t = e.inMicroseconds / 1e6))..start();
+  // one clock for the eggs' breathing and wobble (never wrapping, so nothing ever jumps); made and
+  // started in initState (a lazy one was never touched by build, so it never ran)
+  late final Ticker _ticker;
   double _t = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = createTicker((e) {
+      if (mounted) setState(() => _t = e.inMicroseconds / 1e6);
+    })
+      ..start();
+  }
   double _careAt = -9; // when the chosen egg was last cared for (its bounce and hearts)
   int _careSlot = -1;
   late final PageController _page = PageController(viewportFraction: 0.46, initialPage: _pageMemory);
@@ -81,7 +94,7 @@ class _NookSheetState extends State<NookSheet> with SingleTickerProviderStateMix
         else ...[
           // the cradles, in a row you swipe
           SizedBox(
-            height: 176,
+            height: 176 * widget.scale,
             child: Stack(children: [
               Positioned.fill(
                 child: DecoratedBox(
@@ -96,13 +109,16 @@ class _NookSheetState extends State<NookSheet> with SingleTickerProviderStateMix
                 controller: _page,
                 itemCount: cards.length,
                 onPageChanged: (i) => setState(() => _pageMemory = i),
-                itemBuilder: (_, i) => _Cradle(
-                    egg: cards[i],
-                    t: _t,
-                    careAt: i == _careSlot ? _careAt : -9,
-                    selected: i == page,
-                    slot: i,
-                    onTap: () => _page.animateToPage(i, duration: const Duration(milliseconds: 280), curve: Curves.easeOut)),
+                itemBuilder: (_, i) => Transform.scale(
+                  scale: widget.scale,
+                  child: _Cradle(
+                      egg: cards[i],
+                      t: _t,
+                      careAt: i == _careSlot ? _careAt : -9,
+                      selected: i == page,
+                      slot: i,
+                      onTap: () => _page.animateToPage(i, duration: const Duration(milliseconds: 280), curve: Curves.easeOut)),
+                ),
               ),
               if (cards.length > 1) ...[
                 Positioned(left: 4, top: 0, bottom: 0, child: _Arrow(left: true, on: page > 0, onTap: () => _page.previousPage(duration: const Duration(milliseconds: 260), curve: Curves.easeOut))),
