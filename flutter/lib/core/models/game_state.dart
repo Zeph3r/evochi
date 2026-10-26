@@ -6,11 +6,13 @@ import 'dart:convert';
 import 'economy_state.dart';
 import 'home_state.dart';
 import 'story_state.dart';
+import 'hatch_state.dart';
 import 'mining_state.dart';
 import 'trails_state.dart';
 
 export 'home_state.dart';
 export 'story_state.dart';
+export 'hatch_state.dart';
 export 'mining_state.dart';
 export 'trails_state.dart';
 
@@ -240,6 +242,7 @@ class Pet {
     required this.createdAt,
     required this.createdDay,
     this.speciesId = 'lizard',
+    this.origin,
     Map<String, int>? xpAwarded,
     List<PetEvent>? events,
     List<BondEvent>? bondEvents,
@@ -253,6 +256,7 @@ class Pet {
   final String id;
   final String? requestId;
   final String speciesId;
+  final String? origin; // where it came from, in words (an egg's provenance), null for the first Evochi
   String name;
   final String paletteId;
   int stage;
@@ -269,6 +273,7 @@ class Pet {
         id: j['id'] as String,
         requestId: _s(j['requestId']),
         speciesId: (j['speciesId'] as String?) ?? 'lizard',
+        origin: j['origin'] as String?,
         name: j['name'] as String,
         paletteId: j['paletteId'] as String,
         stage: _i(j['stage'], 1),
@@ -285,6 +290,7 @@ class Pet {
         'id': id,
         'requestId': requestId,
         'speciesId': speciesId,
+        if (origin != null) 'origin': origin,
         'name': name,
         'paletteId': paletteId,
         'stage': stage,
@@ -387,6 +393,8 @@ class GameState {
     TrailsState? trails,
     EconomyState? economy,
     MiningState? mining,
+    HatchState? hatch,
+    List<Pet>? companions,
     this.clockOffset = 0,
     this.configVersion = '1.0.0',
     this.savedAtMs = 0,
@@ -404,7 +412,9 @@ class GameState {
         home = home ?? HomeState(),
         trails = trails ?? TrailsState(),
         economy = economy ?? EconomyState(),
-        mining = mining ?? MiningState();
+        mining = mining ?? MiningState(),
+        hatch = hatch ?? HatchState(),
+        companions = companions ?? [];
 
   Player? player;
   Onboarding onboarding;
@@ -423,6 +433,8 @@ class GameState {
   final TrailsState trails; // Lumen Trails: discoveries, guild XP, companions, the live encounter (trails_state.dart)
   final EconomyState economy; // Plus, the Season Pass, the Caravan, armed rare items, Play purchases (economy_state.dart)
   final MiningState mining; // mining gear and the loadout worn on the trail and in the mines (mining_state.dart)
+  final HatchState hatch; // the Hatching Nook's eggs and cradles (hatch_state.dart)
+  final List<Pet> companions; // the Evochis resting while another is active: each keeps its growth, bond and gear
   int clockOffset; // playtest tools only
   final int createdAt;
   String tzHint;
@@ -453,6 +465,8 @@ class GameState {
       trails: TrailsState.fromJson(j['trails']),
       economy: EconomyState.fromJson(j['economy']),
       mining: MiningState.fromJson(j['mining']),
+      hatch: HatchState.fromJson(j['hatch']),
+      companions: _l(j['companions']).map((e) => Pet.fromJson(_m(e))).toList(),
       clockOffset: _i(_m(j['debug'])['clockOffset']),
       configVersion: (j['configVersion'] as String?) ?? '1.0.0',
       savedAtMs: _i(j['savedAtMs']),
@@ -484,6 +498,8 @@ class GameState {
         'trails': trails.toJson(),
         'economy': economy.toJson(),
         'mining': mining.toJson(),
+        'hatch': hatch.toJson(),
+        'companions': companions.map((e) => e.toJson()).toList(),
         'debug': {'clockOffset': clockOffset},
         'tzHint': tzHint,
         'createdAt': createdAt,
