@@ -137,6 +137,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   WildsMap? _map;
   Raid? _raid;
   WalkerArt? _petArt, _sherArt;
+  double _heft = 0; // how heavily your Evochi walks: 0 an Eggling, 1 an Elder
   // the guardian's entrance (loaded in the background; without it the fight starts as before)
   BossIntroArt? _introArt;
   CineEvochiArt? _cineEvochi;
@@ -252,6 +253,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       if (!mounted) return;
       final m = r[0] as WildsMap;
       _petArt = r[1] as WalkerArt;
+      _heft = ((pet?.stage ?? 1).clamp(1, 3) - 1) / 2;
       _sherArt = r[2] as WalkerArt;
       _foeArt['thornling'] = r[3] as FoeArt;
       _foeArt['sporecap'] = r[4] as FoeArt;
@@ -2474,22 +2476,30 @@ class _MapPainter extends CustomPainter {
   void _caveDark(Canvas canvas, Size size, WildsMap m, Raid r) {
     final rec = ui.PictureRecorder();
     final c = Canvas(rec);
-    c.drawRect(Offset.zero & size, Paint()..color = const Color(0xB40A0810));
+    // a blue-black dusk rather than a blackout: the galleries read, the lights still mean something
+    c.drawRect(Offset.zero & size, Paint()..color = const Color(0x6E0C0A18));
     final clear = Paint()..blendMode = BlendMode.dstOut;
-    void light(Offset at, double rad, double a) {
-      c.drawCircle(at, rad, clear..shader = ui.Gradient.radial(at, rad, [Color.fromRGBO(0, 0, 0, a), const Color(0x00000000)], const [0.25, 1.0]));
+    void light(Offset at, double rad, double a, [double core = 0.25]) {
+      c.drawCircle(at, rad, clear..shader = ui.Gradient.radial(at, rad, [Color.fromRGBO(0, 0, 0, a), const Color(0x00000000)], [core, 1.0]));
     }
     final u = s._u / 2.7;
-    light(s._toScreen(r.pet.x, r.pet.z) - Offset(0, 14 * u), 150 * u, 1.0);
+    final pet = s._toScreen(r.pet.x, r.pet.z) - Offset(0, 14 * u);
+    light(pet, 210 * u, 1.0, 0.4); // your Evochi carries its own light: a wide, fully clear pool round it
     final sh = r.sher;
-    if (sh != null) light(s._toScreen(sh.x, sh.z) - Offset(0, 14 * u), 90 * u, 0.8);
+    if (sh != null) light(s._toScreen(sh.x, sh.z) - Offset(0, 14 * u), 110 * u, 0.85);
     for (final (x, z, kind) in m.fx) {
-      if (kind == 'lamp' || kind == 'fire') light(s._toScreen(x, z) - Offset(0, 20 * u), 130 * u, 0.95);
+      if (kind == 'lamp' || kind == 'fire') light(s._toScreen(x, z) - Offset(0, 20 * u), 150 * u, 0.95, 0.3);
     }
     for (final o in r.ores) {
-      if (o.kind == 'lumen' && !o.broken) light(s._toScreen(o.x, o.z) - Offset(0, 10 * u), 70 * u, 0.7);
+      if (o.kind == 'lumen' && !o.broken) light(s._toScreen(o.x, o.z) - Offset(0, 10 * u), 85 * u, 0.75);
     }
     canvas.drawPicture(rec.endRecording());
+    // the lamplight's warmth on what stands near your Evochi (over the dark, so it reads as light cast)
+    if (!rm) {
+      canvas.drawCircle(pet, 120 * u, Paint()
+        ..shader = ui.Gradient.radial(pet, 120 * u, [const Color(0x30FFC978), const Color(0x00FFC978)])
+        ..blendMode = BlendMode.plus);
+    }
   }
 
   double get _up => s._cosP * s._u; // screen px per world unit of height
@@ -2603,7 +2613,7 @@ class _MapPainter extends CustomPainter {
   void _walker(Canvas canvas, Actor w, WalkerArt art, Offset g, bool isPet) {
     final r = s._raid!;
     final gait = art.gait(w.running && w.moving);
-    final col = w.moving ? 1 + (w.phase * 8).floor() % 8 : 0;
+    final col = gait.col(w.phase, w.moving);
     final k = s._u / walkerDrawScale;
     // afterimages of a dodge roll
     if (isPet) {
@@ -2620,7 +2630,7 @@ class _MapPainter extends CustomPainter {
       if (w.glow > 0) _glow(canvas, g - Offset(0, art.gy * k * 0.4), 26 * s._u / 2.7, Color.fromRGBO(159, 240, 218, 0.55 * w.glow));
       if (w.slowT > 0) _glow(canvas, g - Offset(0, art.gy * k * 0.3), 20 * s._u / 2.7, const Color(0x55A27BD6));
     }
-    final pose = gaitPose(w.phase, w.moving && w.alive, run: w.running ? 1 : 0, reduced: rm);
+    final pose = gaitPose(w.phase, w.moving && w.alive, run: w.running ? 1 : 0, reduced: rm, heft: isPet ? s._heft : 0.4);
     canvas.save();
     canvas.translate(g.dx, g.dy - w.lift * _up - pose.bob * art.fh * k);
     if (!rm) {
@@ -2632,7 +2642,17 @@ class _MapPainter extends CustomPainter {
     }
     final dst = Rect.fromLTWH(-art.gx * k, -art.gy * k, art.fw * k, art.fh * k);
     final paint = _spritePaint(w);
-    canvas.drawImageRect(gait.img, Rect.fromLTWH(col * art.fw, w.dir * art.fh, art.fw, art.fh), dst, paint);
+    final src = Rect.fromLTWH(col * art.fw, w.dir * art.fh, art.fw, art.fh);
+    if (isPet && (s._map?.mine ?? false)) {
+      // underground, a pale rim of its own light round the body, so it never sinks into the rock
+      final rim = Paint()
+        ..filterQuality = FilterQuality.low
+        ..colorFilter = const ColorFilter.mode(Color(0x9CFFF0C4), BlendMode.srcIn);
+      for (final d in const [Offset(1.6, 0), Offset(-1.6, 0), Offset(0, 1.6), Offset(0, -1.6), Offset(1.1, 1.1), Offset(-1.1, -1.1), Offset(1.1, -1.1), Offset(-1.1, 1.1)]) {
+        canvas.drawImageRect(gait.img, src, dst.shift(d * (s._u / 2.7).clamp(0.8, 2.0)), rim);
+      }
+    }
+    canvas.drawImageRect(gait.img, src, dst, paint);
     // what it wears rides the body's bob
     if (isPet) {
       final lift = col < gait.lift.length ? gait.lift[col] : 0.0;

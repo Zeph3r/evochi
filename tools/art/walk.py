@@ -54,7 +54,21 @@ QUAD = {
     'walk': dict(stride=2.5, lift=2.5, bob=1.0, flight=0.0, waddle=4.0, squash=0.03),
     'run': dict(stride=3.5, lift=3.5, bob=2.0, flight=1.0, waddle=6.0, squash=0.06),
 }
-QUAD_STAGE = {1: 1.0, 2: 1.15, 3: 1.4}               # bigger stages take longer steps
+QUAD_STAGE = {1: 1.0, 2: 1.15, 3: 1.4}               # bigger stages take longer steps (Flint's sheets)
+
+# The Evochi's own gaits, a stage at a time: real strides (so the feet take the ground in a few steps
+# rather than a shuffle of many), the bob and the waddle easing off as they grow heavier, and from the
+# Sprout on a head that nods a beat behind the body and a tail that swings with the walk. Twelve frames
+# a cycle, for the longer steps.
+EVO_FRAMES = 12
+EVO_GAITS = {
+    1: {'walk': dict(stride=3.5, lift=2.4, bob=0.8, flight=0.0, waddle=5.0, squash=0.03, nod=0.0, tail=0.0),
+        'run': dict(stride=5.0, lift=4.0, bob=1.6, flight=1.0, waddle=6.0, squash=0.06, nod=0.0, tail=0.0)},
+    2: {'walk': dict(stride=6.0, lift=3.0, bob=0.6, flight=0.0, waddle=3.0, squash=0.02, nod=0.9, tail=2.2),
+        'run': dict(stride=8.5, lift=5.0, bob=1.4, flight=1.0, waddle=3.5, squash=0.05, nod=1.4, tail=3.2)},
+    3: {'walk': dict(stride=7.0, lift=4.0, bob=0.5, flight=0.0, waddle=1.8, squash=0.015, nod=1.0, tail=3.0),
+        'run': dict(stride=10.5, lift=6.5, bob=1.4, flight=1.0, waddle=2.6, squash=0.04, nod=1.8, tail=4.5)},
+}
 BIPED = {
     'walk': dict(stride=2.0, lift=1.6, bob=0.6, flight=0.0, arms=0.9, lean=0.0, waddle=2.5, squash=0.02),
     'run': dict(stride=3.0, lift=2.8, bob=1.2, flight=0.6, arms=1.6, lean=1.5, waddle=3.0, squash=0.04),
@@ -80,21 +94,32 @@ def swing(s, stride, lift):
     return 0.0, stride - 2 * stride * u
 
 
-def quad_pose(gait, stage):
-    g, k = QUAD[gait], QUAD_STAGE[stage]
+def quad_pose(gait, stage, frames=FRAMES, params=None):
+    """A four-footed walk: [params] a gait's own numbers (EVO_GAITS), else the shared QUAD scaled by
+    stage (Flint's sheets)."""
+    if params is None:
+        g, k = QUAD[gait], QUAD_STAGE[stage]
+    else:
+        g, k = params, 1.0
 
     def pose(i):
-        """frame i (None = idle): the feet {(side, front): (dy, dz)} relative to the body, and the bob."""
+        """frame i (None = idle): the feet {(side, front): (dy, dz)} relative to the body, the head's
+        offset and the tail's sideways swing (both from rest), and the bob."""
         if i is None:
-            return {'feet': {}}, 0.0
-        t = i / FRAMES
+            return {'feet': {}, 'head': (0.0, 0.0, 0.0), 'tail': 0.0}, 0.0
+        t = i / frames
         bob = q(g['bob'] * k * math.sin(2 * math.pi * t) ** 2)
         air = q(max(0.0, bob - g['bob'] * k * (1 - g['flight'] * 0.6)))      # the planted feet leave the ground
         feet = {}
         for (side, front), ph in (((-1, True), 0.0), ((1, False), 0.0), ((1, True), 0.5), ((-1, False), 0.5)):
             dy, dz = swing((t + ph) % 1.0, g['stride'] * k, g['lift'] * k)
             feet[(side, front)] = (q(max(dy, air)) - bob, q(dz))
-        return {'feet': feet}, bob
+        # the head rides a beat behind the body's bob (so it reads as a nod, not a lift), reaching a
+        # touch forward as a front foot swings; the tail swings side to side once a cycle
+        nod = g.get('nod', 0.0)
+        head = (0.0, -nod * math.sin(2 * math.pi * t - 0.9) ** 2, 0.35 * nod * math.sin(2 * math.pi * (t + 0.25)))
+        tail = g.get('tail', 0.0) * math.sin(2 * math.pi * t)
+        return {'feet': feet, 'head': head, 'tail': tail}, bob
     return pose
 
 
@@ -160,21 +185,24 @@ def frame_box(items, ground, scale, extra=None):
 class Walker:
     """One kind of walker: how to build a pose, its gaits, the variants (palettes) to render."""
 
-    def __init__(self, key, builder, poses, variants, scale, radius, gaits, stage_k=1.0):
+    def __init__(self, key, builder, poses, variants, scale, radius, gaits, stage_k=1.0, nframes=FRAMES):
         self.key, self.builder, self.poses, self.variants = key, builder, poses, variants
         self.scale, self.radius, self.gaits, self.stage_k = scale, radius, gaits, stage_k
+        self.nframes = nframes  # frames a cycle (the sheet has one more: the idle stance first)
 
     def frames(self, gait):
         pose = self.poses[gait]
-        ps = [pose(None)] + [pose(i) for i in range(FRAMES)]
+        ps = [pose(None)] + [pose(i) for i in range(self.nframes)]
         return [(self.builder(p), bob) for p, bob in ps]
 
 
 def evochi(stage):
+    gaits = EVO_GAITS[stage]
+
     def builder(p):
-        return build(stage, 2, feet=p['feet'], lo_y=-3)
-    return Walker(f's0{stage}', builder, {g: quad_pose(g, stage) for g in QUAD}, VARIANT_ORDER, STAGE_SCALE[stage],
-                  RADIUS[stage], QUAD, QUAD_STAGE[stage])
+        return build(stage, 2, feet=p['feet'], head=p.get('head'), tail=p.get('tail', 0.0), lo_y=-3)
+    return Walker(f's0{stage}', builder, {g: quad_pose(g, stage, EVO_FRAMES, gaits[g]) for g in gaits}, VARIANT_ORDER,
+                  STAGE_SCALE[stage], RADIUS[stage], gaits, 1.0, EVO_FRAMES)
 
 
 def sher():
@@ -207,8 +235,9 @@ def render_walker(out, wk: Walker, preview=False, palettes=None, gaits=None):
     built = {g: wk.frames(g) for g in wk.gaits}
     G, w, h, gx, gy = layout(wk, built)
     print(wk.key, 'frame', w, h, 'ground', round(gx, 1), round(gy, 1), flush=True)
+    nf = wk.nframes
     meta = {'frameW': w, 'frameH': h, 'ground': [round(gx, 1), round(gy, 1)], 'scale': wk.scale,
-            'radius': wk.radius, 'gaits': {}}
+            'radius': wk.radius, 'frames': nf, 'gaits': {}}
     for gait, g in wk.gaits.items():
         bobs = [b for _, b in built[gait]]
         meta['gaits'][gait] = {
@@ -217,8 +246,8 @@ def render_walker(out, wk: Walker, preview=False, palettes=None, gaits=None):
             # app turns the sprite by roll x cos(facing): it reads left-right from the front, not at all
             # side-on), a squash (vertical scale) on each footfall, and how far the body is lifted (px up),
             # for the wearables drawn over it
-            'roll': [0.0] + [round(g['waddle'] * math.sin(2 * math.pi * i / FRAMES), 2) for i in range(FRAMES)],
-            'squash': [1.0] + [round(1.0 - g['squash'] * math.cos(2 * math.pi * i / FRAMES) ** 8, 3) for i in range(FRAMES)],
+            'roll': [0.0] + [round(g['waddle'] * math.sin(2 * math.pi * i / nf), 2) for i in range(nf)],
+            'squash': [1.0] + [round(1.0 - g['squash'] * math.cos(2 * math.pi * i / nf) ** 8, 3) for i in range(nf)],
             'lift': [round(b * math.cos(math.radians(MAP_PITCH)) * wk.scale, 1) for b in bobs],
             # world units covered per cycle without the feet sliding (the app paces the frames by it)
             'cycle': round(4 * g['stride'] * wk.stage_k, 2),
@@ -228,7 +257,7 @@ def render_walker(out, wk: Walker, preview=False, palettes=None, gaits=None):
             name, pal = (var, None) if isinstance(var, str) else var
             if palettes and name not in palettes:
                 continue
-            sheet = Image.new('RGBA', (w * (FRAMES + 1), h * len(DIRS)), (0, 0, 0, 0))
+            sheet = Image.new('RGBA', (w * (nf + 1), h * len(DIRS)), (0, 0, 0, 0))
             for r, d in enumerate(DIRS):
                 cam = cam_for(d)
                 light = light_for(cam.yaw)

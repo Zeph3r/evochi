@@ -29,10 +29,14 @@ Future<Map<String, dynamic>> _json(String f) async => (jsonDecode(await rootBund
 List<double> _nums(Object? l) => [for (final v in (l as List? ?? const [])) (v as num).toDouble()];
 
 class WildsGait {
-  WildsGait(this.img, this.roll, this.squash, this.lift, this.cycle);
+  WildsGait(this.img, this.roll, this.squash, this.lift, this.cycle, [this.frames = 8]);
   final ui.Image img;
   final List<double> roll, squash, lift;
   final double cycle; // world units per walk cycle, as drawn
+  final int frames; // frames a cycle on the sheet (after the idle stance in column 0)
+
+  /// The sheet column for a walk [phase] (cycles): the idle stance when still.
+  int col(double phase, bool moving) => moving ? 1 + (phase * frames).floor() % frames : 0;
 }
 
 /// The body's own motion while walking, from the continuous walk phase (cycles), on top of the sheet's
@@ -47,12 +51,16 @@ class GaitPose {
   static const still = GaitPose(0, 1, 1, 0, false);
 }
 
-GaitPose gaitPose(double phase, bool moving, {double run = 0, bool reduced = false}) {
+/// [heft] 0 for an Eggling (it bounces), 1 for an Elder (it carries its weight: a third of the bounce,
+/// the sway mostly gone). The sheets already step, nod and swing their tails; this is the body on top.
+GaitPose gaitPose(double phase, bool moving, {double run = 0, bool reduced = false, double heft = 0}) {
   if (!moving || reduced) return GaitPose.still;
   final step = phase * 2; // two footfalls a cycle
   final b = 0.5 - 0.5 * math.cos(step * 2 * math.pi); // 0 as a foot lands, 1 mid-step
-  final amp = 1 + 0.55 * run;
-  return GaitPose(0.032 * b * amp, 1.045 - 0.06 * b, 0.955 + 0.07 * b, 4.0 * amp * math.sin(phase * 2 * math.pi), step - step.floor() < 0.09);
+  final amp = (1 + 0.55 * run) * (1 - 0.68 * heft);
+  final sq = 1 - 0.6 * heft;
+  return GaitPose(0.032 * b * amp, 1 + (0.045 - 0.06 * b) * sq, 1 + (-0.045 + 0.07 * b) * sq, 4.0 * amp * (1 - 0.3 * heft) * math.sin(phase * 2 * math.pi),
+      step - step.floor() < 0.09);
 }
 
 class WalkerArt {
@@ -72,6 +80,7 @@ class WalkerArt {
     final walk = await _json('wilds_walk.json');
     final w = ((walk['walkers'] as Map)[key] as Map).cast<String, dynamic>();
     final sheetScale = (w['scale'] as num? ?? walkerDrawScale).toDouble();
+    final frames = (w['frames'] as num? ?? walk['frames'] as num? ?? 8).toInt();
     final gaits = <String, WildsGait>{};
     for (final e in (w['gaits'] as Map).entries) {
       final g = (e.value as Map).cast<String, dynamic>();
@@ -85,6 +94,7 @@ class WalkerArt {
         _nums(g['lift']),
         // the stride is in the walker's own units; drawn at walkerDrawScale it covers less ground
         (g['cycle'] as num? ?? 10).toDouble() * sheetScale / walkerDrawScale,
+        frames,
       );
     }
     final wear = <String, ui.Image>{};

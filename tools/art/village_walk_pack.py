@@ -94,7 +94,8 @@ def _home():
         title='Your Home', scene=HW.scene_home_walk, view='home', area=(HW.X0, HW.X1, HW.Z0, HW.Z1),
         npcs={},
         arrive={'nest': (-6.0, 5.0),                               # from the Nest: on the path up from it
-                'village': (HW.GATE[0], HW.GATE[1] + 4.0)},          # in through the gate, from the village
+                'village': (HW.GATE[0], HW.GATE[1] + 4.0),           # in through the gate, from the village
+                'cottage': (-16.0, -16.0)},                          # out of the cottage's door
         spots={'nest': (HW.NEST[0], HW.NEST[1] - 5.5), 'cottage': (-16.0, -16.0), 'garden': (-0.5, 0.0),
                'nook': ((nx0 + nx1) / 2, nz1 + 4.0), 'grove': (HW.GROVE[0] + 12.5, HW.GROVE[1] - 1.0), 'pond': (HW.POND[0] + 4.0, HW.POND[1] + 6.0)},
         # the doors: walk up to one and its room or screen opens (the game decides); the gate leads to the village
@@ -107,7 +108,26 @@ def _home():
         fx='fx_home.py', tiles='home/walk', art_npcs={}, ores=[])
 
 
-MAPS = {'village': _village, 'trail': _trail, 'home': _home}
+def _cottage():
+    import cottage_walk as CW
+    rx0, rx1, rz0, rz1 = CW.ROOM
+    kx0, kx1, kz0, kz1 = CW.COUNTER
+    dx0, dx1, dz0, dz1 = CW.DESK
+    return dict(
+        title='Your Cottage', scene=CW.scene_cottage_walk, view='cottage', area=(CW.X0, CW.X1, CW.Z0, CW.Z1),
+        npcs={},
+        arrive={'home': (0.0, 7.4)},                                   # in at the door
+        spots={'door': (0.0, 7.4), 'hearth': (0.0, -5.2), 'kitchen': (kx1 + 2.6, 1.0), 'apothecary': (CW.CAULDRON[0] - 2.9, CW.CAULDRON[1] + 1.6),
+               'desk': (dx0 - 2.6, (dz0 + dz1) / 2), 'bed': (CW.BED[0] + 3.2, CW.BED[1] + 2.4)},
+        # the doorway leads back out to the home; the stations open when you walk up to them
+        exits={'home': (0.0, rz1 + 1.2, 1.9, 'home', 'cottage'),
+               'kitchen': (kx1 + 1.9, 1.0, 1.7, None, None),
+               'apothecary': (CW.CAULDRON[0] - 2.4, CW.CAULDRON[1] + 1.4, 1.7, None, None),
+               'desk': (dx0 - 1.8, (dz0 + dz1) / 2, 1.7, None, None)},
+        fx='fx_cottage.py', tiles='cottage/walk', art_npcs={}, ores=[])
+
+
+MAPS = {'village': _village, 'trail': _trail, 'home': _home, 'cottage': _cottage}
 
 
 def walk_grid(vs, m):

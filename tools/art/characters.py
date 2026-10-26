@@ -118,9 +118,10 @@ class Character:
 # ----------------------------------------------------------------------------
 # Stage 1: Eggling
 # ----------------------------------------------------------------------------
-def build_eggling(res=2, feet=None, lo_y=-1) -> Character:
+def build_eggling(res=2, feet=None, lo_y=-1, head=None, tail=0.0) -> Character:
     """feet: {(side, front): (dy, dz)} moves a foot (side -1/+1, front True/False) relative to the body,
-    in world units (multiples of 1/res keep it on the voxel grid): the walk cycle (walk.py)."""
+    in world units (multiples of 1/res keep it on the voxel grid): the walk cycle (walk.py). An Eggling
+    is all one egg: [head] and [tail] (the bigger stages' nod and tail swing) do nothing here."""
     feet = feet or {}
     M = Model((-18, lo_y, -16), (18, 35, 18), MATS, res=res)
     body = egg_mask(M, (0, 11.2, 0), 13.0, 13.2, 9.8, 11.6, p=2.25)
@@ -521,20 +522,25 @@ def fluff(M: Model, center, size, rng, n=7, spread=None):
 # ----------------------------------------------------------------------------
 # Stage 2: Juvenile
 # ----------------------------------------------------------------------------
-def build_juvenile(res=2, feet=None, lo_y=-1) -> Character:
-    """feet: {(side, front): (dy, dz)}, as for the Eggling (walk.py)."""
+def build_juvenile(res=2, feet=None, lo_y=-1, head=None, tail=0.0) -> Character:
+    """feet: {(side, front): (dy, dz)}, as for the Eggling (walk.py). head: (dx, dy, dz) moves the head
+    (and what sits on it) from rest, a nod in the walk; tail: how far the tail's tip swings sideways."""
     feet = feet or {}
+    hd = np.array(head or (0.0, 0.0, 0.0), float)
+    H = lambda p: tuple(np.array(p, float) + hd)  # noqa: E731  a point on the head, moved with it
+    T = lambda p, f: (p[0] + tail * f ** 1.6, p[1], p[2])  # noqa: E731  a point along the tail, f = 0 at the root, 1 at the tip
     rng = np.random.default_rng(22)
     M = Model((-17, lo_y, -32), (17, 36, 28), MATS, res=res)
-    head = egg_mask(M, (0, 17.4, 7.0), 11.4, 10.0, 9.8, 9.6, p=2.9)
+    head = egg_mask(M, H((0, 17.4, 7.0)), 11.4, 10.0, 9.8, 9.6, p=2.9)
     body = tube(M, [(0, 9.4, 2.0), (0, 9.0, -5.0), (0, 9.2, -9.5)], [8.2, 8.0, 6.8], p=2.5,
                 squash=(1.0, 0.84))
-    tail = tube(M, [(0, 9.2, -10.5), (0, 10.0, -15.5), (0, 12.3, -19.5), (0, 15.6, -22.0),
-                    (0, 19.0, -23.0)], [6.0, 5.0, 4.3, 3.8, 3.4], p=2.4)
-    core = head | body | tail
+    tpath = [T(p, f) for p, f in zip([(0, 9.2, -10.5), (0, 10.0, -15.5), (0, 12.3, -19.5), (0, 15.6, -22.0), (0, 19.0, -23.0)],
+                                     (0.0, 0.3, 0.6, 0.85, 1.0))]
+    tail_m = tube(M, tpath, [6.0, 5.0, 4.3, 3.8, 3.4], p=2.4)
+    core = head | body | tail_m
     M.set(core, 'shell')
     belly = core & (M.Y < 7.5) & (M.Z > -12) & ~head
-    belly |= head & (M.Y < 11.5) & (M.Z > 11)
+    belly |= head & (M.Y < 11.5 + hd[1]) & (M.Z > 11 + hd[2])
     M.set(belly, 'belly')
 
     for s in (-1, 1):
@@ -555,42 +561,43 @@ def build_juvenile(res=2, feet=None, lo_y=-1) -> Character:
     path = [(0, 26.8, 10.5), (0, 28.4, 6.5), (0, 28.0, 2.5), (0, 26.0, -1.0), (0, 22.5, -3.2)]
     sizes = [5.0, 6.2, 5.6, 4.8, 4.0]
     for (p, s) in zip(path, sizes):
-        crest |= fluff(M, p, s, rng, n=8, spread=(s * 0.55, s * 0.35, s * 0.4))
-    crest |= M.box((-2.5, 25.0, 7.5), (2.5, 31.5, 12.0))
-    crest |= M.box((-4.5, 24.5, 8.5), (0.0, 29.5, 13.0))
-    crest &= ~core & (M.Y > 23.0)
+        crest |= fluff(M, H(p), s, rng, n=8, spread=(s * 0.55, s * 0.35, s * 0.4))
+    crest |= M.box(H((-2.5, 25.0, 7.5)), H((2.5, 31.5, 12.0)))
+    crest |= M.box(H((-4.5, 24.5, 8.5)), H((0.0, 29.5, 13.0)))
+    crest &= ~core & (M.Y > 23.0 + hd[1])
     M.set(crest, 'crest.0')
     for s in (-1, 1):
-        t = fluff(M, (s * 11.0, 17.5, 2.5), 3.4, rng, n=6, spread=(0.8, 2.0, 1.6)) & ~core
+        t = fluff(M, H((s * 11.0, 17.5, 2.5)), 3.4, rng, n=6, spread=(0.8, 2.0, 1.6)) & ~core
         M.set(t, 'crest.1')
-        t = fluff(M, (s * 9.6, 23.0, 0.5), 3.0, rng, n=5, spread=(0.8, 1.2, 1.4)) & ~core & (M.m == 0)
+        t = fluff(M, H((s * 9.6, 23.0, 0.5)), 3.0, rng, n=5, spread=(0.8, 1.2, 1.4)) & ~core & (M.m == 0)
         M.set(t, 'crest.2')
     ridge = [(0, 16.0, -2.5, 4.2), (0, 15.6, -6.5, 4.4), (0, 15.2, -10.5, 4.0),
              (0, 15.0, -14.5, 3.6), (0, 16.5, -18.5, 3.2), (0, 19.0, -21.0, 3.0)]
     for i, (x, y, z, s) in enumerate(ridge):
-        t = fluff(M, (x, y, z), s, rng, n=6, spread=(s * 0.5, s * 0.3, s * 0.4)) & ~core & (M.m == 0)
+        f = max(0.0, (-10.5 - z) / 12.5)  # along the tail, the ridge swings with it
+        t = fluff(M, T((x, y, z), f), s, rng, n=6, spread=(s * 0.5, s * 0.3, s * 0.4)) & ~core & (M.m == 0)
         M.set(t, 'crest.%d' % (3 + i % 3))
     for s in (-1, 1):
         for (y, z, sz) in ((10.5, -0.5, 5.0), (11.0, -7.0, 4.2), (11.5, -13.5, 3.4)):
-            t = fluff(M, (s * 8.2, y, z), sz, rng, n=7, spread=(0.7, sz * 0.45, sz * 0.5))
+            t = fluff(M, T((s * 8.2, y, z), max(0.0, (-10.5 - z) / 12.5)), sz, rng, n=7, spread=(0.7, sz * 0.45, sz * 0.5))
             t &= ~core & (M.m == 0)
             M.set(t, 'crest.%d' % (6 + int(-z) % 2))
         for (y, z) in ((6.8, -3.5), (6.5, -10.0), (13.0, -4.0), (9.0, -16.0)):
-            stamp(M, shl, (s * 7.6, y, z), (s, 0.2, 0), square_shape(2.2, 1.8), 'pattern')
-    tip = fluff(M, (0, 20.5, -23.5), 5.4, rng, n=10, spread=(1.8, 2.2, 1.8)) & (M.m == 0)
+            stamp(M, shl, T((s * 7.6, y, z), max(0.0, (-10.5 - z) / 12.5)), (s, 0.2, 0), square_shape(2.2, 1.8), 'pattern')
+    tip = fluff(M, T((0, 20.5, -23.5), 1.0), 5.4, rng, n=10, spread=(1.8, 2.2, 1.8)) & (M.m == 0)
     M.set(tip, 'crest.8')
-    tip2 = fluff(M, (0, 15.5, -24.0), 3.6, rng, n=6, spread=(1.2, 1.6, 1.0)) & (M.m == 0)
+    tip2 = fluff(M, T((0, 15.5, -24.0), 1.0), 3.6, rng, n=6, spread=(1.2, 1.6, 1.0)) & (M.m == 0)
     M.set(tip2, 'crest.6')
 
     two_tone(M, seed=21, thresh=0.35)
-    face = Frame(center=(0, 17.0, 7.0), n=(0, 0, 1), reach=20)
+    face = Frame(center=H((0, 17.0, 7.0)), n=(0, 0, 1), reach=20)
     ch = Character(stage=2, model=M, face=face,
                    eye_u=5.4, eye_v=0.9, eye_w=2.2, eye_h=5.0,
                    cheek_u=7.4, cheek_v=-2.5, cheek_w=2.4, cheek_h=2.0,
                    mouth_v=-3.3, face_extent=(-11, 11, -8, 8), scale_ref=44.0)
     ch.anchors = {
-        'head_top': (0, 29.5, 7.0), 'neck': (0, 9.0, 9.0), 'back': (0, 15.5, -5.0),
-        'ground': (0, 0, -3.0), 'face': (0, 17.0, 16.6), 'tail': (0, 20.5, -23.0),
+        'head_top': H((0, 29.5, 7.0)), 'neck': (0, 9.0, 9.0), 'back': (0, 15.5, -5.0),
+        'ground': (0, 0, -3.0), 'face': H((0, 17.0, 16.6)), 'tail': T((0, 20.5, -23.0), 1.0),
     }
     return ch
 
@@ -598,24 +605,30 @@ def build_juvenile(res=2, feet=None, lo_y=-1) -> Character:
 # ----------------------------------------------------------------------------
 # Stage 3: Elder
 # ----------------------------------------------------------------------------
-def build_elder(res=2, feet=None, lo_y=-1) -> Character:
-    """feet: {(side, front): (dy, dz)}: the foot moves, the leg bends to follow (walk.py)."""
+def build_elder(res=2, feet=None, lo_y=-1, head=None, tail=0.0) -> Character:
+    """feet: {(side, front): (dy, dz)}: the foot moves, the leg bends to follow (walk.py). head: (dx, dy, dz)
+    moves the head, snout and mane from rest (the neck follows), a nod in the walk; tail: how far the
+    tail's curl swings sideways."""
     feet = feet or {}
+    hd = np.array(head or (0.0, 0.0, 0.0), float)
+    H = lambda p: tuple(np.array(p, float) + hd)  # noqa: E731  a point on the head, moved with it
     rng = np.random.default_rng(33)
     M = Model((-22, lo_y, -48), (22, 46, 34), MATS, res=res)
-    head = egg_mask(M, (0, 17.0, 16.0), 9.8, 8.4, 7.6, 10.2, p=2.7)
-    snout = egg_mask(M, (0, 15.0, 23.0), 7.4, 5.4, 5.0, 5.8, p=2.6)
-    neck = tube(M, [(0, 15.0, 10.0), (0, 12.5, 5.0)], [7.6, 8.2], p=2.4)
+    head = egg_mask(M, H((0, 17.0, 16.0)), 9.8, 8.4, 7.6, 10.2, p=2.7)
+    snout = egg_mask(M, H((0, 15.0, 23.0)), 7.4, 5.4, 5.0, 5.8, p=2.6)
+    neck = tube(M, [H((0, 15.0, 10.0)), (0, 12.5, 5.0)], [7.6, 8.2], p=2.4)
     body = tube(M, [(0, 11.8, 5.0), (0, 11.6, -4.0), (0, 11.4, -13.0), (0, 11.0, -19.0)],
                 [9.0, 9.6, 9.2, 7.6], p=2.5, squash=(1.05, 0.88))
     tpath = [(0, 10.5, -20.0), (0, 9.6, -26.5), (0, 10.4, -32.5), (0, 13.6, -37.5), (0, 18.6, -40.0),
              (0, 23.6, -39.2), (0, 26.8, -36.2), (0, 27.4, -32.6), (0, 25.6, -30.2)]
+    # the swing: nothing at the root, all of it from the curl on
+    tpath = [(tail * min(1.0, i / 4.0) ** 1.5, y, z) for i, (_, y, z) in enumerate(tpath)]
     trad = [6.8, 6.0, 5.4, 4.9, 4.5, 4.1, 3.7, 3.2, 2.8]
-    tail = tube(M, tpath, trad, p=2.3)
-    core = head | snout | neck | body | tail
+    tail_m = tube(M, tpath, trad, p=2.3)
+    core = head | snout | neck | body | tail_m
     M.set(core, 'shell')
     belly = core & (M.Y < 9.0) & (M.Z > -19)
-    belly |= (head | snout) & (M.Y < 12.2) & (M.Z > 14)
+    belly |= (head | snout) & (M.Y < 12.2 + hd[1]) & (M.Z > 14 + hd[2])
     M.set(belly, 'belly')
 
     for s in (-1, 1):
@@ -655,6 +668,7 @@ def build_elder(res=2, feet=None, lo_y=-1) -> Character:
         ((8.5, 16.5, 6.0), (0.85, 0.4, -0.35), 7.0, 3.0),
     ]
     for i, (bpt, d, L, r) in enumerate(spikes):
+        bpt = H(bpt)
         sp = spike(M, bpt, d, L, r, 0.45, twist=0.35 * (i % 3)) & (M.m == 0)
         M.set(sp, 'crest.%d' % (i % 6))
         tip = spike(M, np.array(bpt) + np.array(d) / np.linalg.norm(d) * L * 0.55, d, L * 0.45,
@@ -662,11 +676,13 @@ def build_elder(res=2, feet=None, lo_y=-1) -> Character:
         M.set(tip, 'crest_mid.%d' % (i % 6))
     # mane base fluff to hide spike roots
     for s in (-1, 0, 1):
-        f = fluff(M, (s * 6.0, 20.0, 11.0), 5.0, rng, n=8, spread=(1.6, 1.2, 2.0)) & (M.m == 0)
+        f = fluff(M, H((s * 6.0, 20.0, 11.0)), 5.0, rng, n=8, spread=(1.6, 1.2, 2.0)) & (M.m == 0)
         M.set(f, 'crest.%d' % (s + 2))
     dorsal = [((0, 18.5, 1.0), 7.5, 3.2), ((0, 18.5, -5.5), 8.0, 3.4), ((0, 18.5, -12.0), 7.4, 3.2),
               ((0, 17.0, -18.0), 6.4, 2.8), ((0, 15.0, -24.0), 5.4, 2.4), ((0, 14.0, -29.5), 4.6, 2.0)]
     for i, (bpt, L, r) in enumerate(dorsal):
+        if bpt[2] < -20:  # on the tail: swings with it
+            bpt = (tail * min(1.0, (-20 - bpt[2]) / 26.0) ** 1.5, bpt[1], bpt[2])
         sp = spike(M, bpt, (0, 0.85, -0.5), L, r, 0.35, twist=0.6) & (M.m == 0)
         M.set(sp, 'crest.%d' % (i % 6))
     shl = shell_region(M, core, res)
@@ -688,7 +704,7 @@ def build_elder(res=2, feet=None, lo_y=-1) -> Character:
         out = np.cross(d, np.array([1.0, 0, 0]))
         if out[1] < 0 and i < 4:
             out = -out
-        cen = np.array([0, 25.0, -34.5])
+        cen = np.array([tail, 25.0, -34.5])
         if i >= 4:
             out = p - cen
             out[0] = 0
@@ -699,14 +715,14 @@ def build_elder(res=2, feet=None, lo_y=-1) -> Character:
             M.set(pl, 'crest.%d' % ((i + side) % 6))
 
     two_tone(M, seed=31, thresh=0.55)
-    face = Frame(center=(0, 16.2, 17.0), n=(0, 0.05, 1), reach=22)
+    face = Frame(center=H((0, 16.2, 17.0)), n=(0, 0.05, 1), reach=22)
     ch = Character(stage=3, model=M, face=face,
                    eye_u=5.3, eye_v=1.6, eye_w=2.2, eye_h=4.3,
                    cheek_u=6.6, cheek_v=-1.6, cheek_w=2.1, cheek_h=1.7,
                    mouth_v=-3.2, face_extent=(-11, 11, -7, 7), scale_ref=58.0)
     ch.anchors = {
-        'head_top': (0, 25.0, 16.0), 'neck': (0, 10.5, 10.5), 'back': (0, 19.0, -5.0),
-        'ground': (0, 0, -5.0), 'face': (0, 15.0, 28.8), 'tail': (0, 27.0, -34.0),
+        'head_top': H((0, 25.0, 16.0)), 'neck': (0, 10.5, 10.5), 'back': (0, 19.0, -5.0),
+        'ground': (0, 0, -5.0), 'face': H((0, 15.0, 28.8)), 'tail': (tail, 27.0, -34.0),
     }
     return ch
 

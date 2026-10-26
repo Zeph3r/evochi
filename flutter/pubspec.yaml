@@ -42,6 +42,7 @@ flutter:
     - assets/art/trail/ # the Old Trail: Flint's sprite and faces (tools/art/flint_walk.py)
     - assets/art/trail/walk/ # the Old Trail's walkable picture, in tiles (tools/art/village_walk_pack.py)
     - assets/art/home/walk/ # the Home's walkable picture, in tiles (tools/art/home_walk.py, village_walk_pack.py)
+    - assets/art/cottage/walk/ # inside the Cottage, in tiles (tools/art/cottage_walk.py, village_walk_pack.py)
     - assets/art/mining/ # ore nodes and nuggets (tools/art/mining_art.py)
     - assets/art/fx/ # living-scene masks (tools/art/scene_fx.py)
     - assets/art/wilds/ # the Lumen Wilds: walk sheets, the test clearing (tools/art/walk.py, wilds_art.py)

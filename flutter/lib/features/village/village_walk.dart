@@ -36,7 +36,7 @@ import '../shared/live_scene.dart';
 import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import '../home/companions_sheet.dart';
-import '../home/home_widgets.dart' show goHome, openCottage, openGarden;
+import '../home/home_widgets.dart' show goHome, openCottage, openGarden, openSkills, openStation;
 import '../home/nook_sheet.dart';
 import '../wilds/wilds_art.dart';
 import '../wilds/wilds_screen.dart';
@@ -59,7 +59,9 @@ final _npcInk = Paint()
 final _npcPop = Paint()
   ..filterQuality = FilterQuality.medium
   ..colorFilter = const ColorFilter.matrix([1.1602, -0.0909, -0.0092, 0, -7.68, -0.0270, 1.0963, -0.0092, 0, -7.68, -0.0270, -0.0909, 1.1780, 0, -7.68, 0, 0, 0, 1, 0]);
-const _speed = 5.0; // world units a second
+const _speed = 5.6; // walking, world units a second
+const _runSpeed = 10.5; // running: any way longer than [_runFrom] is run, and the last [_walkIn] walked
+const _runFrom = 7.0, _walkIn = 3.6;
 const _frontBias = 1.0; // world units: what is this much nearer than a character's feet covers it (half a body)
 const _shadowLong = 2.0; // characters' shadows drawn this much longer than the sun makes them
 
@@ -71,7 +73,7 @@ void openVillageWalk(BuildContext context) =>
 Route<void> _mapRoute(String map, String? at) => PageRouteBuilder<void>(
       transitionDuration: const Duration(milliseconds: 450),
       reverseTransitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (_, __, ___) => Ambience('village', child: VillageWalkScreen(map: map, arrive: at)),
+      pageBuilder: (_, __, ___) => Ambience(switch (map) { 'home' => 'home', 'cottage' => 'kitchen', _ => 'village' }, child: VillageWalkScreen(map: map, arrive: at)),
       transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: CurvedAnimation(parent: a, curve: Curves.easeInOut), child: child),
     );
 
@@ -373,6 +375,7 @@ class VillageWalker {
   bool moving = false;
   double phase = 0;
   double speed = 0; // units a second now (it ramps up from a stop and eases in to arrive)
+  bool running = false; // it breaks into a run on a long way, and drops back to a walk to arrive
   double stoppedAt = -9; // when it last came to rest (a little settle)
   int lastStep = 0; // the footfall count (dust)
   List<Offset> path = const [];
@@ -396,23 +399,43 @@ class _Npc {
   int dir = 0; // S SE E NE N NW W SW
   double phase = 0;
   bool moving = false;
-  Offset? goal; // where they're walking to
+  List<Offset> route = const []; // the way to where they're walking, corner by corner
+  Offset? face; // what they turn to when they get there
   double wait = 1.0; // seconds before the next thing they do
   int stop = 0; // which stop of their routine is next
   double look = 0; // seconds until they glance somewhere else while standing
+  double busy = 0; // seconds they stay turned to what they're doing before glancing about
 
   /// dp per sheet px at [upk] dp a world unit.
   double k(double upk) => upk * h / (walker?.heightPx ?? 200);
 }
 
-/// Each villager's routine outside: the stops they wander between (offsets from where they stand), how
-/// fast they walk (units a second), and how long they linger at each stop (seconds, from - to).
-const _routines = <String, (List<Offset>, double, double, double)>{
-  'bram': ([Offset(0, 0), Offset(-2.8, 2.0), Offset(2.4, 1.6)], 1.5, 3.0, 6.0), // between his door and the forge
-  'mira': ([Offset(0, 0), Offset(3.2, 2.0), Offset(-2.4, 2.4)], 1.3, 3.5, 7.0), // out to her flower beds
-  'pip': ([Offset(0, 0), Offset(-2.8, 1.8), Offset(1.6, 2.6), Offset(-0.8, 3.4)], 2.4, 1.2, 3.0), // he can't keep still
-  'alder': ([Offset(0, 0), Offset(1.0, 1.4)], 0.8, 6.0, 11.0), // mostly stands and looks about
-  'flint': ([Offset(0, 0), Offset(-3.4, -1.6), Offset(3.2, -0.8)], 1.4, 3.0, 6.0), // between his bench and his door
+/// One stop on a villager's routine: where (from where they stand) and, if they have something to do
+/// there, what they turn to (from where they stand too).
+class _Stop {
+  const _Stop(this.dx, this.dz, [this.fx, this.fz]);
+  final double dx, dz;
+  final double? fx, fz;
+}
+
+/// Each villager's routine outside: the stops they wander between, how fast they walk (units a second),
+/// and how long they linger at each stop (seconds, from - to). They find their own way between stops,
+/// round whatever stands in between.
+const _routines = <String, (List<_Stop>, double, double, double)>{
+  'bram': ([_Stop(0, 0), _Stop(-2.8, 2.0), _Stop(2.4, 1.6)], 1.5, 3.0, 6.0), // between his door and the forge
+  'mira': ([_Stop(0, 0), _Stop(3.2, 2.0), _Stop(-2.4, 2.4)], 1.3, 3.5, 7.0), // out to her flower beds
+  'pip': ([_Stop(0, 0), _Stop(-2.8, 1.8), _Stop(1.6, 2.6), _Stop(-0.8, 3.4)], 2.4, 1.2, 3.0), // he can't keep still
+  'alder': ([_Stop(0, 0), _Stop(1.0, 1.4)], 0.8, 6.0, 11.0), // mostly stands and looks about
+  // Flint's day round the camp: the flag by his tent, the fire, the front of the yard watching the trail,
+  // the tool rack by the wheelbarrow, and now and then out to check the ore cart on its rails.
+  'flint': ([
+    _Stop(0, 0, -2.0, -1.4), // by the tent, looking back into it
+    _Stop(-4.6, 2.2, -6.5, 2.4), // the fire (it stands at 95.5, -12.6)
+    _Stop(-2.0, 3.4, -2.0, 7.0), // the front of the yard, eyes on the trail
+    _Stop(-9.4, 1.6, -9.4, -3.6), // the tool rack, by the wheelbarrow
+    _Stop(-0.8, 1.8, 14.5, -1.5), // mid-yard, looking over at the portal
+    _Stop(10.5, 4.8, 14.5, -5.0), // out on the trail by the rails, checking the cart
+  ], 1.4, 3.0, 7.0),
 };
 
 class VillageWalkScreen extends StatefulWidget {
@@ -634,9 +657,14 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         px = q.dx;
         pz = q.dy;
       }
-      final target = _speed * (left < 1.4 ? (0.35 + 0.65 * left / 1.4) : 1.0);
-      me.speed += (target - me.speed) * math.min(1.0, dt * (target > me.speed ? 7 : 10));
+      // a long way is run (it breaks into the run a stride in, and walks the last stretch to arrive)
+      if (!me.running && left > _runFrom && me.speed > _speed * 0.6 && !_reduced) me.running = true;
+      if (me.running && left < _walkIn) me.running = false;
+      final pace = me.running ? _runSpeed : _speed;
+      final target = pace * (left < 1.4 ? (0.35 + 0.65 * left / 1.4) : 1.0);
+      me.speed += (target - me.speed) * math.min(1.0, dt * (target > me.speed ? 6 : 9));
       var step = me.speed * dt;
+      final cycle = _cycleFor(me.running);
       while (step > 0 && me.path.isNotEmpty) {
         final to = me.path.first;
         final dx = to.dx - me.x, dz = to.dy - me.z;
@@ -649,25 +677,29 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         final s = math.min(step, d);
         me.x += dx / d * s;
         me.z += dz / d * s;
-        me.phase += s / _cycle;
+        me.phase += s / cycle;
         step -= s;
         if (s >= d) me.path = me.path.sublist(1);
       }
       me.moving = me.path.isNotEmpty;
-      // dust at each footfall
+      // dust at each footfall (more of it kicked up at a run)
       final stepN = (me.phase * 2).floor();
       if (stepN != me.lastStep) {
         me.lastStep = stepN;
         if (!_reduced && me.moving) {
           final rnd = math.Random(stepN);
-          for (var i = 0; i < 2; i++) {
+          final n = me.running ? 4 : 2;
+          final kick = me.running ? 1.6 : 1.0;
+          for (var i = 0; i < n; i++) {
             _bits.add(MineBit('dust', me.x + (rnd.nextDouble() - 0.5) * 0.6, 0.1, me.z + 0.2 + (rnd.nextDouble() - 0.5) * 0.3,
-                (rnd.nextDouble() - 0.5) * 0.8, 0.5 + rnd.nextDouble() * 0.4, (rnd.nextDouble() - 0.5) * 0.4, _t, 0.38, const Color(0xCCD9CCB4), 0.45));
+                (rnd.nextDouble() - 0.5) * 0.8 * kick, (0.5 + rnd.nextDouble() * 0.4) * kick, (rnd.nextDouble() - 0.5) * 0.4, _t, 0.38 + 0.1 * (kick - 1),
+                const Color(0xCCD9CCB4), 0.45 * kick));
           }
         }
       }
       if (!me.moving) {
         me.speed = 0;
+        me.running = false;
         me.stoppedAt = _t;
         _arrived();
       }
@@ -709,7 +741,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         Navigator.of(context).maybePop();
       } else if (e.key == 'mine') {
         _enterMine(x, z);
-      } else if (widget.map == 'home') {
+      } else if (widget.map == 'home' || widget.map == 'cottage') {
         _door(e.key);
       } else {
         final say = switch (e.key) {
@@ -751,12 +783,18 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     }
   }
 
-  /// A door at home: the room or screen behind it opens; back out, your Evochi stands on the step.
+  /// A door at home (or a station inside the cottage): the room or screen behind it opens; back out,
+  /// your Evochi stands on the step.
   Future<void> _door(String key) async {
     final l = lay;
     final c = context.read<GameController>();
     switch (key) {
       case 'cottage':
+        if (c.storyView.flag('cottage_restored')) {
+          // the restored cottage is a room to walk into; until then, its story screen
+          Navigator.of(context).pushReplacement(_mapRoute('cottage', 'home'));
+          return;
+        }
         openCottage(context);
       case 'garden':
         openGarden(context);
@@ -767,6 +805,16 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       case 'nest':
         goHome(context, 'nest');
         return;
+      case 'kitchen':
+        openStation(context, 'kitchen');
+      case 'apothecary':
+        if (c.homeView.apothecary) {
+          openStation(context, 'apothecary');
+        } else {
+          c.toast("The cauldron's cold for now. The apothecary opens with a Home Tale.", icon: 'skill_alchemy');
+        }
+      case 'desk':
+        openSkills(context);
       default:
         c.toast('This way opens soon.');
     }
@@ -890,7 +938,9 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   }
 
   /// World units per walk cycle: the sheet's stride, drawn at the village's size.
-  double get _cycle => _pet!.gait(false).cycle * walkerDrawScale * _evochiH / _sheetH;
+  /// World units a walk (or run) cycle covers, as your Evochi is drawn here: the sheets' strides, so the
+  /// feet take the ground rather than slide.
+  double _cycleFor(bool running) => _pet!.gait(running).cycle * walkerDrawScale * _evochiH / _sheetH;
 
   void _follow(double dt) {
     final l = lay!;
@@ -1013,50 +1063,73 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       final waiting = me.talkTo == n.id || (_talking && me.talkTo == null && near);
       if (w == null) continue;
       if (near || waiting) {
-        // stop where they are and turn to your Evochi
+        // stop where they are and turn to your Evochi (they pick their walk up again once you've gone)
         n.moving = false;
-        n.goal = null;
         n.dir = VillageWalker.dirOf(dx, dz);
         n.wait = math.max(n.wait, 1.5);
+        n.busy = 0;
         continue;
       }
       final r = _routines[n.id];
-      if (n.goal != null) {
-        final g = n.goal!;
+      if (n.route.isNotEmpty) {
+        final g = n.route.first;
         final gx = g.dx - n.x, gz = g.dy - n.z;
         final d = math.sqrt(gx * gx + gz * gz);
         final speed = r?.$2 ?? 1.4;
-        if (d < 0.05) {
-          n.goal = null;
-          n.moving = false;
-          n.wait = (r?.$3 ?? 3) + _rnd.nextDouble() * ((r?.$4 ?? 6) - (r?.$3 ?? 3));
-          n.look = 1.0 + _rnd.nextDouble() * 1.5;
-        } else {
-          final s = math.min(d, speed * dt);
+        final s = math.min(d, speed * dt);
+        if (d > 0.001) {
           n.x += gx / d * s;
           n.z += gz / d * s;
           n.dir = VillageWalker.dirOf(gx, gz);
           n.moving = true;
           n.phase += s / (w.gait(false).cycle * walkerDrawScale * n.h / (w.heightPx ?? 200));
         }
+        if (d - s < 0.05) {
+          n.route = n.route.sublist(1);
+          if (n.route.isEmpty) {
+            // there: turn to what they came for, and stay with it a while before glancing about
+            n.moving = false;
+            n.wait = (r?.$3 ?? 3) + _rnd.nextDouble() * ((r?.$4 ?? 6) - (r?.$3 ?? 3));
+            final f = n.face;
+            if (f != null) {
+              n.dir = VillageWalker.dirOf(f.dx - n.x, f.dy - n.z);
+              n.busy = n.wait * 0.7;
+            }
+            n.look = 1.0 + _rnd.nextDouble() * 1.5;
+          }
+        }
         continue;
       }
       n.wait -= dt;
       n.look -= dt;
-      if (n.look <= 0) {
+      n.busy -= dt;
+      if (n.look <= 0 && n.busy <= 0) {
         // a glance one way or the other, now and then back toward the path
         n.dir = (n.dir + (_rnd.nextBool() ? 1 : -1) + 8) % 8;
         n.look = 1.4 + _rnd.nextDouble() * 2.6;
       }
       if (n.wait <= 0 && r != null && r.$1.length > 1) {
-        n.stop = (n.stop + 1) % r.$1.length;
-        final o = r.$1[n.stop];
-        final g = Offset(n.homeX + o.dx, n.homeZ + o.dy);
-        if (l.walkable(g.dx, g.dy) && l.clear(Offset(n.x, n.z), g)) {
-          n.goal = g;
-        } else {
-          n.wait = 2.0;
+        // the next stop they can get to (a blocked one is skipped, not stood in front of)
+        for (var tries = 0; tries < r.$1.length; tries++) {
+          n.stop = (n.stop + 1) % r.$1.length;
+          final o = r.$1[n.stop];
+          final g = Offset(n.homeX + o.dx, n.homeZ + o.dy);
+          if (!l.walkable(g.dx, g.dy)) continue;
+          final from = Offset(n.x, n.z);
+          final way = l.path(from, g);
+          if (way.isEmpty) continue;
+          var len = 0.0;
+          var at = from;
+          for (final p in way) {
+            len += (p - at).distance;
+            at = p;
+          }
+          if (len > (g - from).distance * 2.5 + 6) continue; // no long way round
+          n.route = way;
+          n.face = o.fx == null ? null : Offset(n.homeX + o.fx!, n.homeZ + o.fz!);
+          break;
         }
+        if (n.route.isEmpty) n.wait = 2.0;
       }
     }
   }
@@ -1239,15 +1312,15 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     if (lay != null && _wearing(c.state).join(',') != _lookKey) _refreshLook(c.state);
     final marks = q.npcMarkers(c.state);
     return Scaffold(
-      backgroundColor: const Color(0xFF86B566),
+      backgroundColor: widget.map == 'cottage' ? const Color(0xFF2C2019) : const Color(0xFF86B566),
       body: Column(children: [
         Container(
           color: EvochiColor.panel,
           child: SafeArea(
             bottom: false,
             child: PlaceHeader(
-                title: lay?.title ?? switch (widget.map) { 'trail' => 'The Old Trail', 'home' => 'Your Home', _ => 'Sunlit Village' },
-                short: switch (widget.map) { 'trail' => 'Trail', 'home' => 'Home', _ => 'Village' },
+                title: lay?.title ?? switch (widget.map) { 'trail' => 'The Old Trail', 'home' => 'Your Home', 'cottage' => 'Your Cottage', _ => 'Sunlit Village' },
+                short: switch (widget.map) { 'trail' => 'Trail', 'home' => 'Home', 'cottage' => 'Cottage', _ => 'Village' },
                 backLabel: 'Back',
                 onBack: () => Navigator.of(context).maybePop()),
           ),
@@ -1305,7 +1378,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
             ]);
           }),
         ),
-        _QuickTravel(items: switch (widget.map) { 'trail' => _trailTravel, 'home' => _homeTravel, _ => _villageTravel }, onPick: _quick),
+        _QuickTravel(items: switch (widget.map) { 'trail' => _trailTravel, 'home' => _homeTravel, 'cottage' => _cottageTravel, _ => _villageTravel }, onPick: _quick),
       ]),
     );
   }
@@ -1352,10 +1425,13 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         talkTo('bram');
       case 'flint':
         talkTo('flint');
-      case 'village' || 'trail': // to the way out: walk to it and over
+      case 'village' || 'trail' || 'home': // to the way out: walk to it and over
         final e = l.exits[id];
         if (e != null) walkTo(e.$1, e.$2);
       case 'cottage' || 'garden' || 'nook' || 'grove' || 'nest' when widget.map == 'home': // to a door: walk in
+        final e = l.exits[id];
+        if (e != null) walkTo(e.$1, e.$2);
+      case 'kitchen' || 'apothecary' || 'desk' when widget.map == 'cottage': // to a station: walk up to it
         final e = l.exits[id];
         if (e != null) walkTo(e.$1, e.$2);
       default:
@@ -1368,6 +1444,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
 const _villageTravel = [('lodge', 'mail', 'Guild'), ('glasshouse', 'care', 'Glasshouse'), ('workshop', 'bell', 'Workshop'), ('waystone', 'star', 'Waystone'), ('trail', 'trail', 'Old Trail')];
 const _homeTravel = [('nest', 'home', 'Nest'), ('cottage', 'bell', 'Cottage'), ('garden', 'skill_farming', 'Farm'), ('nook', 'star', 'Nook'), ('grove', 'paw', 'Grove'), ('village', 'trail', 'Village')];
 const _trailTravel = [('village', 'home', 'Village'), ('bridge', 'aff_water', 'Falls'), ('flint', 'shop', 'Flint'), ('mine', 'aff_stone', 'Mine'), ('thicket', 'aff_nature', 'Thicket')];
+const _cottageTravel = [('kitchen', 'skill_cooking', 'Kitchen'), ('apothecary', 'skill_alchemy', 'Apothecary'), ('desk', 'journey', 'Skills'), ('hearth', 'aff_ember', 'Hearth'), ('home', 'home', 'Outside')];
 
 /// The bottom row: the places, a walk away (to whoever keeps them, or to a landmark).
 class _QuickTravel extends StatelessWidget {
@@ -1475,7 +1552,7 @@ class _WalkPainter extends CustomPainter {
           final g = scr(l.toImage(n.x, n.z, l.heightAt(n.x, n.z)));
           final kp = n.k(upk);
           final gait = w.gait(false);
-          final col = n.moving ? 1 + (n.phase * 8).floor() % 8 : 0;
+          final col = gait.col(n.phase, n.moving);
           final src = Rect.fromLTWH(col * w.fw, n.dir * w.fh, w.fw, w.fh);
           canvas.drawOval(Rect.fromCenter(center: g + Offset(0, -kp * 3), width: w.fw * kp * 0.42, height: w.fw * kp * 0.13),
               Paint()
@@ -1627,8 +1704,8 @@ class _WalkPainter extends CustomPainter {
     var g = feet; // (moves with a strike's lunge)
     final art = s._pet!;
     final me = s.me;
-    final gait = art.gait(false);
-    var col = me.moving ? 1 + (me.phase * 8).floor() % 8 : 0;
+    final gait = art.gait(me.running && me.moving);
+    var col = gait.col(me.phase, me.moving);
     final kp = upk * _evochiH / _sheetH; // dp per sheet px
     // a strike: the walk sheet posed in code (crouch, lunge, contact, recover)
     var sx = 1.0, sy = 1.0, lean = 0.0;
@@ -1647,9 +1724,13 @@ class _WalkPainter extends CustomPainter {
     if (tilt >= 0 && tilt < 0.7) lean += 0.16 * math.sin(tilt / 0.7 * math.pi) * (me.dir <= 4 ? 1 : -1); // puzzled
     // the walk's own motion: a bounce a step, squash and stretch, a sway; a lean into starting off and
     // pulling up; a little settle on stopping
-    final pose = gaitPose(me.phase, me.moving && !pn.active, reduced: s._reduced);
+    final pose = gaitPose(me.phase, me.moving && !pn.active, run: me.running ? 1 : 0, reduced: s._reduced, heft: (s._stage.clamp(1, 3) - 1) / 2);
     final sideways = math.sin(me.dir * math.pi / 4); // facing east +1, west -1, as the screen sees it
-    if (me.moving && !s._reduced) lean += 0.11 * ((_speed - me.speed) / _speed).clamp(-1.0, 1.0) * sideways * (me.path.length > 1 || me.speed < _speed * 0.9 ? 1 : 0);
+    if (me.moving && !s._reduced) {
+      final pace = me.running ? _runSpeed : _speed;
+      lean += 0.11 * ((pace - me.speed) / pace).clamp(-1.0, 1.0) * sideways * (me.path.length > 1 || me.speed < pace * 0.9 ? 1 : 0);
+      if (me.running) lean += 0.07 * sideways * (me.speed / _runSpeed).clamp(0.0, 1.0); // into the run
+    }
     final since = s._t - me.stoppedAt;
     if (since >= 0 && since < 0.32 && !s._reduced) {
       final k = since / 0.32;
@@ -1813,6 +1894,14 @@ const _placeNames = <String, Map<String, (String, String)>>{
     'thicket': ('Sunlit Thicket', 'aff_nature'),
     'flint': ('Flint', 'shop'),
     'bridge': ('Falls', 'aff_water'),
+  },
+  'cottage': {
+    'kitchen': ('Kitchen', 'skill_cooking'),
+    'apothecary': ('Apothecary', 'skill_alchemy'),
+    'desk': ('Skills', 'journey'),
+    'hearth': ('Hearth', 'aff_ember'),
+    'bed': ('Bed', 'moon'),
+    'home': ('Outside', 'home'),
   },
 };
 
