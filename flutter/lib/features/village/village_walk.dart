@@ -1113,7 +1113,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         for (var tries = 0; tries < r.$1.length; tries++) {
           n.stop = (n.stop + 1) % r.$1.length;
           final o = r.$1[n.stop];
-          final g = Offset(n.homeX + o.dx, n.homeZ + o.dy);
+          final g = Offset(n.homeX + o.dx, n.homeZ + o.dz);
           if (!l.walkable(g.dx, g.dy)) continue;
           final from = Offset(n.x, n.z);
           final way = l.path(from, g);
