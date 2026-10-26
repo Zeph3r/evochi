@@ -231,7 +231,12 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final pet = c.state.pet;
     final key = 's0${(pet?.stage ?? 1).clamp(1, 3)}';
     final palette = pet?.paletteId ?? 'amber';
-    final wearing = pet?.equipped.values.toList() ?? const <String>[];
+    // in the mines your Evochi wears its mining gear (over the wearables it hides, as on the trail)
+    final eq = Map.of(pet?.equipped ?? const <String, String>{});
+    final worn = widget.mine ? mine.wornGear(c.state) : const <String, mine.GearDef>{};
+    if (worn.containsKey('helmet')) eq.remove('head');
+    if (worn.keys.any((k) => const {'harness', 'satchel', 'tool', 'lantern'}.contains(k))) eq.remove('back');
+    final wearing = [...eq.values, for (final k in const ['paws', 'harness', 'satchel', 'lantern', 'tool', 'helmet']) if (worn[k] != null) worn[k]!.id];
     final depth = widget.depth;
     // a story floor only while its job is open (a stale link to it is an ordinary floor)
     final story = widget.story != null && (sf.storyFloorOpen(c.state, widget.story!) || (kDebugMode && widget.forceStory)) ? sf.storyFloors[widget.story!] : null;

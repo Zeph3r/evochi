@@ -9,6 +9,7 @@ import 'package:provider/provider.dart';
 import '../../app/router.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
+import '../../core/services/haptics.dart';
 import '../../core/utils/day_keys.dart';
 import '../../game/economy/economy.dart' as econ;
 import '../../game/engine.dart' as g;
@@ -301,15 +302,16 @@ class _NestHud extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            // the trip row: Explore Home (Home Tales), Visit Village and, once there is anyone to switch
-            // to (or an egg on the way), My Evochis; a chip that doesn't fit drops to the next line at
-            // full size (never shrunk: the words have to stay readable)
-            Wrap(spacing: 8, runSpacing: 6, children: [
-              _ExploreHomeButton(attention: c.homeAttention),
-              _VisitVillageButton(attention: c.storyAttention > 0, short: MediaQuery.of(context).size.width < 400),
-              if (c.state.companions.isNotEmpty || c.state.hatch.eggs.isNotEmpty)
-                _CompanionsButton(count: c.state.companions.length + 1, ready: c.state.hatch.eggs.any((e) => e.state == 'ready')),
-            ]),
+            // the trips: Explore Home (Home Tales), the Village and, once there is anyone to switch to (or
+            // an egg on the way), My Evochis: square tiles down the left edge, mirroring the buttons on
+            // the right, so the middle stays your Evochi's
+            _ExploreHomeButton(attention: c.homeAttention),
+            const SizedBox(height: 8),
+            _VisitVillageButton(attention: c.storyAttention > 0),
+            if (c.state.companions.isNotEmpty || c.state.hatch.eggs.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _CompanionsButton(count: c.state.companions.length + 1, ready: c.state.hatch.eggs.any((e) => e.state == 'ready')),
+            ],
           ]),
         ),
         const SizedBox(width: 8),
@@ -335,69 +337,115 @@ class _ExploreHomeButton extends StatelessWidget {
   const _ExploreHomeButton({required this.attention});
   final bool attention;
   @override
-  Widget build(BuildContext context) => Semantics(
-        button: true,
-        label: 'Explore Home${attention ? ', something new' : ''}',
-        child: GestureDetector(
-          onTap: () {
-            context.read<GameController>().audio.play('ui_tap', volume: 0.4);
-            openHomeMap(context);
-          },
-          child: Stack(clipBehavior: Clip.none, children: [
-            Container(
-              height: 44,
-              padding: const EdgeInsets.fromLTRB(6, 0, 12, 0),
-              decoration: KitDecoration(
-                base: BoxDecoration(
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF4E8436), width: 2.5),
-                  gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFC6E59C), Color(0xFF8DC164)]),
-                  boxShadow: const [BoxShadow(color: Color(0x33283C14), blurRadius: 8, offset: Offset(0, 4)), BoxShadow(color: Color(0xFF3E6E2B), offset: Offset(0, 3))],
-                ),
-                inset: 2.5,
-                top: const KitBand(2, Color(0x66FFFFFF)),
-              ),
-              child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                VoxelIcon('home_map', size: 28),
-                SizedBox(width: 6),
-                Text('Explore Home', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15, color: EvochiColor.ink)),
-              ]),
-            ),
-            if (attention) const Positioned(top: -6, right: -6, child: BadgeDot()),
-          ]),
-        ),
+  Widget build(BuildContext context) => TripTile(
+        icon: 'home_map',
+        label: 'Home',
+        semantic: 'Explore Home${attention ? ', something new' : ''}',
+        badge: attention,
+        style: TripTileStyle.meadow,
+        onTap: () => openHomeMap(context),
       );
 }
 
 /// Opens Sunlit Village (Village Tales). The dot means a villager has something for you.
 class _VisitVillageButton extends StatelessWidget {
-  const _VisitVillageButton({required this.attention, this.short = false});
+  const _VisitVillageButton({required this.attention});
   final bool attention;
-  final bool short;
   @override
-  Widget build(BuildContext context) => Semantics(
-        button: true,
-        label: 'Visit Sunlit Village${attention ? ', something new' : ''}',
-        child: GestureDetector(
-          onTap: () {
-            context.read<GameController>().audio.play('ui_tap', volume: 0.4);
-            openVillage(context);
-          },
-          child: Stack(clipBehavior: Clip.none, children: [
-            Container(
-              height: 44,
-              padding: const EdgeInsets.fromLTRB(6, 0, 12, 0),
-              decoration: Kit.wood(radius: 12, width: 300, y: -0.2),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const VoxelIcon('habitats', size: 28),
-                const SizedBox(width: 6),
-                Text(short ? 'Village' : 'Visit Village', style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 15, color: KitColor.signInk, shadows: kitSignShadow)),
-              ]),
-            ),
-            if (attention) const Positioned(top: -6, right: -6, child: BadgeDot()),
-          ]),
-        ),
+  Widget build(BuildContext context) => TripTile(
+        icon: 'habitats',
+        label: 'Village',
+        semantic: 'Visit Sunlit Village${attention ? ', something new' : ''}',
+        badge: attention,
+        style: TripTileStyle.wood,
+        onTap: () => openVillage(context),
       );
+}
+
+enum TripTileStyle { meadow, wood, parchment }
+
+/// A square trip button on the Nest: its picture over a short word, a press that sinks, a buzz.
+class TripTile extends StatefulWidget {
+  const TripTile({super.key, required this.icon, required this.label, required this.semantic, required this.onTap, this.badge = false, this.style = TripTileStyle.wood});
+  final String icon, label, semantic;
+  final VoidCallback onTap;
+  final bool badge;
+  final TripTileStyle style;
+  @override
+  State<TripTile> createState() => _TripTileState();
+}
+
+class _TripTileState extends State<TripTile> {
+  bool _down = false;
+  @override
+  Widget build(BuildContext context) {
+    final (top, bottom, rim, ink) = switch (widget.style) {
+      TripTileStyle.meadow => (const Color(0xFFD4EDAE), const Color(0xFF86BC5C), const Color(0xFF3E6E2B), EvochiColor.ink),
+      TripTileStyle.wood => (const Color(0xFFE0A86A), const Color(0xFFA9683A), const Color(0xFF5E3A20), KitColor.signInk),
+      TripTileStyle.parchment => (const Color(0xFFFFF6E4), const Color(0xFFEBD3AE), const Color(0xFF8A6A48), KitColor.signInk),
+    };
+    final light = widget.style != TripTileStyle.wood;
+    return Semantics(
+      button: true,
+      label: widget.semantic,
+      child: GestureDetector(
+        onTapDown: (_) => setState(() => _down = true),
+        onTapCancel: () => setState(() => _down = false),
+        onTapUp: (_) => setState(() => _down = false),
+        onTap: () {
+          final c = context.read<GameController>();
+          c.audio.play('ui_tap', volume: 0.4);
+          c.audio.buzz(Haptic.tap);
+          widget.onTap();
+        },
+        child: Stack(clipBehavior: Clip.none, children: [
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 70),
+            width: 64,
+            height: 62,
+            transform: Matrix4.translationValues(0, _down ? 3 : 0, 0),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: rim, width: 2.5),
+              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [top, bottom]),
+              boxShadow: [
+                if (!_down) BoxShadow(color: rim, offset: const Offset(0, 3.5)),
+                BoxShadow(color: const Color(0x40283C14), blurRadius: _down ? 3 : 8, offset: Offset(0, _down ? 1 : 5)),
+              ],
+            ),
+            child: Stack(children: [
+              // a soft sheen across the top
+              Positioned(
+                left: 4,
+                right: 4,
+                top: 3,
+                height: 14,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(9),
+                    gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.white.withValues(alpha: light ? 0.55 : 0.32), Colors.white.withValues(alpha: 0)]),
+                  ),
+                ),
+              ),
+              Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                VoxelIcon(widget.icon, size: 30),
+                const SizedBox(height: 1),
+                Text(widget.label,
+                    maxLines: 1,
+                    style: TextStyle(
+                        fontFamily: EvochiText.game,
+                        fontWeight: FontWeight.w900,
+                        fontSize: 12.5,
+                        color: ink,
+                        shadows: light ? null : kitSignShadow)),
+              ]),
+            ]),
+          ),
+          if (widget.badge) const Positioned(top: -5, right: -5, child: BadgeDot()),
+        ]),
+      ),
+    );
+  }
 }
 
 class _IdCard extends StatelessWidget {
@@ -791,27 +839,12 @@ class _CompanionsButton extends StatelessWidget {
   final int count;
   final bool ready;
   @override
-  Widget build(BuildContext context) => Semantics(
-        button: true,
-        label: 'My Evochis, $count${ready ? ', an egg is ready to hatch' : ''}',
-        child: GestureDetector(
-          onTap: () {
-            context.read<GameController>().audio.play('ui_tap', volume: 0.4);
-            showCompanions(context);
-          },
-          child: Stack(clipBehavior: Clip.none, children: [
-            Container(
-              height: 44,
-              padding: const EdgeInsets.fromLTRB(6, 0, 12, 0),
-              decoration: Kit.parchment(radius: 12),
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                const VoxelIcon('paw', size: 28),
-                const SizedBox(width: 4),
-                Text('My Evochis', style: EvochiText.tag.copyWith(fontSize: 15, fontWeight: FontWeight.w900, color: KitColor.signInk)),
-              ]),
-            ),
-            if (ready) const Positioned(top: -4, right: -4, child: BadgeDot()),
-          ]),
-        ),
+  Widget build(BuildContext context) => TripTile(
+        icon: 'paw',
+        label: 'Evochis',
+        semantic: 'My Evochis, $count${ready ? ', an egg is ready to hatch' : ''}',
+        badge: ready,
+        style: TripTileStyle.parchment,
+        onTap: () => showCompanions(context),
       );
 }

@@ -13,6 +13,7 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
+import '../../core/services/haptics.dart';
 import '../../game/engine.dart' as g;
 import '../../game/mining/mining.dart' as mine;
 import '../shared/action_button.dart';
@@ -21,6 +22,15 @@ import '../shared/widgets.dart';
 import 'mining_gear_ui.dart';
 
 Future<void> showBramForge(BuildContext context) => showEvochiSheet<void>(context, builder: (_) => const _Forge());
+
+const _stageArt = 'assets/art/village/forge_stage.webp';
+// a dark iron-and-oak frame around the stage
+final _stageFrame = BoxDecoration(
+  color: const Color(0xFF1C130F),
+  borderRadius: BorderRadius.circular(16),
+  border: Border.all(color: const Color(0xFF5A3A24), width: 3),
+  boxShadow: const [BoxShadow(color: Color(0x55000000), blurRadius: 10, offset: Offset(0, 4))],
+);
 
 class _Forge extends StatefulWidget {
   const _Forge();
@@ -57,8 +67,15 @@ class _ForgeState extends State<_Forge> with SingleTickerProviderStateMixin {
   double _t = 0;
   final _motes = <_Mote>[];
   final _rnd = math.Random();
-  late final Ticker _ticker = createTicker(_tick)..start();
+  late final Ticker _ticker;
   Duration _last = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    // started here, not lazily: a lazy ticker only came to life in dispose, so the sweep never moved
+    _ticker = createTicker(_tick)..start();
+  }
 
   @override
   void dispose() {
@@ -73,7 +90,7 @@ class _ForgeState extends State<_Forge> with SingleTickerProviderStateMixin {
     if (_making != null && _step == 0) {
       _sweep = (_t / 1.15) % 1.0;
       _heat = math.max(0, _heat - dt * 0.022); // it cools on its own, slowly
-      if (_rnd.nextDouble() < dt * 3) _motes.add(_Mote('ember', 0.17 + (_rnd.nextDouble() - 0.5) * 0.14, 0.62, (_rnd.nextDouble() - 0.5) * 0.03, -0.05 - _rnd.nextDouble() * 0.05, 1.6 + _rnd.nextDouble(), 1.5 + _rnd.nextDouble() * 1.5, const Color(0xFFFFB347)));
+      if (_rnd.nextDouble() < dt * 3) _motes.add(_Mote('ember', 0.187 + (_rnd.nextDouble() - 0.5) * 0.14, 0.6, (_rnd.nextDouble() - 0.5) * 0.03, -0.05 - _rnd.nextDouble() * 0.05, 1.6 + _rnd.nextDouble(), 1.5 + _rnd.nextDouble() * 1.5, const Color(0xFFFFB347)));
     }
     if (_hammerT >= 0) {
       final k = _t - _hammerT;
@@ -110,11 +127,11 @@ class _ForgeState extends State<_Forge> with SingleTickerProviderStateMixin {
     if (cold) {
       verdict = 'Cold';
       gain = 0;
-    } else if (off < 0.11) {
+    } else if (off < _ForgePainter.trueZone) {
       verdict = 'True!';
       gain = 2;
       _true++;
-    } else if (off < 0.26) {
+    } else if (off < _ForgePainter.goodZone) {
       verdict = 'Good';
       gain = 1;
     } else {
@@ -130,15 +147,16 @@ class _ForgeState extends State<_Forge> with SingleTickerProviderStateMixin {
     _shake = cold ? 0.3 : (gain >= 2 ? 1.0 : 0.6);
     _flash = cold ? 0 : (gain >= 2 ? 1 : 0.5);
     c.audio.play(cold ? 'mine_clink' : (gain >= 2 ? 'mine_iron_break' : 'mine_iron_crack'), volume: cold ? 0.5 : 0.75);
+    c.audio.buzz(cold ? Haptic.tick : (gain >= 2 ? Haptic.thump : Haptic.hit));
     // sparks off the bar
     final n = cold ? 2 : (gain >= 2 ? 26 : 12);
     for (var i = 0; i < n; i++) {
       final a = -math.pi * (0.1 + 0.8 * _rnd.nextDouble());
       final sp = 0.25 + _rnd.nextDouble() * (gain >= 2 ? 0.9 : 0.55);
-      _motes.add(_Mote('spark', 0.52 + (_rnd.nextDouble() - 0.5) * 0.06, 0.6, math.cos(a) * sp * 0.6, math.sin(a) * sp, 0.4 + _rnd.nextDouble() * 0.5, 1.2 + _rnd.nextDouble() * 1.8,
+      _motes.add(_Mote('spark', 0.535 + (_rnd.nextDouble() - 0.5) * 0.06, 0.47, math.cos(a) * sp * 0.6, math.sin(a) * sp, 0.4 + _rnd.nextDouble() * 0.5, 1.2 + _rnd.nextDouble() * 1.8,
           [const Color(0xFFFFE08A), const Color(0xFFFFB347), const Color(0xFFFF7A2A)][_rnd.nextInt(3)]));
     }
-    if (gain >= 2) _motes.add(_Mote('ring', 0.52, 0.6, 0, 0, 0.45, 1, const Color(0xFFFFE5A2)));
+    if (gain >= 2) _motes.add(_Mote('ring', 0.535, 0.47, 0, 0, 0.45, 1, const Color(0xFFFFE5A2)));
     if (_shape >= _need) {
       _step = 1;
       _verdict = 'Shaped';
@@ -150,8 +168,9 @@ class _ForgeState extends State<_Forge> with SingleTickerProviderStateMixin {
     if (_step != 0) return;
     _heat = math.min(1.0, _heat + 0.17);
     c.audio.play('enc_glow', volume: 0.35);
+    c.audio.buzz(Haptic.tap);
     for (var i = 0; i < 10; i++) {
-      _motes.add(_Mote('ember', 0.17 + (_rnd.nextDouble() - 0.5) * 0.16, 0.6, (_rnd.nextDouble() - 0.5) * 0.08, -0.12 - _rnd.nextDouble() * 0.2, 0.8 + _rnd.nextDouble() * 0.8, 1.5 + _rnd.nextDouble() * 2, const Color(0xFFFFC561)));
+      _motes.add(_Mote('ember', 0.187 + (_rnd.nextDouble() - 0.5) * 0.16, 0.6, (_rnd.nextDouble() - 0.5) * 0.08, -0.12 - _rnd.nextDouble() * 0.2, 0.8 + _rnd.nextDouble() * 0.8, 1.5 + _rnd.nextDouble() * 2, const Color(0xFFFFC561)));
     }
     _flash = 0.3;
   }
@@ -162,8 +181,9 @@ class _ForgeState extends State<_Forge> with SingleTickerProviderStateMixin {
     Future.delayed(const Duration(milliseconds: 520), () {
       if (!mounted) return;
       c.audio.play('enc_soothe', volume: 0.6);
+      c.audio.buzz(Haptic.soothe);
       for (var i = 0; i < 18; i++) {
-        _motes.add(_Mote('steam', 0.86 + (_rnd.nextDouble() - 0.5) * 0.08, 0.64, (_rnd.nextDouble() - 0.5) * 0.12, -0.18 - _rnd.nextDouble() * 0.2, 1.2 + _rnd.nextDouble() * 1.2, 6 + _rnd.nextDouble() * 8, const Color(0xFFF2EEE8)));
+        _motes.add(_Mote('steam', 0.833 + (_rnd.nextDouble() - 0.5) * 0.1, 0.56, (_rnd.nextDouble() - 0.5) * 0.12, -0.18 - _rnd.nextDouble() * 0.2, 1.2 + _rnd.nextDouble() * 1.2, 6 + _rnd.nextDouble() * 8, const Color(0xFFF2EEE8)));
       }
       _heat = 0;
     });
@@ -210,7 +230,11 @@ class _ForgeState extends State<_Forge> with SingleTickerProviderStateMixin {
       final defs = mine.gearDefs.values.where((x) => x.maker == 'bram').toList()..sort((a, b) => a.tier - b.tier);
       return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
         gearSheetHead("Bram's Forge", 'Ah, back from the trail? Let’s see what that ore can become.', s),
-        SizedBox(height: 120, child: CustomPaint(painter: _ForgePainter(this, idle: true))),
+        Container(
+          height: 128,
+          decoration: _stageFrame,
+          child: ClipRRect(borderRadius: BorderRadius.circular(13), child: Image.asset(_stageArt, fit: BoxFit.cover, alignment: const Alignment(0, 0.2))),
+        ),
         const SizedBox(height: 10),
         for (final x in defs)
           Builder(builder: (context) {
@@ -241,27 +265,32 @@ class _ForgeState extends State<_Forge> with SingleTickerProviderStateMixin {
     };
     return Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
       gearSheetHead(d.name, switch (_step) { 0 => 'Shape it at the anvil', 1 => 'Quench it', 2 => 'Finish it', _ => 'Forged' }, s),
-      // the stage
+      // the stage: the Blender-rendered forge corner, the live work painted over it
       LayoutBuilder(builder: (ctx, b) {
-        final w = b.maxWidth;
-        final h = math.min(300.0, w * 0.78);
-        return GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapDown: (_) => _strike(c),
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: SizedBox(
+        final w = math.min(b.maxWidth, 460.0);
+        final h = w * 840 / 1080;
+        final piece = math.min(96.0, h * 0.4);
+        return Center(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapDown: (_) => _strike(c),
+            child: Container(
               width: w,
               height: h,
-              child: Stack(children: [
-                Positioned.fill(child: CustomPaint(painter: _ForgePainter(this, ore: ore, def: d))),
-                if (_step >= 2)
-                  Positioned(
-                    left: w * 0.52 - 48,
-                    top: h * 0.42 - 48,
-                    child: IgnorePointer(child: ForgedPiece(def: d, finish: _finish)),
-                  ),
-              ]),
+              decoration: _stageFrame,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(13),
+                child: Stack(children: [
+                  Positioned.fill(child: Image.asset(_stageArt, fit: BoxFit.fill, gaplessPlayback: true)),
+                  Positioned.fill(child: CustomPaint(painter: _ForgePainter(this, ore: ore, def: d))),
+                  if (_step >= 2)
+                    Positioned(
+                      left: w * _ForgePainter.anvil.dx - piece / 2,
+                      top: h * _ForgePainter.anvil.dy - h * 0.2 - piece / 2,
+                      child: IgnorePointer(child: SizedBox.square(dimension: piece, child: FittedBox(child: ForgedPiece(def: d, finish: _finish)))),
+                    ),
+                ]),
+              ),
             ),
           ),
         );
@@ -317,13 +346,46 @@ class _ForgeState extends State<_Forge> with SingleTickerProviderStateMixin {
       else if (_step == 1)
         EvochiButton(label: _quenchT >= 0 ? 'Hisss...' : 'Quench it', tone: ButtonTone.cream, icon: const VoxelIcon('aff_water', size: 22), onPressed: _quenchT >= 0 ? null : () => _quench(c))
       else if (_step == 2) ...[
-        Wrap(spacing: 8, runSpacing: 8, children: [
+        // the finishes, each shown on the piece itself
+        Row(children: [
           for (final f in mine.gearFinishes.keys)
-            ChoiceChip(
-              label: Text(mine.gearFinishes[f]!),
-              selected: _finish == f,
-              selectedColor: EvochiColor.gold300,
-              onSelected: (_) => setState(() => _finish = f),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 3),
+                child: Semantics(
+                  button: true,
+                  selected: _finish == f,
+                  label: mine.gearFinishes[f],
+                  child: GestureDetector(
+                    onTap: () {
+                      c.audio.play('ui_tap', volume: 0.35);
+                      c.audio.buzz(Haptic.tick);
+                      setState(() => _finish = f);
+                    },
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 120),
+                      padding: const EdgeInsets.fromLTRB(4, 6, 4, 6),
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.circular(12),
+                        gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: _finish == f ? const [Color(0xFFFFF1C8), Color(0xFFF2D08A)] : const [Color(0xFFFBF2E2), Color(0xFFEADCC4)]),
+                        border: Border.all(color: _finish == f ? const Color(0xFFB8862E) : const Color(0xFFC9B190), width: _finish == f ? 2.5 : 1.5),
+                        boxShadow: [if (_finish == f) const BoxShadow(color: Color(0x66FFC94A), blurRadius: 10)],
+                      ),
+                      child: Column(mainAxisSize: MainAxisSize.min, children: [
+                        SizedBox.square(dimension: 40, child: FittedBox(child: ForgedPiece(def: d, finish: f))),
+                        const SizedBox(height: 3),
+                        Text(mine.gearFinishes[f]!,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 12.5, color: EvochiColor.ink)),
+                      ]),
+                    ),
+                  ),
+                ),
+              ),
             ),
         ]),
         const SizedBox(height: 10),
@@ -338,15 +400,14 @@ class _ForgeState extends State<_Forge> with SingleTickerProviderStateMixin {
   }
 }
 
-/// The stage: the forge wall, the hearth and its coals, the anvil on its stump, the quench barrel, the
-/// bar being worked (its heat in its colour, the piece's shape growing in it), the hammer's swing, the
-/// timing sweep, the heat gauge, and the motes.
+/// The live work over the stage picture (forge_stage.webp, rendered in Blender by tools/art/forge_stage.py):
+/// the coals breathing with the heat, the bar being worked (its heat in its colour, longer and flatter as
+/// it is shaped), the hammer's swing, the timing sweep, the heat gauge, and the motes.
 class _ForgePainter extends CustomPainter {
-  _ForgePainter(this.s, {this.ore, this.def, this.idle = false});
+  _ForgePainter(this.s, {this.ore, this.def});
   final _ForgeState s;
   final String? ore;
   final mine.GearDef? def;
-  final bool idle;
 
   static const _ink = Color(0xFF1E1410);
 
@@ -360,6 +421,14 @@ class _ForgePainter extends CustomPainter {
     return col;
   }
 
+  // where things fall in the stage picture (tools/art/forge_stage.py writes these), as fractions
+  static const hearth = Offset(0.187, 0.612);
+  static const anvil = Offset(0.520, 0.497); // the middle of the anvil's face
+  static const water = Offset(0.833, 0.574);
+  static const waterHalf = 0.072; // the water's half-width, of the stage's width
+  static const pivot = Offset(0.745, 0.17); // where the hammer swings from (Bram's hand, off the top)
+  static const trueZone = 0.09, goodZone = 0.24; // the sweep's zones, as |pos - 0.5|
+
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
@@ -367,165 +436,171 @@ class _ForgePainter extends CustomPainter {
     final shake = s._shake;
     canvas.save();
     if (shake > 0) canvas.translate((s._rnd.nextDouble() - 0.5) * 6 * shake, (s._rnd.nextDouble() - 0.5) * 4 * shake);
-    // the wall and floor
-    canvas.drawRect(Offset.zero & size, Paint()..shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF2B1D17), Color(0xFF3F2A20)]).createShader(Offset.zero & size));
-    final brick = Paint()..color = const Color(0x22FFFFFF);
-    for (var y = 0.0; y < h * 0.72; y += h * 0.09) {
-      final off = ((y / (h * 0.09)).round() % 2) * w * 0.07;
-      for (var x = -w * 0.07 + off; x < w; x += w * 0.14) {
-        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(x + 2, y + 2, w * 0.14 - 4, h * 0.09 - 4), const Radius.circular(3)), brick);
-      }
-    }
-    canvas.drawRect(Rect.fromLTWH(0, h * 0.72, w, h * 0.28), Paint()..color = const Color(0xFF4A3A30));
-    canvas.drawRect(Rect.fromLTWH(0, h * 0.72, w, 3), Paint()..color = const Color(0xFF2B1D17));
-    // the hearth's glow on the wall
-    final heat = idle ? 0.7 : s._heat;
+    final heat = s._heat;
     final flick = 0.85 + 0.15 * math.sin(t * 9.1) * math.sin(t * 5.3 + 1);
-    canvas.drawCircle(Offset(w * 0.17, h * 0.6), w * 0.26, Paint()
-      ..shader = radial(Offset(w * 0.17, h * 0.6), w * 0.26, [Color.fromRGBO(255, 140, 50, (0.28 + 0.1 * heat) * flick), const Color(0x00FF8C32)]));
-    // the hearth: a brick arch with the coals in it
-    final hx = w * 0.17, hy = h * 0.62;
-    final arch = Path()
-      ..moveTo(hx - w * 0.14, h * 0.72)
-      ..lineTo(hx - w * 0.14, hy - h * 0.1)
-      ..quadraticBezierTo(hx, hy - h * 0.42, hx + w * 0.14, hy - h * 0.1)
-      ..lineTo(hx + w * 0.14, h * 0.72)
-      ..close();
-    canvas.drawPath(arch, Paint()..color = const Color(0xFF6E4A3C));
-    canvas.drawPath(arch, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..color = _ink);
-    final mouth = Path()
-      ..moveTo(hx - w * 0.1, h * 0.72)
-      ..lineTo(hx - w * 0.1, hy - h * 0.05)
-      ..quadraticBezierTo(hx, hy - h * 0.3, hx + w * 0.1, hy - h * 0.05)
-      ..lineTo(hx + w * 0.1, h * 0.72)
-      ..close();
-    canvas.drawPath(mouth, Paint()..color = const Color(0xFF14100E));
-    // coals: a bed of glowing lumps, brighter with the heat
-    final rnd = math.Random(7);
-    for (var i = 0; i < 16; i++) {
-      final cx = hx + (rnd.nextDouble() - 0.5) * w * 0.17, cy = h * 0.72 - rnd.nextDouble() * h * 0.08;
-      final r = w * (0.012 + rnd.nextDouble() * 0.014);
-      final glow = (0.35 + 0.65 * heat) * (0.75 + 0.25 * math.sin(t * (4 + rnd.nextDouble() * 3) + i));
-      canvas.drawCircle(Offset(cx, cy), r, Paint()..color = Color.lerp(const Color(0xFF3A2A22), const Color(0xFFFFB347), glow)!);
-    }
-    canvas.drawCircle(Offset(hx, h * 0.69), w * 0.09, Paint()
-      ..shader = radial(Offset(hx, h * 0.69), w * 0.09, [Color.fromRGBO(255, 190, 90, 0.55 * heat * flick), const Color(0x00FFBE5A)]));
-    // the heat gauge beside the hearth
-    if (!idle) {
-      final gx = w * 0.035, gy0 = h * 0.2, gy1 = h * 0.68;
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTRB(gx - 5, gy0 - 4, gx + 5, gy1 + 4), const Radius.circular(5)), Paint()..color = const Color(0xFF14100E));
-      final gh = (gy1 - gy0) * heat;
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTRB(gx - 3, gy1 - gh, gx + 3, gy1), const Radius.circular(3)), Paint()..color = heatColor(heat, false));
-      // the cold line
-      final cy = gy1 - (gy1 - gy0) * 0.3;
-      canvas.drawLine(Offset(gx - 7, cy), Offset(gx + 7, cy), Paint()
+    // the coals breathe with the heat: dim and ashy when cold, the bellows bring them roaring back
+    final hc = Offset(w * hearth.dx, h * hearth.dy);
+    canvas.drawOval(Rect.fromCenter(center: hc + Offset(0, h * 0.01), width: w * 0.24, height: h * 0.1), Paint()
+      ..color = Color.fromRGBO(24, 14, 10, 0.6 * (1 - heat))
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
+    canvas.drawCircle(hc, w * 0.34, Paint()
+      ..blendMode = BlendMode.plus
+      ..shader = radial(hc, w * 0.34, [Color.fromRGBO(255, 120, 40, (0.06 + 0.2 * heat) * flick), const Color(0x00FF7828)]));
+    canvas.drawCircle(hc, w * 0.11, Paint()
+      ..blendMode = BlendMode.plus
+      ..shader = radial(hc, w * 0.11, [Color.fromRGBO(255, 205, 120, 0.4 * heat * flick), const Color(0x00FFCD78)]));
+    // the heat gauge: a pill over the hood, the cold line marked
+    {
+      final x0 = w * 0.035, x1 = w * 0.34, y = h * 0.075;
+      final track = RRect.fromRectAndRadius(Rect.fromLTRB(x0, y - 7, x1, y + 7), const Radius.circular(7));
+      canvas.drawRRect(track.shift(const Offset(0, 2)), Paint()..color = const Color(0x66000000));
+      canvas.drawRRect(track, Paint()..color = const Color(0xE6140E0B));
+      final fx = x0 + 3 + (x1 - x0 - 6) * heat;
+      if (heat > 0.01) {
+        final fill = RRect.fromRectAndRadius(Rect.fromLTRB(x0 + 3, y - 4, fx, y + 4), const Radius.circular(4));
+        canvas.drawRRect(fill, Paint()..shader = LinearGradient(colors: [heatColor(0.35, false), heatColor(math.max(0.36, heat), false)]).createShader(fill.outerRect));
+        canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTRB(x0 + 5, y - 3.5, fx - 2, y - 1.5), const Radius.circular(1)), Paint()..color = const Color(0x55FFFFFF));
+      }
+      final cx = x0 + 3 + (x1 - x0 - 6) * 0.3;
+      canvas.drawLine(Offset(cx, y - 9), Offset(cx, y + 9), Paint()
         ..color = const Color(0xFFBFD4E8)
-        ..strokeWidth = 1.5);
+        ..strokeWidth = 2
+        ..strokeCap = StrokeCap.round);
+      canvas.drawRRect(track, Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..color = const Color(0xFF8A6A3E));
+      final tp = TextPainter(
+        text: const TextSpan(text: 'HEAT', style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 1, color: Color(0xFFFFE5A2), shadows: [Shadow(color: Color(0xCC000000), blurRadius: 3)])),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, Offset(x0 + 2, y + 9));
     }
-    // the anvil on its stump
-    final ax = w * 0.52, ay = h * 0.6;
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(ax, ay + h * 0.2), width: w * 0.16, height: h * 0.2), const Radius.circular(4)), Paint()..color = const Color(0xFF5E3A24));
-    canvas.drawRect(Rect.fromCenter(center: Offset(ax, ay + h * 0.1), width: w * 0.16, height: 4), Paint()..color = const Color(0xFF3E2516));
-    final anvil = Path()
-      ..moveTo(ax - w * 0.19, ay)
-      ..lineTo(ax + w * 0.14, ay)
-      ..quadraticBezierTo(ax + w * 0.22, ay + h * 0.01, ax + w * 0.24, ay + h * 0.035)
-      ..lineTo(ax + w * 0.13, ay + h * 0.06)
-      ..lineTo(ax + w * 0.08, ay + h * 0.1)
-      ..lineTo(ax - w * 0.08, ay + h * 0.1)
-      ..lineTo(ax - w * 0.13, ay + h * 0.06)
-      ..lineTo(ax - w * 0.19, ay + h * 0.06)
-      ..close();
-    canvas.drawPath(anvil, Paint()..shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF7A838C), Color(0xFF454A52)]).createShader(Rect.fromLTWH(ax - w * 0.2, ay, w * 0.44, h * 0.1)));
-    canvas.drawPath(anvil, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..color = _ink);
-    canvas.drawLine(Offset(ax - w * 0.17, ay + 3), Offset(ax + w * 0.12, ay + 3), Paint()
-      ..color = const Color(0x66FFFFFF)
-      ..strokeWidth = 2);
-    // the bar: longer and flatter as it is shaped; the piece's picture grows into it
+    // the bar on the anvil: longer and flatter as it is shaped, its colour its heat
     final step = s._step;
-    final shape = idle ? 0.3 : (s._shape / s._need).clamp(0.0, 1.0);
-    var bx = ax, by = ay - h * 0.028;
+    final shape = (s._shape / s._need).clamp(0.0, 1.0);
+    final ax = w * anvil.dx, face = h * anvil.dy;
+    final bw = w * (0.12 + 0.08 * shape), bh = h * (0.05 - 0.018 * shape);
+    var bx = ax, by = face - bh / 2 - 1;
     var barA = 1.0;
     if (s._quenchT >= 0) {
       final k = ((t - s._quenchT) / 0.5).clamp(0.0, 1.0);
       final e = Curves.easeIn.transform(k);
-      bx = ax + (w * 0.86 - ax) * e;
-      by = ay - h * 0.028 - math.sin(k * math.pi) * h * 0.22 + h * 0.06 * e;
+      bx = ax + (w * water.dx - ax) * e;
+      by = face - bh / 2 - math.sin(k * math.pi) * h * 0.22 + (h * water.dy - face) * e;
       barA = 1 - Curves.easeIn.transform(((t - s._quenchT - 0.45) / 0.15).clamp(0.0, 1.0));
     }
-    if (step < 3 && barA > 0) {
-      final bw = w * (0.13 + 0.09 * shape), bh = h * (0.055 - 0.02 * shape);
+    if (step < 2 && barA > 0) {
       final copper = ore == 'copper_ore';
-      final col = heatColor(idle ? 0.8 : heat, copper);
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(bx, by + 4), width: bw, height: bh), const Radius.circular(3)), Paint()..color = Color.fromRGBO(0, 0, 0, 0.35 * barA));
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(bx, by), width: bw, height: bh), const Radius.circular(3)),
-          Paint()..color = Color.lerp(col, Colors.white, s._flash * 0.5)!.withValues(alpha: barA));
-      if (heat > 0.3 || idle) {
-        canvas.drawCircle(Offset(bx, by), bw * 0.7, Paint()
-          ..shader = radial(Offset(bx, by), bw * 0.7, [col.withValues(alpha: 0.35 * (idle ? 0.8 : heat) * barA), col.withValues(alpha: 0)]));
+      final col = heatColor(heat, copper);
+      final r = RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(bx, by), width: bw, height: bh), Radius.circular(bh * 0.4));
+      if (heat > 0.25) {
+        canvas.drawCircle(Offset(bx, by), bw * 0.85, Paint()
+          ..blendMode = BlendMode.plus
+          ..shader = radial(Offset(bx, by), bw * 0.85, [col.withValues(alpha: 0.4 * heat * barA), col.withValues(alpha: 0)]));
       }
-    }
-    // the hammer: pivoting from the right, down onto the bar
-    if (step == 0 && !idle) {
-      final ang = -0.95 + 1.15 * Curves.easeIn.transform(s._hammer); // radians from horizontal
-      final px = ax + w * 0.3, py = ay - h * 0.26;
-      canvas.save();
-      canvas.translate(px, py);
-      canvas.rotate(ang);
-      final L = w * 0.3;
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(-L, -5, L, 10), const Radius.circular(4)), Paint()..color = const Color(0xFFA8703F));
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTWH(-L, -5, L, 10), const Radius.circular(4)), Paint()
+      canvas.drawRRect(r.shift(const Offset(0, 2.5)), Paint()..color = Color.fromRGBO(0, 0, 0, 0.4 * barA));
+      final lit = Color.lerp(col, Colors.white, s._flash * 0.55)!;
+      canvas.drawRRect(r, Paint()
+        ..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color.lerp(lit, Colors.white, 0.25)!.withValues(alpha: barA), lit.withValues(alpha: barA), Color.lerp(lit, Colors.black, 0.3)!.withValues(alpha: barA)])
+            .createShader(r.outerRect));
+      canvas.drawRRect(r, Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5
+        ..strokeWidth = 1.2
+        ..color = Color.fromRGBO(30, 20, 16, 0.7 * barA));
+    }
+    // the hammer: a hand off the top of the stage swings it down onto the bar
+    if (step == 0) {
+      final p = Offset(w * pivot.dx, h * pivot.dy);
+      final hl = w * 0.06; // half the head's length
+      final target = Offset(ax + w * 0.015, face - bh - 1);
+      final v = target - p;
+      final len = math.sqrt(math.max(1.0, v.distanceSquared - hl * hl));
+      final down = math.atan2(v.dy, v.dx) - math.atan2(hl, -len);
+      final up = down + 1.15;
+      final ang = up + (down - up) * Curves.easeIn.transform(s._hammer);
+      canvas.save();
+      canvas.translate(p.dx, p.dy);
+      canvas.rotate(ang);
+      final hw = w * 0.016;
+      final handle = RRect.fromRectAndRadius(Rect.fromLTRB(-len, -hw, w * 0.06, hw), Radius.circular(hw));
+      canvas.drawRRect(handle.shift(const Offset(0, 3)), Paint()..color = const Color(0x55000000));
+      canvas.drawRRect(handle, Paint()..shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFD9A066), Color(0xFFA8703F), Color(0xFF7A4E2A)]).createShader(handle.outerRect));
+      // the leather grip
+      final grip = RRect.fromRectAndRadius(Rect.fromLTRB(-w * 0.04, -hw - 1, w * 0.06, hw + 1), Radius.circular(hw));
+      canvas.drawRRect(grip, Paint()..color = const Color(0xFF4A2E1E));
+      for (var gx = -w * 0.035; gx < w * 0.055; gx += w * 0.016) {
+        canvas.drawLine(Offset(gx, -hw), Offset(gx + w * 0.008, hw), Paint()
+          ..color = const Color(0xFF6E4A30)
+          ..strokeWidth = 1.4);
+      }
+      canvas.drawRRect(handle, Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.3
         ..color = _ink);
-      final head = RRect.fromRectAndRadius(Rect.fromLTWH(-L - w * 0.03, -h * 0.07, w * 0.09, h * 0.14), const Radius.circular(5));
-      canvas.drawRRect(head, Paint()..shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF9AA3AC), Color(0xFF5A6168)]).createShader(head.outerRect));
+      // the head: across the handle's end, its faces bright
+      final head = RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(-len, 0), width: w * 0.058, height: hl * 2), const Radius.circular(4));
+      canvas.drawRRect(head.shift(const Offset(2, 3)), Paint()..color = const Color(0x66000000));
+      canvas.drawRRect(head, Paint()..shader = const LinearGradient(colors: [Color(0xFF5A6168), Color(0xFFA9B2BB), Color(0xFF6E767E)]).createShader(head.outerRect));
+      for (final sy in [-1.0, 1.0]) {
+        canvas.drawRect(Rect.fromCenter(center: Offset(-len, sy * (hl - 2.5)), width: w * 0.058 - 2, height: 4), Paint()..color = const Color(0xFFD3DAE0));
+      }
       canvas.drawRRect(head, Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 2
+        ..strokeWidth = 1.8
         ..color = _ink);
+      canvas.drawRect(Rect.fromCenter(center: Offset(-len + w * 0.034, 0), width: w * 0.012, height: hw * 2.6), Paint()..color = const Color(0xFF3F3531));
       canvas.restore();
     }
-    // the quench barrel
-    final qx = w * 0.86, qy = h * 0.64;
-    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: Offset(qx, qy + h * 0.1), width: w * 0.17, height: h * 0.22), const Radius.circular(8)), Paint()..color = const Color(0xFF6E4529));
-    for (final dy in [-0.06, 0.06]) {
-      canvas.drawRect(Rect.fromCenter(center: Offset(qx, qy + h * 0.1 + h * dy), width: w * 0.175, height: 4), Paint()..color = const Color(0xFF3F3531));
-    }
-    canvas.drawOval(Rect.fromCenter(center: Offset(qx, qy), width: w * 0.16, height: h * 0.05), Paint()..color = const Color(0xFF4F3726));
+    // the barrel's water: a ripple when the bar goes in
+    final wc = Offset(w * water.dx, h * water.dy);
     final ripple = s._quenchT >= 0 ? math.max(0.0, 1 - (t - s._quenchT - 0.5) / 1.2) : 0.0;
-    canvas.drawOval(Rect.fromCenter(center: Offset(qx, qy), width: w * 0.13, height: h * 0.038), Paint()..color = Color.lerp(const Color(0xFF6FB7D4), const Color(0xFFDDF3F6), ripple * 0.6)!);
     if (ripple > 0) {
-      canvas.drawOval(Rect.fromCenter(center: Offset(qx, qy), width: w * 0.13 * (0.4 + 0.6 * (1 - ripple)), height: h * 0.038 * (0.4 + 0.6 * (1 - ripple))), Paint()
+      for (final k in [0.0, 0.35]) {
+        final rk = (1 - ripple + k).clamp(0.0, 1.0);
+        canvas.drawOval(Rect.fromCenter(center: wc, width: w * waterHalf * 2 * (0.3 + 0.7 * rk), height: h * 0.04 * (0.3 + 0.7 * rk)), Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2
+          ..color = Color.fromRGBO(255, 255, 255, ripple * (1 - rk * 0.6)));
+      }
+    }
+    // the timing sweep across the floor: copper for a good stroke, gold for a true one
+    if (step == 0) {
+      final x0 = w * 0.27, x1 = w * 0.77, yy = h * 0.9;
+      final mid = (x0 + x1) / 2, span = x1 - x0;
+      final bar = RRect.fromRectAndRadius(Rect.fromLTRB(x0 - 6, yy - 10, x1 + 6, yy + 10), const Radius.circular(10));
+      canvas.drawRRect(bar.shift(const Offset(0, 3)), Paint()..color = const Color(0x88000000));
+      canvas.drawRRect(bar, Paint()..shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFF0E0A08), Color(0xFF241A14)]).createShader(bar.outerRect));
+      final pos = s._sweep < 0.5 ? s._sweep * 2 : 2 - s._sweep * 2;
+      final inTrue = (pos - 0.5).abs() < trueZone;
+      final good = RRect.fromRectAndRadius(Rect.fromLTRB(mid - span * goodZone, yy - 6, mid + span * goodZone, yy + 6), const Radius.circular(6));
+      canvas.drawRRect(good, Paint()..shader = const LinearGradient(colors: [Color(0x00B8773F), Color(0xFFB8773F), Color(0xFFB8773F), Color(0x00B8773F)], stops: [0, 0.25, 0.75, 1]).createShader(good.outerRect));
+      final gold = RRect.fromRectAndRadius(Rect.fromLTRB(mid - span * trueZone, yy - 7, mid + span * trueZone, yy + 7), const Radius.circular(7));
+      if (inTrue) {
+        canvas.drawRRect(gold.inflate(5), Paint()
+          ..color = const Color(0x88FFD66E)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
+      }
+      canvas.drawRRect(gold, Paint()..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: inTrue ? const [Color(0xFFFFF4C2), Color(0xFFFFC94A)] : const [Color(0xFFFFE08A), Color(0xFFD9A030)]).createShader(gold.outerRect));
+      canvas.drawRRect(bar, Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 2
-        ..color = Color.fromRGBO(255, 255, 255, ripple));
-    }
-    // the timing sweep under the anvil: a bar with the gold in the middle and the marker going across
-    if (step == 0 && !idle) {
-      final x0 = w * 0.3, x1 = w * 0.74, yy = h * 0.9;
-      final bar = RRect.fromRectAndRadius(Rect.fromLTRB(x0, yy - 7, x1, yy + 7), const Radius.circular(7));
-      canvas.drawRRect(bar, Paint()..color = const Color(0xFF14100E));
-      final mid = (x0 + x1) / 2, span = x1 - x0;
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTRB(mid - span * 0.13, yy - 5, mid + span * 0.13, yy + 5), const Radius.circular(5)), Paint()..color = const Color(0xFFB8773F));
-      canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromLTRB(mid - span * 0.055, yy - 5, mid + span * 0.055, yy + 5), const Radius.circular(5)), Paint()..color = const Color(0xFFFFD66E));
-      final pos = s._sweep < 0.5 ? s._sweep * 2 : 2 - s._sweep * 2;
+        ..color = const Color(0xFF8A6A3E));
       final mx = x0 + span * pos;
-      final marker = Path()
-        ..moveTo(mx, yy - 11)
-        ..lineTo(mx - 6, yy - 19)
-        ..lineTo(mx + 6, yy - 19)
+      canvas.drawCircle(Offset(mx, yy), 13, Paint()
+        ..color = const Color(0x66FFF4E2)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 5));
+      final gem = Path()
+        ..moveTo(mx, yy - 13)
+        ..lineTo(mx + 7, yy)
+        ..lineTo(mx, yy + 13)
+        ..lineTo(mx - 7, yy)
         ..close();
-      canvas.drawPath(marker, Paint()..color = const Color(0xFFFFF4E2));
-      canvas.drawLine(Offset(mx, yy - 10), Offset(mx, yy + 10), Paint()
-        ..color = const Color(0xFFFFF4E2)
-        ..strokeWidth = 2);
+      canvas.drawPath(gem, Paint()..color = const Color(0xFFFFFBF2));
+      canvas.drawPath(gem, Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.6
+        ..color = _ink);
     }
     // the motes: sparks, embers, steam, the true-stroke ring
     for (final m in s._motes) {
@@ -533,7 +608,11 @@ class _ForgePainter extends CustomPainter {
       final p = Offset(m.x * w, m.y * h);
       switch (m.kind) {
         case 'spark':
-          canvas.drawCircle(p, m.size * (1 - k * 0.5), Paint()..color = m.color.withValues(alpha: 1 - k));
+          final tail = Offset(m.vx * w, m.vy * h) * 0.035;
+          canvas.drawLine(p - tail, p, Paint()
+            ..color = m.color.withValues(alpha: 1 - k)
+            ..strokeWidth = m.size * (1 - k * 0.5)
+            ..strokeCap = StrokeCap.round);
         case 'ember':
           canvas.drawCircle(p, m.size * (1 - k), Paint()..color = m.color.withValues(alpha: 0.8 * (1 - k)));
         case 'steam':
@@ -548,30 +627,33 @@ class _ForgePainter extends CustomPainter {
       }
     }
     // the verdict word over the anvil
-    if (s._verdict != null && s._verdictT >= 0 && !idle) {
+    if (s._verdict != null && s._verdictT >= 0) {
       final k = ((t - s._verdictT) / 0.8).clamp(0.0, 1.0);
       if (k < 1) {
         final v = s._verdict!;
         final col = switch (v) { 'True!' => const Color(0xFFFFD66E), 'Good' => const Color(0xFFF2A867), 'Cold' => const Color(0xFFBFD4E8), 'Shaped' => const Color(0xFF9FF0DA), _ => const Color(0xFFE2CFB3) };
+        final pop = 1 + 0.25 * (1 - Curves.easeOutBack.transform((k * 4).clamp(0.0, 1.0)));
         final tp = TextPainter(
-          text: TextSpan(text: v, style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: v == 'True!' ? 24 : 19, color: col.withValues(alpha: 1 - k * k), shadows: const [Shadow(color: Color(0xCC000000), offset: Offset(0, 2), blurRadius: 3)])),
+          text: TextSpan(text: v, style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: (v == 'True!' ? 26 : 20) * pop, color: col.withValues(alpha: 1 - k * k), shadows: const [Shadow(color: Color(0xDD000000), offset: Offset(0, 2), blurRadius: 4)])),
           textDirection: TextDirection.ltr,
         )..layout();
-        tp.paint(canvas, Offset(ax - tp.width / 2, ay - h * 0.2 - k * h * 0.1 - tp.height / 2));
+        tp.paint(canvas, Offset(ax - tp.width / 2, face - h * 0.24 - k * h * 0.08 - tp.height / 2));
       }
     }
-    // the finished piece, held up
+    // the finished piece, held up over the anvil
     if (step >= 2 && def != null) {
       final k = step == 3 && s._doneT >= 0 ? ((t - s._doneT) / 0.5).clamp(0.0, 1.0) : 0.0;
       final pop = Curves.elasticOut.transform(k);
+      final c = Offset(ax, face - h * 0.2);
       final r = w * 0.14 * (1 + 0.25 * pop);
-      canvas.drawCircle(Offset(ax, ay - h * 0.18), r * 1.6, Paint()
-        ..shader = radial(Offset(ax, ay - h * 0.18), r * 1.6, [Color.fromRGBO(255, 229, 162, 0.35 + 0.3 * pop), const Color(0x00FFE5A2)]));
+      canvas.drawCircle(c, r * 1.6, Paint()
+        ..blendMode = BlendMode.plus
+        ..shader = radial(c, r * 1.6, [Color.fromRGBO(255, 229, 162, 0.3 + 0.3 * pop), const Color(0x00FFE5A2)]));
       if (step == 3) {
         for (var i = 0; i < 8; i++) {
           final a = i * math.pi / 4 + t * 0.6;
           final rr = r * (1.4 + 0.4 * math.sin(t * 3 + i));
-          canvas.drawCircle(Offset(ax + math.cos(a) * rr, ay - h * 0.18 + math.sin(a) * rr * 0.6), 2.5, Paint()..color = const Color(0xFFFFE5A2));
+          canvas.drawCircle(c + Offset(math.cos(a) * rr, math.sin(a) * rr * 0.6), 2.5, Paint()..color = const Color(0xFFFFE5A2));
         }
       }
     }

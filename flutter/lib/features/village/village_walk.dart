@@ -28,6 +28,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/models/game_state.dart';
+import '../../core/services/haptics.dart';
 import '../../game/hatch/hatch.dart' as hatch;
 import '../../game/mining/mining.dart' as mine;
 import '../../game/story/story.dart' as q;
@@ -54,6 +55,7 @@ const _evochiH = 3.4 * 1.45; // world units: an Elder, drawn 1.45x in the villag
 const _sheetH = 202.0; // an Elder's height on its walk sheet, px
 const _npcH = {'pip': 3.4, 'alder': 3.8, 'bram': 4.0, 'mira': 4.2}; // world units (Flint's comes with his art)
 const _npcName = {'pip': 'Pip', 'alder': 'Alder', 'bram': 'Bram', 'mira': 'Mira', 'flint': 'Flint'};
+const _unitsIndoors = 22.0; // inside a house the camera comes a little closer
 const _unitsAcross = 25.0; // the walking camera: 25 world units across the screen (zoomed back from 18)
 const _npcRing = [Offset(1, 0), Offset(-1, 0), Offset(0, 1), Offset(0, -1), Offset(0.7, 0.7), Offset(-0.7, 0.7), Offset(0.7, -0.7), Offset(-0.7, -0.7)];
 final _npcInk = Paint()
@@ -536,7 +538,8 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   /// Loaded, with the picture round you in (the recorder waits for this).
   bool get ready => lay != null && _pet != null && _cam != null && _viewTiles().every((t) => t.ready);
 
-  double get _k => _view.width / (_unitsAcross * lay!.ppu); // dp per picture px
+  // dp per picture px (a room is seen a little closer than the outdoors)
+  double get _k => _view.width / ((_indoors ? _unitsIndoors : _unitsAcross) * lay!.ppu);
 
   @override
   void initState() {
@@ -1023,11 +1026,23 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     final l = lay!;
     if (_view.isEmpty) return;
     final k = _k;
-    final p = l.toImage(me.x, me.z, me.y);
-    // your Evochi a little below the middle, as in the Wilds
-    var want = Offset(p.dx, p.dy - 0.08 * _view.height / k);
-    final hw = _view.width / 2 / k, hh = _view.height / 2 / k;
-    want = Offset(want.dx.clamp(hw, math.max(hw, l.w - hw)), want.dy.clamp(hh, math.max(hh, l.h - hh)));
+    var p = l.toImage(me.x, me.z, me.y);
+    // while a villager talks, frame the two of you in the space above the talk panel
+    final talkId = _talkNpc?.replaceFirst('npc_', '');
+    final panel = _talkNpc == null ? 0.0 : (_talkKey.currentContext?.size?.height ?? _view.height * 0.4);
+    if (talkId != null) {
+      for (final n in _npcs) {
+        if (n.id == talkId) p = Offset.lerp(p, l.toImage(n.x, n.z), 0.5)!;
+      }
+    }
+    final visH = math.max(80.0, _view.height - panel); // the map you can see, from the top
+    // your Evochi a little below the middle of it, as in the Wilds
+    var want = Offset(p.dx, p.dy - (talkId != null ? 0.0 : 0.08) * visH / k);
+    final hw = _view.width / 2 / k, hh = visH / 2 / k;
+    // a picture shorter than the space sits in its middle (no empty band under it)
+    want = Offset(want.dx.clamp(hw, math.max(hw, l.w - hw)), l.h <= 2 * hh ? l.h / 2 : want.dy.clamp(hh, l.h - hh));
+    // _cam is the picture point at the view's middle; the visible space's middle is above it by the panel
+    want = want.translate(0, (_view.height - visH) / 2 / k);
     _cam = _cam == null ? want : Offset.lerp(_cam, want, math.min(1.0, dt * 5))!;
   }
 
@@ -1088,6 +1103,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   }
 
   GameController c_() => context.read<GameController>();
+  final _talkKey = GlobalKey();
   bool get _indoors => const {'cottage', 'lodge', 'glasshouse', 'workshop'}.contains(widget.map);
 
   // ------------------------------------------------------------------------------------ the chathead talk
@@ -1172,19 +1188,59 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     if (!me.moving) _arrived();
   }
 
+  /// Tap a villager: they stop and turn to you, your Evochi turns to them, and the talk opens at once
+  /// (a buzz to say so), wherever they stand.
+  void _talkNow(_Npc n) {
+    if (_talking || lay == null) return;
+    _rearm();
+    _leaveOre();
+    c_().audio.buzz(Haptic.tap);
+    me.path = [];
+    me.moving = false;
+    me.dir = VillageWalker.dirOf(n.x - me.x, n.z - me.z);
+    n.moving = false;
+    n.dir = VillageWalker.dirOf(me.x - n.x, me.z - n.z);
+    me.talkTo = n.id;
+    _openTalk();
+  }
+
+  /// The building whose picture is under a tap (picture px): each house as a box, front-most first.
+  String? _buildingAt(WalkLayout l, Offset p) {
+    final boxes = _buildings[widget.map];
+    if (boxes == null) return null;
+    String? best;
+    var bestZ = -1e9;
+    for (final e in boxes.entries) {
+      final (x0, x1, z0, z1, h) = e.value;
+      final pts = [for (final x in [x0, x1]) for (final z in [z0, z1]) for (final y in [0.0, h]) l.toImage(x, z, y)];
+      final r = Rect.fromLTRB(pts.map((q) => q.dx).reduce(math.min), pts.map((q) => q.dy).reduce(math.min), pts.map((q) => q.dx).reduce(math.max), pts.map((q) => q.dy).reduce(math.max));
+      if (r.contains(p) && z1 > bestZ) {
+        best = e.key;
+        bestZ = z1;
+      }
+    }
+    return best;
+  }
+
   void _tap(Offset local) {
     final l = lay, cam = _cam;
     if (l == null || cam == null) return;
     if (_talkNpc != null) _talkClose(); // walking off ends the talk, as it would
     final k = _k;
     final p = cam + (local - _view.center(Offset.zero)) / k;
-    // a villager first (tap their sprite)
+    // a villager first (tap their sprite, generously): the talk opens at once
     for (final n in _npcs.reversed) {
-      if (_npcRect(n).inflate(6).contains(p)) return talkTo(n.id);
+      if (_npcRect(n).inflate(14).contains(p)) return _talkNow(n);
     }
     for (final o in ores) {
       final r = _oreRect(o);
       if (r != null && r.inflate(8).contains(p)) return mineOre(o);
+    }
+    // a house (or the forge): tap any of it and your Evochi walks to its door and in
+    final b = _buildingAt(l, p);
+    if (b != null && l.exits.containsKey(b)) {
+      c_().audio.buzz(Haptic.tap);
+      return _useExit(b);
     }
     final g = l.toGround(p);
     walkTo(g.dx, g.dy);
@@ -1452,7 +1508,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     if (lay != null && _wearing(c.state).join(',') != _lookKey) _refreshLook(c.state);
     final marks = q.npcMarkers(c.state);
     return Scaffold(
-      backgroundColor: _indoors ? const Color(0xFF2C2019) : const Color(0xFF86B566),
+      backgroundColor: _indoors ? const Color(0xFF1E1511) : const Color(0xFF86B566),
       body: Column(children: [
         Container(
           color: EvochiColor.panel,
@@ -1520,7 +1576,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  child: ChatheadTalk(npc: _talkNpc!, forge: bramForges(c.state), onSwitch: _talkSwitch, onClose: _talkClose, onGoto: _talkGoto),
+                  child: ChatheadTalk(key: _talkKey, npc: _talkNpc!, forge: bramForges(c.state), onSwitch: _talkSwitch, onClose: _talkClose, onGoto: _talkGoto),
                 ),
             ]);
           }),
@@ -1596,6 +1652,14 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   }
 }
 
+/// The houses you can tap to go in, per map: x0, x1, z0, z1 and height, keyed by the door's exit (in the
+/// Workshop, the anvil and the hearth: tap them to forge).
+const _buildings = <String, Map<String, (double, double, double, double, double)>>{
+  'village': {'lodge': (-10.0, 10.0, -44.0, -34.0, 15.0), 'glasshouse': (-40.0, -27.0, -10.0, 2.0, 12.0), 'workshop': (27.0, 40.0, -11.0, 1.0, 13.0)},
+  'home': {'cottage': (-24.0, -8.0, -31.0, -19.5, 12.0), 'nook': (-8.0, 0.5, -28.5, -21.5, 7.0)},
+  'workshop': {'forge': (-5.2, -0.4, -5.0, -2.0, 3.4)},
+};
+
 const _villageTravel = [('lodge', 'mail', 'Guild'), ('glasshouse', 'care', 'Glasshouse'), ('workshop', 'bell', 'Workshop'), ('waystone', 'star', 'Waystone'), ('trail', 'trail', 'Old Trail')];
 const _workshopTravel = [('bram', 'bell', 'Bram'), ('anvil', 'aff_stone', 'Anvil'), ('bench', 'gem', 'Bench'), ('village', 'trail', 'Square')];
 const _glasshouseTravel = [('mira', 'care', 'Mira'), ('bench', 'skill_farming', 'Bench'), ('beds', 'aff_nature', 'Beds'), ('village', 'trail', 'Square')];
@@ -1668,7 +1732,8 @@ class _WalkPainter extends CustomPainter {
     final view = Offset.zero & size;
     canvas.save();
     canvas.clipRect(view);
-    canvas.drawRect(view, Paint()..color = const Color(0xFF86B566));
+    // past the picture's edge: the room's own dark indoors, the grass outdoors
+    canvas.drawRect(view, Paint()..color = s._indoors ? const Color(0xFF1E1511) : const Color(0xFF86B566));
     // the picture, tile by tile
     var si = 0;
     final vis = s._viewTiles().toList();

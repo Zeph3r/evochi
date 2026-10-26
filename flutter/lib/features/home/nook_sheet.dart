@@ -348,7 +348,7 @@ void paintEgg(Canvas canvas, Offset c, double h, Egg e, double t, String stage,
     canvas.drawCircle(c, r, Paint()..shader = RadialGradient(colors: [col.withAlpha(ready ? 130 + (50 * glow).round() : 60), col.withAlpha(0)]).createShader(Rect.fromCircle(center: c, radius: r)));
   }
   canvas.drawOval(Rect.fromCenter(center: c + Offset(0, h * 0.98), width: h * 1.5 * (1 - lift / (h * 2)), height: h * 0.42 * (1 - lift / (h * 2))), Paint()
-    ..color = Color.fromRGBO(60, 35, 20, 0.28)
+    ..color = const Color.fromRGBO(60, 35, 20, 0.28)
     ..maskFilter = MaskFilter.blur(BlurStyle.normal, math.max(1.5, h * 0.12)));
   canvas.save();
   final base = Offset(c.dx, c.dy + h);
