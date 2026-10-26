@@ -28,6 +28,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/models/game_state.dart';
+import '../../game/hatch/hatch.dart' as hatch;
 import '../../game/mining/mining.dart' as mine;
 import '../../game/story/story.dart' as q;
 import '../shared/ambience.dart';
@@ -448,6 +449,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   double _cartZ = 0, _cartAt = 0; // where it is along its rails, and when its current move started
   int _cartPhase = 0; // 0 resting inside, 1 rolling out, 2 resting outside, 3 rolling in
   double _cartWait = 14;
+  final _petNames = <String, String>{}; // the resting companions in the Grove, by their id
   ui.Image? _mini; // the map's overview (tools/art/walk_minimap.py), for the minimap and the map window
   (double, double, double)? _mark; // where you tapped (x, z) and when: a ring on the ground
 
@@ -517,6 +519,20 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         npcs.add(_Npc(n.id, n.x, n.z, n.place, await _image(villageArt.npc(key, 'neutral', true)), villageArt.npcGround(key), villageArt.npcTop(key),
             _npcH[n.id] ?? 4.0,
             walker: walker));
+      }
+    }
+    if (widget.map == 'home') {
+      // the Grove: the companions resting at home, two or three on the moss beds (favourites first)
+      final resting = List.of(c.state.companions)
+        ..sort((a, b) => (hatch.isFavorite(c.state, b.id) ? 1 : 0).compareTo(hatch.isFavorite(c.state, a.id) ? 1 : 0));
+      const beds = [(-35.2, 26.6), (-26.6, 26.2), (-31.0, 21.5)];
+      for (var i = 0; i < resting.length && i < beds.length; i++) {
+        final p = resting[i];
+        final w = await WalkerArt.load('s0${p.stage.clamp(1, 3)}', p.paletteId, wearing: p.equipped.values.toList());
+        _petNames['pet:${p.id}'] = p.name;
+        npcs.add(_Npc('pet:${p.id}', beds[i].$1, beds[i].$2, 'grove', w.gait(false).img, Offset.zero, Offset.zero, _evochiH * 200 / _sheetH, // drawn as your own Evochi is
+            walker: w)
+          ..dir = i == 0 ? 2 : 6);
       }
     }
     final mining = l.ores.isEmpty ? null : await MiningArt.load(l.ores.map((o) => o.$1));
@@ -911,6 +927,13 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     if (id == null || !mounted) return;
     final n = _npcs.firstWhere((v) => v.id == id);
     setState(() => _talking = true);
+    if (n.place == 'grove') {
+      // a resting companion: its card in My Evochis
+      showCompanions(context, focus: id.substring(4)).then((_) {
+        if (mounted) setState(() => _talking = false);
+      });
+      return;
+    }
     if (n.place == 'crossing') {
       showFlintTalk(context).then((pick) async {
         if (pick == 'gear' && mounted) await showFlintShop(context);
@@ -1560,7 +1583,7 @@ class _WalkPainter extends CustomPainter {
       final mark = marks['npc_${n.id}'];
       var y = head.dy - 8;
       if (near) {
-        _chip(canvas, Offset(head.dx, y - 12), _npcName[n.id] ?? n.id);
+        _chip(canvas, Offset(head.dx, y - 12), _npcName[n.id] ?? s._petNames[n.id] ?? n.id);
         y -= 34;
       }
       if (mark != null) _marker(canvas, Offset(head.dx, y - 4 * math.sin(s._t * 3.2).abs()), mark == 'handin');
