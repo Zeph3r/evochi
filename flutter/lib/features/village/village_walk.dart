@@ -649,7 +649,8 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   /// as you leave; nothing is taken off).
   List<String> _wearing(GameState s) {
     final eq = Map.of(s.pet?.equipped ?? const <String, String>{});
-    if (widget.map == 'village') return eq.values.toList();
+    // mining gear is for the trail (and the mines): everywhere else, only your wearables
+    if (widget.map != 'trail') return eq.values.toList();
     final worn = mine.wornGear(s);
     if (worn.containsKey('helmet')) eq.remove('head');
     if (worn.keys.any((k) => k == 'harness' || k == 'satchel' || k == 'tool' || k == 'lantern')) eq.remove('back');
@@ -1240,6 +1241,8 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     final b = _buildingAt(l, p);
     if (b != null && l.exits.containsKey(b)) {
       c_().audio.buzz(Haptic.tap);
+      // the Nest is home: tap it and you're back there at once
+      if (b == 'nest' && !_talking) return _fireExit(l, b);
       return _useExit(b);
     }
     final g = l.toGround(p);
@@ -1656,7 +1659,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
 /// Workshop, the anvil and the hearth: tap them to forge).
 const _buildings = <String, Map<String, (double, double, double, double, double)>>{
   'village': {'lodge': (-10.0, 10.0, -44.0, -34.0, 15.0), 'glasshouse': (-40.0, -27.0, -10.0, 2.0, 12.0), 'workshop': (27.0, 40.0, -11.0, 1.0, 13.0)},
-  'home': {'cottage': (-24.0, -8.0, -31.0, -19.5, 12.0), 'nook': (-8.0, 0.5, -28.5, -21.5, 7.0)},
+  'home': {'cottage': (-24.0, -8.0, -31.0, -19.5, 12.0), 'nook': (-8.0, 0.5, -28.5, -21.5, 7.0), 'nest': (-17.0, -3.6, 7.0, 19.0, 2.4)},
   'workshop': {'forge': (-5.2, -0.4, -5.0, -2.0, 3.4)},
 };
 

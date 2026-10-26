@@ -17,7 +17,6 @@ import '../../game/vitality/vitality.dart';
 import '../caravan/caravan_screen.dart';
 import '../home/companions_sheet.dart';
 import '../home/home_widgets.dart';
-import '../onboarding/onboarding_screens.dart' show EvolutionStrip;
 import '../pet/pet_screens.dart';
 import '../settings/settings_screen.dart';
 import '../shared/kit.dart';
@@ -112,8 +111,6 @@ class _NestScreenState extends State<NestScreen> {
     final screenH = MediaQuery.of(context).size.height;
     final story = c.storyView.active;
     final chip = story != null && story.tracked && screenH >= 640;
-    // the story chip takes the evolution strip's room, so the strip folds into its compact row
-    final compact = screenH < 680 || (chip && screenH < 920);
     final sleeping = _sleeping(c);
     return Listener(
       onPointerDown: (_) {
@@ -191,39 +188,6 @@ class _NestScreenState extends State<NestScreen> {
               ]);
               }),
               const SizedBox(height: 8),
-              if (compact)
-                GameCard(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                  child: Row(children: [
-                    const VoxelIcon('evolve', size: 22),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        pv.evolution.maxed
-                            ? 'Final form reached'
-                            : 'Next: ${stageLabel(pet.stage + 1)} - Lv ${pv.level.level}/${pv.evolution.gate!.level}, ${pv.activeDays}/${pv.evolution.gate!.activeDays} active days',
-                        style: EvochiText.tag,
-                      ),
-                    ),
-                  ]),
-                )
-              else
-                GameCard(
-                  padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
-                  child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                    Row(children: [
-                      Text('Evolution Family', style: EvochiText.cardTitle.copyWith(fontSize: 15)),
-                      const Spacer(),
-                      const Text('Grow together!', style: EvochiText.caption),
-                    ]),
-                    EvolutionStrip(
-                      palette: pet.paletteId,
-                      current: pet.stage,
-                      onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const PetDetailsScreen())),
-                    ),
-                  ]),
-                ),
-              const SizedBox(height: 8),
             ]),
           ),
         ),
@@ -276,119 +240,82 @@ class _NestHud extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.watch<GameController>();
     final v = c.view;
+    final s = c.state;
+    // two tidy rows across the top: the wordmark with your coins and two buttons, then one dock of
+    // trips. The rest of the meadow is your Evochi's.
     return Padding(
-      padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),
-      child: Row(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-        Flexible(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            TitleImage('wordmark_evochi', height: 40, label: 'Evochi - ${c.state.pet!.name}\'s nest'),
-            const SizedBox(height: 10),
-            Semantics(
-              button: true,
-              label: 'Sunlit Meadow - arrange decorations',
-              child: GestureDetector(
-                onTap: () => showHabitatSheet(context),
-                child: Container(
-                  height: 36,
-                  padding: const EdgeInsets.fromLTRB(6, 0, 10, 0),
-                  decoration: Kit.parchment(radius: 10),
-                  child: const Row(mainAxisSize: MainAxisSize.min, children: [
-                    VoxelIcon('pin', size: 24),
-                    SizedBox(width: 4),
-                    Text('Sunlit Meadow', style: EvochiText.cardTitle),
-                    Text('  ›', style: EvochiText.cardTitle),
-                  ]),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            // the trips: Explore Home (Home Tales), the Village and, once there is anyone to switch to (or
-            // an egg on the way), My Evochis: square tiles down the left edge, mirroring the buttons on
-            // the right, so the middle stays your Evochi's
-            _ExploreHomeButton(attention: c.homeAttention),
-            const SizedBox(height: 8),
-            _VisitVillageButton(attention: c.storyAttention > 0),
-            if (c.state.companions.isNotEmpty || c.state.hatch.eggs.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              _CompanionsButton(count: c.state.companions.length + 1, ready: c.state.hatch.eggs.any((e) => e.state == 'ready')),
-            ],
-          ]),
-        ),
-        const SizedBox(width: 8),
-        Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, mainAxisSize: MainAxisSize.min, children: [
+        Row(children: [
+          Flexible(child: Align(alignment: Alignment.centerLeft, child: TitleImage('wordmark_evochi', height: 36, label: 'Evochi - ${s.pet!.name}\'s nest'))),
+          const SizedBox(width: 8),
           CoinPill(balance: v.balance, onPlus: () => showCoinsInfo(context)),
-          const SizedBox(height: 10),
+          const SizedBox(width: 6),
+          SquareIconButton(icon: 'mail', label: 'Quests and rewards', badge: v.claimable, onTap: () => TabNav.of(context).go('journey')),
+          const SizedBox(width: 6),
           SquareIconButton(
             icon: 'settings',
             label: 'Settings',
             onTap: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const SettingsScreen())),
           ),
-          const SizedBox(height: 10),
-          SquareIconButton(icon: 'mail', label: 'Quests and rewards', badge: v.claimable, onTap: () => TabNav.of(context).go('journey')),
+        ]),
+        const SizedBox(height: 8),
+        _TripDock(items: [
+          _Trip('home_map', 'Home', 'Explore Home', c.homeAttention, () => openHomeMap(context)),
+          _Trip('habitats', 'Village', 'Visit Sunlit Village', c.storyAttention > 0, () => openVillage(context)),
+          if (s.companions.isNotEmpty || s.hatch.eggs.isNotEmpty)
+            _Trip('paw', 'Evochis', 'My Evochis, ${s.companions.length + 1}', s.hatch.eggs.any((e) => e.state == 'ready'), () => showCompanions(context)),
+          _Trip('decorations', 'Decorate', 'Sunlit Meadow, arrange decorations', false, () => showHabitatSheet(context)),
         ]),
       ]),
     );
   }
 }
 
-/// Opens the Home Map (Home Tales). The dot means a bed is ripe, the starter seeds are waiting, or the
-/// Cottage is ready to restore.
-class _ExploreHomeButton extends StatelessWidget {
-  const _ExploreHomeButton({required this.attention});
-  final bool attention;
-  @override
-  Widget build(BuildContext context) => TripTile(
-        icon: 'home_map',
-        label: 'Home',
-        semantic: 'Explore Home${attention ? ', something new' : ''}',
-        badge: attention,
-        style: TripTileStyle.meadow,
-        onTap: () => openHomeMap(context),
-      );
-}
-
-/// Opens Sunlit Village (Village Tales). The dot means a villager has something for you.
-class _VisitVillageButton extends StatelessWidget {
-  const _VisitVillageButton({required this.attention});
-  final bool attention;
-  @override
-  Widget build(BuildContext context) => TripTile(
-        icon: 'habitats',
-        label: 'Village',
-        semantic: 'Visit Sunlit Village${attention ? ', something new' : ''}',
-        badge: attention,
-        style: TripTileStyle.wood,
-        onTap: () => openVillage(context),
-      );
-}
-
-enum TripTileStyle { meadow, wood, parchment }
-
-/// A square trip button on the Nest: its picture over a short word, a press that sinks, a buzz.
-class TripTile extends StatefulWidget {
-  const TripTile({super.key, required this.icon, required this.label, required this.semantic, required this.onTap, this.badge = false, this.style = TripTileStyle.wood});
+class _Trip {
+  const _Trip(this.icon, this.label, this.semantic, this.badge, this.onTap);
   final String icon, label, semantic;
-  final VoidCallback onTap;
   final bool badge;
-  final TripTileStyle style;
-  @override
-  State<TripTile> createState() => _TripTileState();
+  final VoidCallback onTap;
 }
 
-class _TripTileState extends State<TripTile> {
+/// One wooden dock of trips under the wordmark: each its picture over a short word, grooves between,
+/// a press that sinks the segment, a buzz.
+class _TripDock extends StatelessWidget {
+  const _TripDock({required this.items});
+  final List<_Trip> items;
+  @override
+  Widget build(BuildContext context) => Container(
+        height: 56,
+        padding: const EdgeInsets.all(3),
+        decoration: Kit.wood(radius: 16, width: 360, y: -0.3, edge: 4),
+        child: Row(children: [
+          for (var i = 0; i < items.length; i++) ...[
+            if (i > 0) Container(width: 2, margin: const EdgeInsets.symmetric(vertical: 8), decoration: BoxDecoration(color: KitColor.woodInk.withValues(alpha: 0.45), borderRadius: BorderRadius.circular(1))),
+            Expanded(child: _DockButton(item: items[i])),
+          ],
+        ]),
+      );
+}
+
+class _DockButton extends StatefulWidget {
+  const _DockButton({required this.item});
+  final _Trip item;
+  @override
+  State<_DockButton> createState() => _DockButtonState();
+}
+
+class _DockButtonState extends State<_DockButton> {
   bool _down = false;
   @override
   Widget build(BuildContext context) {
-    final (top, bottom, rim, ink) = switch (widget.style) {
-      TripTileStyle.meadow => (const Color(0xFFD4EDAE), const Color(0xFF86BC5C), const Color(0xFF3E6E2B), EvochiColor.ink),
-      TripTileStyle.wood => (const Color(0xFFE0A86A), const Color(0xFFA9683A), const Color(0xFF5E3A20), KitColor.signInk),
-      TripTileStyle.parchment => (const Color(0xFFFFF6E4), const Color(0xFFEBD3AE), const Color(0xFF8A6A48), KitColor.signInk),
-    };
-    final light = widget.style != TripTileStyle.wood;
+    final t = widget.item;
     return Semantics(
       button: true,
-      label: widget.semantic,
+      label: '${t.semantic}${t.badge ? ', something new' : ''}',
+      excludeSemantics: true,
       child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
         onTapDown: (_) => setState(() => _down = true),
         onTapCancel: () => setState(() => _down = false),
         onTapUp: (_) => setState(() => _down = false),
@@ -396,53 +323,28 @@ class _TripTileState extends State<TripTile> {
           final c = context.read<GameController>();
           c.audio.play('ui_tap', volume: 0.4);
           c.audio.buzz(Haptic.tap);
-          widget.onTap();
+          t.onTap();
         },
-        child: Stack(clipBehavior: Clip.none, children: [
-          AnimatedContainer(
-            duration: const Duration(milliseconds: 70),
-            width: 64,
-            height: 62,
-            transform: Matrix4.translationValues(0, _down ? 3 : 0, 0),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(14),
-              border: Border.all(color: rim, width: 2.5),
-              gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [top, bottom]),
-              boxShadow: [
-                if (!_down) BoxShadow(color: rim, offset: const Offset(0, 3.5)),
-                BoxShadow(color: const Color(0x40283C14), blurRadius: _down ? 3 : 8, offset: Offset(0, _down ? 1 : 5)),
-              ],
-            ),
-            child: Stack(children: [
-              // a soft sheen across the top
-              Positioned(
-                left: 4,
-                right: 4,
-                top: 3,
-                height: 14,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(9),
-                    gradient: LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Colors.white.withValues(alpha: light ? 0.55 : 0.32), Colors.white.withValues(alpha: 0)]),
-                  ),
-                ),
-              ),
-              Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                VoxelIcon(widget.icon, size: 30),
-                const SizedBox(height: 1),
-                Text(widget.label,
-                    maxLines: 1,
-                    style: TextStyle(
-                        fontFamily: EvochiText.game,
-                        fontWeight: FontWeight.w900,
-                        fontSize: 12.5,
-                        color: ink,
-                        shadows: light ? null : kitSignShadow)),
-              ]),
-            ]),
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 70),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            color: _down ? const Color(0x33000000) : const Color(0x00000000),
           ),
-          if (widget.badge) const Positioned(top: -5, right: -5, child: BadgeDot()),
-        ]),
+          transform: Matrix4.translationValues(0, _down ? 1.5 : 0, 0),
+          child: Stack(clipBehavior: Clip.none, alignment: Alignment.center, children: [
+            Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+              VoxelIcon(t.icon, size: 26),
+              const SizedBox(height: 1),
+              Text(t.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.visible,
+                  softWrap: false,
+                  style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 12.5, height: 1.1, color: KitColor.signInk, shadows: kitSignShadow)),
+            ]),
+            if (t.badge) const Positioned(top: 0, right: 8, child: BadgeDot()),
+          ]),
+        ),
       ),
     );
   }
@@ -834,17 +736,3 @@ Widget _kv(List<(String, String)> rows) => Container(
 
 /// My Evochis: the active one and the companions resting at home, a tap away (the quick switch). The
 /// dot says an egg is ready to hatch in the nook.
-class _CompanionsButton extends StatelessWidget {
-  const _CompanionsButton({required this.count, required this.ready});
-  final int count;
-  final bool ready;
-  @override
-  Widget build(BuildContext context) => TripTile(
-        icon: 'paw',
-        label: 'Evochis',
-        semantic: 'My Evochis, $count${ready ? ', an egg is ready to hatch' : ''}',
-        badge: ready,
-        style: TripTileStyle.parchment,
-        onTap: () => showCompanions(context),
-      );
-}

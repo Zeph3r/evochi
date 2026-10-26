@@ -92,6 +92,18 @@ class _ForgeState extends State<_Forge> with SingleTickerProviderStateMixin {
       _heat = math.max(0, _heat - dt * 0.022); // it cools on its own, slowly
       if (_rnd.nextDouble() < dt * 3) _motes.add(_Mote('ember', 0.187 + (_rnd.nextDouble() - 0.5) * 0.14, 0.6, (_rnd.nextDouble() - 0.5) * 0.03, -0.05 - _rnd.nextDouble() * 0.05, 1.6 + _rnd.nextDouble(), 1.5 + _rnd.nextDouble() * 1.5, const Color(0xFFFFB347)));
     }
+    if (_quenchT >= 0) {
+      final q = _t - _quenchT - 0.5; // since the bar went in
+      if (q > 0 && q < 1.6) {
+        final wx = _ForgePainter.water.dx, wy = _ForgePainter.water.dy, half = _ForgePainter.waterHalf;
+        if (_rnd.nextDouble() < dt * 16 * (1 - q / 1.6)) {
+          _motes.add(_Mote('steam', wx + (_rnd.nextDouble() - 0.5) * half * 1.5, wy - 0.01, (_rnd.nextDouble() - 0.5) * 0.08 + 0.02, -0.14 - _rnd.nextDouble() * 0.16, 1.2 + _rnd.nextDouble() * 1.0, 5 + _rnd.nextDouble() * 6, const Color(0xFFF2EEE8)));
+        }
+        if (_rnd.nextDouble() < dt * 30 * (1 - q / 1.6)) {
+          _motes.add(_Mote('bubble', wx + (_rnd.nextDouble() - 0.5) * half * 1.6, wy + (_rnd.nextDouble() - 0.5) * 0.012, 0, -0.02, 0.25 + _rnd.nextDouble() * 0.3, 1.5 + _rnd.nextDouble() * 2.2, const Color(0xFFFFFFFF)));
+        }
+      }
+    }
     if (_hammerT >= 0) {
       final k = _t - _hammerT;
       _hammer = k < 0.09 ? k / 0.09 : (k < 0.32 ? 1 - (k - 0.09) / 0.23 : 0);
@@ -102,9 +114,15 @@ class _ForgeState extends State<_Forge> with SingleTickerProviderStateMixin {
     for (final m in _motes) {
       m.age += dt;
       if (m.kind == 'spark') m.vy += dt * 1.6; // gravity (in stage heights a second)
+      if (m.kind == 'drop') m.vy += dt * 2.6;
+      if (m.kind == 'glint') {
+        m.vy += dt * 0.5;
+        m.vx *= 0.97;
+      }
       if (m.kind == 'steam') {
-        m.size += dt * 9;
+        m.size += dt * 11;
         m.vx *= 0.98;
+        m.vy *= 0.99;
       }
       m.x += m.vx * dt;
       m.y += m.vy * dt;
@@ -178,16 +196,24 @@ class _ForgeState extends State<_Forge> with SingleTickerProviderStateMixin {
   void _quench(GameController c) {
     if (_step != 1 || _quenchT >= 0) return;
     _quenchT = _t;
-    Future.delayed(const Duration(milliseconds: 520), () {
+    Future.delayed(const Duration(milliseconds: 500), () {
       if (!mounted) return;
       c.audio.play('enc_soothe', volume: 0.6);
       c.audio.buzz(Haptic.soothe);
-      for (var i = 0; i < 18; i++) {
-        _motes.add(_Mote('steam', 0.833 + (_rnd.nextDouble() - 0.5) * 0.1, 0.56, (_rnd.nextDouble() - 0.5) * 0.12, -0.18 - _rnd.nextDouble() * 0.2, 1.2 + _rnd.nextDouble() * 1.2, 6 + _rnd.nextDouble() * 8, const Color(0xFFF2EEE8)));
+      // the splash: drops thrown up out of the barrel, falling back
+      final wx = _ForgePainter.water.dx, wy = _ForgePainter.water.dy, half = _ForgePainter.waterHalf;
+      for (var i = 0; i < 26; i++) {
+        final u = (_rnd.nextDouble() - 0.5) * 2;
+        _motes.add(_Mote('drop', wx + u * half * 0.7, wy, u * 0.16 + (_rnd.nextDouble() - 0.5) * 0.06, -0.55 - _rnd.nextDouble() * 0.45, 0.55 + _rnd.nextDouble() * 0.35, 1.4 + _rnd.nextDouble() * 1.6,
+            [const Color(0xFFE8F7FF), const Color(0xFFB9E3F5), const Color(0xFFFFFFFF)][_rnd.nextInt(3)]));
+      }
+      // the first great puff of steam
+      for (var i = 0; i < 10; i++) {
+        _motes.add(_Mote('steam', wx + (_rnd.nextDouble() - 0.5) * half * 1.4, wy - 0.02, (_rnd.nextDouble() - 0.5) * 0.1, -0.22 - _rnd.nextDouble() * 0.2, 1.3 + _rnd.nextDouble() * 1.0, 7 + _rnd.nextDouble() * 7, const Color(0xFFF7F4EF)));
       }
       _heat = 0;
     });
-    Future.delayed(const Duration(milliseconds: 1500), () {
+    Future.delayed(const Duration(milliseconds: 1900), () {
       if (mounted) setState(() => _step = 2);
     });
   }
@@ -201,6 +227,13 @@ class _ForgeState extends State<_Forge> with SingleTickerProviderStateMixin {
     c.audio.play('reward_chime', volume: 0.7);
     final word = _true >= _need ~/ 2 ? 'Every stroke of that rang true.' : (_true > 0 ? 'That one will last.' : 'Rough, but it will hold.');
     c.toast('${d.name}, ${mine.gearFinishes[_finish]!.toLowerCase()}, in $_strokes strokes. Bram nods: "$word"', icon: 'star');
+    for (var i = 0; i < 22; i++) {
+      final a = -math.pi * _rnd.nextDouble();
+      final sp = 0.25 + _rnd.nextDouble() * 0.5;
+      _motes.add(_Mote('glint', _ForgePainter.anvil.dx, _ForgePainter.anvil.dy - 0.2, math.cos(a) * sp * 0.6, math.sin(a) * sp, 0.7 + _rnd.nextDouble() * 0.6, 2 + _rnd.nextDouble() * 2.5, const Color(0xFFFFE5A2)));
+    }
+    _motes.add(_Mote('ring', _ForgePainter.anvil.dx, _ForgePainter.anvil.dy - 0.2, 0, 0, 0.6, 1, const Color(0xFFFFF1C8)));
+    c.audio.buzz(Haptic.win);
     setState(() {
       _step = 3;
       _doneT = _t;
@@ -286,8 +319,14 @@ class _ForgeState extends State<_Forge> with SingleTickerProviderStateMixin {
                   if (_step >= 2)
                     Positioned(
                       left: w * _ForgePainter.anvil.dx - piece / 2,
-                      top: h * _ForgePainter.anvil.dy - h * 0.2 - piece / 2,
-                      child: IgnorePointer(child: SizedBox.square(dimension: piece, child: FittedBox(child: ForgedPiece(def: d, finish: _finish)))),
+                      // it floats, gently, and pops up a little when Bram hands it over
+                      top: h * _ForgePainter.anvil.dy - h * 0.2 - piece / 2 + math.sin(_t * 2.0) * 3,
+                      child: IgnorePointer(
+                        child: Transform.scale(
+                          scale: _step == 3 && _doneT >= 0 ? 1 + 0.18 * Curves.easeOutBack.transform(((_t - _doneT) / 0.5).clamp(0.0, 1.0)) : 1.0,
+                          child: SizedBox.square(dimension: piece, child: FittedBox(child: _Shine(t: _t, child: ForgedPiece(def: d, finish: _finish)))),
+                        ),
+                      ),
                     ),
                 ]),
               ),
@@ -552,17 +591,33 @@ class _ForgePainter extends CustomPainter {
       canvas.drawRect(Rect.fromCenter(center: Offset(-len + w * 0.034, 0), width: w * 0.012, height: hw * 2.6), Paint()..color = const Color(0xFF3F3531));
       canvas.restore();
     }
-    // the barrel's water: a ripple when the bar goes in
+    // the barrel's water: the bar's heat glowing out under the surface, the surface flashing, rings
+    // spreading to the rim and settling
     final wc = Offset(w * water.dx, h * water.dy);
-    final ripple = s._quenchT >= 0 ? math.max(0.0, 1 - (t - s._quenchT - 0.5) / 1.2) : 0.0;
-    if (ripple > 0) {
-      for (final k in [0.0, 0.35]) {
-        final rk = (1 - ripple + k).clamp(0.0, 1.0);
-        canvas.drawOval(Rect.fromCenter(center: wc, width: w * waterHalf * 2 * (0.3 + 0.7 * rk), height: h * 0.04 * (0.3 + 0.7 * rk)), Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2
-          ..color = Color.fromRGBO(255, 255, 255, ripple * (1 - rk * 0.6)));
+    final wHalf = w * waterHalf;
+    final q = s._quenchT >= 0 ? t - s._quenchT - 0.5 : -1.0; // since the bar went in
+    if (q >= 0 && q < 2.4) {
+      final heatLeft = math.max(0.0, 1 - q / 1.1);
+      if (heatLeft > 0) {
+        canvas.drawCircle(wc + Offset(0, h * 0.03), wHalf * 1.5, Paint()
+          ..blendMode = BlendMode.plus
+          ..shader = radial(wc + Offset(0, h * 0.03), wHalf * 1.5, [Color.fromRGBO(255, 130, 50, 0.55 * heatLeft), const Color(0x00FF8232)]));
       }
+      final surface = Rect.fromCenter(center: wc, width: wHalf * 2, height: h * 0.03);
+      canvas.save();
+      canvas.clipRect(Rect.fromLTRB(surface.left - 2, surface.top - h * 0.03, surface.right + 2, surface.bottom + 2));
+      final flash = math.max(0.0, 1 - q / 0.5);
+      if (flash > 0) canvas.drawOval(surface, Paint()..color = Color.fromRGBO(240, 250, 255, 0.55 * flash));
+      for (var i = 0; i < 3; i++) {
+        final k = (q - i * 0.22) / 1.3;
+        if (k <= 0 || k >= 1) continue;
+        final e = Curves.easeOut.transform(k);
+        canvas.drawOval(Rect.fromCenter(center: wc, width: wHalf * 2 * (0.15 + 0.85 * e), height: h * 0.03 * (0.15 + 0.85 * e)), Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.2 * (1 - k) + 0.6
+          ..color = Color.fromRGBO(255, 255, 255, 0.85 * (1 - k)));
+      }
+      canvas.restore();
     }
     // the timing sweep across the floor: copper for a good stroke, gold for a true one
     if (step == 0) {
@@ -615,10 +670,31 @@ class _ForgePainter extends CustomPainter {
             ..strokeCap = StrokeCap.round);
         case 'ember':
           canvas.drawCircle(p, m.size * (1 - k), Paint()..color = m.color.withValues(alpha: 0.8 * (1 - k)));
+        case 'drop':
+          // a falling drop: a short streak along its flight, a bright head
+          final flight = Offset(m.vx * w, m.vy * h);
+          final speed = flight.distance;
+          final streak = speed > 0 ? flight / speed * math.min(9.0, speed * 0.03) : Offset.zero;
+          canvas.drawLine(p - streak, p, Paint()
+            ..color = m.color.withValues(alpha: 0.75 * (1 - k * k))
+            ..strokeWidth = m.size
+            ..strokeCap = StrokeCap.round);
+          canvas.drawCircle(p, m.size * 0.45, Paint()..color = Colors.white.withValues(alpha: 0.9 * (1 - k)));
+        case 'bubble':
+          canvas.drawCircle(p, m.size * (0.6 + 0.6 * k), Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 1.1
+            ..color = m.color.withValues(alpha: 0.8 * (1 - k)));
+        case 'glint':
+          _star(canvas, p, m.size * 2.2 * (1 - k * 0.6), m.color.withValues(alpha: 1 - k));
         case 'steam':
+          final puff = (k < 0.15 ? k / 0.15 : 1.0) * (1 - k);
           canvas.drawCircle(p, m.size, Paint()
-            ..color = m.color.withValues(alpha: 0.35 * (1 - k))
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
+            ..color = m.color.withValues(alpha: 0.42 * puff)
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, 4 + m.size * 0.35));
+          canvas.drawCircle(p + Offset(-m.size * 0.25, -m.size * 0.2), m.size * 0.55, Paint()
+            ..color = Colors.white.withValues(alpha: 0.3 * puff)
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, 3 + m.size * 0.2));
         case 'ring':
           canvas.drawCircle(p, w * (0.04 + 0.2 * k), Paint()
             ..style = PaintingStyle.stroke
@@ -640,30 +716,102 @@ class _ForgePainter extends CustomPainter {
         tp.paint(canvas, Offset(ax - tp.width / 2, face - h * 0.24 - k * h * 0.08 - tp.height / 2));
       }
     }
-    // the finished piece, held up over the anvil
+    // the finished piece, held up over the anvil: slow light rays turning behind it, a breathing
+    // halo, and stars that twinkle in and out round it
     if (step >= 2 && def != null) {
-      final k = step == 3 && s._doneT >= 0 ? ((t - s._doneT) / 0.5).clamp(0.0, 1.0) : 0.0;
-      final pop = Curves.elasticOut.transform(k);
+      final k = step == 3 && s._doneT >= 0 ? ((t - s._doneT) / 0.6).clamp(0.0, 1.0) : 0.0;
+      final pop = Curves.easeOutBack.transform(k);
+      final strong = step == 3 ? 0.6 + 0.4 * pop : 0.55;
       final c = Offset(ax, face - h * 0.2);
-      final r = w * 0.14 * (1 + 0.25 * pop);
-      canvas.drawCircle(c, r * 1.6, Paint()
+      final r = h * 0.2;
+      final breathe = 0.9 + 0.1 * math.sin(t * 2.2);
+      // rays
+      canvas.save();
+      canvas.translate(c.dx, c.dy);
+      canvas.rotate(t * 0.25);
+      const n = 14;
+      for (var i = 0; i < n; i++) {
+        final a0 = i * 2 * math.pi / n;
+        final wide = i.isEven ? 0.09 : 0.05;
+        final len = r * (i.isEven ? 2.3 : 1.7) * breathe;
+        final ray = Path()
+          ..moveTo(0, 0)
+          ..lineTo(math.cos(a0 - wide) * len, math.sin(a0 - wide) * len)
+          ..lineTo(math.cos(a0 + wide) * len, math.sin(a0 + wide) * len)
+          ..close();
+        canvas.drawPath(ray, Paint()
+          ..blendMode = BlendMode.plus
+          ..shader = radial(Offset.zero, len, [Color.fromRGBO(255, 222, 150, 0.32 * strong), const Color(0x00FFDE96)]));
+      }
+      canvas.restore();
+      // halo
+      canvas.drawCircle(c, r * 1.35 * breathe, Paint()
         ..blendMode = BlendMode.plus
-        ..shader = radial(c, r * 1.6, [Color.fromRGBO(255, 229, 162, 0.3 + 0.3 * pop), const Color(0x00FFE5A2)]));
-      if (step == 3) {
-        for (var i = 0; i < 8; i++) {
-          final a = i * math.pi / 4 + t * 0.6;
-          final rr = r * (1.4 + 0.4 * math.sin(t * 3 + i));
-          canvas.drawCircle(c + Offset(math.cos(a) * rr, math.sin(a) * rr * 0.6), 2.5, Paint()..color = const Color(0xFFFFE5A2));
-        }
+        ..shader = radial(c, r * 1.35 * breathe, [Color.fromRGBO(255, 236, 190, 0.5 * strong), Color.fromRGBO(255, 200, 120, 0.18 * strong), const Color(0x00FFC878)]));
+      // twinkles: each star has its own place and beat, grows, flares and goes
+      for (var i = 0; i < 7; i++) {
+        final period = 1.6 + (i % 3) * 0.35;
+        final ph = ((t + i * 0.53) / period) % 1.0;
+        final cycle = ((t + i * 0.53) / period).floor();
+        final rr = math.Random(i * 977 + cycle * 31);
+        final ang = rr.nextDouble() * 2 * math.pi;
+        final dist = r * (0.75 + rr.nextDouble() * 0.6);
+        final life = math.sin(ph * math.pi);
+        if (life <= 0.02) continue;
+        _star(canvas, c + Offset(math.cos(ang) * dist, math.sin(ang) * dist * 0.8), (4 + rr.nextDouble() * 5) * life * strong, Color.fromRGBO(255, 246, 220, life));
       }
     }
     canvas.restore();
+  }
+
+  /// A four-pointed twinkle: two slim diamonds crossed, a soft glow, a white heart.
+  static void _star(Canvas canvas, Offset p, double size, Color col) {
+    if (size <= 0.3) return;
+    canvas.drawCircle(p, size * 0.9, Paint()
+      ..blendMode = BlendMode.plus
+      ..shader = radial(p, size * 0.9, [col.withValues(alpha: col.a * 0.45), col.withValues(alpha: 0)]));
+    final thin = size * 0.16;
+    final star = Path()
+      ..moveTo(p.dx, p.dy - size)
+      ..lineTo(p.dx + thin, p.dy - thin)
+      ..lineTo(p.dx + size, p.dy)
+      ..lineTo(p.dx + thin, p.dy + thin)
+      ..lineTo(p.dx, p.dy + size)
+      ..lineTo(p.dx - thin, p.dy + thin)
+      ..lineTo(p.dx - size, p.dy)
+      ..lineTo(p.dx - thin, p.dy - thin)
+      ..close();
+    canvas.drawPath(star, Paint()..color = col);
+    canvas.drawCircle(p, thin * 0.9, Paint()..color = Colors.white.withValues(alpha: col.a));
   }
 
   static Shader radial(Offset c, double r, List<Color> colors) => RadialGradient(colors: colors).createShader(Rect.fromCircle(center: c, radius: r));
 
   @override
   bool shouldRepaint(_ForgePainter old) => true;
+}
+
+/// A band of light sweeping across a picture now and then (only where the picture is).
+class _Shine extends StatelessWidget {
+  const _Shine({required this.t, required this.child});
+  final double t;
+  final Widget child;
+  @override
+  Widget build(BuildContext context) {
+    final k = (t % 2.6) / 0.9; // a sweep every 2.6 s, taking 0.9 s
+    if (k >= 1) return child;
+    final c = -0.4 + 1.8 * Curves.easeInOut.transform(k);
+    return ShaderMask(
+      blendMode: BlendMode.srcATop,
+      shaderCallback: (r) => LinearGradient(
+        begin: Alignment.topLeft,
+        end: Alignment.bottomRight,
+        colors: const [Color(0x00FFFFFF), Color(0xB3FFFFFF), Color(0x00FFFFFF)],
+        stops: [(c - 0.14).clamp(0.0, 1.0), c.clamp(0.0, 1.0), (c + 0.14).clamp(0.0, 1.0)],
+      ).createShader(r),
+      child: child,
+    );
+  }
 }
 
 /// The item's picture over the stage once it has its shape (a widget, so it uses the item art).
