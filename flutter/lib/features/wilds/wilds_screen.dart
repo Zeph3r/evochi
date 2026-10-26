@@ -2476,8 +2476,10 @@ class _MapPainter extends CustomPainter {
   /// The cave's dark: the galleries lit only round their lamps, your Evochi's own light and the ore's
   /// glow; the rock beyond sinks into black.
   void _caveDark(Canvas canvas, Size size, WildsMap m, Raid r) {
-    final rec = ui.PictureRecorder();
-    final c = Canvas(rec);
+    // its own layer: the lights cut holes in the dark, never in the picture under it (drawn straight
+    // on the canvas, dstOut erased the floor itself to the black behind, a blot where your Evochi stood)
+    canvas.saveLayer(Offset.zero & size, Paint());
+    final c = canvas;
     // a blue-black dusk rather than a blackout: the galleries read, the lights still mean something
     c.drawRect(Offset.zero & size, Paint()..color = const Color(0x6E0C0A18));
     final clear = Paint()..blendMode = BlendMode.dstOut;
@@ -2495,7 +2497,7 @@ class _MapPainter extends CustomPainter {
     for (final o in r.ores) {
       if (o.kind == 'lumen' && !o.broken) light(s._toScreen(o.x, o.z) - Offset(0, 10 * u), 85 * u, 0.75);
     }
-    canvas.drawPicture(rec.endRecording());
+    canvas.restore();
     // the lamplight's warmth on what stands near your Evochi (over the dark, so it reads as light cast)
     if (!rm) {
       canvas.drawCircle(pet, 120 * u, Paint()
