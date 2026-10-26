@@ -17,6 +17,7 @@ import '../../game/economy/economy.dart' as econ;
 import '../../game/engine.dart' as g;
 import '../../game/home/home.dart' as h;
 import '../caravan/caravan_screen.dart' show showRareInfo;
+import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import '../village/village_screen.dart';
@@ -172,7 +173,7 @@ class _GardenScreenState extends State<GardenScreen> {
           Expanded(
             child: ListView(padding: EdgeInsets.only(bottom: 20 + MediaQuery.of(context).padding.bottom), children: [
               _GardenPlate(
-                plots: plots,
+                plots: plots.where((p) => homeArt.hasGardenAnchor(p.id)).toList(),
                 selected: _sel!,
                 planted: _planted,
                 splash: _splash,
@@ -180,6 +181,16 @@ class _GardenScreenState extends State<GardenScreen> {
                 animate: !reduce,
                 onBed: (p) => _tapBed(c, p),
               ),
+              // the lower field: the beds beyond the plate, each opened by a Farming level
+              if (plots.any((p) => !homeArt.hasGardenAnchor(p.id)))
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                  child: _LowerField(
+                    plots: plots.where((p) => !homeArt.hasGardenAnchor(p.id)).toList(),
+                    selected: _sel!,
+                    onBed: (p) => _tapBed(c, p),
+                  ),
+                ),
               Transform.translate(
                 offset: const Offset(0, -16),
                 child: Padding(
@@ -723,6 +734,85 @@ class _SeedRow extends StatelessWidget {
         const SizedBox(width: 6),
         ConstrainedBox(constraints: const BoxConstraints(minWidth: 74), child: Center(child: act)),
       ]),
+    );
+  }
+}
+
+/// The lower field: the beds past the plate as a row of cards (soil, the crop growing in it, a lock
+/// until its Farming level). The same tap opens the same bed panel below.
+class _LowerField extends StatelessWidget {
+  const _LowerField({required this.plots, required this.selected, required this.onBed});
+  final List<h.PlotView> plots;
+  final String selected;
+  final ValueChanged<h.PlotView> onBed;
+  @override
+  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        const KitSectionHead('The lower field'),
+        Row(children: [
+          for (final p in plots) ...[
+            Expanded(child: _FieldBed(p: p, selected: p.id == selected, onTap: () => onBed(p))),
+            if (p != plots.last) const SizedBox(width: 8),
+          ],
+        ]),
+      ]);
+}
+
+class _FieldBed extends StatelessWidget {
+  const _FieldBed({required this.p, required this.selected, required this.onTap});
+  final h.PlotView p;
+  final bool selected;
+  final VoidCallback onTap;
+  @override
+  Widget build(BuildContext context) {
+    final n = _bedNumber(p.id);
+    final label = !p.unlocked
+        ? 'Bed $n: locked until Farming level ${p.need}'
+        : p.empty
+            ? 'Bed $n: empty'
+            : 'Bed $n: ${h.cropDefs[p.crop]?.name ?? p.crop}, ${p.ripe ? 'ripe' : '${(p.progress * 100).round()} percent grown'}';
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: GestureDetector(
+        onTap: onTap,
+        child: AspectRatio(
+          aspectRatio: 1.05,
+          child: Container(
+            decoration: KitDecoration(
+              base: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: p.unlocked ? const [Color(0xFF7A5438), Color(0xFF5E412E)] : const [Color(0xFF8FA66E), Color(0xFF75905A)]),
+                border: Border.all(color: selected ? KitColor.goldRing : const Color(0xFF8D5D3B), width: selected ? 3 : 2.5),
+                boxShadow: const [BoxShadow(color: Color(0xFF4A2A14), offset: Offset(0, 3))],
+              ),
+              inset: 2.5,
+              top: const KitBand(2, Color(0x33FFFFFF)),
+            ),
+            child: Stack(alignment: Alignment.center, children: [
+              if (p.unlocked && p.empty)
+                for (var i = 0; i < 3; i++)
+                  Positioned(left: 8, right: 8, top: 14.0 + i * 14, child: Container(height: 3, decoration: BoxDecoration(color: const Color(0x55000000), borderRadius: BorderRadius.circular(2)))),
+              if (!p.empty && p.crop != null && p.stage != null)
+                Padding(padding: const EdgeInsets.all(8), child: Image.asset(homeArt.crop(p.crop!, p.stage!), fit: BoxFit.contain, excludeFromSemantics: true, gaplessPlayback: true)),
+              if (!p.unlocked)
+                Column(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.lock_rounded, color: Color(0xFFFFF0D2), size: 20),
+                  Text('Farming ${p.need}', style: EvochiText.tiny.copyWith(color: const Color(0xFFFFF0D2))),
+                ]),
+              if (p.ripe) const Positioned(top: 4, right: 4, child: BadgeDot()),
+              Positioned(
+                left: 4,
+                bottom: 3,
+                child: Text('$n', style: EvochiText.tiny.copyWith(color: const Color(0xCCFFF0D2))),
+              ),
+            ]),
+          ),
+        ),
+      ),
     );
   }
 }

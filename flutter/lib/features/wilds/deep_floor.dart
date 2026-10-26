@@ -275,7 +275,7 @@ double _segDist(Offset a, Offset b, double x, double z) {
 /// [radii] gives each prop kind's trunk (footprint) radius. A [story] floor (its beat) keeps the last
 /// room for the story: the Mossy Ruins' stones round it, the creature waiting there, no other foes in it
 /// and no elite on the way (and no twists).
-FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii, {String? story, bool mine = false}) {
+FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii, {String? story, bool mine = false, bool nest = false}) {
   final plan = planLayout(kit, depth, seed)
     ..story = story
     ..mine = mine;
@@ -566,6 +566,7 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
       case 'treasure':
         add('chest', cx, cz - 6, flip: false, force: true); // a dead end: the chest is what you came for
         if (mine) _ores(plan, rng, k, r, cx, cz, rr, depth, radii['ore'] ?? 9, clearOfWays, count: 1);
+        if (nest && !plan.spots.any((sp) => sp['kind'] == 'nest')) _nest(plan, rng, cx, cz, rr, mine);
         plan.spots.add({
           'id': 'chest_${r.i}', 'kind': 'chest', 'x': cx, 'z': cz - 2, 'r': 20, 'label': 'Open', 'title': 'An old chest',
           'text': 'Moss on the lid, a little light leaking out of the seam.',
@@ -573,6 +574,7 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
         if (depth >= 4) _foes(plan, rng, r, cx, cz, rr * 0.5, 2, depth);
       case 'shrine':
         add('pillar_low', cx, cz - 8, flip: false, force: true);
+        if (nest && !plan.spots.any((sp) => sp['kind'] == 'nest')) _nest(plan, rng, cx, cz, rr, mine);
         plan.fx.add({'kind': 'shrine', 'x': cx, 'z': cz - 8});
         plan.spots.add({
           'id': 'shrine_${r.i}', 'kind': 'shrine', 'x': cx, 'z': cz, 'r': 20, 'label': 'Pray', 'title': 'A Lumen shrine',
@@ -613,6 +615,18 @@ bool _nearPath(KitChunk k, double u, double v, double d) {
     }
   }
   return false;
+}
+
+/// A nest hollow at a clearing's edge: moss and down round one warm egg (the Hatching Nook's; the screen
+/// hands it over once, one a day).
+void _nest(FloorPlan plan, _Rng rng, double cx, double cz, double rr, bool mine) {
+  final a = rng.d(0.3, 2.8);
+  final x = cx + math.cos(a) * rr * 0.55, z = cz + math.sin(a) * rr * 0.5;
+  plan.props.add({'kind': 'shrooms', 'x': (x * 10).round() / 10, 'z': (z * 10).round() / 10, 'flip': false, 's': 1.2});
+  plan.spots.add({
+    'id': 'nest', 'kind': 'nest', 'x': x, 'z': z + 4, 'r': 22, 'label': 'Look', 'title': mine ? 'A warm pocket in the rock' : 'A nest hollow',
+    'text': mine ? 'Tucked behind the ore, lined with dry moss: one egg, heavy and faintly lit from within.' : 'Moss and soft down in the roots of an old tree, and one egg, warm to the touch, left behind.',
+  });
 }
 
 /// The ore in a gallery: a vein of the floor's common ore round the rim, one richer node among them.
@@ -672,7 +686,7 @@ void _foes(FloorPlan plan, _Rng rng, FloorRoom r, double cx, double cz, double s
 
 // ------------------------------------------------------------------------------------- the map
 /// Loads the pictures and makes the floor's [WildsMap]. Props come from the Thicket's sprites.
-Future<WildsMap> makeFloor(int depth, int seed, {String? story, String? place, String? quest, bool mine = false}) async {
+Future<WildsMap> makeFloor(int depth, int seed, {String? story, String? place, String? quest, bool mine = false, bool nest = false}) async {
   final kit = await RoomKit.load();
   final thicket = (jsonDecode(await rootBundle.loadString('${wildsBase}wilds_map_thicket.json')) as Map).cast<String, dynamic>();
   final images = (thicket['images'] as Map).cast<String, dynamic>();
@@ -680,7 +694,7 @@ Future<WildsMap> makeFloor(int depth, int seed, {String? story, String? place, S
   radii['gate'] = 0; // its footprint is its own shape (below)
   radii['chest'] = 6;
   radii['ore'] = 9;
-  final plan = planFloor(kit, depth, seed, radii, story: story, mine: mine);
+  final plan = planFloor(kit, depth, seed, radii, story: story, mine: mine, nest: nest);
   // the gate's footprint: its pillars and the sealed opening (as in tools/art/wilds_maps.py SHAPES)
   final (gx, gz) = plan.gate;
   for (final (dx, dz, r) in const [(-30.0, 0.0, 11.0), (30.0, 0.0, 11.0), (-16.0, 0.0, 3.5), (-8.0, 0.0, 3.5), (0.0, 0.0, 3.5), (8.0, 0.0, 3.5), (16.0, 0.0, 3.5), (42.0, 8.0, 6.0)]) {

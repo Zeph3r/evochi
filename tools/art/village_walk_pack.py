@@ -60,7 +60,7 @@ def _village():
                 'trail': (57.0, 4.4)},                     # back from the Old Trail, at the east gate
         spots={'waystone': (0.0, 6.0), 'gate': (0.0, 47.0), 'trail': (57.0, 4.4), 'falls': (-15.0, -50.0)},
         # walk into one and you leave: x, z, radius, and the map and arrival it leads to (none: the game decides)
-        exits={'home': (0.0, 55.0, 4.0, None, None),
+        exits={'home': (0.0, 55.0, 4.0, 'home', 'village'),
                'trail': (63.0, 4.6, 3.0, 'trail', 'village')},
         fx='fx_village_walk.py', tiles='village/walk', art_npcs={}, ores=[])
 
@@ -87,7 +87,27 @@ def _trail():
         ores=list(VT.ORE_NODES))
 
 
-MAPS = {'village': _village, 'trail': _trail}
+def _home():
+    import home_walk as HW
+    nx0, nx1, nz0, nz1 = HW.NOOK
+    return dict(
+        title='Your Home', scene=HW.scene_home_walk, view='home', area=(HW.X0, HW.X1, HW.Z0, HW.Z1),
+        npcs={},
+        arrive={'village': (HW.GATE[0], HW.GATE[1] + 4.0),        # in through the gate, from the village
+                'nest': (HW.NEST[0], HW.NEST[1] + 6.5)},            # at the nest
+        spots={'nest': (HW.NEST[0], HW.NEST[1] + 6.5), 'cottage': (-16.0, -16.0), 'garden': (-0.5, 0.0),
+               'nook': ((nx0 + nx1) / 2, nz1 + 4.0), 'grove': (HW.GROVE[0] + 12.5, HW.GROVE[1] - 1.0), 'pond': (HW.POND[0] + 4.0, HW.POND[1] + 6.0)},
+        # the doors: walk up to one and its room or screen opens (the game decides); the gate leads to the village
+        exits={'village': (HW.GATE[0], HW.GATE[1] - 0.5, 2.6, 'village', 'home'),
+               'cottage': (-16.0, -18.4, 2.0, None, None),
+               'garden': (1.4, 0.0, 1.8, None, None),
+               'nook': ((nx0 + nx1) / 2, nz1 + 1.4, 1.8, None, None),
+               'grove': (HW.GROVE[0] + 9.0, HW.GROVE[1] - 1.0, 2.0, None, None),
+               'nest': (HW.NEST[0], HW.NEST[1], 3.6, None, None)},
+        fx='fx_home.py', tiles='home/walk', art_npcs={}, ores=[])
+
+
+MAPS = {'village': _village, 'trail': _trail, 'home': _home}
 
 
 def walk_grid(vs, m):

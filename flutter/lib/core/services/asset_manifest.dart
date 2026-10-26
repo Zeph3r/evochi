@@ -237,6 +237,7 @@ class HomeArt {
 
   /// p1..p4 (bed centre) and p1l/p1r.. (its left and right edge), plate pixels.
   Offset gardenAnchor(String id) => _off((_garden['anchors'] as Map)[id] as List);
+  bool hasGardenAnchor(String id) => (_garden['anchors'] as Map).containsKey(id);
 
   // ---- crops: one sprite per crop and stage, all the same size, planted at [cropGround]
   Map<String, dynamic> get _crops => _sub('crops');

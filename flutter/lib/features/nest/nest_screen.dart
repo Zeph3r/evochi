@@ -14,6 +14,7 @@ import '../../game/economy/economy.dart' as econ;
 import '../../game/engine.dart' as g;
 import '../../game/vitality/vitality.dart';
 import '../caravan/caravan_screen.dart';
+import '../home/companions_sheet.dart';
 import '../home/home_widgets.dart';
 import '../onboarding/onboarding_screens.dart' show EvolutionStrip;
 import '../pet/pet_screens.dart';
@@ -308,6 +309,11 @@ class _NestHud extends StatelessWidget {
                 _ExploreHomeButton(attention: c.homeAttention),
                 const SizedBox(width: 8),
                 _VisitVillageButton(attention: c.storyAttention > 0, short: MediaQuery.of(context).size.width < 400),
+                // the quick switch: My Evochis, once there is anyone to switch to (or an egg on the way)
+                if (c.state.companions.isNotEmpty || c.state.hatch.eggs.isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  _CompanionsButton(count: c.state.companions.length + 1, ready: c.state.hatch.eggs.any((e) => e.state == 'ready')),
+                ],
               ]),
             ),
           ]),
@@ -776,3 +782,35 @@ Widget _kv(List<(String, String)> rows) => Container(
           ),
       ]),
     );
+
+/// My Evochis: the active one and the companions resting at home, a tap away (the quick switch). The
+/// dot says an egg is ready to hatch in the nook.
+class _CompanionsButton extends StatelessWidget {
+  const _CompanionsButton({required this.count, required this.ready});
+  final int count;
+  final bool ready;
+  @override
+  Widget build(BuildContext context) => Semantics(
+        button: true,
+        label: 'My Evochis, $count${ready ? ', an egg is ready to hatch' : ''}',
+        child: GestureDetector(
+          onTap: () {
+            context.read<GameController>().audio.play('ui_tap', volume: 0.4);
+            showCompanions(context);
+          },
+          child: Stack(clipBehavior: Clip.none, children: [
+            Container(
+              height: 44,
+              padding: const EdgeInsets.fromLTRB(6, 0, 12, 0),
+              decoration: Kit.parchment(radius: 12),
+              child: Row(mainAxisSize: MainAxisSize.min, children: [
+                const VoxelIcon('paw', size: 28),
+                const SizedBox(width: 4),
+                Text('My Evochis', style: EvochiText.tag.copyWith(fontSize: 13.5, fontWeight: FontWeight.w900, color: KitColor.signInk)),
+              ]),
+            ),
+            if (ready) const Positioned(top: -4, right: -4, child: BadgeDot()),
+          ]),
+        ),
+      );
+}

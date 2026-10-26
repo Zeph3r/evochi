@@ -34,6 +34,9 @@ import '../shared/ambience.dart';
 import '../shared/live_scene.dart';
 import '../shared/kit.dart';
 import '../shared/widgets.dart';
+import '../home/companions_sheet.dart';
+import '../home/home_widgets.dart' show goHome, openCottage, openGarden;
+import '../home/nook_sheet.dart';
 import '../wilds/wilds_art.dart';
 import '../wilds/wilds_screen.dart';
 import 'flint_talk.dart';
@@ -690,6 +693,8 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         Navigator.of(context).maybePop();
       } else if (e.key == 'mine') {
         _enterMine(x, z);
+      } else if (widget.map == 'home') {
+        _door(e.key);
       } else {
         final say = switch (e.key) {
           'mine' => "Flint's still shoring up the mine's timbers. It opens soon.",
@@ -728,6 +733,43 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
           _cartWait = _cartPhase == 2 ? 9 + 8 * math.Random().nextDouble() : 16 + 20 * math.Random().nextDouble();
         }
     }
+  }
+
+  /// A door at home: the room or screen behind it opens; back out, your Evochi stands on the step.
+  Future<void> _door(String key) async {
+    final l = lay;
+    final c = context.read<GameController>();
+    switch (key) {
+      case 'cottage':
+        openCottage(context);
+      case 'garden':
+        openGarden(context);
+      case 'nook':
+        await showNook(context);
+      case 'grove':
+        await showCompanions(context);
+      case 'nest':
+        goHome(context, 'nest');
+        return;
+      default:
+        c.toast('This way opens soon.');
+    }
+    if (!mounted) return;
+    // wait for a pushed screen to come back, then step off the door
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    final spot = l?.spots[key];
+    if (spot != null) {
+      me
+        ..path = const []
+        ..moving = false
+        ..x = spot.dx
+        ..z = spot.dy
+        ..dir = 0;
+      me.y = l!.heightAt(me.x, me.z);
+    }
+    _leaving = false;
+    _refreshLook(c.state);
+    if (mounted) setState(() {});
   }
 
   /// Into the mine: its first gallery (a floor made by the Wilds' room kit, mine: true). Back out, your
@@ -1181,8 +1223,8 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
           child: SafeArea(
             bottom: false,
             child: PlaceHeader(
-                title: lay?.title ?? (widget.map == 'trail' ? 'The Old Trail' : 'Sunlit Village'),
-                short: widget.map == 'trail' ? 'Trail' : 'Village',
+                title: lay?.title ?? switch (widget.map) { 'trail' => 'The Old Trail', 'home' => 'Your Home', _ => 'Sunlit Village' },
+                short: switch (widget.map) { 'trail' => 'Trail', 'home' => 'Home', _ => 'Village' },
                 backLabel: 'Back',
                 onBack: () => Navigator.of(context).maybePop()),
           ),
@@ -1240,7 +1282,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
             ]);
           }),
         ),
-        _QuickTravel(items: widget.map == 'trail' ? _trailTravel : _villageTravel, onPick: _quick),
+        _QuickTravel(items: switch (widget.map) { 'trail' => _trailTravel, 'home' => _homeTravel, _ => _villageTravel }, onPick: _quick),
       ]),
     );
   }
@@ -1290,6 +1332,9 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       case 'village' || 'trail': // to the way out: walk to it and over
         final e = l.exits[id];
         if (e != null) walkTo(e.$1, e.$2);
+      case 'cottage' || 'garden' || 'nook' || 'grove' || 'nest' when widget.map == 'home': // to a door: walk in
+        final e = l.exits[id];
+        if (e != null) walkTo(e.$1, e.$2);
       default:
         final w = l.spots[id];
         if (w != null) walkTo(w.dx, w.dy);
@@ -1298,6 +1343,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
 }
 
 const _villageTravel = [('lodge', 'mail', 'Guild'), ('glasshouse', 'care', 'Glasshouse'), ('workshop', 'bell', 'Workshop'), ('waystone', 'star', 'Waystone'), ('trail', 'trail', 'Old Trail')];
+const _homeTravel = [('nest', 'home', 'Nest'), ('cottage', 'bell', 'Cottage'), ('garden', 'skill_farming', 'Farm'), ('nook', 'star', 'Nook'), ('grove', 'paw', 'Grove'), ('village', 'trail', 'Village')];
 const _trailTravel = [('village', 'home', 'Village'), ('bridge', 'aff_water', 'Falls'), ('flint', 'shop', 'Flint'), ('mine', 'aff_stone', 'Mine'), ('thicket', 'aff_nature', 'Thicket')];
 
 /// The bottom row: the places, a walk away (to whoever keeps them, or to a landmark).
@@ -1728,6 +1774,15 @@ const _placeNames = <String, Map<String, (String, String)>>{
     'bram': ('Workshop', 'bell'),
     'waystone': ('Waystone', 'star'),
     'falls': ('Falls', 'aff_water'),
+  },
+  'home': {
+    'nest': ('Nest', 'home'),
+    'cottage': ('Cottage', 'bell'),
+    'garden': ('Farm', 'skill_farming'),
+    'nook': ('Hatching Nook', 'star'),
+    'grove': ('Grove', 'paw'),
+    'pond': ('Pond', 'aff_water'),
+    'village': ('Sunlit Village', 'trail'),
   },
   'trail': {
     'village': ('Sunlit Village', 'home'),

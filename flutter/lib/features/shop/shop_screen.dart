@@ -747,6 +747,11 @@ class _ShopScreenState extends State<ShopScreen> {
       padding: const EdgeInsets.fromLTRB(3, 16, 3, 6),
       child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         if (featured && q.isEmpty) MarketHeroOffer(pet: pet, id: marketHeroId, st: marketItemState(c, marketHeroId), onTry: () => _enterTry(marketHeroId)),
+        // the Starlight Caravan's own doorway on the featured shelf: what it has today, in one glance
+        if (featured && q.isEmpty) ...[
+          _CaravanDoor(c: c, onOpen: () => openCaravan(context)),
+          const SizedBox(height: 12),
+        ],
         MarketShelfHead(title: featured ? (q.isEmpty ? 'More featured items' : 'Featured items') : cat.$2, count: list.length),
         if (list.isEmpty)
           _empty(cat, q)
@@ -955,4 +960,56 @@ class _BuySparks extends CustomPainter {
 
   @override
   bool shouldRepaint(_BuySparks old) => old.t != t;
+}
+
+/// The Caravan's doorway on the Market's featured shelf: a night-blue card with today's draw (the eggs
+/// for the nook, the deals, this week's charms) and the Glimmer you hold.
+class _CaravanDoor extends StatelessWidget {
+  const _CaravanDoor({required this.c, required this.onOpen});
+  final GameController c;
+  final VoidCallback onOpen;
+  @override
+  Widget build(BuildContext context) {
+    final glimmer = e.glimmerOf(c.state);
+    final deals = e.caravanStock(c.state, c.now).where((o) => o.deal && !e.dealBought(c.state, o.id)).length;
+    return Semantics(
+      button: true,
+      label: 'Starlight Caravan: eggs for the Hatching Nook, $deals deals today, charms. You have $glimmer Glimmer',
+      child: GestureDetector(
+        onTap: onOpen,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(begin: Alignment.topLeft, end: Alignment.bottomRight, colors: [Color(0xFF2B2358), Color(0xFF1B2246)]),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: const Color(0xFFE8BC5C), width: 2),
+            boxShadow: const [BoxShadow(color: Color(0x4D1E0F05), blurRadius: 10, offset: Offset(0, 5))],
+          ),
+          child: ExcludeSemantics(
+            child: Row(children: [
+              const VoxelIcon('caravan', size: 46),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  Text('Starlight Caravan', style: EvochiText.cardTitle.copyWith(color: const Color(0xFFE8BC5C))),
+                  const SizedBox(height: 2),
+                  Text('Eggs for the Hatching Nook · ${deals > 0 ? '$deals deal${deals == 1 ? '' : 's'} today' : 'today\'s deals taken'} · this week\'s charms',
+                      style: EvochiText.caption.copyWith(color: const Color(0xFFC6C2E8))),
+                ]),
+              ),
+              const SizedBox(width: 8),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  const VoxelIcon('glimmer', size: 18),
+                  const SizedBox(width: 3),
+                  Text(fmt(glimmer), style: EvochiText.number.copyWith(color: const Color(0xFF8FE3F2), fontSize: 16)),
+                ]),
+                Text('Visit', style: EvochiText.tag.copyWith(color: const Color(0xFFE8BC5C), fontSize: 12)),
+              ]),
+            ]),
+          ),
+        ),
+      ),
+    );
+  }
 }

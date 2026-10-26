@@ -14,12 +14,16 @@ import 'package:provider/provider.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/models/catalog.dart';
+import '../../core/services/haptics.dart';
 import '../../core/utils/day_keys.dart';
 import '../../core/utils/ids.dart';
 import '../../game/economy/economy.dart' as e;
 import '../../game/engine.dart' as g;
+import '../../game/hatch/hatch.dart' as hatch;
 import '../../game/wilds/charms.dart' as ch;
 import '../home/home_widgets.dart' show openGarden;
+import '../home/nook_sheet.dart' show EggPreviewPainter;
+import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import 'season_screen.dart';
 
@@ -121,6 +125,15 @@ class _CaravanScreenState extends State<CaravanScreen> {
     return [
       _SeasonBanner(view: sv, onOpen: () => openSeason(context)),
       const SizedBox(height: 16),
+      // eggs for the Hatching Nook: each says exactly what it may become, its price and this week's limit
+      const _Head('Eggs for the Hatching Nook', 'Chosen, not chanced: each says what it can hatch into. Two of each a week'),
+      Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
+        for (final t in hatch.caravanEggs) ...[
+          Expanded(child: _EggCard(template: t, bought: hatch.boughtThisWeek(c.state, t.id, c.now), onBuy: () => _buyEgg(context, c, t))),
+          if (t != hatch.caravanEggs.last) const SizedBox(width: 8),
+        ],
+      ]),
+      const SizedBox(height: 18),
       const _Head('Today\'s deals', 'New every day at midnight'),
       Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
         for (final o in deals) ...[
@@ -156,6 +169,49 @@ class _CaravanScreenState extends State<CaravanScreen> {
         ),
       ),
     ];
+  }
+
+  Future<void> _buyEgg(BuildContext context, GameController c, hatch.EggTemplate t) async {
+    final short = t.glimmer! - e.glimmerOf(c.state);
+    if (short > 0) {
+      await showGlimmerShort(context, short);
+      return;
+    }
+    final bought = hatch.boughtThisWeek(c.state, t.id, c.now);
+    final ok = await showEvochiDialog<bool>(
+      context,
+      builder: (d) => Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        Center(child: WoodPlaque(child: Text(t.name, style: WoodPlaque.text(EvochiText.section)))),
+        const SizedBox(height: 10),
+        SizedBox(height: 96, child: CustomPaint(painter: EggPreviewPainter(t.id))),
+        const SizedBox(height: 8),
+        Text(t.blurb, textAlign: TextAlign.center, style: EvochiText.bodyText),
+        const SizedBox(height: 8),
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: Kit.inset(),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text('Hatches into: ${t.palettes.map(hatch.paletteLabel).join(' or ')} (decided by the egg)', style: EvochiText.bodyText),
+            Text('Needs about ${t.need} steps in a cradle', style: EvochiText.bodyText),
+            Text('Price: ${t.glimmer} Glimmer · ${t.weeklyLimit - bought} of ${t.weeklyLimit} left this week', style: EvochiText.bodyText),
+            Text('You have ${hatch.stored(c.state).length} egg${hatch.stored(c.state).length == 1 ? '' : 's'} in the collection', style: EvochiText.caption),
+          ]),
+        ),
+        const SizedBox(height: 12),
+        EvochiButton(label: 'Choose this egg · ${t.glimmer} Glimmer', onPressed: () => Navigator.pop(d, true)),
+        const SizedBox(height: 6),
+        EvochiButton(label: 'Not now', tone: ButtonTone.cream, onPressed: () => Navigator.pop(d, false)),
+      ]),
+    );
+    if (ok != true || !context.mounted) return;
+    final r = c.run((s, n) => hatch.buyEgg(s, t.id, newId('egg'), n));
+    if (r.ok) {
+      c.toast('${t.name} is in your egg collection. Set it in a cradle at the nook.', icon: 'star');
+      c.audio.buzz(Haptic.purchase);
+      c.analytics.track('egg_purchase_verified', {'template': t.id});
+    } else if (r.error == 'weekly_limit') {
+      c.toast('That is all of those for this week.', kind: 'warn');
+    }
   }
 
   Future<void> _buy(BuildContext context, GameController c, e.CaravanOffer o) async {
@@ -356,6 +412,38 @@ class _Head extends StatelessWidget {
           Text(sub, style: EvochiText.caption.copyWith(color: Night.soft)),
         ]),
       );
+}
+
+/// An egg on offer: its shell, its name, what it may hatch into, its price, and how many are left.
+class _EggCard extends StatelessWidget {
+  const _EggCard({required this.template, required this.bought, required this.onBuy});
+  final hatch.EggTemplate template;
+  final int bought;
+  final VoidCallback onBuy;
+  @override
+  Widget build(BuildContext context) {
+    final t = template;
+    final left = t.weeklyLimit - bought;
+    return _NightCard(
+      child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        SizedBox(height: 84, child: CustomPaint(painter: EggPreviewPainter(t.id))),
+        const SizedBox(height: 6),
+        Text(t.name, textAlign: TextAlign.center, style: EvochiText.cardTitle.copyWith(color: Night.text)),
+        Text('Hatches ${t.palettes.map(hatch.paletteLabel).join(' or ')}', textAlign: TextAlign.center, style: EvochiText.caption.copyWith(color: Night.soft)),
+        Text('~${t.need} steps', textAlign: TextAlign.center, style: EvochiText.caption.copyWith(color: Night.soft)),
+        const SizedBox(height: 8),
+        EvochiButton(
+          label: left <= 0 ? 'Next week' : '${t.glimmer} Glimmer',
+          small: true,
+          tone: left <= 0 ? ButtonTone.cream : ButtonTone.gold,
+          semanticLabel: '${t.name}, ${t.glimmer} Glimmer, $left of ${t.weeklyLimit} left this week',
+          onPressed: left <= 0 ? null : onBuy,
+        ),
+        const SizedBox(height: 2),
+        Text('$left of ${t.weeklyLimit} this week', textAlign: TextAlign.center, style: EvochiText.tiny.copyWith(color: Night.soft)),
+      ]),
+    );
+  }
 }
 
 class _NightCard extends StatelessWidget {

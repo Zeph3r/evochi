@@ -21,9 +21,9 @@ import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import '../village/story_widgets.dart';
 import '../village/village_screen.dart';
+import '../village/village_walk.dart';
 import 'cottage_screen.dart';
 import 'garden_screen.dart';
-import 'home_map_screen.dart';
 import 'skills_screen.dart';
 import 'station_screen.dart';
 import '../shared/ambience.dart';
@@ -37,7 +37,7 @@ void _pushHome(BuildContext context, String name, WidgetBuilder builder) {
   Navigator.of(context).push(MaterialPageRoute<void>(settings: RouteSettings(name: name), builder: builder));
 }
 
-void openHomeMap(BuildContext context) => _pushHome(context, 'homemap', (_) => const Ambience('home', child: HomeMapScreen()));
+void openHomeMap(BuildContext context) => _pushHome(context, 'homemap', (_) => const Ambience('home', child: VillageWalkScreen(map: 'home', arrive: 'nest')));
 void openGarden(BuildContext context) => _pushHome(context, 'garden', (_) => const Ambience('home', child: GardenScreen()));
 void openCottage(BuildContext context) => _pushHome(context, 'cottage', (_) => const Ambience('home', child: CottageScreen()));
 void openStation(BuildContext context, String id) =>

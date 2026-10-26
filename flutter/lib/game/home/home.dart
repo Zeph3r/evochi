@@ -92,7 +92,12 @@ class PlotDef {
   final int level; // Farming level that opens the bed
 }
 
-const plotDefs = [PlotDef('p1', 1), PlotDef('p2', 1), PlotDef('p3', 1), PlotDef('p4', 4)];
+/// The beds: four in the garden's plate, and the lower field's four beyond them, each opened by a
+/// Farming level (the walkable Home shows all eight; the garden's plate the first four).
+const plotDefs = [
+  PlotDef('p1', 1), PlotDef('p2', 1), PlotDef('p3', 1), PlotDef('p4', 4),
+  PlotDef('p5', 6), PlotDef('p6', 8), PlotDef('p7', 10), PlotDef('p8', 12),
+];
 
 PlotDef plotDef(String id) => plotDefs.firstWhere((p) => p.id == id);
 
@@ -199,7 +204,10 @@ List<SkillMilestone> skillMilestones(String skill) {
       add(cropDefs[c]!.level, 'crop', c, cropDefs[c]!.name);
     }
     for (final p in plotDefs) {
-      if (p.level > 1) add(p.level, 'plot', p.id, 'A fourth garden bed');
+      if (p.level > 1) {
+        final n = plotDefs.indexOf(p) + 1;
+        add(p.level, 'plot', p.id, n == 4 ? 'A fourth garden bed' : 'Bed $n in the lower field');
+      }
     }
     add(3, 'quest', 'hq02', "Mira's Mortar needs Glowleaf", story: true);
   } else {

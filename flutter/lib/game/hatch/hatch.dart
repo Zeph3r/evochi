@@ -312,3 +312,11 @@ g.ActionResult renameCompanion(GameState state, String petId, String name) {
 }
 
 String paletteLabel(String id) => palettes.where((p) => p.id == id).firstOrNull?.label ?? id;
+
+/// A flag remembered on the save (the hatch celebration seen once: it can be skipped after).
+g.ActionResult setFlag(GameState state, String key, bool value) {
+  if ((state.flags[key] == true) == value) return _ok(state);
+  final s = state.copy();
+  s.flags[key] = value;
+  return _ok(s);
+}

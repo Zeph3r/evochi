@@ -41,6 +41,7 @@ import '../shared/kit.dart';
 import '../shared/live_scene.dart' show SceneFx;
 import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
+import '../../game/hatch/hatch.dart' as hatch;
 import '../../game/mining/mining.dart' as mine;
 import '../village/mining.dart' show MiningArt, OreKindArt, oreTier, oreName, paintOre, contactBits, nuggets, stepBits, MineBit, OreNode, SatchelChip;
 import '../village/story_widgets.dart';
@@ -236,7 +237,9 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final friendly = story?.beat == 'trust' || sf.petaluneWithYou(c.state);
     final extra = [if (friendly) 'petalune', if (story?.beat == 'sprout') 'hollow_sprout', if (story?.beat == 'sentinel') 'sentinel'];
     Future.wait([
-      depth == null ? WildsMap.load(widget.mapId) : makeFloor(depth, seed, story: story?.beat, place: story?.place, quest: story?.quest, mine: widget.mine),
+      depth == null
+          ? WildsMap.load(widget.mapId)
+          : makeFloor(depth, seed, story: story?.beat, place: story?.place, quest: story?.quest, mine: widget.mine, nest: _wantNest(c.state, depth, seed)),
       WalkerArt.load(key, palette, wearing: wearing),
       WalkerArt.load('sher', 'sher'),
       FoeArt.load('thornling'),
@@ -1315,6 +1318,42 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     _sfx('enc_soothe', 0.6);
   }
 
+  /// Whether this floor has a nest hollow: always while you have never found an egg (from the first Deep
+  /// floor, or the mine's third gallery), then on about a third of floors, by the seed.
+  bool _wantNest(GameState st, int depth, int seed) {
+    if (widget.mine && depth < 3) return false;
+    if (st.hatch.eggs.isEmpty) return true;
+    return (seed * 7 + depth * 13) % 10 < 3;
+  }
+
+  /// Which egg a floor's hollow holds, and the key that makes this hollow pay once.
+  String _nestEgg() => (_map?.mine ?? false) ? 'stone_egg' : ((_map?.depth ?? 1) >= 5 ? 'stone_egg' : 'forest_egg');
+  String _nestKey(MapSpot s) => '${_map?.id ?? 'deep'}:${_map?.depth ?? 0}:${widget.seed ?? 0}:${s.id}';
+
+  void _takeEgg(MapSpot s) {
+    final c = context.read<GameController>();
+    final m = _map;
+    if (m == null) return;
+    final where = m.mine ? 'Found in the mine, gallery ${m.depth ?? 1}' : 'Found in the Deep Wilds, ${m.floor}';
+    final r = c.run((st, n) => hatch.findEgg(st, _nestEgg(), where, _nestKey(s), n), quiet: true);
+    if (!r.ok) {
+      _showBanner('You have found an egg already today.', 2.2);
+      return;
+    }
+    _used.add(s.id);
+    final first = r.events.any((e) => e.type == 'egg_found' && e.data['first'] == true);
+    final name = hatch.eggTemplates[_nestEgg()]?.name ?? 'An egg';
+    _showBanner('$name! It is in your egg collection.', 3.0);
+    _sfx('reward_chime', 0.7);
+    c.audio.buzz(Haptic.reward);
+    c.analytics.track('egg_obtained', {'source': m.mine ? 'mine' : 'deep', 'egg_family': _nestEgg()});
+    if (first) {
+      Future.delayed(const Duration(milliseconds: 2600), () {
+        if (mounted) c.toast('Bring it home: the Hatching Nook is the little room by your cottage.', icon: 'star');
+      });
+    }
+  }
+
   /// An old chest: coins and a find, more of both further down.
   void _openChest(MapSpot s) {
     final r = _raid;
@@ -1846,6 +1885,27 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
           );
           break;
         }
+        if (s.kind == 'nest') {
+          // a nest hollow: an egg left behind (the Hatching Nook's; one a day, this hollow once)
+          final taken = used || c.state.hatch.eggs.any((e) => e.id == 'egg:${_nestKey(s)}');
+          final full = !taken && hatch.findEgg(c.state, _nestEgg(), '', _nestKey(s), c.now).error == 'found_today';
+          body = _SpotCard(
+            spot: s,
+            note: taken
+                ? 'The hollow is empty now; the egg is yours.'
+                : full
+                    ? 'You have found an egg already today. Leave this one be; it will keep.'
+                    : 'Warm, under the down. Take it home to the Hatching Nook and your walking will hatch it.',
+            primary: taken || full ? 'OK' : 'Take the egg',
+            secondary: taken || full ? null : 'Leave it',
+            onPrimary: () {
+              if (!taken && !full) _takeEgg(s);
+              close();
+            },
+            onSecondary: close,
+          );
+          break;
+        }
         if (s.kind == 'chest' || s.kind == 'shrine' || s.kind == 'camp') {
           final blessings = _blessingsFor(s);
           body = _SpotCard(
@@ -2133,7 +2193,7 @@ class _MapPainter extends CustomPainter {
     }
     // a glint where something waits to be found
     for (final sp in m.spots) {
-      if (sp.kind != 'glint') continue;
+      if (sp.kind != 'glint' && !(sp.kind == 'nest' && !s._used.contains(sp.id))) continue;
       _glint(canvas, s._toScreen(sp.x, sp.z) - Offset(0, 10 * s._u / 2.7));
     }
     for (final f in r.allFoes) {
