@@ -167,7 +167,7 @@ class _NestScreenState extends State<NestScreen> {
               if (chip) const StoryChip() else if (screenH >= 640) const DiscoveryChip(),
               _IdCard(),
               const SizedBox(height: 8),
-              _StepsCard(),
+              const StepsCard(),
               const SizedBox(height: 8),
               Builder(builder: (ctx) {
                 // Pet, Play and Inspect share one label size ("Inspect" used to shrink on its own)
@@ -536,7 +536,9 @@ class _EvoRing extends CustomPainter {
   bool shouldRepaint(_EvoRing old) => old.pct != pct;
 }
 
-class _StepsCard extends StatelessWidget {
+/// Today's steps from the phone, against the goal (the Home's card; the Shorts film it too).
+class StepsCard extends StatelessWidget {
+  const StepsCard({super.key});
   @override
   Widget build(BuildContext context) {
     final c = context.watch<GameController>();

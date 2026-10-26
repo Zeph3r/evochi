@@ -11,6 +11,9 @@ import 'package:evochi/controllers/game_controller.dart';
 import 'package:evochi/core/models/game_state.dart';
 import 'package:evochi/core/utils/day_keys.dart';
 import 'package:evochi/features/home/nook_sheet.dart';
+import 'package:evochi/features/nest/nest_screen.dart' show StepsCard;
+import 'package:evochi/features/shared/sprite.dart';
+import 'package:provider/provider.dart';
 import 'package:evochi/features/shared/kit.dart';
 import 'package:evochi/features/village/village_walk.dart';
 import 'package:evochi/game/hatch/hatch.dart' as hatch;
@@ -612,11 +615,35 @@ const _nookY = 276.0; // between the cradle and the egg's card: clear of the egg
 /// Set your Evochi down just south of the nearest [kind] node (on a cut: a new floor coming up) and
 /// have it work the node: the pilot steers straight, and a gallery's rock is in the way of straight.
 OreRock? toOre(Take s, String kind, {bool work = true}) {
-  final o = _ore(s, kind) ?? _ore(s, '');
-  if (o == null) return null;
-  placeNear(s, o.x, o.z, dist: 24);
-  if (work) s.autopilot.mineAt = o;
-  return o;
+  final r = s.raid;
+  if (r == null) return null;
+  final p = r.pet;
+  final x0 = p.x, z0 = p.z;
+  double d2(OreRock o, double x, double z) => (o.x - x) * (o.x - x) + (o.z - z) * (o.z - z);
+  var list = r.ores.where((o) => !o.broken && (kind.isEmpty || o.kind == kind)).toList();
+  if (list.isEmpty) list = r.ores.where((o) => !o.broken).toList();
+  list.sort((a, b) => d2(a, x0, z0).compareTo(d2(b, x0, z0)));
+  // the nearest node you can stand right next to (one behind rock would leave the pet striking air)
+  OreRock? best;
+  var bestD = double.infinity;
+  var at = (x0, z0);
+  for (final o in list) {
+    placeNear(s, o.x, o.z, dist: 24);
+    final d = math.sqrt(d2(o, p.x, p.z));
+    if (d < bestD) {
+      best = o;
+      bestD = d;
+      at = (p.x, p.z);
+    }
+    if (d <= 34) break;
+  }
+  if (best == null) return null;
+  p
+    ..x = at.$1
+    ..z = at.$2
+    ..face(best.x - at.$1, best.z - at.$2);
+  if (work) s.autopilot.mineAt = best;
+  return best;
 }
 
 /// Move an egg along (the recorder's hand): [progress] steps, and ready if it is there.
@@ -640,55 +667,57 @@ OreRock? _ore(Take s, String kind) {
   return list.firstOrNull;
 }
 
-/// Mon · A step counter where you MINE?? The Old Trail up into the portal; the first copper node;
-/// the break; the nuggets into the satchel.
+/// Tue Oct 27 · A step counter where you MINE?? Straight in: a Pounce on copper from the first frame,
+/// the break inside two seconds, the next node, what the ore is for. (Mining takes no steps: the
+/// captions never say it does.)
 final mineShort = Short(
   id: 'mine',
   stamp: 'THE MINE · 01',
   music: 'enc_wild_loop',
-  endTitle: const [('Walk there.\n', null), ('Dig it up.', Color(0xFF8D5D3B))],
+  endTitle: const [('Pounce it.\n', null), ('Forge it.', Color(0xFF8D5D3B))],
   clips: [
+    // the surprise first: set down by the nearest copper you can reach on frame 0, striking at once
     Clip(
       state: () => mochi('amber'),
-      open: () => const VillageWalkScreen(map: 'trail', arrive: 'village'),
-      secs: 17,
-      preroll: 1.0,
+      open: () => const WildsScreen(depth: 1, seed: 11, mine: true),
+      secs: 4.4,
+      preroll: 1.2,
       pilot: const PilotStart(on: false),
-      setup: (s) async {
-        final w = s.walk!;
-        w.me
-          ..x = 103.0
-          ..z = -9.5
-          ..dir = 2;
-      },
+      setup: (s) async => _god(s),
       beats: [
-        Beat(0.05, (s) {
-          s.say(const [('A step counter\n', white), ('where you ', white), ('MINE??', gold)], secs: 2.2, size: 28);
-          s.walk?.walkTo(116.5, -14.6);
+        Beat(0.0, (s) {
+          toOre(s, 'copper');
+          s.say(const [('A step counter\n', white), ('where you ', white), ('MINE??', gold)], secs: 2.0, size: 28);
+          s.autopilot.mineEvery = 0.45;
         }),
-        // in the mine (the cut is the walk through the portal): set down by the first copper, a beat to
-        // look at it, then a strike every 1.5 s so it breaks at the payoff
-        Beat(2.0, (s) => toOre(s, 'copper', work: false), when: (s) => s.raid != null),
-        Beat(4.4, (s) {
-          s.autopilot
-            ..mineEvery = 1.5
-            ..mineAt = _ore(s, 'copper');
-          s.say(const [("That's copper.", white)], secs: 1.8);
-        }, when: (s) => s.raid != null),
-        Beat(6.0, (s) {
-          s.say(const [('He walked here.\n', white), ('1,800 steps.', gold)], secs: 2.6, size: 27);
-        }, when: (s) => (s.raid?.ores.any((o) => o.broken) ?? false)),
-        Beat(11.5, (s) {
-          s.mark = s.t;
-          s.say(const [('Deeper tomorrow.', white)], secs: 2.2);
-        }, when: (s) => s.raid != null),
+        Beat(2.0, (s) => s.say(const [("That's copper.", white)], secs: 2.0), when: (s) => s.raid?.ores.any((o) => o.broken) ?? false),
       ],
-      until: (s) => s.mark != null && s.t - s.mark! > 2.4,
+    ),
+    // another gallery, another node: what the ore is for, and the tease
+    Clip(
+      state: () => mochi('amber'),
+      open: () => const WildsScreen(depth: 1, seed: 7, mine: true),
+      secs: 10,
+      preroll: 1.2,
+      pilot: const PilotStart(on: false),
+      setup: (s) async => _god(s),
+      beats: [
+        Beat(0.0, (s) {
+          toOre(s, 'copper');
+          s.autopilot.mineEvery = 1.1;
+        }),
+        Beat(0.6, (s) => s.say(const [('Bram forges it\n', white), ('into gear.', gold)], secs: 2.6, size: 27)),
+        Beat(4.0, (s) {
+          s.mark = s.t;
+          s.say(const [('The deeper rock\n', white), ('needs a better pick.', blue)], secs: 2.6, size: 26);
+        }, when: (s) => (s.raid?.ores.any((o) => o.broken) ?? false) || s.t > 10.9),
+      ],
+      until: (s) => s.mark != null && s.t - s.mark! > 2.8,
     ),
   ],
 );
 
-/// Tue · In my game enemies don't drop loot. They drop COINS that fly to you.
+/// Wed Oct 28 · In my game you don't defeat monsters. You calm them, and they pay you.
 final coinsShort = Short(
   id: 'coins',
   stamp: 'THE WILDS · 05',
@@ -708,58 +737,112 @@ final coinsShort = Short(
         toFirstClearing(s, dist: 34);
       },
       beats: [
-        Beat(0.05, (s) => s.say(const [("In my game enemies\n", white), ("don't drop loot.", white)], secs: 2.3, size: 27)),
-        Beat(1.2, (s) {
+        Beat(0.0, (s) {
+          s.say(const [("In my game you don't\n", white), ('defeat', white), (' monsters.', white)], secs: 2.2, size: 27);
           s.autopilot.on = true;
-          // the nearest one goes down in a few hits (the take is about what it drops)
           final r = s.raid!;
           final f = (r.hostile.toList()..sort((a, b) => r.pet.dist(a).compareTo(r.pet.dist(b)))).firstOrNull;
           if (f != null) f.hp = math.min(f.hp, f.maxHp * 0.3);
         }),
-        Beat(2.6, (s) => s.say(const [('They drop ', white), ('COINS', gold)], secs: 1.6, size: 32), when: (s) => (s.raid?.calmed ?? 0) > 0),
-        Beat(2.7, (s) => s.mark = s.t, when: (s) => (s.raid?.calmed ?? 0) > 0),
-        Beat(3.0, (s) => s.say(const [('...that fly to you', white)], secs: 1.8, size: 27), when: (s) => s.mark != null && s.t - s.mark! > 1.4),
-        Beat(9.0, (s) => s.say(const [('Coins buy his looks.\n', white), ('Never his steps.', mint)], secs: 2.4, size: 26)),
+        Beat(2.3, (s) => s.say(const [('You ', white), ('calm', mint), (' them...', white)], secs: 1.6, size: 30), when: (s) => (s.raid?.calmed ?? 0) > 0),
+        Beat(2.4, (s) => s.mark = s.t, when: (s) => (s.raid?.calmed ?? 0) > 0),
+        Beat(3.0, (s) => s.say(const [('...and they ', white), ('pay you.', gold)], secs: 2.0, size: 30), when: (s) => s.mark != null && s.t - s.mark! > 1.4),
+        Beat(9.0, (s) => s.say(const [('Coins buy snacks,\n', white), ('hats and gear.', mint)], secs: 2.4, size: 26)),
         Beat(12.3, (s) => s.say(const [('Again.', white)], secs: 1.8, size: 30)),
       ],
     ),
   ],
 );
 
-/// Wed · I walked 2,000 steps and my egg hatched. The Nook: 100 to go, the steps, the hatch.
+/// Thu Oct 29 · I walked 2,500 steps and my egg hatched. The Nook (a Tide Egg needs 2,500), the phone's
+/// step count going up (real steps: the walk is outside, not in the game), the ready glow, the hatch.
 final eggShort = Short(
   id: 'egg',
   stamp: 'THE NOOK · 01',
   music: 'mus_lullaby',
-  endTitle: const [('Steps hatch\n', null), ('new friends.', Color(0xFF5E7F4A))],
+  endTitle: const [('Real steps hatch\n', null), ('new friends.', Color(0xFF5E7F4A))],
   clips: [
     Clip(
       state: () => withEgg('amber', 'tide_egg', progress: 2400),
       open: nookStage,
-      secs: 16,
+      secs: 4.3,
       preroll: 0.6,
       pilot: const PilotStart(on: false),
       loaded: () => true,
       beats: [
-        Beat(0.05, (s) => s.say(const [('I walked ', white), ('2,000 steps', gold), ('\nand my egg hatched', white)], secs: 2.4, size: 27, y: _nookY)),
-        Beat(2.8, (s) => s.say(const [('100 to go.', white)], secs: 1.6, size: 30, y: _nookY)),
-        Beat(4.6, (s) => s.say(const [('So I went outside.', white)], secs: 2.0, size: 27, y: _nookY)),
-        // the bar fills, step by step
-        for (var k = 1; k <= 10; k++) Beat(4.8 + k * 0.16, (s) => eggTo(s, 2400 + k * 10)),
-        Beat(6.9, (s) => s.say(const [("...and it's ready.", gold)], secs: 1.4, size: 28, y: _nookY)),
-        Beat(8.4, (s) => s.tapText('Hatch')),
-        Beat(12.2, (s) {
+        Beat(0.0, (s) => s.say(const [('I walked ', white), ('2,500 steps', gold), ('\nand my egg hatched', white)], secs: 2.3, size: 27, y: _nookY)),
+        Beat(2.5, (s) => s.say(const [('100 to go.', white)], secs: 1.7, size: 30, y: _nookY)),
+      ],
+    ),
+    Clip(
+      state: () => withSteps('amber', 2400),
+      open: stepsStage,
+      secs: 3.4,
+      preroll: 0.5,
+      pilot: const PilotStart(on: false),
+      loaded: () => true,
+      beats: [
+        Beat(0.0, (s) => s.say(const [('So I went outside.', white)], secs: 1.5, size: 27, y: 96)),
+        for (var k = 1; k <= 10; k++) Beat(0.25 + k * 0.14, (s) => stepTick(s, k, 10)),
+        Beat(1.7, (s) => s.say(const [('Real steps.\n', white), ('Counted by my phone.', mint)], secs: 1.7, size: 26, y: 96)),
+      ],
+    ),
+    Clip(
+      state: () => withEgg('amber', 'tide_egg', ready: true),
+      open: nookStage,
+      secs: 9.2,
+      preroll: 0.6,
+      pilot: const PilotStart(on: false),
+      loaded: () => true,
+      beats: [
+        Beat(0.05, (s) => s.say(const [("...and it's ready.", gold)], secs: 1.4, size: 28, y: _nookY)),
+        Beat(1.5, (s) => s.tapText('Hatch')),
+        Beat(5.3, (s) {
           final pet = hatch.allPets(s.state).where((p) => p.name == 'Little One').firstOrNull;
           if (pet != null) s.ctl.run((st, n) => hatch.renameCompanion(st, pet.id, 'Moss'), quiet: true);
           s.say(const [('Hi, Moss.', white)], secs: 1.8, size: 32, y: 72);
         }),
-        Beat(14.2, (s) => s.say(const [("He's been waiting too.", white)], secs: 1.8, size: 26, y: 72)),
+        Beat(7.3, (s) => s.say(const [("He's been waiting too.", white)], secs: 1.8, size: 26, y: 72)),
       ],
     ),
   ],
 );
 
-/// Thu · I got a second pet. The first one didn't mind. He made room. The Grove at home.
+/// Mochi with [today] steps already counted today, from the phone (a few hours ago).
+GameState withSteps(String palette, int today) {
+  final s = mochi(palette);
+  final now = DateTime.now().millisecondsSinceEpoch;
+  return g.syncSteps(s, [StepSample(id: 'shorts:today', source: 'phone', start: now - 3 * hourMs, end: now - 2 * hourMs, count: today)], now).state;
+}
+
+/// [n] more steps arriving from the phone (the k-th minute of a walk that has just ended).
+void stepTick(Take s, int k, int n) {
+  final now = DateTime.now().millisecondsSinceEpoch;
+  s.ctl.run((st, t) => g.syncSteps(st, [StepSample(id: 'shorts:walk$k', source: 'phone', start: now - (40 - k) * 60000, end: now - (39 - k) * 60000, count: n)], t), quiet: true);
+}
+
+/// A screen for the step count: your Evochi over the Home's steps card, on the home's green.
+Widget stepsStage() => Builder(builder: (context) {
+      final pet = context.watch<GameController>().state.pet!;
+      return Scaffold(
+        backgroundColor: const Color(0xFF86B566),
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 18),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                const SizedBox(height: 90),
+                PetSprite(stage: pet.stage, palette: pet.paletteId, height: 190),
+                const SizedBox(height: 22),
+                Transform.scale(scale: 1.1, child: const StepsCard()),
+              ]),
+            ),
+          ),
+        ),
+      );
+    });
+
+/// Fri Oct 30 · I hatched a second pet. The first one didn't mind. He made room. The Grove at home.
 final groveShort = Short(
   id: 'grove',
   stamp: 'HOME · 01',
@@ -783,7 +866,7 @@ final groveShort = Short(
           ..dir = 6;
       },
       beats: [
-        Beat(0.05, (s) => s.say(const [('I got a second pet.', white)], secs: 1.6, size: 28)),
+        Beat(0.0, (s) => s.say(const [('I hatched a ', white), ('second pet.', gold)], secs: 1.6, size: 28)),
         Beat(1.4, (s) => s.walk?.walkTo(-32.6, 27.2)),
         Beat(1.8, (s) => s.say(const [("I thought he'd be jealous.", white)], secs: 2.2, size: 26)),
         Beat(5.0, (s) {
@@ -796,7 +879,8 @@ final groveShort = Short(
   ],
 );
 
-/// Fri 5 · My pet's ULTIMATE is a tidal wave. An Ocean Elder, three Thornlings, Tidal Surge.
+/// Sat Oct 31 (first) · My pet's ULTIMATE is a tidal wave. The wave from the first frame (a glimpse),
+/// then the build: perfect dodges charge it (the true rule), and the full payoff, three at once.
 final tidalShort = Short(
   id: 'tidal',
   stamp: 'THE WILDS · 06',
@@ -806,7 +890,28 @@ final tidalShort = Short(
     Clip(
       state: () => mochi('ocean'),
       open: () => const WildsScreen(depth: 3, seed: 21),
-      secs: 15,
+      secs: 2.6,
+      preroll: 1.2,
+      zoom: 0.7,
+      quiet: true,
+      pilot: const PilotStart(on: false, signature: false, bolts: false),
+      setup: (s) async {
+        await _god(s);
+        toFirstClearing(s, dist: 26);
+      },
+      beats: [
+        Beat(0.0, (s) {
+          s.say(const [("My pet's ", white), ('ULTIMATE', gold), ('\nis a tidal wave', white)], secs: 2.5, size: 28);
+          s.raid!
+            ..sig = 100
+            ..press('signature');
+        }),
+      ],
+    ),
+    Clip(
+      state: () => mochi('ocean'),
+      open: () => const WildsScreen(depth: 3, seed: 21),
+      secs: 12.5,
       preroll: 1.2,
       zoom: 0.7,
       quiet: true,
@@ -816,20 +921,21 @@ final tidalShort = Short(
         toFirstClearing(s, dist: 30);
       },
       beats: [
-        Beat(0.05, (s) => s.say(const [("My pet's ", white), ('ULTIMATE', gold), ('\nis a tidal wave', white)], secs: 2.3, size: 28)),
-        Beat(4.2, (s) {
+        Beat(0.0, (s) => s.raid!.sig = 55),
+        Beat(0.3, (s) => s.say(const [('Perfect dodges\n', white), ('charge it.', blue)], secs: 2.2, size: 27)),
+        Beat(3.4, (s) {
           s.raid!.sig = 100;
           s.say(const [('wait for it', white)], secs: 1.4, size: 26);
         }),
-        Beat(5.4, (s) => s.raid!.press('signature'), when: (s) => s.raid!.hostile.where((f) => s.raid!.pet.dist(f) < 110).length >= 2),
-        Beat(8.6, (s) => s.say(const [('Three at once.', gold)], secs: 2.0, size: 30), when: (s) => (s.raid?.calmed ?? 0) >= 2),
-        Beat(11.6, (s) => s.say(const [('Charges back up\n', white), ('as you walk.', blue)], secs: 2.6, size: 26)),
+        Beat(4.6, (s) => s.raid!.press('signature'), when: (s) => s.raid!.hostile.where((f) => s.raid!.pet.dist(f) < 110).length >= 2),
+        Beat(7.4, (s) => s.say(const [('Three at once.', gold)], secs: 2.0, size: 30), when: (s) => (s.raid?.calmed ?? 0) >= 2),
+        Beat(10.0, (s) => s.say(const [('Ocean Elder\n', white), ('Tidal Surge', blue)], secs: 2.2, size: 27)),
       ],
     ),
   ],
 );
 
-/// Fri 6 · Something took over the forest. I'm walking in. Down the lane to the purple arch, and in.
+/// Sat Oct 31 (second) · Something took over the forest. I'm walking in. Down the lane to the purple arch, and in.
 final laneShort = Short(
   id: 'lane',
   stamp: 'THE WILDS · 07',
@@ -851,7 +957,7 @@ final laneShort = Short(
           ..dir = 2;
       },
       beats: [
-        Beat(0.05, (s) {
+        Beat(0.0, (s) {
           s.say(const [('Something took over\n', white), ('the forest.', lilac)], secs: 2.4, size: 28);
           s.walk?.walkTo(130.0, -12.6);
         }),
@@ -873,19 +979,19 @@ final laneShort = Short(
         toFirstClearing(s, dist: 40);
       },
       beats: [
-        Beat(0.05, (s) => s.say(const [('3,000 steps', gold), ('\ngot me here.', white)], secs: 2.6, size: 28)),
+        Beat(0.05, (s) => s.say(const [('3,000 real steps', gold), ('\ngot me here.', white)], secs: 2.6, size: 28)),
       ],
     ),
   ],
 );
 
-/// Sat 7 · 3,500 steps in, the mine opened a shaft. Gallery 1 to the way down; the iron; the bounce;
+/// Sun Nov 1 (first) · The mine has a second floor (no steps involved: mining takes none). Gallery 1 to the way down; the iron; the bounce;
 /// the break; the glow below.
 final shaftShort = Short(
   id: 'shaft',
   stamp: 'THE MINE · 02',
   music: 'enc_wild_loop',
-  endTitle: const [('The mine goes down\n', null), ('with your steps.', Color(0xFF8D5D3B))],
+  endTitle: const [('Better gear.\n', null), ('Deeper floors.', Color(0xFF8D5D3B))],
   clips: [
     Clip(
       state: () => mochi('amber'),
@@ -898,8 +1004,8 @@ final shaftShort = Short(
         toFirstClearing(s, dist: 30);
       },
       beats: [
-        Beat(0.05, (s) {
-          s.say(const [('3,500 steps', gold), (' in, the mine\n', white), ('opened a shaft', white)], secs: 2.4, size: 27);
+        Beat(0.0, (s) {
+          s.say(const [('The mine has\n', white), ('a second floor.', gold)], secs: 2.4, size: 28);
           final g = s.screen?.map?.gateSeal;
           if (g != null) s.autopilot.walkTo = Offset(g.$1, g.$2 + 26); // to the shaft's mouth
         }),
@@ -924,7 +1030,7 @@ final shaftShort = Short(
   ],
 );
 
-/// Sat 8 · This egg came from the woods. This came out of it. The stages, the hatch, the hatchling at home.
+/// Sun Nov 1 (second) · This egg came from the woods. This came out of it. The stages, the hatch, the hatchling at home.
 final stagesShort = Short(
   id: 'stages',
   stamp: 'THE NOOK · 02',
@@ -940,13 +1046,13 @@ final stagesShort = Short(
       pilot: const PilotStart(on: false),
       loaded: () => true,
       beats: [
-        Beat(0.05, (s) => s.say(const [('This egg came\n', white), ('from the woods.', mint)], secs: 1.4, size: 27, y: _nookY)),
+        Beat(0.0, (s) => s.say(const [('This egg came\n', white), ('from the woods.', mint)], secs: 1.4, size: 27, y: _nookY)),
         Beat(1.1, (s) => eggTo(s, 600)),
         Beat(1.9, (s) => eggTo(s, 1300)),
         Beat(2.7, (s) => eggTo(s, 1800)),
         Beat(3.5, (s) {
           eggTo(s, 2000);
-          s.say(const [('2,000 steps', gold)], secs: 1.6, size: 32, y: _nookY);
+          s.say(const [('2,000 real steps', gold)], secs: 1.6, size: 30, y: _nookY);
         }),
         Beat(5.4, (s) => s.tapText('Hatch')),
         Beat(8.3, (s) => s.say(const [('This came\n', white), ('out of it.', gold)], secs: 1.7, size: 30, y: 72)),
