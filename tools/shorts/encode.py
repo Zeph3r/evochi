@@ -2,7 +2,7 @@
 1080x1920 at their rate, under the game's own sounds laid at the moments the game made them and a music
 bed (the Short's loop, or the music the game asked for as it played).
 
-    python3 encode.py SHORT_DIR GAME_ROOT OUT.mp4
+    python3 encode.py SHORT_DIR GAME_ROOT OUT.mp4 [SKIP_FRAMES]
 
 SHORT_DIR has frames.rgba (raw RGBA frames, one after another) or f_00000.png..., meta.json and cues.json; GAME_ROOT is the Flutter project (its
 assets/audio/sfx and assets/audio/ambient hold the sounds). Needs ffmpeg and numpy.
@@ -53,10 +53,16 @@ def fade(sig, a=0.0, b=0.0):
     return sig
 
 
-def main(short_dir, root, out):
+def main(short_dir, root, out, skip='0'):
+    """[skip]: frames to drop from the start (a take whose opening caption landed a frame or two late);
+    the sounds move with them."""
     meta = json.load(open(os.path.join(short_dir, 'meta.json')))
     cues = json.load(open(os.path.join(short_dir, 'cues.json')))
     fps, frames = meta['fps'], meta['frames']
+    skip = int(skip)
+    cut = skip / fps
+    cues = [dict(c, t=c['t'] - cut) if c.get('t', -1) >= 0 else c for c in cues]
+    frames -= skip
     dur = frames / fps
     n = int(dur * SR) + SR
     mix = np.zeros((n, 2), np.float32)
@@ -91,12 +97,12 @@ def main(short_dir, root, out):
             mix[a:a + len(seg)] += seg[:max(0, n - a)]
     # the game's sounds, where they happened
     for c in cues:
-        if 'sfx' not in c or c['t'] < 0 or c['t'] > dur:
+        if 'sfx' not in c or c['t'] < -0.05 or c['t'] > dur:
             continue
         s = sound(c['sfx'])
         if s is None:
             continue
-        a = int(c['t'] * SR)
+        a = max(0, int(c['t'] * SR))
         seg = s * float(c.get('vol', 0.8)) * 0.9
         mix[a:a + len(seg)] += seg[:max(0, n - a)]
     mix = mix[:int(dur * SR)]
@@ -111,7 +117,8 @@ def main(short_dir, root, out):
         video = ['-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', f"{meta['w']}x{meta['h']}", '-r', str(fps), '-i', raw]
     else:
         video = ['-framerate', str(fps), '-i', os.path.join(short_dir, 'f_%05d.png')]
-    scale = [] if meta.get('w', 1080) == 1080 else ['-vf', 'scale=1080:1920:flags=lanczos']
+    vf = ([f'trim=start_frame={skip},setpts=PTS-STARTPTS'] if skip else []) + ([] if meta.get('w', 1080) == 1080 else ['scale=1080:1920:flags=lanczos'])
+    scale = ['-vf', ','.join(vf)] if vf else []
     subprocess.run([
         'ffmpeg', '-v', 'error', '-y',
         *video,
@@ -123,4 +130,4 @@ def main(short_dir, root, out):
 
 
 if __name__ == '__main__':
-    main(*sys.argv[1:4])
+    main(*sys.argv[1:5])

@@ -255,6 +255,9 @@ class Recorder implements Take {
     // Claude can stop a run that is going wrong (_transfer/stop_shorts.flag)
     if (_stop.existsSync()) throw StateError('stopped by _transfer/stop_shorts.flag');
     final a = _sw.elapsedMicroseconds;
+    // the overlays drawn at this frame's time (set before the pump, so the frame being captured shows
+    // what was said at it: the hook is on frame 0)
+    time.value = t;
     await tester.pump(_frame);
     _tPump += (_sw.elapsedMicroseconds - a) / 1e6;
     // a new floor loading (the descent swaps the screen), or a new map: hold the clock until it is up,
@@ -337,7 +340,11 @@ class Recorder implements Take {
       if (c.t1 > t) c.t1 = t;
     }
     live.add(Cap(t, t + secs, spans, size: size, y: y));
+    // the overlays rebuild on the clock: nudge it so a caption said now is drawn on the next pump
+    time.value = t + 1e-7 * (++_said);
   }
+
+  int _said = 0;
 }
 
 /// Captions, the @handle and series stamp, the end card: drawn over the game in its own type.

@@ -1714,7 +1714,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     }
     if (k == LogicalKeyboardKey.keyG) {
       _god = !_god;
-      _showBanner(_god ? 'Debug: Raid HP stays full' : 'Debug: off', 1.2);
+      if (WildsScreen.director == null) _showBanner(_god ? 'Debug: Raid HP stays full' : 'Debug: off', 1.2); // never on a recording
     }
     if (to == null) return;
     r.pet
