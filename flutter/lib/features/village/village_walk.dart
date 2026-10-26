@@ -764,35 +764,70 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   /// Hooks for the recorder: what happens when you walk out (null: leave as the game does).
   static void Function(String exit)? onExit;
 
+  /// A way out or a door fires as you step into it, once: standing in it after a room closes (or
+  /// arriving in it) opens nothing until you've stepped out and back in.
+  final _inExits = <String>{};
+  bool _exitsPrimed = false;
+
   void _checkExits(WalkLayout l) {
-    if (_leaving || _talking) return;
+    final inside = <String>{};
     for (final e in l.exits.entries) {
-      final (x, z, r, to, at) = e.value;
-      if ((me.x - x) * (me.x - x) + (me.z - z) * (me.z - z) > r * r) continue;
-      _leaving = true;
-      me.path = const [];
-      me.moving = false;
-      final hook = onExit;
-      if (hook != null) {
-        hook(e.key);
-      } else if (to != null) {
-        Navigator.of(context).pushReplacement(_mapRoute(to, at));
-      } else if (e.key == 'home') {
-        Navigator.of(context).maybePop();
-      } else if (e.key == 'mine') {
-        _enterMine(x, z);
-      } else if (_indoors || widget.map == 'home') {
-        _door(e.key);
-      } else {
-        final say = switch (e.key) {
-          'mine' => "Flint's still shoring up the mine's timbers. It opens soon.",
-          'thicket' => 'The Sunlit Thicket lies beyond the arch. Its paths open soon.',
-          _ => 'This way opens soon.',
-        };
-        context.read<GameController>().toast(say, icon: e.key == 'mine' ? 'aff_stone' : 'aff_nature');
-      }
+      final (x, z, r, _, _) = e.value;
+      if ((me.x - x) * (me.x - x) + (me.z - z) * (me.z - z) <= r * r) inside.add(e.key);
+    }
+    if (!_exitsPrimed) {
+      _exitsPrimed = true;
+      _inExits.addAll(inside); // wherever you start standing doesn't fire
+    }
+    final entered = inside.difference(_inExits);
+    _inExits
+      ..clear()
+      ..addAll(inside);
+    if (_leaving || _talking || entered.isEmpty) return;
+    _fireExit(l, entered.first);
+  }
+
+  /// Through a way out or a door (by its key): to the other map, the mine, a room, or a word that it
+  /// opens soon.
+  void _fireExit(WalkLayout l, String key) {
+    final v = l.exits[key];
+    if (v == null) return;
+    final (x, z, _, to, at) = v;
+    _leaving = true;
+    me.path = const [];
+    me.moving = false;
+    final hook = onExit;
+    if (hook != null) {
+      hook(key);
+    } else if (to != null) {
+      Navigator.of(context).pushReplacement(_mapRoute(to, at));
+    } else if (key == 'home') {
+      Navigator.of(context).maybePop();
+    } else if (key == 'mine') {
+      _enterMine(x, z);
+    } else if (_indoors || widget.map == 'home') {
+      _door(key);
+    } else {
+      final say = switch (key) {
+        'mine' => "Flint's still shoring up the mine's timbers. It opens soon.",
+        'thicket' => 'The Sunlit Thicket lies beyond the arch. Its paths open soon.',
+        _ => 'This way opens soon.',
+      };
+      context.read<GameController>().toast(say, icon: key == 'mine' ? 'aff_stone' : 'aff_nature');
+    }
+  }
+
+  /// Walk to a way out or a door and through it (standing in it already, straight through).
+  void _useExit(String key) {
+    final l = lay;
+    if (l == null || _talking) return;
+    if (_inExits.contains(key)) {
+      _rearm();
+      _fireExit(l, key);
       return;
     }
+    final e = l.exits[key];
+    if (e != null) walkTo(e.$1, e.$2);
   }
 
   /// The ore cart: it sits in the lit tunnel, and now and then rolls out into the yard and back (while
@@ -1093,8 +1128,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     } else if (const {'lodge', 'glasshouse', 'workshop'}.contains(to)) {
       if (to == widget.map) return;
       if (widget.map == 'village') {
-        final e = lay?.exits[to];
-        if (e != null) walkTo(e.$1, e.$2); // across the Square to their door
+        _useExit(to); // across the Square to their door
       } else {
         Navigator.of(context).pushReplacement(_mapRoute(to, 'village'));
       }
@@ -1544,22 +1578,17 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       case 'flint':
         talkTo('flint');
       case 'village' || 'trail' || 'home': // to the way out: walk to it and over
-        final e = l.exits[id];
-        if (e != null) walkTo(e.$1, e.$2);
+        _useExit(id);
       case 'lodge' || 'glasshouse' || 'workshop' when widget.map == 'village': // across the Square to a door
-        final e = l.exits[id];
-        if (e != null) walkTo(e.$1, e.$2);
+        _useExit(id);
       case 'anvil' when widget.map == 'workshop':
-        final e = l.exits['forge'];
-        if (e != null) walkTo(e.$1, e.$2);
+        _useExit('forge');
       case _ when _npcs.any((n) => n.id == id):
         talkTo(id);
       case 'cottage' || 'garden' || 'nook' || 'grove' || 'nest' when widget.map == 'home': // to a door: walk in
-        final e = l.exits[id];
-        if (e != null) walkTo(e.$1, e.$2);
+        _useExit(id);
       case 'kitchen' || 'apothecary' || 'desk' when widget.map == 'cottage': // to a station: walk up to it
-        final e = l.exits[id];
-        if (e != null) walkTo(e.$1, e.$2);
+        _useExit(id);
       default:
         final w = l.spots[id];
         if (w != null) walkTo(w.dx, w.dy);

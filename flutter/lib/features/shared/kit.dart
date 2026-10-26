@@ -373,10 +373,14 @@ class _KitPainter extends BoxPainter {
       if (g.width > 4 && g.height > 2) {
         final rt = math.min(9.0, g.height / 2);
         final rb = Radius.elliptical(math.min(14.0, g.width / 2), math.min(8.0, g.height / 2));
+        // kept inside the box: on a round button the strip's corners would show past the circle
+        canvas.save();
+        canvas.clipRRect(box.deflate(1));
         canvas.drawRRect(
           RRect.fromRectAndCorners(g, topLeft: Radius.circular(rt), topRight: Radius.circular(rt), bottomLeft: rb, bottomRight: rb),
           Paint()..shader = LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [gt, d.glossBottom]).createShader(g),
         );
+        canvas.restore();
       }
     }
     final dot = d.dot;
