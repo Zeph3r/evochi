@@ -138,6 +138,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   Raid? _raid;
   WalkerArt? _petArt, _sherArt;
   double _heft = 0; // how heavily your Evochi walks: 0 an Eggling, 1 an Elder
+  double _stageK = 1; // how big it is drawn (stageDraw)
   // the guardian's entrance (loaded in the background; without it the fight starts as before)
   BossIntroArt? _introArt;
   CineEvochiArt? _cineEvochi;
@@ -254,6 +255,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       final m = r[0] as WildsMap;
       _petArt = r[1] as WalkerArt;
       _heft = ((pet?.stage ?? 1).clamp(1, 3) - 1) / 2;
+      _stageK = stageDraw(pet?.stage ?? 1);
       _sherArt = r[2] as WalkerArt;
       _foeArt['thornling'] = r[3] as FoeArt;
       _foeArt['sporecap'] = r[4] as FoeArt;
@@ -488,7 +490,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       ..speed = speed
       ..run = run;
     // the walk cycles' strides come from the art
-    pet.cycle = _petArt!.gait(pet.running && pet.moving).cycle;
+    pet.cycle = _petArt!.gait(pet.running && pet.moving).cycle * _stageK;
     final sher = r.sher;
     if (sher != null) sher.cycle = _sherArt!.gait(sher.running && sher.moving).cycle;
     _itemCd = math.max(0, _itemCd - dt);
@@ -2098,7 +2100,7 @@ class _MapPainter extends CustomPainter {
       _pickup(canvas, p);
     }
     // everything standing, back to front; a tall prop in front of someone turns see-through
-    final wk = s._u / walkerDrawScale;
+    final wk = s._u / walkerDrawScale * s._stageK;
     final hidden = [
       for (final a in [pet, if (sher != null) sher])
         (a.z, Rect.fromCenter(center: s._toScreen(a.x, a.z) - Offset(0, s._petArt!.gy * wk * 0.45), width: s._petArt!.fw * wk * 0.5, height: s._petArt!.gy * wk * 0.8)),
@@ -2614,7 +2616,7 @@ class _MapPainter extends CustomPainter {
     final r = s._raid!;
     final gait = art.gait(w.running && w.moving);
     final col = gait.col(w.phase, w.moving);
-    final k = s._u / walkerDrawScale;
+    final k = s._u / walkerDrawScale * (isPet ? s._stageK : 1);
     // afterimages of a dodge roll
     if (isPet) {
       for (final (x, z, t) in r.trail) {

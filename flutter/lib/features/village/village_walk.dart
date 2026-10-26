@@ -593,7 +593,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         final p = resting[i];
         final w = await WalkerArt.load('s0${p.stage.clamp(1, 3)}', p.paletteId, wearing: p.equipped.values.toList());
         _petNames['pet:${p.id}'] = p.name;
-        npcs.add(_Npc('pet:${p.id}', beds[i].$1, beds[i].$2, 'grove', w.gait(false).img, Offset.zero, Offset.zero, _evochiH * 200 / _sheetH, // drawn as your own Evochi is
+        npcs.add(_Npc('pet:${p.id}', beds[i].$1, beds[i].$2, 'grove', w.gait(false).img, Offset.zero, Offset.zero, _evochiH * stageDraw(p.stage) * 200 / _sheetH, // drawn as your own Evochi is
             walker: w)
           ..dir = i == 0 ? 2 : 6);
       }
@@ -1017,7 +1017,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   /// World units per walk cycle: the sheet's stride, drawn at the village's size.
   /// World units a walk (or run) cycle covers, as your Evochi is drawn here: the sheets' strides, so the
   /// feet take the ground rather than slide.
-  double _cycleFor(bool running) => _pet!.gait(running).cycle * walkerDrawScale * _evochiH / _sheetH;
+  double _cycleFor(bool running) => _pet!.gait(running).cycle * walkerDrawScale * _evochiH * stageDraw(_stage) / _sheetH;
 
   void _follow(double dt) {
     final l = lay!;
@@ -1864,7 +1864,7 @@ class _WalkPainter extends CustomPainter {
     final me = s.me;
     final gait = art.gait(me.running && me.moving);
     var col = gait.col(me.phase, me.moving);
-    final kp = upk * _evochiH / _sheetH; // dp per sheet px
+    final kp = upk * _evochiH * stageDraw(s._stage) / _sheetH; // dp per sheet px (an Eggling draws smaller than an Elder)
     // a strike: the walk sheet posed in code (crouch, lunge, contact, recover)
     var sx = 1.0, sy = 1.0, lean = 0.0;
     final pn = s.pounce, node = pn.node;

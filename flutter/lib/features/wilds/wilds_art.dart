@@ -18,6 +18,10 @@ const wildsBase = 'assets/art/wilds/';
 /// The pixels per unit every walker sheet is drawn at (see walk.py STAGE_SCALE).
 const walkerDrawScale = 6.0;
 
+/// How big each stage is drawn, against the Elder: the sheets share one size class (an Elder's sheet is
+/// 3.5 px a unit, an Eggling's 6), which left the egg as tall as the Elder; growing up should show.
+double stageDraw(int stage) => switch (stage.clamp(1, 3)) { 1 => 0.7, 2 => 0.86, _ => 1.0 };
+
 Future<ui.Image> _img(String path) async {
   final data = await rootBundle.load(path);
   final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
