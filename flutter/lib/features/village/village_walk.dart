@@ -40,9 +40,12 @@ import '../home/home_widgets.dart' show goHome, openCottage, openGarden, openSki
 import '../home/nook_sheet.dart';
 import '../wilds/wilds_art.dart';
 import '../wilds/wilds_screen.dart';
+import 'chathead_talk.dart';
 import 'flint_talk.dart';
+import 'forge_minigame.dart';
 import 'mining.dart';
 import 'mining_gear_ui.dart';
+import '../trails/trails_widgets.dart' show openPrep;
 import 'story_widgets.dart';
 import 'village_screen.dart';
 
@@ -73,7 +76,8 @@ void openVillageWalk(BuildContext context) =>
 Route<void> _mapRoute(String map, String? at) => PageRouteBuilder<void>(
       transitionDuration: const Duration(milliseconds: 450),
       reverseTransitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (_, __, ___) => Ambience(switch (map) { 'home' => 'home', 'cottage' => 'kitchen', _ => 'village' }, child: VillageWalkScreen(map: map, arrive: at)),
+      pageBuilder: (_, __, ___) => Ambience(switch (map) { 'home' => 'home', 'cottage' => 'kitchen', 'lodge' || 'glasshouse' || 'workshop' => villagePlace(map), _ => 'village' },
+          child: VillageWalkScreen(map: map, arrive: at)),
       transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: CurvedAnimation(parent: a, curve: Curves.easeInOut), child: child),
     );
 
@@ -428,6 +432,41 @@ const _routines = <String, (List<_Stop>, double, double, double)>{
   'alder': ([_Stop(0, 0), _Stop(1.0, 1.4)], 0.8, 6.0, 11.0), // mostly stands and looks about
   // Flint's day round the camp: the flag by his tent, the fire, the front of the yard watching the trail,
   // the tool rack by the wheelbarrow, and now and then out to check the ore cart on its rails.
+  // indoors: Bram between the anvil, the forge, his bench, the ore crates and his lantern wall
+  'workshop:bram': ([
+    _Stop(0, 0, -3.0, -1.0),
+    _Stop(-4.4, -1.0, -6.0, -2.5),
+    _Stop(-9.0, -4.6, -9.0, -8.0),
+    _Stop(4.6, -3.5, 7.6, -3.5),
+    _Stop(-8.5, 5.6, -11.5, 5.6),
+    _Stop(3.5, -6.4, 3.5, -9.4),
+  ], 1.2, 4.0, 9.0),
+  // Mira: the potting bench, the beds either side, the far end of the cross aisle, the bench by the door
+  'glasshouse:mira': ([
+    _Stop(0, 0, 0, 2.6),
+    _Stop(0, -8.2, 0, -10.7),
+    _Stop(0.5, -5.2, -4.0, -5.2),
+    _Stop(0, 0.8, 4.0, 0.8),
+    _Stop(-9.0, -2.4, -9.0, -4.7),
+    _Stop(-5.5, 4.3, -8.5, 5.0),
+    _Stop(8.0, -8.2, 10.0, -10.2),
+  ], 1.1, 4.0, 9.0),
+  // Pip: the notice board, the head of the table, the fire, the door, the map table
+  'lodge:pip': ([
+    _Stop(0, 0, 0, 3.0),
+    _Stop(-2.0, -10.0, -2.0, -12.6),
+    _Stop(-7.5, -9.2, -5.0, -5.6),
+    _Stop(11.5, -2.2, 15.0, -4.6),
+    _Stop(3.0, 3.4, 3.0, 6.4),
+    _Stop(6.0, -1.6, 9.0, -1.6),
+  ], 2.0, 2.5, 6.0),
+  // Alder: mostly at his desk, now and then the map table, the board, or a look at the fire
+  'lodge:alder': ([
+    _Stop(0, 0, 0, -3.2),
+    _Stop(-2.0, 6.6, 0, 6.4),
+    _Stop(-7.5, -2.0, -9.0, -4.6),
+    _Stop(-3.0, 3.4, 6.0, 3.4),
+  ], 0.9, 7.0, 14.0),
   'flint': ([
     _Stop(0, 0, -2.0, -1.4), // by the tent, looking back into it
     _Stop(-4.6, 2.2, -6.5, 2.4), // the fire (it stands at 95.5, -12.6)
@@ -477,6 +516,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   (double, double, double)? _mark; // where you tapped (x, z) and when: a ring on the ground
 
   bool _leaving = false;
+  String? _talkNpc; // the villager you're talking to (the chathead panel is up)
 
   // mining (mining.dart)
   MiningArt? _mining;
@@ -741,7 +781,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         Navigator.of(context).maybePop();
       } else if (e.key == 'mine') {
         _enterMine(x, z);
-      } else if (widget.map == 'home' || widget.map == 'cottage') {
+      } else if (_indoors || widget.map == 'home') {
         _door(e.key);
       } else {
         final say = switch (e.key) {
@@ -815,6 +855,8 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         }
       case 'desk':
         openSkills(context);
+      case 'forge':
+        await showBramForge(context);
       default:
         c.toast('This way opens soon.');
     }
@@ -995,6 +1037,12 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       });
       return;
     }
+    if (const {'lodge', 'glasshouse', 'workshop'}.contains(n.place)) {
+      // a villager: the talk opens where they stand (the chathead panel), the world still behind
+      c_().audio.play('ui_tap', volume: 0.3);
+      setState(() => _talkNpc = 'npc_${n.id}');
+      return;
+    }
     Navigator.of(context)
         .push(MaterialPageRoute<void>(
             settings: const RouteSettings(name: 'place'),
@@ -1002,6 +1050,63 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         .then((_) {
       if (mounted) setState(() => _talking = false);
     });
+  }
+
+  GameController c_() => context.read<GameController>();
+  bool get _indoors => const {'cottage', 'lodge', 'glasshouse', 'workshop'}.contains(widget.map);
+
+  // ------------------------------------------------------------------------------------ the chathead talk
+  void _talkClose() {
+    if (!mounted) return;
+    setState(() {
+      _talkNpc = null;
+      _talking = false;
+    });
+  }
+
+  /// Another villager takes over the talk: in this room they stop and turn to you; elsewhere, the talk
+  /// closes and the way to their house is yours to walk.
+  void _talkSwitch(String npcId) {
+    final id = npcId.replaceFirst('npc_', '');
+    if (_npcs.any((n) => n.id == id)) {
+      setState(() => _talkNpc = npcId);
+      return;
+    }
+    _talkClose();
+    final place = q.npcs[npcId]?.location;
+    if (place != null) _talkGoto(place);
+  }
+
+  /// Where a choice leads outside the talk.
+  Future<void> _talkGoto(String to) async {
+    final c = c_();
+    _talkClose();
+    if (!mounted) return;
+    if (to == 'forge') {
+      setState(() => _talking = true);
+      await showBramForge(context);
+      if (mounted) setState(() => _talking = false);
+    } else if (to.startsWith('reward:')) {
+      showStoryReward(context, to.substring(7), backToVillage: false);
+    } else if (to == 'waystone') {
+      openPlace(context, 'waystone');
+    } else if (const {'lodge', 'glasshouse', 'workshop'}.contains(to)) {
+      if (to == widget.map) return;
+      if (widget.map == 'village') {
+        final e = lay?.exits[to];
+        if (e != null) walkTo(e.$1, e.$2); // across the Square to their door
+      } else {
+        Navigator.of(context).pushReplacement(_mapRoute(to, 'village'));
+      }
+    } else if (to == 'journey' || to == 'discover') {
+      c.goTab('journey', journey: 'daily');
+    } else if (to.startsWith('prep:')) {
+      openPrep(context, to.substring(5));
+    } else if (const {'garden', 'cottage', 'kitchen', 'apothecary'}.contains(to)) {
+      goHome(context, to);
+    } else {
+      openPlace(context, to);
+    }
   }
 
   /// Walk to a ground point.
@@ -1036,6 +1141,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   void _tap(Offset local) {
     final l = lay, cam = _cam;
     if (l == null || cam == null) return;
+    if (_talkNpc != null) _talkClose(); // walking off ends the talk, as it would
     final k = _k;
     final p = cam + (local - _view.center(Offset.zero)) / k;
     // a villager first (tap their sprite)
@@ -1060,7 +1166,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       final w = n.walker;
       final dx = me.x - n.x, dz = me.z - n.z;
       final near = dx * dx + dz * dz < 5.5 * 5.5;
-      final waiting = me.talkTo == n.id || (_talking && me.talkTo == null && near);
+      final waiting = me.talkTo == n.id || (_talking && me.talkTo == null && near) || _talkNpc == 'npc_${n.id}';
       if (w == null) continue;
       if (near || waiting) {
         // stop where they are and turn to your Evochi (they pick their walk up again once you've gone)
@@ -1070,7 +1176,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         n.busy = 0;
         continue;
       }
-      final r = _routines[n.id];
+      final r = _routines['${widget.map}:${n.id}'] ?? _routines[n.id];
       if (n.route.isNotEmpty) {
         final g = n.route.first;
         final gx = g.dx - n.x, gz = g.dy - n.z;
@@ -1312,15 +1418,15 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     if (lay != null && _wearing(c.state).join(',') != _lookKey) _refreshLook(c.state);
     final marks = q.npcMarkers(c.state);
     return Scaffold(
-      backgroundColor: widget.map == 'cottage' ? const Color(0xFF2C2019) : const Color(0xFF86B566),
+      backgroundColor: _indoors ? const Color(0xFF2C2019) : const Color(0xFF86B566),
       body: Column(children: [
         Container(
           color: EvochiColor.panel,
           child: SafeArea(
             bottom: false,
             child: PlaceHeader(
-                title: lay?.title ?? switch (widget.map) { 'trail' => 'The Old Trail', 'home' => 'Your Home', 'cottage' => 'Your Cottage', _ => 'Sunlit Village' },
-                short: switch (widget.map) { 'trail' => 'Trail', 'home' => 'Home', 'cottage' => 'Cottage', _ => 'Village' },
+                title: lay?.title ?? switch (widget.map) { 'trail' => 'The Old Trail', 'home' => 'Your Home', 'cottage' => 'Your Cottage', 'lodge' => 'The Guild Lodge', 'workshop' => "Bram's Workshop", 'glasshouse' => "Mira's Glasshouse", _ => 'Sunlit Village' },
+                short: switch (widget.map) { 'trail' => 'Trail', 'home' => 'Home', 'cottage' => 'Cottage', 'lodge' => 'Guild', 'workshop' => 'Workshop', 'glasshouse' => 'Glasshouse', _ => 'Village' },
                 backLabel: 'Back',
                 onBack: () => Navigator.of(context).maybePop()),
           ),
@@ -1375,10 +1481,28 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
                     builder: (_, __, ___) => PounceButton(ready: pounceReady, onDown: pounceDown, onUp: pounceUp),
                   ),
                 ),
+              if (_talkNpc != null)
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  child: ChatheadTalk(npc: _talkNpc!, forge: bramForges(c.state), onSwitch: _talkSwitch, onClose: _talkClose, onGoto: _talkGoto),
+                ),
             ]);
           }),
         ),
-        _QuickTravel(items: switch (widget.map) { 'trail' => _trailTravel, 'home' => _homeTravel, 'cottage' => _cottageTravel, _ => _villageTravel }, onPick: _quick),
+        if (_talkNpc == null)
+          _QuickTravel(
+              items: switch (widget.map) {
+                'trail' => _trailTravel,
+                'home' => _homeTravel,
+                'cottage' => _cottageTravel,
+                'workshop' => _workshopTravel,
+                'glasshouse' => _glasshouseTravel,
+                'lodge' => _lodgeTravel,
+                _ => _villageTravel
+              },
+              onPick: _quick),
       ]),
     );
   }
@@ -1417,17 +1541,19 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     final l = lay;
     if (l == null) return;
     switch (id) {
-      case 'lodge':
-        talkTo('pip');
-      case 'glasshouse':
-        talkTo('mira');
-      case 'workshop':
-        talkTo('bram');
       case 'flint':
         talkTo('flint');
       case 'village' || 'trail' || 'home': // to the way out: walk to it and over
         final e = l.exits[id];
         if (e != null) walkTo(e.$1, e.$2);
+      case 'lodge' || 'glasshouse' || 'workshop' when widget.map == 'village': // across the Square to a door
+        final e = l.exits[id];
+        if (e != null) walkTo(e.$1, e.$2);
+      case 'anvil' when widget.map == 'workshop':
+        final e = l.exits['forge'];
+        if (e != null) walkTo(e.$1, e.$2);
+      case _ when _npcs.any((n) => n.id == id):
+        talkTo(id);
       case 'cottage' || 'garden' || 'nook' || 'grove' || 'nest' when widget.map == 'home': // to a door: walk in
         final e = l.exits[id];
         if (e != null) walkTo(e.$1, e.$2);
@@ -1442,6 +1568,9 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
 }
 
 const _villageTravel = [('lodge', 'mail', 'Guild'), ('glasshouse', 'care', 'Glasshouse'), ('workshop', 'bell', 'Workshop'), ('waystone', 'star', 'Waystone'), ('trail', 'trail', 'Old Trail')];
+const _workshopTravel = [('bram', 'bell', 'Bram'), ('anvil', 'aff_stone', 'Anvil'), ('bench', 'gem', 'Bench'), ('village', 'trail', 'Square')];
+const _glasshouseTravel = [('mira', 'care', 'Mira'), ('bench', 'skill_farming', 'Bench'), ('beds', 'aff_nature', 'Beds'), ('village', 'trail', 'Square')];
+const _lodgeTravel = [('pip', 'mail', 'Pip'), ('alder', 'journey', 'Alder'), ('board', 'pin', 'Board'), ('fire', 'aff_ember', 'Fire'), ('village', 'trail', 'Square')];
 const _homeTravel = [('nest', 'home', 'Nest'), ('cottage', 'bell', 'Cottage'), ('garden', 'skill_farming', 'Farm'), ('nook', 'star', 'Nook'), ('grove', 'paw', 'Grove'), ('village', 'trail', 'Village')];
 const _trailTravel = [('village', 'home', 'Village'), ('bridge', 'aff_water', 'Falls'), ('flint', 'shop', 'Flint'), ('mine', 'aff_stone', 'Mine'), ('thicket', 'aff_nature', 'Thicket')];
 const _cottageTravel = [('kitchen', 'skill_cooking', 'Kitchen'), ('apothecary', 'skill_alchemy', 'Apothecary'), ('desk', 'journey', 'Skills'), ('hearth', 'aff_ember', 'Hearth'), ('home', 'home', 'Outside')];
@@ -1876,6 +2005,9 @@ const _placeNames = <String, Map<String, (String, String)>>{
     'pip': ('Guild', 'mail'),
     'mira': ('Glasshouse', 'care'),
     'bram': ('Workshop', 'bell'),
+    'lodge': ('Guild', 'mail'),
+    'glasshouse': ('Glasshouse', 'care'),
+    'workshop': ('Workshop', 'bell'),
     'waystone': ('Waystone', 'star'),
     'falls': ('Falls', 'aff_water'),
   },
@@ -1894,6 +2026,27 @@ const _placeNames = <String, Map<String, (String, String)>>{
     'thicket': ('Sunlit Thicket', 'aff_nature'),
     'flint': ('Flint', 'shop'),
     'bridge': ('Falls', 'aff_water'),
+  },
+  'workshop': {
+    'bram': ('Bram', 'bell'),
+    'anvil': ('Anvil', 'aff_stone'),
+    'forge': ('Forge', 'aff_ember'),
+    'bench': ('Bench', 'gem'),
+    'village': ('Square', 'trail'),
+  },
+  'glasshouse': {
+    'mira': ('Mira', 'care'),
+    'bench': ('Bench', 'skill_farming'),
+    'beds': ('Beds', 'aff_nature'),
+    'village': ('Square', 'trail'),
+  },
+  'lodge': {
+    'pip': ('Pip', 'mail'),
+    'alder': ('Alder', 'journey'),
+    'board': ('Board', 'pin'),
+    'table': ('Table', 'bell'),
+    'fire': ('Fire', 'aff_ember'),
+    'village': ('Square', 'trail'),
   },
   'cottage': {
     'kitchen': ('Kitchen', 'skill_cooking'),

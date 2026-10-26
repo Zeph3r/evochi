@@ -20,7 +20,7 @@ import '../nest/sheets.dart';
 import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
-import 'mining_gear_ui.dart';
+import 'forge_minigame.dart';
 import 'npc_puppet.dart';
 import 'story_widgets.dart';
 import 'village_walk.dart';

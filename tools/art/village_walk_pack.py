@@ -47,21 +47,22 @@ TILE, PAD = 1024, 8
 def _village():
     return dict(
         title='Sunlit Village', scene=lambda: V.scene_village_walk('day_dim'), view='full', area=(-66.0, 66.0, -60.0, 60.0),
-        npcs={  # id: (x, z, the place their conversation opens in, how much room they take)
-            # Pip and Alder wait at the foot of the Guild's bridge (in front of its door they'd close the only
-            # way round the Guild, which stands close to the stream)
-            'pip': (-4.6, -20.2, 'lodge', NPC_R),
-            'alder': (4.8, -20.4, 'lodge', NPC_R),
-            'bram': (24.4, -1.2, 'workshop', NPC_R),
-            'mira': (-25.4, 5.6, 'glasshouse', NPC_R),
-        },
+        # the villagers live indoors now (village_interiors.py): their houses are maps of their own
+        npcs={},
         # where you arrive, by the way you came in (the first is where a fresh visit starts)
         arrive={'home': (0.0, 45.0),                       # in through the south gate, from the road home
-                'trail': (57.0, 4.4)},                     # back from the Old Trail, at the east gate
-        spots={'waystone': (0.0, 6.0), 'gate': (0.0, 47.0), 'trail': (57.0, 4.4), 'falls': (-15.0, -50.0)},
+                'trail': (57.0, 4.4),                      # back from the Old Trail, at the east gate
+                'lodge': (0.0, -30.6),                     # out of the Guild's door, under its porch
+                'glasshouse': (-23.8, -4.0),               # out of the Glasshouse's door, on its east side
+                'workshop': (23.4, -2.4)},                 # out of the Workshop's door, on its west side
+        spots={'waystone': (0.0, 6.0), 'gate': (0.0, 47.0), 'trail': (57.0, 4.4), 'falls': (-15.0, -50.0),
+               'lodge': (0.0, -30.4), 'glasshouse': (-23.6, -4.0), 'workshop': (23.0, -2.4)},
         # walk into one and you leave: x, z, radius, and the map and arrival it leads to (none: the game decides)
         exits={'home': (0.0, 55.0, 4.0, 'home', 'village'),
-               'trail': (63.0, 4.6, 3.0, 'trail', 'village')},
+               'trail': (63.0, 4.6, 3.0, 'trail', 'village'),
+               'lodge': (0.0, -33.4, 1.6, 'lodge', 'village'),
+               'glasshouse': (-26.4, -4.0, 1.6, 'glasshouse', 'village'),
+               'workshop': (25.8, -2.4, 1.6, 'workshop', 'village')},
         fx='fx_village_walk.py', tiles='village/walk', art_npcs={}, ores=[])
 
 
@@ -127,7 +128,38 @@ def _cottage():
         fx='fx_cottage.py', tiles='cottage/walk', art_npcs={}, ores=[])
 
 
-MAPS = {'village': _village, 'trail': _trail, 'home': _home, 'cottage': _cottage}
+def _interior(key, title, npcs, spots, exits):
+    import village_interiors as VI
+    return dict(
+        title=title, scene=VI.SCENES[key], view=key, area=(VI.X0, VI.X1, VI.Z0, VI.Z1),
+        npcs=npcs,
+        arrive={'village': (0.0, 7.4)},                                # in at the door
+        spots={'door': (0.0, 7.4), **spots},
+        exits={'village': (0.0, VI.ROOM[3] + 1.2, 1.9, 'village', key), **exits},
+        fx=f'fx_{key}.py', tiles=f'{key}/walk', art_npcs={}, ores=[])
+
+
+def _workshop():
+    import village_interiors as VI
+    ax, az = VI.ANVIL
+    return _interior('workshop', "Bram's Workshop", {'bram': (3.0, -1.0, 'workshop', NPC_R)},
+                     {'anvil': (ax, az + 2.6), 'forge': (VI.FORGE[0], VI.FORGE[1] + 5.0), 'bench': (VI.BENCH_W[0] - 2.4, -4.5)},
+                     {'forge': (ax + 0.2, az + 2.6, 1.6, None, None)})   # walk up to the anvil: the forge opens
+
+
+def _glasshouse():
+    import village_interiors as VI
+    return _interior('glasshouse', "Mira's Glasshouse", {'mira': (0.0, 2.2, 'glasshouse', NPC_R)},
+                     {'bench': (0.0, VI.POT_BENCH[3] + 1.6), 'beds': (0.0, -0.2)}, {})
+
+
+def _lodge():
+    import village_interiors as VI
+    return _interior('lodge', 'The Guild Lodge', {'pip': (-3.0, 3.6, 'lodge', NPC_R), 'alder': (6.0, -4.4, 'lodge', NPC_R)},
+                     {'board': ((VI.BOARD_L[0] + VI.BOARD_L[1]) / 2, -7.4), 'table': (-5.5, 2.6), 'fire': (VI.FIRE_L[0] - 4.0, VI.FIRE_L[1] + 2.4)}, {})
+
+
+MAPS = {'village': _village, 'trail': _trail, 'home': _home, 'cottage': _cottage, 'workshop': _workshop, 'glasshouse': _glasshouse, 'lodge': _lodge}
 
 
 def walk_grid(vs, m):
