@@ -192,50 +192,19 @@ class PounceButton extends StatelessWidget {
   final bool ready;
   final VoidCallback onDown, onUp;
 
+  /// The same Pounce as the Wilds' pad (the paw on gold): one button for striking, wherever you are.
   @override
   Widget build(BuildContext context) => ActionButton(
         label: 'Pounce',
         hint: 'Tap to strike the ore, hold to keep striking',
+        icon: 'paw',
         size: 86,
-        palette: ready ? KitButtonPalette.gold : KitButtonPalette.cream,
+        palette: KitButtonPalette.gold,
         ready: ready,
-        held: !ready,
+        dim: !ready,
         onDown: onDown,
         onUp: onUp,
-        child: CustomPaint(size: const Size(40, 36), painter: _PickPainter()),
       );
-}
-
-/// A pickaxe, drawn: a curved iron head on a wooden haft.
-class _PickPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size s) {
-    final ink = Paint()
-      ..color = const Color(0xFF3B2923)
-      ..style = PaintingStyle.stroke
-      ..strokeCap = StrokeCap.round;
-    final haft = Path()
-      ..moveTo(s.width * 0.22, s.height * 0.92)
-      ..lineTo(s.width * 0.66, s.height * 0.26);
-    canvas.drawPath(haft, ink..strokeWidth = 7);
-    canvas.drawPath(haft, Paint()
-      ..color = const Color(0xFFA8703F)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4
-      ..strokeCap = StrokeCap.round);
-    final head = Path()
-      ..moveTo(s.width * 0.18, s.height * 0.30)
-      ..quadraticBezierTo(s.width * 0.55, s.height * -0.06, s.width * 0.95, s.height * 0.42);
-    canvas.drawPath(head, ink..strokeWidth = 8);
-    canvas.drawPath(head, Paint()
-      ..color = const Color(0xFFC4CAD2)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 4.5
-      ..strokeCap = StrokeCap.round);
-  }
-
-  @override
-  bool shouldRepaint(_PickPainter old) => false;
 }
 
 /// What's in your satchel this trip: a nugget of each ore and how many.

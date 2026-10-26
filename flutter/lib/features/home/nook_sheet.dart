@@ -12,6 +12,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/theme.dart';
@@ -36,14 +37,18 @@ class NookSheet extends StatefulWidget {
 }
 
 class _NookSheetState extends State<NookSheet> with SingleTickerProviderStateMixin {
-  late final AnimationController _anim = AnimationController(vsync: this, duration: const Duration(seconds: 4))..repeat();
+  // one clock for the eggs' breathing and wobble (never wrapping, so nothing ever jumps)
+  late final Ticker _ticker = createTicker((e) => setState(() => _t = e.inMicroseconds / 1e6))..start();
+  double _t = 0;
+  double _careAt = -9; // when the chosen egg was last cared for (its bounce and hearts)
+  int _careSlot = -1;
   late final PageController _page = PageController(viewportFraction: 0.46, initialPage: _pageMemory);
   static int _pageMemory = 0; // where you left the carousel (kept while the app runs)
   bool _collection = false;
 
   @override
   void dispose() {
-    _anim.dispose();
+    _ticker.dispose();
     _page.dispose();
     super.dispose();
   }
@@ -91,10 +96,13 @@ class _NookSheetState extends State<NookSheet> with SingleTickerProviderStateMix
                 controller: _page,
                 itemCount: cards.length,
                 onPageChanged: (i) => setState(() => _pageMemory = i),
-                itemBuilder: (_, i) => AnimatedBuilder(
-                  animation: _anim,
-                  builder: (_, __) => _Cradle(egg: cards[i], t: _anim.value * 4, selected: i == page, slot: i, onTap: () => _page.animateToPage(i, duration: const Duration(milliseconds: 280), curve: Curves.easeOut)),
-                ),
+                itemBuilder: (_, i) => _Cradle(
+                    egg: cards[i],
+                    t: _t,
+                    careAt: i == _careSlot ? _careAt : -9,
+                    selected: i == page,
+                    slot: i,
+                    onTap: () => _page.animateToPage(i, duration: const Duration(milliseconds: 280), curve: Curves.easeOut)),
               ),
               if (cards.length > 1) ...[
                 Positioned(left: 4, top: 0, bottom: 0, child: _Arrow(left: true, on: page > 0, onTap: () => _page.previousPage(duration: const Duration(milliseconds: 260), curve: Curves.easeOut))),
@@ -117,7 +125,16 @@ class _NookSheetState extends State<NookSheet> with SingleTickerProviderStateMix
             ]),
           ),
           const SizedBox(height: 10),
-          if (sel == null) _EmptyPanel(stored: hatch.stored(s).length, onCollection: () => setState(() => _collection = true)) else _EggPanel(egg: sel, onChanged: () => setState(() {})),
+          if (sel == null)
+            _EmptyPanel(stored: hatch.stored(s).length, onCollection: () => setState(() => _collection = true))
+          else
+            _EggPanel(
+                egg: sel,
+                onChanged: () => setState(() {}),
+                onCared: () => setState(() {
+                      _careAt = _t;
+                      _careSlot = page;
+                    })),
           const SizedBox(height: 8),
           Row(children: [
             Expanded(
@@ -166,9 +183,9 @@ class _Arrow extends StatelessWidget {
 
 /// A cradle: a woven straw bowl on a little stand, with its egg (or empty, "+").
 class _Cradle extends StatelessWidget {
-  const _Cradle({required this.egg, required this.t, required this.selected, required this.slot, required this.onTap});
+  const _Cradle({required this.egg, required this.t, required this.selected, required this.slot, required this.onTap, this.careAt = -9});
   final Egg? egg;
-  final double t;
+  final double t, careAt;
   final bool selected;
   final int slot;
   final VoidCallback onTap;
@@ -194,7 +211,7 @@ class _Cradle extends StatelessWidget {
               SizedBox(
                 width: 120,
                 height: 118,
-                child: CustomPaint(painter: _CradlePainter(e, t, stage, selected)),
+                child: CustomPaint(painter: _CradlePainter(e, t, stage, selected, careAt: careAt)),
               ),
               Text(e == null ? 'Empty' : '${(frac * 100).round()}%',
                   style: EvochiText.tag.copyWith(color: const Color(0xFFFFF0D2), fontSize: 12.5, shadows: kitWoodTextShadow)),
@@ -207,27 +224,39 @@ class _Cradle extends StatelessWidget {
 }
 
 class _CradlePainter extends CustomPainter {
-  _CradlePainter(this.egg, this.t, this.stage, this.selected);
+  _CradlePainter(this.egg, this.t, this.stage, this.selected, {this.careAt = -9});
   final Egg? egg;
   final double t;
   final String stage;
   final bool selected;
+  final double careAt;
   @override
   void paint(Canvas canvas, Size size) {
     final c = Offset(size.width / 2, size.height * 0.62);
-    // the stand and the bowl
+    // the stand, the woven bowl, a ring of moss and straw, and the blanket the egg sits on
     canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: c + const Offset(0, 40), width: 56, height: 10), const Radius.circular(4)), Paint()..color = const Color(0xFF6E4224));
-    final bowl = Rect.fromCenter(center: c + const Offset(0, 22), width: 92, height: 44);
-    canvas.drawOval(bowl, Paint()..color = const Color(0xFFD4AE4E));
-    canvas.drawOval(bowl.deflate(5), Paint()..color = const Color(0xFFB98B2E));
-    for (var i = 0; i < 9; i++) {
-      final a = -math.pi + i * math.pi / 8;
-      canvas.drawArc(bowl.deflate(2), a, 0.25, false, Paint()
+    canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: c + const Offset(0, 36), width: 12, height: 14), const Radius.circular(3)), Paint()..color = const Color(0xFF5E3A24));
+    final bowl = Rect.fromCenter(center: c + const Offset(0, 22), width: 94, height: 46);
+    canvas.drawOval(bowl.shift(const Offset(0, 3)), Paint()..color = const Color(0x33000000));
+    canvas.drawOval(bowl, Paint()..shader = const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFE0BD5C), Color(0xFFB08424)]).createShader(bowl));
+    for (var i = 0; i < 12; i++) {
+      final a = math.pi + i * math.pi / 11;
+      canvas.drawArc(bowl.deflate(3), a, 0.18, false, Paint()
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3
-        ..color = const Color(0xFFE8C766));
+        ..strokeCap = StrokeCap.round
+        ..color = i.isEven ? const Color(0xFFEFCF72) : const Color(0xFF9C7420));
     }
-    canvas.drawOval(Rect.fromCenter(center: c + const Offset(0, 16), width: 74, height: 26), Paint()..color = const Color(0xFFF5E6C8)); // the blanket
+    final rim = Rect.fromCenter(center: c + const Offset(0, 16), width: 80, height: 30);
+    canvas.drawOval(rim, Paint()..color = const Color(0xFF6FA552));
+    final mr = math.Random(3);
+    for (var i = 0; i < 14; i++) {
+      final a = mr.nextDouble() * math.pi * 2;
+      final p = rim.center + Offset(math.cos(a) * 38, math.sin(a) * 13);
+      canvas.drawCircle(p, 3.5 + mr.nextDouble() * 2.5, Paint()..color = [const Color(0xFF8DBD6C), const Color(0xFF5E9646), const Color(0xFFE8C766)][i % 3]);
+    }
+    canvas.drawOval(Rect.fromCenter(center: c + const Offset(0, 16), width: 62, height: 20), Paint()..color = const Color(0xFFF5E6C8)); // the blanket
+    canvas.drawOval(Rect.fromCenter(center: c + const Offset(0, 15), width: 50, height: 14), Paint()..color = const Color(0xFFFBF1DC));
     final e = egg;
     if (e == null) {
       canvas.drawCircle(c, 15, Paint()
@@ -244,44 +273,80 @@ class _CradlePainter extends CustomPainter {
         ..color = const Color(0xCCFFF0D2));
       return;
     }
-    paintEgg(canvas, c - const Offset(0, 6), 30, e, t, stage, aura: stage == 'ready' || selected);
+    paintEgg(canvas, c - const Offset(0, 8), 31, e, t, stage, aura: stage == 'ready' || selected, careAt: careAt);
   }
 
   @override
   bool shouldRepaint(_CradlePainter old) => true;
 }
 
-/// An egg, drawn: [h] half its height. Its kind gives the shell and spots; [stage] the cracks and the
-/// movement; [t] seconds, for the wobble and the breathing.
-void paintEgg(Canvas canvas, Offset c, double h, Egg e, double t, String stage, {bool aura = false, double crackExtra = 0, bool reduced = false}) {
+/// An egg, drawn: [h] half its height. Its kind gives the shell, its markings and its light; [stage]
+/// the cracks and the movement; [t] seconds, for the breathing, the wobble and the sparkle. [careAt]
+/// (seconds, same clock) makes it bounce and float a few hearts for a moment after gentle care.
+void paintEgg(Canvas canvas, Offset c, double h, Egg e, double t, String stage,
+    {bool aura = false, double crackExtra = 0, bool reduced = false, double careAt = -9}) {
   final tpl = hatch.eggTemplates[e.templateId];
   final shell = Color(tpl?.shell ?? 0xFFE8DCC0), spots = Color(tpl?.spots ?? 0xFF9C8A66);
+  final light = Color.lerp(shell, Colors.white, 0.38)!;
+  final dark = Color.lerp(Color.lerp(shell, spots, 0.45)!, Colors.black, 0.22)!;
   final seed = e.id.hashCode;
-  // the wobble: once it stirs, a tilt now and then; cracking, oftener and bigger
-  var tilt = 0.0;
+  final kind = e.templateId.split('_').first; // forest | stone | tide | ember
+  final ready = stage == 'ready';
+  // ---- the movement: a slow breath; once it stirs, a wobble now and then (rocking on its base with a
+  // squash as it lands); cracking, oftener and harder; ready, a steady rock and a pulse of light; and
+  // a bounce after care
+  var tilt = 0.0, sx = 1.0, sy = 1.0, lift = 0.0;
   if (!reduced) {
-    final period = stage == 'cracking' ? 1.6 : 2.6;
+    final breath = math.sin(t * 1.5 + seed % 5);
+    sy += 0.012 * breath;
+    sx -= 0.008 * breath;
+    final period = stage == 'cracking' ? 1.5 : 2.8;
     final ph = (t + seed % 7) % period;
-    if (stage == 'stirring' && ph < 0.5) tilt = 0.12 * math.sin(ph / 0.5 * math.pi * 3) * (1 - ph / 0.5);
-    if (stage == 'cracking' && ph < 0.6) tilt = 0.2 * math.sin(ph / 0.6 * math.pi * 4) * (1 - ph / 0.6);
-    if (stage == 'ready') tilt = 0.05 * math.sin(t * 2.2);
+    if (stage == 'stirring' && ph < 0.55) {
+      final k = ph / 0.55;
+      tilt = 0.14 * math.sin(k * math.pi * 3) * (1 - k);
+      sy -= 0.05 * math.sin(k * math.pi) * (1 - k);
+      sx += 0.05 * math.sin(k * math.pi) * (1 - k);
+    }
+    if (stage == 'cracking' && ph < 0.65) {
+      final k = ph / 0.65;
+      tilt = 0.24 * math.sin(k * math.pi * 4) * (1 - k);
+      lift = h * 0.08 * math.sin(k * math.pi).abs() * (1 - k);
+      sy -= 0.08 * math.sin(k * math.pi * 2).abs() * (1 - k);
+      sx += 0.06 * math.sin(k * math.pi * 2).abs() * (1 - k);
+    }
+    if (ready) tilt = 0.06 * math.sin(t * 2.4);
+    final since = t - careAt;
+    if (since >= 0 && since < 0.9) {
+      final k = since / 0.9;
+      lift += h * 0.22 * math.sin(k * math.pi) * (1 - k * 0.5);
+      sy += 0.1 * math.sin(k * math.pi * 2) * (1 - k);
+      sx -= 0.08 * math.sin(k * math.pi * 2) * (1 - k);
+    }
   }
-  final breathe = reduced ? 0.0 : 0.5 + 0.5 * math.sin(t * 1.3 + seed % 5);
+  final glow = 0.5 + 0.5 * math.sin(t * (ready ? 3.2 : 1.3) + seed % 5);
+  // the aura (warmer and bigger as it nears), and the cast shadow on the blanket
   if (aura) {
-    final r = h * (1.6 + 0.15 * breathe);
-    canvas.drawCircle(c, r, Paint()..shader = RadialGradient(colors: [shell.withAlpha(stage == 'ready' ? 150 : 70), shell.withAlpha(0)]).createShader(Rect.fromCircle(center: c, radius: r)));
+    final r = h * (1.5 + 0.2 * glow) * (ready ? 1.2 : 1);
+    final col = Color.lerp(light, const Color(0xFFFFE8A8), ready ? 0.5 : 0.2)!;
+    canvas.drawCircle(c, r, Paint()..shader = RadialGradient(colors: [col.withAlpha(ready ? 130 + (50 * glow).round() : 60), col.withAlpha(0)]).createShader(Rect.fromCircle(center: c, radius: r)));
   }
+  canvas.drawOval(Rect.fromCenter(center: c + Offset(0, h * 0.98), width: h * 1.5 * (1 - lift / (h * 2)), height: h * 0.42 * (1 - lift / (h * 2))), Paint()
+    ..color = Color.fromRGBO(60, 35, 20, 0.28)
+    ..maskFilter = MaskFilter.blur(BlurStyle.normal, math.max(1.5, h * 0.12)));
   canvas.save();
-  canvas.translate(c.dx, c.dy + h * 0.9);
+  final base = Offset(c.dx, c.dy + h);
+  canvas.translate(base.dx, base.dy - lift);
   canvas.rotate(tilt);
-  canvas.translate(-c.dx, -(c.dy + h * 0.9));
+  canvas.scale(sx, sy);
+  canvas.translate(-base.dx, -base.dy);
   // the shape: an egg, rounder below, pointier above
   final path = Path();
-  const n = 40;
+  const n = 64;
   for (var i = 0; i <= n; i++) {
     final a = -math.pi / 2 + i * 2 * math.pi / n;
     final y = math.sin(a);
-    final w = h * 0.74 * math.cos(a) * (1 - 0.18 * y);
+    final w = h * 0.76 * math.cos(a) * (1 - 0.22 * y) * (1 + 0.04 * y * y);
     final p = Offset(c.dx + w, c.dy + y * h);
     if (i == 0) {
       path.moveTo(p.dx, p.dy);
@@ -290,58 +355,212 @@ void paintEgg(Canvas canvas, Offset c, double h, Egg e, double t, String stage, 
     }
   }
   path.close();
-  canvas.drawPath(path.shift(Offset(h * 0.08, h * 0.1)), Paint()..color = const Color(0x33000000));
-  canvas.drawPath(path, Paint()..color = shell);
+  final bounds = Rect.fromCenter(center: c, width: h * 1.6, height: h * 2.1);
+  // the shell: lit from the upper left, darker and cooler toward the lower right
+  canvas.drawPath(path, Paint()..shader = RadialGradient(center: const Alignment(-0.35, -0.45), radius: 1.1, colors: [light, shell, dark], stops: const [0, 0.45, 1]).createShader(bounds));
   canvas.save();
   canvas.clipPath(path);
-  // shading and a highlight
-  canvas.drawOval(Rect.fromCenter(center: c + Offset(h * 0.25, h * 0.35), width: h * 1.3, height: h * 1.6), Paint()..color = Color.alphaBlend(const Color(0x1F000000), shell).withAlpha(120));
-  canvas.drawOval(Rect.fromCenter(center: c + Offset(-h * 0.28, -h * 0.4), width: h * 0.4, height: h * 0.62), Paint()..color = const Color(0x66FFFFFF));
-  // spots, placed by the egg's own seed
+  // the markings, by kind, placed by the egg's own seed
   final rng = math.Random(seed);
-  for (var i = 0; i < 9; i++) {
-    final a = rng.nextDouble() * math.pi * 2, d = rng.nextDouble() * 0.7;
-    final sp = c + Offset(math.cos(a) * h * 0.6 * d, math.sin(a) * h * 0.85 * d);
-    canvas.drawOval(Rect.fromCenter(center: sp, width: h * (0.12 + rng.nextDouble() * 0.16), height: h * (0.1 + rng.nextDouble() * 0.12)), Paint()..color = spots.withAlpha(200));
+  final mark = Paint()..color = spots.withAlpha(210);
+  switch (kind) {
+    case 'forest': // leaf flecks, each a little lens with a vein
+      for (var i = 0; i < 8; i++) {
+        final a = rng.nextDouble() * math.pi * 2, d = 0.15 + rng.nextDouble() * 0.6;
+        final sp = c + Offset(math.cos(a) * h * 0.62 * d, math.sin(a) * h * 0.86 * d);
+        final rot = rng.nextDouble() * math.pi;
+        final len = h * (0.22 + rng.nextDouble() * 0.14);
+        canvas.save();
+        canvas.translate(sp.dx, sp.dy);
+        canvas.rotate(rot);
+        final leaf = Path()
+          ..moveTo(-len / 2, 0)
+          ..quadraticBezierTo(0, -len * 0.32, len / 2, 0)
+          ..quadraticBezierTo(0, len * 0.32, -len / 2, 0);
+        canvas.drawPath(leaf, mark);
+        canvas.drawLine(Offset(-len / 2, 0), Offset(len / 2, 0), Paint()
+          ..color = light.withAlpha(140)
+          ..strokeWidth = math.max(0.8, h * 0.02));
+        canvas.restore();
+      }
+    case 'stone': // facets: angular plates, a few catching the light
+      for (var i = 0; i < 7; i++) {
+        final a = rng.nextDouble() * math.pi * 2, d = 0.1 + rng.nextDouble() * 0.65;
+        final sp = c + Offset(math.cos(a) * h * 0.62 * d, math.sin(a) * h * 0.86 * d);
+        final r = h * (0.14 + rng.nextDouble() * 0.12);
+        final poly = Path();
+        final sides = 5 + rng.nextInt(2);
+        final a0 = rng.nextDouble() * math.pi;
+        for (var k = 0; k < sides; k++) {
+          final ak = a0 + k * 2 * math.pi / sides;
+          final rk = r * (0.75 + rng.nextDouble() * 0.4);
+          final q = sp + Offset(math.cos(ak) * rk, math.sin(ak) * rk * 0.85);
+          k == 0 ? poly.moveTo(q.dx, q.dy) : poly.lineTo(q.dx, q.dy);
+        }
+        poly.close();
+        canvas.drawPath(poly, Paint()..color = (i % 3 == 0 ? Color.lerp(spots, Colors.white, 0.35)! : spots).withAlpha(190));
+      }
+    case 'tide': // two wave bands, and a coral blush of dots
+      for (var k = 0; k < 2; k++) {
+        final y0 = c.dy + h * (-0.25 + k * 0.5);
+        final wave = Path()..moveTo(c.dx - h, y0);
+        for (var x = -h; x <= h; x += h / 8) {
+          wave.lineTo(c.dx + x, y0 + math.sin(x / h * math.pi * 1.5 + k) * h * 0.07);
+        }
+        canvas.drawPath(wave, Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(1.5, h * 0.09)
+          ..strokeCap = StrokeCap.round
+          ..color = Color.lerp(shell, Colors.white, 0.45)!.withAlpha(200));
+      }
+      for (var i = 0; i < 7; i++) {
+        final a = rng.nextDouble() * math.pi * 2, d = 0.15 + rng.nextDouble() * 0.6;
+        final sp = c + Offset(math.cos(a) * h * 0.62 * d, math.sin(a) * h * 0.86 * d);
+        canvas.drawCircle(sp, h * (0.05 + rng.nextDouble() * 0.06), mark);
+      }
+    case 'ember': // a crackle of dark seams with heat in them, and a few ash flecks
+      final web = math.Random(seed + 11);
+      for (var i = 0; i < 6; i++) {
+        var p = c + Offset((web.nextDouble() - 0.5) * h * 0.9, (web.nextDouble() - 0.5) * h * 1.3);
+        final zig = Path()..moveTo(p.dx, p.dy);
+        var a = web.nextDouble() * math.pi * 2;
+        for (var k = 0; k < 3; k++) {
+          a += (web.nextDouble() - 0.5) * 1.4;
+          p += Offset(math.cos(a), math.sin(a)) * h * 0.18;
+          zig.lineTo(p.dx, p.dy);
+        }
+        canvas.drawPath(zig, Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(1.2, h * 0.05)
+          ..strokeCap = StrokeCap.round
+          ..color = spots);
+        canvas.drawPath(zig, Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = math.max(0.6, h * 0.02)
+          ..strokeCap = StrokeCap.round
+          ..color = Color.fromRGBO(255, 200, 90, 0.5 + 0.4 * glow));
+      }
+      for (var i = 0; i < 5; i++) {
+        final a = rng.nextDouble() * math.pi * 2, d = rng.nextDouble() * 0.7;
+        canvas.drawCircle(c + Offset(math.cos(a) * h * 0.6 * d, math.sin(a) * h * 0.85 * d), h * 0.04, Paint()..color = dark.withAlpha(160));
+      }
+    default: // soft speckles
+      for (var i = 0; i < 9; i++) {
+        final a = rng.nextDouble() * math.pi * 2, d = rng.nextDouble() * 0.7;
+        final sp = c + Offset(math.cos(a) * h * 0.6 * d, math.sin(a) * h * 0.85 * d);
+        canvas.drawOval(Rect.fromCenter(center: sp, width: h * (0.12 + rng.nextDouble() * 0.16), height: h * (0.1 + rng.nextDouble() * 0.12)), mark);
+      }
   }
-  // cracks: a few at cracking, a web when ready
-  final cracks = (stage == 'cracking' ? 3 : (stage == 'ready' ? 6 : 0)) + (crackExtra * 6).round();
-  final ink = Paint()
+  // the cracks: a few at cracking, a web when ready, light pulsing out of them
+  final cracks = (stage == 'cracking' ? 3 : (ready ? 6 : 0)) + (crackExtra * 6).round();
+  if (cracks > 0) {
+    final ink = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = math.max(1.2, h * 0.045)
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = Color.alphaBlend(const Color(0xB3000000), spots);
+    final cr = math.Random(seed + 3);
+    final leak = ready || crackExtra > 0.3 ? 0.35 + 0.5 * glow : 0.0;
+    for (var i = 0; i < cracks; i++) {
+      var p = c + Offset((cr.nextDouble() - 0.5) * h * 0.8, (cr.nextDouble() - 0.5) * h * 1.2);
+      final zig = Path()..moveTo(p.dx, p.dy);
+      var a = cr.nextDouble() * math.pi * 2;
+      for (var k = 0; k < 4; k++) {
+        a += (cr.nextDouble() - 0.5) * 1.6;
+        p += Offset(math.cos(a), math.sin(a)) * h * (0.14 + crackExtra * 0.1);
+        zig.lineTo(p.dx, p.dy);
+      }
+      if (leak > 0) {
+        canvas.drawPath(zig, Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = ink.strokeWidth * 3.2
+          ..strokeCap = StrokeCap.round
+          ..color = Color.fromRGBO(255, 244, 200, leak * 0.6)
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, math.max(1.0, h * 0.06)));
+      }
+      canvas.drawPath(zig, ink);
+      if (leak > 0) {
+        canvas.drawPath(zig, Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = ink.strokeWidth * 0.5
+          ..strokeCap = StrokeCap.round
+          ..color = Color.fromRGBO(255, 244, 200, leak));
+      }
+    }
+  }
+  // the gloss: a soft sheen up the left, a sharp catch-light, and a rim of light along the lower right
+  canvas.drawOval(Rect.fromCenter(center: c + Offset(-h * 0.3, -h * 0.42), width: h * 0.34, height: h * 0.6), Paint()
+    ..color = const Color(0x66FFFFFF)
+    ..maskFilter = MaskFilter.blur(BlurStyle.normal, math.max(1.0, h * 0.08)));
+  canvas.drawOval(Rect.fromCenter(center: c + Offset(-h * 0.32, -h * 0.5), width: h * 0.13, height: h * 0.2), Paint()..color = const Color(0xCCFFFFFF));
+  canvas.drawPath(path, Paint()
     ..style = PaintingStyle.stroke
-    ..strokeWidth = math.max(1.2, h * 0.045)
-    ..strokeCap = StrokeCap.round
-    ..color = Color.alphaBlend(const Color(0x99000000), spots);
-  final cr = math.Random(seed + 3);
-  for (var i = 0; i < cracks; i++) {
-    var p = c + Offset((cr.nextDouble() - 0.5) * h * 0.8, (cr.nextDouble() - 0.5) * h * 1.2);
-    final zig = Path()..moveTo(p.dx, p.dy);
-    var a = cr.nextDouble() * math.pi * 2;
-    for (var k = 0; k < 4; k++) {
-      a += (cr.nextDouble() - 0.5) * 1.6;
-      p += Offset(math.cos(a), math.sin(a)) * h * (0.14 + crackExtra * 0.1);
-      zig.lineTo(p.dx, p.dy);
-    }
-    canvas.drawPath(zig, ink);
-    if (stage == 'ready' || crackExtra > 0.3) {
-      canvas.drawPath(zig, Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = ink.strokeWidth * 2.2
-        ..color = const Color(0x55FFF4C8)); // light leaking out
-    }
-  }
+    ..strokeWidth = math.max(1.5, h * 0.09)
+    ..shader = SweepGradient(center: Alignment.center, startAngle: 0, endAngle: math.pi * 2, colors: [light.withAlpha(0), light.withAlpha(150), light.withAlpha(0), light.withAlpha(0)], stops: const [0.0, 0.25, 0.55, 1.0]).createShader(bounds));
   canvas.restore();
+  // the ink line, as on everything else
   canvas.drawPath(path, Paint()
     ..style = PaintingStyle.stroke
     ..strokeWidth = math.max(1.5, h * 0.05)
-    ..color = Color.alphaBlend(const Color(0x66000000), spots));
+    ..color = Color.alphaBlend(const Color(0x73000000), spots));
   canvas.restore();
+  // ready: sparkles drift round it; after care, hearts float up
+  if (!reduced) {
+    if (ready) {
+      final sr = math.Random(seed + 5);
+      for (var i = 0; i < 5; i++) {
+        final ph = (t * 0.5 + sr.nextDouble()) % 1.0;
+        final a = sr.nextDouble() * math.pi * 2 + t * 0.6;
+        final r = h * (1.1 + 0.4 * sr.nextDouble());
+        final sp = c + Offset(math.cos(a) * r, math.sin(a) * r * 0.7 - ph * h * 0.5);
+        final sz = h * 0.09 * math.sin(ph * math.pi);
+        _star(canvas, sp, sz, Color.fromRGBO(255, 236, 170, 0.9 * math.sin(ph * math.pi)));
+      }
+    }
+    final since = t - careAt;
+    if (since >= 0 && since < 1.6) {
+      final hr = math.Random(seed + 9);
+      for (var i = 0; i < 4; i++) {
+        final d = i * 0.18;
+        final k = ((since - d) / 1.1).clamp(0.0, 1.0);
+        if (k <= 0 || k >= 1) continue;
+        final x = c.dx + (hr.nextDouble() - 0.5) * h * 1.4 + math.sin(k * 6 + i) * h * 0.1;
+        final y = c.dy - h * 0.2 - k * h * 1.6;
+        _heart(canvas, Offset(x, y), h * 0.16 * (0.7 + 0.3 * math.sin(k * math.pi)), Color.fromRGBO(242, 112, 128, 1 - k * k));
+      }
+    }
+  }
+}
+
+void _star(Canvas canvas, Offset c, double r, Color col) {
+  if (r <= 0) return;
+  final p = Path();
+  for (var i = 0; i < 8; i++) {
+    final a = i * math.pi / 4 - math.pi / 2;
+    final rr = i.isEven ? r : r * 0.4;
+    final q = c + Offset(math.cos(a) * rr, math.sin(a) * rr);
+    i == 0 ? p.moveTo(q.dx, q.dy) : p.lineTo(q.dx, q.dy);
+  }
+  p.close();
+  canvas.drawPath(p, Paint()..color = col);
+}
+
+void _heart(Canvas canvas, Offset c, double r, Color col) {
+  final p = Path()
+    ..moveTo(c.dx, c.dy + r)
+    ..cubicTo(c.dx - r * 1.6, c.dy - r * 0.1, c.dx - r * 0.9, c.dy - r * 1.2, c.dx, c.dy - r * 0.45)
+    ..cubicTo(c.dx + r * 0.9, c.dy - r * 1.2, c.dx + r * 1.6, c.dy - r * 0.1, c.dx, c.dy + r)
+    ..close();
+  canvas.drawPath(p, Paint()..color = col);
 }
 
 /// The chosen egg: its name, its stage, the bar, where it came from, care and the hatch.
 class _EggPanel extends StatelessWidget {
-  const _EggPanel({required this.egg, required this.onChanged});
+  const _EggPanel({required this.egg, required this.onChanged, this.onCared});
   final Egg egg;
   final VoidCallback onChanged;
+  final VoidCallback? onCared;
   @override
   Widget build(BuildContext context) {
     final c = context.read<GameController>();
@@ -395,6 +614,7 @@ class _EggPanel extends StatelessWidget {
                         if (r.ok) {
                           c.audio.play('enc_soothe', volume: 0.5);
                           c.audio.buzz(Haptic.purr);
+                          onCared?.call();
                           if (r.events.any((e) => e.type == 'egg_ready')) c.toast('It is ready to hatch!', icon: 'star');
                         }
                         onChanged();
@@ -734,21 +954,28 @@ class _HatchPainter extends CustomPainter {
     final c = Offset(size.width / 2, size.height * 0.56);
     const h = 52.0;
     if (t < 1.8) {
+      // rocking harder and harder, the cracks spreading and glowing, then a swell just before it goes
       final wob = t < 1.0 ? 0.18 * math.sin(t * 18) * math.min(1.0, t * 3) : 0.1 * math.sin(t * 30);
       final extra = t < 1.0 ? 0.0 : (t - 1.0) / 0.8;
+      final swell = t > 1.5 ? 1 + 0.16 * Curves.easeIn.transform(((t - 1.5) / 0.3).clamp(0.0, 1.0)) : 1.0;
       canvas.save();
       canvas.translate(c.dx, c.dy + h);
       canvas.rotate(wob);
+      canvas.scale(swell, swell);
       canvas.translate(-c.dx, -(c.dy + h));
-      paintEgg(canvas, c, h, egg, 0, t < 1.0 ? 'cracking' : 'ready', aura: true, crackExtra: extra, reduced: true);
+      paintEgg(canvas, c, h, egg, t * 4, t < 1.0 ? 'cracking' : 'ready', aura: true, crackExtra: extra, reduced: true);
       canvas.restore();
       return;
     }
-    // the burst: a flash, shell fragments flying, sparkles
+    // the burst: a flash, a ring, shell fragments flying, sparkles
     final k = ((t - 1.8) / 0.5).clamp(0.0, 1.0);
     final tpl = hatch.eggTemplates[egg.templateId];
     final shell = Color(tpl?.shell ?? 0xFFE8DCC0);
     canvas.drawCircle(c, h * (1 + 3 * k), Paint()..color = const Color(0xFFFFF4C8).withAlpha(((1 - k) * 200).round()));
+    canvas.drawCircle(c, h * (0.8 + 3.4 * k), Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 6 * (1 - k) + 1
+      ..color = const Color(0xFFFFE27A).withAlpha(((1 - k) * 220).round()));
     final rng = math.Random(egg.id.hashCode);
     for (var i = 0; i < 12; i++) {
       final a = rng.nextDouble() * math.pi * 2, sp = 60 + rng.nextDouble() * 90;
