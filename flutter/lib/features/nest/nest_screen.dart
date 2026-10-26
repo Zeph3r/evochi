@@ -301,21 +301,15 @@ class _NestHud extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            // the trip row: Explore Home (Home Tales) and Visit Village, scaled down on narrow phones
-            FittedBox(
-              fit: BoxFit.scaleDown,
-              alignment: Alignment.centerLeft,
-              child: Row(mainAxisSize: MainAxisSize.min, children: [
-                _ExploreHomeButton(attention: c.homeAttention),
-                const SizedBox(width: 8),
-                _VisitVillageButton(attention: c.storyAttention > 0, short: MediaQuery.of(context).size.width < 400),
-                // the quick switch: My Evochis, once there is anyone to switch to (or an egg on the way)
-                if (c.state.companions.isNotEmpty || c.state.hatch.eggs.isNotEmpty) ...[
-                  const SizedBox(width: 8),
-                  _CompanionsButton(count: c.state.companions.length + 1, ready: c.state.hatch.eggs.any((e) => e.state == 'ready')),
-                ],
-              ]),
-            ),
+            // the trip row: Explore Home (Home Tales), Visit Village and, once there is anyone to switch
+            // to (or an egg on the way), My Evochis; a chip that doesn't fit drops to the next line at
+            // full size (never shrunk: the words have to stay readable)
+            Wrap(spacing: 8, runSpacing: 6, children: [
+              _ExploreHomeButton(attention: c.homeAttention),
+              _VisitVillageButton(attention: c.storyAttention > 0, short: MediaQuery.of(context).size.width < 400),
+              if (c.state.companions.isNotEmpty || c.state.hatch.eggs.isNotEmpty)
+                _CompanionsButton(count: c.state.companions.length + 1, ready: c.state.hatch.eggs.any((e) => e.state == 'ready')),
+            ]),
           ]),
         ),
         const SizedBox(width: 8),
@@ -417,12 +411,16 @@ class _IdCard extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 12, 10, 10),
       child: IntrinsicHeight(
         child: Row(children: [
-          Flexible(
+          // the name side takes a little more than half: a long name shrinks to 20 px before it is cut
+          Expanded(
+            flex: 11,
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
               Row(mainAxisSize: MainAxisSize.min, children: [
                 Flexible(
-                  child: Text(pet.name,
-                      overflow: TextOverflow.ellipsis,
+                  child: FitLabel(pet.name,
+                      min: 20,
+                      lines: 1,
+                      align: TextAlign.left,
                       style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 28, color: EvochiColor.ink)),
                 ),
                 IconButton(tooltip: 'Rename ${pet.name}', onPressed: () => showRenameSheet(context), icon: const Icon(Icons.edit_rounded, color: EvochiColor.primaryShadow, size: 20)),
@@ -432,8 +430,9 @@ class _IdCard extends StatelessWidget {
               if (!pv.evolution.maxed && pv.evolution.gate != null) const Padding(padding: EdgeInsets.only(top: 6), child: _EvoNext()),
             ]),
           ),
-          const VerticalDivider(color: Color(0x66C49660), thickness: 1.5, width: 20),
+          const VerticalDivider(color: Color(0x66C49660), thickness: 1.5, width: 16),
           Expanded(
+            flex: 9,
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center, children: [
               Text.rich(TextSpan(style: EvochiText.number, children: [
                 const TextSpan(text: 'Lv. '),
@@ -806,7 +805,7 @@ class _CompanionsButton extends StatelessWidget {
               child: Row(mainAxisSize: MainAxisSize.min, children: [
                 const VoxelIcon('paw', size: 28),
                 const SizedBox(width: 4),
-                Text('My Evochis', style: EvochiText.tag.copyWith(fontSize: 13.5, fontWeight: FontWeight.w900, color: KitColor.signInk)),
+                Text('My Evochis', style: EvochiText.tag.copyWith(fontSize: 15, fontWeight: FontWeight.w900, color: KitColor.signInk)),
               ]),
             ),
             if (ready) const Positioned(top: -4, right: -4, child: BadgeDot()),

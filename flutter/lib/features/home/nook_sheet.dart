@@ -384,7 +384,7 @@ class _EggPanel extends StatelessWidget {
           Row(children: [
             Expanded(
               child: EvochiButton(
-                label: cared ? 'Cared for today' : 'Give gentle care',
+                label: cared ? 'Cared for today' : 'Gentle care',
                 tone: cared ? ButtonTone.cream : ButtonTone.green,
                 small: true,
                 icon: const VoxelIcon('heart', size: 22),
@@ -402,11 +402,11 @@ class _EggPanel extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            EvochiButton(
-              label: 'Move to collection',
+            Expanded(
+              child: EvochiButton(
+              label: 'To collection',
               tone: ButtonTone.cream,
               small: true,
-              expand: false,
               onPressed: () async {
                 final ok = await showEvochiDialog<bool>(context,
                     builder: (d) => Column(mainAxisSize: MainAxisSize.min, children: [
@@ -423,6 +423,7 @@ class _EggPanel extends StatelessWidget {
                   onChanged();
                 }
               },
+            ),
             ),
           ]),
       ]),
@@ -640,46 +641,64 @@ class _HatchShowState extends State<_HatchShow> with SingleTickerProviderStateMi
     final c = context.read<GameController>();
     final pet = hatch.allPets(c.state).where((p) => p.id == widget.pet.id).firstOrNull ?? widget.pet;
     final t = _a.value * 2.6;
+    // the keyboard up: the picture makes room for the name
+    final typing = MediaQuery.viewInsetsOf(context).bottom > 0;
+    final artH = typing ? 120.0 : 190.0;
+    void nameIt() {
+      final r = c.run((s, n) => hatch.renameCompanion(s, pet.id, _name.text.trim()), quiet: true);
+      if (!r.ok) {
+        setState(() => _nameError = (r.info['message'] as String?) ?? 'Try another name');
+        return;
+      }
+      FocusScope.of(context).unfocus();
+      c.audio.buzz(Haptic.good);
+      c.toast('${_name.text.trim()} it is.', icon: 'heart');
+      setState(() {});
+    }
+
     return Semantics(
       container: true,
       label: _revealed ? 'A new Evochi hatched: ${hatch.paletteLabel(pet.paletteId)}' : 'The egg is hatching',
       child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
         Center(child: WoodPlaque(child: Text(_revealed ? 'Hello, little one!' : 'Something is happening…', style: WoodPlaque.text(EvochiText.section)))),
         const SizedBox(height: 12),
-        SizedBox(
-          height: 190,
+        AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          height: artH,
           child: _revealed
               ? _Reveal(pet: pet)
               : CustomPaint(size: const Size(double.infinity, 190), painter: _HatchPainter(widget.egg, t)),
         ),
         const SizedBox(height: 10),
         if (_revealed) ...[
-          Text(
-            '${hatch.paletteLabel(pet.paletteId)} · Hatchling · ${pet.origin ?? ''}',
-            textAlign: TextAlign.center,
-            style: EvochiText.caption,
-          ),
+          if (!typing)
+            Text(
+              '${hatch.paletteLabel(pet.paletteId)} · Hatchling · ${pet.origin ?? ''}',
+              textAlign: TextAlign.center,
+              style: EvochiText.caption,
+            ),
           const SizedBox(height: 8),
           TextField(
             controller: _name,
             maxLength: 16,
             textCapitalization: TextCapitalization.words,
-            decoration: InputDecoration(labelText: 'A name for your new Evochi', errorText: _nameError, counterText: '', border: const OutlineInputBorder()),
+            textInputAction: TextInputAction.done,
+            style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w800, fontSize: 18, color: EvochiColor.ink),
+            decoration: InputDecoration(
+              labelText: 'A name for your new Evochi',
+              errorText: _nameError,
+              counterText: '',
+              filled: true,
+              fillColor: const Color(0xFFFFFBF2),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: EvochiColor.border, width: 1.5)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: EvochiColor.border, width: 1.5)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: EvochiColor.wood, width: 2)),
+            ),
             onChanged: (_) => setState(() => _nameError = null),
+            onSubmitted: (_) => nameIt(),
           ),
           const SizedBox(height: 8),
-          EvochiButton(
-            label: 'Name it',
-            onPressed: () {
-              final r = c.run((s, n) => hatch.renameCompanion(s, pet.id, _name.text), quiet: true);
-              if (!r.ok) {
-                setState(() => _nameError = (r.info['message'] as String?) ?? 'Try another name');
-                return;
-              }
-              c.audio.buzz(Haptic.good);
-              setState(() {});
-            },
-          ),
+          EvochiButton(label: 'Name it', onPressed: nameIt),
           const SizedBox(height: 6),
           Row(children: [
             Expanded(

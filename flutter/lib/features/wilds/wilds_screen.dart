@@ -3666,7 +3666,7 @@ class _PartyPanel extends StatelessWidget {
                         right: -6,
                         bottom: -5,
                         child: Text(charms.rankLabel(r.charmRank),
-                            style: EvochiText.tiny.copyWith(color: const Color(0xFFFFE9A8), fontSize: 9, fontWeight: FontWeight.w900, shadows: const [Shadow(blurRadius: 3)])),
+                            style: EvochiText.tiny.copyWith(color: const Color(0xFFFFE9A8), fontSize: 11, fontWeight: FontWeight.w900, shadows: const [Shadow(blurRadius: 3)])),
                       ),
                     ]),
                   ),
@@ -3730,7 +3730,7 @@ class _Portrait extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.fromLTRB(5, 0, 5, 1),
                 decoration: BoxDecoration(color: tag == 'Spored' ? const Color(0xE67A5BB0) : const Color(0xE68A6A4A), borderRadius: BorderRadius.circular(6)),
-                child: Text(tag!, style: EvochiText.tag.copyWith(color: Colors.white, fontSize: 9.5, height: 1.3)),
+                child: Text(tag!, style: EvochiText.tag.copyWith(color: Colors.white, fontSize: 11, height: 1.3)),
               ),
             ),
         ]),
@@ -4119,7 +4119,7 @@ class _BrewShelf extends StatelessWidget {
                   Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
                     Text('${buffDefs[w.wildsBrews[id]]?.name ?? ''}${coatings.contains(w.wildsBrews[id]) ? ' coating' : ''} ×${ge.ownedQty(c.state, id)}',
                         style: EvochiText.tag.copyWith(color: const Color(0xFFFFF6E4), fontSize: 12)),
-                    Text(catalog[id]?.name ?? id, style: EvochiText.tiny.copyWith(color: const Color(0xCCFFF6E4), fontSize: 10.5)),
+                    Text(catalog[id]?.name ?? id, style: EvochiText.tiny.copyWith(color: const Color(0xCCFFF6E4), fontSize: 12)),
                   ]),
                 ]),
               ),

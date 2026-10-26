@@ -150,7 +150,7 @@ class _ActionButtonState extends State<ActionButton> {
                     style: const TextStyle(
                       fontFamily: EvochiText.game,
                       fontWeight: FontWeight.w900,
-                      fontSize: 11,
+                      fontSize: 12.5,
                       height: 1.1,
                       color: Color(0xFFFFF6E4),
                       shadows: [Shadow(color: Color(0xCC1E0C00), offset: Offset(0, 1), blurRadius: 2), Shadow(color: Color(0x99000000), blurRadius: 4)],

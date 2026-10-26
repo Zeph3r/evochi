@@ -129,12 +129,13 @@ class _EvochiButtonState extends State<EvochiButton> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           if (widget.icon != null) ...[widget.icon!, SizedBox(width: widget.iconGap)],
-          // a lone label that doesn't fit shrinks a little rather than losing its end ("Need 150 more");
-          // buttons in a row share one size through [labelSize] instead, so they read evenly
+          // a lone label that doesn't fit shrinks a little rather than losing its end ("Need 150 more"),
+          // never below 12 px: past that it wraps to two lines; buttons in a row share one size
+          // through [labelSize] instead, so they read evenly
           Flexible(
             child: widget.labelGroup != null
-                ? KitRowLabel(widget.label, group: widget.labelGroup!, style: style, min: 11)
-                : FittedBox(fit: BoxFit.scaleDown, child: Text(widget.label, style: style, maxLines: 1)),
+                ? KitRowLabel(widget.label, group: widget.labelGroup!, style: style, min: 12)
+                : FitLabel(widget.label, style: style, min: 12.5),
           ),
         ],
       ),
@@ -594,4 +595,39 @@ class _ToastListenerState extends State<ToastListener> {
 
   @override
   Widget build(BuildContext context) => widget.child;
+}
+
+/// A label that fits its width: at its own size when it can, shrunk to no less than [min] px when it
+/// can't, and past that on [lines] lines (ellipsis only as the very last resort), so a button or a chip
+/// never ends up with text too small to read.
+class FitLabel extends StatelessWidget {
+  const FitLabel(this.text, {super.key, required this.style, this.min = 12.0, this.lines = 2, this.align = TextAlign.center});
+  final String text;
+  final TextStyle style;
+  final double min;
+  final int lines;
+  final TextAlign align;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(builder: (context, b) {
+        final full = style.fontSize ?? 14;
+        final scale = MediaQuery.textScalerOf(context);
+        double? fits(double size, int maxLines) {
+          final tp = TextPainter(text: TextSpan(text: text, style: style.copyWith(fontSize: size)), maxLines: maxLines, textDirection: TextDirection.ltr, textScaler: scale)
+            ..layout(maxWidth: b.maxWidth);
+          return tp.didExceedMaxLines || tp.width > b.maxWidth + 0.5 ? null : tp.height;
+        }
+
+        // one line, from the full size down to the floor
+        for (var size = full; size >= min - 0.01; size -= 0.5) {
+          if (fits(size, 1) != null) return Text(text, style: style.copyWith(fontSize: size), maxLines: 1, textAlign: align, softWrap: false, overflow: TextOverflow.visible);
+        }
+        // then more lines at the floor
+        final maxH = b.maxHeight.isFinite ? b.maxHeight : double.infinity;
+        for (var n = 2; n <= lines; n++) {
+          final h = fits(min, n);
+          if (h != null && h <= maxH + 0.5) return Text(text, style: style.copyWith(fontSize: min, height: 1.05), maxLines: n, textAlign: align, overflow: TextOverflow.ellipsis);
+        }
+        return Text(text, style: style.copyWith(fontSize: min, height: 1.05), maxLines: lines, textAlign: align, overflow: TextOverflow.ellipsis);
+      });
 }

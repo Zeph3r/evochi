@@ -985,7 +985,8 @@ class KitDialog extends StatelessWidget {
           variant: variant,
           padding: padding,
           shadow: const BoxShadow(color: Color(0x59000000), blurRadius: 24, offset: Offset(0, 10)),
-          child: child,
+          // taller than the room left (a keyboard up under a name field): it scrolls, never spills
+          child: SingleChildScrollView(child: child),
         ),
       );
 }
