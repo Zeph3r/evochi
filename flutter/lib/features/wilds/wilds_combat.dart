@@ -527,7 +527,7 @@ class Raid {
   /// The mines: the ore in the floor, your gear's reach (the hardest ore it breaks) and power.
   final List<OreRock> ores;
   final double miningPower;
-  final int oreTier;
+  int oreTier; // (the recorder raises it mid-floor for a Short)
   double time = 0, hitstop = 0, shake = 0;
   double flashT = 0; // a flash over the whole view (a heavy hit, a signature move), seconds left
   String flashKind = 'white'; // white, or the palette a signature move is tinted by

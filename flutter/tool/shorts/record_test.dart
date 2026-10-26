@@ -23,6 +23,7 @@ import 'package:evochi/data/local/local_store.dart';
 import 'package:evochi/data/repositories/game_repository.dart';
 import 'package:evochi/features/shared/live_scene.dart';
 import 'package:evochi/features/wilds/wilds_combat.dart';
+import 'package:evochi/features/village/village_walk.dart';
 import 'package:evochi/features/wilds/wilds_screen.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -59,7 +60,7 @@ void main() {
     await SceneFx.load();
   });
 
-  for (final sh in [...allShorts, bench]) {
+  for (final sh in [...allShorts, ...weekShorts, bench]) {
     if (want.contains('all') ? sh == bench : !want.contains(sh.id)) continue;
     testWidgets('record ${sh.id}', (tester) async {
       final dir = Directory('$outRoot/${sh.id}');
@@ -118,9 +119,31 @@ class Recorder implements Take {
   @override
   Raid? get raid => WildsScreen.current?.raid;
   @override
+  VillageWalkScreenState? get walk => VillageWalkScreen.current;
+  @override
   Pilot get autopilot => pilot;
   @override
   GameState get state => controller.state;
+  @override
+  GameController get ctl => controller;
+  Clip? _current;
+
+  /// Whatever is up has its pictures: a Wilds floor its map and fight, a walkable map its tiles, a
+  /// sheet straight away (or the clip's own word on it).
+  bool get _up {
+    final own = _current?.loaded;
+    if (own != null) return own();
+    if (WildsScreen.current != null) return raid != null;
+    final w = VillageWalkScreen.current;
+    if (w != null) return w.ready;
+    return true;
+  }
+
+  @override
+  Future<void> tapText(String text) async {
+    await tester.tap(find.text(text).last, warnIfMissed: false);
+    await tester.pump();
+  }
 
   Future<void> run() async {
     tester.view.physicalSize = const Size(1080, 1920);
@@ -143,6 +166,7 @@ class Recorder implements Take {
       AudioService.record = null;
       AudioService.clock = null;
       WildsScreen.director = null;
+      VillageWalkScreenState.onExit = null;
       WildsScreen.recordZoom = 1.0;
       WildsScreen.recordQuiet = false;
       await tester.pumpWidget(const SizedBox());
@@ -193,6 +217,8 @@ class Recorder implements Take {
       ..ready = true;
     pilot.reset(c.pilot);
     mark = null;
+    _current = c;
+    VillageWalkScreenState.onExit = c.exits ? null : (_) {};
     WildsScreen.recordZoom = c.zoom;
     WildsScreen.recordQuiet = c.quiet;
     await tester.pumpWidget(_stage(KeyedSubtree(key: ValueKey('clip$_clip'), child: c.open())));
@@ -208,7 +234,7 @@ class Recorder implements Take {
     final fired = <int>{};
     final n = (c.secs * fps).round();
     for (var i = 0; i < n; i++) {
-      if (c.until != null && raid != null && c.until!(this)) break;
+      if (c.until != null && _up && c.until!(this)) break;
       final at = t - start;
       for (var k = 0; k < c.beats.length; k++) {
         final b = c.beats[k];
@@ -229,9 +255,9 @@ class Recorder implements Take {
     final a = _sw.elapsedMicroseconds;
     await tester.pump(_frame);
     _tPump += (_sw.elapsedMicroseconds - a) / 1e6;
-    // a new floor loading (the descent swaps the screen): hold the clock until it is up, so the
-    // video never shows the loading spinner
-    if (capturing && screen != null && raid == null) await waitLoaded();
+    // a new floor loading (the descent swaps the screen), or a new map: hold the clock until it is up,
+    // so the video never shows the loading spinner
+    if (capturing && !_up) await waitLoaded();
     await _snap();
     if (frame % 15 == 0) {
       // where the time goes (to the log)
@@ -244,7 +270,7 @@ class Recorder implements Take {
   /// map and fight, and its pictures had a moment to decode.
   @override
   Future<void> waitLoaded() async {
-    for (var i = 0; i < 400 && raid == null; i++) {
+    for (var i = 0; i < 400 && !_up; i++) {
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 25)));
       await tester.pump();
     }
@@ -261,7 +287,7 @@ class Recorder implements Take {
     screen?.key(k);
     await tester.pump();
     // a shortcut that swaps the screen (a new floor): wait for the new one to load, the clock held
-    if (!identical(screen, before) || raid == null) await waitLoaded();
+    if (!identical(screen, before) || !_up) await waitLoaded();
   }
 
   static const _scale = int.fromEnvironment('SHORTS_SCALE', defaultValue: 3) * 1.0;
