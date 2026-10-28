@@ -35,6 +35,7 @@ const speakers = <String, Speaker>{
   'npc_mira': Speaker('Mira', 'the Gardener', Color(0xFF5E7F4A)),
   'npc_bram': Speaker('Bram', 'the Lanternkeeper', Color(0xFF8D5D3B)),
   'npc_pip': Speaker('Pip', 'the Courier', Color(0xFFAD652F)),
+  'npc_flint': Speaker('Flint', 'Keeper of the mines', Color(0xFF6E5A3A)),
   'npc_alder': Speaker('Alder', 'the Mapmaker', Color(0xFF43523D)),
   'waystone': Speaker('The Waystone', '', Color(0xFF6E8A7E)),
 };

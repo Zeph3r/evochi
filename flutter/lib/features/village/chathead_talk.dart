@@ -17,17 +17,18 @@ import '../../game/mining/mining.dart' as mine;
 import '../../game/story/story.dart' as q;
 import '../shared/kit.dart';
 import '../shared/widgets.dart';
+import 'flint_talk.dart';
 import 'npc_puppet.dart';
 import 'story_widgets.dart';
 
 /// Where a choice leads outside the talk: a place or room ('lodge', 'workshop', 'glasshouse',
-/// 'waystone'), 'journey', 'discover', 'prep:<quest>', a home destination, 'forge' (Bram's anvil), or
-/// 'reward:<quest>'.
+/// 'waystone'), 'journey', 'discover', 'prep:<quest>', a home destination, 'forge' (Bram's anvil),
+/// 'reward:<quest>', or Flint's 'flint:gear' (his shop) and 'flint:enter' (off to the mine).
 typedef TalkGoto = void Function(String to);
 
 class ChatheadTalk extends StatefulWidget {
   const ChatheadTalk({super.key, required this.npc, required this.onSwitch, required this.onClose, required this.onGoto, this.forge = false, this.onFlare});
-  final String npc; // npc_bram, npc_mira, npc_pip, npc_alder, or 'waystone' (the stone in the Square)
+  final String npc; // npc_bram, npc_mira, npc_pip, npc_alder, npc_flint, or 'waystone' (the stone in the Square)
   final ValueChanged<String> onSwitch; // another villager in the same room takes over
   final VoidCallback onClose;
   final TalkGoto onGoto;
@@ -47,7 +48,6 @@ class _ChatheadTalkState extends State<ChatheadTalk> with SingleTickerProviderSt
   bool _typedDone = true;
   Timer? _typer;
   late final AnimationController _in = AnimationController(vsync: this, duration: const Duration(milliseconds: 260))..forward();
-
   @override
   void initState() {
     super.initState();
@@ -166,18 +166,26 @@ class _ChatheadTalkState extends State<ChatheadTalk> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     final c = context.watch<GameController>();
+    final reduce = (MediaQuery.maybeDisableAnimationsOf(context) ?? false) || (c.state.player?.settings.reducedMotion ?? false);
+    final classic = !(c.state.player?.settings.roomLitVillagers ?? false);
+    final pad = MediaQuery.paddingOf(context).bottom;
     final (node, nodes) = _current(c);
     final line = q.lines[node.id]!;
     final speakerId = speakers.containsKey(line.speaker) ? line.speaker : widget.npc;
     final speaker = speakers[speakerId] ?? speakers['waystone']!;
     final text = q.lineText(c.state, node.id, c.now, petName: c.state.pet?.name ?? 'your Evochi');
-    final reduce = (MediaQuery.maybeDisableAnimationsOf(context) ?? false) || (c.state.player?.settings.reducedMotion ?? false);
-    final classic = !(c.state.player?.settings.roomLitVillagers ?? false);
+    final expression = line.expression ?? 'neutral';
     _typeLine('${widget.npc}:${node.id}', text.length, reduce);
-    final typed = _typedDone;
+    // one way on with nothing to decide: tap the line to carry on
     final single = node.choices.length == 1 && node.choices.first.next != null && node.choices.first.act == null;
+    void onLine() => _choose(c, node.choices.first, nodes);
+    final choices = <Widget>[
+      for (final ch in node.choices) _TalkChoice(choice: ch, onTap: () => _choose(c, ch, nodes)),
+      if (widget.npc == 'npc_bram' && widget.forge)
+        _TalkChoice(label: 'Forge mining gear', icon: const ItemImage('gear_copper_harness', size: 26), onTap: () => widget.onGoto('forge')),
+    ];
     final activeQuest = c.storyView.quests.where((v) => v.accepted && !v.completed && (v.next.npc == widget.npc || v.giver == widget.npc)).firstOrNull;
-    final pad = MediaQuery.paddingOf(context).bottom;
+    final typed = _typedDone;
     return SlideTransition(
       position: Tween(begin: const Offset(0, 0.3), end: Offset.zero).animate(CurvedAnimation(parent: _in, curve: Curves.easeOutCubic)),
       child: FadeTransition(
@@ -204,7 +212,7 @@ class _ChatheadTalkState extends State<ChatheadTalk> with SingleTickerProviderSt
               child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                   Column(mainAxisSize: MainAxisSize.min, children: [
-                    Chathead(npcId: speakerId, expression: line.expression ?? 'neutral', state: typed ? 'idle' : 'talk', classic: classic, animate: !reduce),
+                    Chathead(npcId: speakerId, expression: expression, state: typed ? 'idle' : 'talk', classic: classic, animate: !reduce),
                     const SizedBox(height: 6),
                     _Ribbon(name: speaker.name, color: speaker.color),
                   ]),
@@ -216,7 +224,7 @@ class _ChatheadTalkState extends State<ChatheadTalk> with SingleTickerProviderSt
                         if (!typed) {
                           _finishLine(text.length);
                         } else if (single) {
-                          _choose(c, node.choices.first, nodes);
+                          onLine();
                         }
                       },
                       child: ConstrainedBox(
@@ -244,15 +252,7 @@ class _ChatheadTalkState extends State<ChatheadTalk> with SingleTickerProviderSt
                 ]),
                 if (typed && !single) ...[
                   const SizedBox(height: 8),
-                  for (final ch in node.choices) ...[
-                    _TalkChoice(choice: ch, onTap: () => _choose(c, ch, nodes)),
-                    const SizedBox(height: 6),
-                  ],
-                  if (widget.npc == 'npc_bram' && widget.forge)
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 6),
-                      child: _TalkChoice(label: 'Forge mining gear', icon: const ItemImage('gear_copper_harness', size: 26), onTap: () => widget.onGoto('forge')),
-                    ),
+                  for (final w in choices) ...[w, const SizedBox(height: 6)],
                 ] else if (typed && single)
                   const SizedBox(height: 4),
               ]),
@@ -281,7 +281,10 @@ class Chathead extends StatelessWidget {
     final va = villageArt;
     final art = va.puppet(npcId);
     Widget inner;
-    if (npcId == 'waystone') {
+    if (npcId == 'npc_flint') {
+      // Flint's faces are his own art (not a puppet): the story's expressions map onto them
+      inner = FlintHead(expression: switch (expression) { 'proud' => 'determined', 'worried' => 'surprised', 'neutral' => 'default', final e => e }, size: size);
+    } else if (npcId == 'waystone') {
       // the stone itself, its runes in the frame (lit once it is restored)
       final restored = context.watch<GameController>().storyView.flag('waystone_restored');
       inner = Image.asset(va.waystone(restored: restored), fit: BoxFit.cover, alignment: const Alignment(0, -0.2), excludeFromSemantics: true, gaplessPlayback: true);

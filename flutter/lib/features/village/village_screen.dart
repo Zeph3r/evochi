@@ -30,13 +30,17 @@ void openVillage(BuildContext context) {
 
 /// Go to a place to talk: one of the houses ('lodge', 'glasshouse', 'workshop'), you walk in at its door and
 /// the talk opens with [npc] (or whoever there has something for you); the 'waystone', you arrive in the
-/// Square and the stone's talk opens. From one place to another the screen is replaced.
+/// Square and the stone's talk opens; the 'crossing', you come up the Old Trail and Flint talks. From one
+/// place to another the screen is replaced.
 void openPlace(BuildContext context, String id, {String? npc}) {
   final nav = Navigator.of(context);
   final here = ModalRoute.of(context)?.settings.name;
   final Route<void> route;
   if (id == 'waystone') {
     route = walkMapRoute('village', talk: 'waystone');
+  } else if (id == 'crossing') {
+    // Flint's camp is out on the Old Trail: you come up the trail from the village and he talks
+    route = walkMapRoute('trail', at: 'village', talk: npc ?? 'npc_flint');
   } else if (q.places.containsKey(id)) {
     final marks = q.npcMarkers(context.read<GameController>().state);
     final who = npc ?? q.places[id]!.npcs.where(marks.containsKey).firstOrNull;

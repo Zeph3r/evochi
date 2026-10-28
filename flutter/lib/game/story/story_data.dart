@@ -24,6 +24,7 @@ const npcs = <String, Npc>{
   'npc_bram': Npc('npc_bram', 'Bram', 'the Lanternkeeper', 'workshop', 'badger-bear'),
   'npc_pip': Npc('npc_pip', 'Pip', 'the Courier', 'lodge', 'sparrow'),
   'npc_alder': Npc('npc_alder', 'Alder', 'the Mapmaker', 'lodge', 'tortoise'),
+  'npc_flint': Npc('npc_flint', 'Flint', 'Keeper of the mines', 'crossing', 'obsidian-elder'),
 };
 
 class Place {
@@ -41,6 +42,7 @@ const places = <String, Place>{
   'workshop': Place('workshop', 'loc_bram_workshop', "Bram's Workshop", 'Workshop', ['npc_bram'], 'Copper, glass lenses and a warm furnace glow.'),
   'lodge': Place('lodge', 'loc_trail_guild', 'Trail Guild Lodge', 'Trail Guild', ['npc_pip', 'npc_alder'], "Pip's courier counter and Alder's map table."),
   'waystone': Place('waystone', 'loc_village_square', 'The Waystone', 'Waystone', [], 'An old standing stone in the middle of the Square.'),
+  'crossing': Place('crossing', 'loc_flint_crossing', "Flint's Crossing", 'Crossing', ['npc_flint'], 'The mine camp at the far end of the Old Trail.'),
 };
 
 /// Quest materials: key items for the Quest Pouch. Deliberately NOT catalog items, so the Market,

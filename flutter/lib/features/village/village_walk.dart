@@ -42,7 +42,6 @@ import '../home/nook_sheet.dart';
 import '../wilds/wilds_art.dart';
 import '../wilds/wilds_screen.dart';
 import 'chathead_talk.dart';
-import 'flint_talk.dart';
 import 'forge_minigame.dart';
 import 'mining.dart';
 import 'mining_gear_ui.dart';
@@ -1100,18 +1099,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       });
       return;
     }
-    if (n.place == 'crossing') {
-      showFlintTalk(context).then((pick) async {
-        if (pick == 'gear' && mounted) await showFlintShop(context);
-        if (mounted) setState(() => _talking = false);
-        if (pick == 'enter' && mounted) {
-          final e = lay?.exits['mine'];
-          if (e != null) walkTo(e.$1, e.$2);
-        }
-      });
-      return;
-    }
-    // a villager: the talk opens where they stand (the chathead panel), the world still behind
+    // a villager (or Flint at the Crossing): the talk opens where they stand (the chathead panel), the world still behind
     c_().audio.play('ui_tap', volume: 0.3);
     setState(() => _talkNpc = 'npc_${n.id}');
   }
@@ -1180,7 +1168,14 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     final c = c_();
     _talkClose();
     if (!mounted) return;
-    if (to == 'forge') {
+    if (to == 'flint:gear') {
+      setState(() => _talking = true);
+      await showFlintShop(context);
+      if (mounted) setState(() => _talking = false);
+    } else if (to == 'flint:enter') {
+      final e = lay?.exits['mine'];
+      if (e != null) walkTo(e.$1, e.$2);
+    } else if (to == 'forge') {
       setState(() => _talking = true);
       await showBramForge(context);
       if (mounted) setState(() => _talking = false);
@@ -1698,7 +1693,8 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     final pick = await showEvochiDialog<String>(context,
         builder: (_) => _MapWindow(title: l.title, image: mini, picture: Size(l.w, l.h), places: places, me: l.toImage(me.x, me.z, me.y)));
     if (pick == null || !mounted) return;
-    if (_npcs.any((n) => n.id == pick)) return talkTo(pick);
+    final who = _npcs.where((n) => n.id == pick).firstOrNull;
+    if (who != null) return _talkNow(who);
     final e = l.exits[pick];
     if (e != null) return walkTo(e.$1, e.$2);
     final w = l.spots[pick];
@@ -1709,8 +1705,6 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     final l = lay;
     if (l == null) return;
     switch (id) {
-      case 'flint':
-        talkTo('flint');
       case 'village' || 'trail' || 'home': // to the way out: walk to it and over
         _useExit(id);
       case 'lodge' || 'glasshouse' || 'workshop' when widget.map == 'village': // across the Square to a door
@@ -1723,8 +1717,8 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         c_().goTab('shop');
       case 'board' when widget.map == 'lodge':
         openGuild(context);
-      case _ when _npcs.any((n) => n.id == id):
-        talkTo(id);
+      case _ when _npcs.any((n) => n.id == id): // a villager's button works like tapping them: the talk opens
+        _talkNow(_npcs.firstWhere((n) => n.id == id));
       case 'cottage' || 'garden' || 'nook' || 'grove' || 'nest' when widget.map == 'home': // to a door: walk in
         _useExit(id);
       case 'kitchen' || 'apothecary' || 'desk' when widget.map == 'cottage': // to a station: walk up to it

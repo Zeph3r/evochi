@@ -141,6 +141,19 @@ const lines = <String, Line>{
   'EQ03_A04': Line('npc_alder', 'proud', 'You restored a Sentinel. The map changed the moment it woke: the third trail is bright again, and it goes on past the horizon.'),
   'EQ03_A05': Line('npc_alder', 'happy', "I'll be honest, {pet}. I don't think the trails faded because the world was dying. I think they faded because people stopped exploring it."),
   'EQ03_A06': Line('npc_alder', 'happy', 'The Sentinel hums at dusk now. Pip says it sounds like the Waystone. More Trails are on the way, Trailwarden.'),
+
+  // ---- Flint at the Crossing (the mines). His everyday talk; a quest of his slots in above it.
+  'FL_HELLO': Line('npc_flint', 'happy', "Well now, a visitor up the Old Trail! These hills are full of good rock. Keep the mines running, and the village keeps shining. What do you need?"),
+  'FL_HUB': Line('npc_flint', 'happy', "Back up the trail, eh? Good to see you. What'll it be?", extra: true),
+  'FL_MINES0': Line('npc_flint', 'neutral', "It's a working mine, not a battlefield. I keep the corridors lit and shored. You'll find ore, old fossils, and the odd burrowing critter minding its own business."),
+  'FL_MINES1': Line('npc_flint', 'happy', "Want a feel for it first? There's a copper vein right by the yard. Walk up to it and Pounce. Your Evochi already knows the move."),
+  'FL_MINES2': Line('npc_flint', 'thinking', "Lately, though... some of the lumen crystals hum when someone walks past. Like the Heartroot does. Old tunnels have shifted, and shafts I sealed years back are opening up again."),
+  'FL_MINES3': Line('npc_flint', 'proud', "Stay to the lit corridors and you'll come home with a full satchel. The deep shafts can wait till you're ready for them."),
+  'FL_ENTER0': Line('npc_flint', 'proud', "Eager, eh? I like that. The first gallery's lit and shored. Copper in every wall, and a vein of iron if you look."),
+  'FL_ENTER1': Line('npc_flint', 'happy', "Walk up to a node and Pounce. Mind the shaft at the back: it goes down to the next gallery, and the rock's harder there."),
+  'FL_ORE0': Line('npc_flint', 'neutral', "Four kinds you'll meet. Copper's warm and crumbly, good for tools and trim. Iron's tougher: frames and sturdier gear."),
+  'FL_ORE1': Line('npc_flint', 'thinking', "Lumen crystal glows on its own; it goes into lamps and the village's mending. Obsidian's volcanic glass. You don't melt it, you shape it, chip by chip."),
+  'FL_ORE2': Line('npc_flint', 'happy', "Bring what you find to Bram in the village. He'll forge something worth keeping, and it'll remember where its ore came from."),
 };
 
 /// An engine action a dialogue choice runs before moving on.
@@ -196,7 +209,7 @@ class Conversation {
 
 Choice _leave([String label = 'Leave']) => Choice(label, leave: true);
 
-/// The conversation a villager (or the Waystone, or your Cottage) opens with in the current state.
+/// The conversation a villager (Flint too, or the Waystone, or your Cottage) opens with in the current state.
 Conversation npcConversation(GameState state, String npcId, int now) {
   final story = state.story;
   String ph(String qid) => questPhase(state, qid);
@@ -440,6 +453,27 @@ Conversation npcConversation(GameState state, String npcId, int now) {
       } else {
         start = node('VQ02_ALD00', [_leave()]);
       }
+    case 'npc_flint':
+      // Flint's everyday talk: what you come to him for. A quest of his would go above this (an offer, a
+      // hand-in) the way the villagers' do; each topic ends back at the same choices.
+      List<Choice> topics() => [
+            const Choice('Ask about the mines', next: 'FL_MINES0'),
+            const Choice('Buy mining gear', goto: 'flint:gear'),
+            const Choice('Enter the mine', next: 'FL_ENTER0'),
+            const Choice('What is ore for?', next: 'FL_ORE0'),
+            _leave('Goodbye, Flint'),
+          ];
+      node('FL_MINES0', [const Choice('Go on', next: 'FL_MINES1')]);
+      node('FL_MINES1', [const Choice('Go on', next: 'FL_MINES2')]);
+      node('FL_MINES2', [const Choice('Go on', next: 'FL_MINES3')]);
+      node('FL_MINES3', topics());
+      node('FL_ENTER0', [const Choice('Go on', next: 'FL_ENTER1')]);
+      node('FL_ENTER1', [const Choice('Head into the mine', goto: 'flint:enter'), _leave('Not yet')]);
+      node('FL_ORE0', [const Choice('Go on', next: 'FL_ORE1')]);
+      node('FL_ORE1', [const Choice('Go on', next: 'FL_ORE2')]);
+      node('FL_ORE2', topics());
+      node('FL_HUB', topics());
+      start = met ? 'FL_HUB' : node('FL_HELLO', topics());
     case 'cottage':
       if (ph('hq01') == 'restoration_ready') {
         start = node('HQ01_C00', [const Choice('Restore the Cottage', act: StoryAct.handIn('hq01', 'restore_cottage'), then: 'HQ01_C01'), _leave('Not yet')]);
