@@ -490,7 +490,103 @@ def hatching():
     return s, 11 * 4, False
 
 
-PIECES = {'evochi_main_theme': main_theme, 'evochi_nest': nest, 'evochi_deep_wilds': deep_wilds, 'evochi_hatching': hatching}
+# the Royal Road (王道進行): IV-V-iii-vi, a loop that never lands on I, so the call keeps moving, bright and
+# wistful; until the last phrase, which finally takes the road home (IV-V-ii-V-I)
+ROYAL = [['Gmaj7'], ['A7sus4', 'A7'], ['F#m7'], ['Bm7']]
+# the call reshaped to the road: bar 2 lets its sus4 fall to the 3rd, bar 3 climbs the iii chord instead of
+# the old scale, and the question ends on D over Bm7 (home's note, but not home)
+RR_A = ('A4 .5 D5 .5 F#5 1.5 E5 .5 D5 1 | B4 .5 D5 .5 E5 1.5 D5 .5 C#5 1 | F#4 .5 A4 .5 C#5 1 E5 .5 F#5 .5 A5 1 | '
+        'F#5 1 E5 1 D5 2')
+RR_A2 = ('A4 .5 D5 .5 F#5 1.5 E5 .5 D5 1 | B4 .5 D5 .5 G5 1.5 F#5 .5 E5 1 | C#5 .5 E5 .5 F#5 1 A5 1 F#5 .5 E5 .5 | '
+         'D5 3 r 1')
+
+
+def piano_drive(chs, low=57):
+    """J-pop piano: the chord pushed on the offbeats (1, the and of 2, the and of 3, the and of 4), the
+    bass note in octaves underneath"""
+    out = []
+    for t, L, c in chs:
+        v = voicing(c, low, 4)
+        b = 12 * 3 + chord(c)[2]
+        for k in [x for x in (0, 1.5, 2.5, 3.5) if x < L]:
+            out += [(t + k, 0.45 if k else 0.9, p) for p in v]
+        out += [(t, min(L, 2) * 0.9, b), (t, min(L, 2) * 0.9, b - 12)]
+        if L >= 4:
+            out += [(t + 2, 1.8, b), (t + 2, 1.8, b - 12)]
+    return out
+
+
+def bass_eighths(chs, octave=2):
+    """the driving eighths of an anime opening: the root, an octave hop on the and of 2 and of 4"""
+    out = []
+    for t, L, c in chs:
+        root = 12 * (octave + 1) + chord(c)[2]
+        for k in range(int(L * 2)):
+            out.append((t + k * 0.5, 0.42, root + (12 if k % 4 == 3 else 0)))
+    return out
+
+
+def pop_drums(s, bar0, bars, vel=1.0, full=True):
+    for b in range(bars):
+        t0 = (bar0 + b) * 4
+        for k in (0, 1.5, 2):
+            s.hit('drums', t0 + k, 36, int(76 * vel))
+        for k in (1, 3):
+            s.hit('drums', t0 + k, 38 if full else 37, int((70 if full else 60) * vel))
+        for k in range(8):
+            s.hit('drums', t0 + k * 0.5, 42, int((48 if k % 2 == 0 else 34) * vel), 0.2)
+
+
+def royal_road():
+    """The call on the Royal Road, 112 BPM, 22 bars (47 s), one shot. Intro on the loop; the call and its
+    answer over IV-V-iii-vi (never home: it keeps going); again an octave up with everyone; then the answer as
+    first written, finally on the road home, landing on D."""
+    s = Score(112, swing=0.0, seed=41)
+    s.drum_kit = 0
+    loop = lambda bar0, n=1: [c for i in range(n) for c in per_beat(ROYAL, bar0 + 4 * i)]
+    # 1-4 intro: piano drive on the loop, a glockenspiel glint of the call's head
+    s.add('piano', piano_drive(loop(0)), 62, inst='piano', vol=96, pan=60, rev=45)
+    s.add('bass', bass_eighths(loop(0)), 66, inst='bass', vol=96, pan=64, rev=15)
+    s.add('glock', melody('r 4 | r 4 | r 4 | A5 .5 D6 .5 F#6 3', 0), 60, inst='glock', vol=78, pan=76, rev=65)
+    for b in range(4):
+        for k in range(8):
+            s.hit('drums', b * 4 + k * 0.5, 42, 30 + (10 if k % 2 == 0 else 0), 0.2)
+    # 5-12 the call and its answer, on the road: flute, piano, bass, a light kit
+    chs = loop(4, 2)
+    s.add('flute', melody(RR_A, 4) + melody(RR_A2, 8), 94, inst='flute', vol=104, pan=64, rev=55)
+    s.add('piano', piano_drive(chs), 58)
+    s.add('bass', bass_eighths(chs), 70)
+    pop_drums(s, 4, 8, vel=0.75, full=False)
+    for k in range(8):   # a fill into the lift
+        s.hit('drums', 11 * 4 + 2 + k * 0.25, 38 if k % 2 else 45, 50 + k * 5, 0.2)
+    # 13-16 again, an octave up, with everyone: glockenspiel on top, strings under
+    chs = loop(12)
+    s.hit('drums', 12 * 4, 49, 80, 2)
+    for name, vel, octv in (('flute', 98, 1), ('glock', 64, 1), ('clarinet', 66, 0)):
+        s.add(name, melody(RR_A, 12), vel, inst=name, octave=octv, **({'vol': 86, 'pan': 52, 'rev': 55} if name == 'clarinet' else {}))
+    s.add('strings', pad(chs, 57), 56, inst='strings', vol=88, pan=64, rev=70)
+    s.add('piano', piano_drive(chs), 64)
+    s.add('bass', bass_eighths(chs), 74)
+    pop_drums(s, 12, 4)
+    # 17-20 the road home: the answer as first written (IV, V, ii-V), and at last, I
+    home = per_beat([['Gmaj7'], ['A7'], ['Em7', 'A7'], ['Dadd9']], 16)
+    for name, vel, octv in (('flute', 100, 1), ('glock', 66, 1), ('clarinet', 70, 0)):
+        s.add(name, melody(THEME_A2, 16), vel, inst=name, octave=octv)
+    s.add('strings', pad(home, 57), 60, inst='strings')
+    s.add('piano', piano_drive(home[:-1]) + [(19 * 4, 4, p) for p in voicing('Dadd9', 54, 5)], 66)
+    s.add('bass', bass_eighths(home[:-1]) + [(19 * 4, 4, midi('D2')), (19 * 4, 4, midi('D1'))], 76)
+    pop_drums(s, 16, 3)
+    s.hit('drums', 19 * 4, 49, 86, 3)
+    s.hit('drums', 19 * 4, 36, 80)
+    # 21-22 the ring-out: the call's head on a music box, over the home chord
+    s.add('musicbox', melody('A4 .5 D5 .5 F#5 3 | r 4', 20), 70, inst='musicbox', octave=1, vol=88, pan=70, rev=80)
+    s.add('strings', [(20 * 4, 8, p) for p in voicing('Dadd9', 57, 4)], 46, inst='strings')
+    return s, 22 * 4, False
+
+
+
+PIECES = {'evochi_main_theme': main_theme, 'evochi_nest': nest, 'evochi_deep_wilds': deep_wilds, 'evochi_hatching': hatching,
+          'evochi_royal_road': royal_road}
 
 
 # ------------------------------------------------------------------------------------------- render, master
