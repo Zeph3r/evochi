@@ -585,8 +585,55 @@ def royal_road():
 
 
 
+def royal_road_toybox():
+    """The Royal Road lead sheet, arranged for the toy box (12 bars, 112 BPM, one shot, no drums):
+    bars 1-4 marimba on the melody, nylon guitar's light chords, upright bass under the progression;
+    5-8 flute takes the melody, pizzicato strings answering in its held notes and in the gap after the
+    question (an echo of the call's head); 9-12 felt-soft piano fills out the harmony on the road home, the
+    flute still singing, and a restrained glockenspiel touch as it lands on Dadd9."""
+    s = Score(112, swing=0.0, seed=51)
+    road = per_beat(ROYAL, 0) + per_beat(ROYAL, 4)
+    home = per_beat([['Gmaj7'], ['A7'], ['Em7', 'A7'], ['Dadd9']], 8)
+    allc = road + home
+    # the upright bass, all the way: the root on 1, the fifth on 3, home held at the end
+    s.add('bass', bass_two(allc[:-1]) + [(11 * 4, 4, midi('D2'))], 80, inst='bass', vol=100, pan=64, rev=25)
+    # 1-4: marimba on the melody; nylon guitar, light: the chord brushed on 1 (and softly on 3)
+    s.add('marimba', melody(RR_A, 0), 96, inst='marimba', vol=118, pan=60, rev=50)
+    guitar = []
+    for t, L, c in per_beat(ROYAL, 0) + per_beat(ROYAL, 4):
+        v = voicing(c, 52, 4)
+        for k, vel in ((0, 0), (2, -8)):
+            if k < L:
+                guitar += [(t + k + i * 0.035, 1.6, p, vel) for i, p in enumerate(v)]
+    for lo, hi, base in ((0, 16, 54), (16, 32, 46)):   # lighter under the flute
+        for off in (0, -8):                            # the brush on 3 softer than on 1
+            s.add('nylon', [(t, d, p) for t, d, p, v in guitar if lo <= t < hi and v == off], base + off, inst='nylon', vol=84, pan=42, rev=45)
+    # 5-8: the flute takes the melody; pizzicato answers in the held notes and after the question
+    s.add('flute', melody(RR_A2, 4), 92, inst='flute', vol=104, pan=66, rev=55)
+    answers = [
+        (4 * 4 + 1.5, 0.4, midi('B4')), (4 * 4 + 2.0, 0.4, midi('D5')),                     # under the held F#
+        (5 * 4 + 1.5, 0.4, midi('E5')), (5 * 4 + 2.0, 0.4, midi('C#5')),                    # sus4 to the 3rd
+        (7 * 4 + 1.0, 0.4, midi('A4')), (7 * 4 + 1.5, 0.4, midi('D5')), (7 * 4 + 2.0, 0.9, midi('F#5')),  # the call's head, echoed
+    ]
+    s.add('pizz', answers, 78, inst='pizz', vol=92, pan=88, rev=55)
+    # 9-12: the road home. The flute sings on; the piano, soft as felt, fills out the harmony
+    s.add('flute', melody(THEME_A2, 8), 90, inst='flute')
+    piano = []
+    for t, L, c in home:
+        r, iv, b = chord(c)
+        piano.append((t, min(L, 4), 12 * 3 + b))                                          # the low note
+        v = voicing(c, 55, 4)
+        piano += [(t + 0.5 + i * 0.25, L - 0.5 - i * 0.25, p) for i, p in enumerate(v) if 0.5 + i * 0.25 < L]  # rolled up
+    s.add('piano', piano, 44, inst='piano', vol=92, pan=50, rev=70)
+    # Dadd9: a restrained glockenspiel touch
+    s.add('glock', [(11 * 4 + 0.0, 1.5, midi('F#6')), (11 * 4 + 0.5, 1.5, midi('A6')), (11 * 4 + 1.0, 2.5, midi('E7'))], 46,
+          inst='glock', vol=70, pan=74, rev=80, human=False)
+    return s, 12 * 4, False
+
+
+
 PIECES = {'evochi_main_theme': main_theme, 'evochi_nest': nest, 'evochi_deep_wilds': deep_wilds, 'evochi_hatching': hatching,
-          'evochi_royal_road': royal_road}
+          'evochi_royal_road': royal_road, 'evochi_royal_road_toybox': royal_road_toybox}
 
 
 # ------------------------------------------------------------------------------------------- render, master
