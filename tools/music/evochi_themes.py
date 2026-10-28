@@ -117,6 +117,8 @@ class Score:
         self.parts = {}   # name -> dict(ch, prog, vol, pan, rev, notes[])
         self.rnd = random.Random(seed)
         self.drum_kit = 40
+        # parts rendered on their own: name -> dict(parts=[...], room=(size, level, width), af='ffmpeg filters')
+        self.stems = {}
 
     def part(self, name, inst, vol=96, pan=64, rev=50):
         if name not in self.parts:
@@ -138,7 +140,7 @@ class Score:
         return self.beats
 
     # ---- write MIDI
-    def save(self, path, total_beats):
+    def save(self, path, total_beats, only=None, skip=()):
         mf = mido.MidiFile(ticks_per_beat=PPQ)
         meta = mido.MidiTrack()
         meta.append(mido.MetaMessage('set_tempo', tempo=mido.bpm2tempo(self.bpm)))
@@ -146,6 +148,8 @@ class Score:
         meta.append(mido.MetaMessage('end_of_track', time=int(total_beats * PPQ)))
         mf.tracks.append(meta)
         for name, p in self.parts.items():
+            if (only is not None and name not in only) or name in skip:
+                continue
             tr = mido.MidiTrack()
             tr.append(mido.MetaMessage('track_name', name=name))
             ch = p['ch']
@@ -618,13 +622,28 @@ def royal_road_toybox():
     s.add('pizz', answers, 78, inst='pizz', vol=92, pan=88, rev=55)
     # 9-12: the road home. The flute sings on; the piano, soft as felt, fills out the harmony
     s.add('flute', melody(THEME_A2, 8), 90, inst='flute')
-    piano = []
+    # warm acoustic piano, softly played: a low note, then the chord rolled up slowly, kept under E5, the top of
+    # each roll a touch softer; the four bars swell a little into the cadence and settle on Dadd9
+    piano, vels = [], []
+    swell = {8: 0, 9: 2, 10: 4, 11: -2}
     for t, L, c in home:
         r, iv, b = chord(c)
-        piano.append((t, min(L, 4), 12 * 3 + b))                                          # the low note
-        v = voicing(c, 55, 4)
-        piano += [(t + 0.5 + i * 0.25, L - 0.5 - i * 0.25, p) for i, p in enumerate(v) if 0.5 + i * 0.25 < L]  # rolled up
-    s.add('piano', piano, 44, inst='piano', vol=92, pan=50, rev=70)
+        bar = int(t // 4)
+        v = [p for p in voicing(c, 55, 4) if p <= midi('E5')]
+        piano.append((t, min(L, 4), 12 * 3 + b))
+        vels.append(44 + swell[bar])
+        for i, p in enumerate(v):
+            k = 0.5 + i * 0.33
+            if k < L:
+                piano.append((t + k, L - k, p))
+                vels.append(38 + swell[bar] - (5 if i == len(v) - 1 else 0) + (i % 2))
+    lst = s.part('piano', 'piano', vol=96, pan=50, rev=40)
+    lst += [(t, d, p, v) for (t, d, p), v in zip(piano, vels)]
+    # its own small room and a rounded tone: warmth in the low mids, the upper treble eased, gentle
+    # compression for even, soft dynamics
+    s.stems['piano'] = dict(parts=['piano'], room=(0.22, 0.4, 0.6), gain=1.15,
+                            af='equalizer=f=220:t=q:w=1.0:g=2.5,equalizer=f=3000:t=q:w=1.2:g=-3,treble=g=-6:f=5200:w=0.7,'
+                               'lowpass=f=8000,acompressor=threshold=-28dB:ratio=2:attack=30:release=320:makeup=1.6')
     # Dadd9: a restrained glockenspiel touch
     s.add('glock', [(11 * 4 + 0.0, 1.5, midi('F#6')), (11 * 4 + 0.5, 1.5, midi('A6')), (11 * 4 + 1.0, 2.5, midi('E7'))], 46,
           inst='glock', vol=70, pan=74, rev=80, human=False)
@@ -637,18 +656,50 @@ PIECES = {'evochi_main_theme': main_theme, 'evochi_nest': nest, 'evochi_deep_wil
 
 
 # ------------------------------------------------------------------------------------------- render, master
+def _synth(mid, wav, sf2, room=(0.45, 0.6, 0.9)):
+    """fluidsynth a MIDI file to float32 stereo at 48 kHz, with [room] (size, level, width) for its reverb"""
+    import numpy as np
+    subprocess.run(['fluidsynth', '-ni', '-q', '-g', '0.5', '-r', '48000', '-o', 'synth.reverb.room-size=%s' % room[0],
+                    '-o', 'synth.reverb.width=%s' % room[2], '-o', 'synth.reverb.level=%s' % room[1], '-o', 'synth.chorus.active=0',
+                    '-F', wav, sf2, mid], check=True, capture_output=True)
+    raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', wav, '-f', 'f32le', '-ac', '2', '-ar', '48000', '-'],
+                         capture_output=True, check=True).stdout
+    os.remove(wav)
+    return np.frombuffer(raw, np.float32).reshape(-1, 2).copy()
+
+
+def _shape(x, af):
+    """an ffmpeg filter chain over a float32 stereo buffer"""
+    import numpy as np
+    out = subprocess.run(['ffmpeg', '-v', 'error', '-f', 'f32le', '-ar', '48000', '-ac', '2', '-i', '-', '-af', af,
+                          '-f', 'f32le', '-ac', '2', '-ar', '48000', '-'], input=x.astype(np.float32).tobytes(),
+                         capture_output=True, check=True).stdout
+    y = np.frombuffer(out, np.float32).reshape(-1, 2).copy()
+    return y[:len(x)] if len(y) >= len(x) else np.vstack([y, np.zeros((len(x) - len(y), 2), np.float32)])
+
+
 def render(name, out, sf2):
     s, total, loop = PIECES[name]()
     mid = os.path.join(out, name + '.mid')
-    s.save(mid, total + (8 if loop else 4) * s.beats)
-    wav = os.path.join(out, name + '_raw.wav')
-    subprocess.run(['fluidsynth', '-ni', '-q', '-g', '0.5', '-r', '48000', '-o', 'synth.reverb.room-size=0.45',
-                    '-o', 'synth.reverb.width=0.9', '-o', 'synth.reverb.level=0.6', '-o', 'synth.chorus.active=0',
-                    '-F', wav, sf2, mid], check=True, capture_output=True)
+    end = total + (8 if loop else 4) * s.beats
+    s.save(mid, end)   # the whole arrangement, for a DAW
     import numpy as np
-    raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', wav, '-f', 'f32le', '-ac', '2', '-ar', '48000', '-'],
-                         capture_output=True, check=True).stdout
-    x = np.frombuffer(raw, np.float32).reshape(-1, 2).copy()
+    stem_parts = [p for st in s.stems.values() for p in st['parts']]
+    if not stem_parts:
+        x = _synth(mid, os.path.join(out, name + '_raw.wav'), sf2)
+    else:
+        rest = os.path.join(out, name + '_rest.mid')
+        s.save(rest, end, skip=stem_parts)
+        x = _synth(rest, os.path.join(out, name + '_rest.wav'), sf2)
+        os.remove(rest)
+        for key, st in s.stems.items():
+            sm = os.path.join(out, '%s_%s.mid' % (name, key))
+            s.save(sm, end, only=st['parts'])
+            y = _shape(_synth(sm, os.path.join(out, '%s_%s.wav' % (name, key)), sf2, st.get('room', (0.45, 0.6, 0.9))), st['af'])
+            os.remove(sm)
+            n = min(len(x), len(y))
+            x = x[:max(len(x), len(y))] if len(x) >= len(y) else np.vstack([x, np.zeros((len(y) - len(x), 2), np.float32)])
+            x[:len(y)] += y * st.get('gain', 1.0)
     sec = 60.0 / s.bpm * total
     n = int(round(sec * 48000))
     if loop:
@@ -678,7 +729,6 @@ def render(name, out, sf2):
     subprocess.run(['ffmpeg', '-v', 'error', '-y', *src, '-af', tone + ',' + ln,
                     '-ar', '48000', '-c:a', 'libmp3lame', '-q:a', '2', master], check=True)
     os.remove(tmp + '.f32')
-    os.remove(wav)
     return master, mid, sec, loop
 
 
