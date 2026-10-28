@@ -4,14 +4,14 @@ The take (D major, 108.26 BPM, first downbeat 0.113 s, bars of 2.217 s) runs: ba
 own), 3-8 the tune, 9-10 a near-silent break, 11-12 the band without the tune, 13-24 the tune, 25-26 the second
 break, 27-28 the band again, 29-34 the tune, 35 the lead alone and the fade. The loop:
 
-    [bloom]  3-8  13-24  29-34  -> back to [bloom]
+    [bloom]  3-8  13-24  29-34  -> back to [bloom]   (the bloom from bar 4's groove)
 
   - the two breaks go, with the tune-less bars after each: every join is an Em-A bar into a D bar, as the song
     itself moves, crossfaded over 25 ms just before the downbeat
-  - the bloom (one bar): the song's own first two bars as a shimmer, a long reverb with an octave above, rising
-    from quiet and opening from thin to full, with a reverse swell into the band's first downbeat; it keeps
-    glowing under the first two bars, then fades
-  - the last bar turns toward it: its top eases off and it starts to shimmer, so the wrap into the bloom flows;
+  - the bloom (one bar): the band itself, its Em-A groove bar (bar 4, no tune), muffled and a little quieter,
+    opening up to full across the bar, with a light shimmer (a short reverb, a soft octave above) and a gentle
+    reverse swell into the first downbeat, where the tune comes in
+  - the last bar leans toward it: its top eases off a little and a touch of shimmer comes in, so the wrap flows;
     what rang on past it in the take is folded onto the start
 
     python3 village_loop.py SRC.mp3 OUT_DIR       -> mus_village.ogg (the game's loop) and mus_village.mp3
@@ -69,12 +69,12 @@ def reverb(x, secs=3.6, seed=3):
     return np.stack([fftconvolve(x[:, c], ir[:, c]) for c in (0, 1)], axis=1)
 
 
-def shimmer(x):
-    """x as a magical wash: the octave above layered in, low end out, a long reverb"""
+def shimmer(x, octave=0.8, secs=3.6):
+    """x as a wash: the octave above layered in ([octave] of it), low end out, a reverb of [secs]"""
     import librosa
     hi = np.stack([librosa.effects.pitch_shift(x[:, c].astype(np.float32), sr=SR, n_steps=12) for c in (0, 1)], axis=1)
-    w = sosfilt(butter(2, 350, 'high', fs=SR, output='sos'), 0.6 * x + 0.8 * hi, axis=0)
-    return reverb(w)
+    w = sosfilt(butter(2, 350, 'high', fs=SR, output='sos'), 0.6 * x + octave * hi, axis=0)
+    return reverb(w, secs=secs)
 
 
 def rms(x):
@@ -87,36 +87,35 @@ def build(src):
     body = splice([(x, at(a), at(b + 1)) for a, b in KEEP])
     level = rms(x[at(5):at(9)])   # the band with the tune
 
-    # the bloom: the song's first two full bars (3-4) as a shimmer, rising through one bar, under the start
-    wash = shimmer(x[at(3):at(5)])
-    wash *= 0.5 * level / rms(wash[:2 * nb])
-    bloom = np.zeros((nb, 2))
-    w = wash[:nb] * (0.4 + 0.6 * np.linspace(0, 1, nb) ** 1.3)[:, None]   # from a soft glow, never silence
-    # thin to full: a high-pass falling from 1.5 kHz to 350 Hz across the bar, done in four steps
-    for i, fc in enumerate((1500, 1000, 650, 350)):
-        a, b = i * nb // 4, (i + 1) * nb // 4
-        seg = sosfilt(butter(2, fc, 'high', fs=SR, output='sos'), w, axis=0)[a:b]
-        bloom[a:b] = seg
-    # a reverse swell into the downbeat: bar 3's first beat, reverbed, played backwards over the bar's last beat
+    # the bloom: the band itself, from bar 4 (Em-A, the groove without the tune, which leads into D as the song does),
+    # heard muffled and quieter and opening up to full across the bar; a light shimmer over it and a soft swell into
+    # the downbeat, where the tune comes in
+    dry = x[at(4):at(4) + nb]
+    c = (np.linspace(0, 1, nb) ** 1.5)[:, None]
+    muffled = sosfilt(butter(2, 1300, 'low', fs=SR, output='sos'), dry, axis=0)
+    bloom = (muffled * (1 - c) + dry * c) * (0.82 + 0.18 * c)
+    wash = shimmer(dry, octave=0.35, secs=2.2)
+    wash *= 0.18 * level / rms(wash[:nb])
+    bloom += wash[:nb] * (0.3 + 0.7 * c)
     beat = nb // 4
-    rev = reverb(x[at(3):at(3) + beat] * 0.8, secs=1.6)[::-1]
+    rev = reverb(x[at(3):at(3) + beat] * 0.8, secs=1.2)[::-1]
     rev = rev[-beat:] if len(rev) >= beat else np.vstack([np.zeros((beat - len(rev), 2)), rev])
-    rev *= 0.45 * level / (rms(rev) + 1e-9)
+    rev *= 0.2 * level / (rms(rev) + 1e-9)
     env = np.linspace(0, 1, beat) ** 2
     f = int(0.03 * SR)
     env[-f:] *= np.linspace(1, 0, f) ** 2   # it swells, then gets out of the way of the real downbeat
     bloom[-beat:] += rev * env[:, None]
-    # the wash keeps glowing under bars 3-4, fading
-    glow = wash[nb:nb + 2 * nb] * (np.linspace(1, 0, min(2 * nb, len(wash) - nb)) ** 2)[:, None] * 0.7
+    # the shimmer's tail lingers a moment under bar 3
+    glow = wash[nb:nb + nb // 2] * (np.linspace(1, 0, len(wash[nb:nb + nb // 2])) ** 2)[:, None]
     body[:len(glow)] += glow
 
-    # the last bar turns toward the bloom: its top eases off over the last two beats and it starts to shimmer
+    # the last bar leans toward the bloom: its top eases off a little over the last two beats, a touch of shimmer
     last = body[-nb:].copy()
-    soft = sosfilt(butter(2, 2500, 'low', fs=SR, output='sos'), last, axis=0)
+    soft = sosfilt(butter(2, 3000, 'low', fs=SR, output='sos'), last, axis=0)
     ramp = np.clip((np.arange(nb) - nb / 2) / (nb / 2), 0, 1)[:, None]
-    body[-nb:] = last * (1 - 0.55 * ramp) + soft * 0.55 * ramp
-    tail_wash = shimmer(x[at(34):at(35)])
-    tail_wash *= 0.35 * level / rms(tail_wash[:nb])
+    body[-nb:] = last * (1 - 0.3 * ramp) + soft * 0.3 * ramp
+    tail_wash = shimmer(x[at(34):at(35)], octave=0.35, secs=2.2)
+    tail_wash *= 0.15 * level / rms(tail_wash[:nb])
     body[-nb:] += tail_wash[:nb] * (np.linspace(0, 1, nb) ** 2)[:, None]
 
     # hand over to the band's first downbeat the way the joins do: the bloom's last 10 ms crossfade into what led up
