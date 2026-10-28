@@ -9,7 +9,7 @@ stays out of those. Its tune rests in bars 4, 12, 20 and 27-28 (little energy at
 The mix: the take carried a sub-bass rumble about 15 dB over the Main Theme's and a dip in the body (0.5-1 kHz) and
 presence (2-4 kHz), which read as flat. The rumble is trimmed and the body and presence lifted.
 
-    python3 rework_village.py SRC.mp3 OUT_DIR [glock|marimba|take]
+    python3 rework_village.py SRC.mp3 OUT_DIR [glock|marimba|take|none]
 """
 import os
 import subprocess
@@ -41,6 +41,7 @@ VOICES = {
                 {'marimba': -8.0, 'marimba_call': -6.0, 'marimba_oct': -12.0},
                 {'marimba': (4, 12, 20), 'marimba_call': (27, 28), 'marimba_oct': (27, 28)}),
 }
+VOICES['none'] = ([], {}, {})   # the take on its own: only the clearer mix
 PARTS, TARGET, BARS = VOICES['glock']
 
 # the take's own lead, sampled: in the intro (0-3.7 s) it plays alone, so its notes are cut from there (onset to the
@@ -222,7 +223,7 @@ def main(src, out, voice='glock'):
     m = json.loads(meas[meas.rindex('{'):meas.rindex('}') + 1])
     ln = ('loudnorm=I=-16:TP=-1.5:LRA=11:measured_I=%s:measured_TP=%s:measured_LRA=%s:measured_thresh=%s:offset=%s:linear=true'
           % (m['input_i'], m['input_tp'], m['input_lra'], m['input_thresh'], m['target_offset']))
-    mp3 = os.path.join(out, 'mus_village_v3_take3_call%s.mp3' % ('' if voice == 'glock' else '_' + voice))
+    mp3 = os.path.join(out, 'mus_village_v3_take3_mix.mp3' if voice == 'none' else 'mus_village_v3_take3_call%s.mp3' % ('' if voice == 'glock' else '_' + voice))
     subprocess.run(['ffmpeg', '-v', 'error', '-y', *src_in, '-af', bus + ',' + ln, '-c:a', 'libmp3lame', '-q:a', '2', mp3], check=True)
     os.remove(tmp)
     return mp3
