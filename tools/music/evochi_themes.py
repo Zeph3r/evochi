@@ -275,8 +275,9 @@ def brushes(s, bar0, bars, full=True, beats=4, vel=1.0):
 
 # ------------------------------------------------------------------------------------------- the pieces
 def main_theme():
-    """Title screen, 100 BPM, 36 bars (86 s), loops. Hook at 0 s; develop 10-29 s; bridge 29-48 s; payoff
-    48-67 s; resolve 67-86 s, ending so it rolls straight back into the call."""
+    """Title screen, 100 BPM, 40 bars (96 s), loops. Hook at 0 s; develop 10-29 s; the Royal Road toy box in the
+    middle 29-58 s (marimba, then flute with pizzicato answers, then soft piano home to Dadd9); payoff 58-77 s;
+    resolve and tag 77-96 s, the tag's A7 rolling straight back into the call at bar 1."""
     s = Score(100, swing=0.04)
     A, A2 = melody(THEME_A, 0), melody(THEME_A2, 4)
     # 1-4 the hook: flute and glockenspiel, marimba boom-chick, bass, light brushes
@@ -298,48 +299,82 @@ def main_theme():
     s.add('marimba', comp_offbeat(chs2, 57), 64)
     s.add('bass', bass_walk(chs2), 82)
     brushes(s, 8, 4)
-    # 13-20 the bridge: B minor, vibraphone and clarinet, thinner, then building
-    chb = per_beat(CH_B, 12)
-    br = melody(BRIDGE, 12)
-    s.add('vibes', br, 80, inst='vibes', vol=96, pan=60, rev=65)
-    s.add('clarinet', [(t, d, p) for t, d, p in br if t >= 16 * 4], 70)
-    s.add('pizz', arp(chb, 59, shape=(0, 2, 1, 3)), 50)
-    s.add('bass', bass_two(chb), 78)
-    s.add('strings', pad(per_beat(CH_B[4:], 16), 54), 46, inst='strings', vol=80, pan=64, rev=70)
-    brushes(s, 12, 4, full=False, vel=0.7)
-    brushes(s, 16, 4, full=True, vel=0.9)
-    for k in range(8):   # a lift into the payoff
-        s.hit('drums', 19 * 4 + 2 + k * 0.25, 38, 40 + k * 7, 0.2)
-    s.add('timpani', [(19 * 4 + 3, 1, midi('A2'))], 70, inst='timpani', vol=90, rev=40)
-    # 21-28 the payoff: everyone, the call doubled in octaves
-    chp = per_beat(CH_A, 20) + per_beat(CH_A2, 24)
+    # 13-24 the middle: the Royal Road toy box (IV-V-iii-vi, never landing on I), no drums. 13-16 marimba on the
+    # road's melody over nylon guitar and upright bass; 17-20 the flute takes it, pizzicato answering; 21-24 the
+    # road home on soft piano, a glockenspiel touch on Dadd9, then A7sus4-A7 lifting into the payoff
+    R = 12
+    road = per_beat(ROYAL, R) + per_beat(ROYAL, R + 4)
+    d9 = (R + 11) * 4
+    home = per_beat([['Gmaj7'], ['A7'], ['Em7', 'A7']], R + 8) + [(d9, 2, 'Dadd9'), (d9 + 2, 1, 'A7sus4'), (d9 + 3, 1, 'A7')]
+    s.add('bass', bass_two(road + home[:-3]) + [(d9, 2, midi('D2')), (d9 + 2, 1, midi('A1')), (d9 + 3, 0.5, midi('A1')),
+                                                (d9 + 3.5, 0.5, midi('C#2'))], 80)
+    s.add('marimba', melody(RR_A, R), 104)
+    guitar = []
+    for t, L, c in road:
+        v = voicing(c, 52, 4)
+        for k, vel in ((0, 0), (2, -8)):
+            if k < L:
+                guitar += [(t + k + i * 0.035, 1.6, p, vel) for i, p in enumerate(v)]
+    for lo, hi, base in ((R * 4, (R + 4) * 4, 54), ((R + 4) * 4, (R + 8) * 4, 46)):   # lighter under the flute
+        for off in (0, -8):
+            s.add('nylon', [(t, d, p) for t, d, p, v in guitar if lo <= t < hi and v == off], base + off, inst='nylon',
+                  vol=84, pan=42, rev=45)
+    s.add('flute', melody(RR_A2, R + 4), 92)
+    q = (R + 4) * 4
+    s.add('pizz', [(q + 1.5, 0.4, midi('B4')), (q + 2.0, 0.4, midi('D5')), (q + 5.5, 0.4, midi('E5')), (q + 6.0, 0.4, midi('C#5')),
+                   (q + 13.0, 0.4, midi('A4')), (q + 13.5, 0.4, midi('D5')), (q + 14.0, 0.9, midi('F#5'))], 84)
+    s.add('flute', melody(THEME_A2, R + 8), 88)
+    # the warm, soft piano: a low note, then the chord rolled up slowly under E5, swelling a little to the cadence
+    piano, vels = [], []
+    for t, L, c in home:
+        r, iv, b = chord(c)
+        sw = {R + 8: 0, R + 9: 2, R + 10: 4, R + 11: -2}[int(t // 4)]
+        v = [p for p in voicing(c, 55, 4) if p <= midi('E5')]
+        piano.append((t, min(L, 4), 12 * 3 + b))
+        vels.append(44 + sw)
+        for i, p in enumerate(v):
+            k = 0.5 + i * 0.33
+            if k < L:
+                piano.append((t + k, L - k, p))
+                vels.append(38 + sw - (5 if i == len(v) - 1 else 0) + (i % 2))
+    lst = s.part('piano', 'piano', vol=96, pan=50, rev=40)
+    lst += [(t, d, p, v) for (t, d, p), v in zip(piano, vels)]
+    s.stems['piano'] = dict(parts=['piano'], room=(0.22, 0.4, 0.6), gain=1.15,
+                            af='equalizer=f=220:t=q:w=1.0:g=2.5,equalizer=f=3000:t=q:w=1.2:g=-3,treble=g=-6:f=5200:w=0.7,'
+                               'lowpass=f=8000,acompressor=threshold=-28dB:ratio=2:attack=30:release=320:makeup=1.6')
+    s.add('glock', [(d9, 1.5, midi('F#5')), (d9 + 0.5, 1.5, midi('A5')), (d9 + 1.0, 2.5, midi('E6'))], 46, octave=1, human=False)
+    for k in range(6):   # a soft brush lift on the A7 into the payoff
+        s.hit('drums', d9 + 2.5 + k * 0.25, 38, 30 + k * 7, 0.2)
+    s.add('timpani', [(d9 + 3, 1, midi('A2'))], 56, inst='timpani', vol=90, rev=40)
+    # 25-32 the payoff: everyone, the call doubled in octaves
+    chp = per_beat(CH_A, 24) + per_beat(CH_A2, 28)
     for name, vel, octv in (('flute', 98, 0), ('glock', 66, 1), ('xylo', 58, 0), ('clarinet', 70, -1)):
-        s.add(name, melody(THEME_A, 20) + melody(THEME_A2, 24), vel, inst=name, octave=octv,
+        s.add(name, melody(THEME_A, 24) + melody(THEME_A2, 28), vel, inst=name, octave=octv,
               **({'vol': 80, 'pan': 30, 'rev': 50} if name == 'xylo' else {}))
     s.add('uke', strum(chp, 55), 66, inst='uke')
     s.add('marimba', comp_offbeat(chp, 57), 72)
     s.add('pizz', arp(chp, 62), 58)
     s.add('bass', bass_walk(chp), 88)
     s.add('strings', pad(chp, 57), 50, inst='strings')
-    s.hit('drums', 20 * 4, 49, 64, 2)
-    brushes(s, 20, 8, vel=1.05)
-    # 29-32 resolve: the answer, softly, music box on top
-    chr_ = per_beat(CH_A2, 28)
-    s.add('flute', melody(THEME_A2, 28), 76)
-    s.add('musicbox', melody(THEME_A2, 28), 58, inst='musicbox', octave=1, vol=80, pan=70, rev=70)
+    s.hit('drums', 24 * 4, 49, 64, 2)
+    brushes(s, 24, 8, vel=1.05)
+    # 33-36 resolve: the answer, softly, music box on top
+    chr_ = per_beat(CH_A2, 32)
+    s.add('flute', melody(THEME_A2, 32), 76)
+    s.add('musicbox', melody(THEME_A2, 32), 58, inst='musicbox', octave=1, vol=80, pan=70, rev=70)
     s.add('marimba', comp_offbeat(chr_, 57), 60)
     s.add('bass', bass_two(chr_), 76)
-    brushes(s, 28, 4, full=False, vel=0.7)
-    # 33-36 the tag: the call's first bar twice, then a turn that leads back to bar 1
-    tag = melody('A4 .5 D5 .5 F#5 1.5 E5 .5 D5 1 | r 4 | A4 .5 D5 .5 F#5 1.5 E5 .5 D5 1 | E5 1 F#5 1 E5 1 r 1', 32)
+    brushes(s, 32, 4, full=False, vel=0.7)
+    # 37-40 the tag: the call's first bar twice, then a turn that leads back to bar 1
+    tag = melody('A4 .5 D5 .5 F#5 1.5 E5 .5 D5 1 | r 4 | A4 .5 D5 .5 F#5 1.5 E5 .5 D5 1 | E5 1 F#5 1 E5 1 r 1', 36)
     s.add('glock', tag, 62, inst='glock', octave=1)
     s.add('flute', tag, 70)
-    cht = per_beat([['Dmaj9'], ['Gmaj7'], ['Dmaj9'], ['A7sus4', 'A7']], 32)
+    cht = per_beat([['Dmaj9'], ['Gmaj7'], ['Dmaj9'], ['A7sus4', 'A7']], 36)
     s.add('rhodes', pad(cht, 54), 50, inst='rhodes', vol=84, pan=50, rev=60)
     s.add('bass', bass_two(cht), 72)
     s.add('pizz', arp(cht, 62), 46)
-    brushes(s, 32, 4, full=False, vel=0.6)
-    return s, 36 * 4, True
+    brushes(s, 36, 4, full=False, vel=0.6)
+    return s, 40 * 4, True
 
 
 def nest():
@@ -728,6 +763,9 @@ def render(name, out, sf2):
           % (m['input_i'], m['input_tp'], m['input_lra'], m['input_thresh'], m['target_offset']))
     subprocess.run(['ffmpeg', '-v', 'error', '-y', *src, '-af', tone + ',' + ln,
                     '-ar', '48000', '-c:a', 'libmp3lame', '-q:a', '2', master], check=True)
+    if loop:   # Ogg Vorbis too: sample-exact length, so a looping player (Android) rolls round with no gap
+        subprocess.run(['ffmpeg', '-v', 'error', '-y', *src, '-af', tone + ',' + ln,
+                        '-ar', '48000', '-c:a', 'libvorbis', '-q:a', '6', master[:-4] + '.ogg'], check=True)
     os.remove(tmp + '.f32')
     return master, mid, sec, loop
 
