@@ -9,7 +9,7 @@ stays out of those. Its tune rests in bars 4, 12, 20 and 27-28 (little energy at
 The mix: the take carried a sub-bass rumble about 15 dB over the Main Theme's and a dip in the body (0.5-1 kHz) and
 presence (2-4 kHz), which read as flat. The rumble is trimmed and the body and presence lifted.
 
-    python3 rework_village.py SRC.mp3 OUT_DIR [glock|marimba]
+    python3 rework_village.py SRC.mp3 OUT_DIR [glock|marimba|take]
 """
 import os
 import subprocess
@@ -43,6 +43,14 @@ VOICES = {
 }
 PARTS, TARGET, BARS = VOICES['glock']
 
+# the take's own lead, sampled: in the intro (0-3.7 s) it plays alone, so its notes are cut from there (onset to the
+# next onset, from the mixed and EQ'd take) and replayed as the call; F#5 and E5 are its G5 and D5 nudged down 1 and
+# up 2 semitones, everything retuned to the take's own tuning
+TAKE_NOTES = {'A4': 2.29, 'D5': 2.87, 'B4': 3.23, 'G5': 1.74}
+TAKE_FROM = {'A4': ('A4', 0), 'D5': ('D5', 0), 'B4': ('B4', 0), 'F#5': ('G5', -1), 'E5': ('D5', 2)}
+TAKE_PARTS = {'take_answers': ((4, 12, 20), [(b, HEAD) for b in (3, 11, 19)], -8.0),
+              'take_call': ((27, 28), [(26, CALL)], -6.0)}
+
 # the take's tone: rumble out, body and presence up, the very top left alone
 EQ = ('highpass=f=38:poles=2,equalizer=f=55:t=q:w=1.0:g=-8,equalizer=f=800:t=o:w=1.0:g=2.5,'
       'equalizer=f=3000:t=o:w=1.2:g=3.5,equalizer=f=250:t=o:w=0.8:g=-1')
@@ -75,9 +83,43 @@ def overlay(out, only):
     return _synth(mid, os.path.join(out, 'village_call.wav'), SF2, room=(0.5, 0.55, 0.8))
 
 
+def sampled(x, part):
+    """[part] played by the take's own lead: its notes cut from the intro, placed on the grid"""
+    import librosa
+    mono = x.mean(axis=1)
+    cuts = {}
+    on = librosa.onset.onset_detect(y=mono[:int(4.6 * SR)], sr=SR, hop_length=256, units='time', backtrack=True)
+    for name, t in TAKE_NOTES.items():
+        a = on[np.argmin(abs(on - t))]
+        b = on[on > a + 0.05][0] if np.any(on > a + 0.05) else a + 0.4
+        seg = x[int(a * SR):int(b * SR)].copy()
+        f = int(0.03 * SR)
+        seg[-f:] *= np.linspace(1, 0, f)[:, None]
+        f0, vf, _ = librosa.pyin(seg.mean(axis=1), fmin=150, fmax=1500, sr=SR, frame_length=4096, hop_length=256)
+        cuts[name] = (seg, float(np.nanmedian(f0[:12])))
+    tuning = librosa.estimate_tuning(y=mono[:int(80 * SR)], sr=SR)   # the take's offset from A440, in semitone fractions
+    y = np.zeros_like(x)
+    beat = 60 / BPM
+    for bar0, text in TAKE_PARTS[part][1]:
+        for t, d, p in melody(text, bar0):
+            name = librosa.midi_to_note(p, unicode=False).replace('♯', '#')
+            src, _ = TAKE_FROM[name]
+            seg, hz = cuts[src]
+            want = librosa.midi_to_hz(p + tuning)
+            r = want / hz
+            if abs(12 * np.log2(r)) > 0.15:   # retune (by resampling, as a played note would sound)
+                seg = np.stack([librosa.resample(seg[:, c], orig_sr=SR, target_sr=int(SR / r)) for c in (0, 1)], axis=1)
+            i = int((PHASE + t * beat) * SR)
+            y[i:i + len(seg)] += seg[:max(0, len(y) - i)]
+    return y
+
+
 def main(src, out, voice='glock'):
     global PARTS, TARGET, BARS
-    PARTS, TARGET, BARS = VOICES[voice]
+    if voice == 'take':
+        PARTS, TARGET, BARS = [], {k: v[2] for k, v in TAKE_PARTS.items()}, {k: v[0] for k, v in TAKE_PARTS.items()}
+    else:
+        PARTS, TARGET, BARS = VOICES[voice]
     os.makedirs(out, exist_ok=True)
     raw = subprocess.run(['ffmpeg', '-v', 'error', '-i', src, '-af', EQ, '-f', 'f32le', '-ac', '2', '-ar', str(SR), '-'],
                          capture_output=True, check=True).stdout
@@ -85,7 +127,7 @@ def main(src, out, voice='glock'):
     bar = 4 * 60 / BPM
     music = x.copy()
     for name in TARGET:
-        y = overlay(out, name)[:len(x)]
+        y = (sampled(music, name) if voice == 'take' else overlay(out, name))[:len(x)]
         idx = np.concatenate([np.arange(int((PHASE + (b - 1) * bar) * SR), int((PHASE + b * bar) * SR)) for b in BARS[name]])
         idx = idx[idx < len(y)]
         g = 10 ** (TARGET[name] / 20) * np.sqrt((music[idx] ** 2).mean()) / np.sqrt((y[idx] ** 2).mean())
