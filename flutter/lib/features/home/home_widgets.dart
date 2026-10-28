@@ -39,7 +39,14 @@ void _pushHome(BuildContext context, String name, WidgetBuilder builder) {
 
 void openHomeMap(BuildContext context) => _pushHome(context, 'homemap', (_) => const Ambience('home', child: VillageWalkScreen(map: 'home', arrive: 'nest')));
 void openGarden(BuildContext context) => _pushHome(context, 'garden', (_) => const Ambience('home', child: GardenScreen()));
-void openCottage(BuildContext context) => _pushHome(context, 'cottage', (_) => const Ambience('home', child: CottageScreen()));
+/// The Cottage: once restored, a room to walk into (you come in at the door); until then, its story screen.
+void openCottage(BuildContext context) {
+  if (context.read<GameController>().storyView.flag('cottage_restored')) {
+    _pushHome(context, 'walk:cottage', (_) => const Ambience('kitchen', child: VillageWalkScreen(map: 'cottage', arrive: 'home')));
+    return;
+  }
+  _pushHome(context, 'cottage', (_) => const Ambience('home', child: CottageScreen()));
+}
 void openStation(BuildContext context, String id) =>
     _pushHome(context, 'station:$id', (_) => Ambience(id == 'apothecary' ? 'apothecary' : 'kitchen', child: StationScreen(stationId: id)));
 void openSkills(BuildContext context, {String? skill}) => _pushHome(context, 'skills', (_) => SkillsScreen(initial: skill));

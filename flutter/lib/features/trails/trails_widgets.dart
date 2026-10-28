@@ -1215,33 +1215,7 @@ String guildBlurb(GameController c) {
 }
 
 /// The Square's Trail Guild Board row.
-class GuildBoardRow extends StatelessWidget {
-  const GuildBoardRow({super.key});
-  @override
-  Widget build(BuildContext context) {
-    final c = context.watch<GameController>();
-    final dot = c.state.player != null && c.guildAttention;
-    final blurb = guildBlurb(c);
-    return TapCard(
-      label: 'Trail Guild Board. $blurb${dot ? '. Something new' : ''}',
-      onTap: () => openGuild(context),
-      child: Row(children: [
-        const VoxelIcon('trail_badge', size: 40),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-            const Text('Trail Guild Board', style: EvochiText.cardTitle),
-            Text(blurb, style: EvochiText.caption),
-          ]),
-        ),
-        if (dot) ...[const BadgeDot(), const SizedBox(width: 4)],
-        homeChevron,
-      ]),
-    );
-  }
-}
-
-/// The Square's Lumen Trails places, once the Forest Guardian (ruins) or the Sentinel (gate) job
+/// The Lumen Trails places on the Guild board, once the Forest Guardian (ruins) or the Sentinel (gate) job
 /// reaches them.
 class TrailPlacesSection extends StatelessWidget {
   const TrailPlacesSection({super.key});

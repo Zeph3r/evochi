@@ -46,7 +46,7 @@ import 'flint_talk.dart';
 import 'forge_minigame.dart';
 import 'mining.dart';
 import 'mining_gear_ui.dart';
-import '../trails/trails_widgets.dart' show openPrep;
+import '../trails/trails_widgets.dart' show openGuild, openPrep;
 import 'story_widgets.dart';
 import 'village_screen.dart';
 
@@ -71,15 +71,21 @@ const _frontBias = 1.0; // world units: what is this much nearer than a characte
 const _shadowLong = 2.0; // characters' shadows drawn this much longer than the sun makes them
 
 /// Open the walkable village (the preview).
-void openVillageWalk(BuildContext context) =>
-    Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const Ambience('village', child: VillageWalkScreen())));
+/// The route name a walkable map goes by: the Square is 'village', the three houses 'place' (so openVillage
+/// and openPlace find them on the stack), anything else 'walk:<map>'.
+String walkRouteName(String map) => map == 'village' ? 'village' : (const {'lodge', 'glasshouse', 'workshop'}.contains(map) ? 'place' : 'walk:$map');
+
+/// A walkable map as a route: arriving by [at] (a way in, or null for a fresh visit), and with [talk] (an npc
+/// id, or 'waystone') the conversation opens as you arrive.
+Route<void> walkMapRoute(String map, {String? at, String? talk}) => _mapRoute(map, at, talk: talk);
 
 /// From one map to the next: this screen gives way to the other map's, arriving by [at].
-Route<void> _mapRoute(String map, String? at) => PageRouteBuilder<void>(
+Route<void> _mapRoute(String map, String? at, {String? talk}) => PageRouteBuilder<void>(
+      settings: RouteSettings(name: walkRouteName(map)),
       transitionDuration: const Duration(milliseconds: 450),
       reverseTransitionDuration: const Duration(milliseconds: 300),
       pageBuilder: (_, __, ___) => Ambience(switch (map) { 'home' => 'home', 'cottage' => 'kitchen', 'lodge' || 'glasshouse' || 'workshop' => villagePlace(map), _ => 'village' },
-          child: VillageWalkScreen(map: map, arrive: at)),
+          child: VillageWalkScreen(map: map, arrive: at, talk: talk)),
       transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: CurvedAnimation(parent: a, curve: Curves.easeInOut), child: child),
     );
 
@@ -480,11 +486,15 @@ const _routines = <String, (List<_Stop>, double, double, double)>{
 };
 
 class VillageWalkScreen extends StatefulWidget {
-  const VillageWalkScreen({super.key, this.map = 'village', this.arrive});
+  const VillageWalkScreen({super.key, this.map = 'village', this.arrive, this.talk});
 
   /// Which map ('village', 'trail'), and the way you came in (null: a fresh visit).
   final String map;
   final String? arrive;
+
+  /// Come to talk: an npc id ('npc_mira') or 'waystone'; the conversation opens as you arrive (a quest's
+  /// "Go to..." lands here).
+  final String? talk;
 
   /// The one on screen (the recorder drives it).
   static VillageWalkScreenState? current;
@@ -642,6 +652,17 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       if (from != null) me.dir = VillageWalker.dirOf(at.dx - from.$1, at.dy - from.$2);
     });
     _ticker = createTicker(_tick)..start();
+    final want = widget.talk;
+    if (want != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) return;
+        if (want == 'waystone') return _talkWaystone();
+        final n = _npcs.where((v) => v.id == want.replaceFirst('npc_', '')).firstOrNull;
+        if (n != null) _talkNow(n);
+      });
+    }
+    // story walks are checked on entering the Village and its houses
+    if (const {'village', 'lodge', 'glasshouse', 'workshop'}.contains(widget.map)) c.run((s, n) => q.storyTick(s, n), quiet: true);
   }
 
   /// What your Evochi wears here: the wearables, and on the trail and in the mines the mining loadout, a
@@ -1035,6 +1056,8 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       for (final n in _npcs) {
         if (n.id == talkId) p = Offset.lerp(p, l.toImage(n.x, n.z), 0.5)!;
       }
+      final w = l.spots['waystone'];
+      if (talkId == 'waystone' && w != null) p = Offset.lerp(p, l.toImage(w.dx, w.dy, 3), 0.5)!;
     }
     final visH = math.max(80.0, _view.height - panel); // the map you can see, from the top
     // your Evochi a little below the middle of it, as in the Wilds
@@ -1088,18 +1111,41 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       });
       return;
     }
-    if (const {'lodge', 'glasshouse', 'workshop'}.contains(n.place)) {
-      // a villager: the talk opens where they stand (the chathead panel), the world still behind
-      c_().audio.play('ui_tap', volume: 0.3);
-      setState(() => _talkNpc = 'npc_${n.id}');
+    // a villager: the talk opens where they stand (the chathead panel), the world still behind
+    c_().audio.play('ui_tap', volume: 0.3);
+    setState(() => _talkNpc = 'npc_${n.id}');
+  }
+
+  /// The Waystone in the middle of the Square: its talk opens where it stands.
+  void _talkWaystone() {
+    final l = lay;
+    if (_talking || l == null) return;
+    if (widget.map != 'village') {
+      Navigator.of(context).pushReplacement(_mapRoute('village', const {'lodge', 'glasshouse', 'workshop'}.contains(widget.map) ? widget.map : null, talk: 'waystone'));
       return;
     }
-    Navigator.of(context)
-        .push(MaterialPageRoute<void>(
-            settings: const RouteSettings(name: 'place'),
-            builder: (_) => Ambience(villagePlace(n.place), child: PlaceScreen(placeId: n.place, npc: 'npc_${n.id}'))))
-        .then((_) {
-      if (mounted) setState(() => _talking = false);
+    c_().audio.buzz(Haptic.tap);
+    c_().audio.play('ui_tap', volume: 0.3);
+    _rearm();
+    _leaveOre();
+    final w = l.spots['waystone'];
+    me.path = [];
+    me.moving = false;
+    if (w != null) me.dir = VillageWalker.dirOf(w.dx - me.x, w.dy - me.z);
+    setState(() {
+      _talking = true;
+      _talkNpc = 'waystone';
+    });
+  }
+
+  /// A hand-in landed: a warm flash over the map (a big golden one when the Waystone wakes).
+  String? _flare;
+  int _flareKey = 0;
+  void _onFlare(String kind) {
+    c_().audio.buzz(kind == 'restore' ? Haptic.win : Haptic.tap);
+    setState(() {
+      _flare = kind;
+      _flareKey++;
     });
   }
 
@@ -1141,7 +1187,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     } else if (to.startsWith('reward:')) {
       showStoryReward(context, to.substring(7), backToVillage: false);
     } else if (to == 'waystone') {
-      openPlace(context, 'waystone');
+      _talkWaystone();
     } else if (const {'lodge', 'glasshouse', 'workshop'}.contains(to)) {
       if (to == widget.map) return;
       if (widget.map == 'village') {
@@ -1239,6 +1285,16 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     }
     // a house (or the forge): tap any of it and your Evochi walks to its door and in
     final b = _buildingAt(l, p);
+    switch (b) {
+      case 'waystone':
+        return _talkWaystone();
+      case 'market':
+        c_().audio.buzz(Haptic.tap);
+        return c_().goTab('shop');
+      case 'board':
+        c_().audio.buzz(Haptic.tap);
+        return openGuild(context);
+    }
     if (b != null && l.exits.containsKey(b)) {
       c_().audio.buzz(Haptic.tap);
       // the Nest is home: tap it and you're back there at once
@@ -1579,7 +1635,26 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  child: ChatheadTalk(key: _talkKey, npc: _talkNpc!, forge: bramForges(c.state), onSwitch: _talkSwitch, onClose: _talkClose, onGoto: _talkGoto),
+                  child: ChatheadTalk(key: _talkKey, npc: _talkNpc!, forge: bramForges(c.state), onSwitch: _talkSwitch, onClose: _talkClose, onGoto: _talkGoto, onFlare: _onFlare),
+                ),
+              if (_flare != null)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: TweenAnimationBuilder<double>(
+                      key: ValueKey(_flareKey),
+                      tween: Tween(begin: 1, end: 0),
+                      duration: Duration(milliseconds: _flare == 'restore' ? 1800 : 900),
+                      builder: (_, v, __) => DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: RadialGradient(radius: 0.9, colors: [
+                            Color.fromRGBO(255, 236, 170, (_flare == 'restore' ? 0.85 : 0.4) * v),
+                            Color.fromRGBO(255, 214, 120, (_flare == 'restore' ? 0.35 : 0.12) * v),
+                            const Color(0x00FFD678),
+                          ]),
+                        ),
+                      ),
+                    ),
+                  ),
                 ),
             ]);
           }),
@@ -1642,6 +1717,12 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         _useExit(id);
       case 'anvil' when widget.map == 'workshop':
         _useExit('forge');
+      case 'waystone' when widget.map == 'village':
+        _talkWaystone();
+      case 'market' when widget.map == 'village':
+        c_().goTab('shop');
+      case 'board' when widget.map == 'lodge':
+        openGuild(context);
       case _ when _npcs.any((n) => n.id == id):
         talkTo(id);
       case 'cottage' || 'garden' || 'nook' || 'grove' || 'nest' when widget.map == 'home': // to a door: walk in
@@ -1658,12 +1739,19 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
 /// The houses you can tap to go in, per map: x0, x1, z0, z1 and height, keyed by the door's exit (in the
 /// Workshop, the anvil and the hearth: tap them to forge).
 const _buildings = <String, Map<String, (double, double, double, double, double)>>{
-  'village': {'lodge': (-10.0, 10.0, -44.0, -34.0, 15.0), 'glasshouse': (-40.0, -27.0, -10.0, 2.0, 12.0), 'workshop': (27.0, 40.0, -11.0, 1.0, 13.0)},
+  'village': {
+    'lodge': (-10.0, 10.0, -44.0, -34.0, 15.0),
+    'glasshouse': (-40.0, -27.0, -10.0, 2.0, 12.0),
+    'workshop': (27.0, 40.0, -11.0, 1.0, 13.0),
+    'waystone': (-2.6, 2.6, 3.4, 8.6, 7.5),
+    'market': (-23.0, -8.0, 20.0, 28.0, 7.0),
+  },
+  'lodge': {'board': (-9.0, -1.5, -10.8, -8.6, 6.5)},
   'home': {'cottage': (-24.0, -8.0, -31.0, -19.5, 12.0), 'nook': (-8.0, 0.5, -28.5, -21.5, 7.0), 'nest': (-17.0, -3.6, 7.0, 19.0, 2.4)},
   'workshop': {'forge': (-5.2, -0.4, -5.0, -2.0, 3.4)},
 };
 
-const _villageTravel = [('lodge', 'mail', 'Guild'), ('glasshouse', 'care', 'Glasshouse'), ('workshop', 'bell', 'Workshop'), ('waystone', 'star', 'Waystone'), ('trail', 'trail', 'Old Trail')];
+const _villageTravel = [('lodge', 'mail', 'Guild'), ('glasshouse', 'care', 'Glasshouse'), ('workshop', 'bell', 'Workshop'), ('waystone', 'star', 'Waystone'), ('market', 'shop', 'Market'), ('trail', 'trail', 'Old Trail')];
 const _workshopTravel = [('bram', 'bell', 'Bram'), ('anvil', 'aff_stone', 'Anvil'), ('bench', 'gem', 'Bench'), ('village', 'trail', 'Square')];
 const _glasshouseTravel = [('mira', 'care', 'Mira'), ('bench', 'skill_farming', 'Bench'), ('beds', 'aff_nature', 'Beds'), ('village', 'trail', 'Square')];
 const _lodgeTravel = [('pip', 'mail', 'Pip'), ('alder', 'journey', 'Alder'), ('board', 'pin', 'Board'), ('fire', 'aff_ember', 'Fire'), ('village', 'trail', 'Square')];
@@ -1890,6 +1978,15 @@ class _WalkPainter extends CustomPainter {
         y -= 34;
       }
       if (mark != null) _marker(canvas, Offset(head.dx, y - 4 * math.sin(s._t * 3.2).abs()), mark == 'handin');
+    }
+    if (s.widget.map == 'village') {
+      for (final e in _buildings['village']!.entries) {
+        final mark = e.key == 'waystone' ? marks['waystone'] : q.places[e.key]?.npcs.map((n) => marks[n]).whereType<String>().firstOrNull;
+        if (mark == null) continue;
+        final (x0, x1, z0, z1, h) = e.value;
+        final top = scr(l.toImage((x0 + x1) / 2, (z0 + z1) / 2, h + 1.5));
+        _marker(canvas, top - Offset(0, 4 * math.sin(s._t * 3.2).abs()), mark == 'handin');
+      }
     }
     canvas.restore();
   }

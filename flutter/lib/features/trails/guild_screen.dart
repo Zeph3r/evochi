@@ -89,6 +89,8 @@ class _GuildScreenState extends State<GuildScreen> {
                     const SizedBox(height: 4),
                     const SectionHead('Trail jobs', trailing: Tag('Encounters')),
                     for (final v in st.trail) TrailQuestRow(v),
+                    // the places a trail job has reached (they used to hang on the Square's notice board)
+                    const TrailPlacesSection(),
                     if (friends.isNotEmpty) ...[
                       const SizedBox(height: 4),
                       const SectionHead('Friends of the trail'),

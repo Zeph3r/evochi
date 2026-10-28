@@ -26,12 +26,13 @@ import 'story_widgets.dart';
 typedef TalkGoto = void Function(String to);
 
 class ChatheadTalk extends StatefulWidget {
-  const ChatheadTalk({super.key, required this.npc, required this.onSwitch, required this.onClose, required this.onGoto, this.forge = false});
-  final String npc; // npc_bram, npc_mira, npc_pip, npc_alder
+  const ChatheadTalk({super.key, required this.npc, required this.onSwitch, required this.onClose, required this.onGoto, this.forge = false, this.onFlare});
+  final String npc; // npc_bram, npc_mira, npc_pip, npc_alder, or 'waystone' (the stone in the Square)
   final ValueChanged<String> onSwitch; // another villager in the same room takes over
   final VoidCallback onClose;
   final TalkGoto onGoto;
   final bool forge; // Bram's forge is open to you (ore has been mined)
+  final ValueChanged<String>? onFlare; // something was handed in: 'give', or 'restore' (the Waystone wakes)
 
   @override
   State<ChatheadTalk> createState() => _ChatheadTalkState();
@@ -51,7 +52,7 @@ class _ChatheadTalkState extends State<ChatheadTalk> with SingleTickerProviderSt
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) context.read<GameController>().run((s, n) => q.markNpcMet(s, widget.npc), quiet: true);
+      if (mounted && widget.npc != 'waystone') context.read<GameController>().run((s, n) => q.markNpcMet(s, widget.npc), quiet: true);
     });
   }
 
@@ -61,7 +62,7 @@ class _ChatheadTalkState extends State<ChatheadTalk> with SingleTickerProviderSt
     if (old.npc != widget.npc) {
       _node = null;
       final c = context.read<GameController>();
-      if (c.state.story.npcsMet[widget.npc] != true) c.run((s, t) => q.markNpcMet(s, widget.npc), quiet: true);
+      if (widget.npc != 'waystone' && c.state.story.npcsMet[widget.npc] != true) c.run((s, t) => q.markNpcMet(s, widget.npc), quiet: true);
     }
   }
 
@@ -152,6 +153,7 @@ class _ChatheadTalkState extends State<ChatheadTalk> with SingleTickerProviderSt
         c.toast('Story quest started: ${q.storyQuests[act.quest]!.title}', icon: 'journey');
       } else {
         c.audio.play(act.turnIn == 'restore' ? 'evolve_fanfare' : 'purchase');
+        widget.onFlare?.call(act.turnIn == 'restore' ? 'restore' : 'give');
       }
       return;
     }
@@ -279,7 +281,11 @@ class Chathead extends StatelessWidget {
     final va = villageArt;
     final art = va.puppet(npcId);
     Widget inner;
-    if (art != null) {
+    if (npcId == 'waystone') {
+      // the stone itself, its runes in the frame (lit once it is restored)
+      final restored = context.watch<GameController>().storyView.flag('waystone_restored');
+      inner = Image.asset(va.waystone(restored: restored), fit: BoxFit.cover, alignment: const Alignment(0, -0.2), excludeFromSemantics: true, gaplessPlayback: true);
+    } else if (art != null) {
       final head = art.layers.where((l) => l.part == 'head').firstOrNull?.box ?? Rect.fromLTWH(0, 0, art.w, art.h * 0.45);
       final s = size * 0.82 / head.height;
       final centre = head.center;
