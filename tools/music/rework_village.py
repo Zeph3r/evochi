@@ -44,12 +44,15 @@ VOICES = {
 PARTS, TARGET, BARS = VOICES['glock']
 
 # the take's own lead, sampled: in the intro (0-3.7 s) it plays alone, so its notes are cut from there (onset to the
-# next onset, from the mixed and EQ'd take) and replayed as the call; F#5 and E5 are its G5 and D5 nudged down 1 and
-# up 2 semitones, everything retuned to the take's own tuning
+# next onset, from the mixed and EQ'd take) and replayed as the call, each note from the nearest cut one (F#5 from
+# its G5, E5 from its D5), everything retuned to the take's own tuning
 TAKE_NOTES = {'A4': 2.29, 'D5': 2.87, 'B4': 3.23, 'G5': 1.74}
-TAKE_FROM = {'A4': ('A4', 0), 'D5': ('D5', 0), 'B4': ('B4', 0), 'F#5': ('G5', -1), 'E5': ('D5', 2)}
+# the whole call, with one note changed: bar 28's D on beat 3.5 sat against the take's G# (a tritone), so it holds E
+CALL_FIT = HEAD + ' | B4 .5 D5 .5 E5 2 B4 1'
 TAKE_PARTS = {'take_answers': ((4, 12, 20), [(b, HEAD) for b in (3, 11, 19)], -3.0),
-              'take_call': ((27, 28), [(26, CALL)], -3.0)}
+              'take_call': ((27, 28), [(26, CALL_FIT)], -3.0),
+              # a second voice a third (or a sixth) below, softer: harmony fitted to the chord under every note
+              'take_harm': ((4, 12, 20, 27, 28), 'harmony', -8.0)}
 # the lead as it sounds in the body of the song (bars 5-7, 13-15, 21-23, 29-31): its harmonics re the fundamental
 # (dB) and its share of the mix there (about -1.4 dB, so the call sits at -3 dB: as strong as the take's own tune).
 # The intro's notes are played softer (H2 -8 there against +1 here) and carry the bass under them, which read muddy.
@@ -116,6 +119,48 @@ def overlay(out, only):
     return _synth(mid, os.path.join(out, 'village_call.wav'), SF2, room=(0.5, 0.55, 0.8))
 
 
+D_MAJOR = {2, 4, 6, 7, 9, 11, 1}
+
+
+def harmony(x):
+    """the harmony line under every call note: from the D major notes a third or a sixth below the melody, one that is
+    a chord tone of what the take plays as the note starts (its chroma) and never a semitone from one, moving as
+    smoothly as it can from the note before"""
+    import librosa
+    mono = x.mean(axis=1)
+    hop = 512
+    C = librosa.feature.chroma_cqt(y=librosa.effects.harmonic(mono[:int(80 * SR)]), sr=SR, hop_length=hop, bins_per_octave=36)
+    ft = librosa.frames_to_time(np.arange(C.shape[1]), sr=SR, hop_length=hop)
+    beat = 60 / BPM
+    notes = []
+    for bar0, text in [(3, HEAD), (11, HEAD), (19, HEAD), (26, CALL_FIT)]:
+        prev, phrase = None, len(notes)
+        for t, d, p in melody(text, bar0):
+            a = PHASE + t * beat
+            v = C[:, (ft >= a) & (ft < a + min(d, 1.0) * beat)].mean(axis=1)   # the chord as the note starts
+            v = v / v.max()
+            tones = {i for i in range(12) if v[i] > 0.5}
+            best = None
+            for down, pref in ((3, 0), (4, 0), (8, 1), (9, 1)):
+                h = p - down
+                pc = h % 12
+                if pc not in D_MAJOR:
+                    continue
+                if any(min((pc - c) % 12, (c - pc) % 12) == 1 for c in tones if c != pc):
+                    continue
+                leap = 0 if prev is None else abs(h - prev)
+                score = (0 if pc in tones else 1, leap > 4, pref, leap)   # a chord tone; then a smooth line
+                if best is None or score < best[0]:
+                    best = (score, h)
+            if best:
+                notes.append((t, d, best[1]))
+                prev = best[1]
+        # a first note that would leap to the second: the melody starts alone, the harmony joins on its second note
+        if len(notes) - phrase > 1 and abs(notes[phrase][2] - notes[phrase + 1][2]) > 5:
+            del notes[phrase]
+    return notes
+
+
 def sampled(x, part):
     """[part] played by the take's own lead: its notes cut from the intro, placed on the grid"""
     import librosa
@@ -134,17 +179,17 @@ def sampled(x, part):
     tuning = librosa.estimate_tuning(y=mono[:int(80 * SR)], sr=SR)   # the take's offset from A440, in semitone fractions
     y = np.zeros_like(x)
     beat = 60 / BPM
-    for bar0, text in TAKE_PARTS[part][1]:
-        for t, d, p in melody(text, bar0):
-            name = librosa.midi_to_note(p, unicode=False).replace('♯', '#')
-            src, _ = TAKE_FROM[name]
-            seg, hz = cuts[src]
-            want = librosa.midi_to_hz(p + tuning)
-            r = want / hz
-            if abs(12 * np.log2(r)) > 0.15:   # retune (by resampling, as a played note would sound)
-                seg = np.stack([librosa.resample(seg[:, c], orig_sr=SR, target_sr=int(SR / r)) for c in (0, 1)], axis=1)
-            i = int((PHASE + t * beat) * SR)
-            y[i:i + len(seg)] += seg[:max(0, len(y) - i)]
+    plan = TAKE_PARTS[part][1]
+    plays = harmony(x) if plan == 'harmony' else [n for bar0, text in plan for n in melody(text, bar0)]
+    have = {librosa.note_to_midi(k): k for k in TAKE_NOTES}
+    for t, d, p in plays:
+        seg, hz = cuts[have[min(have, key=lambda m: (abs(m - p), m > p))]]   # the nearest cut note
+        want = librosa.midi_to_hz(p + tuning)
+        r = want / hz
+        if abs(12 * np.log2(r)) > 0.15:   # retune (by resampling, as a played note would sound)
+            seg = np.stack([librosa.resample(seg[:, c], orig_sr=SR, target_sr=int(SR / r)) for c in (0, 1)], axis=1)
+        i = int((PHASE + t * beat) * SR)
+        y[i:i + len(seg)] += seg[:max(0, len(y) - i)]
     return y
 
 
