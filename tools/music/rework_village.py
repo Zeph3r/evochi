@@ -48,8 +48,41 @@ PARTS, TARGET, BARS = VOICES['glock']
 # up 2 semitones, everything retuned to the take's own tuning
 TAKE_NOTES = {'A4': 2.29, 'D5': 2.87, 'B4': 3.23, 'G5': 1.74}
 TAKE_FROM = {'A4': ('A4', 0), 'D5': ('D5', 0), 'B4': ('B4', 0), 'F#5': ('G5', -1), 'E5': ('D5', 2)}
-TAKE_PARTS = {'take_answers': ((4, 12, 20), [(b, HEAD) for b in (3, 11, 19)], -8.0),
-              'take_call': ((27, 28), [(26, CALL)], -6.0)}
+TAKE_PARTS = {'take_answers': ((4, 12, 20), [(b, HEAD) for b in (3, 11, 19)], -3.0),
+              'take_call': ((27, 28), [(26, CALL)], -3.0)}
+# the lead as it sounds in the body of the song (bars 5-7, 13-15, 21-23, 29-31): its harmonics re the fundamental
+# (dB) and its share of the mix there (about -1.4 dB, so the call sits at -3 dB: as strong as the take's own tune).
+# The intro's notes are played softer (H2 -8 there against +1 here) and carry the bass under them, which read muddy.
+LEAD_SHAPE = [0, 1, -14, -10, -34, -27, -35, -27]
+
+
+def clean(seg, hz):
+    """one cut note made the lead alone, at its body-of-the-song tone: only its own harmonics kept (everything
+    between, the bass and pads under it, down 24 dB), each harmonic set to LEAD_SHAPE; the first 12 ms (the strike)
+    kept whole above the fundamental"""
+    import librosa
+    n_fft, hop = 2048, 256
+    fr = librosa.fft_frequencies(sr=SR, n_fft=n_fft)
+    out = []
+    for c in (0, 1):
+        S = librosa.stft(seg[:, c], n_fft=n_fft, hop_length=hop)
+        A = np.abs(S).mean(axis=1)
+        mask = np.full(len(fr), 10 ** (-24 / 20))
+        own = []
+        for k in range(1, 9):
+            j = np.abs(fr - hz * k) < max(14.0, hz * k * 0.03)
+            own.append(A[j].max() if j.any() else 1e-9)
+        own = 20 * np.log10(np.array(own) / own[0])
+        for k in range(1, 9):
+            j = np.abs(fr - hz * k) < max(14.0, hz * k * 0.03)
+            mask[j] = 10 ** (np.clip(LEAD_SHAPE[k - 1] - own[k - 1], -6, 15) / 20)
+        y = librosa.istft(S * mask[:, None], hop_length=hop, length=len(seg))
+        hp = np.where(fr > hz * 0.7, 1.0, 0.0)
+        strike = librosa.istft(S * hp[:, None], hop_length=hop, length=len(seg))
+        k = int(0.012 * SR)
+        w = np.ones(len(seg)); w[:k] = 0; w[k:k + k] = np.linspace(0, 1, k)
+        out.append(y * w + strike * (1 - w))
+    return np.stack(out, axis=1).astype(np.float32)
 
 # the take's tone: rumble out, body and presence up, the very top left alone
 EQ = ('highpass=f=38:poles=2,equalizer=f=55:t=q:w=1.0:g=-8,equalizer=f=800:t=o:w=1.0:g=2.5,'
@@ -96,7 +129,8 @@ def sampled(x, part):
         f = int(0.03 * SR)
         seg[-f:] *= np.linspace(1, 0, f)[:, None]
         f0, vf, _ = librosa.pyin(seg.mean(axis=1), fmin=150, fmax=1500, sr=SR, frame_length=4096, hop_length=256)
-        cuts[name] = (seg, float(np.nanmedian(f0[:12])))
+        hz = float(np.nanmedian(f0[:12]))
+        cuts[name] = (clean(seg, hz), hz)
     tuning = librosa.estimate_tuning(y=mono[:int(80 * SR)], sr=SR)   # the take's offset from A440, in semitone fractions
     y = np.zeros_like(x)
     beat = 60 / BPM
