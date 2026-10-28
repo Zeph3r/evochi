@@ -135,6 +135,40 @@ class AudioService {
   }
 
   Future<void> play(String name, {double volume = 0.8}) async {
+    if (name == 'ui_tap') {
+      // a tap that opens or closes a screen is heard as that screen's marimba (nav), not as both: the tap
+      // waits a moment (to the end of the handler that made it), and a screen change in that moment folds it in
+      if (_sinceNav() < _navGap) return;
+      final k = ++_tapToken;
+      scheduleMicrotask(() {
+        if (k == _tapToken) _play(name, volume);
+      });
+      return;
+    }
+    return _play(name, volume);
+  }
+
+  // ---- screens opening and closing (core/services/nav_sound.dart tells): the marimba plays the call's first
+  // two notes, A4 then D5, as one opens; D5 then A4 as one closes
+  static const _navGap = Duration(milliseconds: 250);
+  int _tapToken = 0;
+  DateTime _navAt = DateTime.fromMillisecondsSinceEpoch(0);
+  DateTime _hushUntil = DateTime.fromMillisecondsSinceEpoch(0);
+  Duration _sinceNav() => DateTime.now().difference(_navAt);
+
+  /// A screen opening ([forward]) or closing. One sound for one moment: a run of pops makes one.
+  void nav({required bool forward}) {
+    final now = DateTime.now();
+    if (now.isBefore(_hushUntil) || _sinceNav() < _navGap) return;
+    _navAt = now;
+    _tapToken++; // the tap that did it
+    _play(forward ? 'ui_open' : 'ui_back', 0.45);
+  }
+
+  /// The screen change about to happen is quiet: walking through a door or out along a path, not a button.
+  void hushNav() => _hushUntil = DateTime.now().add(const Duration(milliseconds: 400));
+
+  Future<void> _play(String name, double volume) async {
     final rec = record;
     if (rec != null) {
       rec.add({'t': clock?.call() ?? 0, 'sfx': name, 'vol': volume});

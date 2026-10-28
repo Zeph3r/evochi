@@ -4026,7 +4026,9 @@
   "mine_obsidian_crack": "sfx/mine_obsidian_crack.mp3",
   "mine_obsidian_break": "sfx/mine_obsidian_break.mp3",
   "mine_collect": "sfx/mine_collect.mp3",
-  "mine_clink": "sfx/mine_clink.mp3"
+  "mine_clink": "sfx/mine_clink.mp3",
+  "ui_open": "sfx/ui_open.mp3",
+  "ui_back": "sfx/ui_back.mp3"
  },
  "thumbs": {
   "file": "chars/thumbs.webp",

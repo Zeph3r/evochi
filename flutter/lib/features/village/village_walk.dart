@@ -818,6 +818,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     if (v == null) return;
     final (x, z, _, to, at) = v;
     _leaving = true;
+    context.read<GameController>().audio.hushNav(); // walked out: the new place's sounds say it, not a button's
     me.path = const [];
     me.moving = false;
     final hook = onExit;

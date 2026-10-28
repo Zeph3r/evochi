@@ -1,4 +1,5 @@
 """Synthesised sound effects for Evochi (soft, cozy, low-volume). Writes 16-bit mono WAVs."""
+# ui_tap, reward_chime and error_bonk are now played on the soundtrack's marimba and glockenspiel: tools/music/evochi_ui_sfx.py
 import os
 import sys
 import wave

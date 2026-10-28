@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../controllers/game_controller.dart';
+import '../core/services/nav_sound.dart';
 import '../features/home/home_widgets.dart';
 import '../features/shared/kit.dart';
 import '../features/shared/widgets.dart';
@@ -16,6 +17,7 @@ class EvochiApp extends StatefulWidget {
 
 class _EvochiAppState extends State<EvochiApp> with WidgetsBindingObserver {
   bool _precached = false;
+  late final _navSound = NavSound(() => context.read<GameController>().audio);
 
   @override
   void initState() {
@@ -58,6 +60,7 @@ class _EvochiAppState extends State<EvochiApp> with WidgetsBindingObserver {
     return MaterialApp(
       title: 'Evochi',
       navigatorKey: rootNavigatorKey,
+      navigatorObservers: [_navSound],
       debugShowCheckedModeBanner: false,
       theme: evochiTheme(),
       builder: (context, child) {
