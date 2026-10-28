@@ -24,7 +24,7 @@ import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import '../village/story_widgets.dart';
-import '../wilds/wilds_screen.dart';
+import '../wilds/descent_sheet.dart';
 import 'chest_reveal.dart';
 
 class JourneyScreen extends StatefulWidget {
@@ -528,8 +528,8 @@ class _RingPainter extends CustomPainter {
 }
 
 
-/// The way into the Lumen Wilds: the Sunlit Thicket, and once you have been below it, the deepest floor
-/// of Fernwood Trail you have reached.
+/// The way into the Lumen Wilds: the entrance asks where to start (the Sunlit Thicket, or the deepest
+/// floor of Fernwood Trail you have reached).
 class _WildsCard extends StatelessWidget {
   const _WildsCard();
 
@@ -556,27 +556,13 @@ class _WildsCard extends StatelessWidget {
           ),
         ]),
         const SizedBox(height: 8),
-        Row(children: [
-          Expanded(
-            child: EvochiButton(
-              label: 'Sunlit Thicket',
-              tone: ButtonTone.green,
-              small: true,
-              onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => const WildsScreen())),
-            ),
-          ),
-          if (deepest >= 2) ...[
-            const SizedBox(width: 8),
-            Expanded(
-              child: EvochiButton(
-                label: 'Go to F$deepest',
-                tone: ButtonTone.cream,
-                small: true,
-                onPressed: () => Navigator.of(context).push(MaterialPageRoute(builder: (_) => WildsScreen(depth: deepest))),
-              ),
-            ),
-          ],
-        ]),
+        // one way in, the same as the arch on the Old Trail: from the top, or down to the deepest floor
+        EvochiButton(
+          label: deepest >= 2 ? 'Enter the Wilds' : 'Enter the Sunlit Thicket',
+          tone: ButtonTone.green,
+          small: true,
+          onPressed: () => enterDescent(context, mine: false),
+        ),
       ]),
     );
   }

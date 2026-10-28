@@ -165,6 +165,26 @@ ActionResult wildsReach(GameState state, int floor, int now) {
   return ActionResult(s, events: [GameEvent('wilds_reached', {'floor': floor, 'glimmer': m == null ? 0 : 25})]);
 }
 
+// ---- Flint's mine keeps its own depth (its galleries are not the Deep Wilds' floors)
+String mineReachFlag(int floor) => 'mine_f${floor}_reached';
+
+/// The deepest gallery of the mine ever reached (1: only the first).
+int deepestMineFloor(GameState s) {
+  var d = 1;
+  while (s.flags[mineReachFlag(d + 1)] == true) {
+    d++;
+  }
+  return d;
+}
+
+/// You went down the mine's shaft to [floor]: remembered, so the mouth can take you straight back down.
+ActionResult mineReach(GameState state, int floor, int now) {
+  if (state.flags[mineReachFlag(floor)] == true) return ActionResult(state);
+  final s = state.copy();
+  s.flags[mineReachFlag(floor)] = true;
+  return ActionResult(s, events: [GameEvent('mine_reached', {'floor': floor})]);
+}
+
 // ---- the Hollow Surge: now and then, from F5, a floor you go down to is churning with the Hollow. Its
 // creatures are tougher; calming it breaks the Surge and spills a Lumen cache (the Wilds screen). It is
 // only ever found by going down the steps: never bought, never sold, no Glimmer anywhere near it.

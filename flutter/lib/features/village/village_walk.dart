@@ -40,7 +40,7 @@ import '../home/companions_sheet.dart';
 import '../home/home_widgets.dart' show goHome, openCottage, openGarden, openSkills, openStation;
 import '../home/nook_sheet.dart';
 import '../wilds/wilds_art.dart';
-import '../wilds/wilds_screen.dart';
+import '../wilds/descent_sheet.dart';
 import 'chathead_talk.dart';
 import 'forge_minigame.dart';
 import 'mining.dart';
@@ -827,17 +827,12 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       Navigator.of(context).pushReplacement(_mapRoute(to, at));
     } else if (key == 'home') {
       Navigator.of(context).maybePop();
-    } else if (key == 'mine') {
-      _enterMine(x, z);
+    } else if (key == 'mine' || key == 'thicket') {
+      _enterDepths(key, mine: key == 'mine');
     } else if (_indoors || widget.map == 'home') {
       _door(key);
     } else {
-      final say = switch (key) {
-        'mine' => "Flint's still shoring up the mine's timbers. It opens soon.",
-        'thicket' => 'The Sunlit Thicket lies beyond the arch. Its paths open soon.',
-        _ => 'This way opens soon.',
-      };
-      context.read<GameController>().toast(say, icon: key == 'mine' ? 'aff_stone' : 'aff_nature');
+      context.read<GameController>().toast('This way opens soon.', icon: 'aff_nature');
     }
   }
 
@@ -937,25 +932,29 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     if (mounted) setState(() {});
   }
 
-  /// Into the mine: its first gallery (a floor made by the Wilds' room kit, mine: true). Back out, your
-  /// Evochi stands in the mouth again, facing the yard.
-  Future<void> _enterMine(double x, double z) async {
+  /// Into the mine, or through the arch into the Lumen Wilds: the entrance asks where to start (the top,
+  /// or the deepest floor you have reached: wilds/descent_sheet.dart). "Not now", your Evochi steps back
+  /// out of the way in; back up from below, it stands outside again, facing the yard.
+  Future<void> _enterDepths(String key, {required bool mine}) async {
     final c = context.read<GameController>();
-    c.audio.play('enc_whoosh', volume: 0.5);
-    final day = DateTime.now().toUtc().millisecondsSinceEpoch ~/ 86400000;
-    await Navigator.of(context).push(PageRouteBuilder<void>(
-      transitionDuration: const Duration(milliseconds: 600),
-      pageBuilder: (_, __, ___) => WildsScreen(depth: 1, seed: day * 131 + 1, mine: true),
-      transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: a, child: child),
-    ));
+    final depth = await showDescentSheet(context, mine: mine);
     if (!mounted) return;
     final l = lay;
-    final spot = l?.spots['mine'];
+    final spot = l?.spots[key];
+    if (depth == null) {
+      _leaving = false;
+      if (spot != null) walkTo(spot.dx, spot.dy);
+      return;
+    }
+    c.audio.play('enc_whoosh', volume: 0.5);
+    await Navigator.of(context).push(descentRoute(context, depth, mine: mine));
+    if (!mounted) return;
+    final e = l?.exits[key];
     me
       ..path = const []
       ..moving = false
-      ..x = spot?.dx ?? x
-      ..z = (spot?.dy ?? z + 4)
+      ..x = spot?.dx ?? (e?.$1 ?? me.x)
+      ..z = spot?.dy ?? ((e?.$2 ?? me.z) + 4)
       ..dir = 0;
     if (l != null) me.y = l.heightAt(me.x, me.z);
     _leaving = false;

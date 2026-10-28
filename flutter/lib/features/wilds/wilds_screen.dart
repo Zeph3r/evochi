@@ -1204,7 +1204,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     if (r == null) return;
     final c = context.read<GameController>();
     final seed = DateTime.now().microsecondsSinceEpoch & 0x7fffffff;
-    final res = c.run((s, n) => w.wildsDescend(s, depth, seed, n), quiet: true);
+    // the mine keeps its own depth; the Deep Wilds' floors (and the Surge's roll) are only the Wilds'
+    final res = widget.mine ? c.run((s, n) => w.mineReach(s, depth, n), quiet: true) : c.run((s, n) => w.wildsDescend(s, depth, seed, n), quiet: true);
     final surge = res.events.any((e) => e.type == 'hollow_surge');
     c.audio.play('enc_whoosh', volume: 0.6);
     c.analytics.track('wilds_descend', {'floor': depth, 'surge': surge});
