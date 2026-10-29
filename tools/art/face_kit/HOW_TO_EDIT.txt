@@ -1,0 +1,27 @@
+Editing the Evochi combat faces by hand
+=======================================
+
+Each face is one SVG file, named personality_stage_state.svg, for example brave_eggling_fierce.svg.
+  svg/        the 54 faces from the Expression Style Kit (6 personalities x 3 stages x shout, strain, fierce)
+  overrides/  corrected faces. If a face is in here, the game uses it instead of the one in svg/.
+              (Right now: brave_eggling_fierce.svg.) To change a face and keep the kit's original, save your
+              version into overrides/ under the same name.
+
+Open them in any vector editor: Inkscape (free), Illustrator, Affinity Designer or Figma.
+
+Rules that keep it lining up on the model:
+- Keep the canvas 256 x 160.
+- The model's eyes are fixed at these points on the canvas (eye centres): left (84, 82), right (173, 82).
+  The face is laid on the model so those two points sit on its eyes. Move a feature and only that feature
+  moves.
+- Colours that change with the Evochi's colour:
+    #2D2928  eyes and brows (becomes each colour's eye colour; Obsidian's eyes are light)
+    #FFFCF9  eye highlights
+    #ECA096  cheeks (the cheek colour of each Evochi colour)
+  Every other colour is used as it is: mouth #712E37 / #963C42, mouth outline #8E4444, tongue #E98D87,
+  teeth #FFFBF2, sweat #AFC5C7. Keep to these colours so the face matches the rest.
+- Use plain filled shapes and strokes. Blurs, gradients, filters, text and embedded pictures don't carry
+  over: on the model each spot becomes one solid colour.
+
+When you're done, leave your files in this folder (_transfer/face_kit/) and tell me which ones changed.
+I'll bring them into the project and re-render the check sheet and the game's cinematic art.

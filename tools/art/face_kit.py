@@ -44,14 +44,13 @@ def parse(expr):
     return state, (pers or 'brave')
 
 
-@functools.lru_cache(None)
+# where each stage's eyes sit in the kit's 256 x 160 face space (x of the left and right eye centres, y): the
+# registration onto the model's own eye centres. Fixed, so hand-editing an SVG moves only what you move.
+EYES = {1: (83.95, 172.95, 82.05), 2: (84.0, 173.0, 82.0), 3: (84.05, 173.05, 81.95)}
+
+
 def _eyes(stage):
-    """the kit's eye centres for a stage (its open-eyed shout): x left, x right, y"""
-    svg = open(os.path.join(KIT, 'svg', 'brave_%s_shout.svg' % STAGE_NAMES[stage])).read()
-    rects = [tuple(float(v) for v in m) for m in
-             re.findall(r'<rect x="([\d.]+)" y="([\d.]+)" width="([\d.]+)" height="([\d.]+)" rx="[\d.]+" fill="%s"' % INK, svg)]
-    (x0, y0, w0, h0), (x1, y1, w1, h1) = sorted(rects)[:2]
-    return x0 + w0 / 2, x1 + w1 / 2, (y0 + h0 / 2 + y1 + h1 / 2) / 2
+    return EYES[stage]
 
 
 def mapping(ch):
