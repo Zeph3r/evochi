@@ -188,14 +188,20 @@ def open_jaw(ch, P, deg, J=None):
         N.m[walls & (M.Z > zback + 1.0)] = N.mid('mouth_in')
         N.m[skin] = M.m[skin]
     # surfaces round the hole: palate above, the jaw's floor and tongue below, lips at the front edges
+    inner = hole | (walls & (N.m > 0))       # the mouth's inside: its air and its walls
     up = np.roll(hole, -1, axis=1)          # the voxel above is hole
     dn = np.roll(hole, 1, axis=1)           # the voxel below is hole
+    up_w = np.roll(inner, -1, axis=1)
+    dn_w = np.roll(inner, 1, axis=1)
     side = np.roll(hole, 1, axis=0) | np.roll(hole, -1, axis=0)
     filled = N.m > 0
     outside = ~filled & ~hole & ~P['head_shape']
     front_open = np.roll(outside, -1, axis=2) | np.roll(~filled & ~hole, -1, axis=2)
     palate = filled & dn & ~jaw_after
     floor = filled & up & jaw_after
+    if deg > 0:                              # the inside next to the back wall and inner cheeks too
+        N.m[filled & dn_w & ~jaw_after & ~palate & ~walls] = N.mid('mouth_in')
+        N.m[filled & up_w & jaw_after & ~floor & ~walls] = N.mid('mouth_in')
     cheek_in = filled & side & ~palate & ~floor
     N.m[cheek_in] = N.mid('mouth_in')
     N.m[palate] = N.mid('mouth_in')
@@ -204,19 +210,29 @@ def open_jaw(ch, P, deg, J=None):
     N.m[floor & ~tongue_zone] = N.mid('mouth_in')
     lip = ((palate | floor) & front_open)
     N.m[lip] = N.mid('lip')
-    # two fangs on the upper lip, inside the opening
+    # two fangs, modelled: straight down from the upper lip, their fronts flush with the lip's, tapering to a point
+    #   ###      three voxels at the lip, two deep
+    #    #       the point, one voxel, two deep
     fangs = np.zeros(M.m.shape, bool)
     if deg > 0:
+        free = (N.m == 0) | hole
         for sgn in (-1, 1):
             x = sgn * J['width'] * 0.58
-            col = palate & (np.abs(M.X - x) < 0.6)
-            if col.any():
-                zf = M.Z[col].max()
-                yp = M.Y[col & (M.Z > zf - 0.6)].min()
-                # a small fang: two voxels wide at the lip, one at the tip, three long
-                for k, (hw, dy) in enumerate(((0.5, 0.0), (0.5, -0.5), (0.25, -1.0))):
-                    fangs |= hole & (np.abs(M.X - x) < hw) & (M.Z > zf - 1.1) & (M.Z <= zf + 0.3) & (np.abs(M.Y - (yp - 0.5 + dy)) < 0.26)
+            i0 = int(np.argmin(np.abs(M.X[:, 0, 0] - x)))              # the voxel column nearest
+            cols = palate[i0]
+            if not cols.any():
+                continue
+            js, ks = np.nonzero(cols)
+            kf = ks.max()                                              # the lip's front
+            jl = js[ks == kf].min()                                    # the lip's underside, at the front
+            for r, (half, deep) in enumerate(((1, 2), (0, 2))):
+                j = jl - 1 - r
+                for di in range(-half, half + 1):
+                    for dk in range(deep):
+                        if free[i0 + di, j, kf - dk]:
+                            fangs[i0 + di, j, kf - dk] = True
         N.m[fangs] = N.mid('teeth')
+        N.glow[fangs] = 0.35                 # teeth stay white in the mouth's shade
     stats = dict(jaw_voxels=int(jaw.sum()), jaw_moved=int(keep.sum()), collide=int(collide.sum()),
                  added=int((walls.sum() if deg > 0 else 0) + fangs.sum()), hole=int(hole.sum()),
                  recoloured=int((palate | floor | cheek_in).sum()), fangs=int(fangs.sum()))
