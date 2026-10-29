@@ -71,6 +71,12 @@ def palette(variant: str) -> dict:
         'outline': '#3B2923' if not dark else '#1F1A1E',
         'tear': '#84C4E8',
         'sweat': '#9BD3F0',
+        # the open mouth in the voxels (jaw.py), in the Expression Style Kit's reds
+        'jaw_in': '#712E37' if not dark else '#2A2228',
+        'jaw_deep': '#4A1E26' if not dark else '#17131A',
+        'jaw_tongue': '#E98D87',
+        'jaw_teeth': '#FFFBF2',
+        'jaw_lip': '#8E4444' if not dark else '#4A3A44',
     }
     return p
 

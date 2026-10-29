@@ -494,32 +494,82 @@ def fluff(M: Model, center, size, rng, n=7, spread=None):
 # ----------------------------------------------------------------------------
 # Stage 2: Juvenile
 # ----------------------------------------------------------------------------
-def build_juvenile(res=2, feet=None, lo_y=-1, head=None, tail=0.0) -> Character:
-    """feet: {(side, front): (dy, dz)}, as for the Eggling (walk.py). head: (dx, dy, dz) moves the head
-    (and what sits on it) from rest, a nod in the walk; tail: how far the tail's tip swings sideways."""
+class HeadView:
+    """the voxel grid seen from the head: each voxel's position in the head's rest pose (the head turned by R about
+    pivot, then moved by t, undone), so a head part built in rest coordinates lands turned and moved with it"""
+
+    def __init__(self, M, pivot, R, t):
+        P = np.stack([M.X, M.Y, M.Z], -1) - (np.asarray(pivot, float) + np.asarray(t, float))
+        L = P @ np.asarray(R, float) + np.asarray(pivot, float)       # R^T (p - pivot - t) + pivot
+        self.X, self.Y, self.Z = L[..., 0], L[..., 1], L[..., 2]
+        self.m = M.m
+        self.res, self.lo = M.res, M.lo
+
+    def box(self, lo, hi):
+        return ((self.X >= lo[0]) & (self.X < hi[0]) & (self.Y >= lo[1]) & (self.Y < hi[1])
+                & (self.Z >= lo[2]) & (self.Z < hi[2]))
+
+
+def head_rotation(rot):
+    """(pitch, yaw, roll) in degrees -> R: pitch lifts the face (+z) up, yaw turns it toward +x, roll tips +y
+    toward +x"""
+    p, y, r = (math.radians(v) for v in (rot or (0.0, 0.0, 0.0)))
+    Rx = np.array([[1, 0, 0], [0, math.cos(p), math.sin(p)], [0, -math.sin(p), math.cos(p)]])
+    Ry = np.array([[math.cos(y), 0, math.sin(y)], [0, 1, 0], [-math.sin(y), 0, math.cos(y)]])
+    Rz = np.array([[math.cos(r), math.sin(r), 0], [-math.sin(r), math.cos(r), 0], [0, 0, 1]])
+    return Ry @ Rx @ Rz
+
+
+def _lerp_z(z, z_front, z_back, a_front, a_back):
+    """a body offset along the torso: a_front at z_front, a_back at z_back, held beyond"""
+    f = np.clip((np.asarray(z, float) - z_back) / (z_front - z_back), 0, 1)
+    return a_back + (a_front - a_back) * f
+
+
+def build_juvenile(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_rot=None, body=None, tail_lift=0.0,
+                   jaw=0.0) -> Character:
+    """feet: {(side, front): (dy, dz) or (dy, dz, dx)}, as for the Eggling (walk.py); dx spreads the foot outward.
+    head: (dx, dy, dz) moves the head (and what sits on it) from rest, a nod in the walk. head_rot: (pitch, yaw,
+    roll) degrees turns it rigidly about the neck (face, crest and jaw with it). body: (dy_front, dy_back) lowers
+    the torso (a crouch; more at the front drops the shoulders): the head rides on it, the legs take it, the back
+    ridge and markings move with it. tail: how far the tail's tip swings sideways; tail_lift: how far it rises.
+    jaw: degrees the mouth opens (jaw.py: the lower head swings down about a hinge)."""
     feet = feet or {}
-    hd = np.array(head or (0.0, 0.0, 0.0), float)
-    H = lambda p: tuple(np.array(p, float) + hd)  # noqa: E731  a point on the head, moved with it
-    T = lambda p, f: (p[0] + tail * f ** 1.6, p[1], p[2])  # noqa: E731  a point along the tail, f = 0 at the root, 1 at the tip
+    bf, bb = body or (0.0, 0.0)
+    hd = np.array(head or (0.0, 0.0, 0.0), float) + np.array([0.0, bf, 0.0])
+    rotated = bool(head_rot) and any(abs(v) > 1e-9 for v in head_rot)
+    R = head_rotation(head_rot)
+    PIVOT = np.array([0.0, 12.0, 3.0])                                  # the neck joint, at rest
+    Hw = lambda p: tuple(PIVOT + R @ (np.array(p, float) - PIVOT) + hd)  # noqa: E731  a head point, in the world
+    B = lambda p: (p[0], p[1] + float(_lerp_z(p[2], 2.0, -9.5, bf, bb)), p[2])  # noqa: E731  a point on the torso
+    T = lambda p, f: (p[0] + tail * f ** 1.6, p[1] + bb + tail_lift * f ** 1.4, p[2])  # noqa: E731  along the tail
     rng = np.random.default_rng(22)
     M = Model((-17, lo_y, -32), (17, 36, 28), MATS, res=res)
-    head = egg_mask(M, H((0, 17.4, 7.0)), 11.4, 10.0, 9.8, 9.6, p=2.9)
-    body = tube(M, [(0, 9.4, 2.0), (0, 9.0, -5.0), (0, 9.2, -9.5)], [8.2, 8.0, 6.8], p=2.5,
-                squash=(1.0, 0.84))
+    # head parts: in the head's rest coordinates, seen through its turn and move (with no turn, the world, as before)
+    if rotated:
+        HL, HC = HeadView(M, PIVOT, R, hd), (lambda p: tuple(np.array(p, float)))
+    else:
+        HL, HC = M, (lambda p: tuple(np.array(p, float) + hd))
+    head = egg_mask(HL, HC((0, 17.4, 7.0)), 11.4, 10.0, 9.8, 9.6, p=2.9)
+    body_m = tube(M, [B((0, 9.4, 2.0)), B((0, 9.0, -5.0)), B((0, 9.2, -9.5))], [8.2, 8.0, 6.8], p=2.5,
+                  squash=(1.0, 0.84))
     tpath = [T(p, f) for p, f in zip([(0, 9.2, -10.5), (0, 10.0, -15.5), (0, 12.3, -19.5), (0, 15.6, -22.0), (0, 19.0, -23.0)],
                                      (0.0, 0.3, 0.6, 0.85, 1.0))]
     tail_m = tube(M, tpath, [6.0, 5.0, 4.3, 3.8, 3.4], p=2.4)
-    core = head | body | tail_m
+    core = head | body_m | tail_m
     M.set(core, 'shell')
-    belly = core & (M.Y < 7.5) & (M.Z > -12) & ~head
-    belly |= head & (M.Y < 11.5 + hd[1]) & (M.Z > 11 + hd[2])
+    dyz = _lerp_z(M.Z, 2.0, -9.5, bf, bb) if (bf or bb) else 0.0
+    belly = core & (M.Y - dyz < 7.5) & (M.Z > -12) & ~head
+    belly |= head & (HL.Y < HC((0, 11.5, 0))[1]) & (HL.Z > HC((0, 0, 11))[2])
     M.set(belly, 'belly')
 
     for s in (-1, 1):
         for z in (1.6, -7.6):
-            dy, dz = feet.get((s, z > 0), (0.0, 0.0))
+            f = feet.get((s, z > 0), (0.0, 0.0))
+            dy, dz = f[0], f[1]
+            dx = s * f[2] if len(f) > 2 else 0.0
             z += dz
-            x0, x1 = (3.4, 9.8) if s > 0 else (-9.8, -3.4)
+            x0, x1 = (3.4 + dx, 9.8 + dx) if s > 0 else (-9.8 + dx, -3.4 + dx)
             box = M.box((x0, dy, z - 2.8), (x1, 4.2 + max(0.0, -dy), z + 2.8))
             box &= ~((M.Y > 3.2 + dy) & (M.Z > z + 1.8))
             leg = box & ~(core & (M.Y >= 4.2 + max(0.0, dy)))
@@ -533,44 +583,55 @@ def build_juvenile(res=2, feet=None, lo_y=-1, head=None, tail=0.0) -> Character:
     path = [(0, 26.8, 10.5), (0, 28.4, 6.5), (0, 28.0, 2.5), (0, 26.0, -1.0), (0, 22.5, -3.2)]
     sizes = [5.0, 6.2, 5.6, 4.8, 4.0]
     for (p, s) in zip(path, sizes):
-        crest |= fluff(M, H(p), s, rng, n=8, spread=(s * 0.55, s * 0.35, s * 0.4))
-    crest |= M.box(H((-2.5, 25.0, 7.5)), H((2.5, 31.5, 12.0)))
-    crest |= M.box(H((-4.5, 24.5, 8.5)), H((0.0, 29.5, 13.0)))
-    crest &= ~core & (M.Y > 23.0 + hd[1])
+        crest |= fluff(HL, HC(p), s, rng, n=8, spread=(s * 0.55, s * 0.35, s * 0.4))
+    crest |= HL.box(HC((-2.5, 25.0, 7.5)), HC((2.5, 31.5, 12.0)))
+    crest |= HL.box(HC((-4.5, 24.5, 8.5)), HC((0.0, 29.5, 13.0)))
+    crest &= ~core & (HL.Y > HC((0, 23.0, 0))[1])
     M.set(crest, 'crest.0')
     for s in (-1, 1):
-        t = fluff(M, H((s * 11.0, 17.5, 2.5)), 3.4, rng, n=6, spread=(0.8, 2.0, 1.6)) & ~core
+        t = fluff(HL, HC((s * 11.0, 17.5, 2.5)), 3.4, rng, n=6, spread=(0.8, 2.0, 1.6)) & ~core
         M.set(t, 'crest.1')
-        t = fluff(M, H((s * 9.6, 23.0, 0.5)), 3.0, rng, n=5, spread=(0.8, 1.2, 1.4)) & ~core & (M.m == 0)
+        t = fluff(HL, HC((s * 9.6, 23.0, 0.5)), 3.0, rng, n=5, spread=(0.8, 1.2, 1.4)) & ~core & (M.m == 0)
         M.set(t, 'crest.2')
     ridge = [(0, 16.0, -2.5, 4.2), (0, 15.6, -6.5, 4.4), (0, 15.2, -10.5, 4.0),
              (0, 15.0, -14.5, 3.6), (0, 16.5, -18.5, 3.2), (0, 19.0, -21.0, 3.0)]
     for i, (x, y, z, s) in enumerate(ridge):
         f = max(0.0, (-10.5 - z) / 12.5)  # along the tail, the ridge swings with it
-        t = fluff(M, T((x, y, z), f), s, rng, n=6, spread=(s * 0.5, s * 0.3, s * 0.4)) & ~core & (M.m == 0)
+        p = T((x, y - bb, z), f) if f > 0 else B((x, y, z))
+        t = fluff(M, p, s, rng, n=6, spread=(s * 0.5, s * 0.3, s * 0.4)) & ~core & (M.m == 0)
         M.set(t, 'crest.%d' % (3 + i % 3))
     for s in (-1, 1):
         for (y, z, sz) in ((10.5, -0.5, 5.0), (11.0, -7.0, 4.2), (11.5, -13.5, 3.4)):
-            t = fluff(M, T((s * 8.2, y, z), max(0.0, (-10.5 - z) / 12.5)), sz, rng, n=7, spread=(0.7, sz * 0.45, sz * 0.5))
+            f = max(0.0, (-10.5 - z) / 12.5)
+            p = T((s * 8.2, y - bb, z), f) if f > 0 else B((s * 8.2, y, z))
+            t = fluff(M, p, sz, rng, n=7, spread=(0.7, sz * 0.45, sz * 0.5))
             t &= ~core & (M.m == 0)
             M.set(t, 'crest.%d' % (6 + int(-z) % 2))
         for (y, z) in ((6.8, -3.5), (6.5, -10.0), (13.0, -4.0), (9.0, -16.0)):
-            stamp(M, shl, T((s * 7.6, y, z), max(0.0, (-10.5 - z) / 12.5)), (s, 0.2, 0), square_shape(2.2, 1.8), 'pattern')
-    tip = fluff(M, T((0, 20.5, -23.5), 1.0), 5.4, rng, n=10, spread=(1.8, 2.2, 1.8)) & (M.m == 0)
+            f = max(0.0, (-10.5 - z) / 12.5)
+            p = T((s * 7.6, y - bb, z), f) if f > 0 else B((s * 7.6, y, z))
+            stamp(M, shl, p, (s, 0.2, 0), square_shape(2.2, 1.8), 'pattern')
+    tip = fluff(M, T((0, 20.5 - bb, -23.5), 1.0), 5.4, rng, n=10, spread=(1.8, 2.2, 1.8)) & (M.m == 0)
     M.set(tip, 'crest.8')
-    tip2 = fluff(M, T((0, 15.5, -24.0), 1.0), 3.6, rng, n=6, spread=(1.2, 1.6, 1.0)) & (M.m == 0)
+    tip2 = fluff(M, T((0, 15.5 - bb, -24.0), 1.0), 3.6, rng, n=6, spread=(1.2, 1.6, 1.0)) & (M.m == 0)
     M.set(tip2, 'crest.6')
 
     two_tone(M, seed=21, thresh=0.35)
-    face = Frame(center=H((0, 17.0, 7.0)), n=(0, 0, 1), reach=20)
+    face = Frame(center=Hw((0, 17.0, 7.0)), n=tuple(R @ np.array([0.0, 0.0, 1.0])),
+                 up=tuple(R @ np.array([0.0, 1.0, 0.0])), reach=20)
     ch = Character(stage=2, model=M, face=face,
                    eye_u=5.4, eye_v=0.9, eye_w=2.2, eye_h=5.0,
                    cheek_u=7.4, cheek_v=-2.5, cheek_w=2.4, cheek_h=2.0,
                    mouth_v=-3.3, face_extent=(-11, 11, -8, 8), scale_ref=44.0)
     ch.anchors = {
-        'head_top': H((0, 29.5, 7.0)), 'neck': (0, 9.0, 9.0), 'back': (0, 15.5, -5.0),
-        'ground': (0, 0, -3.0), 'face': H((0, 17.0, 16.6)), 'tail': T((0, 20.5, -23.0), 1.0),
+        'head_top': Hw((0, 29.5, 7.0)), 'neck': B((0, 9.0, 9.0)), 'back': B((0, 15.5, -5.0)),
+        'ground': (0, 0, -3.0), 'face': Hw((0, 17.0, 16.6)), 'tail': T((0, 20.5 - bb, -23.0), 1.0),
     }
+    # what the jaw needs (jaw.py): the head's volume, what it is fused with, and its turn
+    ch.rig = dict(head=head, fused=body_m | tail_m, pivot=PIVOT, R=R, t=hd)
+    if jaw:
+        from jaw import open_jaw
+        ch = open_jaw(ch, jaw)
     return ch
 
 
