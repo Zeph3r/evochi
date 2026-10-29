@@ -1,0 +1,695 @@
+{
+  "kit": "Evochi Combat Facial Decal Prototype",
+  "version": "1.0.0",
+  "reference_priority": [
+    "Existing in-game 3D meshes and UVs",
+    "references/01_Expression_Style_Anchor.png",
+    "references/02-07 personality concept art sheets",
+    "This reconstructed sprite pack"
+  ],
+  "disclaimer": "Sprites are new approximations of a raster concept style, not recovered exact original layers, not model UV maps. All original concept reference PNGs are retained unchanged.",
+  "canvas": {
+    "width": 256,
+    "height": 160,
+    "background": "transparent",
+    "origin": "top-left",
+    "space": "canonical face decal plane",
+    "format": "PNG RGBA and editable SVG"
+  },
+  "palette": {
+    "ink": "#2D2928",
+    "darkred": "#8E4444",
+    "mouth": "#963C42",
+    "deepmouth": "#712E37",
+    "tongue": "#E98D87",
+    "blush": "#ECA096",
+    "white": "#FFFCF9",
+    "teeth": "#FFFBF2",
+    "sweat": "#AAA0A0"
+  },
+  "personalities": {
+    "brave": {
+      "tagline": "Protective, courageous, outwardly determined",
+      "eyebrow": "determined",
+      "shout": "roar",
+      "strain": "squeezed",
+      "fierce": "focus"
+    },
+    "timid": {
+      "tagline": "Worried but trying to be brave",
+      "eyebrow": "worried",
+      "shout": "nervous",
+      "strain": "squeezed",
+      "fierce": "worried"
+    },
+    "stubborn": {
+      "tagline": "Defiant and unwilling to yield",
+      "eyebrow": "defiant",
+      "shout": "roar",
+      "strain": "squeezed",
+      "fierce": "defiant"
+    },
+    "playful": {
+      "tagline": "Cheeky, spirited, light-hearted under pressure",
+      "eyebrow": "lively",
+      "shout": "happy",
+      "strain": "comedic",
+      "fierce": "smirk"
+    },
+    "curious": {
+      "tagline": "Observant and alert; studies the threat",
+      "eyebrow": "quirky",
+      "shout": "surprised",
+      "strain": "oneeye",
+      "fierce": "analytical"
+    },
+    "calm": {
+      "tagline": "Centered, composed and hard to intimidate",
+      "eyebrow": "calm",
+      "shout": "measured",
+      "strain": "steady",
+      "fierce": "controlled"
+    }
+  },
+  "stages": {
+    "eggling": {
+      "eye": 1.13,
+      "mouth": 1.14,
+      "brow": 0.91,
+      "stage_note": "Use broader, rounder, more animated expressions."
+    },
+    "juvenile": {
+      "eye": 1.0,
+      "mouth": 1.0,
+      "brow": 1.0,
+      "stage_note": "Use clear, confident expressions with more physical resolve."
+    },
+    "elder": {
+      "eye": 0.87,
+      "mouth": 0.91,
+      "brow": 1.05,
+      "stage_note": "Use narrower, more controlled expressions; avoid constant anger."
+    }
+  },
+  "expression_states": {
+    "shout": "Impact shout / battle cry",
+    "strain": "Eyes shut, bracing against force",
+    "fierce": "Composed resistance / determined hold"
+  },
+  "sprites": [
+    {
+      "id": "brave_eggling_shout",
+      "personality": "brave",
+      "stage": "eggling",
+      "expression": "shout",
+      "svg": "assets/svg/brave_eggling_shout.svg",
+      "png_512": "assets/png_512/brave_eggling_shout.png",
+      "png_256": "assets/png_256/brave_eggling_shout.png",
+      "layer_prefix": "assets/layers_png_512/brave_eggling_shout__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "brave_eggling_strain",
+      "personality": "brave",
+      "stage": "eggling",
+      "expression": "strain",
+      "svg": "assets/svg/brave_eggling_strain.svg",
+      "png_512": "assets/png_512/brave_eggling_strain.png",
+      "png_256": "assets/png_256/brave_eggling_strain.png",
+      "layer_prefix": "assets/layers_png_512/brave_eggling_strain__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "brave_eggling_fierce",
+      "personality": "brave",
+      "stage": "eggling",
+      "expression": "fierce",
+      "svg": "assets/svg/brave_eggling_fierce.svg",
+      "png_512": "assets/png_512/brave_eggling_fierce.png",
+      "png_256": "assets/png_256/brave_eggling_fierce.png",
+      "layer_prefix": "assets/layers_png_512/brave_eggling_fierce__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "brave_juvenile_shout",
+      "personality": "brave",
+      "stage": "juvenile",
+      "expression": "shout",
+      "svg": "assets/svg/brave_juvenile_shout.svg",
+      "png_512": "assets/png_512/brave_juvenile_shout.png",
+      "png_256": "assets/png_256/brave_juvenile_shout.png",
+      "layer_prefix": "assets/layers_png_512/brave_juvenile_shout__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "brave_juvenile_strain",
+      "personality": "brave",
+      "stage": "juvenile",
+      "expression": "strain",
+      "svg": "assets/svg/brave_juvenile_strain.svg",
+      "png_512": "assets/png_512/brave_juvenile_strain.png",
+      "png_256": "assets/png_256/brave_juvenile_strain.png",
+      "layer_prefix": "assets/layers_png_512/brave_juvenile_strain__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "brave_juvenile_fierce",
+      "personality": "brave",
+      "stage": "juvenile",
+      "expression": "fierce",
+      "svg": "assets/svg/brave_juvenile_fierce.svg",
+      "png_512": "assets/png_512/brave_juvenile_fierce.png",
+      "png_256": "assets/png_256/brave_juvenile_fierce.png",
+      "layer_prefix": "assets/layers_png_512/brave_juvenile_fierce__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "brave_elder_shout",
+      "personality": "brave",
+      "stage": "elder",
+      "expression": "shout",
+      "svg": "assets/svg/brave_elder_shout.svg",
+      "png_512": "assets/png_512/brave_elder_shout.png",
+      "png_256": "assets/png_256/brave_elder_shout.png",
+      "layer_prefix": "assets/layers_png_512/brave_elder_shout__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    },
+    {
+      "id": "brave_elder_strain",
+      "personality": "brave",
+      "stage": "elder",
+      "expression": "strain",
+      "svg": "assets/svg/brave_elder_strain.svg",
+      "png_512": "assets/png_512/brave_elder_strain.png",
+      "png_256": "assets/png_256/brave_elder_strain.png",
+      "layer_prefix": "assets/layers_png_512/brave_elder_strain__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    },
+    {
+      "id": "brave_elder_fierce",
+      "personality": "brave",
+      "stage": "elder",
+      "expression": "fierce",
+      "svg": "assets/svg/brave_elder_fierce.svg",
+      "png_512": "assets/png_512/brave_elder_fierce.png",
+      "png_256": "assets/png_256/brave_elder_fierce.png",
+      "layer_prefix": "assets/layers_png_512/brave_elder_fierce__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    },
+    {
+      "id": "timid_eggling_shout",
+      "personality": "timid",
+      "stage": "eggling",
+      "expression": "shout",
+      "svg": "assets/svg/timid_eggling_shout.svg",
+      "png_512": "assets/png_512/timid_eggling_shout.png",
+      "png_256": "assets/png_256/timid_eggling_shout.png",
+      "layer_prefix": "assets/layers_png_512/timid_eggling_shout__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "timid_eggling_strain",
+      "personality": "timid",
+      "stage": "eggling",
+      "expression": "strain",
+      "svg": "assets/svg/timid_eggling_strain.svg",
+      "png_512": "assets/png_512/timid_eggling_strain.png",
+      "png_256": "assets/png_256/timid_eggling_strain.png",
+      "layer_prefix": "assets/layers_png_512/timid_eggling_strain__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "timid_eggling_fierce",
+      "personality": "timid",
+      "stage": "eggling",
+      "expression": "fierce",
+      "svg": "assets/svg/timid_eggling_fierce.svg",
+      "png_512": "assets/png_512/timid_eggling_fierce.png",
+      "png_256": "assets/png_256/timid_eggling_fierce.png",
+      "layer_prefix": "assets/layers_png_512/timid_eggling_fierce__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "timid_juvenile_shout",
+      "personality": "timid",
+      "stage": "juvenile",
+      "expression": "shout",
+      "svg": "assets/svg/timid_juvenile_shout.svg",
+      "png_512": "assets/png_512/timid_juvenile_shout.png",
+      "png_256": "assets/png_256/timid_juvenile_shout.png",
+      "layer_prefix": "assets/layers_png_512/timid_juvenile_shout__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "timid_juvenile_strain",
+      "personality": "timid",
+      "stage": "juvenile",
+      "expression": "strain",
+      "svg": "assets/svg/timid_juvenile_strain.svg",
+      "png_512": "assets/png_512/timid_juvenile_strain.png",
+      "png_256": "assets/png_256/timid_juvenile_strain.png",
+      "layer_prefix": "assets/layers_png_512/timid_juvenile_strain__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "timid_juvenile_fierce",
+      "personality": "timid",
+      "stage": "juvenile",
+      "expression": "fierce",
+      "svg": "assets/svg/timid_juvenile_fierce.svg",
+      "png_512": "assets/png_512/timid_juvenile_fierce.png",
+      "png_256": "assets/png_256/timid_juvenile_fierce.png",
+      "layer_prefix": "assets/layers_png_512/timid_juvenile_fierce__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "timid_elder_shout",
+      "personality": "timid",
+      "stage": "elder",
+      "expression": "shout",
+      "svg": "assets/svg/timid_elder_shout.svg",
+      "png_512": "assets/png_512/timid_elder_shout.png",
+      "png_256": "assets/png_256/timid_elder_shout.png",
+      "layer_prefix": "assets/layers_png_512/timid_elder_shout__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    },
+    {
+      "id": "timid_elder_strain",
+      "personality": "timid",
+      "stage": "elder",
+      "expression": "strain",
+      "svg": "assets/svg/timid_elder_strain.svg",
+      "png_512": "assets/png_512/timid_elder_strain.png",
+      "png_256": "assets/png_256/timid_elder_strain.png",
+      "layer_prefix": "assets/layers_png_512/timid_elder_strain__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    },
+    {
+      "id": "timid_elder_fierce",
+      "personality": "timid",
+      "stage": "elder",
+      "expression": "fierce",
+      "svg": "assets/svg/timid_elder_fierce.svg",
+      "png_512": "assets/png_512/timid_elder_fierce.png",
+      "png_256": "assets/png_256/timid_elder_fierce.png",
+      "layer_prefix": "assets/layers_png_512/timid_elder_fierce__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    },
+    {
+      "id": "stubborn_eggling_shout",
+      "personality": "stubborn",
+      "stage": "eggling",
+      "expression": "shout",
+      "svg": "assets/svg/stubborn_eggling_shout.svg",
+      "png_512": "assets/png_512/stubborn_eggling_shout.png",
+      "png_256": "assets/png_256/stubborn_eggling_shout.png",
+      "layer_prefix": "assets/layers_png_512/stubborn_eggling_shout__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "stubborn_eggling_strain",
+      "personality": "stubborn",
+      "stage": "eggling",
+      "expression": "strain",
+      "svg": "assets/svg/stubborn_eggling_strain.svg",
+      "png_512": "assets/png_512/stubborn_eggling_strain.png",
+      "png_256": "assets/png_256/stubborn_eggling_strain.png",
+      "layer_prefix": "assets/layers_png_512/stubborn_eggling_strain__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "stubborn_eggling_fierce",
+      "personality": "stubborn",
+      "stage": "eggling",
+      "expression": "fierce",
+      "svg": "assets/svg/stubborn_eggling_fierce.svg",
+      "png_512": "assets/png_512/stubborn_eggling_fierce.png",
+      "png_256": "assets/png_256/stubborn_eggling_fierce.png",
+      "layer_prefix": "assets/layers_png_512/stubborn_eggling_fierce__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "stubborn_juvenile_shout",
+      "personality": "stubborn",
+      "stage": "juvenile",
+      "expression": "shout",
+      "svg": "assets/svg/stubborn_juvenile_shout.svg",
+      "png_512": "assets/png_512/stubborn_juvenile_shout.png",
+      "png_256": "assets/png_256/stubborn_juvenile_shout.png",
+      "layer_prefix": "assets/layers_png_512/stubborn_juvenile_shout__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "stubborn_juvenile_strain",
+      "personality": "stubborn",
+      "stage": "juvenile",
+      "expression": "strain",
+      "svg": "assets/svg/stubborn_juvenile_strain.svg",
+      "png_512": "assets/png_512/stubborn_juvenile_strain.png",
+      "png_256": "assets/png_256/stubborn_juvenile_strain.png",
+      "layer_prefix": "assets/layers_png_512/stubborn_juvenile_strain__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "stubborn_juvenile_fierce",
+      "personality": "stubborn",
+      "stage": "juvenile",
+      "expression": "fierce",
+      "svg": "assets/svg/stubborn_juvenile_fierce.svg",
+      "png_512": "assets/png_512/stubborn_juvenile_fierce.png",
+      "png_256": "assets/png_256/stubborn_juvenile_fierce.png",
+      "layer_prefix": "assets/layers_png_512/stubborn_juvenile_fierce__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "stubborn_elder_shout",
+      "personality": "stubborn",
+      "stage": "elder",
+      "expression": "shout",
+      "svg": "assets/svg/stubborn_elder_shout.svg",
+      "png_512": "assets/png_512/stubborn_elder_shout.png",
+      "png_256": "assets/png_256/stubborn_elder_shout.png",
+      "layer_prefix": "assets/layers_png_512/stubborn_elder_shout__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    },
+    {
+      "id": "stubborn_elder_strain",
+      "personality": "stubborn",
+      "stage": "elder",
+      "expression": "strain",
+      "svg": "assets/svg/stubborn_elder_strain.svg",
+      "png_512": "assets/png_512/stubborn_elder_strain.png",
+      "png_256": "assets/png_256/stubborn_elder_strain.png",
+      "layer_prefix": "assets/layers_png_512/stubborn_elder_strain__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    },
+    {
+      "id": "stubborn_elder_fierce",
+      "personality": "stubborn",
+      "stage": "elder",
+      "expression": "fierce",
+      "svg": "assets/svg/stubborn_elder_fierce.svg",
+      "png_512": "assets/png_512/stubborn_elder_fierce.png",
+      "png_256": "assets/png_256/stubborn_elder_fierce.png",
+      "layer_prefix": "assets/layers_png_512/stubborn_elder_fierce__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    },
+    {
+      "id": "playful_eggling_shout",
+      "personality": "playful",
+      "stage": "eggling",
+      "expression": "shout",
+      "svg": "assets/svg/playful_eggling_shout.svg",
+      "png_512": "assets/png_512/playful_eggling_shout.png",
+      "png_256": "assets/png_256/playful_eggling_shout.png",
+      "layer_prefix": "assets/layers_png_512/playful_eggling_shout__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "playful_eggling_strain",
+      "personality": "playful",
+      "stage": "eggling",
+      "expression": "strain",
+      "svg": "assets/svg/playful_eggling_strain.svg",
+      "png_512": "assets/png_512/playful_eggling_strain.png",
+      "png_256": "assets/png_256/playful_eggling_strain.png",
+      "layer_prefix": "assets/layers_png_512/playful_eggling_strain__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "playful_eggling_fierce",
+      "personality": "playful",
+      "stage": "eggling",
+      "expression": "fierce",
+      "svg": "assets/svg/playful_eggling_fierce.svg",
+      "png_512": "assets/png_512/playful_eggling_fierce.png",
+      "png_256": "assets/png_256/playful_eggling_fierce.png",
+      "layer_prefix": "assets/layers_png_512/playful_eggling_fierce__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "playful_juvenile_shout",
+      "personality": "playful",
+      "stage": "juvenile",
+      "expression": "shout",
+      "svg": "assets/svg/playful_juvenile_shout.svg",
+      "png_512": "assets/png_512/playful_juvenile_shout.png",
+      "png_256": "assets/png_256/playful_juvenile_shout.png",
+      "layer_prefix": "assets/layers_png_512/playful_juvenile_shout__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "playful_juvenile_strain",
+      "personality": "playful",
+      "stage": "juvenile",
+      "expression": "strain",
+      "svg": "assets/svg/playful_juvenile_strain.svg",
+      "png_512": "assets/png_512/playful_juvenile_strain.png",
+      "png_256": "assets/png_256/playful_juvenile_strain.png",
+      "layer_prefix": "assets/layers_png_512/playful_juvenile_strain__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "playful_juvenile_fierce",
+      "personality": "playful",
+      "stage": "juvenile",
+      "expression": "fierce",
+      "svg": "assets/svg/playful_juvenile_fierce.svg",
+      "png_512": "assets/png_512/playful_juvenile_fierce.png",
+      "png_256": "assets/png_256/playful_juvenile_fierce.png",
+      "layer_prefix": "assets/layers_png_512/playful_juvenile_fierce__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "playful_elder_shout",
+      "personality": "playful",
+      "stage": "elder",
+      "expression": "shout",
+      "svg": "assets/svg/playful_elder_shout.svg",
+      "png_512": "assets/png_512/playful_elder_shout.png",
+      "png_256": "assets/png_256/playful_elder_shout.png",
+      "layer_prefix": "assets/layers_png_512/playful_elder_shout__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    },
+    {
+      "id": "playful_elder_strain",
+      "personality": "playful",
+      "stage": "elder",
+      "expression": "strain",
+      "svg": "assets/svg/playful_elder_strain.svg",
+      "png_512": "assets/png_512/playful_elder_strain.png",
+      "png_256": "assets/png_256/playful_elder_strain.png",
+      "layer_prefix": "assets/layers_png_512/playful_elder_strain__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    },
+    {
+      "id": "playful_elder_fierce",
+      "personality": "playful",
+      "stage": "elder",
+      "expression": "fierce",
+      "svg": "assets/svg/playful_elder_fierce.svg",
+      "png_512": "assets/png_512/playful_elder_fierce.png",
+      "png_256": "assets/png_256/playful_elder_fierce.png",
+      "layer_prefix": "assets/layers_png_512/playful_elder_fierce__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    },
+    {
+      "id": "curious_eggling_shout",
+      "personality": "curious",
+      "stage": "eggling",
+      "expression": "shout",
+      "svg": "assets/svg/curious_eggling_shout.svg",
+      "png_512": "assets/png_512/curious_eggling_shout.png",
+      "png_256": "assets/png_256/curious_eggling_shout.png",
+      "layer_prefix": "assets/layers_png_512/curious_eggling_shout__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "curious_eggling_strain",
+      "personality": "curious",
+      "stage": "eggling",
+      "expression": "strain",
+      "svg": "assets/svg/curious_eggling_strain.svg",
+      "png_512": "assets/png_512/curious_eggling_strain.png",
+      "png_256": "assets/png_256/curious_eggling_strain.png",
+      "layer_prefix": "assets/layers_png_512/curious_eggling_strain__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "curious_eggling_fierce",
+      "personality": "curious",
+      "stage": "eggling",
+      "expression": "fierce",
+      "svg": "assets/svg/curious_eggling_fierce.svg",
+      "png_512": "assets/png_512/curious_eggling_fierce.png",
+      "png_256": "assets/png_256/curious_eggling_fierce.png",
+      "layer_prefix": "assets/layers_png_512/curious_eggling_fierce__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "curious_juvenile_shout",
+      "personality": "curious",
+      "stage": "juvenile",
+      "expression": "shout",
+      "svg": "assets/svg/curious_juvenile_shout.svg",
+      "png_512": "assets/png_512/curious_juvenile_shout.png",
+      "png_256": "assets/png_256/curious_juvenile_shout.png",
+      "layer_prefix": "assets/layers_png_512/curious_juvenile_shout__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "curious_juvenile_strain",
+      "personality": "curious",
+      "stage": "juvenile",
+      "expression": "strain",
+      "svg": "assets/svg/curious_juvenile_strain.svg",
+      "png_512": "assets/png_512/curious_juvenile_strain.png",
+      "png_256": "assets/png_256/curious_juvenile_strain.png",
+      "layer_prefix": "assets/layers_png_512/curious_juvenile_strain__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "curious_juvenile_fierce",
+      "personality": "curious",
+      "stage": "juvenile",
+      "expression": "fierce",
+      "svg": "assets/svg/curious_juvenile_fierce.svg",
+      "png_512": "assets/png_512/curious_juvenile_fierce.png",
+      "png_256": "assets/png_256/curious_juvenile_fierce.png",
+      "layer_prefix": "assets/layers_png_512/curious_juvenile_fierce__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "curious_elder_shout",
+      "personality": "curious",
+      "stage": "elder",
+      "expression": "shout",
+      "svg": "assets/svg/curious_elder_shout.svg",
+      "png_512": "assets/png_512/curious_elder_shout.png",
+      "png_256": "assets/png_256/curious_elder_shout.png",
+      "layer_prefix": "assets/layers_png_512/curious_elder_shout__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    },
+    {
+      "id": "curious_elder_strain",
+      "personality": "curious",
+      "stage": "elder",
+      "expression": "strain",
+      "svg": "assets/svg/curious_elder_strain.svg",
+      "png_512": "assets/png_512/curious_elder_strain.png",
+      "png_256": "assets/png_256/curious_elder_strain.png",
+      "layer_prefix": "assets/layers_png_512/curious_elder_strain__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    },
+    {
+      "id": "curious_elder_fierce",
+      "personality": "curious",
+      "stage": "elder",
+      "expression": "fierce",
+      "svg": "assets/svg/curious_elder_fierce.svg",
+      "png_512": "assets/png_512/curious_elder_fierce.png",
+      "png_256": "assets/png_256/curious_elder_fierce.png",
+      "layer_prefix": "assets/layers_png_512/curious_elder_fierce__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    },
+    {
+      "id": "calm_eggling_shout",
+      "personality": "calm",
+      "stage": "eggling",
+      "expression": "shout",
+      "svg": "assets/svg/calm_eggling_shout.svg",
+      "png_512": "assets/png_512/calm_eggling_shout.png",
+      "png_256": "assets/png_256/calm_eggling_shout.png",
+      "layer_prefix": "assets/layers_png_512/calm_eggling_shout__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "calm_eggling_strain",
+      "personality": "calm",
+      "stage": "eggling",
+      "expression": "strain",
+      "svg": "assets/svg/calm_eggling_strain.svg",
+      "png_512": "assets/png_512/calm_eggling_strain.png",
+      "png_256": "assets/png_256/calm_eggling_strain.png",
+      "layer_prefix": "assets/layers_png_512/calm_eggling_strain__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "calm_eggling_fierce",
+      "personality": "calm",
+      "stage": "eggling",
+      "expression": "fierce",
+      "svg": "assets/svg/calm_eggling_fierce.svg",
+      "png_512": "assets/png_512/calm_eggling_fierce.png",
+      "png_256": "assets/png_256/calm_eggling_fierce.png",
+      "layer_prefix": "assets/layers_png_512/calm_eggling_fierce__",
+      "notes": "Use broader, rounder, more animated expressions."
+    },
+    {
+      "id": "calm_juvenile_shout",
+      "personality": "calm",
+      "stage": "juvenile",
+      "expression": "shout",
+      "svg": "assets/svg/calm_juvenile_shout.svg",
+      "png_512": "assets/png_512/calm_juvenile_shout.png",
+      "png_256": "assets/png_256/calm_juvenile_shout.png",
+      "layer_prefix": "assets/layers_png_512/calm_juvenile_shout__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "calm_juvenile_strain",
+      "personality": "calm",
+      "stage": "juvenile",
+      "expression": "strain",
+      "svg": "assets/svg/calm_juvenile_strain.svg",
+      "png_512": "assets/png_512/calm_juvenile_strain.png",
+      "png_256": "assets/png_256/calm_juvenile_strain.png",
+      "layer_prefix": "assets/layers_png_512/calm_juvenile_strain__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "calm_juvenile_fierce",
+      "personality": "calm",
+      "stage": "juvenile",
+      "expression": "fierce",
+      "svg": "assets/svg/calm_juvenile_fierce.svg",
+      "png_512": "assets/png_512/calm_juvenile_fierce.png",
+      "png_256": "assets/png_256/calm_juvenile_fierce.png",
+      "layer_prefix": "assets/layers_png_512/calm_juvenile_fierce__",
+      "notes": "Use clear, confident expressions with more physical resolve."
+    },
+    {
+      "id": "calm_elder_shout",
+      "personality": "calm",
+      "stage": "elder",
+      "expression": "shout",
+      "svg": "assets/svg/calm_elder_shout.svg",
+      "png_512": "assets/png_512/calm_elder_shout.png",
+      "png_256": "assets/png_256/calm_elder_shout.png",
+      "layer_prefix": "assets/layers_png_512/calm_elder_shout__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    },
+    {
+      "id": "calm_elder_strain",
+      "personality": "calm",
+      "stage": "elder",
+      "expression": "strain",
+      "svg": "assets/svg/calm_elder_strain.svg",
+      "png_512": "assets/png_512/calm_elder_strain.png",
+      "png_256": "assets/png_256/calm_elder_strain.png",
+      "layer_prefix": "assets/layers_png_512/calm_elder_strain__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    },
+    {
+      "id": "calm_elder_fierce",
+      "personality": "calm",
+      "stage": "elder",
+      "expression": "fierce",
+      "svg": "assets/svg/calm_elder_fierce.svg",
+      "png_512": "assets/png_512/calm_elder_fierce.png",
+      "png_256": "assets/png_256/calm_elder_fierce.png",
+      "layer_prefix": "assets/layers_png_512/calm_elder_fierce__",
+      "notes": "Use narrower, more controlled expressions; avoid constant anger."
+    }
+  ]
+}

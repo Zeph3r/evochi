@@ -16,12 +16,15 @@ PATTERN_MID = 201
 _surf_cache = {}
 
 
-def surface_for(ch: Character):
-    key = id(ch.model)
+def surface_for(ch: Character, iso=0.5):
+    key = (id(ch.model), iso)
     if key not in _surf_cache:
         # the face is painted on the model without what stands in front of it (Alder's spectacles)
-        _surf_cache[key] = Surface(getattr(ch, 'decal_model', None) or ch.model, sigma=0.75)
+        _surf_cache[key] = Surface(getattr(ch, 'decal_model', None) or ch.model, sigma=0.75, iso=iso)
     return _surf_cache[key]
+
+
+KIT_ISO = 0.22      # the kit's big faces lie on the model's outer shell, clear of every voxel corner
 
 
 _quad_cache = {}
@@ -41,17 +44,21 @@ def pattern_quads(ch: Character, pal: dict, pal_key: str):
     return out
 
 
-FACE_LIFT = 0.08     # how far the face sits off the voxels (the cinematic's big close-ups lift it more: cine_pose)
+FACE_LIFT = 0.08     # how far the face sits off the voxels (the kit faces sit higher: KIT_LIFT)
+KIT_LIFT = 0.12
 
 
 def face_quads(ch: Character, pal: dict, pal_key: str, expr: str):
     k = (id(ch.model), pal_key, expr)
     if k in _quad_cache:
         return _quad_cache[k]
-    surf = surface_for(ch)
-    cv = Canvas(*ch.face_extent, cell=0.07)
+    from face_kit import parse, extent as kit_extent
+    kit = parse(expr) is not None
+    surf = surface_for(ch, KIT_ISO if kit else 0.5)
+    ext = kit_extent(ch) if kit else ch.face_extent     # the kit's face is a fixed decal: its whole canvas
+    cv = Canvas(*ext, cell=0.07)
     paint_face(ch, cv, pal, expr)
-    q = project_canvas(surf, ch.face, cv, FACE_MID, lift=FACE_LIFT)
+    q = project_canvas(surf, ch.face, cv, FACE_MID, lift=KIT_LIFT if kit else FACE_LIFT)
     _quad_cache[k] = q
     return q
 

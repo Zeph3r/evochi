@@ -389,10 +389,11 @@ def paint_face(ch: Character, cv: Canvas, pal: dict, expr: str):
         for s in (-1, 1):
             cv.paint(cv.m_arc(s * eu, ev - eh * 0.05, ew * 0.75, 0.6, 195, 345, lw), E, lit=0.0)
         smile(1.0, 0.4)
-    # ---- the cinematics only (the Wilds' boss entrance; not in the sprite sheets): per stage, in cine_faces.py
-    elif expr.split('.')[0] in ('shout', 'strain', 'fierce'):
-        from cine_faces import paint_cine
-        paint_cine(ch, cv, pal, expr)
+    # ---- the cinematics only (the Wilds' boss entrance; not in the sprite sheets): the Expression Style Kit's
+    # faces (face_kit.py), 'shout' / 'strain' / 'fierce', or with a personality, 'fierce:calm'
+    elif expr.split(':')[0] in ('shout', 'strain', 'fierce'):
+        from face_kit import paint_kit, parse
+        paint_kit(ch, cv, pal, *parse(expr))
     # ---- villager-only expressions (Village Tales NPCs; Evochi sprites never use these)
     elif expr == 'worried':
         cheeks(0.6)
