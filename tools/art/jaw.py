@@ -26,6 +26,100 @@ JAW = {2: dict(hinge=(14.4, 8.5), lip=(15.0, 16.6), width=3.2, xfull=4.2, xzero=
        3: dict(hinge=(14.8, 19.0), lip=(14.2, 28.6), width=3.0, xfull=3.8, xzero=7.2, depth=0.38, skin=0.28)}
 
 
+def add_fangs(N, palate, hole, Xl, Zl, R, width):
+    """two fangs, modelled: three voxels at the lip, one at the point, two deep, straight down, flush in front"""
+    fangs = np.zeros(N.m.shape, bool)
+    free = (N.m == 0) | hole
+    down = tuple(int(v) for v in np.round(R @ np.array([0.0, -1.0, 0.0])))
+    back = tuple(int(v) for v in np.round(R @ np.array([0.0, 0.0, -1.0])))
+    across = tuple(int(v) for v in np.round(R @ np.array([1.0, 0.0, 0.0])))
+    for sgn in (-1, 1):
+        x = sgn * width * 0.58
+        col = palate & (np.abs(Xl - x) < 0.3)
+        if not col.any():
+            continue
+        cand = np.argwhere(col)
+        top = cand[np.argmax(Zl[col])]                           # the lip's front, underneath
+        for r, (hw, deep) in enumerate(((1, 2), (0, 2))):
+            for di in range(-hw, hw + 1):
+                for dz in range(deep):
+                    v = top + np.array(down) * (1 + r) + np.array(across) * di + np.array(back) * dz
+                    if np.all(v >= 0) and np.all(v < np.array(N.m.shape)) and free[tuple(v)]:
+                        fangs[tuple(v)] = True
+    N.m[fangs] = N.mid('jaw_teeth')
+    N.glow[fangs] = 0.35                                     # teeth stay white in the mouth's shade
+    return fangs
+
+
+def clear_strays(N, M, hole):
+    """mouth colours on the outside that don't touch the opening go back to skin"""
+    mouth_ids = [N.ids[k] for k in ('jaw_in', 'jaw_deep', 'jaw_lip') if k in N.ids]
+    mm = np.isin(N.m, mouth_ids)
+    outside = (N.m == 0) & ~hole
+    cube = np.ones((3, 3, 3), bool)
+    stray = mm & ndimage.binary_dilation(outside, structure=cube) & ~ndimage.binary_dilation(hole, structure=cube)
+    N.m[stray] = np.where(M.m[stray] > 0, M.m[stray], N.mid('shell'))
+
+
+# the Eggling: all one egg, no jaw to swing. Its mouth opens into the front of the egg: the same D (flat under the
+# upper lip, round below), with depth, the same insides, lips and fangs. lip: the upper lip's height; height: how
+# far down it opens at full; width: half-width at the lip; depth: how deep the mouth goes; full: the jaw degrees
+# (as for the bigger stages) at which it is fully open
+CARVE = {1: dict(lip=10.6, height=4.6, width=3.0, depth=3.2, full=24.0)}
+
+
+def carve_mouth(ch, deg, spec=None):
+    J = spec or CARVE[ch.stage]
+    amt = min(1.0, max(0.0, deg / J['full']))
+    M = ch.model
+    N = M.__class__.__new__(M.__class__)
+    N.__dict__.update(M.__dict__)
+    N.m, N.glow, N.layer = M.m.copy(), M.glow.copy(), M.layer.copy()
+    N.mats, N.ids = list(M.mats), dict(M.ids)
+    if amt <= 0:
+        out = dataclasses.replace(ch, model=N)
+        return out
+    # the egg and the shell over it (the snout's lighter layer, the markings): not the feet, claws or crest
+    names = np.array(M.mats)
+    flesh = np.isin(names[M.m], ['shell', 'belly', 'pattern'])
+    egg = ndimage.binary_dilation(ch.rig['body'], iterations=3) & flesh
+    X, Y, Z = M.X, M.Y, M.Z
+    zs = np.where(egg, Z, -1e9).max(axis=2, keepdims=True)        # the egg's front, per column
+    h = J['height'] * amt
+    below = np.clip((J['lip'] - Y) / h, 0, 1)
+    half_d = J['width'] * np.sqrt(np.clip(1 - (below * 0.92) ** 2.2, 0.05, 1))
+    hole = egg & (Y <= J['lip']) & (Y >= J['lip'] - h) & (np.abs(X) < half_d) & (Z > zs - J['depth'])
+    N.m[hole] = 0
+    N.glow[hole] = 0
+    R = np.eye(3)
+
+    def nb(mask, d):
+        return np.roll(mask, tuple(-int(v) for v in d), axis=(0, 1, 2))
+    full = N.m > 0
+    around = full & (nb(hole, (1, 0, 0)) | nb(hole, (-1, 0, 0)) | nb(hole, (0, 1, 0)) | nb(hole, (0, -1, 0))
+                     | nb(hole, (0, 0, -1)) | nb(hole, (0, 0, 1)))
+    lower = Y < J['lip'] - 0.25
+    palate = full & nb(hole, (0, -1, 0)) & ~lower
+    floor = full & nb(hole, (0, 1, 0)) & lower
+    back_wall = full & nb(hole, (0, 0, 1))
+    mid = N.mid
+    N.m[around] = mid('jaw_in')
+    N.m[back_wall & ~floor & ~palate] = mid('jaw_deep')
+    zone = (np.abs(X) < J['width'] * 0.62) & (Z > zs - J['depth'] + 0.5) & (Z < zs - 0.6)
+    tongue = floor & zone
+    N.m[tongue] = mid('jaw_tongue')
+    mound = hole & nb(tongue, (0, -1, 0)) & (np.abs(X) < J['width'] * 0.5)   # the tongue rises off the floor
+    N.m[mound] = mid('jaw_tongue')
+    hole = hole & ~mound
+    front_open = nb(~full & ~hole, (0, 0, 1))
+    N.m[(palate | floor) & front_open] = mid('jaw_lip')
+    add_fangs(N, palate, hole, X, Z, R, J['width'])
+    clear_strays(N, M, hole)
+    out = dataclasses.replace(ch, model=N)
+    out.rig = dict(ch.rig, jaw=deg, mouth_air=hole)
+    return out
+
+
 def _smooth(x):
     x = np.clip(x, 0.0, 1.0)
     return x * x * (3 - 2 * x)
@@ -148,35 +242,9 @@ def open_jaw(ch, deg, spec=None):
         N.m[floor & ~tongue] = mid('jaw_in')
         front_open = nb(~full & ~hole, (0, 0, 1))
         N.m[(palate | floor) & front_open] = mid('jaw_lip')
-        # two fangs, modelled: three voxels at the lip, one at the point, two deep, straight down, flush in front
-        fangs = np.zeros(M.m.shape, bool)
-        free = (N.m == 0) | hole
-        down = tuple(int(v) for v in np.round(R @ np.array([0.0, -1.0, 0.0])))
-        back = tuple(int(v) for v in np.round(R @ np.array([0.0, 0.0, -1.0])))
-        across = tuple(int(v) for v in np.round(R @ np.array([1.0, 0.0, 0.0])))
-        for sgn in (-1, 1):
-            x = sgn * J['width'] * 0.58
-            col = palate & (np.abs(Xl - x) < 0.3)
-            if not col.any():
-                continue
-            cand = np.argwhere(col)
-            top = cand[np.argmax(Zl[col])]                           # the lip's front, underneath
-            for r, (hw, deep) in enumerate(((1, 2), (0, 2))):
-                for di in range(-hw, hw + 1):
-                    for dz in range(deep):
-                        v = top + np.array(down) * (1 + r) + np.array(across) * di + np.array(back) * dz
-                        if np.all(v >= 0) and np.all(v < np.array(M.m.shape)) and free[tuple(v)]:
-                            fangs[tuple(v)] = True
-        N.m[fangs] = mid('jaw_teeth')
-        N.glow[fangs] = 0.35                                 # teeth stay white in the mouth's shade
+        add_fangs(N, palate, hole, Xl, Zl, R, J['width'])
     if deg > 0:
-        # strays: mouth colours on the outside that don't touch the opening go back to skin
-        mouth_ids = [N.ids[k] for k in ('jaw_in', 'jaw_deep', 'jaw_lip') if k in N.ids]
-        mm = np.isin(N.m, mouth_ids)
-        outside = (N.m == 0) & ~hole
-        cube = np.ones((3, 3, 3), bool)
-        stray = mm & ndimage.binary_dilation(outside, structure=cube) & ~ndimage.binary_dilation(hole, structure=cube)
-        N.m[stray] = np.where(M.m[stray] > 0, M.m[stray], N.mid('shell'))
+        clear_strays(N, M, hole)
     out = dataclasses.replace(ch, model=N)
     out.rig = dict(rig, jaw=deg, mouth_air=hole)
     out.anchors = dict(ch.anchors)

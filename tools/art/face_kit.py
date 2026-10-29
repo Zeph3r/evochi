@@ -67,7 +67,7 @@ def mapping(ch):
 
 
 def squash(ch):
-    """how the face plane is scaled on a posed body (cine_pose): across, up"""
+    """how the face plane is scaled on a squashed body (characters.squash_body): across, up"""
     return getattr(ch, 'face_squash', (1.0, 1.0))
 
 

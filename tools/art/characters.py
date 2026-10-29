@@ -115,11 +115,61 @@ class Character:
     ground_y: float = 0.0
 
 
+def squash_body(ch, lean=0.0, squash=1.0, puff=1.0, pad=4):
+    """the whole character leaning (a shear: the higher, the further toward the face, so the feet stay planted),
+    squashed or stretched (height scaled, volume kept) and puffed up, about the middle of its footprint; the face,
+    markings and anchors follow, and the face decal squashes with the body (face_kit reads face_squash)"""
+    import dataclasses
+    M = ch.model
+    idx = np.argwhere(M.m > 0)
+    pz = ((idx[:, 2].min() + idx[:, 2].max()) / 2 + M.lo[2]) / M.res
+    pivot = np.array([0.0, (idx[:, 1].min() + M.lo[1]) / M.res, pz])
+    t = math.tan(math.radians(lean))
+    Sh = np.eye(3)
+    Sh[2, 1] = t
+    S = np.diag([1 / math.sqrt(squash), squash, 1 / math.sqrt(squash)]) * puff
+    A = Sh @ S
+    Ai = np.linalg.inv(A)
+
+    def P(p):
+        return tuple((pivot + A @ (np.asarray(p, np.float64) - pivot)).tolist())
+
+    def T(v, M_):
+        w = M_ @ np.asarray(v, np.float64)
+        return tuple((w / np.linalg.norm(w)).tolist())
+    grow = math.ceil(abs(t) * M.hi[1] / M.res + (puff - 1) * 20 + 2)
+    lo_u = np.floor(M.lo / M.res - pad).astype(int) - np.array([grow, 0, grow])
+    hi_u = np.ceil(M.hi / M.res + pad).astype(int) + np.array([grow, grow, grow])
+    N = Model(tuple(lo_u), tuple(hi_u), M.mats[1:], res=M.res)
+    Q = np.stack([N.X, N.Y, N.Z], -1).reshape(-1, 3)
+    src_ = pivot + (Q - pivot) @ Ai.T
+    si = np.floor(src_ * M.res).astype(int) - M.lo
+    ok = np.all((si >= 0) & (si < np.array(M.m.shape)), axis=1)
+    flat = np.zeros(len(Q), np.int64)
+    flat[ok] = np.ravel_multi_index(si[ok].T, M.m.shape)
+    for k in ('m', 'glow', 'layer'):
+        a_ = getattr(M, k).ravel()[flat]
+        a_[~ok] = 0
+        setattr(N, k, a_.reshape(N.m.shape).astype(getattr(M, k).dtype))
+
+    def Fr(fr):
+        return Frame(center=P(fr.center), n=T(fr.n, Ai.T), up=T(fr.up, A), reach=fr.reach)
+    out = dataclasses.replace(ch, model=N, face=Fr(ch.face),
+                              pattern_decals=[(Fr(f), ext, fn) for f, ext, fn in ch.pattern_decals],
+                              anchors={k: P(v) for k, v in ch.anchors.items()})
+    out.face_squash = (puff / math.sqrt(squash), puff * squash * math.sqrt(1 + t * t))
+    out.rig = dict(getattr(ch, 'rig', {}))
+    return out
+
+
 # ----------------------------------------------------------------------------
 # Stage 1: Eggling
 # ----------------------------------------------------------------------------
-def build_eggling(res=2, feet=None, lo_y=-1, head=None, tail=0.0) -> Character:
-    """feet: {(side, front): (dy, dz)} moves a foot (side -1/+1, front True/False) relative to the body,
+def build_eggling(res=2, feet=None, lo_y=-1, head=None, tail=0.0, squash=1.0, lean=0.0, puff=1.0, jaw=0.0) -> Character:
+    """squash (height, volume kept), lean (degrees forward: a shear, the feet stay planted) and puff (overall size)
+    pose the whole egg about its feet, its face squashing with it (squash_body): the Eggling's body language.
+    jaw: how far its mouth opens, in the bigger stages' degrees (24: fully). feet: {(side, front): (dy, dz) or
+    (dy, dz, dx)} moves a foot (side -1/+1, front True/False) relative to the body,
     in world units (multiples of 1/res keep it on the voxel grid): the walk cycle (walk.py). An Eggling
     is all one egg: [head] and [tail] (the bigger stages' nod and tail swing) do nothing here."""
     feet = feet or {}
@@ -173,9 +223,11 @@ def build_eggling(res=2, feet=None, lo_y=-1, head=None, tail=0.0) -> Character:
     # feet
     for s in (-1, 1):
         for (z0, z1, h) in ((3.0, 10.0, 4.2), (-9.5, -3.5, 3.6)):
-            dy, dz = feet.get((s, z0 > 0), (0.0, 0.0))
+            ft = feet.get((s, z0 > 0), (0.0, 0.0))
+            dy, dz = ft[0], ft[1]
+            dx = s * ft[2] if len(ft) > 2 else 0.0
             z0, z1, y0, h = z0 + dz, z1 + dz, dy, h + dy
-            x0, x1 = (4.0, 10.8) if s > 0 else (-10.8, -4.0)
+            x0, x1 = (4.0 + dx, 10.8 + dx) if s > 0 else (-10.8 + dx, -4.0 + dx)
             f = M.box((x0, y0, z0), (x1, h, z1))
             # chamfer top-front edge
             f &= ~((M.Y > h - 1.0) & (M.Z > z1 - 1.0))
@@ -237,6 +289,12 @@ def build_eggling(res=2, feet=None, lo_y=-1, head=None, tail=0.0) -> Character:
         'head_top': (0, 31.5, 0.5), 'neck': (0, 5.0, 6.0), 'back': (0, 13.0, -10.5),
         'ground': (0, 0, 0), 'face': (0, 11.2, 11.6), 'hand': (11.0, 7.0, 4.0),
     }
+    ch.rig = dict(body=body)
+    if jaw:                       # the mouth opens into the egg (jaw.py): an Eggling has no jaw to swing
+        from jaw import carve_mouth
+        ch = carve_mouth(ch, jaw)
+    if squash != 1.0 or lean or puff != 1.0:
+        ch = squash_body(ch, lean, squash, puff)
     return ch
 
 

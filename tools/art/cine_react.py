@@ -55,6 +55,24 @@ KEYS = {
         (1.30, dict(head=(0.0, -0.6, 1.0), head_rot=(0, 0, 0), body=(-1.2, -0.6), tail=0.5, tail_lift=0.5,
                     feet={FN: (0.0, 1.4, 0.6), FF: (0.0, 1.4, 0.6), BN: (0.0, -1.4, 0.4), BF: (0.0, -1.4, 0.4)}), 'fierce'),
     ],
+    1: [  # Eggling: big feelings, small movements; the whole egg squashes and stretches (no jaw: the mouth opens
+          # into it). Snappy, with an overshoot as it springs back
+        (0.00, dict(), 'fierce'),
+        (0.08, dict(squash=1.10, lean=-10, jaw=24,
+                    feet={FN: (1.2, 0.6, 0.0), FF: (0.0, 0.3, 0.0), BN: (0.0, -1.0, 0.0), BF: (0.0, -1.0, 0.0)}), 'shout'),
+        (0.22, dict(squash=1.05, lean=-6, jaw=20,
+                    feet={FN: (0.4, 0.8, 0.0), FF: (0.0, 0.5, 0.0), BN: (0.0, -1.0, 0.0), BF: (0.0, -1.0, 0.0)}), 'shout'),
+        (0.36, dict(squash=0.80, lean=12,
+                    feet={FN: (0.0, 1.4, 0.8), FF: (0.0, 1.4, 0.8), BN: (0.0, -1.4, 0.4), BF: (0.0, -1.4, 0.4)}), 'strain'),
+        (0.78, dict(squash=0.78, lean=13,
+                    feet={FN: (0.0, 1.5, 0.8), FF: (0.0, 1.5, 0.8), BN: (0.0, -1.5, 0.4), BF: (0.0, -1.5, 0.4)}), 'strain'),
+        (0.90, dict(squash=1.06, lean=4, puff=1.04,
+                    feet={FN: (0.0, 1.2, 0.8), FF: (0.0, 1.2, 0.8), BN: (0.0, -1.2, 0.4), BF: (0.0, -1.2, 0.4)}), 'fierce'),
+        (1.05, dict(squash=0.97, lean=6, puff=1.03,
+                    feet={FN: (0.0, 1.2, 0.8), FF: (0.0, 1.2, 0.8), BN: (0.0, -1.2, 0.4), BF: (0.0, -1.2, 0.4)}), 'fierce'),
+        (1.25, dict(squash=0.98, lean=6, puff=1.03,
+                    feet={FN: (0.0, 1.2, 0.8), FF: (0.0, 1.2, 0.8), BN: (0.0, -1.2, 0.4), BF: (0.0, -1.2, 0.4)}), 'fierce'),
+    ],
     3: [  # Elder: heavy and controlled; head and neck recoil apart from the torso, shoulders drop, front legs spread,
           # the tail counters; little bounce. The head is turned a little to the camera throughout, so both eyes read
         (0.00, dict(head_rot=(0, -10, 0)), 'fierce'),
@@ -73,12 +91,18 @@ KEYS = {
     ],
 }
 BEATS = {'shout': 'Shock', 'strain': 'Strain', 'fierce': 'Resolve'}
-KEY_POSES = {2: [(0.10, 'Shock: thrown back, mouth open, a front foot off the ground, tail up for balance'),
+KEY_POSES = {1: [(0.08, 'Shock: stretches tall and rocks back, mouth pops open, a front foot comes up'),
+                 (0.78, 'Strain: squished low and leaning into the blast, feet braced wide'),
+                 (1.25, 'Resolve: sprang back up, puffed up a little, planted and set')],
+             2: [(0.10, 'Shock: thrown back, mouth open, a front foot off the ground, tail up for balance'),
                  (0.80, 'Strain: head ducked into the blast, shoulders and centre of gravity down, legs braced'),
                  (1.30, 'Resolve: back on its feet, head level, planted wide, eyes open and set')],
              3: [(0.14, 'Shock: head and neck snap back, jaw drops, the body rocks back on planted feet, tail lifts'),
                  (0.90, 'Strain: shoulders down, front legs spread and braced, head pushed into the blast, tail low'),
                  (1.50, 'Resolve: head level, planted wide and still: controlled power')]}
+
+
+REST = {'squash': 1.0, 'puff': 1.0}       # what an unset key means, where it isn't nothing
 
 
 def _ease(u):
@@ -106,7 +130,7 @@ def pose_at(stage, t):
         if t <= t1:
             u = _ease((t - t0) / (t1 - t0))
             names = set(p0) | set(p1)
-            pose = {k: _mix(p0.get(k), p1.get(k), u) for k in names}
+            pose = {k: _mix(p0.get(k, REST.get(k)), p1.get(k, REST.get(k)), u) for k in names}
             face = f1 if u > 0.35 else f0
             return pose, face
     return keys[-1][1], keys[-1][2]
@@ -131,6 +155,9 @@ def _character(stage, pose):
         kw['feet'] = {k: (v[0], v[1], v[2] if len(v) > 2 else 0.0) for k, v in feet.items()}
     if kw.get('jaw', 0) < 0.5:
         kw.pop('jaw', None)
+    for k, rest in (('squash', 1.0), ('puff', 1.0)):
+        if k in kw and kw[k] == 0.0:
+            kw[k] = rest                                  # unset in a keyframe: rest
     return build(stage, **kw)
 
 
@@ -174,8 +201,11 @@ def main(out, stage=2, pers='brave'):
     img = Image.new('RGB', (W, 120 + 3 * (chh + 74)), BG)
     d = ImageDraw.Draw(img)
     d.text((40, 24), '%s: taking the roar (Shock, Strain, Resolve)' % name.capitalize(), font=font(38), fill=INK)
-    d.text((40, 78), 'The model posed by its rig: head turned with its face, jaw opened in the voxels, torso, feet and '
-           'tail. Amber, %s faces.' % pers.capitalize(), font=font(19, False), fill=SUB)
+    how = {1: 'The whole egg squashed, stretched and leaned by its rig, the mouth opened into it, the feet braced.',
+           2: 'The model posed by its rig: head turned with its face, jaw opened in the voxels, torso, feet and tail.',
+           3: 'The model posed by its rig: head and neck apart from the torso, jaw opened in the snout, shoulders, '
+              'legs and tail.'}[stage]
+    d.text((40, 78), '%s Amber, %s faces.' % (how, pers.capitalize()), font=font(19, False), fill=SUB)
     for k, (t, note) in enumerate(KEY_POSES[stage]):
         y = 120 + k * (chh + 74)
         d.text((40, y), '%.2f s  %s' % (t, note), font=font(20), fill=INK)
