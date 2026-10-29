@@ -72,8 +72,9 @@ mixin _BriarScene on _IntroFx {
     }
     if (settle) {
       final p = _ease((t - _faceOff) / 0.55);
-      scale = base * (1.0 - 0.2 * p);
-      at = Offset.lerp(Offset(W * 0.55, H * 0.86), Offset(W * 0.66, H * 0.8), p)!;
+      // smaller and lower, so its lit antlers stay clear of the title above
+      scale = base * (1.0 - 0.28 * p);
+      at = Offset.lerp(Offset(W * 0.55, H * 0.86), Offset(W * 0.64, H * 0.885), p)!;
       // its breath as it holds
       scale *= 1 + 0.008 * math.sin(t * 2.4);
     }
@@ -454,14 +455,21 @@ mixin _BriarScene on _IntroFx {
     const steps = 96;
     final glow = Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 12 + r * 0.02
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7)
-      ..color = Color.fromRGBO(160, 110, 255, 0.28 * a);
+      ..strokeWidth = 14 + r * 0.025
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9)
+      ..color = Color.fromRGBO(150, 96, 255, 0.5 * a);
+    // a wider, fainter rose-violet bloom, added on, so the arcs read as light and not as wire
+    final halo = Paint()
+      ..style = PaintingStyle.stroke
+      ..blendMode = BlendMode.plus
+      ..strokeWidth = 30 + r * 0.04
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 16)
+      ..color = Color.fromRGBO(190, 90, 230, 0.16 * a);
     final core = Paint()
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
       ..strokeWidth = 2.4 + 2.5 * (1 - r / maxR)
-      ..color = Color.fromRGBO(238, 226, 255, 0.9 * a);
+      ..color = Color.fromRGBO(228, 210, 255, 0.9 * a);
     final path = Path();
     var open = false;
     for (var i = 0; i <= steps; i++) {
@@ -478,6 +486,7 @@ mixin _BriarScene on _IntroFx {
         path.lineTo(p.dx, p.dy);
       }
     }
+    canvas.drawPath(path, halo);
     canvas.drawPath(path, glow);
     canvas.drawPath(path, core);
     // thorns along the line, raked back like bramble
