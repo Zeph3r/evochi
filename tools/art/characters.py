@@ -745,6 +745,7 @@ def build_elder(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_rot=None, b
             hip = B((s * 6.0, 9.5, z))
             leg = tube(M, [hip, (s * 9.4 + dx * 0.6, 5.2 + dy * 0.6 + (hip[1] - 9.5) * 0.5, z + 0.5 + dz * 0.6),
                            (s * 10.6 + dx, 2.6 + dy, z + 1.0 + dz)], [4.4, 3.9, 3.6], p=2.6) & ~core
+            leg &= M.Y >= dy          # the leg ends in the foot: none of it pokes out under the sole (or the ground)
             M.set(leg, 'shell')
             zf = z + dz
             fx = s * 10.6 + dx

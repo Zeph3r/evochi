@@ -699,15 +699,24 @@ mixin _BriarScene on _IntroFx {
     // each foot's contact: a tight dark core and a softer spread, smaller and fainter as the foot leaves the ground
     for (final c in steps) {
       final up = (c.lift / 3).clamp(0.0, 1.0);
-      final rx = c.rx * (1.08 - 0.3 * up), ry = math.max(c.ry, c.rx * 0.22) * (1 - 0.3 * up);
+      final rx = c.rx * (1.12 - 0.35 * up), ry = math.max(c.ry, c.rx * 0.3) * (1 - 0.3 * up);
       canvas.save();
       canvas.translate(c.at.dx, c.at.dy + 1);
       canvas.scale(1, ry / rx); // an elliptical falloff, flat on the ground
-      canvas.drawCircle(Offset.zero, rx * 1.4,
-          Paint()..shader = ui.Gradient.radial(Offset.zero, rx * 1.4, [Color.fromRGBO(4, 6, 10, 0.34 * (1 - up) * env), const Color(0x0004060A)]));
+      canvas.drawCircle(Offset.zero, rx * 1.5,
+          Paint()..shader = ui.Gradient.radial(Offset.zero, rx * 1.5, [Color.fromRGBO(2, 2, 6, 0.45 * (1 - up) * env), const Color(0x00020206)]));
       canvas.drawCircle(Offset.zero, rx,
-          Paint()..shader = ui.Gradient.radial(Offset.zero, rx, [Color.fromRGBO(4, 6, 10, 0.66 * (1 - up) * env), const Color(0x0004060A)], [0.35, 1]));
+          Paint()..shader = ui.Gradient.radial(Offset.zero, rx, [Color.fromRGBO(2, 2, 6, 0.9 * (1 - up) * env), const Color(0x00020206)], [0.45, 1]));
       canvas.restore();
+      // and the dark seam right where the sole meets the ground (gone the moment the foot is off it)
+      if (c.lift < 0.3) {
+        final edge = c.at + Offset(0, c.ry * 0.9); // the sole's near edge, the one that shows
+        canvas.drawLine(edge + Offset(-c.rx * 0.85, 0), edge + Offset(c.rx * 0.85, 0), Paint()
+          ..strokeWidth = math.max(2.0, c.rx * 0.12)
+          ..strokeCap = StrokeCap.round
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5)
+          ..color = Color.fromRGBO(0, 0, 0, 0.75 * env));
+      }
     }
     // the furrows its planted feet dig as it is pushed back
     final dug = home.dx - feet.dx;
@@ -815,7 +824,7 @@ mixin _BriarScene on _IntroFx {
     final top = feet.dy - h * 0.16; // as far back as the floor is seen
     if (!front) {
       canvas.drawOval(Rect.fromCenter(center: feet + Offset(h * 0.1, h * 0.01), width: h * 2.4, height: h * 0.34),
-          Paint()..shader = ui.Gradient.radial(feet, h * 1.2, [Color.fromRGBO(150, 140, 200, 0.16 * env), const Color(0x00968CC8)]));
+          Paint()..shader = ui.Gradient.radial(feet, h * 1.2, [Color.fromRGBO(150, 140, 200, 0.26 * env), const Color(0x00968CC8)]));
     }
     final tuft = Paint()
       ..style = PaintingStyle.stroke
