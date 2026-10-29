@@ -389,39 +389,10 @@ def paint_face(ch: Character, cv: Canvas, pal: dict, expr: str):
         for s in (-1, 1):
             cv.paint(cv.m_arc(s * eu, ev - eh * 0.05, ew * 0.75, 0.6, 195, 345, lw), E, lit=0.0)
         smile(1.0, 0.4)
-    # ---- the cinematics only (the Wilds' boss entrance; not in the sprite sheets)
-    elif expr == 'strain':
-        # squeezed shut against a blast, brows pinched, teeth gritted, a bead of sweat
-        cheeks(w=1.15)
-        for s in (-1, 1):
-            cu = s * eu
-            a = 0.95 * ew
-            pts = [(cu - s * a, ev + eh * 0.34), (cu + s * a * 0.6, ev - eh * 0.04), (cu - s * a, ev - eh * 0.42)]
-            cv.paint(cv.m_stroke(pts, lw * 1.45), E, lit=0.0)
-        brows(1.02, 0.66, 1.3)
-        teeth(3.4, 1.5)
-        sweat()
-    elif expr == 'fierce':
-        # ready: narrowed eyes under set brows, a gritted grin
-        cheeks(0.9)
-        for s in (-1, 1):
-            cu = s * eu
-            m = cv.m_rect(cu, ev - 0.35, ew, eh * 0.74, r)
-            inner = -s
-            cut = (cv.V - (ev - 0.35 + eh * 0.33)) > -((cv.U - cu) * inner + ew / 2) * 1.05
-            cv.paint(m & ~cut, E, lit=0.0)
-            hw = ew * 0.36
-            cv.paint(cv.m_rect(cu - 0.2 * ew, ev - 0.35 + eh * 0.08, hw, hw, 0.1), H, lit=0.0)
-        brows(0.82, 0.4, 1.45)
-        teeth(2.8, 1.25, dv=0.1)
-    elif expr == 'shout':
-        # the blast lands: eyes wide, brows up, mouth open in a yell
-        cheeks()
-        eyes(h=eh * 1.1)
-        for s in (-1, 1):
-            cu = s * eu
-            cv.paint(cv.m_stroke([(cu + s * ew * 0.9, ev + eh * 0.95), (cu - s * ew * 0.6, ev + eh * 1.15)], lw * 1.1), E, lit=0.0)
-        open_mouth(3.3, 2.8, tongue=False)
+    # ---- the cinematics only (the Wilds' boss entrance; not in the sprite sheets): per stage, in cine_faces.py
+    elif expr.split('.')[0] in ('shout', 'strain', 'fierce'):
+        from cine_faces import paint_cine
+        paint_cine(ch, cv, pal, expr)
     # ---- villager-only expressions (Village Tales NPCs; Evochi sprites never use these)
     elif expr == 'worried':
         cheeks(0.6)

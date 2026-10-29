@@ -41,6 +41,9 @@ def pattern_quads(ch: Character, pal: dict, pal_key: str):
     return out
 
 
+FACE_LIFT = 0.08     # how far the face sits off the voxels (the cinematic's big close-ups lift it more: cine_pose)
+
+
 def face_quads(ch: Character, pal: dict, pal_key: str, expr: str):
     k = (id(ch.model), pal_key, expr)
     if k in _quad_cache:
@@ -48,7 +51,7 @@ def face_quads(ch: Character, pal: dict, pal_key: str, expr: str):
     surf = surface_for(ch)
     cv = Canvas(*ch.face_extent, cell=0.07)
     paint_face(ch, cv, pal, expr)
-    q = project_canvas(surf, ch.face, cv, FACE_MID, lift=0.08)
+    q = project_canvas(surf, ch.face, cv, FACE_MID, lift=FACE_LIFT)
     _quad_cache[k] = q
     return q
 
