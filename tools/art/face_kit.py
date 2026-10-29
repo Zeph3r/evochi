@@ -36,11 +36,17 @@ def svg_path(name):
     return o if os.path.exists(o) else os.path.join(KIT, 'svg', name + '.svg')
 
 
+MOUTH_ALL = ('#712E37', '#963C42', '#8E4444', '#E98D87', '#FFFBF2')   # the kit's mouth colours (and teeth)
+
+
 def parse(expr):
-    """'fierce:calm' -> ('fierce', 'calm'); None when it is not a kit expression"""
-    state, _, pers = expr.partition(':')
+    """'fierce:calm' -> ('fierce', 'calm'); 'shout:brave:nomouth' -> ('shout', 'brave', False): the face without
+    its painted mouth, for when the jaw opens in the geometry; None when it is not a kit expression"""
+    state, pers, *flags = expr.split(':') + ['']
     if state not in STATES:
         return None
+    if 'nomouth' in flags:
+        return state, (pers or 'brave'), False
     return state, (pers or 'brave')
 
 
@@ -97,7 +103,7 @@ def _hex(c):
     return np.array([int(c[i:i + 2], 16) for i in (0, 2, 4)], np.float32) / 255.0
 
 
-def paint_kit(ch, cv, pal, state, personality='brave'):
+def paint_kit(ch, cv, pal, state, personality='brave', mouth=True):
     name = '%s_%s_%s' % (personality, STAGE_NAMES[ch.stage], state)
     k, cx, cy = mapping(ch)
     sx, sy = squash(ch)                              # a posed body squashes its face with it
@@ -106,7 +112,8 @@ def paint_kit(ch, cv, pal, state, personality='brave'):
     R = _raster(name, tuple(sorted(sub.items())), round(scale, 3))
     H, W = R.shape[:2]
     svg = open(svg_path(name)).read()
-    cols = sorted({sub.get(c.upper(), c.upper()) for c in re.findall(r'#[0-9A-Fa-f]{6}', svg)})
+    orig = sorted({c.upper() for c in re.findall(r'#[0-9A-Fa-f]{6}', svg)})
+    cols = [sub.get(c, c) for c in orig]
     P = np.stack([_hex(c) for c in cols])
     # each subsample snapped to the nearest of the kit's colours (after the palette swap); each cell takes the
     # colour most of its subsamples have, so edges never pick up an unrelated in-between colour
@@ -132,7 +139,7 @@ def paint_kit(ch, cv, pal, state, personality='brave'):
     cheek = _hex(pal['cheek'])
     for c in range(len(cols)):
         mask = filled & (best == c)
-        if not mask.any():
+        if not mask.any() or (not mouth and orig[c] in MOUTH_ALL):
             continue
         a = float(np.round(np.median(alpha[..., c][mask] / votes[..., c][mask]), 2))
         is_cheek = np.allclose(P[c], cheek, atol=1e-3)
