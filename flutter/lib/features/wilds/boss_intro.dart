@@ -188,7 +188,8 @@ class CineEvochiArt {
 /// the entrance's camera, at the times they show from, and itself from behind, over its shoulder, for the wide
 /// shots.
 class ReactArt {
-  ReactArt._(this.stage, this.sheet, this.cell, this.cols, this.times, this.end, this.ground, this.back, this.backCell, this.backGround);
+  ReactArt._(this.stage, this.sheet, this.cell, this.cols, this.times, this.end, this.ground, this.feet, this.back, this.backCell,
+      this.backGround);
   final int stage;
   final ui.Image sheet;
   final Size cell;
@@ -196,6 +197,10 @@ class ReactArt {
   final List<double> times;
   final double end;
   final Offset ground;
+
+  /// per frame, where each foot meets the ground (near front, far front, near back, far back): its footprint's
+  /// centre and radii in the cell's pixels, and how far it is off the ground (world units, 0 planted)
+  final List<List<FootContact?>> feet;
   final ui.Image back;
   final Size backCell;
   final Offset backGround;
@@ -216,6 +221,15 @@ class ReactArt {
         [for (final x in st['times'] as List) (x as num).toDouble()],
         (st['end'] as num).toDouble(),
         _pt(st['ground']),
+        [
+          for (final f in (st['feet'] as List?) ?? const [])
+            [
+              for (final c in f as List)
+                c == null
+                    ? null
+                    : FootContact(_pt(c), ((c as List)[2] as num).toDouble(), (c[3] as num).toDouble(), (c[4] as num).toDouble())
+            ]
+        ],
         await _img(wildsBase + ((bs[palette] ?? bs['amber']) as String)),
         Size((b['w'] as num).toDouble(), (b['h'] as num).toDouble()),
         _pt(b['ground']),
@@ -270,6 +284,18 @@ class ReactArt {
     return i;
   }
 
+  /// Where its feet meet the ground [u] seconds in, drawn [h] tall with its ground point at the origin (the same
+  /// space [draw] draws in). Empty for older art.
+  List<FootContact> contacts(double u, double h) {
+    final i = frameAt(frameTime(u));
+    if (i >= feet.length) return const [];
+    final k = h / cell.height;
+    return [
+      for (final c in feet[i])
+        if (c != null) FootContact((c.at - ground) * k, c.rx * k, c.ry * k, c.lift),
+    ];
+  }
+
   /// Draws it with its feet at the canvas origin, [h] tall, [u] seconds into its reaction.
   void draw(Canvas canvas, double u, double h, Paint paint) {
     final i = frameAt(frameTime(u));
@@ -284,6 +310,13 @@ class ReactArt {
     canvas.drawImageRect(back, Rect.fromLTWH(0, 0, backCell.width, backCell.height),
         Rect.fromLTWH(-backGround.dx * k, -backGround.dy * k, backCell.width * k, backCell.height * k), paint);
   }
+}
+
+/// One foot on the ground: its footprint's centre, its radii as seen, and how high it is lifted (world units).
+class FootContact {
+  const FootContact(this.at, this.rx, this.ry, this.lift);
+  final Offset at;
+  final double rx, ry, lift;
 }
 
 enum IntroCut { full, short, still }

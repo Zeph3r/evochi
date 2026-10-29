@@ -680,39 +680,72 @@ mixin _BriarScene on _IntroFx {
     final h = math.min(H * 0.5, W * 0.88);
     final home = Offset(W * 0.56, H * 0.84);
     final feet = Offset(home.dx - W * ev.skid(u) + tremble, home.dy);
-    _shadow(canvas, feet, h * 0.45, 0.5 * env);
-    // the furrows its feet dig as it is pushed back, and the dirt they throw up
+    final squeeze = 1 - 0.07 * g * imp;
+    // where its feet meet the ground this frame, on the screen (squeezed with it)
+    final steps = [
+      for (final c in ev.contacts(u, h)) FootContact(feet + Offset(c.at.dx * squeeze, c.at.dy), c.rx * squeeze, c.ry, c.lift)
+    ];
+    _ground(canvas, size, feet, h, gust, env, front: false);
+    // the shade under its body, soft all round
+    {
+      final mid = steps.isEmpty ? feet : steps.map((c) => c.at).reduce((a, b) => a + b) / steps.length.toDouble();
+      final r = h * 0.5;
+      canvas.save();
+      canvas.translate(mid.dx, mid.dy);
+      canvas.scale(1, 0.16);
+      canvas.drawCircle(Offset.zero, r, Paint()..shader = ui.Gradient.radial(Offset.zero, r, [Color.fromRGBO(0, 0, 0, 0.45 * env), const Color(0x00000000)]));
+      canvas.restore();
+    }
+    // each foot's contact: a tight dark core and a softer spread, smaller and fainter as the foot leaves the ground
+    for (final c in steps) {
+      final up = (c.lift / 3).clamp(0.0, 1.0);
+      final rx = c.rx * (1.08 - 0.3 * up), ry = math.max(c.ry, c.rx * 0.22) * (1 - 0.3 * up);
+      canvas.save();
+      canvas.translate(c.at.dx, c.at.dy + 1);
+      canvas.scale(1, ry / rx); // an elliptical falloff, flat on the ground
+      canvas.drawCircle(Offset.zero, rx * 1.4,
+          Paint()..shader = ui.Gradient.radial(Offset.zero, rx * 1.4, [Color.fromRGBO(4, 6, 10, 0.34 * (1 - up) * env), const Color(0x0004060A)]));
+      canvas.drawCircle(Offset.zero, rx,
+          Paint()..shader = ui.Gradient.radial(Offset.zero, rx, [Color.fromRGBO(4, 6, 10, 0.66 * (1 - up) * env), const Color(0x0004060A)], [0.35, 1]));
+      canvas.restore();
+    }
+    // the furrows its planted feet dig as it is pushed back
     final dug = home.dx - feet.dx;
     if (dug > 2) {
       final fa = env * (1 - _ease((u - ev.end * 0.85) / 0.4)) * 0.8;
-      for (final o in [-0.16, 0.2]) {
-        final y = feet.dy + 2 + o.abs() * 10;
-        final x0 = feet.dx + h * o, x1 = x0 + dug;
+      for (final c in steps.isEmpty ? [FootContact(feet + Offset(-h * 0.16, 2), h * 0.08, 3, 0), FootContact(feet + Offset(h * 0.2, 4), h * 0.08, 3, 0)] : steps) {
+        if (c.lift > 0.6) continue;
+        final y = c.at.dy + 1;
+        final x0 = c.at.dx, x1 = x0 + dug;
         canvas.drawLine(Offset(x0, y), Offset(x1, y), Paint()
-          ..strokeWidth = 5
+          ..strokeWidth = math.max(3.0, c.rx * 0.28)
           ..strokeCap = StrokeCap.round
           ..shader = ui.Gradient.linear(Offset(x0, y), Offset(x1, y),
-              [Color.fromRGBO(34, 24, 22, 0.75 * fa), Color.fromRGBO(34, 24, 22, 0.0)]));
-        canvas.drawLine(Offset(x0, y - 3), Offset(x1, y - 3), Paint()
-          ..strokeWidth = 2
+              [Color.fromRGBO(30, 22, 20, 0.7 * fa), Color.fromRGBO(30, 22, 20, 0.0)]));
+        canvas.drawLine(Offset(x0, y - 2.5), Offset(x1, y - 2.5), Paint()
+          ..strokeWidth = 1.6
           ..strokeCap = StrokeCap.round
           ..shader = ui.Gradient.linear(Offset(x0, y), Offset(x1, y),
-              [Color.fromRGBO(150, 130, 110, 0.5 * fa), Color.fromRGBO(150, 130, 110, 0.0)]));
+              [Color.fromRGBO(150, 130, 110, 0.45 * fa), Color.fromRGBO(150, 130, 110, 0.0)]));
       }
     }
+    // the dirt each hit throws up from its planted feet
     {
       final p = Paint();
+      final from = steps.where((c) => c.lift < 0.6).map((c) => c.at).toList();
+      if (from.isEmpty) from.add(feet);
       for (var k = 0; k < 3; k++) {
         final x = u - ev.hits[k];
         if (x < 0 || x > 0.7) continue;
+        final ph = x / 0.7;
         final n = 14 - k * 4;
         for (var i = 0; i < n; i++) {
-          final ph = x / 0.7;
           final sp = 0.5 + _h(i + k * 20, 18);
-          final px = feet.dx + h * (0.1 - 0.3 * _h(i + k * 20, 19)) - ph * W * 0.35 * sp * ReactArt.hitForce[k];
-          final py = feet.dy - 4 - math.sin(ph * math.pi) * h * 0.18 * sp * ReactArt.hitForce[k];
+          final o = from[i % from.length];
+          final px = o.dx + h * 0.04 * (_h(i + k * 20, 19) - 0.5) - ph * W * 0.3 * sp * ReactArt.hitForce[k];
+          final py = o.dy - 2 - math.sin(ph * math.pi) * h * 0.16 * sp * ReactArt.hitForce[k];
           p.color = Color.fromRGBO(200, 184, 156, (1 - ph) * 0.6 * env);
-          canvas.drawCircle(Offset(px, py), 3 + 10 * ph * sp, p);
+          canvas.drawCircle(Offset(px, py), 2.5 + 9 * ph * sp, p);
         }
       }
     }
@@ -735,12 +768,15 @@ mixin _BriarScene on _IntroFx {
     }
     canvas.save();
     canvas.translate(feet.dx, feet.dy);
-    // rocked back (its top away from the blast, pivoting on its back feet) and squeezed by the hit
-    final pivot = Offset(-h * 0.25, 0);
+    // rocked back (its top away from the blast, pivoting on its back feet, so its front feet come up off their
+    // shadows) and squeezed by the hit
+    final back = steps.length >= 4 ? (steps[2].at + steps[3].at) / 2 - feet : Offset(-h * 0.25, 0);
+    final pivot = Offset(back.dx, 0);
     canvas.translate(pivot.dx, pivot.dy);
     canvas.rotate(-0.11 * g * imp);
-    canvas.scale(1 - 0.07 * g * imp, 1 + 0.035 * g * imp);
+    canvas.scale(1, 1 + 0.035 * g * imp);
     canvas.translate(-pivot.dx, -pivot.dy);
+    canvas.scale(squeeze, 1);
     ev.draw(canvas, u, h, Paint()
       ..filterQuality = FilterQuality.medium
       ..color = Color.fromRGBO(0, 0, 0, env));
@@ -752,6 +788,7 @@ mixin _BriarScene on _IntroFx {
         ..blendMode = BlendMode.plus
         ..shader = ui.Gradient.radial(c, h * 0.6, [Color.fromRGBO(200, 160, 255, 0.45 * math.min(1.0, imp) * env), const Color(0x00C8A0FF)]));
     }
+    _ground(canvas, size, feet, h, gust, env, front: true);
     _swooshes(canvas, feet - Offset(0, h * 0.46), h, gust * env);
     _wind(canvas, size, gust * env * 0.6, true);
     // grass in front, laid flat to the left
@@ -767,6 +804,48 @@ mixin _BriarScene on _IntroFx {
         ..strokeWidth = 2.5 + 2 * _h(i, 173)
         ..color = Color.fromRGBO(22, 30, 22, 0.95 * env);
       canvas.drawPath(Path()..moveTo(x, y)..quadraticBezierTo(x, y - len * 0.5, x + bend * len, y - len * (1 - 0.3 * bend.abs())), gp);
+    }
+  }
+
+  /// The floor it stands on in the close shot: a pool of the roar's light round it, and tufts and pebbles laid
+  /// in depth (smaller and hazier toward the back), bent by the blast. [front]: only those nearer than its feet,
+  /// drawn over its feet's edges so it stands in the grass, not on it.
+  void _ground(Canvas canvas, Size size, Offset feet, double h, double gust, double env, {required bool front}) {
+    final W = size.width, H = size.height;
+    final top = feet.dy - h * 0.16; // as far back as the floor is seen
+    if (!front) {
+      canvas.drawOval(Rect.fromCenter(center: feet + Offset(h * 0.1, h * 0.01), width: h * 2.4, height: h * 0.34),
+          Paint()..shader = ui.Gradient.radial(feet, h * 1.2, [Color.fromRGBO(150, 140, 200, 0.16 * env), const Color(0x00968CC8)]));
+    }
+    final tuft = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    final stone = Paint();
+    for (var i = 0; i < 70; i++) {
+      final d = _h(i, 180); // 0 far .. 1 near
+      final y = top + (H - top) * d * d;
+      if ((y > feet.dy + 2) != front) continue;
+      final near = 0.35 + 0.9 * d;
+      final x = W * (-0.05 + 1.1 * _h(i, 181)); // fixed in the world: it skids over them
+      final haze = 1 - 0.55 * (1 - d);
+      if (i % 5 == 0) {
+        stone.color = Color.lerp(const Color(0xFF2A2830), const Color(0xFF4A4552), _h(i, 182))!.withAlpha(_a(0.8 * haze * env));
+        canvas.drawOval(Rect.fromCenter(center: Offset(x, y), width: 6 * near * (1 + _h(i, 183)), height: 3 * near), stone);
+        continue;
+      }
+      final len = h * (0.03 + 0.04 * _h(i, 184)) * near;
+      tuft
+        ..strokeWidth = 1.6 + 1.6 * near
+        ..color = Color.lerp(const Color(0xFF1C2A1E), const Color(0xFF3C5236), _h(i, 185) * haze)!.withAlpha(_a(0.95 * env));
+      for (var b = -1; b <= 1; b++) {
+        final bend = -(0.25 + 0.8 * gust) + b * 0.25 + math.sin(t * 8 + i + b) * 0.1 * gust;
+        final bx = x + b * 3 * near;
+        canvas.drawPath(
+            Path()
+              ..moveTo(bx, y)
+              ..quadraticBezierTo(bx, y - len * 0.6, bx + bend * len, y - len * (1 - 0.25 * bend.abs())),
+            tuft);
+      }
     }
   }
 
