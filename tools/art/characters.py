@@ -638,48 +638,67 @@ def build_juvenile(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_rot=None
 # ----------------------------------------------------------------------------
 # Stage 3: Elder
 # ----------------------------------------------------------------------------
-def build_elder(res=2, feet=None, lo_y=-1, head=None, tail=0.0) -> Character:
-    """feet: {(side, front): (dy, dz)}: the foot moves, the leg bends to follow (walk.py). head: (dx, dy, dz)
-    moves the head, snout and mane from rest (the neck follows), a nod in the walk; tail: how far the
-    tail's curl swings sideways."""
+def build_elder(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_rot=None, body=None, tail_lift=0.0,
+                jaw=0.0) -> Character:
+    """feet: {(side, front): (dy, dz) or (dy, dz, dx)}: the foot moves, the leg bends to follow (walk.py); dx spreads
+    it outward. head: (dx, dy, dz) moves the head, snout and mane from rest (the neck follows), a nod in the walk.
+    head_rot: (pitch, yaw, roll) degrees turns them rigidly about the top of the neck (face and jaw with them).
+    body: (dy_front, dy_back) lowers the torso (front: the shoulders): the neck, legs, mane plumes, dorsal spikes
+    and markings move with it. tail: how far the tail's curl swings sideways; tail_lift: how far it rises.
+    jaw: degrees the mouth opens (jaw.py)."""
     feet = feet or {}
-    hd = np.array(head or (0.0, 0.0, 0.0), float)
-    H = lambda p: tuple(np.array(p, float) + hd)  # noqa: E731  a point on the head, moved with it
+    bf, bb = body or (0.0, 0.0)
+    hd = np.array(head or (0.0, 0.0, 0.0), float) + np.array([0.0, bf, 0.0])
+    rotated = bool(head_rot) and any(abs(v) > 1e-9 for v in head_rot)
+    R = head_rotation(head_rot)
+    PIVOT = np.array([0.0, 15.0, 10.0])                                 # where the head meets the neck, at rest
+    Hw = lambda p: tuple(PIVOT + R @ (np.array(p, float) - PIVOT) + hd)  # noqa: E731  a head point, in the world
     rng = np.random.default_rng(33)
     M = Model((-22, lo_y, -48), (22, 46, 34), MATS, res=res)
-    head = egg_mask(M, H((0, 17.0, 16.0)), 9.8, 8.4, 7.6, 10.2, p=2.7)
-    snout = egg_mask(M, H((0, 15.0, 23.0)), 7.4, 5.4, 5.0, 5.8, p=2.6)
-    neck = tube(M, [H((0, 15.0, 10.0)), (0, 12.5, 5.0)], [7.6, 8.2], p=2.4)
-    body = tube(M, [(0, 11.8, 5.0), (0, 11.6, -4.0), (0, 11.4, -13.0), (0, 11.0, -19.0)],
-                [9.0, 9.6, 9.2, 7.6], p=2.5, squash=(1.05, 0.88))
+    if rotated:
+        HL, HC = HeadView(M, PIVOT, R, hd), (lambda p: tuple(np.array(p, float)))
+    else:
+        HL, HC = M, (lambda p: tuple(np.array(p, float) + hd))
+    B = lambda p: (p[0], p[1] + float(_lerp_z(p[2], 5.0, -19.0, bf, bb)), p[2])  # noqa: E731  a point on the torso
+    head = egg_mask(HL, HC((0, 17.0, 16.0)), 9.8, 8.4, 7.6, 10.2, p=2.7)
+    snout = egg_mask(HL, HC((0, 15.0, 23.0)), 7.4, 5.4, 5.0, 5.8, p=2.6)
+    neck = tube(M, [Hw((0, 15.0, 10.0)), B((0, 12.5, 5.0))], [7.6, 8.2], p=2.4)
+    body_m = tube(M, [B((0, 11.8, 5.0)), B((0, 11.6, -4.0)), B((0, 11.4, -13.0)), B((0, 11.0, -19.0))],
+                  [9.0, 9.6, 9.2, 7.6], p=2.5, squash=(1.05, 0.88))
     tpath = [(0, 10.5, -20.0), (0, 9.6, -26.5), (0, 10.4, -32.5), (0, 13.6, -37.5), (0, 18.6, -40.0),
              (0, 23.6, -39.2), (0, 26.8, -36.2), (0, 27.4, -32.6), (0, 25.6, -30.2)]
-    # the swing: nothing at the root, all of it from the curl on
-    tpath = [(tail * min(1.0, i / 4.0) ** 1.5, y, z) for i, (_, y, z) in enumerate(tpath)]
+    # the swing: nothing at the root, all of it from the curl on; the lift likewise; the root rides on the back
+    tpath = [(tail * min(1.0, i / 4.0) ** 1.5, y + bb + tail_lift * min(1.0, i / 4.0) ** 1.5, z)
+             for i, (_, y, z) in enumerate(tpath)]
     trad = [6.8, 6.0, 5.4, 4.9, 4.5, 4.1, 3.7, 3.2, 2.8]
     tail_m = tube(M, tpath, trad, p=2.3)
-    core = head | snout | neck | body | tail_m
+    core = head | snout | neck | body_m | tail_m
     M.set(core, 'shell')
-    belly = core & (M.Y < 9.0) & (M.Z > -19)
-    belly |= (head | snout) & (M.Y < 12.2 + hd[1]) & (M.Z > 14 + hd[2])
+    dyz = _lerp_z(M.Z, 5.0, -19.0, bf, bb) if (bf or bb) else 0.0
+    belly = core & (M.Y - dyz < 9.0) & (M.Z > -19)
+    belly |= (head | snout) & (HL.Y < HC((0, 12.2, 0))[1]) & (HL.Z > HC((0, 0, 14))[2])
     M.set(belly, 'belly')
 
     for s in (-1, 1):
         for z in (7.0, -12.5):
-            dy, dz = feet.get((s, z > 0), (0.0, 0.0))
-            leg = tube(M, [(s * 6.0, 9.5, z), (s * 9.4, 5.2 + dy * 0.6, z + 0.5 + dz * 0.6),
-                           (s * 10.6, 2.6 + dy, z + 1.0 + dz)], [4.4, 3.9, 3.6], p=2.6) & ~core
+            f = feet.get((s, z > 0), (0.0, 0.0))
+            dy, dz = f[0], f[1]
+            dx = s * f[2] if len(f) > 2 else 0.0
+            hip = B((s * 6.0, 9.5, z))
+            leg = tube(M, [hip, (s * 9.4 + dx * 0.6, 5.2 + dy * 0.6 + (hip[1] - 9.5) * 0.5, z + 0.5 + dz * 0.6),
+                           (s * 10.6 + dx, 2.6 + dy, z + 1.0 + dz)], [4.4, 3.9, 3.6], p=2.6) & ~core
             M.set(leg, 'shell')
             zf = z + dz
-            foot = M.box((s * 10.6 - 4.2, dy, zf - 3.2), (s * 10.6 + 4.2, 3.8 + dy, zf + 5.4))
+            fx = s * 10.6 + dx
+            foot = M.box((fx - 4.2, dy, zf - 3.2), (fx + 4.2, 3.8 + dy, zf + 5.4))
             foot &= ~((M.Y > 2.6 + dy) & (M.Z > zf + 3.8))
             M.set(foot, 'feet')
             M.set(foot & (M.Y < 1.1 + dy), 'feet_shade')
-            for cx in np.linspace(s * 10.6 - 2.8, s * 10.6 + 2.8, 3):
+            for cx in np.linspace(fx - 2.8, fx + 2.8, 3):
                 M.set(M.box((cx - 0.7, dy, zf + 5.0), (cx + 0.7, 1.5 + dy, zf + 6.8)), 'claw')
-            pl = fluff(M, (s * 10.0, 10.0, z), 5.4, rng, n=8, spread=(1.0, 2.0, 2.2)) & (M.m == 0)
+            pl = fluff(M, B((s * 10.0, 10.0, z)), 5.4, rng, n=8, spread=(1.0, 2.0, 2.2)) & (M.m == 0)
             M.set(pl, 'crest.7')
-            pl = fluff(M, (s * 10.4, 5.5 + dy * 0.6, z + 1.0 + dz * 0.6), 3.6, rng, n=5,
+            pl = fluff(M, (s * 10.4 + dx * 0.6, 5.5 + dy * 0.6 + (hip[1] - 9.5) * 0.5, z + 1.0 + dz * 0.6), 3.6, rng, n=5,
                        spread=(0.8, 1.2, 1.6)) & (M.m == 0)
             M.set(pl, 'crest.8')
 
@@ -701,21 +720,24 @@ def build_elder(res=2, feet=None, lo_y=-1, head=None, tail=0.0) -> Character:
         ((8.5, 16.5, 6.0), (0.85, 0.4, -0.35), 7.0, 3.0),
     ]
     for i, (bpt, d, L, r) in enumerate(spikes):
-        bpt = H(bpt)
-        sp = spike(M, bpt, d, L, r, 0.45, twist=0.35 * (i % 3)) & (M.m == 0)
+        bpt = HC(bpt)
+        sp = spike(HL, bpt, d, L, r, 0.45, twist=0.35 * (i % 3)) & (M.m == 0)
         M.set(sp, 'crest.%d' % (i % 6))
-        tip = spike(M, np.array(bpt) + np.array(d) / np.linalg.norm(d) * L * 0.55, d, L * 0.45,
+        tip = spike(HL, np.array(bpt) + np.array(d) / np.linalg.norm(d) * L * 0.55, d, L * 0.45,
                     r * 0.48, 0.45, twist=0.35 * (i % 3)) & sp
         M.set(tip, 'crest_mid.%d' % (i % 6))
     # mane base fluff to hide spike roots
     for s in (-1, 0, 1):
-        f = fluff(M, H((s * 6.0, 20.0, 11.0)), 5.0, rng, n=8, spread=(1.6, 1.2, 2.0)) & (M.m == 0)
+        f = fluff(HL, HC((s * 6.0, 20.0, 11.0)), 5.0, rng, n=8, spread=(1.6, 1.2, 2.0)) & (M.m == 0)
         M.set(f, 'crest.%d' % (s + 2))
     dorsal = [((0, 18.5, 1.0), 7.5, 3.2), ((0, 18.5, -5.5), 8.0, 3.4), ((0, 18.5, -12.0), 7.4, 3.2),
               ((0, 17.0, -18.0), 6.4, 2.8), ((0, 15.0, -24.0), 5.4, 2.4), ((0, 14.0, -29.5), 4.6, 2.0)]
     for i, (bpt, L, r) in enumerate(dorsal):
         if bpt[2] < -20:  # on the tail: swings with it
-            bpt = (tail * min(1.0, (-20 - bpt[2]) / 26.0) ** 1.5, bpt[1], bpt[2])
+            f = min(1.0, (-20 - bpt[2]) / 26.0) ** 1.5
+            bpt = (tail * f, bpt[1] + bb + tail_lift * f, bpt[2])
+        else:
+            bpt = B(bpt)
         sp = spike(M, bpt, (0, 0.85, -0.5), L, r, 0.35, twist=0.6) & (M.m == 0)
         M.set(sp, 'crest.%d' % (i % 6))
     shl = shell_region(M, core, res)
@@ -723,10 +745,10 @@ def build_elder(res=2, feet=None, lo_y=-1, head=None, tail=0.0) -> Character:
         for (y, z, w, h) in ((12.0, 0.0, 4.6, 3.4), (15.0, -7.0, 5.0, 3.2), (9.0, -8.5, 3.8, 3.0),
                              (13.5, -15.5, 4.0, 3.0), (9.5, -21.0, 3.4, 2.6), (8.5, -28.5, 3.0, 2.6),
                              (9.0, 15.0, 2.6, 2.0)):
-            stamp(M, shl, (s * 8.6, y, z), (s, 0.25, 0), square_shape(w, h), 'pattern')
-        pl = fluff(M, (s * 8.4, 15.5, -3.0), 4.6, rng, n=7, spread=(0.8, 1.6, 2.4)) & (M.m == 0)
+            stamp(M, shl, B((s * 8.6, y, z)), (s, 0.25, 0), square_shape(w, h), 'pattern')
+        pl = fluff(M, B((s * 8.4, 15.5, -3.0)), 4.6, rng, n=7, spread=(0.8, 1.6, 2.4)) & (M.m == 0)
         M.set(pl, 'crest.8')
-        pl = fluff(M, (s * 8.0, 14.5, -14.0), 4.0, rng, n=6, spread=(0.8, 1.4, 2.0)) & (M.m == 0)
+        pl = fluff(M, B((s * 8.0, 14.5, -14.0)), 4.0, rng, n=6, spread=(0.8, 1.4, 2.0)) & (M.m == 0)
         M.set(pl, 'crest.7')
     # gold plates covering the outside of the tail curl
     for i in range(1, len(tpath)):
@@ -737,7 +759,7 @@ def build_elder(res=2, feet=None, lo_y=-1, head=None, tail=0.0) -> Character:
         out = np.cross(d, np.array([1.0, 0, 0]))
         if out[1] < 0 and i < 4:
             out = -out
-        cen = np.array([tail, 25.0, -34.5])
+        cen = np.array([tail, 25.0 + bb + tail_lift, -34.5])
         if i >= 4:
             out = p - cen
             out[0] = 0
@@ -748,15 +770,20 @@ def build_elder(res=2, feet=None, lo_y=-1, head=None, tail=0.0) -> Character:
             M.set(pl, 'crest.%d' % ((i + side) % 6))
 
     two_tone(M, seed=31, thresh=0.55)
-    face = Frame(center=H((0, 16.2, 17.0)), n=(0, 0.05, 1), reach=22)
+    face = Frame(center=Hw((0, 16.2, 17.0)), n=tuple(R @ np.array([0.0, 0.05, 1.0])),
+                 up=tuple(R @ np.array([0.0, 1.0, 0.0])), reach=22)
     ch = Character(stage=3, model=M, face=face,
                    eye_u=5.3, eye_v=1.6, eye_w=2.2, eye_h=4.3,
                    cheek_u=6.6, cheek_v=-1.6, cheek_w=2.1, cheek_h=1.7,
                    mouth_v=-3.2, face_extent=(-11, 11, -7, 7), scale_ref=58.0)
     ch.anchors = {
-        'head_top': H((0, 25.0, 16.0)), 'neck': (0, 10.5, 10.5), 'back': (0, 19.0, -5.0),
-        'ground': (0, 0, -5.0), 'face': H((0, 15.0, 28.8)), 'tail': (tail, 27.0, -34.0),
+        'head_top': Hw((0, 25.0, 16.0)), 'neck': B((0, 10.5, 10.5)), 'back': B((0, 19.0, -5.0)),
+        'ground': (0, 0, -5.0), 'face': Hw((0, 15.0, 28.8)), 'tail': (tail, 27.0 + bb + tail_lift, -34.0),
     }
+    ch.rig = dict(head=head | snout, fused=neck | body_m | tail_m, pivot=PIVOT, R=R, t=hd)
+    if jaw:
+        from jaw import open_jaw
+        ch = open_jaw(ch, jaw)
     return ch
 
 

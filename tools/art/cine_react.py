@@ -55,11 +55,30 @@ KEYS = {
         (1.30, dict(head=(0.0, -0.6, 1.0), head_rot=(0, 0, 0), body=(-1.2, -0.6), tail=0.5, tail_lift=0.5,
                     feet={FN: (0.0, 1.4, 0.6), FF: (0.0, 1.4, 0.6), BN: (0.0, -1.4, 0.4), BF: (0.0, -1.4, 0.4)}), 'fierce'),
     ],
+    3: [  # Elder: heavy and controlled; head and neck recoil apart from the torso, shoulders drop, front legs spread,
+          # the tail counters; little bounce. The head is turned a little to the camera throughout, so both eyes read
+        (0.00, dict(head_rot=(0, -10, 0)), 'fierce'),
+        (0.14, dict(head=(0.0, 1.4, -2.6), head_rot=(13, -10, -3), body=(0.3, -0.5), tail=2.0, tail_lift=2.4, jaw=22,
+                    feet={FN: (0.0, -0.6, 0.0), FF: (0.0, -0.3, 0.0), BN: (0.0, -0.6, 0.0), BF: (0.0, -0.6, 0.0)}), 'shout'),
+        (0.32, dict(head=(0.0, 1.0, -2.0), head_rot=(9, -10, -2), body=(0.1, -0.5), tail=1.5, tail_lift=1.8, jaw=18,
+                    feet={FN: (0.0, -0.6, 0.0), FF: (0.0, -0.3, 0.0), BN: (0.0, -0.6, 0.0), BF: (0.0, -0.6, 0.0)}), 'shout'),
+        (0.52, dict(head=(0.0, -1.6, 1.0), head_rot=(-11, -10, 2), body=(-2.2, -0.9), tail=-3.0, tail_lift=-1.2,
+                    feet={FN: (0.0, 1.2, 1.4), FF: (0.0, 1.2, 1.4), BN: (0.0, -1.0, 0.6), BF: (0.0, -1.0, 0.6)}), 'strain'),
+        (0.90, dict(head=(0.0, -1.9, 1.2), head_rot=(-13, -10, 2), body=(-2.5, -1.0), tail=-3.2, tail_lift=-1.4,
+                    feet={FN: (0.0, 1.2, 1.4), FF: (0.0, 1.2, 1.4), BN: (0.0, -1.0, 0.6), BF: (0.0, -1.0, 0.6)}), 'strain'),
+        (1.10, dict(head=(0.0, -0.5, 1.2), head_rot=(2, -10, 0), body=(-1.2, -0.6), tail=1.0, tail_lift=0.6,
+                    feet={FN: (0.0, 1.0, 1.4), FF: (0.0, 1.0, 1.4), BN: (0.0, -1.0, 0.6), BF: (0.0, -1.0, 0.6)}), 'fierce'),
+        (1.50, dict(head=(0.0, -0.6, 1.0), head_rot=(0, -10, 0), body=(-1.2, -0.6), tail=0.4, tail_lift=0.3,
+                    feet={FN: (0.0, 1.0, 1.4), FF: (0.0, 1.0, 1.4), BN: (0.0, -1.0, 0.6), BF: (0.0, -1.0, 0.6)}), 'fierce'),
+    ],
 }
 BEATS = {'shout': 'Shock', 'strain': 'Strain', 'fierce': 'Resolve'}
 KEY_POSES = {2: [(0.10, 'Shock: thrown back, mouth open, a front foot off the ground, tail up for balance'),
                  (0.80, 'Strain: head ducked into the blast, shoulders and centre of gravity down, legs braced'),
-                 (1.30, 'Resolve: back on its feet, head level, planted wide, eyes open and set')]}
+                 (1.30, 'Resolve: back on its feet, head level, planted wide, eyes open and set')],
+             3: [(0.14, 'Shock: head and neck snap back, jaw drops, the body rocks back on planted feet, tail lifts'),
+                 (0.90, 'Strain: shoulders down, front legs spread and braced, head pushed into the blast, tail low'),
+                 (1.50, 'Resolve: head level, planted wide and still: controlled power')]}
 
 
 def _ease(u):
@@ -93,7 +112,19 @@ def pose_at(stage, t):
     return keys[-1][1], keys[-1][2]
 
 
+_built = {}
+
+
 def character(stage, pose):
+    key = (stage, repr(sorted((k, repr(v)) for k, v in pose.items())))
+    if key not in _built:
+        if len(_built) > 6:
+            _built.clear()
+        _built[key] = _character(stage, pose)
+    return _built[key]
+
+
+def _character(stage, pose):
     kw = dict(pose)
     feet = kw.pop('feet', None)
     if feet:
