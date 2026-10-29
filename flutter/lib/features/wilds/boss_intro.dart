@@ -255,8 +255,11 @@ class ReactArt {
     return back * give * (1 - 0.3 * Curves.easeInOutCubic.transform(((u - end * 0.7) / 0.3).clamp(0.0, 1.0)));
   }
 
-  /// the first hit holds a beat (a hit-stop): the reaction's own time for [u]
-  double frameTime(double u) => u < 0.06 ? u : (u < 0.12 ? 0.06 : u - 0.06);
+  /// the first hit holds a beat (a hit-stop) on the frame where it lands hardest: the reaction's own time for [u]
+  double frameTime(double u) {
+    final peak = switch (stage) { 1 => 0.05, 3 => 0.08, _ => 0.06 };
+    return u < peak ? u : (u < peak + 0.06 ? peak : u - 0.06);
+  }
 
   /// the frame showing [u] seconds into the reaction
   int frameAt(double u) {
