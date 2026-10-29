@@ -24,6 +24,7 @@ KIT = os.path.join(HERE, 'face_kit')
 STATES = ('shout', 'strain', 'fierce')
 PERSONALITIES = ('brave', 'timid', 'stubborn', 'playful', 'curious', 'calm')
 STAGE_NAMES = {1: 'eggling', 2: 'juvenile', 3: 'elder'}
+STAGES = {v: k for k, v in STAGE_NAMES.items()}
 INK, WHITE, BLUSH = '#2D2928', '#FFFCF9', '#ECA096'
 MOUTH_KEYS = {'#963C42': 'mouth_in', '#712E37': 'mouth_in', '#8E4444': 'mouth'}
 SUB = 4                     # subsamples per canvas cell, each way
@@ -59,6 +60,76 @@ def _eyes(stage):
     return EYES[stage]
 
 
+# how much bigger than the kit's own the eyes are drawn on each stage (closer to the size the models' own eyes have:
+# the kit's run small on the Juvenile and Elder). Each eye grows about its own centre; the brows rise with it. The
+# SVGs stay as they are, so a hand edit is scaled the same way.
+EYE_SCALE = {1: 1.08, 2: 1.25, 3: 1.3}
+_TAG = re.compile(r'<(rect|ellipse|circle|polyline|polygon|path|line)\b[^>]*?/>')
+
+
+def _box(el):
+    """a rough bounding box of one SVG shape, from its own numbers"""
+    def num(a):
+        m = re.search(r'\b%s="([-\d.]+)"' % a, el)
+        return float(m.group(1)) if m else None
+    tag = el[1:].split(None, 1)[0]
+    if tag == 'rect':
+        x, y, w, h = num('x'), num('y'), num('width'), num('height')
+        return x, y, x + w, y + h
+    if tag in ('ellipse', 'circle'):
+        cx, cy = num('cx'), num('cy')
+        rx = num('rx') if tag == 'ellipse' else num('r')
+        ry = num('ry') if tag == 'ellipse' else rx
+        return cx - rx, cy - ry, cx + rx, cy + ry
+    m = re.search(r'\b(?:points|d)="([^"]*)"', el)
+    v = [float(n) for n in re.findall(r'-?\d+(?:\.\d+)?', m.group(1))] if m else []
+    if len(v) < 2:
+        return None
+    xs, ys = v[0::2], v[1::2]
+    return min(xs), min(ys), max(xs), max(ys)
+
+
+def scale_eyes(svg, stage):
+    """the face with its eyes drawn EYE_SCALE[stage] times the kit's size, each about its own centre; brows rise with
+    the eyes' tops. Cheeks, sweat and mouth are left where they are"""
+    s = EYE_SCALE.get(stage, 1.0)
+    if abs(s - 1) < 1e-3:
+        return svg
+    xl, xr, ey = EYES[stage]
+    els = [(m.start(), m.end(), m.group(0), _box(m.group(0))) for m in _TAG.finditer(svg)]
+    side = {}
+    for a, b, el, bx in els:
+        if bx is None or BLUSH.lower() in el.lower():
+            continue
+        cx, cy = (bx[0] + bx[2]) / 2, (bx[1] + bx[3]) / 2
+        for k, ex in ((0, xl), (1, xr)):
+            if abs(cx - ex) < 22 and ey - 24 < cy < ey + 24:
+                side.setdefault(k, []).append((a, bx))
+    pivot, lift = {}, {}
+    for k, items in side.items():
+        x0 = min(bx[0] for _, bx in items); y0 = min(bx[1] for _, bx in items)
+        x1 = max(bx[2] for _, bx in items); y1 = max(bx[3] for _, bx in items)
+        pivot[k] = ((x0 + x1) / 2, (y0 + y1) / 2)
+        lift[k] = (y0 - pivot[k][1]) * (s - 1)               # how far the eye's top rises
+    eye_at = {a: k for k, items in side.items() for a, _ in items}
+    out, last = [], 0
+    for a, b, el, bx in els:
+        out.append(svg[last:a])
+        last = b
+        if a in eye_at:
+            px, py = pivot[eye_at[a]]
+            out.append('<g transform="translate(%.2f %.2f) scale(%.3f) translate(%.2f %.2f)">%s</g>' % (px, py, s, -px, -py, el))
+            continue
+        if bx is not None and INK.lower() in el.lower() and (bx[1] + bx[3]) / 2 < ey - 24:
+            k = 0 if abs((bx[0] + bx[2]) / 2 - xl) < abs((bx[0] + bx[2]) / 2 - xr) else 1
+            if k in lift:
+                out.append('<g transform="translate(0 %.2f)">%s</g>' % (lift[k], el))
+                continue
+        out.append(el)
+    out.append(svg[last:])
+    return ''.join(out)
+
+
 def mapping(ch):
     """kit pixels (256 x 160 space) per face unit, and the kit point that sits at u = 0, v = ch.eye_v"""
     xl, xr, y = _eyes(ch.stage)
@@ -91,7 +162,7 @@ def _colours(pal):
 def _raster(name, subs, scale):
     import cairosvg
     from PIL import Image
-    svg = open(svg_path(name)).read()
+    svg = scale_eyes(open(svg_path(name)).read(), STAGES[name.split('_')[1]])
     for a, b in subs:
         svg = re.sub(re.escape(a), b, svg, flags=re.I)
     png = cairosvg.svg2png(bytestring=svg.encode(), output_width=int(round(256 * scale)), output_height=int(round(160 * scale)))

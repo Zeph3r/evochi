@@ -29,13 +29,13 @@ from voxel import Camera, fit_camera, model_extent_points, project_px   # noqa: 
 CELL_H = 560
 COLS = 5
 BACK = Camera(yaw=-145, pitch=-6)        # behind it and to its left: over its shoulder, toward the guardian
-TIMES = {1: [0.0, 0.04, 0.08, 0.15, 0.22, 0.30, 0.38, 0.58, 0.78, 0.86, 0.92, 1.05, 1.25],
-         2: [0.0, 0.05, 0.10, 0.18, 0.26, 0.34, 0.42, 0.62, 0.80, 0.88, 0.95, 1.12, 1.30],
-         3: [0.0, 0.07, 0.14, 0.23, 0.32, 0.42, 0.52, 0.72, 0.90, 1.00, 1.10, 1.30, 1.50]}
+TIMES = {1: [0.0, 0.03, 0.05, 0.09, 0.13, 0.18, 0.24, 0.32, 0.40, 0.46, 0.53, 0.80, 1.05, 1.12, 1.18, 1.24, 1.30, 1.42, 1.70],
+         2: [0.0, 0.03, 0.06, 0.10, 0.15, 0.20, 0.26, 0.32, 0.40, 0.50, 0.58, 0.85, 1.15, 1.24, 1.32, 1.40, 1.52, 1.80],
+         3: [0.0, 0.04, 0.08, 0.13, 0.19, 0.26, 0.32, 0.38, 0.48, 0.58, 0.66, 0.95, 1.30, 1.40, 1.50, 1.62, 2.00]}
 
 
 def _fit(cam, models, h):
-    pts = np.concatenate([model_extent_points(m) for m in models])
+    pts = np.concatenate([m if isinstance(m, np.ndarray) else model_extent_points(m) for m in models])
     sx, sy, _ = cam.project(pts)
     aspect = (sx.max() - sx.min()) / max(sy.max() - sy.min(), 1e-6)
     w = int(math.ceil(h * aspect * 1.0 / 2) * 2) + 8
@@ -50,8 +50,10 @@ def _frame(args):
     out = [render_char(ch, v, expr, cam, fit.w, fit.h, fit=fit).rgba for v in VARIANT_ORDER]
     # every frame is a new model: let its surface and face pieces go (the renderer would keep them all)
     import charrender
+    import face_kit
     charrender._surf_cache.clear()
     charrender._quad_cache.clear()
+    face_kit._raster.cache_clear()      # the face rasters too: a squashed body's face is a new one each frame
     CR._built.clear()
     return out
 
@@ -64,9 +66,12 @@ def main(out, stages):
     for stage in stages:
         sid = 's%02d' % stage
         times = TIMES[stage]
-        models = [CR.character(stage, CR.pose_at(stage, t)[0]).model for t in times]
-        fit = _fit(CR.GAME, models, CELL_H)
-        del models
+        # each pose's extent, one model at a time (holding them all runs out of memory)
+        ext = []
+        for t in times:
+            ext.append(model_extent_points(CR.character(stage, CR.pose_at(stage, t)[0]).model))
+            CR._built.clear()
+        fit = _fit(CR.GAME, ext, CELL_H)
         rest = CR.character(stage, {})
         bfit = _fit(BACK, [rest.model], CELL_H)
         CR._built.clear()

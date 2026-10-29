@@ -188,7 +188,8 @@ class CineEvochiArt {
 /// the entrance's camera, at the times they show from, and itself from behind, over its shoulder, for the wide
 /// shots.
 class ReactArt {
-  ReactArt._(this.sheet, this.cell, this.cols, this.times, this.end, this.ground, this.back, this.backCell, this.backGround);
+  ReactArt._(this.stage, this.sheet, this.cell, this.cols, this.times, this.end, this.ground, this.back, this.backCell, this.backGround);
+  final int stage;
   final ui.Image sheet;
   final Size cell;
   final int cols;
@@ -208,6 +209,7 @@ class ReactArt {
       final b = (st['back'] as Map).cast<String, dynamic>();
       final bs = (b['sheets'] as Map).cast<String, dynamic>();
       return ReactArt._(
+        stage.clamp(1, 3),
         await _img(wildsBase + ((sheets[palette] ?? sheets['amber']) as String)),
         Size((st['w'] as num).toDouble(), (st['h'] as num).toDouble()),
         (j['cols'] as num).toInt(),
@@ -223,6 +225,39 @@ class ReactArt {
     }
   }
 
+  // ---- how the roar's waves hit it (the frames are keyed to these: the first wave full on, a second shove, the
+  // third as it slams down into its brace)
+
+  /// how heavy it is: the Eggling is knocked about most, the Elder least
+  double get give => switch (stage) { 1 => 1.25, 3 => 0.7, _ => 1.0 };
+
+  /// when the waves reach it, seconds into the reaction, and how hard
+  List<double> get hits => [0.0, end * 0.17, end * 0.3];
+  static const hitForce = [1.0, 0.55, 0.35];
+
+  /// the jolt of the waves now: 1 the instant the first lands, falling away fast
+  double impulse(double u) {
+    var s = 0.0;
+    final h = hits;
+    for (var i = 0; i < h.length; i++) {
+      final x = u - h[i];
+      if (x < 0) continue;
+      s += hitForce[i] * (x < 0.05 ? x / 0.05 : math.exp(-(x - 0.05) / 0.13));
+    }
+    return s;
+  }
+
+  /// how far the waves have shoved it back (screen widths), less what it wins back as it recovers
+  double skid(double u) {
+    final h = hits;
+    double s(double x) => Curves.easeOutCubic.transform((x / 0.24).clamp(0.0, 1.0));
+    final back = 0.075 * s(u - h[0]) + 0.035 * s(u - h[1]) + 0.02 * s(u - h[2]);
+    return back * give * (1 - 0.3 * Curves.easeInOutCubic.transform(((u - end * 0.7) / 0.3).clamp(0.0, 1.0)));
+  }
+
+  /// the first hit holds a beat (a hit-stop): the reaction's own time for [u]
+  double frameTime(double u) => u < 0.06 ? u : (u < 0.12 ? 0.06 : u - 0.06);
+
   /// the frame showing [u] seconds into the reaction
   int frameAt(double u) {
     var i = 0;
@@ -234,7 +269,7 @@ class ReactArt {
 
   /// Draws it with its feet at the canvas origin, [h] tall, [u] seconds into its reaction.
   void draw(Canvas canvas, double u, double h, Paint paint) {
-    final i = frameAt(u);
+    final i = frameAt(frameTime(u));
     final k = h / cell.height;
     final src = Rect.fromLTWH((i % cols) * cell.width, (i ~/ cols) * cell.height, cell.width, cell.height);
     canvas.drawImageRect(sheet, src, Rect.fromLTWH(-ground.dx * k, -ground.dy * k, cell.width * k, cell.height * k), paint);
@@ -284,9 +319,9 @@ const _open = 0.35; // letterbox in; the frames start, out of the dark
 const _step = 0.85; // frame 6: the hoof lands
 const _rearEnd = 1.52; // frames 0..14 at 12 fps: paw, step, lower the antlers (charging), rear: the roar
 const _blast = 2.9; // cut to your Evochi in the wave
-const _slam = 4.45; // back to the guardian coming down: frames 22..35 at 15 fps
-const _faceOff = 5.55; // it settles; your Evochi in front
-const _fullLen = 7.4;
+const _slam = 5.0; // back to the guardian coming down: frames 22..35 at 15 fps
+const _faceOff = 6.1; // it settles; your Evochi in front
+const _fullLen = 7.95;
 const _shortLen = 1.8;
 const _stillLen = 2.4;
 
@@ -430,6 +465,9 @@ class _BossIntroState extends State<BossIntro> with SingleTickerProviderStateMix
       if (t > _rearEnd && t < _rearEnd + 0.4) s = math.max(s, 8 * (1 - (t - _rearEnd) / 0.4));
       if (t > _rearEnd && t < _blast) s = math.max(s, 3.0);
       if (t > _blast && t < _blast + 0.5) s = math.max(s, 9 * (1 - (t - _blast) / 0.5));
+      // each wave that reaches your Evochi jolts the shot
+      final rv = widget.react;
+      if (rv != null && t > _blast && t < _slam) s = math.max(s, 7 * math.min(1.0, rv.impulse(t - _blast)));
     }
     if (s == 0) return Offset.zero;
     return Offset(math.sin(t * 97) * s, math.cos(t * 83) * s * 0.7);

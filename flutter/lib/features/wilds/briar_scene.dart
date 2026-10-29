@@ -661,21 +661,61 @@ mixin _BriarScene on _IntroFx {
         Paint()
           ..shader = ui.Gradient.radial(Offset(W * 1.1, H * 0.42), W * 1.2,
               [Color.fromRGBO(160, 110, 240, 0.4 * gust * env), const Color(0x00A06EF0)]));
-    // the waves rolling over it from the right: the near side of rings out of a mouth off the screen
+    // the waves rolling over it from the right (the near side of rings out of a mouth off the screen), each
+    // reaching it as its frames take the hit; a last, weaker one after
     final src = Offset(W * 1.65, H * 0.4);
-    for (var i = 0; i < 4; i++) {
-      final age = u - i * 0.28 + 0.15;
+    final hits = [...ev.hits, ev.end * 0.42];
+    for (var i = 0; i < hits.length; i++) {
+      final age = u - hits[i] + 0.5;
       if (age < 0 || age > 1.6) continue;
-      thornWave(canvas, src, W * 0.55 + age * W * 1.2, W * 1.4, env * 0.9, i + 3, age: age + 0.2);
+      thornWave(canvas, src, W * 0.55 + age * W * 1.2, W * 1.4, env * (i < 3 ? 0.9 : 0.6), i + 3, age: age + 0.2);
     }
     _wind(canvas, size, gust * env, false);
-    // it: pushed back a little as the blast hits, trembling as it strains, steady once it holds
-    final pushBack = W * 0.06 * Curves.easeOutCubic.transform((u / 0.3).clamp(0.0, 1.0)) * (1 - 0.6 * _ease((u - ev.end * 0.7) / 0.4));
-    final straining = u > ev.end * 0.3 && u < ev.end * 0.68;
-    final tremble = straining ? math.sin(u * 90) * 2.2 : 0.0;
+    // it: shoved back by each wave, skidding, rocked onto its heels and squeezed by the hit, trembling as it
+    // strains, then winning a little ground back as it finds its feet
+    final imp = math.min(1.2, ev.impulse(u));
+    final g = ev.give;
+    final straining = u > ev.end * 0.28 && u < ev.end * 0.68;
+    final tremble = straining ? math.sin(u * 90) * (1.6 + 2.4 * imp) * g : 0.0;
     final h = math.min(H * 0.5, W * 0.88);
-    final feet = Offset(W * 0.5 - pushBack + tremble, H * 0.84);
+    final home = Offset(W * 0.56, H * 0.84);
+    final feet = Offset(home.dx - W * ev.skid(u) + tremble, home.dy);
     _shadow(canvas, feet, h * 0.45, 0.5 * env);
+    // the furrows its feet dig as it is pushed back, and the dirt they throw up
+    final dug = home.dx - feet.dx;
+    if (dug > 2) {
+      final fa = env * (1 - _ease((u - ev.end * 0.85) / 0.4)) * 0.8;
+      for (final o in [-0.16, 0.2]) {
+        final y = feet.dy + 2 + o.abs() * 10;
+        final x0 = feet.dx + h * o, x1 = x0 + dug;
+        canvas.drawLine(Offset(x0, y), Offset(x1, y), Paint()
+          ..strokeWidth = 5
+          ..strokeCap = StrokeCap.round
+          ..shader = ui.Gradient.linear(Offset(x0, y), Offset(x1, y),
+              [Color.fromRGBO(34, 24, 22, 0.75 * fa), Color.fromRGBO(34, 24, 22, 0.0)]));
+        canvas.drawLine(Offset(x0, y - 3), Offset(x1, y - 3), Paint()
+          ..strokeWidth = 2
+          ..strokeCap = StrokeCap.round
+          ..shader = ui.Gradient.linear(Offset(x0, y), Offset(x1, y),
+              [Color.fromRGBO(150, 130, 110, 0.5 * fa), Color.fromRGBO(150, 130, 110, 0.0)]));
+      }
+    }
+    {
+      final p = Paint();
+      for (var k = 0; k < 3; k++) {
+        final x = u - ev.hits[k];
+        if (x < 0 || x > 0.7) continue;
+        final n = 14 - k * 4;
+        for (var i = 0; i < n; i++) {
+          final ph = x / 0.7;
+          final sp = 0.5 + _h(i + k * 20, 18);
+          final px = feet.dx + h * (0.1 - 0.3 * _h(i + k * 20, 19)) - ph * W * 0.35 * sp * ReactArt.hitForce[k];
+          final py = feet.dy - 4 - math.sin(ph * math.pi) * h * 0.18 * sp * ReactArt.hitForce[k];
+          p.color = Color.fromRGBO(200, 184, 156, (1 - ph) * 0.6 * env);
+          canvas.drawCircle(Offset(px, py), 3 + 10 * ph * sp, p);
+        }
+      }
+    }
     // the dust off its feet as it digs in
     if (u > ev.end * 0.25 && u < ev.end * 0.9) {
       final p = Paint();
@@ -695,10 +735,23 @@ mixin _BriarScene on _IntroFx {
     }
     canvas.save();
     canvas.translate(feet.dx, feet.dy);
+    // rocked back (its top away from the blast, pivoting on its back feet) and squeezed by the hit
+    final pivot = Offset(-h * 0.25, 0);
+    canvas.translate(pivot.dx, pivot.dy);
+    canvas.rotate(-0.11 * g * imp);
+    canvas.scale(1 - 0.07 * g * imp, 1 + 0.035 * g * imp);
+    canvas.translate(-pivot.dx, -pivot.dy);
     ev.draw(canvas, u, h, Paint()
       ..filterQuality = FilterQuality.medium
       ..color = Color.fromRGBO(0, 0, 0, env));
     canvas.restore();
+    // where each wave breaks on it: a flash of the roar's light along its blast side
+    if (imp > 0.05) {
+      final c = feet + Offset(h * 0.32, -h * 0.5);
+      canvas.drawCircle(c, h * 0.6, Paint()
+        ..blendMode = BlendMode.plus
+        ..shader = ui.Gradient.radial(c, h * 0.6, [Color.fromRGBO(200, 160, 255, 0.45 * math.min(1.0, imp) * env), const Color(0x00C8A0FF)]));
+    }
     _swooshes(canvas, feet - Offset(0, h * 0.46), h, gust * env);
     _wind(canvas, size, gust * env * 0.6, true);
     // grass in front, laid flat to the left

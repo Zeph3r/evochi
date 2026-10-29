@@ -24,7 +24,7 @@ void main() {
     var done = 0;
     await tester.pumpWidget(_host(IntroCut.full, cues, () => done++));
     expect(find.text('BRIARBACK'), findsNothing); // the title waits for it to land
-    for (var i = 0; i < 48; i++) {
+    for (var i = 0; i < 54; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(find.text('BRIARBACK'), findsWidgets);

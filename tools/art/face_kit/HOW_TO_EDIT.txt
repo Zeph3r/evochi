@@ -14,6 +14,9 @@ Rules that keep it lining up on the model:
 - The model's eyes are fixed at these points on the canvas (eye centres): left (84, 82), right (173, 82).
   The face is laid on the model so those two points sit on its eyes. Move a feature and only that feature
   moves.
+- On the model the eyes are drawn a little bigger than in the SVG (Eggling x1.08, Juvenile x1.25,
+  Elder x1.3, each eye about its own centre, the brows lifted to match: EYE_SCALE in face_kit.py). Draw
+  them at the kit's size here; the scaling is applied on top.
 - Colours that change with the Evochi's colour:
     #2D2928  eyes and brows (becomes each colour's eye colour; Obsidian's eyes are light)
     #FFFCF9  eye highlights
