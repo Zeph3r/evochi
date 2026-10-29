@@ -1,19 +1,23 @@
-// The guardian's entrance: a short cinematic before the Briarback fight.
+// The guardian's entrance: a short cinematic before the Briarback fight, built from anticipation to impact.
 //
-//   1. Letterbox. Low down, looking up at the Briarback: it paws the moss, lowers its antlers, rears.
-//   2. It roars. Rings of sound tear out of its mouth.
-//   3. Cut to your Evochi: the blast hits it. Anime wind lines, leaves and Hollow sparks stream past; it
-//      yells, gets shoved back with its feet skidding, squeezes its eyes shut against the wind, then
-//      digs in, leans into it and holds its ground with a fierce face.
-//   4. Back on the Briarback: it slams down. Flash, shake, dust, and the title card slams in.
-//   5. Pull back: the two face off (the guardian up on the right, your Evochi low on the left), then the
-//      fight starts.
+//   1. Anticipation: letterbox; out of the dark and the fog, the Briarback steps in, its crystals lit first.
+//      Your Evochi in front, seen over its shoulder.
+//   2. Hoof Impact: a heavy step lands; dust and leaves kick up.
+//   3. Antler Charge: it lowers its head; motes are pulled into the antler tips, thorn arcs form round it.
+//   4. Roar Release: it rears and roars; light bursts out of the antlers; the camera pushes in, shaking.
+//   5. Shockwave: thorn-and-rune waves roll out of its mouth over the wood; grass lies flat, leaves, pollen
+//      and stones are swept out; the fog is shoved aside.
+//   6. Evochi Reaction: cut to your Evochi inside the wave, its own Shock -> Strain -> Resolve.
+//   7. Title Reveal: back on the guardian as it comes down; the last waves break into leaves, sparks and
+//      fading runes; the title.
+//   8. Settle: its energy ebbs; your Evochi in front again; then the fight starts.
 //
-// The Briarback is a pre-rendered sequence (tools/art/boss_intro.py); your Evochi is drawn from its own
-// colour and stage at a low heroic angle with the cinematic faces, wearing what it wears
-// (tools/art/cine_evochi.py). Everything else (wind, rings, dust, light, letterbox, title) is drawn here.
-// Tap to skip. The full version plays the first time; after that a short one (the slam and the title);
-// with reduced motion, a still title card. The Forgotten Sentinel's entrance is in sentinel_intro.dart.
+// The Briarback is a pre-rendered sequence (tools/art/boss_intro.py, with its antler tips and eyes marked);
+// your Evochi is its reaction's frames and a view from behind (tools/art/cine_react_export.py). An Evochi
+// wearing something keeps the older art for now (tools/art/cine_evochi.py: its faces, worn pieces on). Light,
+// fog, waves, the wood and the title are drawn here (briar_scene.dart). Tap to skip. The full version plays the
+// first time; after that a short one (the landing and the title); with reduced motion, a still title card. The
+// Forgotten Sentinel's entrance is in sentinel_intro.dart.
 
 import 'dart:convert';
 import 'dart:math' as math;
@@ -26,6 +30,7 @@ import 'package:flutter/services.dart';
 import '../../app/theme.dart';
 import 'wilds_art.dart' show wildsBase;
 
+part 'briar_scene.dart';
 part 'sentinel_intro.dart';
 
 Future<ui.Image> _img(String path) async {
@@ -62,6 +67,10 @@ class BossIntroArt {
 
   /// The sequence's own marks (the Sentinel's: where its runes and shots start, its chest per frame).
   final Map<String, dynamic> meta;
+
+  /// The Briarback's antler tips and eyes per frame (the near eye first), where the sequence has them.
+  late final List<List<Offset>> antlers = [for (final f in (meta['antlers'] as List?) ?? const []) [for (final p in f as List) _pt(p)]];
+  late final List<List<Offset>> eyes = [for (final f in (meta['eyes'] as List?) ?? const []) [for (final p in f as List) _pt(p)]];
   final _decoded = <int, ui.Image>{};
   final _pending = <int>{};
 
@@ -175,6 +184,70 @@ class CineEvochiArt {
   }
 }
 
+/// Your Evochi taking the roar (tools/art/cine_react_export.py): frames of its Shock -> Strain -> Resolve from
+/// the entrance's camera, at the times they show from, and itself from behind, over its shoulder, for the wide
+/// shots.
+class ReactArt {
+  ReactArt._(this.sheet, this.cell, this.cols, this.times, this.end, this.ground, this.back, this.backCell, this.backGround);
+  final ui.Image sheet;
+  final Size cell;
+  final int cols;
+  final List<double> times;
+  final double end;
+  final Offset ground;
+  final ui.Image back;
+  final Size backCell;
+  final Offset backGround;
+
+  static Future<ReactArt?> load(int stage, String palette) async {
+    try {
+      final j = (jsonDecode(await rootBundle.loadString('${wildsBase}wilds_react.json')) as Map).cast<String, dynamic>();
+      final st = (j['s0${stage.clamp(1, 3)}'] as Map?)?.cast<String, dynamic>();
+      if (st == null) return null;
+      final sheets = (st['sheets'] as Map).cast<String, dynamic>();
+      final b = (st['back'] as Map).cast<String, dynamic>();
+      final bs = (b['sheets'] as Map).cast<String, dynamic>();
+      return ReactArt._(
+        await _img(wildsBase + ((sheets[palette] ?? sheets['amber']) as String)),
+        Size((st['w'] as num).toDouble(), (st['h'] as num).toDouble()),
+        (j['cols'] as num).toInt(),
+        [for (final x in st['times'] as List) (x as num).toDouble()],
+        (st['end'] as num).toDouble(),
+        _pt(st['ground']),
+        await _img(wildsBase + ((bs[palette] ?? bs['amber']) as String)),
+        Size((b['w'] as num).toDouble(), (b['h'] as num).toDouble()),
+        _pt(b['ground']),
+      );
+    } catch (_) {
+      return null; // no reaction art: the older art is used
+    }
+  }
+
+  /// the frame showing [u] seconds into the reaction
+  int frameAt(double u) {
+    var i = 0;
+    for (var k = 0; k < times.length; k++) {
+      if (times[k] <= u + 1e-6) i = k;
+    }
+    return i;
+  }
+
+  /// Draws it with its feet at the canvas origin, [h] tall, [u] seconds into its reaction.
+  void draw(Canvas canvas, double u, double h, Paint paint) {
+    final i = frameAt(u);
+    final k = h / cell.height;
+    final src = Rect.fromLTWH((i % cols) * cell.width, (i ~/ cols) * cell.height, cell.width, cell.height);
+    canvas.drawImageRect(sheet, src, Rect.fromLTWH(-ground.dx * k, -ground.dy * k, cell.width * k, cell.height * k), paint);
+  }
+
+  /// Draws it from behind, feet at the origin, [h] tall.
+  void drawBack(Canvas canvas, double h, Paint paint) {
+    final k = h / backCell.height;
+    canvas.drawImageRect(back, Rect.fromLTWH(0, 0, backCell.width, backCell.height),
+        Rect.fromLTWH(-backGround.dx * k, -backGround.dy * k, backCell.width * k, backCell.height * k), paint);
+  }
+}
+
 enum IntroCut { full, short, still }
 
 class BossIntro extends StatefulWidget {
@@ -182,6 +255,7 @@ class BossIntro extends StatefulWidget {
     super.key,
     required this.art,
     required this.evochi,
+    this.react,
     required this.cut,
     required this.name,
     required this.title,
@@ -192,6 +266,9 @@ class BossIntro extends StatefulWidget {
   });
   final BossIntroArt art;
   final CineEvochiArt? evochi;
+
+  /// its reaction and its view from behind; without them, [evochi]'s faces are used
+  final ReactArt? react;
   final IntroCut cut;
   final String name, title, petName;
   final Color tint;
@@ -203,12 +280,13 @@ class BossIntro extends StatefulWidget {
 }
 
 // the full cut's timeline (seconds)
-const _open = 0.35; // letterbox in; the frames start
-const _rearEnd = 1.52; // frames 0..14 at 12 fps: paw, lower, rear
-const _blast = 2.3; // cut to your Evochi in the roar
-const _slam = 3.9; // back to the guardian: frames 22..35 at 15 fps
-const _faceOff = 4.95; // pull back: the two face off
-const _fullLen = 6.8;
+const _open = 0.35; // letterbox in; the frames start, out of the dark
+const _step = 0.85; // frame 6: the hoof lands
+const _rearEnd = 1.52; // frames 0..14 at 12 fps: paw, step, lower the antlers (charging), rear: the roar
+const _blast = 2.9; // cut to your Evochi in the wave
+const _slam = 4.45; // back to the guardian coming down: frames 22..35 at 15 fps
+const _faceOff = 5.55; // it settles; your Evochi in front
+const _fullLen = 7.4;
 const _shortLen = 1.8;
 const _stillLen = 2.4;
 
@@ -259,9 +337,11 @@ class _BossIntroState extends State<BossIntro> with SingleTickerProviderStateMix
     switch (widget.cut) {
       case IntroCut.full:
         _cue('open', 0);
+        _cue('step', _step);
+        _cue('charge', _step + 0.15);
         _cue('roar', _rearEnd);
         _cue('blast', _blast);
-        _cue('dig', _blast + 0.92);
+        _cue('dig', _blast + 0.42);
         _cue('slam', impactT);
         _cue('whoosh', _faceOff);
         _cue('ready', _faceOff + 0.45);
@@ -313,7 +393,7 @@ class _BossIntroState extends State<BossIntro> with SingleTickerProviderStateMix
                 top: bar + 14 + shake.dy,
                 child: Opacity(
                   opacity: (pop.clamp(0.0, 1.0) * fadeOut).toDouble(),
-                  child: Transform.scale(scale: 1 + (1 - pop) * 0.9, child: _Title(name: widget.name, title: widget.title, width: size.width)),
+                  child: Transform.scale(scale: 1 + (1 - pop) * 0.9, child: _Title(name: widget.name, title: widget.title, width: size.width, sigil: true)),
                 ),
               ),
             if (widget.cut == IntroCut.full && t > _faceOff + 0.35)
@@ -345,8 +425,10 @@ class _BossIntroState extends State<BossIntro> with SingleTickerProviderStateMix
     final since = t - impactT;
     if (since >= 0 && since < 0.6) s = math.max(s, 16 * math.pow(1 - since / 0.6, 2).toDouble());
     if (widget.cut == IntroCut.full) {
-      // the roar rumbles; the blast shoves
-      if (t > _rearEnd && t < _blast) s = math.max(s, 3.5);
+      // the step thumps; the roar kicks, then rumbles; the blast shoves
+      if (t > _step && t < _step + 0.35) s = math.max(s, 6 * (1 - (t - _step) / 0.35));
+      if (t > _rearEnd && t < _rearEnd + 0.4) s = math.max(s, 8 * (1 - (t - _rearEnd) / 0.4));
+      if (t > _rearEnd && t < _blast) s = math.max(s, 3.0);
       if (t > _blast && t < _blast + 0.5) s = math.max(s, 9 * (1 - (t - _blast) / 0.5));
     }
     if (s == 0) return Offset.zero;
@@ -361,20 +443,25 @@ double _h(int i, int k) {
   return v - v.floorToDouble();
 }
 
-class _IntroPainter extends CustomPainter with _IntroFx {
+class _IntroPainter extends CustomPainter with _IntroFx, _BriarScene {
   _IntroPainter(this.s, this.t, this.shake);
   final _BossIntroState s;
   @override
   final double t;
   final Offset shake;
 
+  @override
   BossIntroArt get art => s.widget.art;
+  @override
   IntroCut get cut => s.widget.cut;
+  @override
   Color get tint => s.widget.tint;
+  @override
   double get len => s._len;
 
   int _frame() => frameAt(t);
 
+  @override
   int frameAt(double t) {
     final n = art.count;
     switch (cut) {
@@ -396,88 +483,39 @@ class _IntroPainter extends CustomPainter with _IntroFx {
   void paint(Canvas canvas, Size size) {
     final W = size.width, H = size.height;
     final env = math.min(((t) / _open).clamp(0.0, 1.0), ((len - t) / 0.45).clamp(0.0, 1.0));
-    // the world behind falls away into a dark wood
+    // night in the Thicket
     final bg = Rect.fromLTWH(0, 0, W, H);
     canvas.drawRect(
         bg,
         Paint()
           ..shader = ui.Gradient.linear(Offset.zero, Offset(0, H), [
-            Color.fromRGBO(16, 12, 26, env),
-            Color.fromRGBO(26, 22, 38, env),
-            Color.fromRGBO(22, 34, 24, env),
+            Color.fromRGBO(18, 12, 32, env),
+            Color.fromRGBO(32, 22, 50, env),
+            Color.fromRGBO(22, 28, 28, env),
           ], [0, 0.55, 1]));
     canvas.save();
     canvas.translate(shake.dx, shake.dy);
-    final blastShot = cut == IntroCut.full && t >= _blast && t < _slam && s.widget.evochi != null;
+    final ev = s.widget.evochi, rv = s.widget.react;
+    final inBlast = cut == IntroCut.full && t >= _blast && t < _slam;
     final faceOff = cut == IntroCut.full && t >= _faceOff;
-    _woods(canvas, size, env, blastShot);
-    _rays(canvas, size, env * (blastShot ? 0.5 : 1));
+    if (inBlast && rv != null) {
+      reactShot(canvas, size, env, rv);
+    } else if (inBlast && ev != null) {
+      _legacyBlast(canvas, size, env);
+    } else {
+      guardianShot(canvas, size, env, settle: faceOff && rv != null);
+      if (faceOff && rv == null && ev != null) _faceOffShot(canvas, size, env);
+    }
     _motes(canvas, size, env);
-    final fi = _frame();
-    final img = art.frame(fi);
-    // where the guardian stands: close (feet low, filling the frame), small up on the right while the
-    // blast hits your Evochi, and pulling back to the right for the face-off
-    final base = math.min(H * 0.95 / art.size.height, W * 1.3 / art.size.width);
-    var k = base * (1 + 0.07 * _ease((t - _open) / (_faceOff - _open)));
-    var at = Offset(W * 0.5, H * 0.84);
-    var dim = 0.0;
-    if (blastShot) {
-      k = base * 0.5;
-      at = Offset(W * 0.86, H * 0.5);
-      dim = 0.45;
-    } else if (faceOff) {
-      final p = _ease((t - _faceOff) / 0.5);
-      k = base * (1.07 - 0.47 * p);
-      at = Offset.lerp(Offset(W * 0.5, H * 0.84), Offset(W * 0.7, H * 0.6), p)!;
-      dim = 0.18 * p;
-    }
-    final g0 = art.ground[0];
-    final origin = at - g0 * k;
-    Offset toScreen(Offset p) => origin + p * k;
-    // its shadow on the moss, then the guardian
-    _shadow(canvas, at, art.size.width * k * 0.32, env * 0.55);
-    if (img != null) {
-      canvas.drawImageRect(
-        img,
-        Rect.fromLTWH(0, 0, art.size.width, art.size.height),
-        Rect.fromLTWH(origin.dx, origin.dy, art.size.width * k, art.size.height * k),
-        Paint()
-          ..filterQuality = FilterQuality.medium
-          ..color = Color.fromRGBO(0, 0, 0, env)
-          ..colorFilter = dim > 0 ? ColorFilter.mode(Color.fromRGBO(14, 10, 24, dim), BlendMode.srcATop) : null);
-    }
-    // the roar: rings of sound out of its mouth
-    final roaring = cut == IntroCut.full && t >= _rearEnd && t < _slam;
-    if (roaring || cut == IntroCut.still) _rings(canvas, toScreen(art.mouth[fi]), W, env, blastShot);
-    // the slam: dust off the hooves and a ring over the ground
-    final since = t - s.impactT;
-    if (cut != IntroCut.still && since >= 0 && since < 1.1 && !blastShot) {
-      for (final h in art.hooves[art.impact]) {
-        _dust(canvas, toScreen(h), since, W * 0.5, env, 18, const Offset(0, 1));
-      }
-      _shock(canvas, at, since, W, env);
-    }
-    // a scrape of dust where it paws the moss
-    if (cut == IntroCut.full && t > _open && t < _rearEnd) {
-      for (final pf in const [3, 6]) {
-        final ps = t - (_open + pf / 12);
-        if (ps >= 0 && ps < 0.7) _dust(canvas, toScreen(art.hooves[pf][0]), ps, W * 0.16, env, 7, const Offset(0, 4));
-      }
-    }
-    // a low fog over the feet
-    canvas.drawRect(
-        Rect.fromLTWH(-20, H * 0.72, W + 40, H * 0.3),
-        Paint()
-          ..shader = ui.Gradient.linear(Offset(0, H * 0.72), Offset(0, H), [
-            const Color(0x0016121F),
-            Color.fromRGBO(20, 18, 30, 0.85 * env),
-          ]));
-    if (blastShot) _blastShot(canvas, size, env);
-    if (faceOff) _faceOffShot(canvas, size, env);
     canvas.restore();
-    // the flash as the hooves hit
+    vignette(canvas, size, env);
+    // a violet flash as it roars, a white one as it lands
+    if (cut == IntroCut.full && t >= _rearEnd && t < _rearEnd + 0.25) {
+      canvas.drawRect(bg, Paint()..color = Color.fromRGBO(190, 150, 255, 0.28 * (1 - (t - _rearEnd) / 0.25)));
+    }
+    final since = t - s.impactT;
     if (cut != IntroCut.still && since >= 0 && since < 0.22) {
-      canvas.drawRect(bg, Paint()..color = Color.fromRGBO(255, 250, 255, 0.6 * (1 - since / 0.22)));
+      canvas.drawRect(bg, Paint()..color = Color.fromRGBO(255, 250, 255, 0.4 * (1 - since / 0.22)));
     }
     // the letterbox
     final barH = H * (cut == IntroCut.full ? 0.1 : 0.07);
@@ -488,9 +526,32 @@ class _IntroPainter extends CustomPainter with _IntroFx {
     canvas.drawRect(Rect.fromLTWH(0, H - bh, W, bh), bp);
   }
 
-
-
-
+  // the older blast shot (an Evochi wearing something: its faces): the guardian small up on the right,
+  // roaring, your Evochi in the wind in front
+  void _legacyBlast(Canvas canvas, Size size, double env) {
+    final W = size.width, H = size.height;
+    _woods(canvas, size, env, true);
+    _rays(canvas, size, env * 0.5);
+    final fi = _frame();
+    final img = art.frame(fi);
+    final base = math.min(H * 0.95 / art.size.height, W * 1.3 / art.size.width);
+    final k = base * 0.5;
+    final at = Offset(W * 0.86, H * 0.5);
+    final origin = at - art.ground[0] * k;
+    if (img != null) {
+      canvas.drawImageRect(
+        img,
+        Rect.fromLTWH(0, 0, art.size.width, art.size.height),
+        Rect.fromLTWH(origin.dx, origin.dy, art.size.width * k, art.size.height * k),
+        Paint()
+          ..filterQuality = FilterQuality.medium
+          ..color = Color.fromRGBO(0, 0, 0, env)
+          ..colorFilter = const ColorFilter.mode(Color.fromRGBO(14, 10, 24, 0.45), BlendMode.srcATop),
+      );
+    }
+    _rings(canvas, origin + art.mouth[fi] * k, W, env, true);
+    _blastShot(canvas, size, env);
+  }
 
   // the roar's rings, sweeping out of its mouth (toward your Evochi on the left while it braces)
   void _rings(Canvas canvas, Offset mouth, double W, double env, bool blastShot) {
@@ -810,75 +871,148 @@ mixin _IntroFx {
 }
 
 class _Title extends StatelessWidget {
-  const _Title({required this.name, required this.title, required this.width});
+  const _Title({required this.name, required this.title, required this.width, this.sigil = false});
   final String name, title;
   final double width;
 
+  /// the Briarback's antler sigil over the name
+  final bool sigil;
+
   @override
   Widget build(BuildContext context) {
-    final big = math.min(width * 0.13, 64.0);
-    final style = TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: big, letterSpacing: 2, height: 1.0);
-    return Column(mainAxisSize: MainAxisSize.min, children: [
-      FittedBox(
-        fit: BoxFit.scaleDown,
-        child: Stack(children: [
-          Text(name.toUpperCase(),
-              style: style.copyWith(
-                  foreground: Paint()
-                    ..style = PaintingStyle.stroke
-                    ..strokeWidth = big * 0.16
-                    ..color = const Color(0xFF1A1024))),
-          Text(name.toUpperCase(),
-              style: style.copyWith(color: const Color(0xFFF6F0FF), shadows: const [
-                Shadow(color: Color(0xCC9A6BFF), blurRadius: 18),
-                Shadow(color: Color(0x889A6BFF), blurRadius: 36),
-              ])),
-        ]),
-      ),
-      const SizedBox(height: 6),
-      Row(mainAxisSize: MainAxisSize.min, children: [
-        if (width >= 360) ...[_thorn(false), const SizedBox(width: 8)],
-        Flexible(
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            child: Text(title.toUpperCase(),
-              maxLines: 1,
-              softWrap: false,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                  fontFamily: EvochiText.game,
-                  fontWeight: FontWeight.w800,
-                  fontSize: math.min(14.0, width * 0.04),
-                  letterSpacing: width < 360 ? 1.2 : 3,
-                  color: const Color(0xFFD9C6FF),
-                  shadows: const [Shadow(color: Color(0xFF120A1C), blurRadius: 6)])),
-          ),
+    final big = math.min(width * 0.12, 58.0);
+    final style = TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: big, letterSpacing: big * 0.12, height: 1.0);
+    return Stack(alignment: Alignment.center, children: [
+      // a band of dusk behind it, so it reads over anything
+      const Positioned.fill(
+        child: DecoratedBox(
+          decoration: BoxDecoration(gradient: RadialGradient(radius: 0.75, colors: [Color(0x9914091F), Color(0x0014091F)])),
         ),
-        if (width >= 360) ...[const SizedBox(width: 8), _thorn(true)],
+      ),
+      Column(mainAxisSize: MainAxisSize.min, children: [
+        // the guardian's sigil: its antlers round a Hollow crystal
+        if (sigil) ...[CustomPaint(size: Size(big * 1.9, big * 0.95), painter: _EmblemPainter()), const SizedBox(height: 2)],
+        FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Stack(children: [
+            Text(name.toUpperCase(),
+                style: style.copyWith(
+                    foreground: Paint()
+                      ..style = PaintingStyle.stroke
+                      ..strokeWidth = big * 0.15
+                      ..color = const Color(0xFF1A1024))),
+            Text(name.toUpperCase(),
+                style: style.copyWith(color: const Color(0xFFF6F0FF), shadows: const [
+                  Shadow(color: Color(0xCC9A6BFF), blurRadius: 18),
+                  Shadow(color: Color(0x889A6BFF), blurRadius: 36),
+                ])),
+          ]),
+        ),
+        const SizedBox(height: 7),
+        Row(mainAxisSize: MainAxisSize.min, children: [
+          if (width >= 340) ...[_arrow(false), const SizedBox(width: 8)],
+          Flexible(
+            child: FittedBox(
+              fit: BoxFit.scaleDown,
+              child: Text(title.toUpperCase(),
+                  maxLines: 1,
+                  softWrap: false,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                      fontFamily: EvochiText.game,
+                      fontWeight: FontWeight.w800,
+                      fontSize: math.min(14.0, width * 0.04),
+                      letterSpacing: width < 360 ? 1.4 : 3.2,
+                      color: const Color(0xFFDCCBFF),
+                      shadows: const [Shadow(color: Color(0xFF120A1C), blurRadius: 6), Shadow(color: Color(0x669A6BFF), blurRadius: 12)])),
+            ),
+          ),
+          if (width >= 340) ...[const SizedBox(width: 8), _arrow(true)],
+        ]),
       ]),
     ]);
   }
 
-  Widget _thorn(bool flip) => Transform.flip(
+  Widget _arrow(bool flip) => Transform.flip(
         flipX: flip,
-        child: CustomPaint(size: const Size(42, 10), painter: _ThornPainter()),
+        child: CustomPaint(size: const Size(52, 14), painter: _ArrowPainter()),
       );
 }
 
-class _ThornPainter extends CustomPainter {
+/// An arrow of bramble pointing in at the title: fletched at the far end, two thorns along it.
+class _ArrowPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final p = Paint()
-      ..color = const Color(0xFFB79AE8)
-      ..strokeWidth = 2
-      ..strokeCap = StrokeCap.round;
+      ..color = const Color(0xFFC4A8F0)
+      ..strokeWidth = 1.8
+      ..strokeCap = StrokeCap.round
+      ..style = PaintingStyle.stroke;
     final y = size.height / 2;
-    canvas.drawLine(Offset(0, y), Offset(size.width, y), p);
-    for (final x in [size.width * 0.3, size.width * 0.65]) {
-      canvas.drawLine(Offset(x, y), Offset(x + 5, y - 4), p);
-      canvas.drawLine(Offset(x + 6, y), Offset(x + 11, y + 4), p);
+    final w = size.width;
+    canvas.drawLine(Offset(2, y), Offset(w - 3, y), p);
+    // the head, pointing in
+    canvas.drawPath(
+        Path()
+          ..moveTo(w - 9, y - 4.5)
+          ..lineTo(w - 1, y)
+          ..lineTo(w - 9, y + 4.5),
+        p);
+    // the fletching
+    for (final x in [2.0, 7.0]) {
+      canvas.drawLine(Offset(x, y), Offset(x - 3, y - 5), p);
+      canvas.drawLine(Offset(x, y), Offset(x - 3, y + 5), p);
     }
-    canvas.drawCircle(Offset(size.width, y), 3, p);
+    // thorns
+    for (final x in [w * 0.42, w * 0.62]) {
+      canvas.drawLine(Offset(x, y), Offset(x + 4, y - 4), p);
+    }
+    canvas.drawCircle(Offset(w * 0.52, y), 1.8, Paint()..color = const Color(0xFFE8DAFF));
+  }
+
+  @override
+  bool shouldRepaint(covariant CustomPainter old) => false;
+}
+
+/// The Briarback's sigil over its name: two antlers of bramble rising round a Hollow crystal, glowing.
+class _EmblemPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final c = Offset(w / 2, h * 0.62);
+    final glow = Paint()..shader = ui.Gradient.radial(c, w * 0.42, [const Color(0x889A6BFF), const Color(0x009A6BFF)]);
+    canvas.drawCircle(c, w * 0.42, glow);
+    final line = Paint()
+      ..color = const Color(0xFFD9C6FF)
+      ..strokeWidth = math.max(1.6, w * 0.022)
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..style = PaintingStyle.stroke;
+    for (final s in [-1.0, 1.0]) {
+      // a main beam curving up and out, two tines off it
+      final beam = Path()
+        ..moveTo(c.dx + s * w * 0.06, c.dy + h * 0.12)
+        ..quadraticBezierTo(c.dx + s * w * 0.3, c.dy, c.dx + s * w * 0.36, c.dy - h * 0.5);
+      canvas.drawPath(beam, line);
+      canvas.drawLine(Offset(c.dx + s * w * 0.22, c.dy - h * 0.06), Offset(c.dx + s * w * 0.18, c.dy - h * 0.38), line);
+      canvas.drawLine(Offset(c.dx + s * w * 0.31, c.dy - h * 0.28), Offset(c.dx + s * w * 0.46, c.dy - h * 0.42), line);
+      // crystal tips
+      for (final tip in [Offset(c.dx + s * w * 0.36, c.dy - h * 0.5), Offset(c.dx + s * w * 0.18, c.dy - h * 0.38), Offset(c.dx + s * w * 0.46, c.dy - h * 0.42)]) {
+        canvas.drawCircle(tip, w * 0.03, Paint()..shader = ui.Gradient.radial(tip, w * 0.05, [const Color(0xFFFFFFFF), const Color(0x00C4A0FF)]));
+      }
+      // thorns along the beam
+      canvas.drawLine(Offset(c.dx + s * w * 0.27, c.dy - h * 0.16), Offset(c.dx + s * w * 0.32, c.dy - h * 0.1), line);
+    }
+    // the crystal: a tall diamond
+    final gem = Path()
+      ..moveTo(c.dx, c.dy - h * 0.42)
+      ..lineTo(c.dx + w * 0.07, c.dy - h * 0.05)
+      ..lineTo(c.dx, c.dy + h * 0.22)
+      ..lineTo(c.dx - w * 0.07, c.dy - h * 0.05)
+      ..close();
+    canvas.drawPath(gem, Paint()..shader = ui.Gradient.linear(Offset(c.dx, c.dy - h * 0.42), Offset(c.dx, c.dy + h * 0.22), [const Color(0xFFFFFFFF), const Color(0xFFB48CFF)]));
+    canvas.drawPath(gem, line..strokeWidth = math.max(1.2, w * 0.014));
+    canvas.drawLine(Offset(c.dx, c.dy - h * 0.42), Offset(c.dx, c.dy + h * 0.22), Paint()..color = const Color(0x66FFFFFF)..strokeWidth = 1);
   }
 
   @override

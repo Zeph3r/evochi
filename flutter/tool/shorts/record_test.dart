@@ -60,7 +60,7 @@ void main() {
     await SceneFx.load();
   });
 
-  for (final sh in [...allShorts, ...weekShorts, bench]) {
+  for (final sh in [...allShorts, ...weekShorts, ...lookShorts, bench]) {
     if (want.contains('all') ? sh == bench : !want.contains(sh.id)) continue;
     testWidgets('record ${sh.id}', (tester) async {
       final dir = Directory('$outRoot/${sh.id}');

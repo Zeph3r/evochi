@@ -481,6 +481,39 @@ final briarback = Short(
   ],
 );
 
+/// A look at the Briarback's entrance alone (not for posting): walk up to it, its cinematic plays, the fight
+/// begins. A Juvenile and an Elder, wearing nothing (their reaction frames).
+final briarintro = Short(
+  id: 'briarintro',
+  endTitle: const [('The Briarback', null)],
+  endSecs: 0.4,
+  clips: [
+    for (final (pal, st) in const [('amber', 2), ('forest', 3)])
+      Clip(
+        state: () => mochi(pal, stage: st),
+        open: () => const WildsScreen(),
+        secs: 16,
+        preroll: 0.6,
+        setup: (s) async {
+          await _god(s);
+          await s.key(LogicalKeyboardKey.digit4); // the arena's edge
+          s.autopilot.on = false;
+        },
+        beats: [
+          Beat(0.05, (s) {
+            final b = s.raid!.boss!;
+            s.autopilot.walkTo = Offset(b.x, b.z + 60);
+          }),
+          Beat(0.5, (s) => s.mark = s.t, when: (s) => s.raid!.bossState == BossState.fight),
+        ],
+        until: (s) => s.mark != null && s.t - s.mark! > 0.6,
+      ),
+  ],
+);
+
+/// Looks at one thing, recorded by name only.
+final lookShorts = <Short>[briarintro];
+
 /// 3. The Deep Wilds: a clearing calmed, the way down opens, down a floor, and a Hollow Surge.
 final deep = Short(
   id: 'deep',

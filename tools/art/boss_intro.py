@@ -198,6 +198,43 @@ def _frame(f):
     return rgba, [[round(float(x), 1), round(float(y), 1)] for x, y in px], bool(p.get('mouth'))
 
 
+def marks(f):
+    """where the antlers' crystal tips and the eyes land in frame f (the glow, the charge and the eye light are
+    drawn on them in the app): turned with the head about the neck, then reared, as the mouth is"""
+    p = pose_at(f)
+    cam, ft = camera_at(f), fit()
+    dy = -p.get('low', 0.0)
+    piv = np.array([0.0, 28 + dy, 7.0])
+    R = WF.rot(rx=p.get('head', 0.0), ry=p.get('yaw', 0.0), rz=p.get('tilt', 0.0))
+    r = p.get('rear', 0.0)
+
+    def place(q):
+        q = piv + R @ (np.array(q, float) - piv)
+        if r:
+            q = WF.rot(rx=-r) @ (q - np.array([0.0, 0.0, -13.0])) + np.array([0.0, 0.0, -13.0])
+        return q
+    tips = []
+    for s_ in (-1, 1):
+        for br in WF.ANTLER:
+            x, y, z = br[-1]
+            tips.append(place((s_ * x + s_ * 0.4, y + dy + 1.8, z - 0.3)))     # the crystal's middle
+    eyes = [place((s_ * 3.3, 40.6 + dy, 23.6)) for s_ in (-1, 1)]
+    px = project_px(cam, ft, np.array(tips + eyes))
+    rnd = lambda q: [round(float(q[0]), 1), round(float(q[1]), 1)]   # noqa: E731
+    return [rnd(q) for q in px[:len(tips)]], [rnd(q) for q in px[len(tips):]]
+
+
+def add_marks(json_path):
+    """the antler tips and eyes, added to an existing briarback_intro.json (the frames stay as they are)"""
+    meta = json.load(open(json_path))
+    meta['antlers'], meta['eyes'] = [], []
+    for f in range(meta['frames']):
+        a, e = marks(f)
+        meta['antlers'].append(a)
+        meta['eyes'].append(e)
+    json.dump(meta, open(json_path, 'w'))
+
+
 def main(out, preview=False, jobs=2):
     os.makedirs(out, exist_ok=True)
     with ProcessPoolExecutor(jobs) as ex:
@@ -216,11 +253,16 @@ def main(out, preview=False, jobs=2):
             meta['roar'].append(i)
         print(fn, os.path.getsize(os.path.join(out, fn)) // 1024, 'KB', flush=True)
     json.dump(meta, open(os.path.join(out, 'briarback_intro.json'), 'w'))
+    add_marks(os.path.join(out, 'briarback_intro.json'))
 
 
 if __name__ == '__main__':
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     jobs = int(next((a.split('=')[1] for a in sys.argv if a.startswith('--jobs=')), '2'))
+    if '--marks' in sys.argv:
+        # only the antler and eye marks, added to the json already there (no frames rendered)
+        add_marks(os.path.join(args[0], 'briarback_intro.json'))
+        sys.exit(0)
     if '--frames' in ' '.join(sys.argv):
         # a quick look at a few frames: --frames=0,9,16,25,35
         fs = [int(x) for x in next(a.split('=')[1] for a in sys.argv if a.startswith('--frames=')).split(',')]

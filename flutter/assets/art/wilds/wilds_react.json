@@ -1,0 +1,150 @@
+{
+ "cols": 5,
+ "s01": {
+  "w": 546,
+  "h": 560,
+  "n": 13,
+  "times": [
+   0.0,
+   0.04,
+   0.08,
+   0.15,
+   0.22,
+   0.3,
+   0.38,
+   0.58,
+   0.78,
+   0.86,
+   0.92,
+   1.05,
+   1.25
+  ],
+  "end": 1.25,
+  "ground": [
+   265.6,
+   508.4
+  ],
+  "sheets": {
+   "amber": "react_s01_amber.webp",
+   "forest": "react_s01_forest.webp",
+   "coral": "react_s01_coral.webp",
+   "ocean": "react_s01_ocean.webp",
+   "amethyst": "react_s01_amethyst.webp",
+   "obsidian": "react_s01_obsidian.webp"
+  },
+  "back": {
+   "w": 506,
+   "h": 560,
+   "ground": [
+    249.5,
+    513.2
+   ],
+   "sheets": {
+    "amber": "react_s01_back_amber.webp",
+    "forest": "react_s01_back_forest.webp",
+    "coral": "react_s01_back_coral.webp",
+    "ocean": "react_s01_back_ocean.webp",
+    "amethyst": "react_s01_back_amethyst.webp",
+    "obsidian": "react_s01_back_obsidian.webp"
+   }
+  }
+ },
+ "s02": {
+  "w": 550,
+  "h": 560,
+  "n": 13,
+  "times": [
+   0.0,
+   0.05,
+   0.1,
+   0.18,
+   0.26,
+   0.34,
+   0.42,
+   0.62,
+   0.8,
+   0.88,
+   0.95,
+   1.12,
+   1.3
+  ],
+  "end": 1.3,
+  "ground": [
+   262.9,
+   515.1
+  ],
+  "sheets": {
+   "amber": "react_s02_amber.webp",
+   "forest": "react_s02_forest.webp",
+   "coral": "react_s02_coral.webp",
+   "ocean": "react_s02_ocean.webp",
+   "amethyst": "react_s02_amethyst.webp",
+   "obsidian": "react_s02_obsidian.webp"
+  },
+  "back": {
+   "w": 588,
+   "h": 560,
+   "ground": [
+    279.3,
+    518.2
+   ],
+   "sheets": {
+    "amber": "react_s02_back_amber.webp",
+    "forest": "react_s02_back_forest.webp",
+    "coral": "react_s02_back_coral.webp",
+    "ocean": "react_s02_back_ocean.webp",
+    "amethyst": "react_s02_back_amethyst.webp",
+    "obsidian": "react_s02_back_obsidian.webp"
+   }
+  }
+ },
+ "s03": {
+  "w": 716,
+  "h": 560,
+  "n": 13,
+  "times": [
+   0.0,
+   0.07,
+   0.14,
+   0.23,
+   0.32,
+   0.42,
+   0.52,
+   0.72,
+   0.9,
+   1.0,
+   1.1,
+   1.3,
+   1.5
+  ],
+  "end": 1.5,
+  "ground": [
+   379.4,
+   503.4
+  ],
+  "sheets": {
+   "amber": "react_s03_amber.webp",
+   "forest": "react_s03_forest.webp",
+   "coral": "react_s03_coral.webp",
+   "ocean": "react_s03_ocean.webp",
+   "amethyst": "react_s03_amethyst.webp",
+   "obsidian": "react_s03_obsidian.webp"
+  },
+  "back": {
+   "w": 766,
+   "h": 560,
+   "ground": [
+    406.0,
+    496.9
+   ],
+   "sheets": {
+    "amber": "react_s03_back_amber.webp",
+    "forest": "react_s03_back_forest.webp",
+    "coral": "react_s03_back_coral.webp",
+    "ocean": "react_s03_back_ocean.webp",
+    "amethyst": "react_s03_back_amethyst.webp",
+    "obsidian": "react_s03_back_obsidian.webp"
+   }
+  }
+ }
+}

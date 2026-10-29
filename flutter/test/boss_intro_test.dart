@@ -23,15 +23,15 @@ void main() {
     final cues = <String>[];
     var done = 0;
     await tester.pumpWidget(_host(IntroCut.full, cues, () => done++));
-    expect(find.text('BRIARBACK'), findsNothing); // the title waits for the slam
-    for (var i = 0; i < 45; i++) {
+    expect(find.text('BRIARBACK'), findsNothing); // the title waits for it to land
+    for (var i = 0; i < 48; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
     expect(find.text('BRIARBACK'), findsWidgets);
     for (var i = 0; i < 30; i++) {
       await tester.pump(const Duration(milliseconds: 100));
     }
-    expect(cues, ['open', 'roar', 'blast', 'dig', 'slam', 'whoosh', 'ready']);
+    expect(cues, ['open', 'step', 'charge', 'roar', 'blast', 'dig', 'slam', 'whoosh', 'ready']);
     expect(done, 1);
   });
 

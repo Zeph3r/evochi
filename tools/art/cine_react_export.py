@@ -1,0 +1,98 @@
+"""The boss entrances' Evochi reaction (cine_react.py: Shock -> Strain -> Resolve) as game art: per stage, 13
+frames sampled where the motion is, from the entrance's camera, in every colour; and the Evochi from behind
+(over its shoulder, looking at the guardian) for the wide shots.
+
+    python3 cine_react_export.py OUT_DIR [stage ...]
+
+Writes OUT_DIR/react_sNN_<palette>.webp (the frames in a grid, COLS across), react_sNN_back_<palette>.webp and
+wilds_react.json: per stage the cell size, each frame's time (s), the reaction's length, where the ground is in
+a cell, the sheets; the same for the back view.
+"""
+from __future__ import annotations
+
+import json
+import math
+import os
+import sys
+from concurrent.futures import ProcessPoolExecutor
+
+import numpy as np
+from PIL import Image
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import cine_react as CR                                           # noqa: E402
+from charrender import render_char                                # noqa: E402
+from palettes import VARIANT_ORDER                                # noqa: E402
+from voxel import Camera, fit_camera, model_extent_points, project_px   # noqa: E402
+
+CELL_H = 560
+COLS = 5
+BACK = Camera(yaw=-145, pitch=-6)        # behind it and to its left: over its shoulder, toward the guardian
+TIMES = {1: [0.0, 0.04, 0.08, 0.15, 0.22, 0.30, 0.38, 0.58, 0.78, 0.86, 0.92, 1.05, 1.25],
+         2: [0.0, 0.05, 0.10, 0.18, 0.26, 0.34, 0.42, 0.62, 0.80, 0.88, 0.95, 1.12, 1.30],
+         3: [0.0, 0.07, 0.14, 0.23, 0.32, 0.42, 0.52, 0.72, 0.90, 1.00, 1.10, 1.30, 1.50]}
+
+
+def _fit(cam, models, h):
+    pts = np.concatenate([model_extent_points(m) for m in models])
+    sx, sy, _ = cam.project(pts)
+    aspect = (sx.max() - sx.min()) / max(sy.max() - sy.min(), 1e-6)
+    w = int(math.ceil(h * aspect * 1.0 / 2) * 2) + 8
+    return fit_camera(cam, pts, w, h, margin=0.04)
+
+
+def _frame(args):
+    stage, t, fit, cam = args
+    pose, face = CR.pose_at(stage, t)
+    ch = CR.character(stage, pose)
+    expr = CR.face_expr(face, pose)
+    out = [render_char(ch, v, expr, cam, fit.w, fit.h, fit=fit).rgba for v in VARIANT_ORDER]
+    # every frame is a new model: let its surface and face pieces go (the renderer would keep them all)
+    import charrender
+    charrender._surf_cache.clear()
+    charrender._quad_cache.clear()
+    CR._built.clear()
+    return out
+
+
+def main(out, stages):
+    os.makedirs(out, exist_ok=True)
+    mp = os.path.join(out, 'wilds_react.json')
+    meta = json.load(open(mp)) if os.path.exists(mp) else {}
+    meta['cols'] = COLS
+    for stage in stages:
+        sid = 's%02d' % stage
+        times = TIMES[stage]
+        models = [CR.character(stage, CR.pose_at(stage, t)[0]).model for t in times]
+        fit = _fit(CR.GAME, models, CELL_H)
+        del models
+        rest = CR.character(stage, {})
+        bfit = _fit(BACK, [rest.model], CELL_H)
+        CR._built.clear()
+        with ProcessPoolExecutor(2) as ex:
+            frames = list(ex.map(_frame, [(stage, t, fit, CR.GAME) for t in times]))
+            back = list(ex.map(_frame, [(stage, 0.0, bfit, BACK)]))[0]
+        rows = (len(times) + COLS - 1) // COLS
+        st = {'w': fit.w, 'h': fit.h, 'n': len(times), 'times': times, 'end': CR.KEYS[stage][-1][0],
+              'ground': project_px(CR.GAME, fit, rest.anchors['ground'])[0].round(1).tolist(), 'sheets': {},
+              'back': {'w': bfit.w, 'h': bfit.h, 'ground': project_px(BACK, bfit, rest.anchors['ground'])[0].round(1).tolist(),
+                       'sheets': {}}}
+        for vi, v in enumerate(VARIANT_ORDER):
+            grid = np.zeros((rows * fit.h, COLS * fit.w, 4), np.uint8)
+            for i, fr in enumerate(frames):
+                r, c = divmod(i, COLS)
+                grid[r * fit.h:(r + 1) * fit.h, c * fit.w:(c + 1) * fit.w] = fr[vi]
+            fn = f'react_{sid}_{v}.webp'
+            Image.fromarray(grid, 'RGBA').save(os.path.join(out, fn), quality=86, method=6)
+            st['sheets'][v] = fn
+            bn = f'react_{sid}_back_{v}.webp'
+            Image.fromarray(back[vi], 'RGBA').save(os.path.join(out, bn), quality=86, method=6)
+            st['back']['sheets'][v] = bn
+            print(fn, os.path.getsize(os.path.join(out, fn)) // 1024, 'KB', bn, os.path.getsize(os.path.join(out, bn)) // 1024, 'KB', flush=True)
+        meta[sid] = st
+        json.dump(meta, open(mp, 'w'), indent=1)
+
+
+if __name__ == '__main__':
+    main(sys.argv[1], [int(a) for a in sys.argv[2:]] or [1, 2, 3])

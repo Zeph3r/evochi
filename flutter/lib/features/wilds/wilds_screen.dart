@@ -142,6 +142,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   // the guardian's entrance (loaded in the background; without it the fight starts as before)
   BossIntroArt? _introArt;
   CineEvochiArt? _cineEvochi;
+  ReactArt? _reactArt; // its reaction to the roar (none while it wears something: the older art carries that)
   IntroCut? _cine; // playing now
   BossIntroArt? _sentArt; // the Forgotten Sentinel's entrance (its story floor only)
   IntroCut? _sentCine;
@@ -288,6 +289,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       if (m.boss != null) _introArt = await BossIntroArt.load('briarback');
       if (sentinel) _sentArt = await BossIntroArt.load('sentinel', warm: const [0, 1, 2, 3, 4, 26, 27, 28]);
       _cineEvochi = await CineEvochiArt.load(stage, palette, wearing);
+      _reactArt = wearing.isEmpty ? await ReactArt.load(stage, palette) : null;
     } catch (e, st) {
       debugPrint('boss intro art: $e\n$st');
     }
@@ -689,6 +691,12 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     switch (cue) {
       case 'open':
         _sfx('enc_awaken', 0.8);
+      case 'step':
+        _sfx('wild_hit', 0.55);
+        _sfx('enc_rumble', 0.4);
+        a.buzz(Haptic.hit);
+      case 'charge':
+        _sfx('enc_glow', 0.75);
       case 'roar':
         _sfx('wild_roar', 0.95, gap: 0.3);
         a.buzz(Haptic.rumble);
@@ -1584,6 +1592,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                     child: BossIntro(
                       art: _introArt!,
                       evochi: _cineEvochi,
+                      react: _reactArt,
                       cut: _cine!,
                       name: 'Briarback',
                       title: 'Guardian of the Thicket',
