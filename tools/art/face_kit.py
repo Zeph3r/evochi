@@ -60,10 +60,17 @@ def mapping(ch):
     return k, (xl + xr) / 2, y
 
 
+def squash(ch):
+    """how the face plane is scaled on a posed body (cine_pose): across, up"""
+    return getattr(ch, 'face_squash', (1.0, 1.0))
+
+
 def extent(ch):
     """the canvas the whole kit face needs, in face units"""
     k, cx, cy = mapping(ch)
-    return (-cx * k, (256 - cx) * k, ch.eye_v - (160 - cy) * k, ch.eye_v + cy * k)
+    sx, sy = squash(ch)
+    ev = ch.eye_v * sy
+    return (-cx * k * sx, (256 - cx) * k * sx, ev - (160 - cy) * k * sy, ev + cy * k * sy)
 
 
 def _colours(pal):
@@ -93,7 +100,8 @@ def _hex(c):
 def paint_kit(ch, cv, pal, state, personality='brave'):
     name = '%s_%s_%s' % (personality, STAGE_NAMES[ch.stage], state)
     k, cx, cy = mapping(ch)
-    scale = SUB / (cv.cell / k)                      # raster pixels per kit unit: SUB per canvas cell
+    sx, sy = squash(ch)                              # a posed body squashes its face with it
+    scale = SUB * k * max(sx, sy) / cv.cell          # raster pixels per kit unit: SUB per canvas cell
     sub = _colours(pal)
     R = _raster(name, tuple(sorted(sub.items())), round(scale, 3))
     H, W = R.shape[:2]
@@ -108,8 +116,8 @@ def paint_kit(ch, cv, pal, state, personality='brave'):
         for j in range(SUB):
             du = ((i + 0.5) / SUB - 0.5) * cv.cell
             dv = ((j + 0.5) / SUB - 0.5) * cv.cell
-            X = ((cx + (cv.U + du) / k) * scale).astype(int)
-            Y = ((cy - (cv.V + dv - ch.eye_v) / k) * scale).astype(int)
+            X = ((cx + (cv.U + du) / (k * sx)) * scale).astype(int)
+            Y = ((cy - (cv.V + dv - ch.eye_v * sy) / (k * sy)) * scale).astype(int)
             ok = (X >= 0) & (X < W) & (Y >= 0) & (Y < H)
             px = np.zeros(cv.U.shape + (4,), np.float32)
             px[ok] = R[Y[ok], X[ok]]
