@@ -34,7 +34,9 @@ from rework_village import EQ, BPM, PHASE  # noqa: E402
 SR = 48000
 BAR = 4 * 60 / BPM
 KEEP = [(3, 8), (13, 24), 'breakdown', (29, 34)]   # bar ranges kept (1-based, inclusive), and where the breakdown goes
-BREAK = [(27, 28), (27, 28)]   # the breakdown's bars: the take's groove without the tune (Dmaj7-F#m7 | Em-A), twice
+BREAK = [(27, 28), (27, 28)]
+# what build() adds on top of the take (switched off one at a time, the difference is that layer: daw_export)
+FX = {'shimmer': True, 'swells': True, 'filters': True}   # the breakdown's bars: the take's groove without the tune (Dmaj7-F#m7 | Em-A), twice
 
 
 def at(bar):
@@ -99,7 +101,7 @@ def breakdown(x, level):
     n_fft, hop = 4096, 512
     out = np.zeros_like(bars)
     t = None
-    for c in (0, 1):
+    for c in ((0, 1) if FX['filters'] else ()):
         S = librosa.stft(bars[:, c].astype(np.float32), n_fft=n_fft, hop_length=hop)
         fr = librosa.fft_frequencies(sr=SR, n_fft=n_fft)
         t = np.arange(S.shape[1]) * hop / n
@@ -107,8 +109,11 @@ def breakdown(x, level):
         fc = 450.0 * (20000.0 / 450.0) ** prog                # the corner, per frame
         gain = 1.0 / np.sqrt(1.0 + (fr[:, None] / fc[None, :]) ** 4)   # a gentle 12 dB/octave roll-off
         out[:, c] = librosa.istft(S * gain, hop_length=hop, length=n)
-    lvl = 0.8 + 0.2 * np.clip(np.arange(n) / n, 0, 1) ** 1.5
-    out *= lvl[:, None]
+    if FX['filters']:
+        lvl = 0.8 + 0.2 * np.clip(np.arange(n) / n, 0, 1) ** 1.5
+        out *= lvl[:, None]
+    else:
+        out = bars.copy()
     # a soft reverse swell over the last beat into the tune (bar 29's first beat, reverbed, backwards)
     beat = nb // 4
     rev = reverb(x[at(29):at(29) + beat] * 0.8, secs=1.2)[::-1]
@@ -117,9 +122,11 @@ def breakdown(x, level):
     env = np.linspace(0, 1, beat) ** 2
     f = int(0.03 * SR)
     env[-f:] *= np.linspace(1, 0, f) ** 2
-    out[-beat:] += rev * env[:, None]
-    lead = x[at(BREAK[0][0]) - 2048:at(BREAK[0][0])] * 0.8   # what leads into its first downbeat, muffled like it
-    lead = sosfilt(butter(2, 450, 'low', fs=SR, output='sos'), lead, axis=0)
+    if FX['swells']:
+        out[-beat:] += rev * env[:, None]
+    lead = x[at(BREAK[0][0]) - 2048:at(BREAK[0][0])] * (0.8 if FX['filters'] else 1.0)   # what leads into its first downbeat, muffled like it
+    if FX['filters']:
+        lead = sosfilt(butter(2, 450, 'low', fs=SR, output='sos'), lead, axis=0)
     buf = np.vstack([lead, out])
     return buf, len(lead), len(buf)
 
@@ -142,10 +149,11 @@ def build(src):
     dry = x[at(4):at(4) + nb]
     c = (np.linspace(0, 1, nb) ** 1.5)[:, None]
     muffled = sosfilt(butter(2, 1300, 'low', fs=SR, output='sos'), dry, axis=0)
-    bloom = (muffled * (1 - c) + dry * c) * (0.82 + 0.18 * c)
+    bloom = (muffled * (1 - c) + dry * c) * (0.82 + 0.18 * c) if FX['filters'] else dry.copy()
     wash = shimmer(dry, octave=0.35, secs=2.2)
     wash *= 0.18 * level / rms(wash[:nb])
-    bloom += wash[:nb] * (0.3 + 0.7 * c)
+    if FX['shimmer']:
+        bloom += wash[:nb] * (0.3 + 0.7 * c)
     beat = nb // 4
     rev = reverb(x[at(3):at(3) + beat] * 0.8, secs=1.2)[::-1]
     rev = rev[-beat:] if len(rev) >= beat else np.vstack([np.zeros((beat - len(rev), 2)), rev])
@@ -153,19 +161,23 @@ def build(src):
     env = np.linspace(0, 1, beat) ** 2
     f = int(0.03 * SR)
     env[-f:] *= np.linspace(1, 0, f) ** 2   # it swells, then gets out of the way of the real downbeat
-    bloom[-beat:] += rev * env[:, None]
+    if FX['swells']:
+        bloom[-beat:] += rev * env[:, None]
     # the shimmer's tail lingers a moment under bar 3
     glow = wash[nb:nb + nb // 2] * (np.linspace(1, 0, len(wash[nb:nb + nb // 2])) ** 2)[:, None]
-    body[:len(glow)] += glow
+    if FX['shimmer']:
+        body[:len(glow)] += glow
 
     # the last bar leans toward the bloom: its top eases off a little over the last two beats, a touch of shimmer
     last = body[-nb:].copy()
     soft = sosfilt(butter(2, 3000, 'low', fs=SR, output='sos'), last, axis=0)
     ramp = np.clip((np.arange(nb) - nb / 2) / (nb / 2), 0, 1)[:, None]
-    body[-nb:] = last * (1 - 0.3 * ramp) + soft * 0.3 * ramp
+    if FX['filters']:
+        body[-nb:] = last * (1 - 0.3 * ramp) + soft * 0.3 * ramp
     tail_wash = shimmer(x[at(34):at(35)], octave=0.35, secs=2.2)
     tail_wash *= 0.15 * level / rms(tail_wash[:nb])
-    body[-nb:] += tail_wash[:nb] * (np.linspace(0, 1, nb) ** 2)[:, None]
+    if FX['shimmer']:
+        body[-nb:] += tail_wash[:nb] * (np.linspace(0, 1, nb) ** 2)[:, None]
 
     # hand over to the band's first downbeat the way the joins do: the bloom's last 10 ms crossfade into what led up
     # to bar 3 in the take
@@ -178,7 +190,8 @@ def build(src):
     ring = sosfilt(butter(2, 2500, 'low', fs=SR, output='sos'), ring, axis=0)
     loop[:len(ring)] += ring
     spill = tail_wash[nb:nb + 2 * nb]
-    loop[:len(spill)] += spill * np.linspace(1, 0, len(spill))[:, None]
+    if FX['shimmer']:
+        loop[:len(spill)] += spill * np.linspace(1, 0, len(spill))[:, None]
     # the wrap itself: an 8 ms ease on each side, so the last sample never jumps to the first
     e = int(0.008 * SR)
     loop[:e] *= np.linspace(0, 1, e)[:, None]
@@ -199,7 +212,7 @@ def master(loop, out):
     paths = []
     for ext, codec in (('ogg', ['-c:a', 'libvorbis', '-q:a', '6']), ('mp3', ['-c:a', 'libmp3lame', '-q:a', '2'])):
         p = os.path.join(out, 'mus_village.' + ext)
-        subprocess.run(['ffmpeg', '-v', 'error', '-y', *src, '-af', bus + ',' + ln, *codec, p], check=True)
+        subprocess.run(['ffmpeg', '-v', 'error', '-y', *src, '-af', bus + ',' + ln, '-ar', str(SR), *codec, p], check=True)   # loudnorm works at 192 kHz: back to 48
         paths.append(p)
     os.remove(tmp)
     return paths
