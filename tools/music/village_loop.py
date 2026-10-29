@@ -4,7 +4,11 @@ The take (D major, 108.26 BPM, first downbeat 0.113 s, bars of 2.217 s) runs: ba
 own), 3-8 the tune, 9-10 a near-silent break, 11-12 the band without the tune, 13-24 the tune, 25-26 the second
 break, 27-28 the band again, 29-34 the tune, 35 the lead alone and the fade. The loop:
 
-    [bloom]  3-8  13-24  29-34  -> back to [bloom]   (the bloom from bar 4's groove)
+    [bloom]  3-8  13-24  [breakdown]  29-34  -> back to [bloom]   (the bloom from bar 4's groove)
+
+  - the breakdown (four bars) breaks up the repeats before the last stretch of the tune: the take's groove
+    without the tune (bars 27-28, twice) muffled as from the next room, opening up bar by bar, a soft swell
+    into the tune's return
 
   - the two breaks go, with the tune-less bars after each: every join is an Em-A bar into a D bar, as the song
     itself moves, crossfaded over 25 ms just before the downbeat
@@ -29,7 +33,8 @@ from rework_village import EQ, BPM, PHASE  # noqa: E402
 
 SR = 48000
 BAR = 4 * 60 / BPM
-KEEP = [(3, 8), (13, 24), (29, 34)]   # bar ranges kept, 1-based, inclusive
+KEEP = [(3, 8), (13, 24), 'breakdown', (29, 34)]   # bar ranges kept (1-based, inclusive), and where the breakdown goes
+BREAK = [(27, 28), (27, 28)]   # the breakdown's bars: the take's groove without the tune (Dmaj7-F#m7 | Em-A), twice
 
 
 def at(bar):
@@ -81,11 +86,55 @@ def rms(x):
     return np.sqrt((x ** 2).mean())
 
 
+def breakdown(x, level):
+    """four bars where the tune rests: the take's groove (bars 27-28, twice) heard muffled, as from the next room,
+    opening up bar by bar to full, a soft swell on the last beat into the tune's return. Returned as a splice
+    part: (samples with the lead-in before the first downbeat, start, end)"""
+    import librosa
+    nb = int(round(BAR * SR))
+    bars = splice([(x, at(a), at(b + 1)) for a, b in BREAK])
+    n = len(bars)
+    # a low-pass whose corner rises from 450 Hz to fully open across the four bars (an STFT gain mask, so it moves
+    # smoothly), and the level easing from 80% back to full
+    n_fft, hop = 4096, 512
+    out = np.zeros_like(bars)
+    t = None
+    for c in (0, 1):
+        S = librosa.stft(bars[:, c].astype(np.float32), n_fft=n_fft, hop_length=hop)
+        fr = librosa.fft_frequencies(sr=SR, n_fft=n_fft)
+        t = np.arange(S.shape[1]) * hop / n
+        prog = np.clip(t, 0, 1) ** 1.8                       # slow at first, opening faster toward the return
+        fc = 450.0 * (20000.0 / 450.0) ** prog                # the corner, per frame
+        gain = 1.0 / np.sqrt(1.0 + (fr[:, None] / fc[None, :]) ** 4)   # a gentle 12 dB/octave roll-off
+        out[:, c] = librosa.istft(S * gain, hop_length=hop, length=n)
+    lvl = 0.8 + 0.2 * np.clip(np.arange(n) / n, 0, 1) ** 1.5
+    out *= lvl[:, None]
+    # a soft reverse swell over the last beat into the tune (bar 29's first beat, reverbed, backwards)
+    beat = nb // 4
+    rev = reverb(x[at(29):at(29) + beat] * 0.8, secs=1.2)[::-1]
+    rev = rev[-beat:] if len(rev) >= beat else np.vstack([np.zeros((beat - len(rev), 2)), rev])
+    rev *= 0.18 * level / (rms(rev) + 1e-9)
+    env = np.linspace(0, 1, beat) ** 2
+    f = int(0.03 * SR)
+    env[-f:] *= np.linspace(1, 0, f) ** 2
+    out[-beat:] += rev * env[:, None]
+    lead = x[at(BREAK[0][0]) - 2048:at(BREAK[0][0])] * 0.8   # what leads into its first downbeat, muffled like it
+    lead = sosfilt(butter(2, 450, 'low', fs=SR, output='sos'), lead, axis=0)
+    buf = np.vstack([lead, out])
+    return buf, len(lead), len(buf)
+
+
 def build(src):
     x = load(src)
     nb = int(round(BAR * SR))
-    body = splice([(x, at(a), at(b + 1)) for a, b in KEEP])
     level = rms(x[at(5):at(9)])   # the band with the tune
+    parts = []
+    for k in KEEP:
+        if k == 'breakdown':
+            parts.append(breakdown(x, level))
+        else:
+            parts.append((x, at(k[0]), at(k[1] + 1)))
+    body = splice(parts)
 
     # the bloom: the band itself, from bar 4 (Em-A, the groove without the tune, which leads into D as the song does),
     # heard muffled and quieter and opening up to full across the bar; a light shimmer over it and a soft swell into
