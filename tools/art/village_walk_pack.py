@@ -177,7 +177,7 @@ def _wood():
         # back over the bridge to the trail; the arch into the Thicket (the game asks where to start, then you go in)
         exits={'trail': (bx, FW.Z1 - 0.6, 2.4, 'trail', 'thicket'),
                'thicket': (ax, az - 1.0, 2.2, None, None)},
-        fx='fx_wood.py', tiles='wood/walk', art_npcs={}, ores=[])
+        fx='fx_wood.py', tiles='wood/walk', art_npcs={}, ores=[], soft=list(FW.FERN))
 
 
 MAPS = {'wood': _wood, 'village': _village, 'trail': _trail, 'home': _home, 'cottage': _cottage, 'workshop': _workshop, 'glasshouse': _glasshouse, 'lodge': _lodge}
@@ -210,7 +210,12 @@ def walk_grid(vs, m):
         cols = M.m[np.clip(ix, 0, M.m.shape[0] - 1), :, np.clip(iz, 0, M.m.shape[2] - 1)]   # (nx, nz, ny)
         cols = np.where(ok[..., None], cols, 0)
         solid = cols > 0
-        block |= (solid & (ys >= 0.9) & (ys < 3.5)).any(-1)
+        names_ = np.array(M.mats + [''] * (256 - len(M.mats)))
+        if m.get('soft'):                            # fronds you walk through (the wood's ferns): not walls
+            solid_hi = solid & ~np.isin(names_[cols], m['soft'])
+        else:
+            solid_hi = solid
+        block |= (solid_hi & (ys >= 0.9) & (ys < 3.5)).any(-1)
         low = solid & (ys < 0.9)
         has = low.any(-1)
         k = np.where(has, low.shape[-1] - 1 - np.argmax(low[..., ::-1], -1), 0)

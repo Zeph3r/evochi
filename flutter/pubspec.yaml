@@ -41,6 +41,7 @@ flutter:
     - assets/art/village/walk/
     - assets/art/trail/ # the Old Trail: Flint's sprite and faces (tools/art/flint_walk.py)
     - assets/art/trail/walk/ # the Old Trail's walkable picture, in tiles (tools/art/village_walk_pack.py)
+    - assets/art/wood/walk/ # Fernlight Wood's walkable picture, in tiles (tools/art/fern_wood.py, village_walk_pack.py)
     - assets/art/home/walk/ # the Home's walkable picture, in tiles (tools/art/home_walk.py, village_walk_pack.py)
     - assets/art/cottage/walk/ # inside the Cottage, in tiles (tools/art/cottage_walk.py, village_walk_pack.py)
     - assets/art/lodge/walk/ # the Guild Lodge, inside (tools/art/village_interiors.py)
