@@ -84,7 +84,7 @@ Route<void> _mapRoute(String map, String? at, {String? talk}) => PageRouteBuilde
       settings: RouteSettings(name: walkRouteName(map)),
       transitionDuration: const Duration(milliseconds: 450),
       reverseTransitionDuration: const Duration(milliseconds: 300),
-      pageBuilder: (_, __, ___) => Ambience(switch (map) { 'home' => 'home', 'cottage' => 'kitchen', 'lodge' || 'glasshouse' || 'workshop' => villagePlace(map), _ => 'village' },
+      pageBuilder: (_, __, ___) => Ambience(switch (map) { 'home' => 'home', 'cottage' => 'kitchen', 'wood' => 'forest', 'lodge' || 'glasshouse' || 'workshop' => villagePlace(map), _ => 'village' },
           child: VillageWalkScreen(map: map, arrive: at, talk: talk)),
       transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: CurvedAnimation(parent: a, curve: Curves.easeInOut), child: child),
     );
@@ -612,6 +612,15 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       }
     }
     final mining = l.ores.isEmpty ? null : await MiningArt.load(l.ores.map((o) => o.$1));
+    // Fernlight Wood's creatures, untouched by the Hollow: calm Thornlings snuffling about, Sporecaps hopping
+    final critterArt = <String, FoeArt>{};
+    if (widget.map == 'wood') {
+      for (final k in const ['thornling', 'sporecap']) {
+        try {
+          critterArt[k] = await FoeArt.load(k);
+        } catch (_) {}
+      }
+    }
     ui.Image? mini, cartImg;
     Map<String, dynamic>? cartMeta;
     try {
@@ -650,6 +659,10 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       // coming in from another map, face the way you were going (away from the edge you came over)
       final from = l.exits[widget.arrive];
       if (from != null) me.dir = VillageWalker.dirOf(at.dx - from.$1, at.dy - from.$2);
+      for (final (kind, x, z, roam) in _woodCritters) {
+        final a = critterArt[kind];
+        if (a != null && l.walkable(x, z)) _critters.add(_Critter(kind, a, x, z, roam, kind == 'thornling' ? 2.5 : 2.1));
+      }
     });
     _ticker = createTicker(_tick)..start();
     final want = widget.talk;
@@ -772,6 +785,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     me.y += (l.heightAt(me.x, me.z) - me.y) * math.min(1.0, dt * 14);
     _mineTick(l, dt);
     _npcTick(l, dt);
+    _critterTick(l, dt);
     _checkExits(l);
     _cartTick(l);
     if (me.wait > 0) {
@@ -786,8 +800,10 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   /// Go to another map now (the recorder uses it after its exit hook), arriving by [at].
   void goTo(String map, String? at) => Navigator.of(context).pushReplacement(_mapRoute(map, at));
 
-  /// Hooks for the recorder: what happens when you walk out (null: leave as the game does).
+  /// Hooks for the recorder: what happens when you walk out (null: leave as the game does), and when you
+  /// go down into the Wilds or a mine (null: they open).
   static void Function(String exit)? onExit;
+  static void Function(int depth)? onDescend;
 
   /// A way out or a door fires as you step into it, once: standing in it after a room closes (or
   /// arriving in it) opens nothing until you've stepped out and back in.
@@ -948,9 +964,14 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       if (spot != null) walkTo(spot.dx, spot.dy);
       return;
     }
+    if (widget.map == 'wood' && key == 'thicket') await _walkIntoThicket(depth);
+    if (!mounted) return;
+    final hook = onDescend;
+    if (hook != null) return hook(depth); // the recorder: it stops at the door
     c.audio.play('enc_whoosh', volume: 0.5);
     await Navigator.of(context).push(descentRoute(context, depth, mine: mine));
     if (!mounted) return;
+    _entering = null;
     final e = l?.exits[key];
     me
       ..path = const []
@@ -1051,7 +1072,14 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     var p = l.toImage(me.x, me.z, me.y);
     // while a villager talks, frame the two of you in the space above the talk panel
     final talkId = _talkNpc?.replaceFirst('npc_', '');
-    final panel = _talkNpc == null ? 0.0 : (_talkKey.currentContext?.size?.height ?? _view.height * 0.4);
+    var panel = 0.0;
+    if (_talkNpc != null) {
+      try {
+        panel = _talkKey.currentContext?.size?.height ?? _view.height * 0.4;
+      } catch (_) {
+        panel = _view.height * 0.4; // the panel is mid-rebuild (it swapped villagers): use its usual height this frame
+      }
+    }
     if (talkId != null) {
       for (final n in _npcs) {
         if (n.id == talkId) p = Offset.lerp(p, l.toImage(n.x, n.z), 0.5)!;
@@ -1314,6 +1342,77 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
 
   /// The villagers' own lives: they wander their routine, linger, glance about; when your Evochi comes
   /// near they stop and turn to it, and while you're on your way to talk to one, they wait for you.
+  // ------------------------------------------------------------------------------------ Fernlight Wood
+  final _critters = <_Critter>[];
+
+  /// The wood's creatures: each pottering about its own patch (a few steps, a pause, a look round); your
+  /// Evochi close by, it stops and turns to it, curious, not afraid.
+  void _critterTick(WalkLayout l, double dt) {
+    final rng = math.Random();
+    for (final c in _critters) {
+      final dx = me.x - c.x, dz = me.z - c.z;
+      if (dx * dx + dz * dz < 4.5 * 4.5) {
+        c.moving = false;
+        c.dir = VillageWalker.dirOf(dx, dz);
+        c.wait = math.max(c.wait, 0.8);
+        continue;
+      }
+      if (!c.moving) {
+        c.wait -= dt;
+        if (c.wait > 0) continue;
+        for (var i = 0; i < 6; i++) {
+          final a = rng.nextDouble() * math.pi * 2, r = c.roam * math.sqrt(rng.nextDouble());
+          final tx = c.hx + math.cos(a) * r, tz = c.hz + math.sin(a) * r;
+          if (l.walkable(tx, tz) && l.clear(Offset(c.x, c.z), Offset(tx, tz))) {
+            c
+              ..tx = tx
+              ..tz = tz
+              ..moving = true;
+            break;
+          }
+        }
+        if (!c.moving) c.wait = 1.0;
+        continue;
+      }
+      final ex = c.tx - c.x, ez = c.tz - c.z;
+      final d = math.sqrt(ex * ex + ez * ez);
+      final v = c.kind == 'sporecap' ? 1.5 : 1.9;
+      if (d < v * dt + 0.05) {
+        c
+          ..x = c.tx
+          ..z = c.tz
+          ..moving = false
+          ..wait = 1.2 + rng.nextDouble() * 3.5;
+        continue;
+      }
+      c
+        ..x += ex / d * v * dt
+        ..z += ez / d * v * dt
+        ..dir = VillageWalker.dirOf(ex, ez)
+        ..phase += dt * (c.kind == 'sporecap' ? 1.4 : 1.8);
+    }
+  }
+
+  /// Into the Thicket from the wood: your Evochi walks on under the arch, the warm light and fireflies
+  /// giving way to the Hollow's violet as it goes, and the screen closes on the floor's name (the Wilds
+  /// open from there). With reduced motion, straight in.
+  double? _entering;
+  String _enterTitle = '', _enterSub = '';
+  Future<void> _walkIntoThicket(int depth) async {
+    final l = lay;
+    final e = l?.exits['thicket'];
+    if (l == null || e == null || _reduced) return;
+    _enterTitle = depth <= 1 ? 'The Sunlit Thicket' : 'The Deep Wilds';
+    _enterSub = depth <= 1 ? 'The Lumen Wilds' : 'Floor $depth';
+    me.path = l.path(Offset(me.x, me.z), Offset(e.$1, e.$2 - 1.5));
+    if (me.path.isEmpty) me.path = [Offset(e.$1, e.$2 - 1.5)];
+    me.moving = true;
+    me.running = false;
+    c_().audio.play('enc_glow', volume: 0.5);
+    setState(() => _entering = _t);
+    await Future<void>.delayed(const Duration(milliseconds: 2700));
+  }
+
   void _npcTick(WalkLayout l, double dt) {
     for (final n in _npcs) {
       final w = n.walker;
@@ -1585,9 +1684,9 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
           child: SafeArea(
             bottom: false,
             child: PlaceHeader(
-                title: lay?.title ?? switch (widget.map) { 'trail' => 'The Old Trail', 'home' => 'Your Home', 'cottage' => 'Your Cottage', 'lodge' => 'The Guild Lodge', 'workshop' => "Bram's Workshop", 'glasshouse' => "Mira's Glasshouse", _ => 'Sunlit Village' },
-                short: switch (widget.map) { 'trail' => 'Trail', 'home' => 'Home', 'cottage' => 'Cottage', 'lodge' => 'Guild', 'workshop' => 'Workshop', 'glasshouse' => 'Glasshouse', _ => 'Village' },
-                backLabel: switch (_outside?.$1) { 'village' => 'Back to the Square', 'home' => 'Back outside', _ => 'Back' },
+                title: lay?.title ?? switch (widget.map) { 'trail' => 'The Old Trail', 'wood' => 'Fernlight Wood', 'home' => 'Your Home', 'cottage' => 'Your Cottage', 'lodge' => 'The Guild Lodge', 'workshop' => "Bram's Workshop", 'glasshouse' => "Mira's Glasshouse", _ => 'Sunlit Village' },
+                short: switch (widget.map) { 'trail' => 'Trail', 'wood' => 'Wood', 'home' => 'Home', 'cottage' => 'Cottage', 'lodge' => 'Guild', 'workshop' => 'Workshop', 'glasshouse' => 'Glasshouse', _ => 'Village' },
+                backLabel: switch (_outside?.$1) { 'village' => 'Back to the Square', 'home' => 'Back outside', 'trail' => 'Back to the Old Trail', _ => 'Back' },
                 onBack: _back),
           ),
         ),
@@ -1670,10 +1769,11 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
             ]);
           }),
         ),
-        if (_talkNpc == null)
+        if (_talkNpc == null && _entering == null)
           _QuickTravel(
               items: switch (widget.map) {
                 'trail' => _trailTravel,
+                'wood' => _woodTravel,
                 'home' => _homeTravel,
                 'cottage' => _cottageTravel,
                 'workshop' => _workshopTravel,
@@ -1694,6 +1794,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   (String, String)? get _outside => switch (widget.map) {
         'lodge' || 'glasshouse' || 'workshop' => ('village', widget.map),
         'trail' => ('village', 'trail'),
+        'wood' => ('trail', 'thicket'),
         'cottage' => ('home', 'cottage'),
         'village' when widget.arrive == 'home' => ('home', 'village'),
         _ => null,
@@ -1774,6 +1875,8 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     switch (id) {
       case 'village' || 'trail' || 'home': // to the way out: walk to it and over
         _useExit(id);
+      case 'thicket' when widget.map == 'trail' || widget.map == 'wood': // on to the wood, or in at the arch
+        _useExit(id);
       case 'lodge' || 'glasshouse' || 'workshop' when widget.map == 'village': // across the Square to a door
         _useExit(id);
       case 'anvil' when widget.map == 'workshop':
@@ -1818,7 +1921,29 @@ const _workshopTravel = [('bram', 'bell', 'Bram'), ('anvil', 'aff_stone', 'Anvil
 const _glasshouseTravel = [('mira', 'care', 'Mira'), ('bench', 'skill_farming', 'Bench'), ('beds', 'aff_nature', 'Beds'), ('village', 'trail', 'Square')];
 const _lodgeTravel = [('pip', 'mail', 'Pip'), ('alder', 'journey', 'Alder'), ('board', 'pin', 'Board'), ('fire', 'aff_ember', 'Fire'), ('village', 'trail', 'Square')];
 const _homeTravel = [('nest', 'home', 'Nest'), ('cottage', 'bell', 'Cottage'), ('garden', 'skill_farming', 'Farm'), ('nook', 'star', 'Nook'), ('grove', 'paw', 'Grove'), ('village', 'trail', 'Village')];
-const _trailTravel = [('village', 'home', 'Village'), ('bridge', 'aff_water', 'Falls'), ('flint', 'shop', 'Flint'), ('mine', 'aff_stone', 'Mine'), ('thicket', 'aff_nature', 'Thicket')];
+const _trailTravel = [('village', 'home', 'Village'), ('bridge', 'aff_water', 'Falls'), ('flint', 'shop', 'Flint'), ('mine', 'aff_stone', 'Mine'), ('thicket', 'aff_nature', 'Wood')];
+/// Fernlight Wood's creatures: (kind, x, z, how far it wanders) (tools/art/fern_wood.py's layout).
+const _woodCritters = [
+  ('thornling', 24.0, -24.0, 7.0), ('thornling', 30.0, 9.0, 5.0), ('thornling', 72.0, -30.0, 7.0), ('thornling', 8.0, -6.0, 5.0),
+  ('sporecap', 56.0, 4.0, 5.0), ('sporecap', 14.0, -14.0, 6.0), ('sporecap', 80.0, -10.0, 6.0), ('sporecap', 40.0, -36.0, 5.0),
+];
+
+class _Critter {
+  _Critter(this.kind, this.art, this.x, this.z, this.roam, this.h)
+      : hx = x,
+        hz = z,
+        tx = x,
+        tz = z;
+  final String kind;
+  final FoeArt art;
+  double x, z, tx, tz;
+  final double hx, hz, roam, h; // where it lives, how far it wanders, how tall it stands (world units)
+  double wait = 0, phase = 0;
+  int dir = 0;
+  bool moving = false;
+}
+
+const _woodTravel = [('trail', 'trail', 'Trail'), ('meadow', 'skill_farming', 'Meadow'), ('pond', 'aff_water', 'Pond'), ('thicket', 'aff_nature', 'Thicket')];
 const _cottageTravel = [('kitchen', 'skill_cooking', 'Kitchen'), ('apothecary', 'skill_alchemy', 'Apothecary'), ('desk', 'journey', 'Skills'), ('hearth', 'aff_ember', 'Hearth'), ('home', 'home', 'Outside')];
 
 /// The bottom row: the places, a walk away (to whoever keeps them, or to a landmark).
@@ -2019,6 +2144,30 @@ class _WalkPainter extends CustomPainter {
         cover(dst, s._cartZ);
       }));
     }
+    for (final c in s._critters) {
+      items.add((c.z, () {
+        final a = c.art;
+        final g = scr(l.toImage(c.x, c.z, l.heightAt(c.x, c.z)));
+        final kp = upk * c.h / a.top; // dp per sheet px
+        final gait = a.gaits['walk']!;
+        final img = gait.sheets['calm'] ?? gait.sheets.values.first;
+        final col = c.moving ? 1 + (c.phase * 8).floor() % 8 : 0;
+        final src = Rect.fromLTWH(col * a.fw, c.dir * a.fh, a.fw, a.fh);
+        final dst = Rect.fromLTWH(-a.gx * kp, -a.gy * kp, a.fw * kp, a.fh * kp);
+        canvas.drawOval(Rect.fromCenter(center: g + Offset(0, -kp * 2), width: a.fw * kp * 0.36, height: a.fw * kp * 0.12),
+            Paint()
+              ..color = const Color(0x3A16241F)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+        _castShadow(canvas, img, src, g, Offset(a.gx * kp, a.gy * kp), kp, l);
+        final lift = c.moving && c.kind == 'sporecap' ? (math.sin(c.phase * math.pi * 2).abs() * upk * 0.35) : 0.0;
+        canvas.save();
+        canvas.translate(g.dx, g.dy - lift);
+        canvas.scale(1, gait.squash[col]);
+        canvas.drawImageRect(img, src, dst, Paint()..filterQuality = FilterQuality.medium);
+        canvas.restore();
+        cover(dst.shift(g), c.z);
+      }));
+    }
     items.add((s.me.z, () {
       cover(_pet(canvas, scr(l.toImage(s.me.x, s.me.z, s.me.y)), upk, l), s.me.z);
     }));
@@ -2067,6 +2216,56 @@ class _WalkPainter extends CustomPainter {
       }
     }
     canvas.restore();
+    final en = s._entering;
+    if (en != null) _enteringFx(canvas, size, s._t - en, scr(l.toImage(s.me.x, s.me.z, s.me.y)), upk, l, scr);
+  }
+
+  /// Walking in under the arch: a letterbox; fireflies swirling round your Evochi as it goes; the Hollow's
+  /// violet welling up out of the arch and closing over the screen; the floor's name.
+  void _enteringFx(Canvas canvas, Size size, double u, Offset pet, double upk, WalkLayout l, Offset Function(Offset) scr) {
+    final W = size.width, H = size.height;
+    final ex = l.exits['thicket'];
+    final arch = ex == null ? pet : scr(l.toImage(ex.$1, ex.$2 - 4.0, 1.5));
+    // fireflies drawn in round it, then streaming on ahead into the arch
+    final fp = Paint()..blendMode = BlendMode.plus;
+    for (var i = 0; i < 16; i++) {
+      final a = u * (1.6 + 0.4 * math.sin(i * 1.7)) + i * math.pi * 2 / 16;
+      final r = upk * (3.2 - 1.6 * math.min(1.0, u / 1.4)) * (0.7 + 0.3 * math.sin(i * 2.3));
+      var p = pet + Offset(math.cos(a) * r, math.sin(a) * r * 0.5 - upk * 2.2);
+      if (u > 1.3) p = Offset.lerp(p, arch, Curves.easeIn.transform(((u - 1.3) / 0.9).clamp(0.0, 1.0)))!;
+      final on = (0.5 + 0.5 * math.sin(u * 7 + i * 1.9)).clamp(0.0, 1.0) * (1 - ((u - 1.9) / 0.4).clamp(0.0, 1.0));
+      fp.shader = ui.Gradient.radial(p, 9, [Color.fromRGBO(255, 243, 160, 0.85 * on), const Color(0x00FFF3A0)]);
+      canvas.drawCircle(p, 9, fp);
+    }
+    // the Hollow's light out of the arch, growing, then the screen going to its dark violet
+    final g = ((u - 0.9) / 1.2).clamp(0.0, 1.0);
+    if (g > 0) {
+      final r = W * (0.3 + 1.2 * g);
+      canvas.drawCircle(arch, r, Paint()..shader = ui.Gradient.radial(arch, r, [Color.fromRGBO(170, 110, 255, 0.55 * g), Color.fromRGBO(60, 30, 110, 0.35 * g), const Color(0x003C1E6E)], [0, 0.55, 1]));
+    }
+    final dark = ((u - 1.8) / 0.6).clamp(0.0, 1.0);
+    if (dark > 0) canvas.drawRect(Offset.zero & size, Paint()..color = Color.fromRGBO(22, 12, 36, dark));
+    // the floor's name
+    final tn = ((u - 1.95) / 0.35).clamp(0.0, 1.0);
+    if (tn > 0) {
+      void line(String text, double y, double fs, Color c, double ls) {
+        final tp = TextPainter(
+            text: TextSpan(text: text, style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: fs, letterSpacing: ls, color: c.withAlpha((tn * 255).round()), shadows: [
+              Shadow(color: Color.fromRGBO(154, 107, 255, 0.8 * tn), blurRadius: 18),
+            ])),
+            textDirection: TextDirection.ltr,
+            textAlign: TextAlign.center)
+          ..layout(maxWidth: W - 32);
+        tp.paint(canvas, Offset((W - tp.width) / 2, y));
+      }
+      line(s._enterTitle.toUpperCase(), H * 0.42, math.min(W * 0.085, 34.0), const Color(0xFFF6F0FF), 3);
+      line(s._enterSub.toUpperCase(), H * 0.42 + math.min(W * 0.085, 34.0) * 1.35, 13, const Color(0xFFD9C6FF), 2.4);
+    }
+    // the letterbox
+    final bar = H * 0.09 * Curves.easeOutCubic.transform((u / 0.35).clamp(0.0, 1.0));
+    final bp = Paint()..color = const Color(0xFF07060B);
+    canvas.drawRect(Rect.fromLTWH(0, 0, W, bar), bp);
+    canvas.drawRect(Rect.fromLTWH(0, H - bar, W, bar), bp);
   }
 
   /// A tile of the living picture over [area] ([dst]: where its crop lands); [front] >= 0 only what
@@ -2292,10 +2491,18 @@ const _placeNames = <String, Map<String, (String, String)>>{
     'pond': ('Pond', 'aff_water'),
     'village': ('Sunlit Village', 'trail'),
   },
+  'wood': {
+    'trail': ('Old Trail', 'trail'),
+    'bridge': ('Bridge', 'aff_water'),
+    'meadow': ('Meadow', 'skill_farming'),
+    'pond': ('Pond', 'aff_water'),
+    'bench': ('Bench', 'home'),
+    'thicket': ('Sunlit Thicket', 'aff_nature'),
+  },
   'trail': {
     'village': ('Sunlit Village', 'home'),
     'mine': ('Mine', 'aff_stone'),
-    'thicket': ('Sunlit Thicket', 'aff_nature'),
+    'thicket': ('Fernlight Wood', 'aff_nature'),
     'flint': ('Flint', 'shop'),
     'bridge': ('Falls', 'aff_water'),
   },

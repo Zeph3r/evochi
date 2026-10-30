@@ -5,7 +5,9 @@
     python3 village_walk.py OUT --view full             # the village's picture (Blender, about an hour)
     python3 village_trail.py OUT --depth                # the Old Trail's (village_trail.py)
     python3 village_trail.py OUT
-    python3 village_walk_pack.py OUT [village|trail]    # -> the game's assets
+    python3 fern_wood.py OUT --depth                    # Fernlight Wood's (fern_wood.py)
+    python3 fern_wood.py OUT
+    python3 village_walk_pack.py OUT [village|trail|wood]    # -> the game's assets
 
 Each picture is a whole map at the walking camera's detail (45.8 px a unit; the village is 6046 x 4992),
 too big for one texture on a phone, so it ships in 1024 px tiles (each with 8 px of its neighbours round
@@ -73,13 +75,15 @@ def _trail():
     return dict(
         title='The Old Trail', scene=VT.scene_trail, view='trail', area=(VT.X0, VT.X1, VT.Z0, VT.Z1),
         npcs={'flint': (VT.FLINT[0], VT.FLINT[1], 'crossing', NPC_R)},
-        arrive={'village': (3.0, on_path(3.0))},
+        arrive={'village': (3.0, on_path(3.0)),
+                'thicket': (VT.GATE_X, VT.RAVINE_Z + VT.RAVINE_HW + 3.5)},   # back over the ravine's bridge from Fernlight Wood
         spots={'bridge': (VT.STREAM_X, on_path(VT.STREAM_X)), 'crossing': (86.0, on_path(86.0)), 'mine': (mx + 3.4, VT.MINE_FZ + 7.0),
-               'thicket': (VT.GATE_X, VT.THICKET_Z + 5.0)},
+               'thicket': (VT.GATE_X, VT.RAVINE_Z + VT.RAVINE_HW + 3.5)},
         cart=VT.CART,
+        # the lane over the ravine's bridge leads on into Fernlight Wood (its south edge, over its own brook)
         exits={'village': (-1.4, on_path(-1.4), 2.2, 'village', 'trail'),
                'mine': (mx, mz + 2.0, 2.0, None, None),
-               'thicket': (VT.GATE_X, VT.THICKET_Z - 1.5, 2.4, None, None)},
+               'thicket': (VT.GATE_X, VT.RAVINE_Z - VT.RAVINE_HW - 3.0, 2.4, 'wood', 'trail')},
         fx='fx_trail.py', tiles='trail/walk', art_npcs={'flint': 'trail/flint.json'},
         # ore to Pounce: a copper vein at the edge of the Crossing's yard (Flint's first lesson), a lone
         # iron node by the mine, too hard without gear (MINES_PLAN.md: the too-hard answer), and a lumen
@@ -159,7 +163,24 @@ def _lodge():
                      {'board': ((VI.BOARD_L[0] + VI.BOARD_L[1]) / 2, -7.4), 'table': (-5.5, 2.6), 'fire': (VI.FIRE_L[0] - 4.0, VI.FIRE_L[1] + 2.4)}, {})
 
 
-MAPS = {'village': _village, 'trail': _trail, 'home': _home, 'cottage': _cottage, 'workshop': _workshop, 'glasshouse': _glasshouse, 'lodge': _lodge}
+def _wood():
+    import fern_wood as FW
+    bx, bz = FW.BRIDGE
+    ax, az = FW.ARCH_X, FW.ARCH_Z
+    return dict(
+        title='Fernlight Wood', scene=FW.scene_wood, view='wood', area=(FW.X0, FW.X1, FW.Z0, FW.Z1),
+        npcs={},
+        # in over the bridge from the Old Trail; back up out of the Thicket, by the arch
+        arrive={'trail': (bx, FW.Z1 - 2.5), 'thicket': (ax, az + 6.5)},
+        spots={'bridge': (bx, bz), 'meadow': (FW.MEADOW[0] + 8.0, FW.MEADOW[1] + 3.0), 'pond': (FW.POND[0] - 6.0, FW.POND[1] + FW.POND[3] + 2.5),
+               'thicket': (ax, az + 6.5), 'bench': (FW.BENCH[0], FW.BENCH[1] + 2.0)},
+        # back over the bridge to the trail; the arch into the Thicket (the game asks where to start, then you go in)
+        exits={'trail': (bx, FW.Z1 - 0.6, 2.4, 'trail', 'thicket'),
+               'thicket': (ax, az - 1.0, 2.2, None, None)},
+        fx='fx_wood.py', tiles='wood/walk', art_npcs={}, ores=[])
+
+
+MAPS = {'wood': _wood, 'village': _village, 'trail': _trail, 'home': _home, 'cottage': _cottage, 'workshop': _workshop, 'glasshouse': _glasshouse, 'lodge': _lodge}
 
 
 def walk_grid(vs, m):

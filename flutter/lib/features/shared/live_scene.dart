@@ -579,6 +579,18 @@ class _Particles {
             _put(_dot, x, y, e.s * 5, c, 0.45 * p, light: true);
             _put(_square, x, y, e.s, c, 0.35 + 0.65 * p, light: true);
           }
+        case 'butterfly':
+          {
+            // a lazy wander about the area, bobbing as it flaps; two wings in its colour, a dark body
+            final x = e.x + e.w * (0.5 + 0.45 * math.sin(t * 0.21 * (0.6 + r1) + r2 * 6.28) * math.cos(t * 0.13 * (0.6 + r3) + r4 * 6));
+            final y = e.y + e.h * (0.5 + 0.42 * math.sin(t * 0.29 * (0.6 + r4) + r1 * 6.28)) + math.sin(t * 7 + r2 * 9) * e.s * 0.8;
+            final flap = math.cos(t * (13 + 6 * r3) + r1 * 9).abs();
+            final cc = e.colors[i % e.colors.length];
+            final w = e.s * (0.5 + 0.6 * flap);
+            _put(_square, x - w * 0.42, y, w, cc, 0.95, rot: 0.6);
+            _put(_square, x + w * 0.42, y, w, cc, 0.95, rot: -0.6);
+            _put(_square, x, y + e.s * 0.1, e.s * 0.32, const Color(0xFF3A2A20), 0.9);
+          }
         case 'spark':
           {
             final life = 1.1 + 1.2 * r1;

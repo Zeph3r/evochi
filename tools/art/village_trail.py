@@ -57,8 +57,11 @@ MINE_W = 7.5                     # the portal's half-width
 ARCH_R, ARCH_JAMB = 3.5, 4.0     # the arch: its radius, and how high its sides stand before it turns
 WING_FLARE, WING_L, WING_H0, WING_H1 = 0.6, 5.5, 9.0, 1.6   # the wing walls: flare, length, height at the portal and at the end
 HILL = (MINE_X, -23.0, 13.0, 8.0, 13.0)   # the hill the mine is dug into: centre x, z, half-width, half-depth, height
-GATE_X = 131.0           # the way into the Sunlit Thicket: the lane turns north here, to the arch
-THICKET_Z = -13.0        # the ruined wall and its arch stand here, across the lane's end
+GATE_X = 131.0           # the way on to Fernlight Wood (and the Thicket past it): the lane turns north here
+THICKET_Z = -13.0        # where the lane meets the ravine (the name kept: the way out is still keyed 'thicket')
+RAVINE_Z, RAVINE_HW = -15.5, 2.2   # a ravine across the lane's end, a brook in it, a bridge over it into the wood
+WOOD_GREEN = (['#5E9646', '#6FA552', '#4F8A3C', '#7FB860'], ['#4A8742', '#3F7A3A', '#53944A', '#62A050'],
+              ['#7FB35F', '#8CC06A', '#6FA552', '#9ACB74'])
 LANE_X0, LANE_DROP, LANE_HW = 121.0, 3.2, 3.0   # the lane sinks from here, this far, this wide (half)
 
 
@@ -140,8 +143,10 @@ def _trees():
     for (x, z, h, r) in ((GATE_X - 7.5, THICKET_Z - 7.0, 5.2, 3.6), (GATE_X - 1.0, THICKET_Z - 8.5, 6.0, 4.0), (GATE_X + 6.0, THICKET_Z - 7.0, 5.0, 3.4),
                          (GATE_X + 10.5, THICKET_Z - 9.0, 5.6, 3.8), (GATE_X - 11.5, THICKET_Z - 10.5, 5.4, 3.6), (GATE_X + 3.0, THICKET_Z - 12.5, 6.4, 4.2),
                          (GATE_X + 12.0, THICKET_Z + 1.0, 4.6, 3.2), (GATE_X + 12.5, THICKET_Z + 9.5, 4.2, 3.0),
-                         (GATE_X - 4.0, THICKET_Z - 14.5, 5.8, 3.8), (GATE_X + 8.0, THICKET_Z - 15.0, 5.2, 3.5)):   # the Hollow's tangle beyond the arch
-        out.append(('hollow', x, z, float(hill_h(x, z)) - 0.5, h, r, 0))
+                         (GATE_X - 4.0, THICKET_Z - 14.5, 5.8, 3.8), (GATE_X + 8.0, THICKET_Z - 15.0, 5.2, 3.5)):   # Fernlight Wood's edge, over the ravine
+        if abs(x - GATE_X) < 4.6 and z > RAVINE_Z - 9:
+            continue                                                      # the lane on into the wood stays open
+        out.append(('green', x, z, float(hill_h(x, z)) - 0.5, h, r, int(abs(x * 3 + z)) % 3))
     return out
 
 
@@ -671,12 +676,29 @@ def scene_trail(state='day_dim'):
     cob = lane[:, None, :] & (Y >= yl[:, None, :] - 0.5) & (Y < yl[:, None, :])
     P.fill(cob, COBBLE, cell=(1.0, 9, 1.0))
     P.fill(cob & (rng.random(G.m.shape) < 0.16), ['#5E8A3C', '#6F9A45'], cell=0.5)
-    P.fill(cob & (rng.random(G.m.shape) < 0.03) & (Z2 < THICKET_Z + 5.0)[:, None, :], HOLLOW, cell=0.5, glow=0.25)   # the Hollow's light in the cracks
     bank = polyline(X2, Z2, LANE, LANE_HW + 0.6) & ~lane & led & (X2 > LANE_X0 - 1)
     P.fill(bank[:, None, :] & (Y >= yl[:, None, :] - 0.5) & (Y < -0.5), SOIL + ['#6B4530', '#5C3E2A'], cell=(1.0, 0.5, 9))
     P.fill(bank[:, None, :] & (Y >= yl[:, None, :]) & (Y < -0.5) & (np.sin(X * 2.7 + Y * 1.9 + Z * 0.8) > 0.82), ['#4A3020', '#3E2718'], cell=9)
     P.fill(bank[:, None, :] & (Y >= -0.5) & (Y < 0) & (rng.random(G.m.shape) < 0.5), ['#5E8A3C', '#6FA552'], cell=0.5)
-    # ---- the bridge over the stream, where the path crosses
+    # ---- the ravine across the lane's end: rock walls down to a brook, a plank bridge over it at the lane's
+    # level, and the lane running on north into the green of Fernlight Wood
+    rav = (np.abs(Z2 - RAVINE_Z - 0.6 * np.sin(X2 * 0.3)) < RAVINE_HW) & (X2 > GATE_X - 13.0) & led
+    G.m[rav[:, None, :] & (Y >= -7.0)] = 0
+    P.fill(rav[:, None, :] & (Y >= -8.0) & (Y < -7.0), SOIL, cell=1.0)
+    P.fill(rav[:, None, :] & (Y >= -7.0) & (Y < -6.5), WATER, cell=1.0)
+    P.fill(rav[:, None, :] & (Y >= -7.0) & (Y < -6.5) & (rng.random(G.m.shape) < 0.05), ROCK + ROCK_LT, cell=0.5)
+    rlip = (np.abs(Z2 - RAVINE_Z - 0.6 * np.sin(X2 * 0.3)) < RAVINE_HW + 0.6) & ~rav & (X2 > GATE_X - 13.0) & led
+    P.fill(rlip[:, None, :] & (Y >= -1) & (Y < 0) & (rng.random(G.m.shape) < 0.6), ['#5E8A3C', '#6FA552'], cell=0.5)
+    gy = -LANE_DROP
+    span = (np.abs(X - GATE_X) < LANE_HW) & (np.abs(Z - RAVINE_Z) < RAVINE_HW + 1.2)
+    deck = span & (Y >= gy - 0.5) & (Y < gy)
+    P.fill(deck, HONEY, cell=(9, 1, 1.0))
+    P.fill(deck & ((np.floor((Z - RAVINE_Z + 20) / 1.0) % 2) == 0), OAK, cell=(9, 1, 1.0))
+    for rx_ in (GATE_X - LANE_HW, GATE_X + LANE_HW - 0.5):
+        P.fill((np.abs(Z - RAVINE_Z) < RAVINE_HW + 1.2) & (np.abs(X - rx_ - 0.25) < 0.25) & (np.abs(Y - gy - 1.6) < 0.25), WALNUT, cell=9)
+        for pz_ in (RAVINE_Z - RAVINE_HW - 1.0, RAVINE_Z, RAVINE_Z + RAVINE_HW + 0.8):
+            P.fill(box(G, (rx_, -7.0, pz_ - 0.25), (rx_ + 0.5, gy + 2.0, pz_ + 0.25)), WALNUT, cell=9)
+    # the bridge over the stream, where the path crosses
     bz = float(np.interp(STREAM_X, [p[0] for p in PATH], [p[1] for p in PATH]))
     span = (np.abs(Z - bz) < 2.6) & (np.abs(X - STREAM_X) < 3.8)
     deck = span & (Y >= 0) & (Y < 0.5 + 0.5 * np.cos((X - STREAM_X) / 3.8 * 1.3))
@@ -695,8 +717,8 @@ def scene_trail(state='day_dim'):
     for (kind, x, z, y, h, r, li) in TREES:
         if kind == 'pine':
             pine(PT, T, x, z, h=h, r=r, y=y, rng=rng)
-        elif kind == 'hollow':
-            tree2(PT, T, x, z, h=h, r=r, y=y, leaves=HOLLOW_LEAF, rng=rng)
+        elif kind == 'green':
+            tree2(PT, T, x, z, h=h, r=r, y=y, leaves=WOOD_GREEN[li], rng=rng)
         else:
             tree2(PT, T, x, z, h=h, r=r, y=y, leaves=AUTUMN[li], rng=rng)
     S.models.append((T, ()))
@@ -850,94 +872,16 @@ def scene_trail(state='day_dim'):
     crate(PC, C, 86.8, -16.2, 1.0)
     crate(PC, C, 87.1, -16.3, 0.8, y=2.0)
     barrel(PC, C, 87.2, -13.4, r=0.9, h=2.2)
-    # ---- the way into the Sunlit Thicket: at the lane's end a ruined cobble wall with an arch in it, its
-    # pillars on the banks, the lane running under; vines over everything, the Hollow's violet light
-    # creeping along the stones and pooling in the dark beyond, where its tangle of trees closes in
-    ax, az = GATE_X, THICKET_Z
-    gy = -LANE_DROP
-    adx_ = np.abs(CX - ax)
-    rngt = np.random.default_rng(83)
-    base_y = np.where(adx_ < LANE_HW + 0.6, gy, 0.0)                       # the wall stands on the banks, and spans the lane
-    hwall = 4.2 + 1.3 * np.sin(CX * 0.9) + 0.8 * np.cos(CX * 2.3 + 1.0)      # a crumbling top
-    hwall = np.where(adx_ > 9.0, hwall - (adx_ - 9.0) * 0.9, hwall)         # falling away at its ends
-    yc, r_in, r_out = 5.2, 3.8, 5.3
-    opening = (adx_ < r_in) & (CY < yc + np.sqrt(np.clip(r_in ** 2 - (CX - ax) ** 2, 0, None)))
-    rr_ = np.hypot(CX - ax, np.maximum(CY - yc, 0))
-    ring = (rr_ >= r_in) & (rr_ < r_out) & (CY >= yc) & (adx_ < r_out)
-    pillar = (adx_ >= r_in) & (adx_ < r_in + 1.7) & (CY >= 0) & (CY < yc + 0.75)
-    wallm = (adx_ < 13.0) & (CY >= base_y) & (CY < hwall) & ~opening
-    body = (wallm | ring | pillar) & (CZ >= az - 1.5) & (CZ < az)
-    body &= ~opening
-    cobj = ((np.floor(CX / 0.75) + np.floor(CY / 0.5) * 3 + np.floor(CZ / 0.75)) % 7 == 0)     # dark joints between cobbles
-    PC.fill(body & ~cobj, COBBLE, cell=(0.75, 0.5, 0.75))
-    vseg = np.floor(np.arctan2(np.maximum(CY - yc, 0), CX - ax) / (np.pi / 9)).astype(int)         # the arch's stones, light and dark by turns
-    PC.fill(ring & (CZ >= az - 0.5) & (CZ < az) & (vseg % 2 == 0), ['#B3B2A4', '#A8A79A'], cell=9)
-    PC.fill(ring & (CZ >= az - 0.5) & (CZ < az) & (vseg % 2 == 1), ['#7E776D', '#756E64'], cell=9)
-    PC.fill(body & cobj, ['#5C564E', '#524C45'], cell=9)
-    PC.fill(body & (rngt.random(C.m.shape) < 0.05), ['#A8A79A', '#B3B2A4'], cell=0.5)
-    # the keystone and a few proud stones, the pillars' caps
-    PC.fill((adx_ < 0.5) & (CY >= yc + r_in) & (CY < yc + r_out + 0.5) & (CZ >= az - 1.5) & (CZ < az + 0.5), ['#B3B2A4', '#A8A79A'], cell=9)
-    for sgn in (-1, 1):
-        PC.fill(box(C, (ax + sgn * (r_in + 0.85) - 1.1, yc + 0.75, az - 1.8), (ax + sgn * (r_in + 0.85) + 1.1, yc + 1.25, az + 0.3)), ['#A8A79A'], cell=9)
-    # fallen stones at the pillars' feet and in the lane, a gap broken in the wall's west end
-    C.m[(CX >= ax - 11.5) & (CX < ax - 9.8) & (CY >= 1.0) & (CZ >= az - 1.5) & (CZ < az)] = 0
-    for (sx_, sz_, sy_, r) in ((ax - 10.6, az + 0.9, 0.0, 0.55), (ax - 10.0, az + 1.6, 0.0, 0.4), (ax + 4.9, az + 1.1, 0.0, 0.5), (ax - 2.6, az + 1.4, gy, 0.45),
-                               (ax + 2.2, az + 2.6, gy, 0.35)):
-        PC.fill((np.abs(CX - sx_) < r) & (np.abs(CZ - sz_) < r) & (CY >= sy_) & (CY < sy_ + 1.4 * r), COBBLE, cell=9)
-    # the dark beyond: the lane runs on under the trees, the Hollow's light low across it
-    G.m[polyline(X2, Z2, [(ax, az), (ax, az - 7.0)], LANE_HW)[:, None, :] & (Y >= gy) & (Y < 0.5)] = 0
-    PC.fill(box(C, (ax - 4.5, 0, az - 7.5), (ax + 4.5, 9.0, az - 7.0)), ['#17121F', '#1C1626'], cell=9)
-    PC.fill(box(C, (ax - 4.5, gy - 0.5, az - 7.5), (ax + 4.5, gy, az)) & ~box(C, (ax - 4.5, gy - 0.5, az - 7.5), (ax + 4.5, gy, az - 7.0)),
-            ['#3A3147', '#2F2839', '#443A52'], cell=(1.0, 9, 1.0))
-    for (lx, lz) in ((ax - 2.4, az - 2.6), (ax + 2.4, az - 4.6), (ax, az - 6.4)):
-        S.lights.append({'type': 'point', 'pos': (lx, gy + 1.8, lz), 'power': 7.0, 'color': (0.62, 0.34, 1.0), 'radius': 0.5})
-    S.lights.append({'type': 'point', 'pos': (ax, yc + 1.0, az + 1.2), 'power': 2.0, 'color': (0.62, 0.34, 1.0), 'radius': 0.6})
-    # the Hollow: violet crystal clusters at the pillars' feet, tendrils of its light over the arch and down
-    # the pillars, specks of it between the cobbles
-    for (cx_, cz_, cy_, n) in ((ax - 3.2, az + 0.9, gy, 5), (ax + 3.4, az + 0.6, gy, 4), (ax + 6.3, az + 0.8, 0.0, 3), (ax - 5.9, az + 1.1, 0.0, 3)):
-        for _ in range(n):
-            px_, pz_ = cx_ + rngt.uniform(-0.7, 0.7), cz_ + rngt.uniform(-0.5, 0.5)
-            hgt = rngt.uniform(0.8, 2.2)
-            shard = (np.abs(CX - px_) < 0.3 * (1 - (CY - cy_) / hgt)) & (np.abs(CZ - pz_) < 0.3) & (CY >= cy_) & (CY < cy_ + hgt)
-            PC.fill(shard, HOLLOW, cell=9, glow=0.75)
-    front = body & (CZ >= az - 0.5)
-    tend2 = np.zeros((C.m.shape[0], C.m.shape[1]), bool)
-    for _ in range(8):
-        x, y = ax + rngt.uniform(-6.5, 6.5), rngt.uniform(yc - 1.0, yc + r_out + 0.5)
-        for _ in range(int(rngt.integers(8, 26))):
-            i, j = int((x - (CROSSING - 4)) * RES), int((y + 1) * RES)
-            if 0 <= i < tend2.shape[0] and 0 <= j < tend2.shape[1]:
-                tend2[i, j] = True
-            y -= 0.5 * float(rngt.choice([0, 1, 1]))
-            x += 0.5 * float(rngt.choice([-1, 0, 1]))
-    PC.fill(tend2[:, :, None] & front, HOLLOW, cell=9, glow=0.6)
-    # vines: hanging from the top of the wall and the arch, green with the odd dead leaf
-    vine2 = np.zeros_like(tend2)
-    for _ in range(13):
-        x = ax + rngt.uniform(-12.0, 9.0)
-        i0 = int((x - (CROSSING - 4)) * RES)
-        if not (0 <= i0 < vine2.shape[0]):
-            continue
-        y = float(hwall[i0, 0, 0]) if abs(x - ax) >= r_out else yc + r_out + 0.3
-        for _ in range(int(rngt.integers(3, 11))):
-            y -= 0.5
-            if rngt.random() < 0.25:
-                x += 0.5 * float(rngt.choice([-1, 1]))
-            i, j = int((x - (CROSSING - 4)) * RES), int((y + 1) * RES)
-            if 0 <= i < vine2.shape[0] and 0 <= j < vine2.shape[1]:
-                vine2[i, j] = True
-    vine = vine2[:, :, None] & (CZ >= az) & (CZ < az + 0.5) & (C.m == 0)
-    PC.fill(vine & (rngt.random(C.m.shape) >= 0.07), ['#4F8A3C', '#5E9646', '#3F7A32', '#6FA552'], cell=0.5)
-    PC.fill(vine & (rngt.random(C.m.shape) < 0.07), ['#C9552E', '#A9BF5E'], cell=0.5)
-    PC.fill(body & (CY < 1.0 + base_y) & (rngt.random(C.m.shape) < 0.35), ['#5E8A3C', '#6F9A45'], cell=0.5)   # moss at its foot
-    # low cobble walls along the lane's banks, from the bend to the arch, broken here and there
-    lz_ = float(np.interp(GATE_X, PX, PZ))
-    for sgn in (-1, 1):
-        wx = ax + sgn * (LANE_HW + 0.9)
-        low = (np.abs(CX - wx) < 0.45) & (CZ < lz_ - LANE_HW - 0.8) & (CZ >= az) & (CY >= 0) & (CY < 1.1 + 0.5 * np.sin(CZ * 1.7 + sgn))
-        low &= (np.sin(CZ * 0.9 + sgn * 2.0) > -0.75)
-        PC.fill(low, COBBLE, cell=(0.75, 0.5, 0.75))
-        PC.fill(low & (rngt.random(C.m.shape) < 0.3), ['#5E8A3C', '#6F9A45'], cell=0.5)
+    # ---- the way on: a signpost on the lane's west bank by the bridge, Fernlight Wood carved on it, and
+    # flowers along the bank where the wood's green starts
+    sx_, sz_ = GATE_X - LANE_HW - 1.6, RAVINE_Z + RAVINE_HW + 1.8
+    PC.fill(box(C, (sx_ - 0.25, 0, sz_ - 0.25), (sx_ + 0.25, 3.4, sz_ + 0.25)), WALNUT, cell=9)
+    PC.fill(box(C, (sx_ - 0.4, 2.2, sz_ - 0.15), (sx_ + 2.6, 3.3, sz_ + 0.25)), HONEY, cell=(1.0, 9, 9))
+    PC.fill(box(C, (sx_ + 0.2, 2.55, sz_ + 0.2), (sx_ + 2.2, 2.95, sz_ + 0.3)), ['#5E3A24'], cell=9)
+    PC.fill(box(C, (sx_ + 2.2, 2.4, sz_ - 0.15), (sx_ + 3.0, 3.1, sz_ + 0.25)) & (np.abs(CY - 2.75) < 0.55 - (CX - sx_ - 2.2) * 0.6), HONEY, cell=9)   # the point
+    rngf = np.random.default_rng(91)
+    for (fx_, fz_) in ((GATE_X - 6.5, RAVINE_Z + 4.0), (GATE_X + 6.0, RAVINE_Z + 3.6), (GATE_X - 9.5, RAVINE_Z + 5.5)):
+        flower_patch(PC, C, fx_, fz_, 1.6, 1.0, rngf, n=6, cols=('#FFFDF6', '#F5A3B5', '#F4C04E', '#B8D8FF'))
     S.models.append((C, (), {'water': WATER}))
     S.models.append((MP, ()))
     VW.give_way([G, T, D, C, MP])
@@ -981,7 +925,7 @@ VW.VIEWS['trail_falls'] = ((44.0, 0.0), 24.0, (824, 1100))
 # a close look at the Crossing: Flint's camp and the mine's portal (for checking)
 VW.VIEWS['trail_mine'] = ((106.0, -16.0), 44.0, (2016, 1600))
 VW.VIEWS['trail_portal'] = ((MINE_X, -26.4), 24.0, (1099, 1000))   # the portal at the game's own sharpness
-VW.VIEWS['trail_thicket'] = ((GATE_X - 1.0, -16.0), 30.0, (1374, 1300))   # the lane and the arch
+VW.VIEWS['trail_thicket'] = ((GATE_X - 1.0, -16.0), 30.0, (1374, 1300))   # the lane, the ravine and its bridge
 VW.VIEWS['trail_cliffs'] = ((44.0, -22.0), 44.0, (2016, 1500))           # the falls down the terraces
 VW.VIEWS['cart'] = ((0.0, 0.0), 6.0, (275, 300))                          # the ore cart alone, for its sprite
 
