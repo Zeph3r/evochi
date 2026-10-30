@@ -26,6 +26,17 @@ BATTLE_CAM = Camera(yaw=-125, pitch=10)
 BATTLE_EXPR = ['default', 'blink', 'happy', 'determined', 'surprised', 'sleepy', 'excited']
 
 
+# the sprite frames as they were when the sheets were made (tools/art/frames_frozen.json): a wearable refitted
+# later draws inside the same frame, so the body sheets never need making again
+_FROZEN = json.load(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frames_frozen.json'))) \
+    if os.path.exists(os.path.join(os.path.dirname(os.path.abspath(__file__)), 'frames_frozen.json')) else {}
+
+
+def frozen(key, fit):
+    f = _FROZEN.get(key)
+    return Fit(*f) if f else fit
+
+
 def fit_for(models, cam, scale, pad=10):
     pts = np.concatenate([model_extent_points(m) for m in models])
     sx, sy, _ = cam.project(pts)
@@ -45,7 +56,7 @@ def main(out, stages):
         cam = HERO_CAM[stage]
         worn = {k: wear(ch, k) for k in WEARABLES}
         # the frame comes from the shop wearables only, so adding a wearable never moves existing sprites
-        fit = fit_for([ch.model] + [worn[k] for k in FRAME_WEARABLES], cam, SCALE_HERO)
+        fit = frozen('hero_s%02d' % stage, fit_for([ch.model] + [worn[k] for k in FRAME_WEARABLES], cam, SCALE_HERO))
         anchors = {k: project_px(cam, fit, v)[0].round(1).tolist() for k, v in ch.anchors.items()}
         sid = 's%02d' % stage
         manifest[sid] = {'hero': {'w': fit.w, 'h': fit.h, 'scale': fit.scale, 'yaw': cam.yaw,
@@ -98,7 +109,7 @@ def battle(out, stages):
     for stage in stages:
         ch = build(stage)
         worn = {k: wear(ch, k) for k in WEARABLES}
-        fit = fit_for([ch.model] + [worn[k] for k in FRAME_WEARABLES], cam, SCALE_HERO)
+        fit = frozen('battle_s%02d' % stage, fit_for([ch.model] + [worn[k] for k in FRAME_WEARABLES], cam, SCALE_HERO))
         anchors = {k: project_px(cam, fit, v)[0].round(1).tolist() for k, v in ch.anchors.items()}
         # the body's own top (no hats), so the game can size every stage by its body
         bfit_pts = model_extent_points(ch.model)

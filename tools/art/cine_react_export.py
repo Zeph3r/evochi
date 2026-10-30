@@ -95,34 +95,9 @@ _rest = {}
 
 
 def posed_wear(ch, k):
-    """the model wearing [k] as posed: a back piece (and anything on the Eggling, whose anchors follow its
-    squash) placed by the posed anchors, as the game does; a hat, crown, clip or scarf on the Juvenile and Elder
-    turned and moved with the head (built on the model at rest, then carried by the head's own turn)"""
-    from accessories import wear, WEARABLES
-    from characters import HeadView, build
-    rig = getattr(ch, 'rig', {}) or {}
-    if ch.stage == 1 or WEARABLES[k][0] == 'back' or 'R' not in rig:
-        return wear(ch, k)
-    if ch.stage not in _rest:
-        _rest[ch.stage] = build(ch.stage)
-    rest = _rest[ch.stage]
-    Mi = wear(rest, k)
-    item = Mi.m != rest.model.m
-    M = ch.model.copy()
-    HL = HeadView(M, rig['pivot'], rig['R'], rig['t'])
-    idx = [np.floor(c * M.res).astype(int) - int(lo) for c, lo in zip((HL.X, HL.Y, HL.Z), Mi.lo)]
-    ok = np.ones(M.m.shape, bool)
-    for i, n in zip(idx, item.shape):
-        ok &= (i >= 0) & (i < n)
-    cl = [np.clip(i, 0, n - 1) for i, n in zip(idx, item.shape)]
-    hit = ok & item[cl[0], cl[1], cl[2]]
-    src = Mi.m[cl[0], cl[1], cl[2]]
-    gl = Mi.glow[cl[0], cl[1], cl[2]]
-    for u in np.unique(src[hit]):
-        sel = hit & (src == u)
-        M.m[sel] = M.mid(Mi.mats[u])
-        M.glow[sel] = gl[sel]
-    return M
+    """the model wearing [k] as posed: each piece carried by the part it sits on (wear_pose.py)"""
+    from wear_pose import posed_wear as pw
+    return pw(ch, k)
 
 
 def _wear_frame(args):

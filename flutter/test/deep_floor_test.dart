@@ -188,16 +188,39 @@ void main() {
       expect(p.blocked(at.$1, at.$2), isFalse);
       final r = reach(p, p.start.$1, p.start.$2);
       expect(inReach(p, r, at.$1, at.$2 + 40, 24), isTrue, reason: 'seed $seed: the Sentinel is cut off');
-      // room to fight: open ground well round it
+      // room to fight: open ground well round it, with cover across it
       final (ax, az) = sentinelArena;
+      final (ecx, ecz) = p.centre(p.roomAt('exit'));
       var open = 0, all = 0;
-      for (var a = 0.0; a < 6.28; a += 0.3) {
-        for (final d in const [0.4, 0.6]) {
+      for (var a = 0.0; a < 6.28; a += 0.2) {
+        for (final d in const [0.25, 0.4, 0.6, 0.8]) {
           all++;
-          if (!p.blocked(at.$1 + math.cos(a) * ax * d, at.$2 + 8 + math.sin(a) * az * d)) open++;
+          if (!p.blocked(ecx + math.cos(a) * ax * d, ecz + 4 + math.sin(a) * az * d)) open++;
         }
       }
-      expect(open / all, greaterThan(0.9), reason: 'seed $seed');
+      expect(open / all, greaterThan(0.8), reason: 'seed $seed');
+      expect(p.props.where((q) => q['kind'] == 'pillar' || q['kind'] == 'pillar_low').length, greaterThan(10), reason: 'seed $seed');
+    }
+  });
+
+  test('a story floor: the Mossy Ruins open out into a wide arena round the Hollow Sprout', () {
+    for (var seed = 1; seed <= 30; seed++) {
+      final p = planFloor(k, 3, seed, rd, story: 'sprout');
+      final at = p.storyAt!;
+      expect(p.blocked(at.$1, at.$2), isFalse);
+      final r = reach(p, p.start.$1, p.start.$2);
+      expect(inReach(p, r, at.$1, at.$2 + 40, 24), isTrue, reason: 'seed $seed: the Sprout is cut off');
+      final (ax, az) = sproutArena;
+      expect(ax, greaterThan(135)); // wider than Briarback's
+      var open = 0, all = 0;
+      for (var a = 0.0; a < 6.28; a += 0.2) {
+        for (final d in const [0.25, 0.4, 0.6, 0.8]) {
+          all++;
+          if (!p.blocked(at.$1 + math.cos(a) * ax * d, at.$2 - 2 + math.sin(a) * az * d)) open++;
+        }
+      }
+      expect(open / all, greaterThan(0.8), reason: 'seed $seed');
+      expect(p.props.where((q) => q['kind'] == 'pillar' || q['kind'] == 'pillar_low').length, greaterThan(10), reason: 'seed $seed');
     }
   });
 

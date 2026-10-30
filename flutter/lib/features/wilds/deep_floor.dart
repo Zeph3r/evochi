@@ -340,15 +340,16 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
       }
     }
   }
-  // the Sentinel's Gate: the last clearing opens out into an arena round the sleeping guardian (the
-  // forest floor beyond the grass is open ground too, so the trees stand back)
-  if (story == 'sentinel') {
+  // a guardian's floor: the last clearing opens out into a wide arena round it, wider than any other room
+  // and the Thicket's own (the forest floor beyond the grass is open ground too, so the trees stand back)
+  final arena = bossArena(story);
+  if (arena != null) {
     final ex = plan.rooms.firstWhere((r) => r.role == 'exit');
     final (acx, acz) = plan.centre(ex);
     for (var k = 0; k < plan.rows; k++) {
       for (var i = 0; i < plan.cols; i++) {
         final x = plan.x0 + (i + 0.5) * plan.cell, z = plan.z0 + (k + 0.5) * plan.cell;
-        final ux = (x - acx) / sentinelArena.$1, uz = (z - (acz + 4)) / sentinelArena.$2;
+        final ux = (x - acx) / arena.$1, uz = (z - (acz + 4)) / arena.$2;
         if (ux * ux + uz * uz < 1) walk[k * plan.cols + i] = 1;
       }
     }
@@ -519,20 +520,21 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
         } else if (story == null) {
           _foes(plan, rng, r, cx, cz, rr * 0.55, wantFoes, depth);
         } else if (story == 'sentinel') {
-          // the old gate past the bridge: broken pillars round the arena's rim, rubble, the guardian
-          // asleep against the gate
-          final (ax, az) = sentinelArena;
-          for (var i = 0; i < 9; i++) {
-            final a = math.pi * (0.62 + i * 0.22) + rng.d(-0.05, 0.05);
-            final x = cx + math.cos(a) * ax * 0.86, z = cz + 4 + math.sin(a) * az * 0.86;
-            add(i.isEven ? 'pillar' : 'pillar_low', x, z, flip: rng.p(0.5));
-          }
-          for (var i = 0; i < 6; i++) {
-            final a = rng.d(0, math.pi * 2), d = rng.d(0.55, 0.8);
-            add(rng.pick(const ['rock', 'shrooms', 'rock']), cx + math.cos(a) * ax * d, cz + 4 + math.sin(a) * az * d, s: rng.d(0.6, 0.8));
-          }
+          // the old gate past the bridge: a wide arena, broken pillars round its rim, standing pillars and
+          // fallen blocks across it to fight round (cover from the beam), rubble, the guardian asleep
+          // against the gate
           plan.storyAt = (cx, gz + 30);
-          plan.zones.add({'id': 'gate', 'name': "Sentinel's Gate", 'x': cx, 'z': cz + 4, 'r': ax});
+          _arenaProps(plan, rng, add, cx, cz + 4, sentinelArena, plan.storyAt!, rim: 14, rimFrom: 0.58, rimSpan: 1.84,
+              edge: const ['bramble', 'rock', 'bramble', 'log']);
+          plan.zones.add({'id': 'gate', 'name': "Sentinel's Gate", 'x': cx, 'z': cz + 4, 'r': sentinelArena.$1});
+        } else if (story == 'sprout') {
+          // the Mossy Ruins: the clearing opens out into a wide ring of ruins, broken pillars round it and
+          // standing stones across it to fight round, moss and old light; the Sprout waits in the middle
+          plan.storyAt = (cx, cz + 6);
+          _arenaProps(plan, rng, add, cx, cz + 4, sproutArena, plan.storyAt!, rim: 16, rimFrom: 0.0, rimSpan: 2.0,
+              edge: const ['bramble', 'shrooms', 'bramble', 'stump']);
+          plan.fx.add({'kind': 'ruins', 'x': cx, 'z': cz + 4});
+          plan.zones.add({'id': 'ruins', 'name': 'Mossy Ruins', 'x': cx, 'z': cz, 'r': sproutArena.$1});
         } else {
           // the ruins: fallen stones round the clearing, moss and old light; the story's creature waits
           // in the middle
@@ -605,8 +607,54 @@ String _chunkId(FloorRoom r) => '${r.hall ? 'hall' : 'room'}_${r.mask.toString()
 /// little room to spare.
 const _bodyRoom = 15.0;
 
-/// The Sentinel's arena round the last clearing: its half width and half depth.
-const sentinelArena = (112.0, 100.0);
+/// The guardians' arenas round the last clearing: half width and half depth. Both well past the Thicket's
+/// (Briarback's: radius 135) and any room's (about 55).
+const sentinelArena = (175.0, 150.0);
+const sproutArena = (165.0, 145.0);
+
+(double, double)? bossArena(String? story) => switch (story) { 'sentinel' => sentinelArena, 'sprout' => sproutArena, _ => null };
+
+/// A guardian's arena dressed like the Thicket's: broken pillars and the odd boulder round the rim (from
+/// [rimFrom] turns of pi over [rimSpan]), standing pillars and fallen blocks across the floor to fight round,
+/// kept off the guardian's own ground ([at]) and every way in; low growth at the edge, rubble scattered.
+void _arenaProps(FloorPlan plan, _Rng rng, bool Function(String, double, double, {double s, bool? flip, bool force}) add,
+    double cx, double cz, (double, double) arena, (double, double) at,
+    {required int rim, required double rimFrom, required double rimSpan, required List<String> edge}) {
+  final (ax, az) = arena;
+  final (gx, gz) = plan.gate;
+  // off the guardian's own ground, and clear of the doorway down
+  bool offGuardian(double x, double z) =>
+      math.pow(x - at.$1, 2) + math.pow(z - at.$2, 2) > 58.0 * 58.0 && math.pow(x - gx, 2) + math.pow((z - gz) * 1.4, 2) > 62.0 * 62.0;
+  // the rim: broken pillars, a boulder now and then
+  for (var i = 0; i < rim; i++) {
+    final a = math.pi * (rimFrom + i * rimSpan / rim) + rng.d(-0.04, 0.04);
+    final x = cx + math.cos(a) * ax * 0.9, z = cz + math.sin(a) * az * 0.9;
+    if (offGuardian(x, z)) add(i % 5 == 2 ? 'boulder' : (i.isEven ? 'pillar' : 'pillar_low'), x, z, flip: rng.p(0.5));
+  }
+  // across the floor: two rings of cover, staggered, off the guardian's ground
+  for (final (n, d, kinds) in const [
+    (5, 0.45, ['pillar', 'pillar_low', 'boulder', 'pillar', 'pillar_low']),
+    (7, 0.72, ['pillar_low', 'pillar', 'rock', 'pillar', 'boulder', 'pillar_low', 'pillar']),
+  ]) {
+    final a0 = rng.d(0, math.pi * 2);
+    for (var i = 0; i < n; i++) {
+      final a = a0 + i * math.pi * 2 / n + rng.d(-0.12, 0.12);
+      final x = cx + math.cos(a) * ax * d, z = cz + math.sin(a) * az * d;
+      if (offGuardian(x, z)) add(kinds[i], x, z, s: kinds[i] == 'rock' ? 1.2 : 1.0, flip: rng.p(0.5));
+    }
+  }
+  // the edge: low growth between the rim stones; rubble and moss across the floor
+  for (var i = 0; i < rim * 2; i++) {
+    final a = math.pi * 2 * i / (rim * 2) + rng.d(-0.05, 0.05);
+    final d = rng.d(0.94, 1.02);
+    add(edge[i % edge.length], cx + math.cos(a) * ax * d, cz + math.sin(a) * az * d, s: rng.d(0.85, 1.05));
+  }
+  for (var i = 0; i < 10; i++) {
+    final a = rng.d(0, math.pi * 2), d = rng.d(0.3, 0.85);
+    final x = cx + math.cos(a) * ax * d, z = cz + math.sin(a) * az * d;
+    if (offGuardian(x, z)) add(rng.pick(const ['rock', 'shrooms', 'rock', 'stump']), x, z, s: rng.d(0.55, 0.75));
+  }
+}
 
 bool _nearPath(KitChunk k, double u, double v, double d) {
   for (final p in k.paths) {

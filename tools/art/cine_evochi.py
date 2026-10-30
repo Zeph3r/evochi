@@ -37,7 +37,7 @@ def _fit(stage):
     ch = build(stage)
     worn = [wear(ch, k) for k in FRAME_WEARABLES]
     f1 = BC.fit_for([ch.model] + worn, CAM, 10.0)
-    return BC.fit_for([ch.model] + worn, CAM, 10.0 * CELL_H / f1.h)
+    return BC.frozen('cine_s%02d' % stage, BC.fit_for([ch.model] + worn, CAM, 10.0 * CELL_H / f1.h))
 
 
 def _faces(args):

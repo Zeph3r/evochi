@@ -159,6 +159,7 @@ def squash_body(ch, lean=0.0, squash=1.0, puff=1.0, pad=4):
                               anchors={k: P(v) for k, v in ch.anchors.items()})
     out.face_squash = (puff / math.sqrt(squash), puff * squash * math.sqrt(1 + t * t))
     out.rig = dict(getattr(ch, 'rig', {}))
+    out.rig['squash'] = (A, pivot)           # where a worn piece goes (wear_pose.py)
     return out
 
 
@@ -586,7 +587,8 @@ def _lerp_z(z, z_front, z_back, a_front, a_back):
 
 def build_juvenile(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_rot=None, body=None, tail_lift=0.0,
                    jaw=0.0) -> Character:
-    """feet: {(side, front): (dy, dz) or (dy, dz, dx)}, as for the Eggling (walk.py); dx spreads the foot outward.
+    """feet: {(side, front): (dy, dz) or (dy, dz, dx) or (dy, dz, dx, swing)}, as for the Eggling (walk.py); dx
+    spreads the foot outward, swing (degrees) turns the leg about its hip (+ the foot forward: a leap's tuck and reach).
     head: (dx, dy, dz) moves the head (and what sits on it) from rest, a nod in the walk. head_rot: (pitch, yaw,
     roll) degrees turns it rigidly about the neck (face, crest and jaw with it). body: (dy_front, dy_back) lowers
     the torso (a crouch; more at the front drops the shoulders): the head rides on it, the legs take it, the back
@@ -626,15 +628,21 @@ def build_juvenile(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_rot=None
             f = feet.get((s, z > 0), (0.0, 0.0))
             dy, dz = f[0], f[1]
             dx = s * f[2] if len(f) > 2 else 0.0
+            sw = f[3] if len(f) > 3 else 0.0
             z += dz
             x0, x1 = (3.4 + dx, 9.8 + dx) if s > 0 else (-9.8 + dx, -3.4 + dx)
-            box = M.box((x0, dy, z - 2.8), (x1, 4.2 + max(0.0, -dy), z + 2.8))
-            box &= ~((M.Y > 3.2 + dy) & (M.Z > z + 1.8))
+            # a leg swung (degrees, + the foot forward) turns about its hip, high in the body, sole and claws with it
+            V = HeadView(M, (0.0, 6.5, z), head_rotation((sw, 0, 0)), (0, 0, 0)) if abs(sw) > 1e-6 else M
+            top = 4.2 + max(0.0, -dy) + 2.6 * min(1.0, abs(sw) / 14.0)   # the more it swings, the more thigh shows
+            box = V.box((x0, dy, z - 2.8), (x1, top, z + 2.8))
+            box &= ~((V.Y > 3.2 + dy) & (V.Z > z + 1.8))
             leg = box & ~(core & (M.Y >= 4.2 + max(0.0, dy)))
             M.set(leg, 'feet')
-            M.set(leg & (M.Y < 1.1 + dy), 'feet_shade')
+            if dy < -0.3 or abs(sw) > 1.0:
+                M.set(leg & (V.Y >= dy + 4.2), 'shell')     # stretched or swung, the leg above the foot is its own
+            M.set(leg & (V.Y < 1.1 + dy), 'feet_shade')
             for cx in np.linspace(x0 + 1.2, x1 - 1.2, 3):
-                M.set(M.box((cx - 0.55, dy, z + 2.6), (cx + 0.55, 1.2 + dy, z + 3.6)), 'claw')
+                M.set(V.box((cx - 0.55, dy, z + 2.6), (cx + 0.55, 1.2 + dy, z + 3.6)), 'claw')
 
     shl = shell_region(M, core, res)
     crest = np.zeros(M.m.shape, bool)
@@ -686,7 +694,7 @@ def build_juvenile(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_rot=None
         'ground': (0, 0, -3.0), 'face': Hw((0, 17.0, 16.6)), 'tail': T((0, 20.5 - bb, -23.0), 1.0),
     }
     # what the jaw needs (jaw.py): the head's volume, what it is fused with, and its turn
-    ch.rig = dict(head=head, fused=body_m | tail_m, pivot=PIVOT, R=R, t=hd)
+    ch.rig = dict(head=head, fused=body_m | tail_m, pivot=PIVOT, R=R, t=hd, torso=(2.0, -9.5, bf, bb))
     if jaw:
         from jaw import open_jaw
         ch = open_jaw(ch, jaw)
@@ -839,7 +847,7 @@ def build_elder(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_rot=None, b
         'head_top': Hw((0, 25.0, 16.0)), 'neck': B((0, 10.5, 10.5)), 'back': B((0, 19.0, -5.0)),
         'ground': (0, 0, -5.0), 'face': Hw((0, 15.0, 28.8)), 'tail': (tail, 27.0 + bb + tail_lift, -34.0),
     }
-    ch.rig = dict(head=head | snout, fused=neck | body_m | tail_m, pivot=PIVOT, R=R, t=hd)
+    ch.rig = dict(head=head | snout, fused=neck | body_m | tail_m, pivot=PIVOT, R=R, t=hd, torso=(5.0, -19.0, bf, bb))
     if jaw:
         from jaw import open_jaw
         ch = open_jaw(ch, jaw)

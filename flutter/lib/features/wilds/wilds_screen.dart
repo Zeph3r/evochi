@@ -1646,6 +1646,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                 if (card != null && m != null && _raid != null) _cardFor(card, m),
                 if (_cine != null && _introArt != null)
                   Positioned.fill(
+                    key: const ValueKey('briar_intro'), // keyed: a card or banner coming and going above it never restarts it
                     child: BossIntro(
                       art: _introArt!,
                       evochi: _cineEvochi,
@@ -1665,6 +1666,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                     ),
                   ),
                 Positioned.fill(
+                  key: const ValueKey('flyers'),
                   child: IgnorePointer(
                     child: ValueListenableBuilder<int>(
                       valueListenable: _repaint,
@@ -1674,6 +1676,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                 ),
                 if (_sproutCine != null && _sproutArt != null)
                   Positioned.fill(
+                    key: const ValueKey('sprout_intro'), // keyed: a card or banner coming and going above it never restarts it
                     child: SproutIntro(
                       art: _sproutArt!,
                       react: _reactArt,
@@ -1689,6 +1692,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                   ),
                 if (_sentCine != null && _sentArt != null)
                   Positioned.fill(
+                    key: const ValueKey('sentinel_intro'), // keyed: a card or banner coming and going above it never restarts it
                     child: SentinelIntro(
                       art: _sentArt!,
                       evochi: _cineEvochi,

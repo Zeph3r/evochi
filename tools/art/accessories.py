@@ -15,7 +15,7 @@ ACC_MATS_PREFIX = 'acc_'
 NECK = {  # y range, z range, thickness (voxels), flower anchor direction (azimuth deg)
     1: dict(y=(3.4, 7.3), z=(-30, 30), th=3, flower=(22, 5.6), lobes_y=3.4),
     2: dict(y=(6.2, 10.0), z=(1.0, 30), th=3, flower=(20, 7.6), lobes_y=6.2),
-    3: dict(y=(7.0, 13.2), z=(4.0, 13.0), th=3, flower=(22, 9.5), lobes_y=7.0),
+    3: dict(y=(10.0, 15.8), z=(3.0, 12.5), th=3, flower=(22, 12.6), lobes_y=10.0),
 }
 HEAD = {  # centre of crest base (x, y, z), ring radius, ring height
     1: dict(c=(0, 22.6, 0.4), r=5.6, h=3.4),
@@ -24,7 +24,7 @@ HEAD = {  # centre of crest base (x, y, z), ring radius, ring height
 }
 BACK = {  # anchor point on the back, outward normal, scale
     1: dict(p=(5.0, 16.5, -8.0), n=(0.55, 0.65, -1), s=1.0),
-    2: dict(p=(2.5, 15.5, -11.0), n=(0.35, 1, -0.4), s=1.0),
+    2: dict(p=(0.8, 16.2, -10.5), n=(0.1, 1, -0.45), s=1.05),
     3: dict(p=(3.0, 18.5, -13.0), n=(0.4, 1, -0.3), s=1.1),
 }
 
@@ -59,6 +59,12 @@ def neck_band(ch: Character, M: Model, colors=('leaf', 'leaf_hi', 'leaf_lo'), st
     core = core_mask(M)
     band = shell_region(M, core, p['th'])
     band &= (M.Y >= p['y'][0]) & (M.Y < p['y'][1]) & (M.Z >= p['z'][0]) & (M.Z < p['z'][1])
+    if ch.stage == 3:
+        # the Elder's mane lies under its scarf (the scarf wraps over it, rather than hiding in it)
+        crest_ids = [i for i, nm in enumerate(M.mats) if nm.startswith('crest')]
+        mane = np.isin(M.m, crest_ids) & (M.Y >= p['y'][0] - 0.5) & (M.Y < p['y'][1] + 0.5) & \
+            (M.Z >= p['z'][0] - 1) & (M.Z < p['z'][1] + 1) & shell_region(M, core, p['th'] + 4)
+        M.m[mane] = 0
     band &= (M.m == 0)
     if stripes:
         k = (np.floor((M.Y - p['y'][0]) / 1.0)).astype(int) % 2
@@ -169,9 +175,12 @@ def tiny_crown(ch: Character, M: Model):
     p = HEAD[ch.stage]
     c = np.array(p['c'], float)
     # small crown sitting tilted on the right side of the crest
-    off = np.array([p['r'] * 0.95, -0.4, 2.0])
+    off = np.array([p['r'] * 0.95, -0.4, 2.0]) if ch.stage != 2 else np.array([p['r'] * 0.9, 1.4, 1.6])
     cc = c + off
     r, h = 3.0, 2.6
+    crest_ids = [i for i, nm in enumerate(M.mats) if nm.startswith('crest')]
+    room = (np.maximum(np.abs(M.X - cc[0]), np.abs(M.Z - cc[2])) <= r + 0.6) & (M.Y >= cc[1] - 0.2) & np.isin(M.m, crest_ids)
+    M.m[room] = 0
     ring = _ring(M, cc, r, h, inner=0.8, square=True)
     M.set(ring, ACC_MATS_PREFIX + 'gold')
     for (dx, dz) in ((-r + 0.4, 0), (r - 0.4, 0), (0, r - 0.4), (0, -r + 0.4)):
@@ -232,6 +241,11 @@ def _pack(ch: Character, M: Model, body_mat, hi, lo, flap_mat, roll=False):
     # round the box edges
     box &= ((np.abs(U) / w) ** 6 + (np.abs(V) / h) ** 6 + (np.abs(N - d / 2) / (d / 2 + 1.5)) ** 6) <= 1.25
     box &= ~core_mask(M)
+    # the crest, ridge fluff and spikes give way under the pack (it straps on over them), so the pack sits
+    # on the back and shows from every side instead of hiding in them
+    crest_ids = [i for i, nm in enumerate(M.mats) if nm.startswith('crest')]
+    room = (np.abs(U) <= w + 1.2) & (np.abs(V) <= h + 1.2) & (N >= -2.5) & (N <= d + 6.0) & np.isin(M.m, crest_ids)
+    M.m[room] = 0
     _set(M, box, body_mat)
     flap = box & (V > h * 0.25) & (N > d - 1.0)
     M.set(flap, ACC_MATS_PREFIX + flap_mat)
@@ -268,32 +282,44 @@ def explorer_pack(ch, M):
     _pack(ch, M, 'leather', 'leather_hi', 'leather_lo', 'leather_hi', roll=True)
 
 
+CLIP = {  # where the clip goes (a point by the crest, above the eye line) and the way it faces out
+    1: dict(at=(-6.2, 24.0, 3.0), out=(-0.62, 0.32, 0.72)),
+    2: dict(at=(-7.0, 25.0, 9.0), out=(-0.74, 0.34, 0.58)),
+    3: dict(at=(-6.4, 24.6, 16.5), out=(-0.80, 0.48, 0.36)),
+}
+
+
 def butterfly_clip(ch: Character, M: Model):
-    p = HEAD[ch.stage]
-    base = np.array(p['c'], float)
-    # find the head surface at the front-left of the crest and clip the butterfly there
-    probe = base + np.array([-p['r'] * 1.15, -2.2, 0.0])
+    """a butterfly hair clip by the crest, high on the left of the head, wings spread flat against it"""
+    p = CLIP[ch.stage]
+    out = np.array(p['out'], float)
+    out /= np.linalg.norm(out)
+    # in along the way it faces until the head (or the crest) is met: the clip sits on that surface
+    start = np.array(p['at'], float) + out * 14.0
     pt = None
-    for t in np.arange(0, 25, 0.1):
-        q = probe + np.array([0, 0, 1.0]) * t
+    for t in np.arange(0, 22, 0.1):
+        q = start - out * t
         idx = np.floor(q * M.res - M.lo).astype(int)
         if np.any(idx < 0) or np.any(idx >= np.array(M.m.shape)):
-            break
+            continue
         if M.m[tuple(idx)] > 0:
             pt = q
+            break
     if pt is None:
-        pt = probe + np.array([0, 0, 6.0])
-    c = pt + np.array([0, 0.4, 0.9])
+        pt = np.array(p['at'], float)
+    c = pt + out * 0.7
+    u, v, n = local_frame(out)
+    P = np.stack([M.X - c[0], M.Y - c[1], M.Z - c[2]], -1)
+    U, V, N = P @ u, P @ v, P @ n
     for side in (-1, 1):
-        for (dy, rr) in ((0.9, 1.9), (-1.0, 1.4)):
-            wc = c + np.array([side * 1.7, dy, 0])
-            ell = ((M.X - wc[0]) / rr) ** 2 + ((M.Y - wc[1]) / (rr * 0.85)) ** 2
-            wing = (ell <= 1) & (np.abs(M.Z - c[2]) <= 0.55)
+        for (dv, rr) in ((0.9, 1.9), (-1.0, 1.4)):
+            ell = ((U - side * 1.7) / rr) ** 2 + ((V - dv) / (rr * 0.85)) ** 2
+            wing = (ell <= 1) & (np.abs(N) <= 0.55)
             M.set(wing, ACC_MATS_PREFIX + 'butter')
             M.set(wing & (ell > 0.6), ACC_MATS_PREFIX + 'butter_lo')
-            dot = ((M.X - wc[0]) ** 2 + (M.Y - wc[1]) ** 2 <= 0.3) & (np.abs(M.Z - c[2]) <= 0.75)
+            dot = ((U - side * 1.7) ** 2 + (V - dv) ** 2 <= 0.3) & (np.abs(N) <= 0.75)
             M.set(dot, ACC_MATS_PREFIX + 'butter_dot')
-    body = (np.abs(M.X - c[0]) <= 0.5) & (np.abs(M.Y - c[1]) <= 2.2) & (np.abs(M.Z - c[2]) <= 0.85)
+    body = (np.abs(U) <= 0.5) & (np.abs(V) <= 2.2) & (np.abs(N) <= 0.85)
     M.set(body, ACC_MATS_PREFIX + 'butter_dot')
 
 
@@ -312,6 +338,12 @@ def windtrail_mantle(ch: Character, M: Model):
     c = np.array(p['c'], float)
     d = np.sqrt((M.X - c[0]) ** 2 + (M.Y - c[1]) ** 2 + (M.Z - c[2]) ** 2)
     # draped over the shoulders and back, two units thick; spikes and fluff poke through it
+    if ch.stage == 2:
+        # the fluff along its flanks lies under the cape (the ridge down its back still stands through it)
+        crest_ids = [i for i, nm in enumerate(M.mats) if nm.startswith('crest')]
+        flank = np.isin(M.m, crest_ids) & (np.abs(M.X) > 3.6) & (d < p['r'] + 3) & (M.Y > p['ymin']) & \
+            (M.Y < p['ymax']) & (M.Z < p['zmax']) & (M.Z > p['zmin'] - 2)
+        M.m[flank] = 0
     cape = shell_region(M, core, p['th']) & ~core & (d < p['r']) & (M.Y > p['ymin']) & (M.Y < p['ymax']) & \
         (M.Z < p['zmax']) & (M.Z > p['zmin'])
     # scalloped hem around the lower edge
