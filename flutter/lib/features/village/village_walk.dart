@@ -2248,18 +2248,24 @@ class _WalkPainter extends CustomPainter {
     // the floor's name
     final tn = ((u - 1.95) / 0.35).clamp(0.0, 1.0);
     if (tn > 0) {
-      void line(String text, double y, double fs, Color c, double ls) {
-        final tp = TextPainter(
-            text: TextSpan(text: text, style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: fs, letterSpacing: ls, color: c.withAlpha((tn * 255).round()), shadows: [
-              Shadow(color: Color.fromRGBO(154, 107, 255, 0.8 * tn), blurRadius: 18),
-            ])),
-            textDirection: TextDirection.ltr,
-            textAlign: TextAlign.center)
-          ..layout(maxWidth: W - 32);
-        tp.paint(canvas, Offset((W - tp.width) / 2, y));
+      TextPainter line(String text, double fs, Color c, double ls) => TextPainter(
+          text: TextSpan(text: text, style: TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: fs, letterSpacing: ls, color: c.withAlpha((tn * 255).round()), shadows: [
+            Shadow(color: Color.fromRGBO(154, 107, 255, 0.8 * tn), blurRadius: 18),
+          ])),
+          textDirection: TextDirection.ltr,
+          textAlign: TextAlign.center)
+        ..layout(maxWidth: W - 32);
+      // the name on one line (smaller on a narrow screen), the place under it
+      var fs = math.min(W * 0.085, 34.0);
+      var title = line(s._enterTitle.toUpperCase(), fs, const Color(0xFFF6F0FF), 3);
+      for (var i = 0; i < 6 && title.computeLineMetrics().length > 1; i++) {
+        fs *= 0.88;
+        title = line(s._enterTitle.toUpperCase(), fs, const Color(0xFFF6F0FF), 3);
       }
-      line(s._enterTitle.toUpperCase(), H * 0.42, math.min(W * 0.085, 34.0), const Color(0xFFF6F0FF), 3);
-      line(s._enterSub.toUpperCase(), H * 0.42 + math.min(W * 0.085, 34.0) * 1.35, 13, const Color(0xFFD9C6FF), 2.4);
+      final sub = line(s._enterSub.toUpperCase(), 13, const Color(0xFFD9C6FF), 2.4);
+      final y = H * 0.42;
+      title.paint(canvas, Offset((W - title.width) / 2, y));
+      sub.paint(canvas, Offset((W - sub.width) / 2, y + title.height + 10));
     }
     // the letterbox
     final bar = H * 0.09 * Curves.easeOutCubic.transform((u / 0.35).clamp(0.0, 1.0));
