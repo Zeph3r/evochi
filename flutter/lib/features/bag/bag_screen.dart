@@ -155,7 +155,7 @@ class _BagScreenState extends State<BagScreen> {
             platform: true,
             focus: Offset(wear ? 0.5 : 0.45, gy),
             reducedMotion: reduce,
-            pet: PetConfig(stage: pet.stage, palette: pet.paletteId, status: v.pet!.status, equipped: equipped.values.toList(), scale: wear ? 1.3 : 0.8),
+            pet: PetConfig(stage: pet.stage, palette: pet.paletteId, personality: pet.personality, status: v.pet!.status, equipped: equipped.values.toList(), scale: wear ? 1.3 : 0.8),
           ),
           header: Padding(
             padding: const EdgeInsets.fromLTRB(14, 10, 14, 0),

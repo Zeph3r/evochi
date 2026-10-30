@@ -22,8 +22,8 @@ import '../../core/services/haptics.dart';
 import '../../core/utils/day_keys.dart';
 import '../../game/engine.dart' as g;
 import '../../game/hatch/hatch.dart' as hatch;
+import '../shared/acting.dart';
 import '../shared/kit.dart';
-import '../shared/sprite.dart';
 import '../shared/widgets.dart';
 import 'companions_sheet.dart';
 
@@ -1029,7 +1029,7 @@ class _Reveal extends StatelessWidget {
             height: 170,
             decoration: const BoxDecoration(shape: BoxShape.circle, gradient: RadialGradient(colors: [Color(0xFFFFF1C4), Color(0x00FFF1C4)])),
           ),
-          PetSprite(stage: 1, palette: pet.paletteId, expr: 'happy', height: 130, semanticLabel: 'Your new Evochi, ${hatch.paletteLabel(pet.paletteId)}'),
+          ActingSprite(stage: 1, palette: pet.paletteId, personality: pet.personality, height: 130, semanticLabel: 'Your new Evochi, ${hatch.paletteLabel(pet.paletteId)}'),
           for (var i = 0; i < 6; i++)
             Positioned(
               left: 85 + 70 * math.cos(i * math.pi / 3) - 6,

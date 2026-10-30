@@ -528,7 +528,7 @@ class _ConnectScreenState extends State<ConnectScreen> {
         minHero: 200,
         headerAllowance: 40,
         config: (gy) => SceneConfig(
-            habitat: 'meadow', decor: c.state.placements, focus: Offset(0.5, gy), reducedMotion: reduce, pet: PetConfig(stage: 1, palette: p.paletteId, expr: 'curious')),
+            habitat: 'meadow', decor: c.state.placements, focus: Offset(0.5, gy), reducedMotion: reduce, pet: PetConfig(stage: 1, palette: p.paletteId, personality: p.personality, expr: 'curious')),
         header: const SizedBox(height: 8),
         panel: _Sheet(children: [
           const Row(children: [VoxelIcon('steps', size: 44), SizedBox(width: 8), Text('Walk together', style: EvochiText.pageTitle)]),
@@ -619,7 +619,7 @@ class _GoalScreenState extends State<GoalScreen> {
         petLabel: p.name,
         minHero: 160,
         headerAllowance: 40,
-        config: (gy) => SceneConfig(habitat: 'meadow', decor: c.state.placements, focus: Offset(0.5, gy), reducedMotion: reduce, pet: PetConfig(stage: 1, palette: p.paletteId)),
+        config: (gy) => SceneConfig(habitat: 'meadow', decor: c.state.placements, focus: Offset(0.5, gy), reducedMotion: reduce, pet: PetConfig(stage: 1, palette: p.paletteId, personality: p.personality)),
         header: const SizedBox(height: 8),
         panel: _Sheet(children: [
           const Row(children: [VoxelIcon('star', size: 40), SizedBox(width: 8), Text('Pick a daily goal', style: EvochiText.pageTitle)]),
@@ -681,7 +681,7 @@ class _AwakeningScreenState extends State<AwakeningScreen> {
     _timer = Timer(Duration(milliseconds: reduce ? 50 : 900), () {
       if (!mounted) return;
       setState(() => _revealed = true);
-      _scene.react('pet');
+      _scene.react('hatch'); // its signature, the first thing it ever does
       context.read<GameController>().audio.play('evolve_fanfare', volume: 0.5);
     });
   }
@@ -709,7 +709,7 @@ class _AwakeningScreenState extends State<AwakeningScreen> {
           focus: Offset(0.5, gy),
           reducedMotion: reduce,
           forceExpr: _revealed ? null : 'sleepy',
-          pet: PetConfig(stage: p.stage, palette: p.paletteId, visible: _revealed),
+          pet: PetConfig(stage: p.stage, palette: p.paletteId, personality: p.personality, visible: _revealed),
         ),
         header: const SizedBox(height: 8),
         panel: Padding(

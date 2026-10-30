@@ -130,7 +130,7 @@ class _NestScreenState extends State<NestScreen> {
             decor: c.state.placements,
             focus: Offset(0.5, gy),
             reducedMotion: reduce,
-            pet: PetConfig(stage: pet.stage, palette: pet.paletteId, status: pv.status, equipped: pet.equipped.values.toList(), sleeping: sleeping),
+            pet: PetConfig(stage: pet.stage, palette: pet.paletteId, personality: pet.personality, status: pv.status, equipped: pet.equipped.values.toList(), sleeping: sleeping),
           ),
           header: _NestHud(onBed: () => _bed(c), sleeping: sleeping),
           hero: Stack(children: [

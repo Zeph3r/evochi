@@ -16,6 +16,7 @@ import '../../game/economy/economy.dart' as econ;
 import '../../game/engine.dart' as g;
 import '../caravan/caravan_screen.dart';
 import '../shared/widgets.dart';
+import 'personality_lab.dart';
 
 const _zones = [
   'UTC', 'America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York', 'America/Sao_Paulo', 'Europe/London',
@@ -292,6 +293,11 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     EvochiButton(label: 'Open the Caravan', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => openCaravan(context)),
                   ]),
+                  const SizedBox(height: 12),
+                  const Text('Personality', style: EvochiText.cardTitle),
+                  const Text('Who your Evochi is, what it would do and why, every behaviour and the three profiles side by side.', style: EvochiText.caption),
+                  const SizedBox(height: 8),
+                  EvochiButton(label: 'Open the personality lab', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => openPersonalityLab(context)),
                   const SizedBox(height: 12),
                   const Text('Home Tales', style: EvochiText.cardTitle),
                   const Text('Garden, Cottage, Kitchen, Apothecary and Skills.', style: EvochiText.caption),

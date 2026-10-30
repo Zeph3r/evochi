@@ -484,7 +484,7 @@ class _ShopScreenState extends State<ShopScreen> {
         decor: pl,
         focus: const Offset(0.5, 0.5),
         reducedMotion: rm,
-        pet: PetConfig(stage: pet.stage, palette: pet.paletteId, status: c.view.pet!.status, equipped: pet.equipped.values.toList()),
+        pet: PetConfig(stage: pet.stage, palette: pet.paletteId, personality: pet.personality, status: c.view.pet!.status, equipped: pet.equipped.values.toList()),
       );
     } else {
       scene = SceneConfig(habitat: 'market', zoom: 1.32, background: const Color(0xFFC9A27A), focus: const Offset(0.3, 0.42), reducedMotion: rm);

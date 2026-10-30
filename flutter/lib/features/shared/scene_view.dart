@@ -8,7 +8,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../core/services/asset_manifest.dart';
+import '../../game/personality/director.dart';
+import '../../game/personality/personality.dart';
 import '../../game/vitality/vitality.dart';
+import 'acting.dart';
 import 'live_scene.dart';
 
 const _worldScale = {1: 0.205, 2: 0.2, 3: 0.165};
@@ -23,6 +26,7 @@ class PetConfig {
     this.scale = 1,
     this.expr = 'default',
     this.visible = true,
+    this.personality,
   });
   final int stage;
   final String palette;
@@ -32,6 +36,9 @@ class PetConfig {
   final double scale;
   final String expr;
   final bool visible;
+
+  /// who it is: its habits play for the reactions and when it idles (none: the scene's own simple ones)
+  final Personality? personality;
 }
 
 class SceneConfig {
@@ -80,8 +87,9 @@ Rect? scenePetRect(SceneConfig cfg, Size size) {
 }
 
 class _Reaction {
-  _Reaction(this.expr, this.motion, this.start, this.dur);
+  _Reaction(this.expr, this.motion, this.start, this.dur, [this.exprEnd]);
   final String expr;
+  final String? exprEnd;
   final String motion;
   final Duration start;
   final Duration dur;
@@ -127,6 +135,11 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
   Duration _idleUntil = Duration.zero;
   String _idleExpr = 'curious';
   final _rng = math.Random();
+  // its personality's acting: the clips drawn for its stage, the one playing (from its first frame)
+  ActingStage? _acting;
+  ActingPlayer? _player;
+  Duration _playStart = Duration.zero;
+  int _playReq = 0;
   ui.Image? _atlas, _overlays, _heart, _star;
 
   @override
@@ -136,6 +149,8 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
       // 30 fps target (style guide §20)
       if ((t - _t).inMilliseconds >= 32) {
         _t = t;
+        _idleTick();
+        _advance();
         _repaint.value++;
       }
     })
@@ -162,6 +177,11 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
     final p = widget.config.pet;
     if (p == null) return;
     final e = AssetManifest.instance!.char(p.stage);
+    _acting = null;
+    _stop();
+    ActingStage.load(p.stage).then((s) {
+      if (mounted && widget.config.pet?.stage == p.stage) _acting = s;
+    });
     AtlasCache.load(artBase + e.atlasFile(p.palette)).then((i) {
       if (mounted) setState(() => _atlas = i);
     });
@@ -174,6 +194,8 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
     final q = widget.controller._queue;
     while (q.isNotEmpty) {
       final kind = q.removeAt(0);
+      final ctx = reactionContexts[kind];
+      if (ctx != null && _perform(ctx)) continue;
       const spec = {
         'pet': ['happy', 'bounce', '1000', 'hearts'],
         'play': ['excited', 'hop', '1300', 'stars'],
@@ -183,13 +205,99 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
         'equip': ['happy', 'wiggle', '700', 'stars'],
         'sad': ['sad', 'none', '1400', ''],
         'snack': ['excited', 'hop', '1000', 'hearts'], // food picked in the Bag
+        'hatch': ['excited', 'hop', '1200', 'stars'],
       };
       final s = spec[kind];
       if (s == null) continue;
       final motion = widget.config.reducedMotion ? 'none' : s[1];
+      _stop();
       _reaction = _Reaction(s[0], motion, _t, Duration(milliseconds: int.parse(s[2])));
       if (s[3].isNotEmpty) _burst(s[3]);
     }
+  }
+
+  bool get _canAct {
+    final p = widget.config.pet;
+    return p != null && p.visible && p.status == PetStatus.healthy && !p.sleeping && widget.config.forceExpr == null;
+  }
+
+  Mood get _mood => switch (widget.config.pet?.status) {
+        PetStatus.healthy => const Mood(),
+        _ => const Mood(content: 0.25, tired: 0.6),
+      };
+
+  /// Its personality's reaction to [context]: the director's choice, as its clip where its stage has one (the
+  /// face baked in) or the scene's simple motion with its face. False: the neutral choice, the scene's own plays.
+  bool _perform(String context) {
+    final p = widget.config.pet;
+    final who = p?.personality;
+    if (p == null || who == null || !_canAct) return false;
+    final c = directorFor(who).choose(context, personalityNow(), mood: _mood, clips: _acting?.clips.keys.toSet() ?? const {});
+    final b = c.behavior;
+    if (b.kind == 'neutral') return context == 'idle';
+    _stop();
+    // a tap, food, a treat always answer with their sparkle, whatever the habit
+    final fx = b.particles.isNotEmpty ? b.particles : const {'pet': 'hearts', 'feed': 'hearts', 'play': 'stars', 'reward': 'stars'}[context];
+    if (fx != null) _burst(fx);
+    final dur = Duration(milliseconds: (b.duration * 1000).round());
+    final st = _acting;
+    final reduce = widget.config.reducedMotion;
+    // its face at once; the clip takes over from its first frame
+    _reaction = _Reaction(b.expr, reduce || (st != null && st.clips.containsKey(b.clip)) ? 'none' : b.motion, _t, dur, b.exprEnd);
+    if (!reduce && st != null && b.clip != null && st.clips.containsKey(b.clip)) {
+      final req = ++_playReq;
+      ActingPlayer.open(st, b.clip!, p.palette, p.equipped).then((pl) {
+        if (pl == null) {
+          // a piece without its frames: the simple motion, as it would have been
+          if (mounted && req == _playReq) _reaction = _Reaction(b.expr, b.motion, _t, dur, b.exprEnd);
+          return;
+        }
+        if (!mounted || req != _playReq || !_canAct) {
+          pl.dispose();
+          return;
+        }
+        _player = pl;
+        _playStart = _t;
+        pl.advance(0, () => _repaint.value++);
+      });
+    }
+    return true;
+  }
+
+  void _stop() {
+    _playReq++;
+    _player?.dispose();
+    _player = null;
+  }
+
+  void _advance() {
+    final pl = _player;
+    if (pl == null) return;
+    if (!_canAct) return _stop();
+    if (!pl.ready) {
+      _playStart = _t; // it starts from its first frame
+      return;
+    }
+    final u = (_t - _playStart).inMicroseconds / 1e6;
+    if (u > pl.duration + 0.05) {
+      _stop();
+      _reaction = null;
+      return;
+    }
+    _reaction = null; // the clip's own face now
+    pl.advance(u, () {});
+  }
+
+  /// every 8-18 s, something to do with itself: a habit from its idle repertoire, or a look round
+  void _idleTick() {
+    final p = widget.config.pet;
+    if (p == null || !_canAct || widget.config.reducedMotion || _t < _nextIdle) return;
+    final busy = _player != null || (_reaction != null && _t < _reaction!.start + _reaction!.dur);
+    _nextIdle = _t + Duration(milliseconds: 8000 + _rng.nextInt(10000));
+    if (busy) return;
+    if (p.personality != null && _perform('idle')) return;
+    _idleUntil = _t + const Duration(milliseconds: 1400);
+    _idleExpr = _rng.nextBool() ? 'curious' : 'happy';
   }
 
   void _burst(String kind) {
@@ -212,6 +320,7 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
   void dispose() {
     _ticker.dispose();
     widget.controller.removeListener(_onReact);
+    _stop();
     _repaint.dispose();
     super.dispose();
   }
@@ -227,15 +336,13 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
     };
     if (p.sleeping && p.status != PetStatus.dead) expr = 'sleepy';
     final r = _reaction;
-    if (r != null && _t < r.start + r.dur) return r.expr;
+    if (r != null && _t < r.start + r.dur) {
+      final e = r.exprEnd;
+      return e != null && _t > r.start + r.dur * 0.55 ? e : r.expr;
+    }
     _reaction = null;
     final alive = p.status != PetStatus.dead;
     if (alive && !p.sleeping && p.status == PetStatus.healthy && !widget.config.reducedMotion) {
-      if (_t > _nextIdle) {
-        _idleUntil = _t + const Duration(milliseconds: 1400);
-        _idleExpr = _rng.nextBool() ? 'curious' : 'happy';
-        _nextIdle = _t + Duration(milliseconds: 9000 + _rng.nextInt(9000));
-      }
       if (_t < _idleUntil) expr = _idleExpr;
     }
     if (alive && (expr == 'default' || expr == 'neutral')) {
@@ -354,6 +461,8 @@ class _PetPainter extends CustomPainter {
     if (atlas == null) return;
     final m = AssetManifest.instance!;
     final e = m.char(p.stage);
+    final pl = state._player;
+    if (pl != null && pl.ready) return _paintActing(canvas, pl, e);
     final expr = state._expression();
     final src = e.frame(p.palette, expr);
     final a = e.anchor('ground');
@@ -412,6 +521,23 @@ class _PetPainter extends CustomPainter {
     // particles
     final head = Offset(ground.dx + (e.anchor('head_top').dx - a.dx) * scale, ground.dy + dy + (e.anchor('head_top').dy - a.dy) * scale);
     final hpx = e.h * scale;
+    _paintParticles(canvas, head, hpx);
+    if (p.sleeping && alive && !reduce) _drawZ(canvas, t, head);
+  }
+
+  /// its acting clip in place of the still sprite: the same ground point and scale, its shadow under it
+  void _paintActing(Canvas canvas, ActingPlayer pl, CharEntry e) {
+    final px = scale * e.scale / pl.stage.scale; // screen px per clip px
+    final up = pl.lift * pl.stage.scale * px; // how high it is, on screen
+    final shW = math.max(4.0, e.w * scale * 0.42 * (1 - (up / (e.h * scale)) * 0.8));
+    canvas.drawOval(Rect.fromCenter(center: ground.translate(0, -2), width: shW * 2, height: math.max(4.0, shW * 0.32)), Paint()..color = const Color(0x38342616));
+    pl.draw(canvas, ground, px, Paint()..filterQuality = FilterQuality.medium);
+    final a = e.anchor('ground');
+    final head = Offset(ground.dx + (e.anchor('head_top').dx - a.dx) * scale, ground.dy - up + (e.anchor('head_top').dy - a.dy) * scale);
+    _paintParticles(canvas, head, e.h * scale);
+  }
+
+  void _paintParticles(Canvas canvas, Offset head, double hpx) {
     state._particles.removeWhere((q) => state._t - q.born > q.life);
     for (final q in state._particles) {
       final age = state._t - q.born;
@@ -430,7 +556,6 @@ class _PetPainter extends CustomPainter {
           Paint()..color = Color.fromRGBO(255, 255, 255, alpha.clamp(0.0, 1.0).toDouble()));
       canvas.restore();
     }
-    if (p.sleeping && alive && !reduce) _drawZ(canvas, t, head);
   }
 
   void _drawZ(Canvas canvas, double t, Offset head) {
