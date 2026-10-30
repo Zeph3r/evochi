@@ -238,7 +238,7 @@ class ActingSprite extends StatefulWidget {
 }
 
 class _ActingSpriteState extends State<ActingSprite> with SingleTickerProviderStateMixin {
-  late final Ticker _ticker = createTicker(_tick);
+  late final Ticker _ticker;
   ui.Image? _atlas;
   ActingPlayer? _player;
   Duration _t = Duration.zero, _start = Duration.zero;
@@ -250,6 +250,7 @@ class _ActingSpriteState extends State<ActingSprite> with SingleTickerProviderSt
   @override
   void initState() {
     super.initState();
+    _ticker = createTicker(_tick); // made here: made lazily, a first use in dispose would look up a dead tree
     _loadAtlas();
     _wait = Timer(widget.delay, _go);
   }

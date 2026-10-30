@@ -76,7 +76,7 @@ class UltCutIn extends StatefulWidget {
 }
 
 class _UltCutInState extends State<UltCutIn> with SingleTickerProviderStateMixin {
-  late final Ticker _ticker = createTicker(_tick)..start();
+  late final Ticker _ticker;
   final _repaint = ValueNotifier(0);
   ui.Codec? _codec;
   ui.Image? _frame;
@@ -90,6 +90,7 @@ class _UltCutInState extends State<UltCutIn> with SingleTickerProviderStateMixin
   @override
   void initState() {
     super.initState();
+    _ticker = createTicker(_tick)..start();
     ui.instantiateImageCodec(widget.art.bytes).then((c) {
       if (!mounted) {
         c.dispose();
