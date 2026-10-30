@@ -102,7 +102,7 @@ H_APEX = 24.0                             # how high the body rises above where 
 Z_OFF, Z_LAND, SKID = -4.0, -38.0, 5.0    # where it is (across, away from the beam) as it leaves, lands, stops
 # the face (Brave): startled, then set; straining to push off; a yell going up; watching for the ground at the top;
 # set coming down; eyes shut on the impact; then sure of itself. Each change crossfades over FADE s
-FACES = [(0.0, 'surprise'), (0.07, 'fierce'), (0.15, 'effort'), (0.29, 'shout'), (0.44, 'focus'), (0.55, 'set'),
+FACES_REFINED = [(0.0, 'surprise'), (0.07, 'fierce'), (0.15, 'effort'), (0.29, 'shout'), (0.44, 'focus'), (0.55, 'set'),
          (0.71, 'strain'), (0.86, 'fierce')]
 FADE = 0.05
 PHASES = [('Startled', 0.04), ('Crouch', 0.15), ('Push-off', 0.22), ('Lift-off', 0.29), ('Tuck', 0.38), ('Apex', 0.48),
@@ -184,18 +184,57 @@ def pose_at(t):
     return _pose(h00 * p0 + h10 * m0 + h01 * p1 + h11 * m1)
 
 
-def faces_at(t):
+# The face, as a set: its timeline (from time, state, crossfade s) and how open the jaw is (time, degrees; the
+# mouth opens in the voxels, jaw.py, whenever it is open, the painted mouth taken off).
+FACE_SETS = {
+    # the first improved leap's faces, on their own clock: set, then the big-eyed yell from the takeoff on,
+    # eyes squeezed shut and mouth open at the landing, set again
+    'previous': dict(faces=[(0.0, 'fierce', 0.05), (0.17, 'shout', 0.05), (0.76, 'strain', 0.05), (0.89, 'fierce', 0.05)],
+                     jaw=[(0.0, 0), (0.15, 0), (0.21, 16), (0.25, 22), (0.34, 24), (0.49, 20), (0.62, 14), (0.74, 16),
+                          (0.80, 18), (0.88, 8), (0.97, 0), (1.10, 0)]),
+    # restored: the same big eyes, open mouth (fangs, tongue) and squeeze, moved onto this leap's beats, with the
+    # brows doing more: startled up, set for the push, thrilled in the air, level watching the ground, a little in
+    # coming down, screwed shut at the impact, set again
+    'restored': dict(faces=[(0.0, 'surprise', 0.04), (0.08, 'fierce', 0.05), (0.15, 'shout', 0.04), (0.30, 'whoop', 0.05),
+                            (0.44, 'gaze', 0.05), (0.56, 'ready', 0.05), (0.70, 'strain', 0.03), (0.87, 'fierce', 0.06)],
+                     jaw=[(0.0, 0), (0.03, 9), (0.07, 8), (0.11, 0), (0.15, 0), (0.18, 6), (0.22, 16), (0.27, 20),
+                          (0.33, 22), (0.40, 24), (0.48, 16), (0.56, 12), (0.66, 14), (0.70, 15), (0.74, 18), (0.80, 18),
+                          (0.85, 10), (0.92, 0), (1.10, 0)]),
+    # the restrained set the refined leap came with (painted mouths but for the yell)
+    'refined': dict(faces=[(0.0, 'surprise', 0.05), (0.07, 'fierce', 0.05), (0.15, 'effort', 0.05), (0.29, 'shout', 0.05),
+                           (0.44, 'focus', 0.05), (0.55, 'set', 0.05), (0.71, 'strain', 0.05), (0.86, 'fierce', 0.05)],
+                    jaw=None),
+}
+FACE_SET = os.environ.get('JUMP_FACES', 'restored')
+
+
+def faces_at(t, fs=None):
     """[(state, weight)]: the face, crossfading at each change"""
-    cur = FACES[0][1]
-    for (t0, f) in FACES[1:]:
+    seq = FACE_SETS[fs or FACE_SET]['faces']
+    cur = seq[0][1]
+    for (t0, f, fade) in seq[1:]:
         if t < t0:
             break
-        if t < t0 + FADE:
-            u = (t - t0) / FADE
+        if t < t0 + fade:
+            u = (t - t0) / fade
             u = u * u * (3 - 2 * u)
             return [(cur, 1 - u), (f, u)]
         cur = f
     return [(cur, 1.0)]
+
+
+def jaw_at(t, fs=None, body_jaw=0.0):
+    keys = FACE_SETS[fs or FACE_SET]['jaw']
+    if keys is None:
+        return body_jaw
+    if t <= keys[0][0]:
+        return float(keys[0][1])
+    for (t0, a), (t1, b) in zip(keys, keys[1:]):
+        if t <= t1:
+            u = (t - t0) / (t1 - t0)
+            u = u * u * (3 - 2 * u)
+            return float(a + (b - a) * u)
+    return float(keys[-1][1])
 
 
 def turn_body(ch, R, squash=1.0, pivot=PIVOT, pad=(-26, -14, -44, 26, 48, 40)):
@@ -604,13 +643,15 @@ def label(img, text, sub=None):
 
 # ------------------------------------------------------------------------------------------------ frames
 def improved_frame(args):
-    t, vi = args
+    t, vi = args[:2]
+    fset = args[2] if len(args) > 2 else FACE_SET
     name, cam = VIEWS[vi]
     fit = view_fit(cam)
     p = pose_at(t)
+    p['jaw'] = jaw_at(t, fset, p['jaw'])
     ch = character(p)
     root = root_at(t)
-    fs = faces_at(t)
+    fs = faces_at(t, fset)
     lay = None
     for state, w in fs:
         L = render_layer(ch, face_name(state, p['jaw']), cam, shifted(fit, cam, root))
@@ -645,7 +686,13 @@ def improved_frame(args):
         if hit:
             print('beam over the body: t=%.3f %s %d px' % (t, name, hit), flush=True)
     ph = next(n for n, a, b in PHASE_SPANS if a <= t < b)
-    label(img, 'Refined: ' + ph, '%s camera   t = %.2f s' % (name.split(' ')[0], t))
+    label(img, {'previous': 'Previous faces', 'restored': 'Restored faces', 'refined': 'Refined'}.get(fset, fset) + ': ' + ph,
+          '%s camera   t = %.2f s' % (name.split(' ')[0], t))
+    if len(args) > 3 and args[3] == 'face':
+        # a close look at the face: the cell cropped round it, larger
+        f = P2(cam, shifted(fit, cam, root), [ch.anchors['face']])[0]
+        box = (int(f[0] - 150), int(f[1] - 125), int(f[0] + 110), int(f[1] + 95))
+        return img.crop(box).resize((390, 330), Image.LANCZOS).convert('RGB')
     return img.convert('RGB')
 
 
@@ -697,8 +744,8 @@ def current_frame(args):
 
 
 def _cell(job):
-    kind, t, vi = job
-    return (improved_frame if kind == 'new' else current_frame)((t, vi))
+    kind, t, vi = job[:3]
+    return (improved_frame if kind == 'new' else current_frame)((t, vi) + tuple(job[3:]))
 
 
 PREV = os.environ.get('JUMP_PREV')        # the previous improved jump's frames (a cmp/ folder), to set beside
@@ -716,34 +763,36 @@ def prev_cell(i, vi):
 
 
 def main(out):
+    """the faces compared on this leap's body: the previous faces (their own clock) beside the restored ones"""
     os.makedirs(out, exist_ok=True)
     fdir = os.path.join(out, 'cmp')
     os.makedirs(fdir, exist_ok=True)
-    # the phase sheet: every beat of the refined jump, both cameras
-    jobs = [('new', t, vi) for vi in range(2) for _, t in PHASES]
+    sets = ('previous', 'restored')
+    # the sheet: each beat, close on the face, previous above restored
+    jobs = [('new', t, 0, fs, 'face') for fs in sets for _, t in PHASES]
     with ProcessPoolExecutor(WORKERS) as ex:
         cells = list(ex.map(_cell, jobs))
-    s = 0.44
-    cw, chh = int(CW * s), int(CH * s)
     n = len(PHASES)
-    W, H = 30 + n * (cw + 8) + 22, 100 + 2 * (chh + 44) + 10
+    cw, chh = 390, 330
+    W, H = 30 + n * (cw + 8) + 22, 110 + 2 * (chh + 44) + 10
     sheet = Image.new('RGB', (W, H), (16, 12, 24))
     d = ImageDraw.Draw(sheet)
-    d.text((30, 20), "Juvenile: leaping the Sentinel's beam, refined. Hind legs push, legs tuck, front paws reach and "
-                     "land first, the shoulders take it, the hind legs settle.", font=font(28), fill=(240, 230, 255))
-    d.text((30, 60), 'Top: the cinematic camera. Bottom: from the side. Coral, Brave faces.', font=font(18, False),
-           fill=(190, 176, 220))
-    for vi in range(2):
+    d.text((30, 20), "Juvenile leap, the faces: previous (top) and restored (bottom), on the refined body's 11 beats",
+           font=font(30), fill=(240, 230, 255))
+    d.text((30, 62), 'Cinematic camera, close on the face. Coral, Brave. Open mouths open in the voxels (fangs, tongue).',
+           font=font(18, False), fill=(190, 176, 220))
+    for r in range(2):
         for j, (nm, t) in enumerate(PHASES):
-            x, y = 30 + j * (cw + 8), 100 + vi * (chh + 44)
-            sheet.paste(cells[vi * n + j].resize((cw, chh), Image.LANCZOS), (x, y + 32))
-            d.text((x, y + 4), '%d %s (%.2f s)' % (j + 1, nm, t), font=font(17), fill=(240, 230, 255))
-    p = os.path.join(out, 'jump_phases.png')
+            x, y = 30 + j * (cw + 8), 110 + r * (chh + 44)
+            sheet.paste(cells[r * n + j], (x, y + 32))
+            d.text((x, y + 4), '%d %s (%.2f s)' % (j + 1, nm, t), font=font(18), fill=(240, 230, 255))
+    p = os.path.join(out, 'jump_faces.png')
     sheet.save(p, optimize=True)
     print(p, flush=True)
-    # the video: previous and refined side by side, both cameras; real time, then half speed
+    # the video: the two sets side by side, both cameras; real time, then half speed
     n = int(END * FPS) + 1 + int(0.3 * FPS)
-    jobs = [('new', round(min(i / FPS, END), 4), vi) for i in range(n) for vi in range(2)]
+    key = lambda i, vi, fs: ('new', round(min(i / FPS, END), 4), vi, fs)   # noqa: E731
+    jobs = [key(i, vi, fs) for i in range(n) for vi in range(2) for fs in sets]
     uniq = sorted(set(jobs), key=jobs.index)
     with ProcessPoolExecutor(WORKERS) as ex:
         done = dict(zip(uniq, ex.map(_cell, uniq, chunksize=4)))
@@ -751,14 +800,13 @@ def main(out):
     for i in range(n):
         g = Image.new('RGB', (CW * 2 + 6, CH * 2 + 6), (8, 6, 12))
         for vi in range(2):
-            if PREV:
-                g.paste(prev_cell(i, vi).resize((CW, CH)), (0, vi * (CH + 6)))
-            g.paste(done[('new', round(min(i / FPS, END), 4), vi)], (CW + 6, vi * (CH + 6)))
+            for c, fs in enumerate(sets):
+                g.paste(done[key(i, vi, fs)], (c * (CW + 6), vi * (CH + 6)))
         frames.append(g)
     order = [frames[i] for i in range(0, n, 2)] + [frames[i] for i in range(n)]
     for k, f in enumerate([frames[0]] * 12 + order + [frames[-1]] * 20):
         f.save(os.path.join(fdir, '%04d.png' % k))
-    mp4 = os.path.join(out, 'jump_compare.mp4')
+    mp4 = os.path.join(out, 'jump_faces.mp4')
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-framerate', '30', '-i', os.path.join(fdir, '%04d.png'),
                     '-vf', 'format=yuv420p', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', mp4], check=True)
     print(mp4, flush=True)

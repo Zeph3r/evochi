@@ -23,7 +23,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 KIT = os.path.join(HERE, 'face_kit')
 STATES = ('shout', 'strain', 'fierce')
 # the leap clear of the Sentinel's beam (cine_jump.py): its own faces, Brave Juvenile so far
-JUMP_STATES = ('surprise', 'effort', 'focus', 'set')
+JUMP_STATES = ('surprise', 'effort', 'focus', 'set', 'whoop', 'gaze', 'ready')
 PERSONALITIES = ('brave', 'timid', 'stubborn', 'playful', 'curious', 'calm')
 STAGE_NAMES = {1: 'eggling', 2: 'juvenile', 3: 'elder'}
 STAGES = {v: k for k, v in STAGE_NAMES.items()}

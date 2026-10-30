@@ -450,7 +450,7 @@ def paint_face(ch: Character, cv: Canvas, pal: dict, expr: str):
         smile(1.0, 0.4)
     # ---- the cinematics only (the Wilds' boss entrance; not in the sprite sheets): the Expression Style Kit's
     # faces (face_kit.py), 'shout' / 'strain' / 'fierce', or with a personality, 'fierce:calm'
-    elif expr.split(':')[0] in ('shout', 'strain', 'fierce', 'surprise', 'effort', 'focus', 'set'):   # (+ the leap's)
+    elif expr.split(':')[0] in ('shout', 'strain', 'fierce', 'surprise', 'effort', 'focus', 'set', 'whoop', 'gaze', 'ready'):   # (+ the leap's)
         from face_kit import paint_kit, parse
         paint_kit(ch, cv, pal, *parse(expr))
     # ---- villager-only expressions (Village Tales NPCs; Evochi sprites never use these)
