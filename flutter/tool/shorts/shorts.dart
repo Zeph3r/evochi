@@ -121,6 +121,7 @@ class Short {
     this.cta = 'Join the beta waitlist',
     this.endSecs = 2.7,
     this.music,
+    this.view = const Size(360, 640),
   });
   final String id;
   final List<Clip> clips;
@@ -130,6 +131,9 @@ class Short {
   final String cta;
   final double endSecs;
   final String? music; // the bed under the whole video (an ambient loop's name); null: the game's own calls
+
+  /// the screen it is played on, in dp (a smaller phone to check a layout on)
+  final Size view;
 }
 
 // colours of the captions
@@ -573,7 +577,7 @@ final sproutintro = Short(
 );
 
 /// Looks at one thing, recorded by name only.
-final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist];
+final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall];
 
 /// 3. The Deep Wilds: a clearing calmed, the way down opens, down a floor, and a Hollow Surge.
 final deep = Short(
@@ -661,16 +665,30 @@ Clip _mistClip(String profile, String label) => Clip(
       setup: (s) async {
         await _god(s);
         toFirstClearing(s, dist: 26);
-        final p = s.raid!.pet;
+        final r = s.raid!;
+        final p = r.pet;
         p.hp = p.maxHp * 0.45; // so the mist has something to mend
+        // facing the nearest creature: the mist rolls over it, and it is nearly clear of the Hollow (it is
+        // purified); the next one along takes the hit and keeps fighting
+        final near = r.foes.where((f) => f.alive && !f.calm).toList()..sort((a, b) => p.dist(a).compareTo(p.dist(b)));
+        if (near.isNotEmpty) {
+          // stood south of it, so it is up the screen, clear of the controls
+          placeNear(s, near.first.x, near.first.z, dist: 64);
+          p.face(near.first.x - p.x, near.first.z - p.z);
+          near.first.hp = math.min(near.first.hp, 12);
+        }
       },
       beats: [
         Beat(0.05, (s) => s.say([(label, white)], secs: 1.0, size: 27, y: 165)),
-        Beat(1.0, (s) {
-          s.raid!
-            ..sig = 100
-            ..press('signature');
-        }),
+        // pressed until it goes (a press mid-swing is dropped, as in play)
+        for (final at in const [1.0, 1.1, 1.2, 1.3, 1.4])
+          Beat(at, (s) {
+            final r = s.raid!;
+            if (r.ultHold > 0 || (at > 1.0 && r.sig < 100)) return;
+            r
+              ..sig = 100
+              ..press('signature');
+          }),
       ],
     );
 
@@ -680,6 +698,15 @@ final healmist = Short(
   endTitle: const [('Healing Mist', null)],
   endSecs: 0.4,
   clips: [_mistClip('calm', 'Calm'), _mistClip('lively', 'Brave')],
+);
+
+/// The same on a small phone (320 x 568 dp): the combat pad and the effect at their tightest.
+final healmistSmall = Short(
+  id: 'healmist_small',
+  endTitle: const [('Healing Mist', null)],
+  endSecs: 0.4,
+  view: const Size(320, 568),
+  clips: [_mistClip('calm', 'Calm')],
 );
 
 final signatures = Short(

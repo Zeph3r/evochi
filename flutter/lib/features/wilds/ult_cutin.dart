@@ -31,7 +31,7 @@ class UltArt {
   final Color color;
 
   static const _palette = {'ocean': 'healing_mist'};
-  static const _colors = {'healing_mist': Color(0xFFA9DCF5)};
+  static const _colors = {'healing_mist': Color(0xFFDDF4FF)}; // the cut-in's last frame: the mist filling the view
 
   /// The personality the cut-in is performed in (the face kit's six; the three profiles map onto them until
   /// there are six profiles).
@@ -66,11 +66,14 @@ class UltArt {
 }
 
 /// The ultimate's presentation over the Wilds, from the button: [onRelease] at the marker (once), [onDone] when the
-/// element has cleared off the screen.
+/// element has cleared off the screen. A tap skips straight to the release; taken away early, it releases on the
+/// way out (the ultimate always resolves, once: the combat ignores a second release). [focus]: where your Evochi
+/// is on screen, so the element clears outward from it into the effect on the battlefield.
 class UltCutIn extends StatefulWidget {
-  const UltCutIn({super.key, required this.art, required this.onRelease, required this.onDone});
+  const UltCutIn({super.key, required this.art, required this.onRelease, required this.onDone, this.focus});
   final UltArt art;
   final VoidCallback onRelease, onDone;
+  final Offset Function()? focus;
   @override
   State<UltCutIn> createState() => _UltCutInState();
 }
@@ -120,14 +123,24 @@ class _UltCutInState extends State<UltCutIn> with SingleTickerProviderStateMixin
     });
   }
 
+  double _skip = 0; // how far a tap jumped it on
+
+  void _release() {
+    if (_released) return;
+    _released = true;
+    widget.onRelease();
+  }
+
+  void skip() {
+    final a = widget.art;
+    if (_t < a.release) _skip += a.release - _t;
+  }
+
   void _tick(Duration d) {
     final a = widget.art;
-    _t = d.inMicroseconds / 1e6;
+    _t = d.inMicroseconds / 1e6 + _skip;
     if (_t >= a.t0 - 0.05) _want(((_t - a.t0) * a.fps).floor().clamp(0, a.n - 1));
-    if (!_released && _t >= a.release) {
-      _released = true;
-      widget.onRelease();
-    }
+    if (!_released && _t >= a.release) _release();
     if (!_done && _t >= a.release + clear) {
       _done = true;
       _ticker.stop();
@@ -138,6 +151,7 @@ class _UltCutInState extends State<UltCutIn> with SingleTickerProviderStateMixin
 
   @override
   void dispose() {
+    _release(); // never left unresolved
     _ticker.dispose();
     _frame?.dispose();
     _codec?.dispose();
@@ -146,7 +160,11 @@ class _UltCutInState extends State<UltCutIn> with SingleTickerProviderStateMixin
   }
 
   @override
-  Widget build(BuildContext context) => IgnorePointer(child: CustomPaint(painter: _CutInPainter(this), size: Size.infinite));
+  Widget build(BuildContext context) => GestureDetector(
+        behavior: _released ? HitTestBehavior.translucent : HitTestBehavior.opaque,
+        onTap: _released ? null : skip,
+        child: CustomPaint(painter: _CutInPainter(this), size: Size.infinite),
+      );
 }
 
 class _CutInPainter extends CustomPainter {
@@ -173,31 +191,26 @@ class _CutInPainter extends CustomPainter {
       canvas.drawImageRect(im, src, dst, Paint()..filterQuality = FilterQuality.medium);
       return;
     }
-    // back in the Wilds: the element that filled the view clears off it, outward from the middle, as its effect
-    // spreads over the battlefield underneath
+    // back in the Wilds: the element that filled the view (its last frame's own white-cyan) clears off it,
+    // outward from your Evochi, where its effect is just breaking open on the battlefield
     final u = ((t - a.release) / _UltCutInState.clear).clamp(0.0, 1.0);
     final e = 1 - (1 - u) * (1 - u);
     final c = a.color;
-    final r = size.longestSide * (0.15 + 1.1 * e);
-    final hole = Paint()
-      ..shader = ui.Gradient.radial(full.center, r + 1, [
-        c.withValues(alpha: 0),
-        c.withValues(alpha: 0.85 * (1 - e)),
-        c.withValues(alpha: 0.95 * (1 - e)),
-      ], [
-        0.0,
-        0.75,
-        1.0,
-      ], TileMode.clamp);
-    canvas.drawRect(full, hole);
-    // drifting wisps on the way out
-    for (var i = 0; i < 7; i++) {
-      final ang = i * 0.9 + t;
-      final at = full.center + Offset(math.cos(ang), math.sin(ang) * 1.6) * (r * 0.8);
-      canvas.drawCircle(at, size.width * 0.22, Paint()
-        ..color = c.withValues(alpha: 0.25 * (1 - e))
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 30));
-    }
+    final at = s.widget.focus?.call() ?? full.center;
+    final far = [full.topLeft, full.topRight, full.bottomLeft, full.bottomRight].map((p) => (p - at).distance).reduce(math.max);
+    final r = far * (0.08 + 1.05 * e);
+    canvas.drawRect(
+        full,
+        Paint()
+          ..shader = ui.Gradient.radial(at, r + 1, [
+            c.withValues(alpha: 0.35 * (1 - e)),
+            c.withValues(alpha: 0.9 * (1 - e)),
+            c.withValues(alpha: 1.0 * (1 - e)),
+          ], [
+            0.0,
+            0.7,
+            1.0,
+          ], TileMode.clamp));
   }
 
   @override

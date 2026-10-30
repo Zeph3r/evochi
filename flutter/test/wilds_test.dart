@@ -724,9 +724,8 @@ void main() {
         if (palette == 'coral' || palette == 'ocean') {
           run(r, 2);
           expect(r.pet.hp, greaterThan(hp0));
-        } else {
-          expect(r.foes.first.hp, lessThan(5000));
         }
+        if (palette != 'coral') expect(r.foes.first.hp, lessThan(5000)); // Healing Mist purifies what is ahead
       });
     }
   });

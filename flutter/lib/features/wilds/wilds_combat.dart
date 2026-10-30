@@ -540,6 +540,13 @@ class Raid {
 
   /// > 0 while a cut-in plays: seconds since it began (the world holds)
   double ultHold = 0;
+
+  /// Healing Mist's wave on its way: each creature it will reach, when (s after the release), and its push
+  final _mistHits = <(Foe, double, double, double)>[];
+  double _mistT = 0;
+
+  /// how fast the mist's leading edge rolls out (world units a second)
+  static const mistSpeed = 420.0;
   /// A perfect dodge slows the world for a moment (real seconds left) and opens a counter window.
   double slowmo = 0, counterT = 0;
   /// Potion buffs (an Apothecary brew drunk in the Wilds): id -> seconds left. See [buffDefs].
@@ -758,6 +765,7 @@ class Raid {
       _sigWind -= dt;
       if (_sigWind <= 0) _signatureFire();
     }
+    _tickMist(dt);
     if (slowmo > 0) {
       slowmo -= dt;
       dt *= 0.35;
@@ -1498,13 +1506,26 @@ class Raid {
     p.glow = 1;
     bursts.add(Burst('lines', p.x, p.z, 0.55, size: 190, tag: palette));
     bursts.add(Burst('impact', p.x, p.z, 0.4, size: 2.4, tag: palette));
-    _float(sigName, p.x, p.z - 10, 'crit', ttl: 1.3);
+    // its name over it, unless its cut-in has just shown it (one less line of text over the fight)
+    if (!cinematic) _float(sigName, p.x, p.z - 10, 'crit', ttl: 1.3);
     _emit('signature', text: palette, x: p.x, z: p.z);
     switch (palette) {
       case 'ocean':
-        // Healing Mist: the mist rolls out over the battlefield and mends you, and whoever is with you; it
-        // lingers a while, mending still and slowing whatever wades into it
-        bursts.add(Burst('mist', p.x, p.z, 1.8, size: 150));
+        // Healing Mist: a wave of mist rolls out ahead and washes the Hollow out of whatever it reaches (the
+        // Tidal Surge's own reach, damage, push and stun, each landing as the leading edge arrives); it mends
+        // you, and whoever is with you, and lingers a while, mending still and slowing what wades into it
+        flashT = math.max(flashT, 0.34);
+        bursts.add(Burst('mistburst', p.x, p.z, 0.6, size: 1));
+        bursts.add(Burst('mistwave', p.x, p.z, 1.1, dx: p.fx, dz: p.fz, size: 150));
+        bursts.add(Burst('mistlinger', p.x, p.z, 5, dx: p.fx, dz: p.fz, size: 150));
+        _mistHits.clear();
+        _mistT = 0;
+        for (final f in hostile.toList()) {
+          final ax = f.x - p.x, az = f.z - p.z;
+          final along = ax * p.fx + az * p.fz, across = (ax * p.fz - az * p.fx).abs();
+          if (along < -8 || along > 150 || across > 30 + f.radius) continue;
+          _mistHits.add((f, math.max(0.0, along) / mistSpeed, p.fx, p.fz));
+        }
         for (final a in [p, if (sher != null && party) sher!]) {
           final heal = math.min(a.maxHp - a.hp, a.maxHp * 0.35);
           a.hp += heal;
@@ -1567,6 +1588,23 @@ class Raid {
             f.stun = math.max(f.stun, 1.8);
           }
         }
+    }
+  }
+
+  /// Healing Mist's wave reaching each creature in turn: the hit as the Tidal Surge's, the corruption stripped off,
+  /// and where that clears the last of the Hollow, its purification
+  void _tickMist(double dt) {
+    if (_mistHits.isEmpty) return;
+    _mistT += dt;
+    final p = pet;
+    for (final h in _mistHits.toList()) {
+      final (f, at, fx, fz) = h;
+      if (_mistT < at) continue;
+      _mistHits.remove(h);
+      if (!f.alive || f.calm) continue;
+      bursts.add(Burst('strip', f.x, f.z, 0.7, dx: fx, dz: fz, size: f is Boss ? 2.2 : 1.0));
+      _hurt(f, 30 * atk, from: p, kx: fx * 280, kz: fz * 280, poise: 70, stun: f is Boss ? 0 : 0.8, cause: 'mist');
+      if (f.calm) bursts.add(Burst('cleanse', f.x, f.z, 1.2, size: f is Boss ? 2.2 : 1.0));
     }
   }
 
@@ -1757,7 +1795,7 @@ class Raid {
       return true;
     }
     final f = a as Foe;
-    _float('$n', f.x, f.z, crit ? 'crit' : 'dmg');
+    _float('$n', f.x, f.z, crit ? 'crit' : (cause == 'mist' ? 'mist' : 'dmg'));
     _emit('hit', value: n.toDouble(), x: f.x, z: f.z);
     if (from != null) {
       f.threat[from] = (f.threat[from] ?? 0) + n;

@@ -36,7 +36,7 @@ import '../../game/trails/trails.dart' as trails;
 import '../../game/wilds/charms.dart' as charms;
 import '../../game/wilds/story_floors.dart' as sf;
 import '../../game/wilds/wilds.dart' as w;
-import '../shared/action_button.dart';
+import '../shared/ability_button.dart';
 import '../shared/ambience.dart';
 import '../shared/kit.dart';
 import '../shared/live_scene.dart' show SceneFx;
@@ -198,6 +198,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   final _input = RaidInput();
   final _held = <String, double>{}; // a pad button held down -> time to its next repeat
   double _itemCd = 0;
+  final _pressAt = <String, double>{}; // when each move was last pressed (its button's flash)
   final _sfxAt = <String, double>{};
   String? _music;
   double _combatT = 0;
@@ -1645,6 +1646,12 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                   ),
                   if (card == null)
                     Positioned(
+                      right: 10 + mq.padding.right + _CombatPad.w + 6,
+                      bottom: 14 + mq.padding.bottom,
+                      child: _Pouch(state: this),
+                    ),
+                  if (card == null)
+                    Positioned(
                       right: 10 + mq.padding.right,
                       bottom: 12 + mq.padding.bottom,
                       child: _CombatPad(state: this),
@@ -1719,6 +1726,10 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                     key: const ValueKey('ult_cutin'),
                     child: UltCutIn(
                       art: _ultArt!,
+                      focus: () {
+                        final p = _raid?.pet;
+                        return p == null ? Offset.zero : _toScreen(p.x, p.z) - Offset(0, 8 * _cosP * _u);
+                      },
                       onRelease: () => _raid?.ultRelease(),
                       onDone: () {
                         if (mounted) setState(() => _ultOn = false);
@@ -2192,7 +2203,7 @@ class _MapPainter extends CustomPainter {
       _wave(canvas, wv);
     }
     for (final b in r.bursts) {
-      if (const {'pulse', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare', 'mist'}.contains(b.kind)) _burst(canvas, b);
+      if (const {'pulse', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare', 'mistwave', 'mistlinger'}.contains(b.kind)) _burst(canvas, b);
     }
     // the target ring
     final lock = r.lock;
@@ -2323,7 +2334,7 @@ class _MapPainter extends CustomPainter {
     if (s._miningArt != null) _mineBitsPaint(canvas);
     // above everything: sparks, motes, stars, numbers
     for (final b in r.bursts) {
-      if (!const {'pulse', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare', 'mist'}.contains(b.kind)) _burst(canvas, b);
+      if (!const {'pulse', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare', 'mistwave', 'mistlinger'}.contains(b.kind)) _burst(canvas, b);
     }
     // a glint where something waits to be found
     for (final sp in m.spots) {
@@ -2839,6 +2850,16 @@ class _MapPainter extends CustomPainter {
       canvas.translate(0, c);
     }
     canvas.drawImageRect(img, src, Rect.fromLTWH(-a.gx * k, -a.gy * k, a.fw * k, a.fh * k), _spritePaint(f));
+    if (f.calm && pi == null && f.t < 0.6) {
+      // purified a moment ago: the Hollow form fades off the one underneath, lit white as it goes
+      final hol = (a.gaits[f.gait] ?? a.gaits['walk']!).sheets['hollow'];
+      if (hol != null && hol != img) {
+        final o = (1 - f.t / 0.6).clamp(0.0, 1.0);
+        canvas.drawImageRect(hol, src, Rect.fromLTWH(-a.gx * k, -a.gy * k, a.fw * k, a.fh * k), Paint()
+          ..color = Color.fromRGBO(255, 255, 255, o)
+          ..colorFilter = ColorFilter.mode(Color.fromRGBO(225, 245, 255, 0.5 * (1 - o)), BlendMode.srcATop));
+      }
+    }
     canvas.restore();
     if (f.st == FoeState.stagger && (f is Boss || f.kind == 'sentinel')) _stars(canvas, g - Offset(0, a.top * k * 0.95), 2, 1);
     if (f.kind == 'sentinel' && !f.calm) _sentinelShield(canvas, f, a, g, k);
@@ -3166,6 +3187,55 @@ class _MapPainter extends CustomPainter {
     canvas.drawPath(path..close(), Paint()..color = col);
   }
 
+  /// Healing Mist rolling out over the ground: a soft body of mist from your Evochi to a bright curling leading
+  /// edge (it lands each hit as it arrives), droplets thrown on ahead of it
+  void _mistWave(Canvas canvas, Burst b, double k, double u) {
+    final reach = math.min(b.size, Raid.mistSpeed * b.t);
+    final done = ((b.t - b.size / Raid.mistSpeed) / (b.ttl - b.size / Raid.mistSpeed)).clamp(0.0, 1.0);
+    final fade = 1 - done;
+    final nx = -b.dz, nz = b.dx;
+    // the body: soft blooms of mist along the path, thinning toward where it set out
+    for (var d = 0.0; d <= reach; d += 11) {
+      final f = d / math.max(reach, 1);
+      final half = 26 + 10 * f;
+      final x = b.x + b.dx * d, z = b.z + b.dz * d;
+      canvas.drawOval(
+          _ellipse(x, z, half),
+          Paint()
+            ..color = Color.fromRGBO(178, 228, 255, (0.05 + 0.13 * f) * fade)
+            ..maskFilter = MaskFilter.blur(BlurStyle.normal, 9 * u));
+    }
+    if (done >= 1) return;
+    // the leading edge: a bowed crest of bright water, and its spray
+    final pts = <Offset>[];
+    for (var i = -6; i <= 6; i++) {
+      final a = i / 6;
+      final bow = (1 - a * a) * 9;
+      pts.add(s._toScreen(b.x + b.dx * (reach + bow) + nx * a * 38, b.z + b.dz * (reach + bow) + nz * a * 38) - Offset(0, (3 + 4 * (1 - a * a)) * _up));
+    }
+    final path = Path()..addPolygon(pts, false);
+    canvas.drawPath(path, Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 11 * u
+      ..strokeCap = StrokeCap.round
+      ..color = Color.fromRGBO(120, 205, 250, 0.55 * fade)
+      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6 * u));
+    canvas.drawPath(path, Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3.2 * u
+      ..strokeCap = StrokeCap.round
+      ..color = Color.fromRGBO(240, 252, 255, 0.95 * fade));
+    for (var i = 0; i < 14; i++) {
+      final a = (i / 13) * 2 - 1;
+      final ph = (b.t * 3.2 + i * 0.37) % 1.0;
+      final d = reach + 6 + ph * 16;
+      final at = s._toScreen(b.x + b.dx * d + nx * a * 36, b.z + b.dz * d + nz * a * 36) - Offset(0, (4 + 14 * math.sin(math.pi * ph)) * _up);
+      final r = (1.6 + (i % 3) * 0.6) * u;
+      canvas.drawCircle(at, r, Paint()..color = Color.fromRGBO(76, 155, 204, 0.9 * fade * (1 - ph)));
+      canvas.drawCircle(at - Offset(r * 0.3, r * 0.3), r * 0.45, Paint()..color = Color.fromRGBO(255, 255, 255, 0.95 * fade * (1 - ph)));
+    }
+  }
+
   void _burst(Canvas canvas, Burst b) {
     final k = (b.t / b.ttl).clamp(0.0, 1.0);
     final g = s._toScreen(b.x, b.z);
@@ -3376,39 +3446,76 @@ class _MapPainter extends CustomPainter {
           canvas.drawPath(Path()..moveTo(base.dx - w2, base.dy)..lineTo(base.dx + w2, base.dy)..lineTo(base.dx + 1, base.dy - h)..close(), tp);
           canvas.drawLine(base, base - Offset(-1, h * 0.8), hi..strokeWidth = 1);
         }
-      case 'mist':
-        // Healing Mist, on the battlefield: the mist the cut-in ended in rolls out from your Evochi over everyone
-        // near, soft and low, with aqua light rising out of it as it mends
+      case 'mistburst':
+        // Healing Mist's release, back in the Wilds: the cut-in's blue-white light breaking open round your Evochi
         final e = 1 - (1 - k) * (1 - k);
-        final fade = k < 0.08 ? k / 0.08 : (1 - math.max(0, k - 0.5) / 0.5);
-        final r = b.size * (0.35 + 0.65 * e);
-        for (var i = 0; i < 3; i++) {
+        final r = (14 + 70 * e) * u * 2.7;
+        canvas.drawCircle(g - Offset(0, 6 * _up), r, Paint()
+          ..color = Color.fromRGBO(236, 250, 255, 0.85 * (1 - k))
+          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 10 * u));
+        canvas.drawOval(_ellipse(b.x, b.z, 18 + 80 * e), Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 4 * u * (1 - k) + 1
+          ..color = Color.fromRGBO(170, 228, 255, 0.9 * (1 - k)));
+      case 'mistwave':
+        _mistWave(canvas, b, k, u);
+      case 'mistlinger':
+        // what stays of it: a few low drifts of mist along its path, faint enough to fight through
+        final fade = math.min(1.0, b.t / 0.6) * (1 - math.max(0.0, k - 0.6) / 0.4);
+        for (var i = 0; i < 7; i++) {
+          final along = b.size * (0.1 + 0.13 * i);
+          final side = math.sin(i * 2.3 + s._t * 0.4) * 16;
+          final x = b.x + b.dx * along - b.dz * side, z = b.z + b.dz * along + b.dx * side;
           canvas.drawOval(
-              _ellipse(b.x, b.z, r * (1 - i * 0.22)),
+              _ellipse(x, z, 20 + 6 * math.sin(i + s._t * 0.7)),
               Paint()
-                ..color = Color.fromRGBO(190, 232, 255, 0.20 * fade)
-                ..maskFilter = MaskFilter.blur(BlurStyle.normal, 14 * u));
+                ..color = Color.fromRGBO(200, 236, 255, 0.10 * fade)
+                ..maskFilter = MaskFilter.blur(BlurStyle.normal, 12 * u));
         }
-        canvas.drawOval(
-            _ellipse(b.x, b.z, r),
+      case 'strip':
+        // the mist striking a creature: a splash, and the Hollow's violet torn off it, flung on with the wave
+        final e = 1 - (1 - k) * (1 - k);
+        canvas.drawOval(_ellipse(b.x, b.z, (8 + 22 * e) * b.size), Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 3 * u * (1 - k) + 0.5
+          ..color = Color.fromRGBO(200, 240, 255, 0.95 * (1 - k)));
+        for (var i = 0; i < 11; i++) {
+          final a = math.atan2(b.dz, b.dx) + (i / 10 - 0.5) * 2.2;
+          final d = (6 + 40 * e * (0.6 + (i % 3) * 0.25)) * b.size;
+          final at = s._toScreen(b.x + math.cos(a) * d, b.z + math.sin(a) * d) - Offset(0, (12 + 26 * math.sin(math.pi * math.min(1.0, k * 1.3)) * (0.5 + (i % 4) * 0.2)) * _up * b.size);
+          final sz = (3.6 - 2.2 * k) * u * (i.isEven ? 1.2 : 0.8);
+          canvas.save();
+          canvas.translate(at.dx, at.dy);
+          canvas.rotate(k * 6 + i);
+          canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: sz * 2, height: sz * 2),
+              Paint()..color = (i % 3 == 0 ? const Color(0xFF4B2D6E) : const Color(0xFFA77BDA)).withAlpha(((1 - k) * 235).round()));
+          canvas.restore();
+        }
+        for (var i = 0; i < 5; i++) {
+          final a = i * 1.26 + 0.4;
+          final at = g + Offset(math.cos(a) * 14 * u * e, -(10 + 24 * e) * _up + math.sin(a) * 5 * u);
+          canvas.drawCircle(at, 2.4 * u * (1 - k), Paint()..color = Color.fromRGBO(235, 250, 255, 0.9 * (1 - k)));
+        }
+      case 'cleanse':
+        // purified: the last of the Hollow washed out, a column of clear light, and it stands there as it was
+        final e = 1 - (1 - k) * (1 - k);
+        final up = 70 * _up * b.size;
+        final w = 16 * u * b.size * (1 - 0.4 * k);
+        canvas.drawRect(
+            Rect.fromLTWH(g.dx - w, g.dy - up, w * 2, up),
             Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 3 * u
-              ..color = Color.fromRGBO(225, 248, 255, 0.55 * fade)
-              ..maskFilter = MaskFilter.blur(BlurStyle.normal, 3 * u));
-        for (var i = 0; i < 16; i++) {
-          final ph = (k * 1.6 + i / 16) % 1.0;
+              ..shader = ui.Gradient.linear(g, g - Offset(0, up), [Color.fromRGBO(220, 246, 255, 0.75 * (1 - k)), const Color.fromRGBO(220, 246, 255, 0)])
+              ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6 * u));
+        canvas.drawOval(_ellipse(b.x, b.z, (10 + 34 * e) * b.size), Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 2.5 * u * (1 - k) + 0.5
+          ..color = Color.fromRGBO(255, 244, 196, 0.9 * (1 - k)));
+        for (var i = 0; i < 12; i++) {
           final a = i * 2.39996;
-          final rr = r * (0.2 + 0.75 * ((i * 0.61) % 1.0));
-          final at = s._toScreen(b.x + math.cos(a) * rr, b.z + math.sin(a) * rr) - Offset(0, ph * 34 * _up);
-          final al = (1 - ph) * fade;
-          if (i % 4 == 0) {
-            final c = Paint()..color = Color.fromRGBO(235, 252, 255, 0.85 * al);
-            canvas.drawRect(Rect.fromCenter(center: at, width: 2.2 * u, height: 7 * u), c);
-            canvas.drawRect(Rect.fromCenter(center: at, width: 7 * u, height: 2.2 * u), c);
-          } else {
-            canvas.drawCircle(at, 2.0 * u, Paint()..color = Color.fromRGBO(150, 220, 255, 0.8 * al));
-          }
+          final rr = (6 + 16 * ((i * 0.37) % 1.0)) * u * b.size;
+          final at = g + Offset(math.cos(a) * rr, -(8 + 46 * e * (0.5 + (i % 4) * 0.18)) * _up * b.size + math.sin(a) * rr * 0.35);
+          final col = i.isEven ? const Color(0xFFFFF2B8) : const Color(0xFFBFEAFF);
+          canvas.drawCircle(at, (2.4 - 1.2 * k) * u, Paint()..color = col.withAlpha(((1 - k) * 255).round()));
         }
       case 'reef':
         // Reef Bloom: coral and soft light underfoot that heals
@@ -3677,9 +3784,11 @@ class _MapPainter extends CustomPainter {
 
   void _floater(Canvas canvas, Floater f) {
     final k = f.t / f.ttl;
-    final big = f.kind == 'crit' || f.kind == 'alert';
+    final big = f.kind == 'crit' || f.kind == 'alert' || f.kind == 'mist';
     final col = switch (f.kind) {
       'crit' => const Color(0xFFFFB13B),
+      'mist' => const Color(0xFFE6F7FF), // Healing Mist's hits: bright, edged in its deep blue
+
       'hurt' => const Color(0xFFFF6B5E),
       'heal' => const Color(0xFF8CE678),
       'loot' => const Color(0xFFFFE08A),
@@ -3695,8 +3804,8 @@ class _MapPainter extends CustomPainter {
           style: style.copyWith(
               foreground: Paint()
                 ..style = PaintingStyle.stroke
-                ..strokeWidth = 3.5
-                ..color = Color.fromRGBO(43, 28, 18, 1 - k * k))),
+                ..strokeWidth = f.kind == 'mist' ? 4.5 : 3.5
+                ..color = f.kind == 'mist' ? Color.fromRGBO(28, 82, 128, 1 - k * k) : Color.fromRGBO(43, 28, 18, 1 - k * k))),
       textDirection: TextDirection.ltr,
     )..layout();
     final tf = TextPainter(text: TextSpan(text: f.text, style: style.copyWith(color: col.withAlpha(((1 - k * k) * 255).round()))), textDirection: TextDirection.ltr)
@@ -4111,56 +4220,55 @@ class _Banner extends StatelessWidget {
 
 /// The action pad, icons only on see-through discs: Pounce (big; hold to keep at it), Dodge, Glow Bolt
 /// and Lumen Pulse (their cooldowns sweep round), a berry. Running is the stick pushed to its rim.
-/// The combat pad, bottom right: a big Pounce with the stamina ringed round it, the moves on a quarter
-/// circle round it (Dodge, Bolt, Pulse), an Elder's signature move above them with its charge ring, and
-/// the things to eat and drink in a column to the left. Every button is named under it.
+/// The combat controls, in three groups (the design: lib/features/shared/ability_button.dart). Bottom right, the
+/// moves round a big Pounce (stamina ringed round it): Dodge, Bolt and Pulse on a quarter circle; above them, apart,
+/// an Elder's ultimate in its affinity's colour. To their left, a small tray of what to eat and drink, quieter.
 class _CombatPad extends StatelessWidget {
   const _CombatPad({required this.state});
   final _WildsScreenState state;
 
-  static const _w = 236.0, _h = 246.0;
-  static const _pounce = Offset(186, 192), _dodge = Offset(88, 192), _bolt = Offset(114, 122), _pulse = Offset(186, 94), _sig = Offset(124, 38);
-  static const _berry = Offset(28, 192), _brew = Offset(28, 130);
+  // low and wide, so it takes a smaller share of a short screen: the ultimate at the top left of the moves
+  static const w = 236.0, h = 202.0;
+  static const _pounce = Offset(188, 140), _dodge = Offset(104, 160), _bolt = Offset(116, 84), _pulse = Offset(194, 52), _ult = Offset(38, 70);
 
-  Widget _at(Offset c, double size, Widget child, {double ring = 0}) =>
-      Positioned(left: c.dx - size / 2 - ring, top: c.dy - size / 2 - ring, child: child);
+  Widget _at(Offset c, Widget child, {double box = 72}) => Positioned(left: c.dx - box / 2, top: c.dy - box / 2 + 6, width: box, child: Center(child: child));
 
   @override
   Widget build(BuildContext context) {
-    final c = context.watch<GameController>();
-    final healId = w.nextHealItem(c.state);
-    final heals = w.healItemCount(c.state);
-    final brews = w.ownedBrews(c.state);
     final s = state;
     final r = s._raid!;
     return ValueListenableBuilder<int>(
       valueListenable: s._repaint,
       builder: (context, _, child) {
         final st = r.stamina;
-        // the pad is quieter out of a fight
-        final calm = s._combatT <= 0;
+        final calm = s._combatT <= 0; // quieter out of a fight
+        double fx(String k) => (1 - (s._t - (s._pressAt[k] ?? -9)) / 0.35).clamp(0.0, 1.0);
+        void go(String k) {
+          s._pressAt[k] = s._t;
+          s._press(k);
+        }
+
         return AnimatedOpacity(
-          opacity: calm ? 0.78 : 1,
+          opacity: calm ? 0.8 : 1,
           duration: const Duration(milliseconds: 400),
           child: SizedBox(
-            width: _w,
-            height: _h,
+            width: w,
+            height: h,
             child: Stack(clipBehavior: Clip.none, children: [
-              // stamina: a green ring round the Pounce
-              _at(_pounce, 86 + 14, CustomPaint(size: const Size(100, 100), painter: _StaminaRing(st / 100.0))),
+              Positioned(left: _pounce.dx - 46, top: _pounce.dy - 46 + 6 - 6, child: CustomPaint(size: const Size(92, 92), painter: _StaminaRing(st / 100.0))),
               _at(
                 _pounce,
-                86,
-                ActionButton(
+                AbilityButton(
+                  icon: AbilityIcon.claws,
+                  rank: AbilityRank.primary,
                   label: 'Pounce',
-                  hint: 'Tap to strike, hold to keep striking',
-                  icon: 'paw',
-                  size: 86,
-                  palette: KitButtonPalette.gold,
+                  semantic: 'Pounce: tap to strike, hold to keep striking',
+                  accent: const Color(0xFFFFD25A),
                   dim: st < 5,
+                  flash: fx('attack'),
                   onDown: () {
                     s._padHeld = true;
-                    s._press('attack');
+                    go('attack');
                     s._held['attack'] = 0.3;
                   },
                   onUp: () {
@@ -4168,92 +4276,122 @@ class _CombatPad extends StatelessWidget {
                     s._held.remove('attack');
                   },
                 ),
+                box: 84,
               ),
-              _at(_dodge, 56, ActionButton(label: 'Dodge', icon: 'swirl', size: 56, palette: KitButtonPalette.green, dim: st < 20, onDown: () => s._press('dodge'))),
+              _at(_dodge, AbilityButton(icon: AbilityIcon.dodge, label: 'Dodge', accent: const Color(0xFF8FCBEF), dim: st < 20, flash: fx('dodge'), onDown: () => go('dodge'))),
               _at(
                 _bolt,
-                56,
-                ActionButton(
+                AbilityButton(
+                  icon: AbilityIcon.bolt,
                   label: 'Bolt',
                   semantic: 'Glow Bolt',
-                  icon: 'energy',
-                  size: 56,
-                  palette: _mint,
+                  accent: const Color(0xFFB8EE5A),
                   cooldown: r.boltCd / 1.0,
+                  cooldownLeft: r.boltCd,
                   dim: st < 18,
-                  onDown: () => s._press('bolt'),
+                  flash: fx('bolt'),
+                  onDown: () => go('bolt'),
                 ),
               ),
               _at(
                 _pulse,
-                56,
-                ActionButton(
+                AbilityButton(
+                  icon: AbilityIcon.pulse,
                   label: 'Pulse',
                   semantic: 'Lumen Pulse',
-                  icon: 'sun',
-                  size: 56,
-                  palette: _mint,
+                  accent: const Color(0xFFF2C76A),
                   cooldown: r.pulseCd / 7.0,
+                  cooldownLeft: r.pulseCd,
                   dim: st < 34,
-                  onDown: () => s._press('pulse'),
+                  flash: fx('pulse'),
+                  onDown: () => go('pulse'),
                 ),
               ),
-              // an Elder's signature move: fills from perfect dodges, counters and close calls
+              // an Elder's ultimate: it fills from perfect dodges, counters and close calls
               if (r.stage >= 3)
                 _at(
-                  _sig,
-                  64,
-                  ActionButton(
+                  _ult,
+                  AbilityButton(
+                    icon: r.palette == 'ocean' ? AbilityIcon.mist : AbilityIcon.star,
+                    rank: AbilityRank.ultimate,
                     label: r.sigName,
                     semantic: r.sigReady ? '${r.sigName}: ready' : '${r.sigName}: ${r.sig.round()} percent charged',
-                    icon: 'star',
-                    size: 64,
-                    palette: r.sigReady ? KitButtonPalette.gold : KitButtonPalette.plum,
+                    accent: _ultColor(r.palette),
                     charge: r.sig / 100,
                     ready: r.sigReady,
                     dim: !r.sigReady,
-                    badge: r.sigReady ? '!' : null,
-                    onDown: () => s._press('signature'),
+                    flash: fx('signature'),
+                    onDown: () => go('signature'),
                   ),
-                  ring: 6,
+                  box: 104,
                 ),
-              _at(
-                _berry,
-                46,
-                ActionButton(
-                  label: heals > 0 ? 'Eat' : 'No food',
-                  semantic: heals > 0 ? 'Eat a berry, $heals left' : 'No berries',
-                  icon: 'potion',
-                  image: healId,
-                  badge: heals > 0 ? '$heals' : null,
-                  size: 46,
-                  palette: KitButtonPalette.cream,
-                  cooldown: s._itemCd / 2.5,
-                  dim: heals == 0,
-                  onDown: () => s._press('item'),
-                ),
-              ),
-              // the brews: a flask; with more than one kind, it opens a little shelf of them
-              _at(
-                _brew,
-                46,
-                ActionButton(
-                  label: brews.isEmpty ? 'No brew' : 'Drink',
-                  semantic: brews.isEmpty ? 'No brews' : 'Drink a brew',
-                  icon: 'potion',
-                  image: brews.isEmpty ? null : brews.first,
-                  badge: brews.length > 1 ? '${brews.length}' : null,
-                  size: 46,
-                  palette: KitButtonPalette.cream,
-                  cooldown: s._brewCd / 1.5,
-                  dim: brews.isEmpty,
-                  onDown: () => s._brewTap(brews),
-                ),
-              ),
             ]),
           ),
         );
       },
+    );
+  }
+
+  static Color _ultColor(String palette) => switch (palette) {
+        'ocean' => const Color(0xFF4C9BCC),
+        'forest' => const Color(0xFF5FA046),
+        'coral' => const Color(0xFFEC7A4A),
+        'obsidian' => const Color(0xFF8E887E),
+        'amethyst' => const Color(0xFF9975C9),
+        _ => const Color(0xFFF4B84E),
+      };
+}
+
+/// What to eat and drink in a fight: a small parchment tray of its own, beside the moves, not among them.
+class _Pouch extends StatelessWidget {
+  const _Pouch({required this.state});
+  final _WildsScreenState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.watch<GameController>();
+    final heals = w.healItemCount(c.state);
+    final brews = w.ownedBrews(c.state);
+    final s = state;
+    return ValueListenableBuilder<int>(
+      valueListenable: s._repaint,
+      builder: (context, _, child) => Opacity(
+        opacity: s._combatT <= 0 ? 0.8 : 1,
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(4, 6, 4, 4),
+          decoration: BoxDecoration(
+            color: const Color(0xB3FFF3DC),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: const Color(0xCC76513B), width: 2),
+            boxShadow: const [BoxShadow(color: Color(0x40241208), offset: Offset(0, 2), blurRadius: 3)],
+          ),
+          child: Column(mainAxisSize: MainAxisSize.min, children: [
+            AbilityButton(
+              icon: AbilityIcon.apple,
+              rank: AbilityRank.utility,
+              label: 'Eat',
+              semantic: heals > 0 ? 'Eat a berry, $heals left' : 'No berries',
+              accent: const Color(0xFFE2493B),
+              badge: heals > 0 ? '$heals' : null,
+              cooldown: s._itemCd / 2.5,
+              dim: heals == 0,
+              onDown: () => s._press('item'),
+            ),
+            const SizedBox(height: 4),
+            AbilityButton(
+              icon: AbilityIcon.potion,
+              rank: AbilityRank.utility,
+              label: 'Drink',
+              semantic: brews.isEmpty ? 'No brews' : 'Drink a brew',
+              accent: const Color(0xFFE0609A),
+              badge: brews.isEmpty ? null : '${brews.length}',
+              cooldown: s._brewCd / 1.5,
+              dim: brews.isEmpty,
+              onDown: () => s._brewTap(brews),
+            ),
+          ]),
+        ),
+      ),
     );
   }
 }
@@ -4294,19 +4432,6 @@ class _BrewShelf extends StatelessWidget {
     );
   }
 }
-
-/// Lumen: a mint button for the light moves.
-const _mint = KitButtonPalette(
-  colors: [Color(0xFFE6FBF5), Color(0xFFBFF0E2), Color(0xFF9FE3D0)],
-  stops: [0, 0.5, 1],
-  border: Color(0xFF2E6E62),
-  edge: Color(0xFF235449),
-  shade: Color(0x66318A78),
-  drop: Color(0x40204A40),
-  pressed: [Color(0xFFCFF2E8), Color(0xFF8FD3BF)],
-  pressShade: Color(0x59204A40),
-  textShadow: Color(0x66FFFFFF),
-);
 
 /// Stamina as a ring round the Pounce: green, draining clockwise, amber when it is nearly spent.
 class _StaminaRing extends CustomPainter {

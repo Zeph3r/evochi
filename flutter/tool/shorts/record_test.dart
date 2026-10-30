@@ -146,7 +146,7 @@ class Recorder implements Take {
   }
 
   Future<void> run() async {
-    tester.view.physicalSize = const Size(1080, 1920);
+    tester.view.physicalSize = Size(short.view.width * 3, short.view.height * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     AudioService.record = cues;
@@ -296,8 +296,8 @@ class Recorder implements Take {
   }
 
   static const _scale = int.fromEnvironment('SHORTS_SCALE', defaultValue: 3) * 1.0;
-  int get _w => (360 * _scale).round();
-  int get _h => (640 * _scale).round();
+  int get _w => (short.view.width * _scale).round();
+  int get _h => (short.view.height * _scale).round();
 
   Future<void> _snap() async {
     final ro = _shot.currentContext?.findRenderObject() as RenderRepaintBoundary?;
