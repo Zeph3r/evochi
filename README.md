@@ -254,7 +254,10 @@ lights the first path after naming.
 The eggs are the Eggling's own model (`characters.build_eggling`) without its feet, claws and face, so the crest,
 ear plates, scale squares and diamond markings are the game's; the villagers and the Elder are the game's models
 placed as actors (`cine_blender.Actor`: a Character with an expression, a turn and a size, built the way
-`cast_blend.py` builds them). The renderer adds what the village renders don't have: depth of field, a depth
+`cast_blend.py` builds them). In close-up the cast is built at twice the game's voxel grain (`CAST_RES = 4` in
+`cine_scenes.py`) and casts its shadows from a smooth stand-in (`village_npc_render.shadow_proxy`, an iso-surface
+hidden from the camera), so the voxel steps never stripe themselves with shadow; the Elder glimpse uses the
+Elder's own face, not a battle expression, and dollies so the whole Elder stays in frame. The renderer adds what the village renders don't have: depth of field, a depth
 pass (`<plate>_z.exr`) for haze by distance, gradient skies that light the scene, layered renders (a model or
 actor hidden from the camera still lights and shadows, so an egg comes out as its own sprite lit by the room)
 and a film grade (bloom, soft glow, haze, warm highlights and cool shadows, vignette, grain).
