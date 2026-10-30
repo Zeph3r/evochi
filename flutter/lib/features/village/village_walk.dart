@@ -45,6 +45,7 @@ import 'chathead_talk.dart';
 import 'forge_minigame.dart';
 import 'mining.dart';
 import 'mining_gear_ui.dart';
+import '../shop/shop_screen.dart' show openMarket;
 import '../trails/trails_widgets.dart' show openGuild, openPrep;
 import 'story_widgets.dart';
 import 'village_screen.dart';
@@ -1070,6 +1071,12 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   }
 
   void _arrived() {
+    if (_marketOnArrive) {
+      _marketOnArrive = false;
+      me.dir = 4; // facing the stalls
+      openMarket(context);
+      return;
+    }
     final ore = _goingTo;
     if (ore != null) {
       _goingTo = null;
@@ -1205,6 +1212,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   void walkTo(double x, double z) {
     final l = lay;
     if (l == null || _talking) return;
+    _marketOnArrive = false;
     _rearm();
     _leaveOre();
     me.talkTo = null;
@@ -1285,7 +1293,8 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
         return _talkWaystone();
       case 'market':
         c_().audio.buzz(Haptic.tap);
-        return c_().goTab('shop');
+        _market();
+        return;
       case 'board':
         c_().audio.buzz(Haptic.tap);
         return openGuild(context);
@@ -1561,7 +1570,14 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     final c = context.watch<GameController>();
     if (lay != null && _wearing(c.state).join(',') != _lookKey) _refreshLook(c.state);
     final marks = q.npcMarkers(c.state);
-    return Scaffold(
+    return PopScope(
+      // the system back does what the header's Back does: out one level, never straight past the place
+      // you were standing outside of
+      canPop: _talkNpc == null && _outside == null,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) _back();
+      },
+      child: Scaffold(
       backgroundColor: _indoors ? const Color(0xFF1E1511) : const Color(0xFF86B566),
       body: Column(children: [
         Container(
@@ -1571,8 +1587,8 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
             child: PlaceHeader(
                 title: lay?.title ?? switch (widget.map) { 'trail' => 'The Old Trail', 'home' => 'Your Home', 'cottage' => 'Your Cottage', 'lodge' => 'The Guild Lodge', 'workshop' => "Bram's Workshop", 'glasshouse' => "Mira's Glasshouse", _ => 'Sunlit Village' },
                 short: switch (widget.map) { 'trail' => 'Trail', 'home' => 'Home', 'cottage' => 'Cottage', 'lodge' => 'Guild', 'workshop' => 'Workshop', 'glasshouse' => 'Glasshouse', _ => 'Village' },
-                backLabel: 'Back',
-                onBack: () => Navigator.of(context).maybePop()),
+                backLabel: switch (_outside?.$1) { 'village' => 'Back to the Square', 'home' => 'Back outside', _ => 'Back' },
+                onBack: _back),
           ),
         ),
         Expanded(
@@ -1667,7 +1683,58 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
               },
               onPick: _quick),
       ]),
+      ),
     );
+  }
+
+  /// Where Back takes you from here: out one level, to the map this one opens off, standing outside
+  /// the door you came in by (a house, the cottage: outside its door; the Old Trail: the Square at the
+  /// trail's gate; the Square, walked into from your Home: back there at its gate). Null: this is the top
+  /// of the walk (the Square opened from Home's button, your Home): Back closes it.
+  (String, String)? get _outside => switch (widget.map) {
+        'lodge' || 'glasshouse' || 'workshop' => ('village', widget.map),
+        'trail' => ('village', 'trail'),
+        'cottage' => ('home', 'cottage'),
+        'village' when widget.arrive == 'home' => ('home', 'village'),
+        _ => null,
+      };
+
+  /// The market stalls: your Evochi walks up to them and the Market opens over the Square; back out, it is
+  /// standing by the stalls.
+  Future<void> _market() async {
+    final l = lay;
+    if (l == null || _talking || _leaving) return;
+    final at = l.spots['market'] ?? const Offset(-15.5, 30.5); // in front of the stalls
+    if (((me.x - at.dx) * (me.x - at.dx) + (me.z - at.dy) * (me.z - at.dy)) > 16) {
+      walkTo(at.dx, at.dy);
+      if (me.moving) {
+        _marketOnArrive = true;
+        return;
+      }
+    }
+    me
+      ..path = const []
+      ..moving = false;
+    openMarket(context);
+  }
+
+  bool _marketOnArrive = false;
+
+  /// Back: a talk closes first; then out one level (see [_outside]).
+  void _back() {
+    if (_talkNpc != null) {
+      _talkClose();
+      return;
+    }
+    if (_leaving) return;
+    final out = _outside;
+    if (out == null) {
+      Navigator.of(context).maybePop();
+      return;
+    }
+    _leaving = true;
+    c_().audio.hushNav();
+    Navigator.of(context).pushReplacement(_mapRoute(out.$1, out.$2));
   }
 
   /// The map window: the whole place, with where you are and pins for where you can go; tap a pin
@@ -1714,7 +1781,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       case 'waystone' when widget.map == 'village':
         _talkWaystone();
       case 'market' when widget.map == 'village':
-        c_().goTab('shop');
+        _market();
       case 'board' when widget.map == 'lodge':
         openGuild(context);
       case _ when _npcs.any((n) => n.id == id): // a villager's button works like tapping them: the talk opens
@@ -1745,7 +1812,8 @@ const _buildings = <String, Map<String, (double, double, double, double, double)
   'workshop': {'forge': (-5.2, -0.4, -5.0, -2.0, 3.4)},
 };
 
-const _villageTravel = [('lodge', 'mail', 'Guild'), ('glasshouse', 'care', 'Glasshouse'), ('workshop', 'bell', 'Workshop'), ('waystone', 'star', 'Waystone'), ('market', 'shop', 'Market'), ('trail', 'trail', 'Old Trail')];
+// the houses by who keeps them (as inside: Bram, Mira, Pip), so the six fit a narrow phone at a size you can read
+const _villageTravel = [('lodge', 'mail', 'Guild'), ('glasshouse', 'care', 'Mira'), ('workshop', 'bell', 'Bram'), ('waystone', 'star', 'Waystone'), ('market', 'shop', 'Market'), ('trail', 'trail', 'Trail')];
 const _workshopTravel = [('bram', 'bell', 'Bram'), ('anvil', 'aff_stone', 'Anvil'), ('bench', 'gem', 'Bench'), ('village', 'trail', 'Square')];
 const _glasshouseTravel = [('mira', 'care', 'Mira'), ('bench', 'skill_farming', 'Bench'), ('beds', 'aff_nature', 'Beds'), ('village', 'trail', 'Square')];
 const _lodgeTravel = [('pip', 'mail', 'Pip'), ('alder', 'journey', 'Alder'), ('board', 'pin', 'Board'), ('fire', 'aff_ember', 'Fire'), ('village', 'trail', 'Square')];
@@ -1760,40 +1828,56 @@ class _QuickTravel extends StatelessWidget {
   final void Function(String) onPick;
   @override
   Widget build(BuildContext context) {
+    final style = EvochiText.tag.copyWith(fontSize: 12.5, height: 1.15, color: KitColor.navText, shadows: const [Shadow(color: Color(0xA61E0C00), offset: Offset(0, 1))]);
     return Container(
       color: EvochiColor.panel,
       child: SafeArea(
         top: false,
         child: Container(
-          margin: const EdgeInsets.fromLTRB(6, 6, 6, 6),
+          margin: const EdgeInsets.fromLTRB(5, 6, 5, 6),
           height: 68,
-          padding: const EdgeInsets.all(5),
+          padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 5),
           decoration: Kit.navBar(),
-          child: Row(children: [
-            for (final (id, icon, label) in items)
-              Expanded(
-                child: Semantics(
-                  button: true,
-                  label: label,
-                  hint: 'Walk there',
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: () => onPick(id),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        VoxelIcon(icon, size: 34),
+          child: LayoutBuilder(builder: (context, b) {
+            // every label at one size, the size the longest fits its slot at (so none is squeezed smaller
+            // than the rest, and they never run into each other); the icons keep their own size
+            final slot = b.maxWidth / items.length;
+            final scaler = MediaQuery.textScalerOf(context);
+            var widest = 0.0;
+            for (final (_, _, label) in items) {
+              final tp = TextPainter(text: TextSpan(text: label, style: style), textDirection: TextDirection.ltr, textScaler: scaler, maxLines: 1)..layout();
+              widest = math.max(widest, tp.width);
+            }
+            final size = (12.5 * math.min(1.0, (slot - 6) / math.max(1.0, widest))).clamp(10.5, 12.5);
+            return Row(children: [
+              for (final (id, icon, label) in items)
+                SizedBox(
+                  width: slot,
+                  child: Semantics(
+                    button: true,
+                    label: label,
+                    hint: 'Walk there',
+                    child: GestureDetector(
+                      behavior: HitTestBehavior.opaque,
+                      onTap: () => onPick(id),
+                      child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        VoxelIcon(icon, size: 32),
+                        const SizedBox(height: 1),
                         ExcludeSemantics(
-                          child: Text(label,
-                              style: EvochiText.tag.copyWith(
-                                  fontSize: 12.5, height: 1.15, color: KitColor.navText, shadows: const [Shadow(color: Color(0xA61E0C00), offset: Offset(0, 1))])),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 3),
+                            child: FittedBox(
+                              fit: BoxFit.scaleDown,
+                              child: Text(label, maxLines: 1, softWrap: false, style: style.copyWith(fontSize: size)),
+                            ),
+                          ),
                         ),
                       ]),
                     ),
                   ),
                 ),
-              ),
-          ]),
+            ]);
+          }),
         ),
       ),
     );

@@ -276,8 +276,10 @@ class VillageArt {
     return artBase + ((e[expr] ?? e['neutral']) as String);
   }
 
-  /// The layered, animatable villager (null if this art pack only has flat sprites).
+  /// The layered, animatable villager (null if this art pack only has flat sprites, or for someone who
+  /// isn't a villager at all).
   NpcPuppetArt? puppet(String npcId) {
+    if ((j['npcs'] as Map)[npcId.replaceFirst('npc_', '')] == null) return null;
     final n = _npc(npcId);
     return n['layers'] == null ? null : NpcPuppetArt(n);
   }

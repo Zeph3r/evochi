@@ -279,7 +279,8 @@ class Chathead extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final va = villageArt;
-    final art = va.puppet(npcId);
+    // only the villagers have puppets (the Waystone is a stone, Flint has his own faces)
+    final art = npcId == 'waystone' || npcId == 'npc_flint' ? null : va.puppet(npcId);
     Widget inner;
     if (npcId == 'npc_flint') {
       // Flint's faces are his own art (not a puppet): the story's expressions map onto them

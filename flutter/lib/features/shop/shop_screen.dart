@@ -24,6 +24,7 @@ import '../../game/engine.dart' as g;
 import '../caravan/caravan_screen.dart';
 import '../home/home_widgets.dart';
 import '../nest/sheets.dart';
+import '../shared/ambience.dart';
 import '../shared/kit.dart';
 import '../shared/scene_view.dart';
 import '../shared/widgets.dart';
@@ -41,9 +42,25 @@ const _cats = [
 ];
 const _sorts = [('shop', 'Shop order'), ('low', 'Price: low'), ('high', 'Price: high')];
 
+/// The Market from the village: the same stalls, opened where you are (your Evochi waits by the market in
+/// the Square), with a Back to the Square instead of the tab bar.
+void openMarket(BuildContext context) {
+  if (ModalRoute.of(context)?.settings.name == 'market') return;
+  Navigator.of(context).push(PageRouteBuilder<void>(
+    settings: const RouteSettings(name: 'market'),
+    transitionDuration: const Duration(milliseconds: 320),
+    reverseTransitionDuration: const Duration(milliseconds: 240),
+    pageBuilder: (ctx, __, ___) => Ambience('market', child: ShopScreen(active: true, onBack: () => Navigator.of(ctx).maybePop())),
+    transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: CurvedAnimation(parent: a, curve: Curves.easeOut), child: child),
+  ));
+}
+
 class ShopScreen extends StatefulWidget {
-  const ShopScreen({super.key, required this.active});
+  const ShopScreen({super.key, required this.active, this.onBack});
   final bool active;
+
+  /// Opened from the village (not the tab): a Back to the Square in the sign's corner.
+  final VoidCallback? onBack;
   @override
   State<ShopScreen> createState() => _ShopScreenState();
 }
@@ -569,6 +586,10 @@ class _ShopScreenState extends State<ShopScreen> {
   Widget _header(GameController c) => Padding(
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 2),
         child: Row(children: [
+          if (widget.onBack != null) ...[
+            Semantics(label: 'Back to the Square', child: BackSquareButton(onTap: widget.onBack!)),
+            const SizedBox(width: 10),
+          ],
           Semantics(
             header: true,
             label: 'Evochi Market',
