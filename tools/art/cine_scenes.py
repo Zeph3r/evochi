@@ -45,6 +45,7 @@ AUTUMN = ['#D9A24A', '#E0B35C', '#C98A3C']
 SNOW = ['#F6F4EE', '#ECEAE3']
 SAND = ['#E8D7A8', '#DFCC9B']
 WATER_MAP = ['#5FAFD2', '#55A3C8', '#6DBBDC', '#4F9ABF']
+GLASS_WARM = ['#FFF0D2', '#FBE8C4']                 # the Glasshouse's panes at night, lit from inside
 
 # ------------------------------------------------------------------------------------------------ grades ----
 GRADES = {
@@ -564,20 +565,21 @@ def glasshouse_model(S, P, M, x0, x1, z0, z1, h_wall=8.0, h_ridge=14.0, lit=True
     ridge along x, a door on the +x end under a lantern, pots and flowers along the front. Warm light inside."""
     zc, half = (z0 + z1) / 2, (z1 - z0) / 2 + 0.6
     P.fill(box(M, (x0, 0, z0), (x1, 1.8, z1)), STONE_LT, cell=(1.5, 0.75, 1.5))
+    pane = GLASS_WARM if lit else CLEAR_GLASS
     walls = box(M, (x0, 1.8, z0), (x1, h_wall, z1)) & ~box(M, (x0 + 0.6, 1.8, z0 + 0.6), (x1 - 0.6, h_wall, z1 - 0.6))
-    P.fill(walls, CLEAR_GLASS, cell=50)
+    P.fill(walls, pane, cell=50)
     mull = ((((M.X - x0) % 3.25) < 0.45) & ((M.Z >= z1 - 0.6) | (M.Z < z0 + 0.6))) | \
            ((((M.Z - z0) % 3.0) < 0.45) & ((M.X >= x1 - 0.6) | (M.X < x0 + 0.6))) | (np.abs(M.Y - 5.0) < 0.3) | (M.Y < 2.3) | (M.Y >= h_wall - 0.5)
     P.fill(walls & mull, SAGE, cell=9)
     topy = h_wall + (h_ridge - h_wall) * (1 - np.abs(M.Z - zc) / half)
     roof = (M.X >= x0 - 0.7) & (M.X < x1 + 0.7) & (np.abs(M.Z - zc) <= half) & (M.Y >= topy - 0.7) & (M.Y < topy) & (M.Y >= h_wall - 0.2)
-    P.fill(roof, CLEAR_GLASS, cell=50)
+    P.fill(roof, pane, cell=50)
     P.fill(roof & ((((M.X - x0) % 3.25) < 0.5) | (np.abs(M.Z - zc) < 0.5) | (np.abs(np.abs(M.Z - zc) - half) < 0.6) | (M.Y < h_wall + 0.5)), ['#8FA883', '#86A07A'], cell=9)
     P.fill(box(M, (x0 - 0.8, h_wall - 0.6, z0 - 0.8), (x1 + 0.8, h_wall + 0.1, z1 + 0.8)) & ~box(M, (x0 + 0.6, 0, z0 + 0.6), (x1 - 0.6, 20, z1 - 0.6)), ['#43523D'], cell=9)
     # gable ends: glass in a fan of sage ribs
     for gz in (z0 - 0.2, z1 - 0.5):
         gab = (M.Z >= gz) & (M.Z < gz + 0.7) & (M.X >= x0) & (M.X < x1) & (M.Y >= h_wall) & (M.Y < topy)
-        P.fill(gab, CLEAR_GLASS, cell=50)
+        P.fill(gab, pane, cell=50)
         P.fill(gab & ((((M.X - x0) % 2.6) < 0.5) | (np.abs(M.Y - h_wall - 2.8) < 0.3)), SAGE, cell=9)
     # ridge finial
     P.fill(box(M, (x1 - 0.3, h_ridge, zc - 0.3), (x1 + 0.3, h_ridge + 2.2, zc + 0.3)), IRON, cell=9)
@@ -597,8 +599,10 @@ def glasshouse_model(S, P, M, x0, x1, z0, z1, h_wall=8.0, h_ridge=14.0, lit=True
         for lx in (x0 + (x1 - x0) * 0.3, x0 + (x1 - x0) * 0.7):
             lantern(S, P, M, (lx, h_ridge - 3.0, zc), s=0.9, lit=True, power=power, kelvin=2400, hang_to=h_ridge - 0.5)
         P.fill(box(M, (x0 + 0.8, 0.2, z0 + 0.8), (x1 - 0.8, 1.8, z1 - 0.8)), ['#FFD46A', '#FFC24E'], glow=0.9, cell=9)
-        S.lights.append({'type': 'point', 'pos': ((x0 + x1) / 2, h_wall * 0.6, zc), 'power': power * 2.2, 'color': 2700, 'radius': 2.5})
-        S.lights.append({'type': 'point', 'pos': (x0 + (x1 - x0) * 0.25, h_wall * 0.5, zc + 1.0), 'power': power * 1.2, 'color': 2400, 'radius': 2.0})
+        # the far wall glows warm inside, so the plants stand dark against gold (the storyboard's window)
+        P.fill(box(M, (x0 + 0.7, 1.8, z0 + 0.6), (x1 - 0.7, h_wall - 0.4, z0 + 0.95)), ['#FFE2A0', '#FFD98A', '#FFE9B4'], glow=0.75, cell=(1.5, 1.5, 9))
+        S.lights.append({'type': 'point', 'pos': ((x0 + x1) / 2, h_wall * 0.6, z0 + 2.0), 'power': power * 2.6, 'color': 2700, 'radius': 2.5})
+        S.lights.append({'type': 'point', 'pos': (x0 + (x1 - x0) * 0.25, h_wall * 0.5, z0 + 2.4), 'power': power * 1.2, 'color': 2400, 'radius': 2.0})
     # the door on the +x end, a lantern post by it, flowers and pots along the front
     door = box(M, (x1 - 0.4, 0, zc - 1.6), (x1 + 0.5, 5.0, zc + 1.6))
     if fine:
@@ -791,7 +795,7 @@ def scene_village_dusk():
         V.flower_patch(P, M, fx, fz, 1.6, 1.2, rng, n=5)
     pathm = (M.Y >= -1) & (M.Y < 0) & (np.abs(M.X - 0.15 * M.Z - 0.3 * np.sin(M.Z * 0.1)) < 2.6) & (M.Z > 16)
     P.fill(pathm, V.PATHC, cell=(1.0, 1, 1.0))
-    S.models.append((M, CLEAR_GLASS, {'water': WATERC}))
+    S.models.append((M, CLEAR_GLASS + GLASS_WARM, {'water': WATERC}))
     S.models.append((V.far_terrain(seed=41), (), {'water': WATERC}))
     S.anchors = anchors
     S.grade = {'bloom': 0.55, 'bloom_threshold': 160.0, 'bloom_wide': 0.3, 'glow': 0.14, 'saturation': 1.05,
@@ -806,7 +810,7 @@ def scene_glasshouse_night():
     door under its lantern. Portrait. The camera matches the dusk aerial's direction, so the push-in reads as
     one move."""
     st = DUSK
-    cam = {'pos': (-3.0, 15.0, 36.0), 'target': (-16.5, 7.0, -4.0), 'fov': 42.0, 'focus': (-16.0, 5.0, 0.0), 'fstop': 2.6}
+    cam = {'pos': (-1.0, 14.0, 36.0), 'target': (-13.5, 6.5, -3.0), 'fov': 42.0, 'focus': (-11.0, 4.0, -2.0), 'fstop': 2.6}
     S = VScene('glasshouse_night', 1400, 2100, cam, world=((0.3, 0.3, 0.5), 0.5), samples=192, transparent=True, sky=st['sky'])
     S.sky_world = {'sky': st['sky'], 'ground': st['ground'], 'strength': st['strength']}
     S.lights.append({'type': 'sun', **st['sun']})
@@ -815,15 +819,15 @@ def scene_glasshouse_night():
     M = Model((-46, -4, -48), (46, 30, 44), [], res=3)
     P = CPainter(M, 43)
     anchors = village_set(S, P, M, rng, lit=True, night=True, fine=True)
-    S.models.append((M, CLEAR_GLASS, {'water': WATERC}))
+    S.models.append((M, CLEAR_GLASS + GLASS_WARM, {'water': WATERC}))
     S.models.append((V.far_terrain(seed=41), (), {'water': WATERC}))
     # Mira in the open doorway with her pot, looking up the path toward us
     from cine_blender import Actor
     from village_npcs import build_mira, INK
     from village_npc_render import npc_palette
     chm = build_mira()
-    S.actors = [Actor('mira', chm, npc_palette(chm, INK), 'mira', expr='happy', pos=(-9.6, 0.0, -4.0), yaw=math.radians(55), scale=0.3)]
-    anchors['mira'] = (-9.6, 0.3 * 19.6, -4.0)
+    S.actors = [Actor('mira', chm, npc_palette(chm, INK), 'mira', expr='happy', pos=(-8.2, 0.0, -0.9), yaw=math.radians(18), scale=0.17)]
+    anchors['mira'] = (-8.2, 0.17 * 19.6, -0.9)
     S.anchors = anchors
     S.grade = {'bloom': 0.55, 'bloom_threshold': 160.0, 'bloom_wide': 0.3, 'glow': 0.16, 'saturation': 1.05,
                'split': {'highlights': '#FFD2A0', 'shadows': '#4A4C9A', 'amount': 0.12}, 'vignette': 0.3, 'grain': 0.01,
@@ -1109,40 +1113,84 @@ def scene_aisle():
 
 
 # ------------------------------------------------------------------------------------- the steps screen ----
-def sneaker(P, M, pos, heading=0.0, s=1.0, lace='#F7F3EA', body=['#F7F3EA', '#EFEAE0'], trim=['#2F3A44', '#27313A'], sole=['#D9D4C8', '#CFC9BC']):
-    """a chunky voxel sneaker standing on the ground at pos, toe pointing along heading (degrees, 0 = +z)"""
+SNEAKER = {'upper': ['#F6F4EF', '#EFEDE7', '#F3F1EB'], 'accent': ['#4C86C4', '#4379B5', '#5590CE'], 'navy': ['#2B3F5C', '#253752'],
+           'mid': ['#FBF8F1', '#F2EEE5'], 'out': ['#B8B1A4', '#AAA396'], 'lace': ['#FFFFFF', '#F7F7F4'], 'lining': ['#33465F', '#2C3D54']}
+
+
+def sneaker_model(pos, heading=0.0, s=1.0, res=6, seed=3, C=SNEAKER):
+    """a voxel sneaker as its own fine model, standing on the ground at pos with its toe along heading (degrees, 0 = +z):
+    a white midsole on a grey outsole with toe spring, a white upper with a rounded toe box, the throat with its eyestays,
+    crossing laces and eyelets, the tongue, an open collar lined in navy, and blue overlays (toe cap, heel counter, a side
+    band rising to the heel, a heel tab). No maker's marks."""
     x, y, z = pos
+    R = 7.5 * s
+    M = Model((x - R, y - 1, z - R), (x + R, y + 8.0 * s, z + R), [], res=res)
+    P = CPainter(M, seed)
     a = math.radians(heading)
-    u = (M.X - x) * math.cos(a) - (M.Z - z) * math.sin(a)      # across
-    v = (M.X - x) * math.sin(a) + (M.Z - z) * math.cos(a)      # along, toe at +v
-    L, W = 11.0 * s, 4.6 * s
-    foot = ((np.abs(u) / (W / 2)) ** 2.6 + (np.abs(v - 1.0 * s) / (L / 2)) ** 2.6) <= 1.0
-    sole_m = foot & (M.Y >= y) & (M.Y < y + 1.3 * s)
-    P.fill(sole_m, sole, cell=(9, 0.5, 9))
-    P.fill(sole_m & (M.Y < y + 0.5 * s), ['#B9B3A6'], cell=9)
-    upper_h = y + 1.3 * s + (3.6 * s) * np.clip(1 - np.abs(v - 1.0 * s) / (L / 2), 0, 1) ** 0.6
-    upper_h = np.where(v < -1.5 * s, y + 6.0 * s, upper_h)                     # the heel counter rises
-    upper = foot & (M.Y >= y + 1.3 * s) & (M.Y < upper_h)
-    shrink = ((np.abs(u) / (W / 2 * 0.92)) ** 2.6 + (np.abs(v - 1.0 * s) / (L / 2 * 0.98)) ** 2.6) <= 1.0
-    upper &= shrink
-    P.fill(upper, body, cell=(0.75, 0.75, 0.75))
-    # the toe cap and the side stripe
-    P.fill(upper & (v > 3.2 * s), trim, cell=9)
-    P.fill(upper & (np.abs(M.Y - (y + 2.6 * s)) < 0.4 * s) & (v > -1.0 * s) & (v < 3.0 * s), trim, cell=9)
-    # laces across the top
-    for lv in np.arange(-0.5 * s, 2.8 * s, 0.9 * s):
-        P.fill(upper & (np.abs(v - lv) < 0.25 * s) & (np.abs(u) < 1.4 * s) & (M.Y > upper_h - 0.9 * s), [lace], cell=9)
-    P.fill(upper & (np.abs(u) < 0.25 * s) & (v > -1.0 * s) & (v < 3.0 * s) & (M.Y > upper_h - 0.9 * s), ['#3B3F47'], cell=9)
-    # ankle opening
-    P.fill(foot & (v < -0.5 * s) & (v > -4.6 * s) & (np.abs(u) < 1.5 * s) & (M.Y >= y + 4.0 * s) & (M.Y < y + 6.2 * s), ['#5A6470', '#4D5661'], cell=9)
-    return foot
+    du, dz_ = M.X - x, M.Z - z
+    u = du * math.cos(a) - dz_ * math.sin(a)          # across (+ is the shoe's right when it points away)
+    v = du * math.sin(a) + dz_ * math.cos(a)          # along, the toe at +v
+    L, W = 11.0 * s, 4.5 * s
+    tn = v / (L / 2)
+    halfw = W / 2 * (0.78 + 0.22 * np.exp(-((tn - 0.3) / 0.55) ** 2))
+    foot = ((np.abs(u) / (halfw + 0.25 * s)) ** 2.4 + np.abs(tn) ** 2.6) <= 1.0
+    upper_fp = ((np.abs(u) / halfw) ** 2.4 + (np.abs(tn) / 0.96) ** 2.6) <= 1.0
+    # the sole: toe spring at the front, a little rocker at the heel
+    yb = y + 0.95 * s * np.clip((tn - 0.5) / 0.5, 0, 1) ** 2 + 0.18 * s * np.clip((-tn - 0.82) / 0.18, 0, 1)
+    outsole = foot & (M.Y >= yb) & (M.Y < yb + 0.45 * s)
+    P.fill(outsole, C['out'], cell=9)
+    P.fill(outsole & (((np.floor((v + 40) / (0.55 * s))) % 2) == 0) & (M.Y < yb + 0.2 * s), ['#9C9588'], cell=9)
+    st = yb + 1.4 * s
+    midsole = foot & (M.Y >= yb + 0.45 * s) & (M.Y < st)
+    P.fill(midsole, C['mid'], cell=(9, 9, 9))
+    P.fill(midsole & (M.Y >= st - 0.22 * s), ['#E4DFD4'], cell=9)
+    # the upper's height over the sole: a low round toe box, the instep rising to the throat, the collar, the heel
+    toe = 0.25 * s + 1.9 * s * np.sqrt(np.clip(1 - ((tn - 0.5) / 0.5) ** 2, 0, 1))
+    instep = np.interp(tn, [-0.22, 0.5], [3.9 * s, 2.15 * s])
+    collar = np.where(tn < -0.84, 4.5 * s, 4.1 * s)
+    h = np.where(tn > 0.5, toe, np.where(tn > -0.22, instep, collar))
+    h = h * (1 - 0.32 * np.clip(np.abs(u) / halfw, 0, 1) ** 3)
+    top = st + h
+    upper = upper_fp & (M.Y >= st) & (M.Y < top)
+    P.fill(upper, C['upper'], cell=(0.5, 0.5, 0.5))
+    shell = upper & (M.Y >= top - 0.45 * s)
+    # overlays: the toe cap, the heel counter, a side band rising toward the heel, a mudguard line
+    P.fill(upper & (tn > 0.62) & (M.Y < st + 1.05 * s), C['accent'], cell=9)
+    P.fill(upper & (tn < -0.7) & (M.Y < st + 3.1 * s - (tn + 1.0) * 2.0 * s), C['accent'], cell=9)
+    band_y = st + 1.0 * s + 1.5 * s * np.clip((0.35 - tn) / 1.0, 0, 1)
+    P.fill(upper & (np.abs(u) > 0.62 * halfw) & (np.abs(M.Y - band_y) < 0.32 * s) & (tn > -0.72) & (tn < 0.45), C['accent'], cell=9)
+    P.fill(upper & (M.Y < st + 0.3 * s), ['#E9E6DE'], cell=9)
+    # the throat: eyestays either side in blue, the tongue's grey between, laces crossing it with navy eyelets
+    throat = shell & (tn > -0.24) & (tn < 0.5)
+    P.fill(throat & (np.abs(u) < 0.66 * halfw), ['#DDE3EA', '#D3DAE2'], cell=9)
+    P.fill(throat & (np.abs(u) >= 0.4 * halfw) & (np.abs(u) < 0.7 * halfw), C['accent'], cell=9)
+    for k in np.linspace(-0.16, 0.4, 5):
+        row = np.abs(tn - k - 0.06 * np.abs(u) / halfw) < 0.04
+        P.fill(throat & row & (np.abs(u) < 0.5 * halfw), C['lace'], cell=9)
+        P.fill(throat & (np.abs(tn - k) < 0.045) & (np.abs(np.abs(u) - 0.55 * halfw) < 0.09 * halfw + 0.12), C['navy'], cell=9)
+    # the tongue rising out of the collar, a soft slab leaning back
+    tongue = (np.abs(u) < 0.42 * halfw) & (tn > -0.3 + (M.Y - st - 3.6 * s) * 0.05) & (tn < -0.12 + (M.Y - st - 3.6 * s) * 0.0) & \
+             (M.Y >= st + 3.2 * s) & (M.Y < st + 4.75 * s)
+    P.fill(tongue & (M.m == 0) | tongue, C['upper'], cell=9)
+    P.fill(tongue & (M.Y >= st + 4.45 * s), C['accent'], cell=9)
+    # the collar: the ankle opening cut down into the upper, its walls lined in navy, a padded rim
+    hole = (np.abs(u) < 0.62 * halfw) & (tn > -0.84) & (tn < -0.26) & (M.Y >= st + 1.5 * s)
+    hole &= ((np.abs(u) / (0.62 * halfw)) ** 2 + ((tn + 0.55) / 0.29) ** 2) <= 1.0
+    near = ((np.abs(u) / (0.62 * halfw + 0.35 * s)) ** 2 + ((tn + 0.55) / (0.29 + 0.07)) ** 2) <= 1.0
+    P.fill(upper & near & ~hole & (M.Y >= st + 1.2 * s), C['lining'], cell=9)
+    P.fill(upper & near & ~hole & (M.Y >= top - 0.4 * s), ['#EDF1F5', '#E4E9EF'], cell=9)
+    M.m[hole & ~tongue] = 0
+    # the heel tab: a small blue loop at the top of the heel
+    tab = (np.abs(u) < 0.28 * halfw) & (tn < -0.9) & (tn > -1.0) & (M.Y >= st + 4.2 * s) & (M.Y < st + 5.1 * s)
+    P.fill(tab, C['accent'], cell=9)
+    return M
 
 
 def scene_steps():
     """Beat 3, the steps screen: the Ocean Eggling (Mochi) walking beside a pair of sneakers through dawn grass,
     every step it took behind it a glowing Lumen print. Rendered as layers: the plate (grass, sneakers, the
     Eggling and the prints) and the prints alone as sprites the app can bring in one by one."""
-    cam = {'pos': (-6.0, 8.0, 44.0), 'target': (0.0, 2.5, 8.0), 'fov': 38.0, 'focus': (-4.0, 3.0, 10.0), 'fstop': 2.6}
+    cam = {'pos': (1.5, 17.0, 52.0), 'target': (3.0, 1.8, 4.0), 'fov': 38.0, 'focus': (-1.0, 1.5, 9.0), 'fstop': 3.6}
     S = VScene('steps', 1400, 1400, cam, world=((0.9, 0.85, 0.75), 0.4), samples=160, transparent=True, sky=('#8FB8D8', '#F7D7A8'))
     S.sky_world = {'sky': ('#8FB8D8', '#F7D7A8'), 'ground': '#6F8F5A', 'strength': 0.3}
     S.lights.append({'type': 'sun', 'dir': (0.55, -0.42, -0.72), 'power': 1.5, 'color': 3200, 'angle': 2.5})
@@ -1154,16 +1202,17 @@ def scene_steps():
     P.fill((M.Y >= -3) & (M.Y < -1), ['#8E6A48', '#7E5C3E'], cell=1)
     P.fill(ground, GRASS, cell=0.75)
     P.fill(ground & (noise2(M.X[:, 0, :], M.Z[:, 0, :], 3, 3.0, 2)[:, None, :] > 0.6), ['#79A85A', '#73A255'], cell=0.75)
-    # a sandy path running across, with the Lumen prints along it
+    # a sandy path from the back right to the front left, the way Mochi walks
     X2, Z2 = M.X[:, 0, :], M.Z[:, 0, :]
-    path = catmull([(-30.0, 30.0), (-14.0, 16.0), (0.0, 6.0), (14.0, -2.0), (30.0, -8.0)], 120)
+    path = catmull([(14.0, -34.0), (6.0, -16.0), (0.0, -2.0), (-6.0, 13.0), (-14.0, 26.0), (-24.0, 42.0)], 120)
     dpath, tpath = dist2d(X2, Z2, path)
-    P.fill(ground & (dpath < 4.5 + 1.2 * np.sin(Z2 * 0.5))[:, None, :], ['#E6D5B4', '#DCC9A4', '#EBDCBE'], cell=0.75)
-    # grass tufts and flowers either side
-    for _ in range(420):
+    P.fill(ground & (dpath < 4.2 + 1.0 * np.sin(Z2 * 0.5))[:, None, :], ['#E6D5B4', '#DCC9A4', '#EBDCBE'], cell=0.75)
+    # grass tufts and flowers either side (none on the path or under the shoes)
+    shoe_c = np.array([10.0, -1.0])
+    for _ in range(460):
         x, z = rng.uniform(-36, 36), rng.uniform(-36, 40)
         ix, iz = int((x - M.lo[0] / M.res) * M.res), int((z - M.lo[2] / M.res) * M.res)
-        if dpath[ix, iz] < 5.0:
+        if dpath[ix, iz] < 4.8 or math.hypot(x - shoe_c[0], z - shoe_c[1]) < 9.0:
             continue
         L = Local(M, (x - 1.5, -0.5, z - 1.5), (x + 1.5, 4.5, z + 1.5))
         if rng.random() < 0.7:
@@ -1176,33 +1225,34 @@ def scene_steps():
             P.fill(L.full(L.ball((x, 1.9, z), 0.5)), [FLOWERS[rng.integers(5)]])
     for (tx, tz, h, r) in ((-30.0, -24.0, 9, 6), (26.0, -30.0, 10, 7), (34.0, 10.0, 8, 5.5), (-34.0, 2.0, 7, 5)):
         V.tree2(P, M, tx, tz, h, r)
-    # the sneakers: a pair mid-stride beside the Eggling, toes toward +x along the path
-    heading = 112.0
-    sneaker(P, M, (4.5, 0.0, 12.0), heading, s=1.0)
-    sneaker(P, M, (10.0, 0.0, 6.5), heading, s=1.0)
-    # the Eggling (Ocean) mid-waddle, left of the shoes, heading up the path; its Lumen prints trail behind it
-    mpos = np.array([-8.0, 0.0, 9.0])
-    mdir = np.array([0.62, 0.0, -0.78])                 # where it is going (up the path, away and to the right)
+    # the Eggling (Ocean) mid-waddle, walking toward us and to the left; its Lumen prints trail back up the path
+    mpos = np.array([-7.0, 0.0, 12.0])
+    mdir = np.array([-0.4, 0.0, 0.92])
     mdir /= np.linalg.norm(mdir)
     hd = math.degrees(math.atan2(mdir[0], mdir[2]))
+    across = np.array([mdir[2], 0.0, -mdir[0]])
     prints = []
     for k in range(7):
         side = 1.0 if k % 2 == 0 else -1.0
-        q = mpos - mdir * (2.2 + k * 3.0) + np.array([-mdir[2], 0.0, mdir[0]]) * side * 1.0
-        m = lumen_print_mask(M, (float(q[0]), 0.0, float(q[2])), hd, 0.32)
-        g = 1.1 - k * 0.12
+        q = mpos - mdir * (3.4 + k * 3.4) + across * side * 1.2
+        m = lumen_print_mask(M, (float(q[0]), 0.0, float(q[2])), hd, 0.46)
+        g = 0.62 - k * 0.06
         P.fill(m, LUMEN, glow=g, cell=9)
-        P.fill(m & (M.Y >= 0.17), LUMEN_HI, glow=g * 1.2, cell=9)
+        P.fill(m & (M.Y >= 0.17), LUMEN_HI, glow=g * 1.1, cell=9)
         prints.append({'pos': (float(q[0]), 0.2, float(q[2])), 'heading': hd})
         if k < 5:
-            S.lights.append({'type': 'point', 'pos': (float(q[0]), 1.6, float(q[2])), 'power': 3.0 - k * 0.4, 'color': (1.0, 0.8, 0.42), 'radius': 1.2})
+            S.lights.append({'type': 'point', 'pos': (float(q[0]), 1.4, float(q[2])), 'power': 2.2 - k * 0.3, 'color': (1.0, 0.8, 0.42), 'radius': 1.2})
+    # the sneakers beside the path: a pair side-on to us (toes to the left, the way it walks), the far one a half
+    # step back, as if someone stopped there
+    for k, (c, turn) in enumerate((((7.5, 2.5), -4.0), ((13.0, -4.0), 6.0))):
+        S.models.append((sneaker_model((c[0], 0.0, c[1]), -90.0 + turn, s=1.0, seed=3 + k), ()))
     S.models.append((M, (), {}))
     from cine_blender import Actor
     from characters import build_eggling
     from palettes import palette
     ch = build_eggling(lean=6.0, feet={(1, True): (1.2, 1.0), (-1, False): (0.6, -0.6)})
-    S.actors = [Actor('mochi', ch, dict(palette('ocean')), 'ocean', expr='happy', pos=tuple(mpos.tolist()), yaw=math.radians(hd - 10), scale=0.26)]
-    S.anchors = {'mochi': (float(mpos[0]), 6.0 * 0.26, float(mpos[2])), 'shoes': (6.0, 3.0, 10.0)}
+    S.actors = [Actor('mochi', ch, dict(palette('ocean')), 'ocean', expr='happy', pos=tuple(mpos.tolist()), yaw=math.radians(hd + 12), scale=0.26)]
+    S.anchors = {'mochi': (float(mpos[0]), 6.0 * 0.26, float(mpos[2])), 'shoes': (float(shoe_c[0]), 3.0, float(shoe_c[1]))}
     for k, pr in enumerate(prints):
         S.anchors['print%d' % k] = pr['pos']
     S.grade = {'bloom': 0.4, 'bloom_threshold': 185.0, 'bloom_wide': 0.15, 'glow': 0.14, 'warm': 0.05, 'saturation': 1.08,
@@ -1230,10 +1280,12 @@ def scene_pip(gold=False):
     rng = np.random.default_rng(71)
     R = VS.ROOM
     VS.room_shell(P, M, OAK, PLASTER, side_cols=['#E6D9B0', '#DED0A6'], wall_cell=(3, 3, 3))
-    # the counter, pigeonholes of letters behind it, a lantern, parcels
-    VS.table(P, M, -14.0, 6.0, 2.0, 7.0, 6.0, cols=['#C69469', '#B9875C', '#D2A176'])
-    for bx in np.arange(-13.0, 5.0, 1.0):
-        P.fill(box(M, (bx, 0.0, 2.3), (bx + 0.2, 5.4, 6.8)), OAK_DARK, cell=9)
+    # the sorting desk beside him (solid, panelled), pigeonholes of letters behind, a lantern, parcels
+    VS.table(P, M, 6.5, 16.0, -4.0, 1.5, 6.0, cols=['#C69469', '#B9875C', '#D2A176'])
+    P.fill(box(M, (6.7, 0.4, 1.0), (15.8, 5.4, 1.5)), OAK_DARK, cell=(2.4, 9, 9))
+    P.fill(box(M, (6.7, 0.4, 1.3), (15.8, 5.4, 1.6)) & ((((M.X - 6.7) % 3.1) < 0.35) | (np.abs(M.Y - 2.9) < 0.2)), WALNUT, cell=9)
+    for k, lx in enumerate(np.arange(7.4, 15.0, 1.6)):
+        VS.letter(P, M, lx, 6.3, -1.0 + 0.4 * (k % 2), w=1.3, h=0.2, seal=None)
     for (x0, x1, y0, y1) in ((-15.0, -2.0, 7.0, 15.0),):
         P.fill(box(M, (x0, y0, R['back']), (x1, y1, R['back'] + 1.4)), OAK_DARK, cell=(9, 9, 9))
         for cx in np.arange(x0 + 0.3, x1, 2.2):
@@ -1242,7 +1294,7 @@ def scene_pip(gold=False):
                 M.m[hole] = 0
                 if rng.random() < 0.7:
                     VS.letter(P, M, cx + 1.0, cy + 0.7, R['back'] + 0.3, w=1.4, h=0.9, seal='#D85F51' if rng.random() < 0.4 else None)
-    for (px, pz, s_) in ((9.0, 4.0, 1.6), (12.0, 6.0, 1.2)):
+    for (px, pz, s_) in ((10.0, 4.6, 1.5), (13.4, 5.4, 1.1), (-11.0, 5.0, 1.3)):
         VS.parcel(P, M, px, 0.0, pz, s_, s_ * 0.6, s_)
     lantern(S, P, M, (9.0, 14.5, 0.0), s=0.9, lit=True, power=38.0, kelvin=2400, hang_to=R['h'])
     lantern(S, P, M, (-13.0, 9.0, 8.5), s=0.7, lit=True, power=16.0, kelvin=2400)

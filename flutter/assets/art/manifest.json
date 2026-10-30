@@ -4028,7 +4028,10 @@
   "mine_collect": "sfx/mine_collect.mp3",
   "mine_clink": "sfx/mine_clink.mp3",
   "ui_open": "sfx/ui_open.mp3",
-  "ui_back": "sfx/ui_back.mp3"
+  "ui_back": "sfx/ui_back.mp3",
+  "cine_footstep": "sfx/cine_footstep.mp3",
+  "cine_lumen_rise": "sfx/cine_lumen_rise.mp3",
+  "cine_hollow": "sfx/cine_hollow.mp3"
  },
  "thumbs": {
   "file": "chars/thumbs.webp",

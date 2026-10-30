@@ -222,6 +222,62 @@ def encounter_sounds():
     return s
 
 
+def cine_sounds():
+    """The onboarding cinematic's cues: the one footstep the whole onboarding hears (the black opening, the step
+    that relights the grove, the hatch ring filling, the name landing on the map), the Lumen rising along the
+    trails, and the Hollow creeping in from the map's edges."""
+    from scipy.signal import fftconvolve, butter, lfilter
+    s = {}
+    rng = np.random.default_rng(23)
+
+    def band(x, lo, hi, order=2):
+        b, a = butter(order, [lo / (SR / 2), hi / (SR / 2)], 'band')
+        return lfilter(b, a, x)
+
+    def room(x, length=0.45, wet=0.18, damp=0.9994):
+        n = int(length * SR)
+        ir = rng.standard_normal(n) * damp ** np.arange(n)
+        ir = lowpass(ir, 0.55)
+        ir /= np.sqrt(np.sum(ir ** 2))
+        y = fftconvolve(x, ir)[:len(x) + n]
+        out = np.zeros(len(y))
+        out[:len(x)] += x
+        return out + wet * y
+
+    # --- the footstep: a soft heel-to-toe on earth and grass, close and intimate
+    n = int(0.42 * SR)
+    t = np.arange(n) / SR
+    heel = lowpass(rng.standard_normal(n), 0.93) * env(n, 0.002, 0.03, 0, 0.02)
+    thud = np.sin(2 * np.pi * np.cumsum(110 * np.exp(-t * 14) + 55) / SR) * env(n, 0.002, 0.03, 0, 0.03)
+    toe = pad_at(lowpass(rng.standard_normal(int(0.2 * SR)), 0.9) * env(int(0.2 * SR), 0.004, 0.035, 0, 0.02) * 0.6, 0.075)
+    grass = pad_at(band(rng.standard_normal(int(0.24 * SR)), 2200, 6500) * env(int(0.24 * SR), 0.01, 0.06, 0, 0.04) * 0.22, 0.05)
+    step = mix(heel * 0.9, thud * 0.5, toe, grass * 1.2)
+    s['cine_footstep'] = room(step, 0.5, 0.14)
+
+    # --- the Lumen rises: a warm swell (D major, open voicing) with bells climbing a pentatonic over it
+    L = 2.6
+    n = int(L * SR)
+    t = np.arange(n) / SR
+    pad = mix(*(tone(f, L, 'sine', vib=0.003) * amp for f, amp in ((146.8, 0.5), (220.0, 0.4), (293.7, 0.35), (370.0, 0.25), (440.0, 0.2))))
+    pad *= np.clip(t / 0.9, 0, 1) ** 1.5 * np.clip((L - t) / 1.1, 0, 1) ** 1.2
+    bells = [pad_at(bell(f, 1.2, 0.55) * (0.32 - 0.02 * i), 0.25 + i * 0.13) for i, f in enumerate((587, 659, 740, 880, 988, 1175, 1319, 1480))]
+    shimmer = band(rng.standard_normal(n), 5000, 11000) * np.clip(t / 1.4, 0, 1) * np.clip((L - t) / 0.8, 0, 1) * 0.05
+    shimmer *= 0.6 + 0.4 * np.sin(2 * np.pi * 7 * t) ** 2
+    s['cine_lumen_rise'] = room(mix(lowpass(pad, 0.3) * 0.8, *bells, shimmer), 0.9, 0.22)
+
+    # --- the Hollow creeps in: a low minor-second cluster beating slowly, a breathy wind rising and falling
+    L = 3.4
+    n = int(L * SR)
+    t = np.arange(n) / SR
+    cl = mix(tone(110.0, L, 'tri', vib=0.002) * 0.5, tone(116.5, L, 'sine') * 0.45, tone(164.8, L, 'sine', vib=0.004) * 0.2, tone(55.0, L, 'sine') * 0.35)
+    cl = lowpass(cl, 0.75)
+    breath = band(rng.standard_normal(n), 300, 1400) * (0.5 + 0.5 * np.sin(2 * np.pi * 0.45 * t - 1.2)) * 0.25
+    glass = mix(*(pad_at(bell(f, 1.4, 0.7) * 0.08, st) for f, st in ((1245, 0.9), (1175, 1.7), (1397, 2.4))))
+    sw = mix(cl, breath, glass)[:n] * np.clip(t / 1.2, 0, 1) ** 1.4 * np.clip((L - t) / 1.0, 0, 1)
+    s['cine_hollow'] = room(sw, 1.0, 0.25)
+    return s
+
+
 def main(out):
     os.makedirs(out, exist_ok=True)
     vols = {'ambient_meadow_loop': 0.25, 'evolve_fanfare': 0.5, 'memorial': 0.35, 'enc_wild_loop': 0.3, 'enc_boss_loop': 0.32,
@@ -232,4 +288,12 @@ def main(out):
 
 
 if __name__ == '__main__':
-    main(sys.argv[1])
+    if '--cine' in sys.argv:
+        # only the onboarding cinematic's cues (the rest of the set is not rewritten)
+        out = [a for a in sys.argv[1:] if a != '--cine'][0]
+        os.makedirs(out, exist_ok=True)
+        for k, x in cine_sounds().items():
+            write(os.path.join(out, f'sfx_{k}.wav'), x, {'cine_footstep': 0.5, 'cine_lumen_rise': 0.42, 'cine_hollow': 0.4}[k])
+            print(k)
+    else:
+        main(sys.argv[1])

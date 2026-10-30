@@ -40,14 +40,15 @@ class CinematicScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final c = context.read<GameController>();
-    final reduce = MediaQuery.of(context).disableAnimations || (c.state.settings.reducedMotion);
+    final reduce = MediaQuery.of(context).disableAnimations || (c.state.player?.settings.reducedMotion ?? false);
     return CinematicPlayer(
       reducedMotion: reduce,
       onSfx: (name) {
-        // the cut's cues on the game's own sounds until the cinematic's cues ship
-        const map = {'footstep': 'ui_tap', 'lumen_rise': 'reward_chime', 'hollow_creep': 'enc_rumble'};
+        // the cut's cues (tools/art/sfx.py --cine): the one footstep the whole onboarding hears, the Lumen rising
+        // along the trails, the Hollow creeping in
+        const map = {'footstep': 'cine_footstep', 'lumen_rise': 'cine_lumen_rise', 'hollow_creep': 'cine_hollow'};
         final s = map[name];
-        if (s != null) c.audio.play(s, volume: name == 'footstep' ? 0.35 : 0.5);
+        if (s != null) c.audio.play(s, volume: name == 'footstep' ? 0.6 : 0.5);
       },
       onDone: () async {
         await IntroSeen.set(true);

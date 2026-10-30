@@ -246,8 +246,8 @@ lights the first path after naming.
 | `map_lit`, `map_faded`, `map_hollow` | Alder's map as a diorama on his desk: parchment, a relief of hills, groves, the lake and river, Sunlit Village, the Mossy Ruins, the Sentinel's gate, the cliffs and the cove, his lantern, compass, quill and hand; the trails as gold inlay, as faded ink, and with the Hollow's violet crystals and vines creeping in from the far edge. Same camera, so the app reveals one over another; `cine.json` carries the trails as polylines in plate pixels |
 | `village_dusk`, `glasshouse_night` | Sunlit Village from above at dusk, every window lit, the Glasshouse glowing (where the push-in starts), and the Glasshouse close with Mira in its open door (where it lands) |
 | `nest`, `nest_empty`, `nest_egg_<colour>`, `mira`, `aisle` | the Glasshouse inside at evening with a straw nest of six eggs and Mira beside it: the whole shot, the nest without eggs plus each egg alone as a sprite (for the pick), Mira close, and the aisle for the tracking shot |
-| `steps` | the step screen: the Ocean Eggling beside a pair of sneakers on a dawn path, its Lumen prints behind it |
-| `pip`, `pip_gold` | Pip at the Lodge counter holding out the letter; the founders' gold-sealed one |
+| `steps` | the step screen: the Ocean Eggling (Mochi) walking toward you beside a pair of sneakers on a dawn path, its Lumen prints trailing back up the path; the sneakers are their own fine model (`sneaker_model`: midsole and outsole with toe spring, a white upper with blue overlays, laces, tongue, an open collar, no maker's marks) |
+| `pip`, `pip_gold` | Pip standing in the Trail Guild Lodge holding up his sealed letter, the pigeonholes behind him and the sorting desk beside him; the founders' gold-sealed one |
 | `egg_<colour>_<0-3>`, `egg_shards_<colour>` | each egg as a Home-nest sprite (the Eggling's hero angle) at four crack stages, cracks glowing; the shell in four pieces for the hatch burst |
 | `elder_<colour>_<00-35>` | the three-second Elder glimpse: the Stage-3 Elder on a ring of its affinity's light, one orbit in 36 frames |
 
@@ -263,7 +263,15 @@ and a film grade (bloom, soft glow, haze, warm highlights and cool shadows, vign
 along the trails or in from the edges, the footprint, tiny Evochi walking the trails, captions, sound cues),
 written out as `onboarding_cine.json` and previewed as a video from the same plates. The app plays the same
 JSON (`flutter/lib/features/onboarding/cinematic_player.dart`), skippable from the first frame; it runs once
-before Welcome (`IntroGate`) and again from Settings > Watch the intro.
+before Welcome (`IntroGate`) and again from Settings > Watch the intro. With the pack, Welcome is Pip's letter (the
+`pip` plate drifting toward his letter, his line, then the sign-in choices) and Connect is the steps beat (the
+`steps` plate with the shared footprint lighting along Mochi's walk, and a drawing of the platform's Steps toggle
+under the promise "No location. Just your steps."); without it both fall back to their scenes.
+
+**Sound** (`python3 sfx.py ../../assets/audio --cine`, then MP3 into `flutter/assets/audio/sfx/`): `cine_footstep`
+(the one step the onboarding keeps coming back to: the black opening, the second step on the map, the hatch ring
+filling), `cine_lumen_rise` (the trails lighting; the name reaching the map) and `cine_hollow` (the Hollow creeping
+in).
 
 ```bash
 cd tools/art

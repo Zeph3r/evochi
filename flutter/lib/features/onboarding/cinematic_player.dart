@@ -19,6 +19,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/theme.dart';
 import '../../core/services/asset_manifest.dart';
+import '../shared/widgets.dart';
 
 const cineDir = 'assets/art/cine';
 
@@ -107,20 +108,20 @@ class CineCamera {
     final base = math.max(size.height / plate.height, size.width / plate.width);
     final s = base * zoom;
     final vw = size.width / s, vh = size.height / s;
-    final x0 = (center.dx - vw / 2).clamp(0.0, math.max(0.0, plate.width - vw));
-    final y0 = (center.dy - vh / 2).clamp(0.0, math.max(0.0, plate.height - vh));
+    final x0 = (center.dx - vw / 2).clamp(0.0, math.max(0.0, plate.width - vw)).toDouble();
+    final y0 = (center.dy - vh / 2).clamp(0.0, math.max(0.0, plate.height - vh)).toDouble();
     return (scale: s, origin: Offset(x0, y0));
   }
 }
 
 /// The golden footprint: the one effect the whole onboarding shares. Drawn additively from the rendered sprite
-/// (cine/lumen_print.png, on black) with a slow pulse, or as a soft procedural glow before the sprite loads.
+/// (cine/lumen_print.webp, on black) with a slow pulse, or as a soft procedural glow before the sprite loads.
 class LumenPrint {
   static ui.Image? _sprite;
   static Future<ui.Image>? _loading;
 
   static void warm() {
-    _loading ??= AtlasCache.load('$cineDir/lumen_print.png').then((im) => _sprite = im);
+    _loading ??= AtlasCache.load('$cineDir/lumen_print.webp').then((im) => _sprite = im);
   }
 
   static void paint(Canvas c, Offset at, double size, {double strength = 1, double heading = 0}) {
@@ -221,12 +222,12 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
       // the first two plates before we start; the rest stream in
       final list = names.toList();
       for (final n in list.take(2)) {
-        _plates[n] = await AtlasCache.load('$cineDir/$n.png');
+        _plates[n] = await AtlasCache.load('$cineDir/$n.webp');
       }
       for (final n in list.skip(2)) {
-        AtlasCache.load('$cineDir/$n.png').then((im) {
+        AtlasCache.load('$cineDir/$n.webp').then((im) {
           if (mounted) setState(() => _plates[n] = im);
-        });
+        }).catchError((Object _) {}); // a plate missing from the pack: its shot shows the one before
       }
       if (!mounted) return;
       setState(() {});
@@ -353,7 +354,7 @@ class _CinePainter extends CustomPainter {
     final shot = tl.shots[shotIndex];
     c.drawRect(Offset.zero & size, Paint()..color = Colors.black);
     final plateName = shot['plate'] as String?;
-    ui.Image? plate = plateName == null ? null : plates[plateName];
+    final ui.Image? plate = plateName == null ? null : plates[plateName];
     ({double scale, Offset origin})? g;
     CineCamera? cam;
     if (plate != null) {
@@ -507,4 +508,78 @@ class _CinePainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_CinePainter o) => true;
+}
+
+
+// ------------------------------------------------------------------------------------ shared plate pieces ----
+/// A cinematic plate (assets/art/cine/<name>.webp), decoded once; nothing while it loads, [onMissing] when the
+/// pack doesn't have it.
+class CinePlate extends StatefulWidget {
+  const CinePlate(this.name, {super.key, this.fit = BoxFit.cover, this.alignment = Alignment.center, this.onMissing});
+  final String name;
+  final BoxFit fit;
+  final Alignment alignment;
+  final Widget? onMissing;
+  @override
+  State<CinePlate> createState() => _CinePlateState();
+}
+
+class _CinePlateState extends State<CinePlate> {
+  ui.Image? _im;
+  bool _missing = false;
+
+  @override
+  void initState() {
+    super.initState();
+    AtlasCache.load('$cineDir/${widget.name}.webp').then((im) {
+      if (mounted) setState(() => _im = im);
+    }).catchError((_) {
+      if (mounted) setState(() => _missing = true);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final im = _im;
+    if (im == null) return _missing ? (widget.onMissing ?? const SizedBox.shrink()) : const SizedBox.shrink();
+    return RawImage(image: im, fit: widget.fit, alignment: widget.alignment, filterQuality: FilterQuality.medium);
+  }
+}
+
+/// Where a plate's points land once it is drawn into a box the way [CinePlate] draws it (cover or width-fit, with
+/// an alignment). [plate] is the plate's size in cine.json units (its 'w' and 'h'), so anchors map directly.
+class CineFit {
+  factory CineFit(Size box, Size plate, {Alignment alignment = Alignment.center, bool cover = true}) {
+    final k = cover ? math.max(box.width / plate.width, box.height / plate.height) : box.width / plate.width;
+    final dx = (box.width - plate.width * k) * (alignment.x + 1) / 2;
+    final dy = (box.height - plate.height * k) * (alignment.y + 1) / 2;
+    return CineFit._(k, Offset(dx, dy));
+  }
+  CineFit._(this.k, this.origin);
+  final double k;
+  final Offset origin;
+  Offset point(Offset p) => origin + p * k;
+
+  /// an anchor from a plate's cine.json entry, or null when it has none by that name
+  static Offset? anchor(Map<String, dynamic> meta, String name) {
+    final a = (meta['anchors'] as Map<String, dynamic>?)?[name] as List?;
+    return a == null ? null : Offset((a[0] as num).toDouble(), (a[1] as num).toDouble());
+  }
+
+  static Size plateSize(Map<String, dynamic> meta) => Size((meta['w'] as num).toDouble(), (meta['h'] as num).toDouble());
+}
+
+/// A villager's line over a plate: their name as a tag, the line under it.
+class SpeechCard extends StatelessWidget {
+  const SpeechCard({super.key, required this.name, required this.text});
+  final String name;
+  final String text;
+  @override
+  Widget build(BuildContext context) => GameCard(
+        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(name, style: EvochiText.tag),
+          Text(text, style: EvochiText.bodyText),
+        ]),
+      );
 }

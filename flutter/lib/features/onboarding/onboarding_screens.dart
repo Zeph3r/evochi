@@ -1,6 +1,12 @@
 // S01 Welcome, S02 Create, S03 Fitness connect, S04 Goal, S05 Awakening (style guide §08-09, §13).
+//
+// With the onboarding cinematic's pack (assets/art/cine/), Welcome is Pip's letter (Pip the Courier holding up his
+// sealed letter in the Trail Guild Lodge, asking where to deliver your letters) and Connect is the steps beat (the
+// Ocean Eggling, Mochi, walking beside a pair of sneakers, its golden Lumen prints lighting one after another: the
+// same footprint the cold open began with). Without the pack, both fall back to the scenes below.
 
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
@@ -15,6 +21,7 @@ import '../shared/scene_scaffold.dart';
 import '../shared/scene_view.dart';
 import '../shared/sprite.dart';
 import '../shared/widgets.dart';
+import 'cinematic_player.dart';
 
 // ------------------------------------------------------------------ welcome ----
 class WelcomeScreen extends StatefulWidget {
@@ -23,8 +30,106 @@ class WelcomeScreen extends StatefulWidget {
   State<WelcomeScreen> createState() => _WelcomeScreenState();
 }
 
-class _WelcomeScreenState extends State<WelcomeScreen> {
+class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProviderStateMixin {
   final _scene = SceneController();
+  // the camera drifting gently toward Pip's letter while the choices are up
+  late final AnimationController _drift = AnimationController(vsync: this, duration: const Duration(seconds: 9));
+  Map<String, dynamic>? _pip; // the Pip plate's cine.json entry; null while loading
+  bool _classic = false; // no cinematic pack: the original welcome scene
+
+  @override
+  void initState() {
+    super.initState();
+    CineTimeline.load().then((tl) {
+      if (!mounted) return;
+      final m = tl.plateMeta('pip');
+      setState(() {
+        _pip = m.isEmpty ? null : m;
+        _classic = m.isEmpty;
+      });
+    }).catchError((_) {
+      if (mounted) setState(() => _classic = true);
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.of(context).disableAnimations) {
+      _drift.stop();
+    } else if (!_drift.isAnimating) {
+      _drift.repeat(reverse: true);
+    }
+  }
+
+  @override
+  void dispose() {
+    _drift.dispose();
+    super.dispose();
+  }
+
+  Widget _pipLetter(BuildContext context, Map<String, dynamic> m) {
+    final plate = CineFit.plateSize(m);
+    final letter = CineFit.anchor(m, 'letter') ?? Offset(plate.width * 0.3, plate.height * 0.42);
+    // scale about the letter, so the frame drifts toward it
+    final toward = Alignment(letter.dx / plate.width * 2 - 1, letter.dy / plate.height * 2 - 1);
+    return Scaffold(
+      backgroundColor: const Color(0xFF2A1D15),
+      body: Stack(fit: StackFit.expand, children: [
+        AnimatedBuilder(
+          animation: _drift,
+          builder: (_, child) => Transform.scale(scale: 1.0 + 0.06 * Curves.easeInOut.transform(_drift.value), alignment: toward, child: child),
+          child: const CinePlate('pip', alignment: Alignment(0, -0.35)),
+        ),
+        // the lower part of the room darkens into the choices
+        const IgnorePointer(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                stops: [0.0, 0.5, 1.0],
+                colors: [Color(0x00000000), Color(0x00000000), Color(0xE61E140E)],
+              ),
+            ),
+          ),
+        ),
+        SafeArea(
+          child: Column(children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+              child: Column(children: [
+                Semantics(header: true, label: 'Evochi', child: ExcludeSemantics(child: Image.asset(art.title('wordmark_evochi'), height: 46))),
+                const SizedBox(height: 10),
+                const SpeechCard(name: 'Pip', text: 'Pip the Courier, at your service! Where should I deliver your letters?'),
+              ]),
+            ),
+            const Spacer(),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(22, 0, 22, 12),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                EvochiButton(label: 'Begin Your Journey', large: true, icon: const Icon(Icons.play_arrow_rounded, color: EvochiColor.ink, size: 30), onPressed: _startGuest),
+                const SizedBox(height: 10),
+                Row(children: [
+                  Expanded(child: EvochiButton(label: 'Apple', tone: ButtonTone.cream, small: true, icon: const Icon(Icons.apple, color: EvochiColor.ink), onPressed: () => _provider('Apple'))),
+                  const SizedBox(width: 8),
+                  Expanded(child: EvochiButton(label: 'Google', tone: ButtonTone.cream, small: true, icon: const Icon(Icons.g_mobiledata_rounded, color: EvochiColor.ink, size: 26), onPressed: () => _provider('Google'))),
+                  const SizedBox(width: 8),
+                  Expanded(child: EvochiButton(label: 'Email', tone: ButtonTone.cream, small: true, icon: const Icon(Icons.mail_rounded, color: EvochiColor.wood), onPressed: _email)),
+                ]),
+                const SizedBox(height: 10),
+                const Text(
+                  'By continuing, you agree to our Terms of Service and Privacy Policy.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 12, color: Colors.white, shadows: [Shadow(color: Color(0xCC32200F), blurRadius: 3)]),
+                ),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
 
   void _startGuest() {
     final c = context.read<GameController>();
@@ -106,6 +211,9 @@ class _WelcomeScreenState extends State<WelcomeScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final pip = _pip;
+    if (pip != null) return _pipLetter(context, pip);
+    if (!_classic) return const Scaffold(backgroundColor: Color(0xFF2A1D15));
     final reduce = MediaQuery.of(context).disableAnimations;
     return Scaffold(
       body: SceneScaffold(
@@ -484,10 +592,123 @@ class ConnectScreen extends StatefulWidget {
   State<ConnectScreen> createState() => _ConnectScreenState();
 }
 
-class _ConnectScreenState extends State<ConnectScreen> {
+class _ConnectScreenState extends State<ConnectScreen> with SingleTickerProviderStateMixin {
   final _scene = SceneController();
   bool _busy = false;
   String? _note;
+  // the prints lighting one after another along Mochi's walk, looping
+  late final AnimationController _walk = AnimationController(vsync: this, duration: const Duration(milliseconds: 4200));
+  Map<String, dynamic>? _steps; // the steps plate's cine.json entry
+  bool _classic = false;
+
+  @override
+  void initState() {
+    super.initState();
+    LumenPrint.warm();
+    CineTimeline.load().then((tl) {
+      if (!mounted) return;
+      final m = tl.plateMeta('steps');
+      setState(() {
+        _steps = m.isEmpty ? null : m;
+        _classic = m.isEmpty;
+      });
+    }).catchError((_) {
+      if (mounted) setState(() => _classic = true);
+    });
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.of(context).disableAnimations) {
+      _walk.value = 1.0;
+      _walk.stop();
+    } else if (!_walk.isAnimating) {
+      _walk.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _walk.dispose();
+    super.dispose();
+  }
+
+  List<Widget> _choices(GameController c) => [
+        if (_note != null) ...[const SizedBox(height: 8), Text(_note!, style: EvochiText.bodyText.copyWith(color: EvochiColor.gold900))],
+        const SizedBox(height: 12),
+        EvochiButton(
+          label: _busy ? 'Waiting for permission...' : 'Connect ${c.health.displayName}',
+          large: true,
+          icon: const VoxelIcon('steps', size: 28),
+          onPressed: _busy ? null : _health,
+        ),
+        const SizedBox(height: 10),
+        EvochiButton(label: 'Use simulated step device', tone: ButtonTone.cream, onPressed: () => _choose('demo')),
+        const SizedBox(height: 10),
+        EvochiButton(label: 'Enter steps manually', tone: ButtonTone.cream, onPressed: () => _choose('manual')),
+        TextButton(onPressed: () => _choose('none'), child: const Text('Connect later', style: EvochiText.cardTitle)),
+        const Text('Manual steps are marked unverified and do not count toward reward chests.', textAlign: TextAlign.center, style: EvochiText.caption),
+      ];
+
+  Widget _stepsBeat(BuildContext context, GameController c, Map<String, dynamic> m) {
+    final plate = CineFit.plateSize(m);
+    final prints = <Offset>[
+      for (var i = 0; i < 7; i++)
+        if (CineFit.anchor(m, 'print$i') case final a?) a,
+    ];
+    return Scaffold(
+      backgroundColor: EvochiColor.panel,
+      body: Column(children: [
+        // the plate fills the width at the top (square), the prints lit over it
+        AspectRatio(
+          aspectRatio: plate.width / plate.height * 1.12,
+          child: LayoutBuilder(builder: (ctx, box) {
+            final fit = CineFit(box.biggest, plate, alignment: const Alignment(0, 0.2));
+            return Stack(fit: StackFit.expand, children: [
+              const CinePlate('steps', alignment: Alignment(0, 0.2)),
+              IgnorePointer(
+                child: AnimatedBuilder(
+                  animation: _walk,
+                  builder: (_, __) => CustomPaint(painter: _PrintsPainter([for (final p in prints) fit.point(p)], _walk.value, plate.width * fit.k)),
+                ),
+              ),
+              const IgnorePointer(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      stops: [0.0, 0.8, 1.0],
+                      colors: [Color(0x00000000), Color(0x00FFF0DE), EvochiColor.panel],
+                    ),
+                  ),
+                ),
+              ),
+            ]);
+          }),
+        ),
+        Expanded(
+          child: SingleChildScrollView(
+            padding: EdgeInsets.fromLTRB(16, 0, 16, 16 + MediaQuery.of(context).padding.bottom),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              const Text('Every step you take makes Lumen.', style: EvochiText.pageTitle, textAlign: TextAlign.center),
+              const SizedBox(height: 6),
+              const Text(
+                'Your egg hatches and grows from your real-world steps. Evochi reads your daily step count, and only your steps. '
+                'You can change this any time in Settings.',
+                style: EvochiText.bodyText,
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 10),
+              _StepAccessCard(source: c.health.displayName),
+              ..._choices(c),
+            ]),
+          ),
+        ),
+      ]),
+    );
+  }
 
   Future<void> _health() async {
     final c = context.read<GameController>();
@@ -518,6 +739,9 @@ class _ConnectScreenState extends State<ConnectScreen> {
   @override
   Widget build(BuildContext context) {
     final c = context.watch<GameController>();
+    final steps = _steps;
+    if (steps != null) return _stepsBeat(context, c, steps);
+    if (!_classic) return const Scaffold(backgroundColor: EvochiColor.panel);
     final p = c.state.pet!;
     final reduce = MediaQuery.of(context).disableAnimations;
     return Scaffold(
@@ -533,25 +757,12 @@ class _ConnectScreenState extends State<ConnectScreen> {
         panel: _Sheet(children: [
           const Row(children: [VoxelIcon('steps', size: 44), SizedBox(width: 8), Text('Walk together', style: EvochiText.pageTitle)]),
           const SizedBox(height: 6),
-          Text(
-            '${p.name} grows from your real-world steps. Evochi reads only your daily step count - nothing else - to give XP, quests and coins. '
+          const Text(
+            'Your egg hatches and grows from your real-world steps. Evochi reads only your daily step count - nothing else - to give XP, quests and coins. '
             'Step access is optional and you can change it any time in Settings.',
             style: EvochiText.bodyText,
           ),
-          if (_note != null) ...[const SizedBox(height: 8), Text(_note!, style: EvochiText.bodyText.copyWith(color: EvochiColor.gold900))],
-          const SizedBox(height: 12),
-          EvochiButton(
-            label: _busy ? 'Waiting for permission...' : 'Connect ${c.health.displayName}',
-            large: true,
-            icon: const VoxelIcon('steps', size: 28),
-            onPressed: _busy ? null : _health,
-          ),
-          const SizedBox(height: 10),
-          EvochiButton(label: 'Use simulated step device', tone: ButtonTone.cream, onPressed: () => _choose('demo')),
-          const SizedBox(height: 10),
-          EvochiButton(label: 'Enter steps manually', tone: ButtonTone.cream, onPressed: () => _choose('manual')),
-          TextButton(onPressed: () => _choose('none'), child: const Text('Connect later', style: EvochiText.cardTitle)),
-          const Text('Manual steps are marked unverified and do not count toward reward chests.', textAlign: TextAlign.center, style: EvochiText.caption),
+          ..._choices(c),
         ]),
       ),
     );
@@ -571,6 +782,134 @@ class _Sheet extends StatelessWidget {
           boxShadow: [BoxShadow(color: Color(0x2E462D19), blurRadius: 22, offset: Offset(0, -6))],
         ),
         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+      );
+}
+
+/// Mochi's prints lighting one after another along its walk (the oldest, furthest up the path, first; the newest by
+/// its feet last), then fading together before the walk starts again. The same footprint as the cold open's.
+class _PrintsPainter extends CustomPainter {
+  _PrintsPainter(this.at, this.t, this.plateW);
+  final List<Offset> at; // print0 (newest, by Mochi) .. print6 (oldest)
+  final double t; // 0..1 through one walk
+  final double plateW; // the plate's drawn width
+  @override
+  void paint(Canvas c, Size size) {
+    final n = at.length;
+    if (n == 0) return;
+    for (var i = 0; i < n; i++) {
+      final order = n - 1 - i; // the oldest lights first
+      final on = (t * 1.25 - order / n * 0.8).clamp(0.0, 1.0);
+      final fade = t > 0.86 ? (1 - (t - 0.86) / 0.14).clamp(0.0, 1.0) : 1.0;
+      final k = Curves.easeOut.transform((on * 4).clamp(0.0, 1.0)) * fade;
+      if (k <= 0) continue;
+      // which way it walks there: toward the next (newer) print
+      final to = i > 0 ? at[i - 1] : at[i] + (at[i] - at[math.min(i + 1, n - 1)]);
+      final d = to - at[i];
+      final heading = math.atan2(d.dx, -d.dy * 2.4);
+      c.save();
+      c.translate(at[i].dx, at[i].dy);
+      c.scale(1, 0.42); // the ground seen at a low angle
+      LumenPrint.paint(c, Offset.zero, plateW * 0.055, strength: 0.55 + 0.45 * k, heading: heading);
+      c.restore();
+    }
+  }
+
+  @override
+  bool shouldRepaint(_PrintsPainter o) => o.t != t || o.at != at;
+}
+
+/// What the system's step permission sheet will ask, drawn so it is familiar when it appears: the platform's
+/// health app, the Steps toggle switching on, and the promise under it.
+class _StepAccessCard extends StatefulWidget {
+  const _StepAccessCard({required this.source});
+  final String source;
+  @override
+  State<_StepAccessCard> createState() => _StepAccessCardState();
+}
+
+class _StepAccessCardState extends State<_StepAccessCard> with SingleTickerProviderStateMixin {
+  late final AnimationController _a = AnimationController(vsync: this, duration: const Duration(milliseconds: 2600));
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (MediaQuery.of(context).disableAnimations) {
+      _a.value = 1;
+      _a.stop();
+    } else if (!_a.isAnimating) {
+      _a.repeat();
+    }
+  }
+
+  @override
+  void dispose() {
+    _a.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final apple = widget.source.toLowerCase().contains('apple');
+    return Semantics(
+      label: '${widget.source} will ask to share Steps. Evochi reads no location, just your steps.',
+      excludeSemantics: true,
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: const Color(0xFFE6D3BD), width: 1.5),
+          boxShadow: const [BoxShadow(color: Color(0x1F462D19), blurRadius: 10, offset: Offset(0, 3))],
+        ),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const Text('Allow Step Access', style: EvochiText.cardTitle),
+          const SizedBox(height: 8),
+          Row(children: [
+            Container(
+              width: 30,
+              height: 30,
+              decoration: BoxDecoration(
+                color: apple ? const Color(0xFFFFEEF1) : const Color(0xFFE8F1FF),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(apple ? Icons.favorite_rounded : Icons.health_and_safety_rounded, size: 18, color: apple ? const Color(0xFFFF3B5C) : const Color(0xFF3A7BEA)),
+            ),
+            const SizedBox(width: 10),
+            Expanded(child: Text('${widget.source}  ·  Steps', style: EvochiText.bodyText)),
+            AnimatedBuilder(
+              animation: _a,
+              builder: (_, __) {
+                final on = Curves.easeInOut.transform(((_a.value - 0.3) / 0.15).clamp(0.0, 1.0));
+                return _Toggle(on: on);
+              },
+            ),
+          ]),
+          const SizedBox(height: 8),
+          const Text('No location. Just your steps.', style: EvochiText.caption, textAlign: TextAlign.center),
+        ]),
+      ),
+    );
+  }
+}
+
+class _Toggle extends StatelessWidget {
+  const _Toggle({required this.on});
+  final double on; // 0 off .. 1 on
+  @override
+  Widget build(BuildContext context) => Container(
+        width: 46,
+        height: 28,
+        padding: const EdgeInsets.all(3),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(14),
+          color: Color.lerp(const Color(0xFFD9D4CC), const Color(0xFF34C759), on),
+        ),
+        alignment: Alignment(-1 + 2 * on, 0),
+        child: Container(
+          width: 22,
+          height: 22,
+          decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle, boxShadow: [BoxShadow(color: Color(0x33000000), blurRadius: 2, offset: Offset(0, 1))]),
+        ),
       );
 }
 

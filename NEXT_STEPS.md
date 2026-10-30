@@ -24,19 +24,16 @@ The Fading Paths cold open and the beats after it (README: "The onboarding cinem
 
 Still to do:
 
-- **Full-quality plates.** Only quick CPU previews exist. Pack with `cine_pack.py` and render on the PC:
-  `blender\cine\render_cine.bat` (the packs go in `blender\cine\packs\`), then `cine_blender.py --regrade`
-  here and `cine_assets.py` into `flutter/assets/art/cine/`. The Elder orbits (6 x 36 frames) and the per-egg nest
-  sprites are the long ones.
-- **Look.** Check every plate at full size against the storyboard: the Hollow creep's density, the Glasshouse
-  door shot (Mira's position), the steps scene (the prints are hidden behind Mochi from this camera; the app
-  draws LumenPrint sprites at the `print0..6` anchors instead), the crack glow on the eggs.
-- **Flutter.** Uncompiled: run `1_check.bat`. Likely spots: `withValues` needs Flutter 3.27; the record type
-  returned by `CineCamera.fit`; `RawImage` sizing in `_Plate`; the `freshDays` import from `game/story/story.dart`.
-  Pip's letter (Welcome) and the step screen (Connect) still use the old art: the `pip`, `pip_gold` and `steps`
-  plates are rendered but not wired in.
-- **Sound.** The cut's cues (`footstep`, `lumen_rise`, `hollow_creep`) are mapped to existing sounds in
-  `CinematicScreen`; a real footstep and a Lumen rise belong in `sfx.py`.
+- **Full-quality plates.** The packs are on the PC (`blender\cine\packs\`, 55 of them, with the current
+  `cine_blender.py`, `cine_pack.py` and `render_cine_pc.py`); double-click `blender\cine\render_cine.bat` to render
+  them on the GPU (progress in `packs\render_status.json`). Then bring the raw frames and depth passes back,
+  `cine_blender.py --regrade`, and `cine_assets.py` into `flutter/assets/art/cine/`. Until then the PC's
+  `assets/art/cine/` holds a stand-in pack of the CPU previews (14 plates; the rest fall back in the app).
+- **Look.** Done against the storyboard at preview size: the steps scene (remodelled sneakers, Mochi facing the
+  camera, the prints visible), the Glasshouse at night (warm inside, Mira at the door at village size), Pip (stands
+  in the Lodge, no counter in front of him). Check the rest at full size: the Hollow creep's density, the crack glow.
+- **Founders.** The app can't tell a founder yet (the waitlist knows, the app doesn't), so `pip_gold` isn't shown.
+  A claim code in the beta invite, or the sign-in email matched against the waitlist, would decide it.
 - **The push-in as a real camera move** (storyboard frame 6) and the Glasshouse tracking shot (frame 11): the
   app zooms the plates for now; `cine_blender.py` can render a camera path as frames (`vs.cameras`, as the
   Elder orbit does) for a pre-rendered version on the PC's GPU.

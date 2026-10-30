@@ -36,39 +36,6 @@ import 'cinematic_player.dart';
 const hatchSteps = 150;
 const _placeholderName = 'Eggling';
 
-/// A cinematic plate, decoded once; null while loading or when the pack doesn't have it.
-class _Plate extends StatefulWidget {
-  const _Plate(this.name, {this.fit = BoxFit.cover, this.alignment = Alignment.center, this.onMissing});
-  final String name;
-  final BoxFit fit;
-  final Alignment alignment;
-  final Widget? onMissing;
-  @override
-  State<_Plate> createState() => _PlateState();
-}
-
-class _PlateState extends State<_Plate> {
-  ui.Image? _im;
-  bool _missing = false;
-
-  @override
-  void initState() {
-    super.initState();
-    AtlasCache.load('$cineDir/${widget.name}.webp').then((im) {
-      if (mounted) setState(() => _im = im);
-    }).catchError((_) {
-      if (mounted) setState(() => _missing = true);
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final im = _im;
-    if (im == null) return _missing ? (widget.onMissing ?? const SizedBox.shrink()) : const SizedBox.shrink();
-    return RawImage(image: im, fit: widget.fit, alignment: widget.alignment, filterQuality: FilterQuality.medium);
-  }
-}
-
 // ------------------------------------------------------------------------------------------- the egg pick ----
 class EggPickScreen extends StatefulWidget {
   const EggPickScreen({super.key});
@@ -153,7 +120,7 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
       backgroundColor: const Color(0xFF1A2432),
       body: Stack(fit: StackFit.expand, children: [
         // the Glasshouse at evening, the nest without its eggs
-        _Plate('nest_empty', alignment: const Alignment(0, 0.2), onMissing: Image.asset(AssetManifest.instance!.thumb('meadow'), fit: BoxFit.cover)),
+        CinePlate('nest_empty', alignment: const Alignment(0, 0.2), onMissing: Image.asset(AssetManifest.instance!.thumb('meadow'), fit: BoxFit.cover)),
         // the eggs, each its own sprite lit in place; the picked one lifts and glows
         LayoutBuilder(builder: (ctx, box) {
           final m = _meta;
@@ -173,7 +140,7 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
                   width: pw * k,
                   height: ph * k,
                   child: IgnorePointer(
-                    child: Opacity(opacity: picked == null || p.id == picked ? 1 : 0.78, child: _Plate('nest_egg_${p.id}', fit: BoxFit.fill)),
+                    child: Opacity(opacity: picked == null || p.id == picked ? 1 : 0.78, child: CinePlate('nest_egg_${p.id}', fit: BoxFit.fill)),
                   ),
                 ),
               if (picked != null && _slot(picked) != null)
@@ -207,7 +174,7 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 if (!again) BackSquareButton(onTap: () => c.mutate((s) => s.player = null)) else const SizedBox(width: 46),
-                const Expanded(child: _SpeechCard(name: 'Mira', text: "I've been keeping these warm. One of them has been waiting for you.")),
+                const Expanded(child: SpeechCard(name: 'Mira', text: "I've been keeping these warm. One of them has been waiting for you.")),
                 const SizedBox(width: 46),
               ]),
             ),
@@ -254,7 +221,7 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
                         padding: const EdgeInsets.all(12),
                         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                           Row(children: [
-                            SizedBox(width: 96, height: 96, child: _teaser ? _ElderGlimpse(palette: picked) : PetSprite(stage: 1, palette: picked, height: 80)),
+                            SizedBox(width: 96, height: 96, child: _teaser ? _ElderGlimpse(palette: picked) : CinePlate('egg_${picked}_0', fit: BoxFit.contain, onMissing: PetSprite(stage: 1, palette: picked, height: 80))),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -377,20 +344,6 @@ class _ElderGlimpseState extends State<_ElderGlimpse> with SingleTickerProviderS
   }
 }
 
-class _SpeechCard extends StatelessWidget {
-  const _SpeechCard({required this.name, required this.text});
-  final String name;
-  final String text;
-  @override
-  Widget build(BuildContext context) => GameCard(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(name, style: EvochiText.tag),
-          Text(text, style: EvochiText.bodyText),
-        ]),
-      );
-}
-
 class _HintCard extends StatelessWidget {
   const _HintCard({super.key, required this.text});
   final String text;
@@ -475,7 +428,7 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
   void _hatch() {
     if (_phase != _HatchPhase.waiting) return;
     final c = context.read<GameController>();
-    c.audio.play('ui_tap', volume: 0.35); // the footstep from the opening
+    c.audio.play('cine_footstep', volume: 0.6); // the footstep from the opening
     setState(() {
       _phase = _HatchPhase.bursting;
       _burstAt = _t;
@@ -499,7 +452,7 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
       return;
     }
     c.run((s, n) => g.renamePet(s, v.name));
-    c.audio.play('reward_chime', volume: 0.5);
+    c.audio.play('cine_lumen_rise', volume: 0.5); // the name flies in Lumen to the map and lights the grove trail
     FocusScope.of(context).unfocus();
     setState(() {
       _phase = _HatchPhase.mapping;
@@ -832,7 +785,7 @@ class _MapBeatPainter extends CustomPainter {
       final plateRect = Rect.fromLTWH(0, 0, li.width.toDouble(), li.height.toDouble());
       c.saveLayer(plateRect, Paint());
       c.drawImage(li, Offset.zero, Paint());
-      final width = 28.0;
+      const width = 28.0;
       c.drawPath(
           TrailReveal.path([trail], p),
           Paint()
