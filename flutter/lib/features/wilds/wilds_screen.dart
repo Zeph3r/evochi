@@ -1646,8 +1646,9 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                   ),
                   if (card == null)
                     Positioned(
-                      right: 10 + mq.padding.right + _CombatPad.w + 6,
-                      bottom: 14 + mq.padding.bottom,
+                      // above the moves, on the right: the bottom left stays clear for the left thumb's walking
+                      right: 10 + mq.padding.right,
+                      bottom: 12 + mq.padding.bottom + _CombatPad.h + 2,
                       child: _Pouch(state: this),
                     ),
                   if (card == null)
@@ -4342,7 +4343,8 @@ class _CombatPad extends StatelessWidget {
       };
 }
 
-/// What to eat and drink in a fight: a small parchment tray of its own, beside the moves, not among them.
+/// What to eat and drink in a fight: a small parchment tray of its own above the moves, not among them (and off
+/// the bottom left, where a drag starts the walking joystick).
 class _Pouch extends StatelessWidget {
   const _Pouch({required this.state});
   final _WildsScreenState state;
@@ -4365,7 +4367,7 @@ class _Pouch extends StatelessWidget {
             border: Border.all(color: const Color(0xCC76513B), width: 2),
             boxShadow: const [BoxShadow(color: Color(0x40241208), offset: Offset(0, 2), blurRadius: 3)],
           ),
-          child: Column(mainAxisSize: MainAxisSize.min, children: [
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
             AbilityButton(
               icon: AbilityIcon.apple,
               rank: AbilityRank.utility,
@@ -4377,7 +4379,7 @@ class _Pouch extends StatelessWidget {
               dim: heals == 0,
               onDown: () => s._press('item'),
             ),
-            const SizedBox(height: 4),
+            const SizedBox(width: 4),
             AbilityButton(
               icon: AbilityIcon.potion,
               rank: AbilityRank.utility,
