@@ -145,7 +145,7 @@ def main_wear(out, stages):
             CR._built.clear()
         fit = _fit(CAM, ext, CELL_H)
         assert (fit.w, fit.h) == (st['w'], st['h']), 'export the reaction first'
-        with ProcessPoolExecutor(2) as ex:
+        with ProcessPoolExecutor(int(os.environ.get('JOBS', '2'))) as ex:
             frames = list(ex.map(_wear_frame, [(stage, t, fit, CAM) for t in times]))
         rows = (len(times) + COLS - 1) // COLS
         st['wear'] = {}
@@ -213,7 +213,7 @@ def main(out, stages):
         rest = CR.character(stage, {})
         bfit = _fit(BACK, [rest.model], CELL_H)
         CR._built.clear()
-        with ProcessPoolExecutor(2) as ex:
+        with ProcessPoolExecutor(int(os.environ.get('JOBS', '2'))) as ex:
             done = list(ex.map(_frame, [(stage, t, fit, CAM) for t in times]))
             back = list(ex.map(_frame, [(stage, 0.0, bfit, BACK)]))[0][0]
         frames = [f for f, _ in done]
