@@ -22,6 +22,8 @@ import numpy as np
 HERE = os.path.dirname(os.path.abspath(__file__))
 KIT = os.path.join(HERE, 'face_kit')
 STATES = ('shout', 'strain', 'fierce')
+# the leap clear of the Sentinel's beam (cine_jump.py): its own faces, Brave Juvenile so far
+JUMP_STATES = ('surprise', 'effort', 'focus', 'set')
 PERSONALITIES = ('brave', 'timid', 'stubborn', 'playful', 'curious', 'calm')
 STAGE_NAMES = {1: 'eggling', 2: 'juvenile', 3: 'elder'}
 STAGES = {v: k for k, v in STAGE_NAMES.items()}
@@ -44,7 +46,7 @@ def parse(expr):
     """'fierce:calm' -> ('fierce', 'calm'); 'shout:brave:nomouth' -> ('shout', 'brave', False): the face without
     its painted mouth, for when the jaw opens in the geometry; None when it is not a kit expression"""
     state, pers, *flags = expr.split(':') + ['']
-    if state not in STATES:
+    if state not in STATES and state not in JUMP_STATES:
         return None
     if 'nomouth' in flags:
         return state, (pers or 'brave'), False

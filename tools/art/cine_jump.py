@@ -61,46 +61,62 @@ def _f(front, back):
 
 JUMP = [
     (0.00, STANCE),
-    (0.07, dict(head=(0, -1.6, 0.6), head_rot=(-6, 0, 0), body=(-2.2, -2.0), tail=0.8, tail_lift=-0.4, pitch=-2,
-                squash=0.97, feet=_f((0, 1.6, 0.9, 6), (0, -1.6, 0.6, -4)))),
-    (0.15, dict(head=(0, -2.4, 0.2), head_rot=(-10, 0, 0), body=(-3.4, -3.6), tail=1.2, tail_lift=-1.6, pitch=-3,
-                squash=0.93, feet=_f((0, 1.8, 1.2, 10), (0, -1.8, 0.9, -6)))),
-    (0.21, dict(head=(0, 0.6, -0.4), head_rot=(10, 0, 0), body=(0.4, -0.4), tail=0.6, tail_lift=-2.4, pitch=9,
-                squash=1.07, jaw=16, feet=_f((-1.8, 2.0, 0.8, 18), (-1.4, -1.0, 0.6, 8)))),
-    (0.25, dict(head=(0, 0.8, -0.2), head_rot=(12, 0, -2), body=(0.4, -0.2), tail=0.2, tail_lift=-2.8, pitch=13,
-                squash=1.06, jaw=22, feet=_f((-0.4, 2.0, 0.6, 24), (-2.0, -0.6, 0.5, 14)))),
-    (0.34, dict(head=(0, 0.4, 0.6), head_rot=(6, 0, -4), body=(0.0, 0.0), tail=-1.0, tail_lift=-2.8, pitch=9, roll=-5,
-                squash=1.02, jaw=24, feet=_f((2.2, 0.0, 0.3, -12), (2.0, 0.4, 0.3, 14)))),
-    (0.49, dict(head=(0, 0.0, 1.0), head_rot=(-16, -12, 6), body=(0.6, 0.6), tail=-2.0, tail_lift=1.2, pitch=0, roll=4,
-                jaw=20, feet=_f((2.8, -0.2, 0.2, -14), (2.8, 0.6, 0.2, 16)))),
-    (0.62, dict(head=(0, 0.4, 0.4), head_rot=(4, -6, 0), body=(0.4, -0.2), tail=0.8, tail_lift=2.6, pitch=7,
-                squash=1.04, jaw=14, feet=_f((-0.6, 1.0, 0.5, -6), (-1.6, -1.2, 0.6, -14)))),
-    (0.74, dict(head=(0, 0.2, 0.6), head_rot=(2, -3, 0), body=(0.0, -0.4), tail=0.6, tail_lift=1.8, pitch=5,
-                jaw=16, feet=_f((-0.4, 1.2, 0.6, -4), (-0.6, -1.4, 0.7, -10)))),
-    (0.80, dict(head=(0, -2.6, 0.8), head_rot=(-12, 0, 3), body=(-3.4, -3.6), tail=-1.6, tail_lift=-2.0, pitch=-2,
-                squash=0.88, jaw=18, feet=_f((0, 1.6, 1.4, 6), (0, -1.8, 1.2, -6)))),
-    (0.88, dict(head=(0, -1.6, 0.8), head_rot=(-6, 0, 1), body=(-2.4, -2.2), tail=-0.6, tail_lift=-0.6, pitch=-1,
-                squash=0.95, jaw=8, feet=_f((0, 1.5, 1.0, 3), (0, -1.6, 0.8, -3)))),
-    (0.97, dict(head=(0, -0.2, 1.1), head_rot=(3, 0, 0), body=(-0.8, -0.4), tail=0.4, tail_lift=0.9, pitch=1,
-                squash=1.03, feet=_f((0, 1.4, 0.7, 0), (0, -1.4, 0.5, 0)))),
+    # anticipation: startled by the light on the ground, then down into a crouch, the weight back on the hind legs
+    (0.04, dict(head=(0, 0.6, 0.4), head_rot=(8, 0, 0), body=(-0.8, -0.4), tail=0.6, tail_lift=1.2, pitch=1, squash=1.02,
+                feet=_f((0, 1.4, 0.6, 0), (0, -1.4, 0.4, 0)))),
+    (0.09, dict(head=(0, -0.6, 0.6), head_rot=(-4, 0, 0), body=(-1.6, -2.0), tail=0.8, tail_lift=-0.6, pitch=2, squash=0.97,
+                feet=_f((0, 1.6, 0.8, 4), (0, -0.9, 0.6, 6)))),
+    (0.15, dict(head=(0, -1.2, 0.4), head_rot=(-8, 0, 0), body=(-1.9, -2.6), tail=1.0, tail_lift=-1.8, pitch=3, squash=0.94,
+                feet=_f((0, 1.8, 1.0, 8), (0, -0.3, 0.8, 12)))),
+    # the push: the hind legs straighten against the ground, the body rises off them, the front feet leave first
+    (0.21, dict(head=(0, 0.0, 0.0), head_rot=(4, 0, 0), body=(-0.8, -0.6), tail=0.6, tail_lift=-2.2, pitch=5, squash=1.04,
+                feet=_f((-1.0, 2.0, 0.8, 14), (-2.2, 0.0, 0.6, 20)))),
+    (0.26, dict(head=(0, 0.6, -0.2), head_rot=(8, 0, -2), body=(0.2, 0.4), tail=0.2, tail_lift=-2.0, pitch=6, squash=1.07,
+                feet=_f((0.8, 1.4, 0.6, 4), (-2.8, 0.6, 0.5, 24)))),
+    (0.29, dict(head=(0, 0.6, 0.2), head_rot=(6, 0, -3), body=(0.2, 0.4), tail=-0.2, tail_lift=-1.2, pitch=5, squash=1.05,
+                feet=_f((1.8, 0.8, 0.4, -6), (-1.0, 0.6, 0.4, 18)))),
+    # in the air: the legs tuck in, the tail lifts against the tip of the body, at the top it looks down for the ground
+    (0.38, dict(head=(0, 0.4, 0.6), head_rot=(2, 0, -4), body=(0.4, 0.6), tail=-1.0, tail_lift=0.2, pitch=2, roll=-4,
+                feet=_f((2.6, 0.2, 0.3, -14), (2.4, 0.8, 0.3, 14)))),
+    (0.48, dict(head=(0, 0.0, 1.0), head_rot=(-14, -6, 4), body=(0.6, 0.6), tail=-1.6, tail_lift=1.6, pitch=-1, roll=3,
+                feet=_f((3.0, -0.2, 0.2, -16), (2.8, 1.0, 0.2, 16)))),
+    # coming down: the front paws reach for the ground, the hind legs follow, the tail up to balance the dip
+    (0.58, dict(head=(0, 0.2, 0.8), head_rot=(-8, -3, 2), body=(0.4, 0.2), tail=-0.6, tail_lift=2.4, pitch=-5, roll=1, squash=1.02,
+                feet=_f((-0.6, 1.6, 0.5, 10), (0.8, -0.2, 0.4, -4)))),
+    (0.66, dict(head=(0, 0.4, 0.6), head_rot=(-2, 0, 0), body=(0.2, -0.2), tail=0.2, tail_lift=2.8, pitch=-8, squash=1.04,
+                feet=_f((-2.2, 2.0, 0.7, 14), (-0.6, -0.6, 0.5, -6)))),
+    # the landing: front paws first, the shoulders take it, then the hind legs come down and settle
+    (0.71, dict(head=(0, 0.6, 0.4), head_rot=(3, 0, 0), body=(0.0, -0.2), tail=0.4, tail_lift=3.0, pitch=-9,
+                feet=_f((-1.6, 2.0, 0.9, 12), (-0.4, -0.8, 0.6, -6)))),
+    (0.77, dict(head=(0, 1.4, 0.8), head_rot=(6, 0, 2), body=(-1.9, -0.8), tail=-0.8, tail_lift=0.6, pitch=-5, squash=0.9,
+                feet=_f((0, 1.8, 1.4, 6), (0.6, -1.2, 0.8, -4)))),
+    (0.83, dict(head=(0, 0.6, 0.8), head_rot=(2, 0, 1), body=(-1.8, -2.0), tail=-1.2, tail_lift=-1.0, pitch=-1, squash=0.93,
+                feet=_f((0, 1.6, 1.2, 3), (0, -1.6, 1.0, -3)))),
+    # and up into its stance, a touch past it first
+    (0.92, dict(head=(0, -0.2, 1.1), head_rot=(3, 0, 0), body=(-0.8, -0.4), tail=0.4, tail_lift=0.9, pitch=1, squash=1.03,
+                feet=_f((0, 1.4, 0.7, 0), (0, -1.4, 0.5, 0)))),
     (1.10, STANCE),
 ]
-T_OFF, T_LAND, END = 0.25, 0.74, 1.10    # the last foot leaves the ground; the first touches; the stance is held
-H_APEX = 26.0                             # how high the body rises above where it left the ground (units)
-Z_OFF, Z_LAND, SKID = -3.0, -40.0, 6.0    # where it is (across, away from the beam) as it leaves, lands, stops
-# the face: (from time, state); each change crossfades over FADE s
-FACES = [(0.0, 'fierce'), (0.17, 'shout'), (0.76, 'strain'), (0.89, 'fierce')]
+T_OFF, T_LAND, END = 0.29, 0.71, 1.10    # the last foot leaves the ground; the first touches; the stance is held
+H_APEX = 24.0                             # how high the body rises above where it left the ground (units)
+Z_OFF, Z_LAND, SKID = -4.0, -38.0, 5.0    # where it is (across, away from the beam) as it leaves, lands, stops
+# the face (Brave): startled, then set; straining to push off; a yell going up; watching for the ground at the top;
+# set coming down; eyes shut on the impact; then sure of itself. Each change crossfades over FADE s
+FACES = [(0.0, 'surprise'), (0.07, 'fierce'), (0.15, 'effort'), (0.29, 'shout'), (0.44, 'focus'), (0.55, 'set'),
+         (0.71, 'strain'), (0.86, 'fierce')]
 FADE = 0.05
-PHASES = [('Anticipation', 0.15), ('Takeoff', 0.22), ('Ascent', 0.36), ('Apex', 0.49), ('Descent', 0.64),
-          ('Landing', 0.80), ('Recovery', 1.10)]
-PHASE_SPANS = [('Anticipation', 0.0, 0.17), ('Takeoff', 0.17, 0.27), ('Ascent', 0.27, 0.44), ('Apex', 0.44, 0.55),
-               ('Descent', 0.55, 0.74), ('Landing', 0.74, 0.88), ('Recovery', 0.88, 9.0)]
+PHASES = [('Startled', 0.04), ('Crouch', 0.15), ('Push-off', 0.22), ('Lift-off', 0.29), ('Tuck', 0.38), ('Apex', 0.48),
+          ('Front paws reach', 0.64), ('Front contact', 0.71), ('Shoulders take it', 0.77), ('Hind settle', 0.83),
+          ('Recovery', 1.10)]
+PHASE_SPANS = [('Anticipation', 0.0, 0.16), ('Takeoff', 0.16, 0.29), ('Ascent', 0.29, 0.44), ('Apex', 0.44, 0.54),
+               ('Descent', 0.54, 0.71), ('Landing', 0.71, 0.86), ('Recovery', 0.86, 9.0)]
 
-# ---- the beam: from the Sentinel's eyes (in front of the Evochi, high up) to the ground, where it stood just
-# after it leaves, then raking after it and stopping a step short of where it lands
+# ---- the beam: the Sentinel's aim lights the ground where your Evochi stands (what startles it); the beam comes
+# down there just after it has leapt clear, passing under it, and is gone before it lands
 EYES = np.array([0.0, 150.0, 230.0])
-BEAM_ON, BEAM_HIT, BEAM_OFF = 0.20, 0.27, 0.80
-STRIKE0, STRIKE1 = np.array([0.0, 0.0, -1.0]), np.array([0.0, 0.0, -27.0])
+AIM_ON, BEAM_ON, BEAM_HIT, BEAM_OFF = 0.0, 0.25, 0.33, 0.52
+STRIKE0 = np.array([0.0, 0.0, -1.0])
+STRIKE1 = STRIKE0
 
 
 # ---------------------------------------------------------------------------------------------------- the pose
@@ -342,13 +358,13 @@ def cur_beam(u):
 
 
 def new_beam(t):
+    """(on 0..1, strike point, how far down it has come 0..1): the bolt comes down from the eyes and lands at
+    BEAM_HIT, holds, and is gone well before the landing"""
     if t < BEAM_ON or t >= BEAM_OFF + 0.08:
-        return 0.0, STRIKE0
-    on = (t - BEAM_ON) / (BEAM_HIT - BEAM_ON) if t < BEAM_HIT else (1.0 if t < BEAM_OFF else 1 - (t - BEAM_OFF) / 0.08)
-    x = min(max((t - BEAM_HIT) / (BEAM_OFF - BEAM_HIT), 0.0), 1.0)
-    x = x * x * (3 - 2 * x)
-    strike = STRIKE0 + (STRIKE1 - STRIKE0) * x if t >= BEAM_HIT else STRIKE0
-    return min(max(on, 0.0), 1.0), strike
+        return 0.0, STRIKE0, 1.0
+    reach = min(1.0, (t - BEAM_ON) / (BEAM_HIT - BEAM_ON))
+    on = 1.0 if t < BEAM_OFF else 1 - (t - BEAM_OFF) / 0.08
+    return min(max(on, 0.0), 1.0), STRIKE0, reach
 
 
 # -------------------------------------------------------------------------------------------------- drawing
@@ -388,7 +404,7 @@ def render_layer(ch, face, cam, fit):
 
 
 def face_name(state, jaw):
-    return '%s:brave:nomouth' % state if jaw >= 3 else state
+    return '%s:brave:nomouth' % state if jaw >= 3 and state in ('shout', 'strain', 'fierce') else state
 
 
 def background(cam, fit):
@@ -438,7 +454,7 @@ def shadow_layer(cam, fit, root, model_feet, height):
     return soft((CW, CH), dr, 4)
 
 
-def beam_layer(cam, fit, on, strike, scorch_from, glow_t):
+def beam_layer(cam, fit, on, strike, scorch_from, glow_t, reach=1.0):
     L = Image.new('RGBA', (CW, CH), (0, 0, 0, 0))
     if glow_t is not None:                                # the scorch it leaves
         a, b = P2(cam, fit, [scorch_from, strike])
@@ -449,12 +465,13 @@ def beam_layer(cam, fit, on, strike, scorch_from, glow_t):
         L = Image.alpha_composite(L, g)
     if on <= 0:
         return L
-    e, s = P2(cam, fit, [EYES, strike])
+    e, s = P2(cam, fit, [EYES, EYES + (np.asarray(strike, float) - EYES) * reach])
     w = fit.scale * 5.0
 
     def wide(d):
         d.line([tuple(e), tuple(s)], fill=(160, 110, 255, int(120 * on)), width=int(w * 3.2))
-        d.ellipse([s[0] - w * 2.6, s[1] - w * 1.1, s[0] + w * 2.6, s[1] + w * 1.1], fill=(200, 160, 255, int(160 * on)))
+        if reach >= 1.0:
+            d.ellipse([s[0] - w * 2.6, s[1] - w * 1.1, s[0] + w * 2.6, s[1] + w * 1.1], fill=(200, 160, 255, int(160 * on)))
 
     def mid(d):
         d.line([tuple(e), tuple(s)], fill=(214, 180, 255, int(230 * on)), width=int(w * 1.3))
@@ -516,18 +533,19 @@ def particles_layer(cam, fit, parts):
 
 def new_particles():
     P = Particles(7)
-    # takeoff: the push kicks dust forward from under the front feet, the hind feet's grit after it
-    P.burst(0.19, (0, 0, 4), 14, 26, 10, 'dust', 2.2, bias=(0, 0, 18), life=0.7)
-    P.burst(0.23, (0, 0, -7), 10, 22, 8, 'dust', 1.8, bias=(0, 0, 10), life=0.6)
+    # the push: the hind feet kick dust and grit forward as they straighten, the front feet a little first
+    P.burst(0.20, (0, 0, 3), 8, 20, 8, 'dust', 1.8, bias=(0, 0, 14), life=0.6)
+    P.burst(0.25, (0, 0, -6), 14, 26, 10, 'dust', 2.2, bias=(0, 0, 20), life=0.7)
+    P.burst(0.26, (0, 0, -6), 6, 30, 40, 'rock', 0.5, bias=(0, 0, 18), life=0.5)
     # the beam's strike: chunks of floor thrown up, a ring of dust
     P.burst(BEAM_HIT, STRIKE0, 16, 46, 120, 'rock', 0.9, life=0.9)
     P.burst(BEAM_HIT, STRIKE0, 18, 40, 12, 'dust', 2.6, life=0.8)
-    # the landing: dust out from the hind feet, then the front, and a skid trail
+    # the landing: dust from the front paws as they meet the ground, then from the hind feet, and the skid
     zl = Z_LAND
-    P.burst(T_LAND, (0, 0, zl - 7), 14, 30, 9, 'dust', 2.2, life=0.7)
-    P.burst(T_LAND + 0.04, (0, 0, zl + 2), 14, 30, 9, 'dust', 2.2, life=0.7)
-    for i in range(6):
-        P.burst(T_LAND + 0.02 * i, (0, 0, zl - 1.0 * i), 3, 10, 6, 'dust', 1.6, bias=(0, 0, 8), life=0.5)
+    P.burst(T_LAND, (0, 0, zl + 4), 14, 30, 9, 'dust', 2.2, life=0.7)
+    P.burst(0.80, (0, 0, zl - 9), 12, 26, 8, 'dust', 2.0, life=0.7)
+    for i in range(5):
+        P.burst(T_LAND + 0.025 * i, (0, 0, zl + 3 - 1.0 * i), 3, 10, 6, 'dust', 1.6, bias=(0, 0, 8), life=0.5)
     return P
 
 
@@ -555,6 +573,26 @@ def flash_layer(cam, fit, t, at, t0):
     return soft((CW, CH), ring, 3)
 
 
+def aim_layer(cam, fit, t):
+    """the Sentinel's aim: a ring of its light on the ground where your Evochi stands, tightening and brightening
+    until the beam comes down"""
+    if t < AIM_ON or t >= BEAM_HIT:
+        return None
+    u = (t - AIM_ON) / (BEAM_HIT - AIM_ON)
+    c = P2(cam, fit, [STRIKE0])[0]
+    k = 0.3 if cam is CAM else 0.08
+    L = Image.new('RGBA', (CW, CH), (0, 0, 0, 0))
+    d = ImageDraw.Draw(L)
+    pulse = 0.6 + 0.4 * math.sin(t * 40)
+    for i, (rr, a) in enumerate(((16 - 8 * u, 200), (10 - 6 * u, 140))):
+        r = fit.scale * rr
+        d.ellipse([c[0] - r, c[1] - r * k, c[0] + r, c[1] + r * k], outline=(210, 160, 255, int(a * pulse * (0.4 + 0.6 * u))),
+                  width=max(2, int(fit.scale * 0.9)))
+    r = fit.scale * 9
+    d.ellipse([c[0] - r, c[1] - r * k, c[0] + r, c[1] + r * k], fill=(170, 110, 255, int(70 * u * pulse)))
+    return L.filter(ImageFilter.GaussianBlur(1.5))
+
+
 def label(img, text, sub=None):
     d = ImageDraw.Draw(img)
     d.rounded_rectangle([12, 12, 22 + d.textlength(text, font=font(22)), 46], 8, fill=(20, 14, 30, 200))
@@ -577,10 +615,13 @@ def improved_frame(args):
         L = render_layer(ch, face_name(state, p['jaw']), cam, shifted(fit, cam, root))
         lay = L if lay is None else Image.blend(lay, L, w)
     img = background(cam, fit)
-    on, strike = new_beam(t)
-    scorch = None if t < BEAM_HIT else max(0.0, 1 - (t - BEAM_OFF) / 0.5) if t > BEAM_OFF else 1.0
-    img = Image.alpha_composite(img, beam_layer(cam, fit, 0.0, strike, STRIKE0, scorch) if scorch is not None else
+    on, strike, reach = new_beam(t)
+    scorch = None if t < BEAM_HIT else max(0.25, 1 - (t - BEAM_OFF) / 0.5) if t > BEAM_OFF else 1.0
+    img = Image.alpha_composite(img, beam_layer(cam, fit, 0.0, strike + np.array([0, 0, -0.01]), STRIKE0, scorch) if scorch is not None else
                                 Image.new('RGBA', (CW, CH), (0, 0, 0, 0)))
+    al = aim_layer(cam, fit, t)
+    if al:
+        img = Image.alpha_composite(img, al)
     fl = flash_layer(cam, fit, t, STRIKE0, BEAM_HIT)
     if fl:
         img = Image.alpha_composite(img, fl)
@@ -591,11 +632,19 @@ def improved_frame(args):
     behind = [q for q in parts if cam.project(np.array([q[0]]))[2][0] >= depth]
     front = [q for q in parts if cam.project(np.array([q[0]]))[2][0] < depth]
     img = Image.alpha_composite(img, particles_layer(cam, fit, behind))
-    img = Image.alpha_composite(img, beam_layer(cam, fit, on, strike, STRIKE0, None))
+    bl = beam_layer(cam, fit, on, strike, STRIKE0, None, reach)
+    img = Image.alpha_composite(img, bl)
     img = Image.alpha_composite(img, lay)
     img = Image.alpha_composite(img, particles_layer(cam, fit, front))
+    # does the beam's bright core cross the body on screen? (it must not)
+    if on > 0:
+        core = np.asarray(bl)[..., 3] > 200
+        body = np.asarray(lay)[..., 3] > 128
+        hit = int((core & body).sum())
+        if hit:
+            print('beam over the body: t=%.3f %s %d px' % (t, name, hit), flush=True)
     ph = next(n for n, a, b in PHASE_SPANS if a <= t < b)
-    label(img, 'Improved: ' + ph, '%s camera   t = %.2f s' % (name.split(' ')[0], t))
+    label(img, 'Refined: ' + ph, '%s camera   t = %.2f s' % (name.split(' ')[0], t))
     return img.convert('RGB')
 
 
@@ -651,62 +700,62 @@ def _cell(job):
     return (improved_frame if kind == 'new' else current_frame)((t, vi))
 
 
+PREV = os.environ.get('JUMP_PREV')        # the previous improved jump's frames (a cmp/ folder), to set beside
+
+
+def prev_cell(i, vi):
+    """the previous version's cell for sample i (60 fps), from its comparison video's half-speed run"""
+    im = Image.open(os.path.join(PREV, '%04d.png' % (64 + i)))
+    W0, H0 = (im.width - 6) // 2, (im.height - 6) // 2
+    c = im.crop((W0 + 6, vi * (H0 + 6), W0 + 6 + W0, vi * (H0 + 6) + H0)).convert('RGBA')
+    d = ImageDraw.Draw(c)
+    d.rounded_rectangle([8, 8, 300, 50], 8, fill=(20, 14, 30, 255))
+    d.text((18, 14), 'Previous', font=font(22), fill=(238, 226, 255))
+    return c.convert('RGB')
+
+
 def main(out):
     os.makedirs(out, exist_ok=True)
     fdir = os.path.join(out, 'cmp')
     os.makedirs(fdir, exist_ok=True)
-    # the phase sheet first (the seven phases, both cameras; the current jump at the matching moments beside)
-    cur_at = {'Anticipation': 0.08, 'Takeoff': 0.16, 'Ascent': 0.30, 'Apex': 0.58, 'Descent': 0.85, 'Landing': 1.02,
-              'Recovery': 1.40}
-    jobs = []
-    for vi in range(2):
-        for n, t in PHASES:
-            jobs.append(('new', t, vi))
-            jobs.append(('cur', cur_at[n], vi))
+    # the phase sheet: every beat of the refined jump, both cameras
+    jobs = [('new', t, vi) for vi in range(2) for _, t in PHASES]
     with ProcessPoolExecutor(WORKERS) as ex:
         cells = list(ex.map(_cell, jobs))
-    s = 0.5
+    s = 0.44
     cw, chh = int(CW * s), int(CH * s)
-    W, H = 30 + 7 * (cw + 8) + 22, 90 + 4 * (chh + 40) + 10
+    n = len(PHASES)
+    W, H = 30 + n * (cw + 8) + 22, 100 + 2 * (chh + 44) + 10
     sheet = Image.new('RGB', (W, H), (16, 12, 24))
     d = ImageDraw.Draw(sheet)
-    d.text((30, 20), 'Juvenile: leaping the Sentinel\'s beam. Improved (articulated, ballistic) over current.',
-           font=font(30), fill=(240, 230, 255))
-    d.text((30, 58), 'Rows: cinematic camera improved, current; side camera improved, current. Coral, brave faces.',
-           font=font(17, False), fill=(190, 176, 220))
-    i = 0
+    d.text((30, 20), "Juvenile: leaping the Sentinel's beam, refined. Hind legs push, legs tuck, front paws reach and "
+                     "land first, the shoulders take it, the hind legs settle.", font=font(28), fill=(240, 230, 255))
+    d.text((30, 60), 'Top: the cinematic camera. Bottom: from the side. Coral, Brave faces.', font=font(18, False),
+           fill=(190, 176, 220))
     for vi in range(2):
-        for j, (n, t) in enumerate(PHASES):
-            for r, kind in enumerate(('Improved', 'Current')):
-                y = 90 + (vi * 2 + r) * (chh + 40)
-                x = 30 + j * (cw + 8)
-                sheet.paste(cells[i].resize((cw, chh), Image.LANCZOS), (x, y + 30))
-                if vi * 2 + r in (0, 2):
-                    d.text((x, y + 4), '%d %s (%.2f s)' % (j + 1, n, t), font=font(18), fill=(240, 230, 255))
-                i += 1
+        for j, (nm, t) in enumerate(PHASES):
+            x, y = 30 + j * (cw + 8), 100 + vi * (chh + 44)
+            sheet.paste(cells[vi * n + j].resize((cw, chh), Image.LANCZOS), (x, y + 32))
+            d.text((x, y + 4), '%d %s (%.2f s)' % (j + 1, nm, t), font=font(17), fill=(240, 230, 255))
     p = os.path.join(out, 'jump_phases.png')
     sheet.save(p, optimize=True)
     print(p, flush=True)
-    # the video: both jumps, both cameras; real time, then half speed
-    n_new = int(END * FPS) + 1
-    n_cur = int(CUR_LEN * FPS) + 1
-    n = max(n_new, n_cur) + int(0.3 * FPS)
-    jobs = [(k, round(min(i / FPS, END if k == 'new' else CUR_LEN), 4), vi) for i in range(n) for vi in range(2)
-            for k in ('cur', 'new')]
+    # the video: previous and refined side by side, both cameras; real time, then half speed
+    n = int(END * FPS) + 1 + int(0.3 * FPS)
+    jobs = [('new', round(min(i / FPS, END), 4), vi) for i in range(n) for vi in range(2)]
     uniq = sorted(set(jobs), key=jobs.index)
     with ProcessPoolExecutor(WORKERS) as ex:
         done = dict(zip(uniq, ex.map(_cell, uniq, chunksize=4)))
-    res = [done[j] for j in jobs]
     frames = []
     for i in range(n):
         g = Image.new('RGB', (CW * 2 + 6, CH * 2 + 6), (8, 6, 12))
         for vi in range(2):
-            for c, k in enumerate(('cur', 'new')):
-                g.paste(res[(i * 2 + vi) * 2 + c], (c * (CW + 6), vi * (CH + 6)))
+            if PREV:
+                g.paste(prev_cell(i, vi).resize((CW, CH)), (0, vi * (CH + 6)))
+            g.paste(done[('new', round(min(i / FPS, END), 4), vi)], (CW + 6, vi * (CH + 6)))
         frames.append(g)
     order = [frames[i] for i in range(0, n, 2)] + [frames[i] for i in range(n)]
-    hold = [frames[0]] * 12
-    for k, f in enumerate(hold + order + [frames[-1]] * 20):
+    for k, f in enumerate([frames[0]] * 12 + order + [frames[-1]] * 20):
         f.save(os.path.join(fdir, '%04d.png' % k))
     mp4 = os.path.join(out, 'jump_compare.mp4')
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-framerate', '30', '-i', os.path.join(fdir, '%04d.png'),
