@@ -38,6 +38,7 @@ class SentinelIntro extends StatefulWidget {
     required this.art,
     required this.evochi,
     this.react,
+    this.jump,
     required this.cut,
     required this.petName,
     required this.tint,
@@ -47,6 +48,9 @@ class SentinelIntro extends StatefulWidget {
   final BossIntroArt art;
   final CineEvochiArt? evochi;
   final ReactArt? react;
+
+  /// its leap clear of the beam, posed frame by frame (jump_art.dart); without it, the older dodge
+  final JumpArt? jump;
   final IntroCut cut;
   final String petName;
   final Color tint;
@@ -131,9 +135,10 @@ class _SentinelIntroState extends State<SentinelIntro> with SingleTickerProvider
         if (widget.react != null) _cue('react', _sReact);
         _cue('charge', _sCharge);
         _cue('beam', _sFire);
-        _cue('leap', _sDodge + 0.12);
-        _cue('blast', _sDodge + 0.2);
-        _cue('land', _sDodge + 0.95);
+        final jv = widget.jump;
+        _cue('leap', _sDodge + (jv == null ? 0.12 : jv.lift - 0.06));
+        _cue('blast', _sDodge + (jv == null ? 0.2 : jv.hit));
+        _cue('land', _sDodge + (jv == null ? 0.95 : jv.land));
         _cue('title', titleT);
       case IntroCut.short:
         _cue('title', titleT);
@@ -166,8 +171,10 @@ class _SentinelIntroState extends State<SentinelIntro> with SingleTickerProvider
       final rv = widget.react;
       if (rv != null && t > _sReact && t < _sCharge) s = math.max(s, 6 * math.min(1.0, rv.impulse(t - _sReact)));
       if (t > _sFire && t < _sDodge) s = math.max(s, 7);
-      final b = t - _sDodge - 0.2;
+      final b = t - _sDodge - (widget.jump?.hit ?? 0.2);
       if (b > 0 && b < 0.5) s = math.max(s, 13 * (1 - b / 0.5));
+      final l = t - _sDodge - (widget.jump?.land ?? 9);
+      if (l > 0 && l < 0.25) s = math.max(s, 4 * (1 - l / 0.25)); // its landing, felt
     }
     if (s == 0) return Offset.zero;
     return Offset(math.sin(t * 97) * s, math.cos(t * 83) * s * 0.7);
@@ -544,6 +551,11 @@ class _SentinelPainter extends CustomPainter with _IntroFx, _BriarScene {
             Color.fromRGBO(170, 120, 255, (u < 1.1 ? 0.45 : math.max(0.0, 0.45 - (u - 1.1) * 1.5)) * env),
             const Color(0x00AA78FF),
           ]));
+    final jv = s.widget.jump;
+    if (jv != null) {
+      _dodgeJump(canvas, size, env, jv, u, h);
+      return;
+    }
     // the leap: up and over to the left, hanging at the top as time slows, then down
     double k;
     if (u < 0.12) {
@@ -672,6 +684,84 @@ class _SentinelPainter extends CustomPainter with _IntroFx, _BriarScene {
 
   /// The dodge with its reaction art: braced (deep in its crouch) as the beam comes, the leap in its
   /// thrown-back pose, a crouch as it lands, then set and ready; on the ground its feet's own shadows.
+  /// The leap, posed (jump_art.dart): the Sentinel's aim lights the ground under it, it startles, crouches, and
+  /// pushes off; the bolt comes down where it stood just after it clears, passing under it, and is gone before it
+  /// lands, front paws first. Its shadow keeps to the ground; the dust is where its feet are.
+  void _dodgeJump(Canvas canvas, Size size, double env, JumpArt jv, double u, double h) {
+    final W = size.width, H = size.height;
+    final k = h * 1.12 / jv.cell.height;
+    final from = Offset(W * 0.68, H * 0.8);
+    final i = jv.frameAt(u);
+    final strike = from + jv.strike * k;
+    // the aim: a ring of its light on the ground where your Evochi stands, tightening, until the bolt lands
+    if (u >= jv.aim && u < jv.hit) {
+      final a = ((u - jv.aim) / (jv.hit - jv.aim)).clamp(0.0, 1.0);
+      final pulse = 0.6 + 0.4 * math.sin(t * 40);
+      for (final (r0, al) in [(0.16, 0.8), (0.1, 0.55)]) {
+        final r = W * r0 * (1 - 0.5 * a);
+        canvas.drawOval(
+            Rect.fromCenter(center: strike, width: r * 2, height: r * 0.6),
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 3
+              ..color = Color.fromRGBO(210, 160, 255, al * pulse * (0.4 + 0.6 * a) * env));
+      }
+      canvas.drawOval(Rect.fromCenter(center: strike, width: W * 0.18, height: W * 0.054),
+          Paint()..color = Color.fromRGBO(170, 110, 255, 0.28 * a * pulse * env));
+    }
+    // the scorch it leaves
+    if (u >= jv.hit) {
+      final g = (1 - ((u - jv.beamOff) / 0.5).clamp(0.0, 0.75));
+      canvas.drawOval(Rect.fromCenter(center: strike, width: W * 0.16, height: W * 0.045), Paint()..color = Color.fromRGBO(24, 14, 32, 0.75 * env));
+      canvas.drawOval(Rect.fromCenter(center: strike, width: W * 0.08, height: W * 0.022),
+          Paint()..color = Color.fromRGBO(220, 170, 255, 0.7 * g * env));
+    }
+    // its shadow on the ground, smaller and fainter the higher it is; its feet's contacts when they're down
+    final (sh, up) = jv.shadow[i];
+    final kk = 1 / (1 + up / 18);
+    _shadow(canvas, from + sh * k, h * 0.42 * (0.55 + 0.45 * kk), 0.5 * kk * env);
+    footShadows(canvas, [for (final c in jv.feet[i]) if (c.lift < 1.2) FootContact(from + c.at * k, c.rx * k, c.ry * k, c.lift)], env);
+    // the push's dust and grit, the strike's, the landing's
+    final push = u - (jv.lift - 0.09);
+    if (push >= 0 && push < 0.8) _dust(canvas, from, push, W * 0.16, env, 9, const Offset(0, 1));
+    final b = u - jv.hit;
+    if (b >= 0 && b < 1.0) {
+      _shock(canvas, strike, b, W, env);
+      _dust(canvas, strike, b, W * 0.45, env, 14, const Offset(0, 1));
+      final cp = Paint();
+      for (var n = 0; n < 12; n++) {
+        final a = -math.pi * (0.15 + 0.7 * _h(n, 110));
+        final v = W * (0.6 + 0.6 * _h(n, 111));
+        final x = strike.dx + math.cos(a) * v * b;
+        final y = strike.dy + math.sin(a) * v * b + 900 * b * b;
+        cp.color = (n.isEven ? const Color(0xFF4A3B30) : const Color(0xFF6E4FA3)).withAlpha(_a((1 - b) * env));
+        canvas.drawRect(Rect.fromCenter(center: Offset(x, y), width: 7 + 6 * _h(n, 112), height: 6 + 5 * _h(n, 113)), cp);
+      }
+    }
+    final li = jv.frameAt(jv.land);
+    final landAt = from + jv.shadow[li].$1 * k;
+    final l = u - jv.land;
+    if (l >= 0 && l < 0.9) {
+      _dust(canvas, landAt, l, W * 0.24, env, 12, const Offset(0, 2));
+      // its colour pouring off it as it lands
+      final c = landAt - Offset(0, h * 0.45);
+      final a = (l / 0.25).clamp(0.0, 1.0) * (1 - (l / 0.9)) * 0.5 * env;
+      canvas.drawCircle(c, h * 0.8, Paint()..shader = ui.Gradient.radial(c, h * 0.8, [tint.withAlpha(_a(a)), tint.withAlpha(0)]));
+    }
+    // the beam: from off the top right, along the camera's own line to where it lands; the bolt comes down,
+    // holds, and is gone
+    if (u >= jv.beamOn && u < jv.beamOff + 0.08) {
+      final reach = ((u - jv.beamOn) / (jv.hit - jv.beamOn)).clamp(0.0, 1.0);
+      final on = u < jv.beamOff ? 1.0 : 1 - (u - jv.beamOff) / 0.08;
+      final src = strike + jv.beamDir * (W + H) * 1.2;
+      _beam(canvas, src, Offset.lerp(src, strike, reach)!, W * 0.16, W * 0.09, env * on.clamp(0.0, 1.0));
+    }
+    // your Evochi, posed, with what it wears
+    jv.draw(canvas, i, from, k, Paint()
+      ..filterQuality = FilterQuality.medium
+      ..color = Color.fromRGBO(0, 0, 0, env));
+  }
+
   void _dodgeReact(Canvas canvas, Size size, double env, ReactArt rv, double u, double k, Offset feet, Offset Function(double) feetAt,
       double h, Offset to) {
     final W = size.width;

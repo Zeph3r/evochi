@@ -277,15 +277,61 @@ def turn_body(ch, R, squash=1.0, pivot=PIVOT, pad=(-26, -14, -44, 26, 48, 40)):
     return out
 
 
-def character(p):
-    kw = {k: p[k] for k in ('head', 'head_rot', 'body', 'tail', 'tail_lift')}
-    kw['feet'] = p['feet']
+# ---- the stages. The keys are the Juvenile's; each stage takes them through its own build and proportions:
+# the Eggling is all egg (no head, torso or tail of its own: its feet and its squash and stretch carry it, the
+# squash bigger), the Elder heavier and longer-legged (its legs bend to follow the feet, so a swing becomes the
+# foot's reach). The leap's height and length scale with the body.
+STAGE_PROFILE = {
+    1: dict(pivot=(0.0, 11.2, 0.0), pad=(-26, -14, -28, 26, 46, 30), feet=0.8, hip=4.0, body=0.0, squash=1.6,
+            apex=20.0, travel=0.85),
+    2: dict(pivot=(0.0, 9.5, -3.0), pad=(-26, -14, -44, 26, 48, 40), feet=1.0, hip=None, body=1.0, squash=1.0,
+            apex=24.0, travel=1.0),
+    3: dict(pivot=(0.0, 11.5, -6.0), pad=(-32, -14, -62, 32, 60, 46), feet=1.2, hip=8.0, body=1.15, squash=0.8,
+            apex=28.0, travel=1.18),
+}
+STAGE = int(os.environ.get('JUMP_STAGE', '2'))
+
+
+def use_stage(stage):
+    """set the leap up for a stage: its turn pivot, height and length"""
+    global STAGE, PIVOT, H_APEX, Z_OFF, Z_LAND, SKID
+    STAGE = stage
+    pr = STAGE_PROFILE[stage]
+    PIVOT = np.array(pr['pivot'], float)
+    H_APEX = pr['apex']
+    Z_OFF, Z_LAND, SKID = -4.0 * pr['travel'], -38.0 * pr['travel'], 5.0 * pr['travel']
+    _low.clear()
+
+
+def _stage_feet(feet, pr):
+    """the Juvenile's feet (lift, shift, spread, swing) for another stage: scaled, and where its legs have no
+    hip to swing about, the swing becomes the foot's own reach (forward and up)"""
+    k, hip = pr['feet'], pr['hip']
+    out = {}
+    for f, v in feet.items():
+        dy, dz, dx, sw = (tuple(v) + (0.0, 0.0, 0.0, 0.0))[:4]
+        if hip is None:
+            out[f] = (dy, dz, dx, sw)
+        else:
+            a = math.radians(sw)
+            out[f] = (dy * k + hip * (1 - math.cos(a)), dz * k + hip * math.sin(a), dx * k)
+    return out
+
+
+def character(p, stage=None):
+    stage = stage or STAGE
+    pr = STAGE_PROFILE[stage]
+    kw = {'feet': _stage_feet(p['feet'], pr)}
+    if stage != 1:
+        kw.update({k: p[k] for k in ('head', 'head_rot', 'tail', 'tail_lift')})
+        kw['body'] = tuple(v * pr['body'] for v in p['body'])
     if p['jaw'] >= 0.5:
         kw['jaw'] = p['jaw']
-    ch = build(2, lo_y=-9, **kw)
+    ch = build(stage, lo_y=-9, **kw)
     R = head_rotation((p['pitch'], p['yaw'], p['roll']))
-    if abs(p['pitch']) + abs(p['roll']) + abs(p['yaw']) > 1e-3 or abs(p['squash'] - 1) > 1e-3:
-        ch = turn_body(ch, R, p['squash'])
+    sq = 1 + (p['squash'] - 1) * pr['squash']
+    if abs(p['pitch']) + abs(p['roll']) + abs(p['yaw']) > 1e-3 or abs(sq - 1) > 1e-3:
+        ch = turn_body(ch, R, sq, pivot=np.array(pr['pivot'], float), pad=pr['pad'])
     return ch
 
 
@@ -324,7 +370,7 @@ _low = {}
 
 def _ground_y(t):
     """how high the model's floor (y 0) is above the ground when its lowest foot stands on it"""
-    k = round(t, 4)
+    k = (STAGE, round(t, 4))
     if k not in _low:
         _low[k] = -low_foot(character(pose_at(t)).model)
     return _low[k]
@@ -812,6 +858,9 @@ def main(out):
     subprocess.run(['ffmpeg', '-v', 'error', '-y', '-framerate', '30', '-i', os.path.join(fdir, '%04d.png'),
                     '-vf', 'format=yuv420p', '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '18', mp4], check=True)
     print(mp4, flush=True)
+
+
+use_stage(STAGE)
 
 
 if __name__ == '__main__':

@@ -9,6 +9,7 @@ import 'story_state.dart';
 import 'hatch_state.dart';
 import 'mining_state.dart';
 import 'trails_state.dart';
+import '../../game/personality/personality.dart';
 
 export 'home_state.dart';
 export 'story_state.dart';
@@ -248,11 +249,14 @@ class Pet {
     List<BondEvent>? bondEvents,
     List<Map<String, int>>? evolutions,
     Map<String, String>? equipped,
+    Personality? personality,
   })  : xpAwarded = xpAwarded ?? {},
         events = events ?? [],
         bondEvents = bondEvents ?? [],
         evolutions = evolutions ?? [],
-        equipped = equipped ?? {};
+        equipped = equipped ?? {},
+        // an Evochi from before personalities gets one, once, from its own id (saved with it from then on)
+        personality = personality ?? migratePersonality(id);
   final String id;
   final String? requestId;
   final String speciesId;
@@ -268,6 +272,9 @@ class Pet {
   final List<BondEvent> bondEvents;
   final List<Map<String, int>> evolutions;
   final Map<String, String> equipped;
+
+  /// who it is (game/personality): made when it hatched, kept for life, through evolution
+  final Personality personality;
 
   factory Pet.fromJson(Map<String, dynamic> j) => Pet(
         id: j['id'] as String,
@@ -285,6 +292,7 @@ class Pet {
         bondEvents: _l(j['bondEvents']).map((e) => BondEvent.fromJson(_m(e))).toList(),
         evolutions: _l(j['evolutions']).map((e) => _m(e).map((k, v) => MapEntry(k, _i(v)))).toList(),
         equipped: _m(j['equipped']).map((k, v) => MapEntry(k, v as String)),
+        personality: j['personality'] is Map ? Personality.fromJson(_m(j['personality'])) : null,
       );
   Map<String, dynamic> toJson() => {
         'id': id,
@@ -302,6 +310,7 @@ class Pet {
         'bondEvents': bondEvents.map((e) => e.toJson()).toList(),
         'evolutions': evolutions,
         'equipped': equipped,
+        'personality': personality.toJson(),
       };
 }
 

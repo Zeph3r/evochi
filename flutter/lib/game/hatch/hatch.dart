@@ -20,6 +20,7 @@ import '../../core/utils/day_keys.dart';
 import '../../core/utils/ids.dart';
 import '../engine.dart' as g;
 import '../xp/step_aggregation.dart';
+import '../personality/personality.dart';
 
 class EggTemplate {
   const EggTemplate({
@@ -251,8 +252,11 @@ g.ActionResult hatchEgg(GameState state, String eggId, {required String name, re
   final egg = eggById(s, eggId)!;
   final today = dayKey(now, g.zoneOf(s));
   final paletteId = hatchPalette(egg);
+  final id = newId('pet');
   final pet = Pet(
-    id: newId('pet'),
+    id: id,
+    // who it is, made as it hatches and saved before the reveal (a retry finds this pet, never rerolls it)
+    personality: generatePersonality(seedFrom('$id:${egg.id}')),
     requestId: requestId,
     name: v.name,
     paletteId: paletteId,

@@ -33,6 +33,7 @@ import 'wilds_art.dart' show wildsBase;
 part 'briar_scene.dart';
 part 'sprout_intro.dart';
 part 'sentinel_intro.dart';
+part 'jump_art.dart';
 
 Future<ui.Image> _img(String path) async {
   final data = await rootBundle.load(path);

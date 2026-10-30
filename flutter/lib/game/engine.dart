@@ -21,6 +21,7 @@ import 'trails/trails.dart' as trails;
 import 'vitality/vitality.dart';
 import 'xp/step_aggregation.dart';
 import 'xp/xp.dart';
+import 'personality/personality.dart';
 
 class GameEvent {
   const GameEvent(this.type, [this.data = const {}]);
@@ -321,8 +322,11 @@ ActionResult createPet(GameState state, {required String name, required String p
   if (!palettes.any((p) => p.id == paletteId)) return _fail(state, 'invalid_palette');
   final s = state.copy();
   final today = dayKey(now, s.player!.timezone);
+  final id = newId('pet');
   s.pet = Pet(
-    id: newId('pet'),
+    id: id,
+    // who it is, made now and saved with it before the hatch shows it (a retry reuses this pet, never rerolls it)
+    personality: generatePersonality(seedFrom('$id:$requestId')),
     requestId: requestId,
     name: v.name,
     paletteId: paletteId,

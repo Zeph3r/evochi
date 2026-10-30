@@ -143,6 +143,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   BossIntroArt? _introArt;
   CineEvochiArt? _cineEvochi;
   ReactArt? _reactArt; // its reaction to the roar (none while it wears something: the older art carries that)
+  JumpArt? _jumpArt; // its leap clear of the Sentinel's beam (the Sentinel's story floor only)
   IntroCut? _cine; // playing now
   BossIntroArt? _sentArt; // the Forgotten Sentinel's entrance (its story floor only)
   BossIntroArt? _sproutArt; // the Hollow Sprout's entrance (its story floor only)
@@ -294,6 +295,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       if (sprout) _sproutArt = await BossIntroArt.load('sprout', warm: const [0, 1, 2, 3, 4, 26, 27, 28]);
       _cineEvochi = await CineEvochiArt.load(stage, palette, wearing);
       _reactArt = await ReactArt.load(stage, palette, wearing);
+      if (sentinel) _jumpArt = await JumpArt.load(stage, palette, wearing);
     } catch (e, st) {
       debugPrint('boss intro art: $e\n$st');
     }
@@ -1697,6 +1699,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                       art: _sentArt!,
                       evochi: _cineEvochi,
                       react: _reactArt,
+                      jump: _jumpArt,
                       cut: _sentCine!,
                       petName: _c.state.pet?.name ?? 'Your Evochi',
                       tint: cineTint(_c.state.pet?.paletteId ?? 'amber'),
