@@ -680,6 +680,9 @@ Clip _mistClip(String profile, String label) => Clip(
       },
       beats: [
         Beat(0.05, (s) => s.say([(label, white)], secs: 1.0, size: 27, y: 165)),
+        // a look in the pouch first (open, then shut again before the ultimate)
+        Beat(0.25, (s) => s.tapText('Pouch')),
+        Beat(0.85, (s) => s.tapText('Pouch')),
         // pressed until it goes (a press mid-swing is dropped, as in play)
         for (final at in const [1.0, 1.1, 1.2, 1.3, 1.4])
           Beat(at, (s) {

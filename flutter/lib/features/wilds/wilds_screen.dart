@@ -1218,7 +1218,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   }
 
   // ---- brews: drunk in a fight for a buff
-  bool _brewPick = false;
+  bool _brewPick = false; // the pouch is open
   double _brewCd = 0;
 
   void _brewTap(List<String> brews) {
@@ -1231,9 +1231,12 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     if (brews.length == 1) {
       _drink(brews.first);
     } else {
-      setState(() => _brewPick = !_brewPick);
+      _togglePouch(open: true); // which one: the pouch opens
     }
   }
+
+  /// the pouch: opens and closes its menu (null: whichever it isn't)
+  void _togglePouch({bool? open}) => setState(() => _brewPick = open ?? !_brewPick);
 
   void _drink(String id) {
     final r = _raid;
@@ -1646,9 +1649,9 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                   ),
                   if (card == null)
                     Positioned(
-                      // above the moves, on the right: the bottom left stays clear for the left thumb's walking
-                      right: 10 + mq.padding.right,
-                      bottom: 12 + mq.padding.bottom + _CombatPad.h + 2,
+                      // the pouch, up top under the purse: what to eat and drink, and what this trip has found
+                      right: 6 + mq.padding.right,
+                      top: mq.padding.top + 8 + 78 + 6 + 32 + 4 + (_miningArt != null ? 46 : 0),
                       child: _Pouch(state: this),
                     ),
                   if (card == null)
@@ -1657,12 +1660,12 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                       bottom: 12 + mq.padding.bottom,
                       child: _CombatPad(state: this),
                     ),
-                  // the brew shelf, beside the pad's flask
-                  if (card == null && _brewPick && w.ownedBrews(context.read<GameController>().state).length > 1)
+                  // the pouch, open: a parchment menu beside it
+                  if (card == null && _brewPick)
                     Positioned(
-                      right: 10 + mq.padding.right + 236 - 4,
-                      bottom: 12 + mq.padding.bottom + 92,
-                      child: _BrewShelf(brews: w.ownedBrews(context.read<GameController>().state), onPick: _drink),
+                      right: 6 + mq.padding.right + 54,
+                      top: mq.padding.top + 8 + 78 + 6 + 32 + 4 + (_miningArt != null ? 46 : 0),
+                      child: _PouchMenu(state: this),
                     ),
                   if (_hintT > 0 && card == null && _hint == null && WildsScreen.director == null)
                     _bottomHint(mq, _hintT > 1, 'Drag to walk · push far to run'),
@@ -4343,8 +4346,8 @@ class _CombatPad extends StatelessWidget {
       };
 }
 
-/// What to eat and drink in a fight: a small parchment tray of its own above the moves, not among them (and off
-/// the bottom left, where a drag starts the walking joystick).
+/// The pouch: a bag up top that opens a menu of what to eat and drink (a fight's quick reach, out of the way of
+/// the moves and of the walking thumb), and what this trip has found. Its count: the berries left.
 class _Pouch extends StatelessWidget {
   const _Pouch({required this.state});
   final _WildsScreenState state;
@@ -4353,84 +4356,118 @@ class _Pouch extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.watch<GameController>();
     final heals = w.healItemCount(c.state);
-    final brews = w.ownedBrews(c.state);
     final s = state;
-    return ValueListenableBuilder<int>(
-      valueListenable: s._repaint,
-      builder: (context, _, child) => Opacity(
-        opacity: s._combatT <= 0 ? 0.8 : 1,
-        child: Container(
-          padding: const EdgeInsets.fromLTRB(4, 6, 4, 4),
-          decoration: BoxDecoration(
-            color: const Color(0xB3FFF3DC),
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: const Color(0xCC76513B), width: 2),
-            boxShadow: const [BoxShadow(color: Color(0x40241208), offset: Offset(0, 2), blurRadius: 3)],
-          ),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            AbilityButton(
-              icon: AbilityIcon.apple,
-              rank: AbilityRank.utility,
-              label: 'Eat',
-              semantic: heals > 0 ? 'Eat a berry, $heals left' : 'No berries',
-              accent: const Color(0xFFE2493B),
-              badge: heals > 0 ? '$heals' : null,
-              cooldown: s._itemCd / 2.5,
-              dim: heals == 0,
-              onDown: () => s._press('item'),
-            ),
-            const SizedBox(width: 4),
-            AbilityButton(
-              icon: AbilityIcon.potion,
-              rank: AbilityRank.utility,
-              label: 'Drink',
-              semantic: brews.isEmpty ? 'No brews' : 'Drink a brew',
-              accent: const Color(0xFFE0609A),
-              badge: brews.isEmpty ? null : '${brews.length}',
-              cooldown: s._brewCd / 1.5,
-              dim: brews.isEmpty,
-              onDown: () => s._brewTap(brews),
-            ),
-          ]),
-        ),
-      ),
+    return AbilityButton(
+      icon: AbilityIcon.pouch,
+      rank: AbilityRank.utility,
+      size: 42,
+      label: 'Pouch',
+      semantic: s._brewPick ? 'Close the pouch' : 'Open the pouch: food, brews and what you found',
+      accent: const Color(0xFFF2C76A),
+      ready: s._brewPick,
+      badge: heals > 0 ? '$heals' : null,
+      onDown: s._togglePouch,
     );
   }
 }
 
-class _BrewShelf extends StatelessWidget {
-  const _BrewShelf({required this.brews, required this.onPick});
-  final List<String> brews;
-  final ValueChanged<String> onPick;
+/// The pouch, open: eat (the next berry, how many are left), drink (each brew, what it does), and the trip's
+/// finds so far. Using something closes it.
+class _PouchMenu extends StatelessWidget {
+  const _PouchMenu({required this.state});
+  final _WildsScreenState state;
+
   @override
   Widget build(BuildContext context) {
     final c = context.watch<GameController>();
-    return Container(
-      padding: const EdgeInsets.all(6),
-      decoration: BoxDecoration(color: const Color(0xCC1B2A1A), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0x99BFF6FF), width: 1.5)),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: [
-        for (final id in brews)
-          Semantics(
-            button: true,
-            label: '${catalog[id]?.name ?? id}, ${buffDefs[w.wildsBrews[id]]?.text ?? ''}',
-            excludeSemantics: true,
-            child: GestureDetector(
-              onTap: () => onPick(id),
+    final s = state;
+    final r = s._raid;
+    final healId = w.nextHealItem(c.state);
+    final heals = w.healItemCount(c.state);
+    final brews = w.ownedBrews(c.state);
+    final found = r == null ? const <String, int>{} : r.items;
+    const head = TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w900, fontSize: 11, letterSpacing: 0.6, color: Color(0xFF8A5A3B));
+    Widget row({required Widget icon, required String title, required String sub, required String semantic, required bool on, required VoidCallback tap}) => Semantics(
+          button: true,
+          enabled: on,
+          label: semantic,
+          excludeSemantics: true,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: on ? tap : null,
+            child: Opacity(
+              opacity: on ? 1 : 0.5,
               child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 3),
-                child: Row(mainAxisSize: MainAxisSize.min, children: [
-                  ItemImage(id, size: 30),
-                  const SizedBox(width: 6),
-                  Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
-                    Text('${buffDefs[w.wildsBrews[id]]?.name ?? ''}${coatings.contains(w.wildsBrews[id]) ? ' coating' : ''} ×${ge.ownedQty(c.state, id)}',
-                        style: EvochiText.tag.copyWith(color: const Color(0xFFFFF6E4), fontSize: 12)),
-                    Text(catalog[id]?.name ?? id, style: EvochiText.tiny.copyWith(color: const Color(0xCCFFF6E4), fontSize: 12)),
-                  ]),
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(children: [
+                  SizedBox(width: 32, height: 32, child: icon),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Column(crossAxisAlignment: CrossAxisAlignment.start, mainAxisSize: MainAxisSize.min, children: [
+                      Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: EvochiText.tag.copyWith(color: EvochiColor.ink, fontSize: 13)),
+                      Text(sub, maxLines: 1, overflow: TextOverflow.ellipsis, style: EvochiText.tiny.copyWith(fontSize: 11)),
+                    ]),
+                  ),
                 ]),
               ),
             ),
           ),
-      ]),
+        );
+    return ValueListenableBuilder<int>(
+      valueListenable: s._repaint,
+      builder: (context, _, child) => Container(
+        width: 210,
+        padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+        decoration: BoxDecoration(
+          color: const Color(0xF5FFF3DC),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: const Color(0xFF76513B), width: 2.5),
+          boxShadow: const [BoxShadow(color: Color(0x66241208), offset: Offset(0, 3), blurRadius: 6)],
+        ),
+        child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const Text('EAT', style: head),
+          row(
+            icon: healId == null ? const SizedBox() : ItemImage(healId, size: 32),
+            title: heals > 0 ? 'Eat ${catalog[healId]?.name ?? 'a berry'}' : 'No food',
+            sub: s._itemCd > 0 ? 'Ready in ${s._itemCd.ceil()} s' : (heals > 0 ? '$heals left · mends you' : 'Kitchen and Garden make more'),
+            semantic: heals > 0 ? 'Eat a berry, $heals left' : 'No berries',
+            on: heals > 0 && s._itemCd <= 0,
+            tap: () {
+              s._press('item');
+              s._togglePouch(open: false);
+            },
+          ),
+          const SizedBox(height: 4),
+          const Text('DRINK', style: head),
+          if (brews.isEmpty)
+            const Padding(padding: EdgeInsets.symmetric(vertical: 4), child: Text('No brews: the Apothecary makes them', style: EvochiText.tiny)),
+          for (final id in brews)
+            row(
+              icon: ItemImage(id, size: 32),
+              title: '${buffDefs[w.wildsBrews[id]]?.name ?? catalog[id]?.name ?? id}${coatings.contains(w.wildsBrews[id]) ? ' coating' : ''} ×${ge.ownedQty(c.state, id)}',
+              sub: s._brewCd > 0 ? 'Ready in ${s._brewCd.ceil()} s' : (catalog[id]?.name ?? ''),
+              semantic: '${catalog[id]?.name ?? id}, ${buffDefs[w.wildsBrews[id]]?.text ?? ''}',
+              on: s._brewCd <= 0,
+              tap: () => s._drink(id),
+            ),
+          const SizedBox(height: 4),
+          const Text('FOUND THIS TRIP', style: head),
+          const SizedBox(height: 4),
+          if (found.isEmpty)
+            const Text('Nothing yet: calm a creature', style: EvochiText.tiny)
+          else
+            Wrap(spacing: 6, runSpacing: 4, children: [
+              for (final e in found.entries)
+                Semantics(
+                  label: '${catalog[e.key]?.name ?? e.key}, ${e.value}',
+                  child: Row(mainAxisSize: MainAxisSize.min, children: [
+                    ItemImage(e.key, size: 22),
+                    Text('×${e.value}', style: EvochiText.tag.copyWith(color: EvochiColor.ink, fontSize: 12)),
+                  ]),
+                ),
+            ]),
+        ]),
+      ),
     );
   }
 }

@@ -23,7 +23,7 @@ import '../../app/theme.dart';
 enum AbilityRank { primary, secondary, utility, ultimate }
 
 /// The pixel icons (drawn by [PixelIcons]).
-enum AbilityIcon { claws, bolt, dodge, pulse, mist, star, potion, apple }
+enum AbilityIcon { claws, bolt, dodge, pulse, mist, star, potion, apple, pouch }
 
 class AbilityButton extends StatefulWidget {
   const AbilityButton({
@@ -370,9 +370,11 @@ class _AbilityPainter extends CustomPainter {
       ..quadraticBezierTo(o.dx - r * 0.12, o.dy + r * 0.12, o.dx - r * 0.62, o.dy)
       ..quadraticBezierTo(o.dx - r * 0.12, o.dy - r * 0.12, o.dx, o.dy - r)
       ..close();
-    if (lit) canvas.drawCircle(o, r * 0.9, Paint()
-      ..color = const Color(0x88FFE9A6)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.5));
+    if (lit) {
+      canvas.drawCircle(o, r * 0.9, Paint()
+        ..color = const Color(0x88FFE9A6)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.5));
+    }
     canvas.drawPath(p, Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1.6
@@ -494,6 +496,8 @@ class PixelIcons {
         c.drawCircle(const Offset(12, 15.5), 6.2, _p(const Color(0xFFE6F2F5)));
         c.drawRect(const Rect.fromLTWH(6, 15, 12, 7), _p(const Color(0xFFE0609A)));
         c.drawRect(const Rect.fromLTWH(8, 12, 2, 3), _p(Colors.white));
+      case AbilityIcon.pouch:
+        _pouch(c);
       case AbilityIcon.apple:
         // an apple, its leaf and stem
         c.drawCircle(const Offset(12, 14.5), 8.2, _p(_ink));
@@ -506,6 +510,33 @@ class PixelIcons {
         c.drawPath(l, _p(const Color(0xFF5FA046)));
         c.drawRect(const Rect.fromLTWH(8, 10, 3, 3), _p(const Color(0xFFFFB0A4)));
     }
+  }
+
+  static void _pouch(Canvas c) {
+    // a drawstring pouch: its gathered neck, the cord, a stitched patch
+    final body = Path()
+      ..moveTo(8, 9)
+      ..quadraticBezierTo(2, 13, 3, 18)
+      ..quadraticBezierTo(4, 23, 12, 23)
+      ..quadraticBezierTo(20, 23, 21, 18)
+      ..quadraticBezierTo(22, 13, 16, 9)
+      ..close();
+    c.drawPath(body, _s(_ink, 2.2));
+    c.drawPath(body, _p(const Color(0xFFB07A4A)));
+    c.drawRect(const Rect.fromLTWH(6, 16, 12, 2), _p(const Color(0xFF8A5A33)));
+    final neck = Path()
+      ..moveTo(8, 9)
+      ..lineTo(6, 3)
+      ..lineTo(10, 5)
+      ..lineTo(12, 2)
+      ..lineTo(14, 5)
+      ..lineTo(18, 3)
+      ..lineTo(16, 9)
+      ..close();
+    c.drawPath(neck, _s(_ink, 2));
+    c.drawPath(neck, _p(const Color(0xFFD6A26C)));
+    c.drawRect(const Rect.fromLTWH(7, 8, 10, 2), _p(const Color(0xFFF2C76A)));
+    c.drawRect(const Rect.fromLTWH(6, 12, 3, 3), _p(const Color(0xFFD6A26C)));
   }
 
   static void _star(Canvas c, Offset o, double r) {
