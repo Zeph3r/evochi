@@ -4,10 +4,12 @@
 //      ignite; it heaves itself up, stone grinding, dust pouring off it.
 //   2. It throws its fists up and roars: a boom of violet light out of its chest rune, rings of it,
 //      the screen shaking.
-//   3. It leans in. Light gathers in its eyes, and it fires: a beam straight at you.
-//   4. Cut to your Evochi, braced. The beam comes down; it leaps clear (a heroic arc, time slowing at
+//   3. Cut to your Evochi as the rings of the roar roll over it: Shock, Strain, Resolve (the same reaction as
+//      at the Briarback, in rings of old light and runes).
+//   4. Back on the Sentinel: it leans in. Light gathers in its eyes, and it fires: a beam straight at you.
+//   5. Your Evochi, braced. The beam comes down; it leaps clear (a heroic arc, time slowing at
 //      the top) as the beam smashes the ground where it stood and rakes after it, and it lands, fierce.
-//   5. Back on the Sentinel, lower and closer, looming over you, a ring of runes turning behind it: the
+//   6. Back on the Sentinel, lower and closer, looming over you, a ring of runes turning behind it: the
 //      title card slams in.
 //
 // The Sentinel is a pre-rendered sequence (tools/art/sentinel_intro.py); your Evochi is the same heroic
@@ -20,12 +22,13 @@ part of 'boss_intro.dart';
 // the full cut's timeline (seconds)
 const _sOpen = 0.35; // letterbox in; the frames start (asleep, then waking at 9 fps)
 const _sRoar = 1.68; // frames 12.. at 12 fps: fists up; the roar holds
-const _sCharge = 2.9; // frames 20..25: it leans in, its eyes gathering light
-const _sFire = 3.4; // the beam
-const _sDodge = 3.7; // cut to your Evochi
-const _sMenace = 5.1; // back to the Sentinel, looming: frames 26.. at 9 fps
-const _sTitle = 5.35;
-const _sFullLen = 7.4;
+const _sReact = 2.3; // cut to your Evochi in the roar's rings (with its reaction art)
+const _sCharge = 4.05; // frames 20..25: back on it; it leans in, its eyes gathering light
+const _sFire = 4.55; // the beam
+const _sDodge = 4.85; // cut to your Evochi
+const _sMenace = 6.25; // back to the Sentinel, looming: frames 26.. at 9 fps
+const _sTitle = 6.5;
+const _sFullLen = 8.55;
 const _sShortLen = 2.3;
 const _sStillLen = 2.4;
 
@@ -34,6 +37,7 @@ class SentinelIntro extends StatefulWidget {
     super.key,
     required this.art,
     required this.evochi,
+    this.react,
     required this.cut,
     required this.petName,
     required this.tint,
@@ -42,6 +46,7 @@ class SentinelIntro extends StatefulWidget {
   });
   final BossIntroArt art;
   final CineEvochiArt? evochi;
+  final ReactArt? react;
   final IntroCut cut;
   final String petName;
   final Color tint;
@@ -123,6 +128,7 @@ class _SentinelIntroState extends State<SentinelIntro> with SingleTickerProvider
         _cue('ignite', _sOpen + _lit / 9);
         _cue('rise', _sOpen + 0.85);
         _cue('roar', _sRoar + 0.18);
+        if (widget.react != null) _cue('react', _sReact);
         _cue('charge', _sCharge);
         _cue('beam', _sFire);
         _cue('leap', _sDodge + 0.12);
@@ -157,6 +163,8 @@ class _SentinelIntroState extends State<SentinelIntro> with SingleTickerProvider
     if (widget.cut == IntroCut.full) {
       if (t > _sOpen + 0.7 && t < _sRoar) s = math.max(s, 2.5); // stone grinding as it rises
       if (t > _sRoar + 0.15 && t < _sCharge) s = math.max(s, 6 * (1 - ((t - _sRoar - 0.15) / 1.2).clamp(0.0, 0.7)));
+      final rv = widget.react;
+      if (rv != null && t > _sReact && t < _sCharge) s = math.max(s, 6 * math.min(1.0, rv.impulse(t - _sReact)));
       if (t > _sFire && t < _sDodge) s = math.max(s, 7);
       final b = t - _sDodge - 0.2;
       if (b > 0 && b < 0.5) s = math.max(s, 13 * (1 - b / 0.5));
@@ -211,17 +219,31 @@ class _SentinelIntroState extends State<SentinelIntro> with SingleTickerProvider
   }
 }
 
-class _SentinelPainter extends CustomPainter with _IntroFx {
+class _SentinelPainter extends CustomPainter with _IntroFx, _BriarScene {
   _SentinelPainter(this.s, this.t, this.shake);
   final _SentinelIntroState s;
   @override
   final double t;
   final Offset shake;
 
+  @override
   BossIntroArt get art => s.widget.art;
+  @override
+  ReactArt? get react => s.widget.react;
+  @override
+  double get impactT => s.titleT;
+  @override
   IntroCut get cut => s.widget.cut;
+  @override
   Color get tint => s.widget.tint;
+  @override
   double get len => s._len;
+  @override
+  int frameAt(double t) => s.frameAt(t);
+  @override
+  double get reactAt => _sReact;
+  @override
+  String get waveStyle => 'rune';
 
   static const _violet = Color(0xFFB48CFF);
 
@@ -241,13 +263,21 @@ class _SentinelPainter extends CustomPainter with _IntroFx {
     canvas.save();
     canvas.translate(shake.dx, shake.dy);
     final dodge = cut == IntroCut.full && t >= _sDodge && t < _sMenace;
-    _woods(canvas, size, env, dodge);
-    _rays(canvas, size, env * 0.6);
-    _motes(canvas, size, env);
-    if (dodge) {
-      _dodgeShot(canvas, size, env);
+    final rv = react;
+    final reacting = cut == IntroCut.full && rv != null && t >= _sReact && t < _sCharge;
+    if (reacting) {
+      // your Evochi as the roar's rings roll over it (the Briarback's reaction shot, in the Sentinel's light)
+      reactShot(canvas, size, env, rv);
+      _motes(canvas, size, env);
     } else {
-      _sentinelShot(canvas, size, env);
+      _woods(canvas, size, env, dodge);
+      _rays(canvas, size, env * 0.6);
+      _motes(canvas, size, env);
+      if (dodge) {
+        _dodgeShot(canvas, size, env);
+      } else {
+        _sentinelShot(canvas, size, env);
+      }
     }
     canvas.restore();
     // the flash as the title slams in, and as the beam fires
@@ -571,6 +601,11 @@ class _SentinelPainter extends CustomPainter with _IntroFx {
         canvas.drawRect(Rect.fromCenter(center: Offset(x, y), width: 7 + 6 * _h(i, 112), height: 6 + 5 * _h(i, 113)), cp);
       }
     }
+    final rv = react;
+    if (rv != null) {
+      _dodgeReact(canvas, size, env, rv, u, k, feet, feetAt, h, to);
+      return;
+    }
     if (ev == null) return;
     final air = u >= 0.12 && u < 0.95;
     final face = air ? 'shout' : 'fierce';
@@ -630,6 +665,69 @@ class _SentinelPainter extends CustomPainter with _IntroFx {
     canvas.transform((Matrix4.identity()..setEntry(0, 1, lean)).storage);
     canvas.scale(sx, sy);
     ev.draw(canvas, face, h, Paint()
+      ..filterQuality = FilterQuality.medium
+      ..color = Color.fromRGBO(0, 0, 0, env));
+    canvas.restore();
+  }
+
+  /// The dodge with its reaction art: braced (deep in its crouch) as the beam comes, the leap in its
+  /// thrown-back pose, a crouch as it lands, then set and ready; on the ground its feet's own shadows.
+  void _dodgeReact(Canvas canvas, Size size, double env, ReactArt rv, double u, double k, Offset feet, Offset Function(double) feetAt,
+      double h, Offset to) {
+    final W = size.width;
+    final air = u >= 0.12 && u < 0.95;
+    final land = u - 0.95;
+    final pose = u < 0.12 ? rv.braced : (air ? rv.peak : (land < 0.25 ? rv.braced : rv.end));
+    final fi = rv.frameAt(pose);
+    final hr = h * 1.12;
+    // afterimages along the arc, in its own colour
+    if (air) {
+      for (var i = 4; i >= 1; i--) {
+        final kk = (k - i * 0.05).clamp(0.0, 1.0);
+        final ghost = feetAt(kk);
+        canvas.save();
+        canvas.translate(ghost.dx, ghost.dy);
+        canvas.rotate(-0.32 * math.sin(math.pi * kk));
+        rv.drawFrame(canvas, fi, hr, Paint()
+          ..filterQuality = FilterQuality.low
+          ..colorFilter = ColorFilter.mode(tint.withAlpha(_a((0.4 - i * 0.07) * env)), BlendMode.srcIn));
+        canvas.restore();
+      }
+      final lp = Paint()..strokeCap = StrokeCap.round;
+      for (var i = 0; i < 10; i++) {
+        final y = feet.dy - h * (0.15 + 0.7 * _h(i, 120));
+        final x = feet.dx + h * (0.3 + 0.6 * _h(i, 121)) + ((t * 900 + _h(i, 122) * 400) % 300);
+        lp
+          ..strokeWidth = 2 + 3 * _h(i, 123)
+          ..color = Color.fromRGBO(255, 255, 255, 0.5 * env);
+        canvas.drawLine(Offset(x, y), Offset(x + h * 0.5, y + h * 0.18), lp);
+      }
+    } else {
+      // on the ground: its feet on it
+      footShadows(canvas, [for (final c in rv.contactsAt(fi, hr)) FootContact(feet + c.at, c.rx, c.ry, c.lift)], env);
+    }
+    if (land >= 0) {
+      final c = to - Offset(0, h * 0.45);
+      final a = (land / 0.25).clamp(0.0, 1.0) * 0.5 * env;
+      canvas.drawCircle(c, h * 0.8, Paint()..shader = ui.Gradient.radial(c, h * 0.8, [tint.withAlpha(_a(a)), tint.withAlpha(0)]));
+      if (land < 0.8) _dust(canvas, to, land, W * 0.2, env, 9, const Offset(0, 2));
+    }
+    canvas.save();
+    canvas.translate(feet.dx, feet.dy);
+    var sx = 1.0, sy = 1.0, rot = 0.0;
+    if (u >= 0.12 && u < 0.2) {
+      sx = 0.94;
+      sy = 1.08; // springing up
+    } else if (air) {
+      rot = -0.32 * math.sin(math.pi * k);
+    } else if (land >= 0 && land < 0.2) {
+      final c = math.sin(land / 0.2 * math.pi);
+      sx = 1 + 0.08 * c;
+      sy = 1 - 0.1 * c;
+    }
+    canvas.rotate(rot);
+    canvas.scale(sx, sy);
+    rv.drawFrame(canvas, fi, hr, Paint()
       ..filterQuality = FilterQuality.medium
       ..color = Color.fromRGBO(0, 0, 0, env));
     canvas.restore();

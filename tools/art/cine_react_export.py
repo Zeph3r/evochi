@@ -4,6 +4,7 @@ every colour; and the Evochi from behind
 (over its shoulder, looking at the guardian) for the wide shots.
 
     python3 cine_react_export.py OUT_DIR [stage ...]
+    python3 cine_react_export.py OUT_DIR [stage ...] --wear      the wearables over the frames (after the above)
 
 Writes OUT_DIR/react_sNN_<palette>.webp (the frames in a grid, COLS across), react_sNN_back_<palette>.webp and
 wilds_react.json: per stage the cell size, each frame's time (s), the reaction's length, where the ground is in
@@ -90,6 +91,136 @@ def _frame(args):
     return out, feet
 
 
+_rest = {}
+
+
+def posed_wear(ch, k):
+    """the model wearing [k] as posed: a back piece (and anything on the Eggling, whose anchors follow its
+    squash) placed by the posed anchors, as the game does; a hat, crown, clip or scarf on the Juvenile and Elder
+    turned and moved with the head (built on the model at rest, then carried by the head's own turn)"""
+    from accessories import wear, WEARABLES
+    from characters import HeadView, build
+    rig = getattr(ch, 'rig', {}) or {}
+    if ch.stage == 1 or WEARABLES[k][0] == 'back' or 'R' not in rig:
+        return wear(ch, k)
+    if ch.stage not in _rest:
+        _rest[ch.stage] = build(ch.stage)
+    rest = _rest[ch.stage]
+    Mi = wear(rest, k)
+    item = Mi.m != rest.model.m
+    M = ch.model.copy()
+    HL = HeadView(M, rig['pivot'], rig['R'], rig['t'])
+    idx = [np.floor(c * M.res).astype(int) - int(lo) for c, lo in zip((HL.X, HL.Y, HL.Z), Mi.lo)]
+    ok = np.ones(M.m.shape, bool)
+    for i, n in zip(idx, item.shape):
+        ok &= (i >= 0) & (i < n)
+    cl = [np.clip(i, 0, n - 1) for i, n in zip(idx, item.shape)]
+    hit = ok & item[cl[0], cl[1], cl[2]]
+    src = Mi.m[cl[0], cl[1], cl[2]]
+    gl = Mi.glow[cl[0], cl[1], cl[2]]
+    for u in np.unique(src[hit]):
+        sel = hit & (src == u)
+        M.m[sel] = M.mid(Mi.mats[u])
+        M.glow[sel] = gl[sel]
+    return M
+
+
+def _wear_frame(args):
+    """the wearables over one frame of the reaction: each worn piece drawn as it sits on the posed model, with
+    the model's own parts in front of it cut out (the colour of the Evochi under it doesn't matter)"""
+    from accessories import WEARABLES
+    import charrender
+    import face_kit
+    stage, t, fit, cam = args
+    pose, face = CR.pose_at(stage, t)
+    ch = CR.character(stage, pose)
+    expr = CR.face_expr(face, pose)
+    body = render_char(ch, 'amber', expr, cam, fit.w, fit.h, fit=fit)
+    ab = body.rgba[..., 3] / 255.0
+    out = {}
+    for k in WEARABLES:
+        comb = render_char(ch, 'amber', expr, cam, fit.w, fit.h, fit=fit, extra_model=posed_wear(ch, k), cov_prefix='acc_')
+        ac = comb.rgba[..., 3] / 255.0
+        extra = np.clip((ac - ab) / np.maximum(1 - ab, 1e-3), 0, 1)
+        a = np.clip(np.maximum(comb.cov, extra) * 1.05, 0, 1)
+        ov = comb.rgba.copy()
+        ov[..., 3] = (a * 255).astype(np.uint8)
+        out[k] = ov
+        charrender._quad_cache.clear()
+    charrender._surf_cache.clear()
+    charrender._quad_cache.clear()
+    face_kit._raster.cache_clear()
+    CR._built.clear()
+    return out
+
+
+def main_wear(out, stages):
+    """react_sNN_wear_<item>.webp: each wearable over every frame of the reaction (the grid of the frames),
+    for an Evochi that wears it; listed in wilds_react.json under each stage's 'wear'"""
+    from accessories import WEARABLES
+    mp = os.path.join(out, 'wilds_react.json')
+    meta = json.load(open(mp))
+    for stage in stages:
+        sid = 's%02d' % stage
+        st = meta[sid]
+        times = st['times']
+        ext = []
+        for t in times:
+            ext.append(model_extent_points(CR.character(stage, CR.pose_at(stage, t)[0]).model))
+            CR._built.clear()
+        fit = _fit(CAM, ext, CELL_H)
+        assert (fit.w, fit.h) == (st['w'], st['h']), 'export the reaction first'
+        with ProcessPoolExecutor(2) as ex:
+            frames = list(ex.map(_wear_frame, [(stage, t, fit, CAM) for t in times]))
+        rows = (len(times) + COLS - 1) // COLS
+        st['wear'] = {}
+        for k in WEARABLES:
+            grid = np.zeros((rows * fit.h, COLS * fit.w, 4), np.uint8)
+            for i, fr in enumerate(frames):
+                r, c = divmod(i, COLS)
+                grid[r * fit.h:(r + 1) * fit.h, c * fit.w:(c + 1) * fit.w] = fr[k]
+            fn = f'react_{sid}_wear_{k}.webp'
+            Image.fromarray(grid, 'RGBA').save(os.path.join(out, fn), quality=86, method=6)
+            st['wear'][k] = fn
+            print(fn, os.path.getsize(os.path.join(out, fn)) // 1024, 'KB', flush=True)
+        meta[sid] = st
+        json.dump(meta, open(mp, 'w'), indent=1)
+
+
+def main_wear_back(out, stages):
+    """react_sNN_back_wear.webp: each wearable over the view from behind (one cell each, in WEARABLES' order),
+    listed under the stage's back view as 'wear' (item: column)"""
+    from accessories import WEARABLES
+    mp = os.path.join(out, 'wilds_react.json')
+    meta = json.load(open(mp))
+    for stage in stages:
+        sid = 's%02d' % stage
+        st = meta[sid]
+        rest = CR.character(stage, {})
+        bfit = _fit(BACK, [rest.model], CELL_H)
+        assert (bfit.w, bfit.h) == (st['back']['w'], st['back']['h'])
+        body = render_char(rest, 'amber', 'fierce', BACK, bfit.w, bfit.h, fit=bfit)
+        ab = body.rgba[..., 3] / 255.0
+        grid = np.zeros((bfit.h, len(WEARABLES) * bfit.w, 4), np.uint8)
+        st['back']['wear'] = {}
+        for i, k in enumerate(WEARABLES):
+            comb = render_char(rest, 'amber', 'fierce', BACK, bfit.w, bfit.h, fit=bfit, extra_model=posed_wear(rest, k), cov_prefix='acc_')
+            ac = comb.rgba[..., 3] / 255.0
+            extra = np.clip((ac - ab) / np.maximum(1 - ab, 1e-3), 0, 1)
+            a = np.clip(np.maximum(comb.cov, extra) * 1.05, 0, 1)
+            ov = comb.rgba.copy()
+            ov[..., 3] = (a * 255).astype(np.uint8)
+            grid[:, i * bfit.w:(i + 1) * bfit.w] = ov
+            st['back']['wear'][k] = i
+        fn = f'react_{sid}_back_wear.webp'
+        Image.fromarray(grid, 'RGBA').save(os.path.join(out, fn), quality=86, method=6)
+        st['back']['wearSheet'] = fn
+        print(fn, os.path.getsize(os.path.join(out, fn)) // 1024, 'KB', flush=True)
+        meta[sid] = st
+        json.dump(meta, open(mp, 'w'), indent=1)
+        CR._built.clear()
+
+
 def main(out, stages):
     os.makedirs(out, exist_ok=True)
     mp = os.path.join(out, 'wilds_react.json')
@@ -134,4 +265,6 @@ def main(out, stages):
 
 
 if __name__ == '__main__':
-    main(sys.argv[1], [int(a) for a in sys.argv[2:]] or [1, 2, 3])
+    args = [a for a in sys.argv[1:] if not a.startswith('--')]
+    stages = [int(a) for a in args[1:]] or [1, 2, 3]
+    (main_wear_back if '--wear-back' in sys.argv else main_wear if '--wear' in sys.argv else main)(args[0], stages)

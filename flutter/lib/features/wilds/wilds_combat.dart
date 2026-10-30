@@ -2204,6 +2204,12 @@ class Raid {
           final b = boss;
           if (wallUp && b != null && !f.summoned && a.distTo(b.ax0, b.az0) < b.ar) continue;
           if (_sees(f, a, f.kind == 'hollow_sprout' ? 125 : (f.kind == 'sporecap' ? 100 : 78))) {
+            if (f.kind == 'hollow_sprout') {
+              if (holdSprout) break;
+              // the first time it sees you: its entrance (the screen holds the fight while it plays)
+              if (!sproutWoke) _emit('sprout_wake', x: f.x, z: f.z);
+              sproutWoke = true;
+            }
             _alert(f, a);
             break;
           }
@@ -2878,6 +2884,10 @@ class Raid {
 
   /// Recording a Short: it stays asleep, however near your Evochi comes, until this is let go.
   bool holdSentinel = false;
+
+  /// The Hollow Sprout has seen you (its entrance has been asked for); [holdSprout]: the recorder keeps it
+  /// from noticing you until it is ready.
+  bool sproutWoke = false, holdSprout = false;
 
   /// Its entrance has played (the cinematic): it is up and fighting at once, the in-fight waking skipped.
   void sentinelAwake() {

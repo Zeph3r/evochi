@@ -511,8 +511,68 @@ final briarintro = Short(
   ],
 );
 
+/// The Sentinel's entrance with your Evochi's reaction (a Juvenile in an explorer's hat).
+final sentintro = Short(
+  id: 'sentintro',
+  endTitle: const [('The Forgotten Sentinel', null)],
+  endSecs: 0.4,
+  clips: [
+    Clip(
+      state: () => mochi('coral', stage: 2, sentinelJob: true)..pet!.equipped['head'] = 'explorer_hat',
+      open: () => const WildsScreen(depth: 5, seed: 777, story: 'eq03', forceStory: true),
+      secs: 18,
+      preroll: 1.0,
+      setup: (s) async {
+        await _god(s);
+        final r = s.raid!;
+        placeNear(s, r.storyX, r.storyZ, dist: 98);
+        s.autopilot.on = false;
+      },
+      beats: [
+        Beat(0.05, (s) {
+          final r = s.raid!;
+          s.autopilot.walkTo = Offset(r.storyX, r.storyZ + 50);
+        }),
+        Beat(0.5, (s) => s.mark = s.t, when: (s) => _sentinel(s)?.st == FoeState.engage),
+      ],
+      until: (s) => s.mark != null && s.t - s.mark! > 0.6,
+    ),
+  ],
+);
+
+/// The Hollow Sprout's entrance: an Eggling in a tiny crown, then an Elder in a scarf.
+final sproutintro = Short(
+  id: 'sproutintro',
+  endTitle: const [('The Hollow Sprout', null)],
+  endSecs: 0.4,
+  clips: [
+    for (final (pal, st, worn) in const [('ocean', 1, ('head', 'tiny_crown')), ('amethyst', 3, ('neck', 'blue_scarf'))])
+      Clip(
+        state: () => mochi(pal, stage: st)..pet!.equipped[worn.$1] = worn.$2,
+        open: () => const WildsScreen(depth: 3, seed: 777, story: 'eq02', forceStory: true),
+        secs: 16,
+        preroll: 1.0,
+        setup: (s) async {
+          await _god(s);
+          final r = s.raid!..holdSprout = true;
+          placeNear(s, r.storyX, r.storyZ, dist: 150);
+          s.autopilot.on = false;
+        },
+        beats: [
+          Beat(0.05, (s) {
+            final r = s.raid!;
+            s.autopilot.walkTo = Offset(r.storyX, r.storyZ + 60);
+          }),
+          Beat(0.6, (s) => s.raid!.holdSprout = false),
+          Beat(0.7, (s) => s.mark = s.t, when: (s) => s.raid!.sproutWoke),
+        ],
+        until: (s) => s.mark != null && s.t - s.mark! > 10.2,
+      ),
+  ],
+);
+
 /// Looks at one thing, recorded by name only.
-final lookShorts = <Short>[briarintro];
+final lookShorts = <Short>[briarintro, sentintro, sproutintro];
 
 /// 3. The Deep Wilds: a clearing calmed, the way down opens, down a floor, and a Hollow Surge.
 final deep = Short(

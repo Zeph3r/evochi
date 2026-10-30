@@ -31,6 +31,7 @@ import '../../app/theme.dart';
 import 'wilds_art.dart' show wildsBase;
 
 part 'briar_scene.dart';
+part 'sprout_intro.dart';
 part 'sentinel_intro.dart';
 
 Future<ui.Image> _img(String path) async {
@@ -189,8 +190,14 @@ class CineEvochiArt {
 /// shots.
 class ReactArt {
   ReactArt._(this.stage, this.sheet, this.cell, this.cols, this.times, this.end, this.ground, this.feet, this.back, this.backCell,
-      this.backGround);
+      this.backGround, this.wear, this.backWear, this.backCells);
   final int stage;
+
+  /// what it wears, over every frame (one sheet per piece, laid out as the frames are), and over the view
+  /// from behind (one cell per piece in [backWear])
+  final List<ui.Image> wear;
+  final ui.Image? backWear;
+  final List<int> backCells;
   final ui.Image sheet;
   final Size cell;
   final int cols;
@@ -205,7 +212,7 @@ class ReactArt {
   final Size backCell;
   final Offset backGround;
 
-  static Future<ReactArt?> load(int stage, String palette) async {
+  static Future<ReactArt?> load(int stage, String palette, [Iterable<String> worn = const []]) async {
     try {
       final j = (jsonDecode(await rootBundle.loadString('${wildsBase}wilds_react.json')) as Map).cast<String, dynamic>();
       final st = (j['s0${stage.clamp(1, 3)}'] as Map?)?.cast<String, dynamic>();
@@ -213,6 +220,11 @@ class ReactArt {
       final sheets = (st['sheets'] as Map).cast<String, dynamic>();
       final b = (st['back'] as Map).cast<String, dynamic>();
       final bs = (b['sheets'] as Map).cast<String, dynamic>();
+      // every piece it wears needs its frames; without them (an older build, a piece not drawn yet) the
+      // entrance uses the older art, so nothing it wears goes missing
+      final wm = ((st['wear'] as Map?) ?? const {}).cast<String, dynamic>();
+      final bw = ((b['wear'] as Map?) ?? const {}).cast<String, dynamic>();
+      if (worn.any((k) => wm[k] == null || bw[k] == null)) return null;
       return ReactArt._(
         stage.clamp(1, 3),
         await _img(wildsBase + ((sheets[palette] ?? sheets['amber']) as String)),
@@ -233,6 +245,9 @@ class ReactArt {
         await _img(wildsBase + ((bs[palette] ?? bs['amber']) as String)),
         Size((b['w'] as num).toDouble(), (b['h'] as num).toDouble()),
         _pt(b['ground']),
+        [for (final k in worn) await _img(wildsBase + (wm[k] as String))],
+        worn.isEmpty ? null : await _img(wildsBase + (b['wearSheet'] as String)),
+        [for (final k in worn) (bw[k] as num).toInt()],
       );
     } catch (_) {
       return null; // no reaction art: the older art is used
@@ -269,10 +284,14 @@ class ReactArt {
     return back * give * (1 - 0.3 * Curves.easeInOutCubic.transform(((u - end * 0.7) / 0.3).clamp(0.0, 1.0)));
   }
 
+  /// the moment the hit lands hardest (thrown back, mouth open, front feet up), and one deep in the brace
+  double get peak => switch (stage) { 1 => 0.13, 3 => 0.08, _ => 0.06 };
+  double get braced => end * 0.33;
+
   /// the first hit holds a beat (a hit-stop) on the frame where it lands hardest: the reaction's own time for [u]
   double frameTime(double u) {
-    final peak = switch (stage) { 1 => 0.05, 3 => 0.08, _ => 0.06 };
-    return u < peak ? u : (u < peak + 0.06 ? peak : u - 0.06);
+    final p = switch (stage) { 1 => 0.05, 3 => 0.08, _ => 0.06 };
+    return u < p ? u : (u < p + 0.06 ? p : u - 0.06);
   }
 
   /// the frame showing [u] seconds into the reaction
@@ -286,8 +305,10 @@ class ReactArt {
 
   /// Where its feet meet the ground [u] seconds in, drawn [h] tall with its ground point at the origin (the same
   /// space [draw] draws in). Empty for older art.
-  List<FootContact> contacts(double u, double h) {
-    final i = frameAt(frameTime(u));
+  List<FootContact> contacts(double u, double h) => contactsAt(frameAt(frameTime(u)), h);
+
+  /// The same for frame [i].
+  List<FootContact> contactsAt(int i, double h) {
     if (i >= feet.length) return const [];
     final k = h / cell.height;
     return [
@@ -297,18 +318,30 @@ class ReactArt {
   }
 
   /// Draws it with its feet at the canvas origin, [h] tall, [u] seconds into its reaction.
-  void draw(Canvas canvas, double u, double h, Paint paint) {
-    final i = frameAt(frameTime(u));
+  void draw(Canvas canvas, double u, double h, Paint paint) => drawFrame(canvas, frameAt(frameTime(u)), h, paint);
+
+  /// Draws frame [i] (see [frameAt]) the same way.
+  void drawFrame(Canvas canvas, int i, double h, Paint paint) {
     final k = h / cell.height;
     final src = Rect.fromLTWH((i % cols) * cell.width, (i ~/ cols) * cell.height, cell.width, cell.height);
-    canvas.drawImageRect(sheet, src, Rect.fromLTWH(-ground.dx * k, -ground.dy * k, cell.width * k, cell.height * k), paint);
+    final dst = Rect.fromLTWH(-ground.dx * k, -ground.dy * k, cell.width * k, cell.height * k);
+    canvas.drawImageRect(sheet, src, dst, paint);
+    for (final w in wear) {
+      canvas.drawImageRect(w, src, dst, paint);
+    }
   }
 
   /// Draws it from behind, feet at the origin, [h] tall.
   void drawBack(Canvas canvas, double h, Paint paint) {
     final k = h / backCell.height;
-    canvas.drawImageRect(back, Rect.fromLTWH(0, 0, backCell.width, backCell.height),
-        Rect.fromLTWH(-backGround.dx * k, -backGround.dy * k, backCell.width * k, backCell.height * k), paint);
+    final dst = Rect.fromLTWH(-backGround.dx * k, -backGround.dy * k, backCell.width * k, backCell.height * k);
+    canvas.drawImageRect(back, Rect.fromLTWH(0, 0, backCell.width, backCell.height), dst, paint);
+    final bw = backWear;
+    if (bw != null) {
+      for (final c in backCells) {
+        canvas.drawImageRect(bw, Rect.fromLTWH(c * backCell.width, 0, backCell.width, backCell.height), dst, paint);
+      }
+    }
   }
 }
 
@@ -526,6 +559,10 @@ class _IntroPainter extends CustomPainter with _IntroFx, _BriarScene {
 
   @override
   BossIntroArt get art => s.widget.art;
+  @override
+  ReactArt? get react => s.widget.react;
+  @override
+  double get impactT => s.impactT;
   @override
   IntroCut get cut => s.widget.cut;
   @override
@@ -945,12 +982,15 @@ mixin _IntroFx {
 }
 
 class _Title extends StatelessWidget {
-  const _Title({required this.name, required this.title, required this.width, this.sigil = false});
+  const _Title({required this.name, required this.title, required this.width, this.sigil = false, this.emblem});
   final String name, title;
   final double width;
 
   /// the Briarback's antler sigil over the name
   final bool sigil;
+
+  /// another guardian's sigil over the name (the Hollow Sprout's)
+  final CustomPainter? emblem;
 
   @override
   Widget build(BuildContext context) {
@@ -965,7 +1005,7 @@ class _Title extends StatelessWidget {
       ),
       Column(mainAxisSize: MainAxisSize.min, children: [
         // the guardian's sigil: its antlers round a Hollow crystal
-        if (sigil) ...[CustomPaint(size: Size(big * 1.9, big * 0.95), painter: _EmblemPainter()), const SizedBox(height: 2)],
+        if (sigil || emblem != null) ...[CustomPaint(size: Size(big * 1.9, big * 0.95), painter: emblem ?? _EmblemPainter()), const SizedBox(height: 2)],
         FittedBox(
           fit: BoxFit.scaleDown,
           child: Stack(children: [

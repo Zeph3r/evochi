@@ -19,13 +19,21 @@ const _waveGap = 0.2;
 
 mixin _BriarScene on _IntroFx {
   BossIntroArt get art;
-  _BossIntroState get s;
   IntroCut get cut;
   Color get tint;
   double get len;
   int frameAt(double t);
 
-  ReactArt? get react => s.widget.react;
+  /// When your Evochi's reaction shot starts (seconds into the entrance), and how the guardian's roar looks
+  /// as it rolls over it: 'thorn' (the Briarback's thorn-and-rune arcs), 'rune' (rings of old light, the
+  /// Sentinel's), 'spore' (a cloud of Hollow spores and petals, the Hollow Sprout's).
+  double get reactAt => _blast;
+  String get waveStyle => 'thorn';
+
+  ReactArt? get react;
+
+  /// when the guardian's slam lands (seconds into the entrance)
+  double get impactT;
 
   // ---- timing
 
@@ -35,7 +43,7 @@ mixin _BriarScene on _IntroFx {
       case IntroCut.still:
         return 0.55;
       case IntroCut.short:
-        return 0.35 + 0.6 * math.exp(-math.max(0.0, t - s.impactT) * 1.6);
+        return 0.35 + 0.6 * math.exp(-math.max(0.0, t - impactT) * 1.6);
       case IntroCut.full:
         if (t < _step) return 0.2 * (t / _step).clamp(0.0, 1.0);
         if (t < _rearEnd) return 0.2 + 0.8 * Curves.easeInCubic.transform((t - _step) / (_rearEnd - _step));
@@ -47,7 +55,7 @@ mixin _BriarScene on _IntroFx {
   /// when each thorn wave leaves the mouth (the roar), and the two that break apart as it lands
   List<double> waveStarts() => [
         if (cut == IntroCut.full) for (var i = 0; i < _waves; i++) _rearEnd + 0.08 + i * _waveGap,
-        if (cut != IntroCut.still) ...[s.impactT, s.impactT + 0.16],
+        if (cut != IntroCut.still) ...[impactT, impactT + 0.16],
       ];
 
   // ---- the wide shots on the guardian (A, C, D)
@@ -132,7 +140,7 @@ mixin _BriarScene on _IntroFx {
         _kick(canvas, toScreen(h), t - stepAt, W, env, 7);
       }
     }
-    final since = t - s.impactT;
+    final since = t - impactT;
     if (cut != IntroCut.still && since >= 0 && since < 1.2) {
       for (final h in art.hooves[art.impact]) {
         _dust(canvas, toScreen(h), since, W * 0.5, env, 18, const Offset(0, 1));
@@ -146,7 +154,7 @@ mixin _BriarScene on _IntroFx {
     for (var i = 0; i < starts.length; i++) {
       final age = t - starts[i];
       if (age < 0 || age > 1.5) continue;
-      final decay = starts[i] >= s.impactT - 0.01;
+      final decay = starts[i] >= impactT - 0.01;
       thornWave(canvas, mouth, age * W * (decay ? 0.8 : _waveSpeed) + W * 0.05, W, env, i, decay: decay, age: age);
     }
     _grass(canvas, size, env, mouth, starts);
@@ -265,7 +273,7 @@ mixin _BriarScene on _IntroFx {
     for (final s0 in starts) {
       final a = t - s0;
       if (a < 0) continue;
-      final decay = s0 >= s.impactT - 0.01;
+      final decay = s0 >= impactT - 0.01;
       final r = a * W * (decay ? 0.8 : _waveSpeed) + W * 0.05;
       final x = (r - d) / (W * 0.1);
       f += x > 0 ? math.exp(-x * 0.9) * (decay ? 0.4 : 0.7) : math.exp(-x * x * 6) * (decay ? 0.4 : 0.7);
@@ -439,7 +447,7 @@ mixin _BriarScene on _IntroFx {
   /// One wave of the roar out of [c], [r] across: a ring that is not a ring. A wobbling line of energy with
   /// thorns along it, a broken circle of runes just inside, streaks just outside, a soft glow under it all.
   /// As it ages (and when it [decay]s, as the guardian lands) it breaks into pieces.
-  void thornWave(Canvas canvas, Offset c, double r, double W, double env, int seed, {bool decay = false, double age = 0}) {
+  void thornWave(Canvas canvas, Offset c, double r, double W, double env, int seed, {bool decay = false, double age = 0, String style = 'thorn'}) {
     final maxR = W * 1.7;
     if (r > maxR) return;
     final fade = math.pow(1 - r / maxR, 0.9).toDouble() * (age * 6).clamp(0.0, 1.0);
@@ -489,9 +497,24 @@ mixin _BriarScene on _IntroFx {
     canvas.drawPath(path, halo);
     canvas.drawPath(path, glow);
     canvas.drawPath(path, core);
-    // thorns along the line, raked back like bramble
+    // thorns along the line, raked back like bramble (the Briarback's); spores puffed off it (the Sprout's)
     final tc = Color.fromRGBO(226, 208, 255, 0.85 * a);
-    for (var i = 0; i < 30; i++) {
+    if (style == 'spore') {
+      final sp = Paint();
+      for (var i = 0; i < 26; i++) {
+        final th = math.pi * 2 * (i + 0.5 * _h(i + seed * 31, 150)) / 26;
+        if (gap(th)) continue;
+        final p = at(th, r * (1 + 0.05 * (_h(i, 151) - 0.5))) + Offset(0, -age * 22 * _h(i, 152));
+        final rr = (3 + 6 * _h(i + seed, 153)) * (1 - 0.4 * r / maxR);
+        sp.shader = ui.Gradient.radial(p, rr * 2.2, [Color.fromRGBO(200, 150, 255, 0.55 * a), const Color(0x00C896FF)]);
+        canvas.drawCircle(p, rr * 2.2, sp);
+        sp.shader = null;
+        sp.color = Color.fromRGBO(236, 220, 255, 0.85 * a);
+        canvas.drawCircle(p, rr * 0.45, sp);
+        if (i % 4 == 0) _leaf(canvas, p + Offset(rr, -rr), t * 4 + i, 6, i + 3, a);
+      }
+    }
+    for (var i = 0; i < (style == 'thorn' ? 30 : 0); i++) {
       final th = math.pi * 2 * (i + 0.5 * _h(i + seed * 31, 140)) / 30;
       if (gap(th)) continue;
       final p = at(th, r);
@@ -505,8 +528,8 @@ mixin _BriarScene on _IntroFx {
       ..strokeCap = StrokeCap.round
       ..strokeWidth = 1.8
       ..color = Color.fromRGBO(206, 178, 255, 0.75 * a * (1 - broken * 0.6));
-    for (var i = 0; i < 14; i++) {
-      final th = math.pi * 2 * (i + 0.3) / 14 + seed * 0.4;
+    for (var i = 0; i < (style == 'spore' ? 0 : (style == 'rune' ? 20 : 14)); i++) {
+      final th = math.pi * 2 * (i + 0.3) / (style == 'rune' ? 20 : 14) + seed * 0.4;
       if (gap(th + 0.2)) continue;
       final p = at(th, r * 0.9);
       _rune(canvas, p, th, 5 + r * 0.008, (i + seed) % 5, rune);
@@ -620,7 +643,7 @@ mixin _BriarScene on _IntroFx {
     for (var w = 0; w < starts.length; w++) {
       final age = t - starts[w];
       if (age < 0 || age > 1.6) continue;
-      final decay = starts[w] >= s.impactT - 0.01;
+      final decay = starts[w] >= impactT - 0.01;
       for (var i = 0; i < (decay ? 10 : 16); i++) {
         final j = i + w * 40;
         // things lying in the wave's path: on the floor, mostly, and a few in the air
@@ -652,7 +675,7 @@ mixin _BriarScene on _IntroFx {
 
   void reactShot(Canvas canvas, Size size, double env, ReactArt ev) {
     final W = size.width, H = size.height;
-    final u = t - _blast;
+    final u = t - reactAt;
     final gust = u < 0.12 ? u / 0.12 : (u < ev.end * 0.75 ? 1.0 : math.max(0.25, 1 - (u - ev.end * 0.75) / 0.6 * 0.75));
     _woods(canvas, size, env * 0.85, true);
     // the roar's pressure from the right, purple
@@ -668,7 +691,7 @@ mixin _BriarScene on _IntroFx {
     for (var i = 0; i < hits.length; i++) {
       final age = u - hits[i] + 0.5;
       if (age < 0 || age > 1.6) continue;
-      thornWave(canvas, src, W * 0.55 + age * W * 1.2, W * 1.4, env * (i < 3 ? 0.9 : 0.6), i + 3, age: age + 0.2);
+      thornWave(canvas, src, W * 0.55 + age * W * 1.2, W * 1.4, env * (i < 3 ? 0.9 : 0.6), i + 3, age: age + 0.2, style: waveStyle);
     }
     _wind(canvas, size, gust * env, false);
     // it: shoved back by each wave, skidding, rocked onto its heels and squeezed by the hit, trembling as it
@@ -696,28 +719,7 @@ mixin _BriarScene on _IntroFx {
       canvas.drawCircle(Offset.zero, r, Paint()..shader = ui.Gradient.radial(Offset.zero, r, [Color.fromRGBO(0, 0, 0, 0.45 * env), const Color(0x00000000)]));
       canvas.restore();
     }
-    // each foot's contact: a tight dark core and a softer spread, smaller and fainter as the foot leaves the ground
-    for (final c in steps) {
-      final up = (c.lift / 3).clamp(0.0, 1.0);
-      final rx = c.rx * (1.12 - 0.35 * up), ry = math.max(c.ry, c.rx * 0.3) * (1 - 0.3 * up);
-      canvas.save();
-      canvas.translate(c.at.dx, c.at.dy + 1);
-      canvas.scale(1, ry / rx); // an elliptical falloff, flat on the ground
-      canvas.drawCircle(Offset.zero, rx * 1.5,
-          Paint()..shader = ui.Gradient.radial(Offset.zero, rx * 1.5, [Color.fromRGBO(2, 2, 6, 0.45 * (1 - up) * env), const Color(0x00020206)]));
-      canvas.drawCircle(Offset.zero, rx,
-          Paint()..shader = ui.Gradient.radial(Offset.zero, rx, [Color.fromRGBO(2, 2, 6, 0.9 * (1 - up) * env), const Color(0x00020206)], [0.45, 1]));
-      canvas.restore();
-      // and the dark seam right where the sole meets the ground (gone the moment the foot is off it)
-      if (c.lift < 0.3) {
-        final edge = c.at + Offset(0, c.ry * 0.9); // the sole's near edge, the one that shows
-        canvas.drawLine(edge + Offset(-c.rx * 0.85, 0), edge + Offset(c.rx * 0.85, 0), Paint()
-          ..strokeWidth = math.max(2.0, c.rx * 0.12)
-          ..strokeCap = StrokeCap.round
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5)
-          ..color = Color.fromRGBO(0, 0, 0, 0.75 * env));
-      }
-    }
+    footShadows(canvas, steps, env);
     // the furrows its planted feet dig as it is pushed back
     final dug = home.dx - feet.dx;
     if (dug > 2) {
@@ -813,6 +815,32 @@ mixin _BriarScene on _IntroFx {
         ..strokeWidth = 2.5 + 2 * _h(i, 173)
         ..color = Color.fromRGBO(22, 30, 22, 0.95 * env);
       canvas.drawPath(Path()..moveTo(x, y)..quadraticBezierTo(x, y - len * 0.5, x + bend * len, y - len * (1 - 0.3 * bend.abs())), gp);
+    }
+  }
+
+  /// Each foot's contact with the ground: a tight dark core and a softer spread, smaller and fainter as the
+  /// foot leaves the ground, and a dark seam where a planted sole meets it.
+  void footShadows(Canvas canvas, List<FootContact> steps, double env) {
+    for (final c in steps) {
+      final up = (c.lift / 3).clamp(0.0, 1.0);
+      final rx = c.rx * (1.12 - 0.35 * up), ry = math.max(c.ry, c.rx * 0.3) * (1 - 0.3 * up);
+      canvas.save();
+      canvas.translate(c.at.dx, c.at.dy + 1);
+      canvas.scale(1, ry / rx); // an elliptical falloff, flat on the ground
+      canvas.drawCircle(Offset.zero, rx * 1.5,
+          Paint()..shader = ui.Gradient.radial(Offset.zero, rx * 1.5, [Color.fromRGBO(2, 2, 6, 0.45 * (1 - up) * env), const Color(0x00020206)]));
+      canvas.drawCircle(Offset.zero, rx,
+          Paint()..shader = ui.Gradient.radial(Offset.zero, rx, [Color.fromRGBO(2, 2, 6, 0.9 * (1 - up) * env), const Color(0x00020206)], [0.45, 1]));
+      canvas.restore();
+      // and the dark seam right where the sole meets the ground (gone the moment the foot is off it)
+      if (c.lift < 0.3) {
+        final edge = c.at + Offset(0, c.ry * 0.9); // the sole's near edge, the one that shows
+        canvas.drawLine(edge + Offset(-c.rx * 0.85, 0), edge + Offset(c.rx * 0.85, 0), Paint()
+          ..strokeWidth = math.max(2.0, c.rx * 0.12)
+          ..strokeCap = StrokeCap.round
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 1.5)
+          ..color = Color.fromRGBO(0, 0, 0, 0.75 * env));
+      }
     }
   }
 

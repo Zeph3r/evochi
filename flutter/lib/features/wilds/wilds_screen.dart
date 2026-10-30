@@ -145,6 +145,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   ReactArt? _reactArt; // its reaction to the roar (none while it wears something: the older art carries that)
   IntroCut? _cine; // playing now
   BossIntroArt? _sentArt; // the Forgotten Sentinel's entrance (its story floor only)
+  BossIntroArt? _sproutArt; // the Hollow Sprout's entrance (its story floor only)
+  IntroCut? _sproutCine;
   IntroCut? _sentCine;
   final _foeArt = <String, FoeArt>{};
   // made when the floor has loaded (a screen left before then has none to stop)
@@ -285,11 +287,13 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   Future<void> _loadIntro(WildsMap m, int stage, String palette, List<String> wearing) async {
     try {
       final sentinel = m.story?.beat == 'sentinel';
-      if (m.boss == null && !sentinel) return;
+      final sprout = m.story?.beat == 'sprout';
+      if (m.boss == null && !sentinel && !sprout) return;
       if (m.boss != null) _introArt = await BossIntroArt.load('briarback');
       if (sentinel) _sentArt = await BossIntroArt.load('sentinel', warm: const [0, 1, 2, 3, 4, 26, 27, 28]);
+      if (sprout) _sproutArt = await BossIntroArt.load('sprout', warm: const [0, 1, 2, 3, 4, 26, 27, 28]);
       _cineEvochi = await CineEvochiArt.load(stage, palette, wearing);
-      _reactArt = wearing.isEmpty ? await ReactArt.load(stage, palette) : null;
+      _reactArt = await ReactArt.load(stage, palette, wearing);
     } catch (e, st) {
       debugPrint('boss intro art: $e\n$st');
     }
@@ -389,6 +393,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     _tk?.dispose();
     _introArt?.dispose();
     _sentArt?.dispose();
+    _sproutArt?.dispose();
     for (final sh in _fx.values) {
       sh.dispose();
     }
@@ -422,7 +427,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     return Offset(p.dx / m.scale, p.dy / (m.sinP * m.scale));
   }
 
-  bool get _paused => _card != null || _cine != null || _sentCine != null;
+  bool get _paused => _card != null || _cine != null || _sentCine != null || _sproutCine != null;
 
   // ---- the loop
   void _tick(Duration now) {
@@ -720,6 +725,39 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   }
 
   /// The Sentinel's entrance's sounds and rumbles.
+  /// The Hollow Sprout's entrance's sounds and rumbles.
+  void _sproutCue(String cue) {
+    final a = _c.audio;
+    switch (cue) {
+      case 'open':
+        _sfx('enc_rumble', 0.3);
+      case 'ignite':
+        _sfx('enc_awaken', 0.8);
+        a.buzz(Haptic.hit);
+      case 'rise':
+        _sfx('wild_spore', 0.6);
+        _sfx('enc_rumble', 0.5);
+      case 'swell':
+        _sfx('enc_glow', 0.8);
+        a.buzz(Haptic.rumble, strength: 0.5);
+      case 'burst':
+        _sfx('enc_surge', 0.85);
+        _sfx('wild_spore', 0.8);
+        a.buzz(Haptic.rumble);
+      case 'react':
+        _sfx('enc_whoosh', 0.8);
+        _sfx('wild_dodge', 0.4);
+        a.buzz(Haptic.hit);
+      case 'slam':
+        _sfx('wild_crash', 0.95);
+        _sfx('enc_rumble', 0.7);
+        a.buzz(Haptic.thump);
+      case 'title':
+        _sfx('wild_crash', 0.7);
+        _sfx('enc_glow', 0.6);
+    }
+  }
+
   void _sentCue(String cue) {
     final a = _c.audio;
     switch (cue) {
@@ -735,6 +773,11 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
         _sfx('wild_roar', 0.85, gap: 0.3);
         _sfx('enc_rumble', 0.8);
         a.buzz(Haptic.rumble);
+      case 'react':
+        // the rings reach your Evochi
+        _sfx('enc_whoosh', 0.8);
+        _sfx('wild_dodge', 0.45);
+        a.buzz(Haptic.hit);
       case 'charge':
         _sfx('enc_glow', 0.8);
       case 'beam':
@@ -872,6 +915,20 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
             _sfx('enc_awaken', 0.8);
             a.buzz(Haptic.rumble);
             _showBanner('Something huge stirs against the gate...', 2.0);
+          }
+        case 'sprout_wake':
+          // its entrance: in full the first time, the swaying shot and the title after (a still card with
+          // reduced motion); without its art, it simply turns on you
+          if (_sproutArt != null) {
+            final seen = c.state.trails.seen['sprout_intro'] == true;
+            final reduce = MediaQuery.of(context).disableAnimations;
+            r.shake = 0;
+            setState(() => _sproutCine = reduce ? IntroCut.still : (seen ? IntroCut.short : IntroCut.full));
+            if (!seen) c.run((s, n) => trails.markTrailSeen(s, 'sprout_intro'), quiet: true);
+          } else {
+            _sfx('enc_awaken', 0.8);
+            a.buzz(Haptic.rumble);
+            _showBanner('The Hollow Sprout wakes!', 2.2);
           }
         case 'sentinel_rise':
           _sfx('wild_crash', 0.8);
@@ -1615,11 +1672,27 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                     ),
                   ),
                 ),
+                if (_sproutCine != null && _sproutArt != null)
+                  Positioned.fill(
+                    child: SproutIntro(
+                      art: _sproutArt!,
+                      react: _reactArt,
+                      cut: _sproutCine!,
+                      petName: _c.state.pet?.name ?? 'Your Evochi',
+                      tint: cineTint(_c.state.pet?.paletteId ?? 'amber'),
+                      onCue: _sproutCue,
+                      onDone: () {
+                        setState(() => _sproutCine = null);
+                        _sproutArt?.want(const [26, 27, 28]);
+                      },
+                    ),
+                  ),
                 if (_sentCine != null && _sentArt != null)
                   Positioned.fill(
                     child: SentinelIntro(
                       art: _sentArt!,
                       evochi: _cineEvochi,
+                      react: _reactArt,
                       cut: _sentCine!,
                       petName: _c.state.pet?.name ?? 'Your Evochi',
                       tint: cineTint(_c.state.pet?.paletteId ?? 'amber'),
@@ -1719,6 +1792,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     // I: play the guardian's entrance again (the full cut)
     if (k == LogicalKeyboardKey.keyI && _introArt != null) setState(() => _cine = IntroCut.full);
     if (k == LogicalKeyboardKey.keyI && _sentArt != null) setState(() => _sentCine = IntroCut.full);
+    if (k == LogicalKeyboardKey.keyU && _sproutArt != null) setState(() => _sproutCine = IntroCut.full);
     // the gate's seal: up again (R), or drawn back as if the guardian had just been calmed (T)
     if (k == LogicalKeyboardKey.keyR) setState(() => _sealOpen = false);
     if (k == LogicalKeyboardKey.keyT) {

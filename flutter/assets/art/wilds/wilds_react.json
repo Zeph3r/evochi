@@ -624,7 +624,30 @@
     "ocean": "react_s01_back_ocean.webp",
     "amethyst": "react_s01_back_amethyst.webp",
     "obsidian": "react_s01_back_obsidian.webp"
-   }
+   },
+   "wear": {
+    "leaf_scarf": 0,
+    "blue_scarf": 1,
+    "tiny_crown": 2,
+    "golden_crest_crown": 3,
+    "explorer_hat": 4,
+    "butterfly_clip": 5,
+    "red_backpack": 6,
+    "explorer_pack": 7,
+    "reward_windtrail_mantle": 8
+   },
+   "wearSheet": "react_s01_back_wear.webp"
+  },
+  "wear": {
+   "leaf_scarf": "react_s01_wear_leaf_scarf.webp",
+   "blue_scarf": "react_s01_wear_blue_scarf.webp",
+   "tiny_crown": "react_s01_wear_tiny_crown.webp",
+   "golden_crest_crown": "react_s01_wear_golden_crest_crown.webp",
+   "explorer_hat": "react_s01_wear_explorer_hat.webp",
+   "butterfly_clip": "react_s01_wear_butterfly_clip.webp",
+   "red_backpack": "react_s01_wear_red_backpack.webp",
+   "explorer_pack": "react_s01_wear_explorer_pack.webp",
+   "reward_windtrail_mantle": "react_s01_wear_reward_windtrail_mantle.webp"
   }
  },
  "s02": {
@@ -1220,7 +1243,30 @@
     "ocean": "react_s02_back_ocean.webp",
     "amethyst": "react_s02_back_amethyst.webp",
     "obsidian": "react_s02_back_obsidian.webp"
-   }
+   },
+   "wear": {
+    "leaf_scarf": 0,
+    "blue_scarf": 1,
+    "tiny_crown": 2,
+    "golden_crest_crown": 3,
+    "explorer_hat": 4,
+    "butterfly_clip": 5,
+    "red_backpack": 6,
+    "explorer_pack": 7,
+    "reward_windtrail_mantle": 8
+   },
+   "wearSheet": "react_s02_back_wear.webp"
+  },
+  "wear": {
+   "leaf_scarf": "react_s02_wear_leaf_scarf.webp",
+   "blue_scarf": "react_s02_wear_blue_scarf.webp",
+   "tiny_crown": "react_s02_wear_tiny_crown.webp",
+   "golden_crest_crown": "react_s02_wear_golden_crest_crown.webp",
+   "explorer_hat": "react_s02_wear_explorer_hat.webp",
+   "butterfly_clip": "react_s02_wear_butterfly_clip.webp",
+   "red_backpack": "react_s02_wear_red_backpack.webp",
+   "explorer_pack": "react_s02_wear_explorer_pack.webp",
+   "reward_windtrail_mantle": "react_s02_wear_reward_windtrail_mantle.webp"
   }
  },
  "s03": {
@@ -1785,7 +1831,30 @@
     "ocean": "react_s03_back_ocean.webp",
     "amethyst": "react_s03_back_amethyst.webp",
     "obsidian": "react_s03_back_obsidian.webp"
-   }
+   },
+   "wear": {
+    "leaf_scarf": 0,
+    "blue_scarf": 1,
+    "tiny_crown": 2,
+    "golden_crest_crown": 3,
+    "explorer_hat": 4,
+    "butterfly_clip": 5,
+    "red_backpack": 6,
+    "explorer_pack": 7,
+    "reward_windtrail_mantle": 8
+   },
+   "wearSheet": "react_s03_back_wear.webp"
+  },
+  "wear": {
+   "leaf_scarf": "react_s03_wear_leaf_scarf.webp",
+   "blue_scarf": "react_s03_wear_blue_scarf.webp",
+   "tiny_crown": "react_s03_wear_tiny_crown.webp",
+   "golden_crest_crown": "react_s03_wear_golden_crest_crown.webp",
+   "explorer_hat": "react_s03_wear_explorer_hat.webp",
+   "butterfly_clip": "react_s03_wear_butterfly_clip.webp",
+   "red_backpack": "react_s03_wear_red_backpack.webp",
+   "explorer_pack": "react_s03_wear_explorer_pack.webp",
+   "reward_windtrail_mantle": "react_s03_wear_reward_windtrail_mantle.webp"
   }
  }
 }

@@ -79,7 +79,7 @@ void main() {
       var done = 0;
       await tester.pumpWidget(host(IntroCut.full, cues, () => done++));
       expect(find.text('THE FORGOTTEN SENTINEL'), findsNothing);
-      for (var i = 0; i < 56; i++) {
+      for (var i = 0; i < 66; i++) {
         await tester.pump(const Duration(milliseconds: 100));
       }
       expect(find.text('THE FORGOTTEN SENTINEL'), findsWidgets);
@@ -112,6 +112,61 @@ void main() {
       await tester.pump(const Duration(seconds: 9));
       expect(done, 1);
       expect(cues.contains('beam'), isFalse);
+    });
+  });
+
+  group('the Hollow Sprout\'s entrance', () {
+    Widget host(IntroCut cut, List<String> cues, VoidCallback done) => MaterialApp(
+          home: Scaffold(
+            body: SproutIntro(
+              art: BossIntroArt.blank(frames: 36, impact: 23),
+              cut: cut,
+              petName: 'Mochi',
+              tint: cineTint('ocean'),
+              onCue: cues.add,
+              onDone: done,
+            ),
+          ),
+        );
+
+    testWidgets('wakes, rears, bursts its spores, slams down; then the title over it', (tester) async {
+      final cues = <String>[];
+      var done = 0;
+      await tester.pumpWidget(host(IntroCut.full, cues, () => done++));
+      expect(find.text('HOLLOW SPROUT'), findsNothing);
+      for (var i = 0; i < 60; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(find.text('HOLLOW SPROUT'), findsWidgets);
+      for (var i = 0; i < 25; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(cues, ['open', 'ignite', 'rise', 'swell', 'burst', 'slam', 'title']);
+      expect(done, 1);
+    });
+
+    testWidgets('a second time, the short cut: the swaying shot and the title', (tester) async {
+      final cues = <String>[];
+      var done = 0;
+      await tester.pumpWidget(host(IntroCut.short, cues, () => done++));
+      for (var i = 0; i < 25; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      expect(cues, ['title']);
+      expect(done, 1);
+    });
+
+    testWidgets('a tap skips it, once', (tester) async {
+      final cues = <String>[];
+      var done = 0;
+      await tester.pumpWidget(host(IntroCut.full, cues, () => done++));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tap(find.byType(SproutIntro));
+      await tester.pump(const Duration(milliseconds: 100));
+      await tester.tap(find.byType(SproutIntro), warnIfMissed: false);
+      await tester.pump(const Duration(seconds: 9));
+      expect(done, 1);
+      expect(cues.contains('slam'), isFalse);
     });
   });
 }
