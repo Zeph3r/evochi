@@ -116,6 +116,7 @@ class Settings {
     this.roomLitVillagers = false,
     this.largeText = false,
     this.devTools = false,
+    this.shortUltimates = false,
   });
   bool sound;
   bool music;
@@ -132,6 +133,8 @@ class Settings {
   // the step simulator and playtest shortcuts (off by default here: the app reads real health data;
   // the web preview defaults it on)
   bool devTools;
+  // an Elder's ultimate without its cut-in (the short wind-up): the same ability, exactly once
+  bool shortUltimates;
   factory Settings.fromJson(Map<String, dynamic> j) => Settings(
         sound: j['sound'] != false,
         music: j['music'] != false,
@@ -144,6 +147,7 @@ class Settings {
         roomLitVillagers: j['roomLitVillagers'] == true,
         largeText: j['largeText'] == true,
         devTools: j['devTools'] == true,
+        shortUltimates: j['shortUltimates'] == true,
       );
   Map<String, dynamic> toJson() => {
         'sound': sound,
@@ -157,6 +161,7 @@ class Settings {
         'roomLitVillagers': roomLitVillagers,
         'largeText': largeText,
         'devTools': devTools,
+        'shortUltimates': shortUltimates,
       };
 }
 

@@ -532,6 +532,14 @@ class Raid {
   double flashT = 0; // a flash over the whole view (a heavy hit, a signature move), seconds left
   String flashKind = 'white'; // white, or the palette a signature move is tinted by
   double _sigWind = 0; // a signature move winding up (the world slows, then it fires)
+
+  /// An Elder's ultimate plays its cut-in (the screen has the art, and short animations are off): the world holds
+  /// from the button until the screen's release marker ([ultRelease]), then the effect resolves, once. Off: the
+  /// short wind-up. The cut-in only presents: what the ultimate does is decided here.
+  bool cinematic = false;
+
+  /// > 0 while a cut-in plays: seconds since it began (the world holds)
+  double ultHold = 0;
   /// A perfect dodge slows the world for a moment (real seconds left) and opens a counter window.
   double slowmo = 0, counterT = 0;
   /// Potion buffs (an Apothecary brew drunk in the Wilds): id -> seconds left. See [buffDefs].
@@ -716,6 +724,12 @@ class Raid {
 
   // ================================================================== the loop
   void tick(double dt, RaidInput inp) {
+    if (ultHold > 0) {
+      // the cut-in has the screen; if it never hands back (no art after all), the ultimate resolves anyway
+      ultHold += dt;
+      if (ultHold > 3.0) ultRelease();
+      return;
+    }
     for (final f in floaters) {
       f.t += dt;
     }
@@ -1439,7 +1453,7 @@ class Raid {
 
   /// Each colour's signature move (Elders only): the name it is called by.
   static const sigNames = {
-    'ocean': 'Tidal Surge',
+    'ocean': 'Healing Mist',
     'amber': 'Sunflare',
     'amethyst': 'Crystal Shards',
     'forest': 'Thorn Snare',
@@ -1451,6 +1465,14 @@ class Raid {
 
   void _signature() {
     final p = pet;
+    if (cinematic) {
+      ultHold = 1e-6;
+      p.glow = 1;
+      p.iframes = math.max(p.iframes, 1.0);
+      bursts.add(Burst('gather', p.x, p.z, 0.3, size: 1.6, tag: palette));
+      _emit('ult_begin', text: palette, x: p.x, z: p.z);
+      return;
+    }
     // the wind-up: the world slows, light gathers into your Evochi, nothing can touch it
     _sigWind = 0.3;
     slowmo = math.max(slowmo, 0.42);
@@ -1458,6 +1480,13 @@ class Raid {
     p.iframes = math.max(p.iframes, 0.9);
     bursts.add(Burst('gather', p.x, p.z, 0.3, size: 1.6, tag: palette));
     _emit('signature_wind', text: palette, x: p.x, z: p.z);
+  }
+
+  /// The cut-in's release marker: back in the Wilds, the ultimate resolves now (once; a second call does nothing).
+  void ultRelease() {
+    if (ultHold <= 0) return;
+    ultHold = 0;
+    _signatureFire();
   }
 
   void _signatureFire() {
@@ -1473,14 +1502,17 @@ class Raid {
     _emit('signature', text: palette, x: p.x, z: p.z);
     switch (palette) {
       case 'ocean':
-        // a wall of water rolls out ahead, sweeping everything in its way back
-        bursts.add(Burst('tide', p.x, p.z, 0.8, dx: p.fx, dz: p.fz, size: 150));
-        for (final f in hostile.toList()) {
-          final ax = f.x - p.x, az = f.z - p.z;
-          final along = ax * p.fx + az * p.fz, across = (ax * p.fz - az * p.fx).abs();
-          if (along < -8 || along > 150 || across > 30 + f.radius) continue;
-          _hurt(f, 30 * atk, from: p, kx: p.fx * 280, kz: p.fz * 280, poise: 70, stun: f is Boss ? 0 : 0.8);
+        // Healing Mist: the mist rolls out over the battlefield and mends you, and whoever is with you; it
+        // lingers a while, mending still and slowing whatever wades into it
+        bursts.add(Burst('mist', p.x, p.z, 1.8, size: 150));
+        for (final a in [p, if (sher != null && party) sher!]) {
+          final heal = math.min(a.maxHp - a.hp, a.maxHp * 0.35);
+          a.hp += heal;
+          if (heal >= 1) _float('+${heal.round()}', a.x, a.z, 'heal');
         }
+        _reefT = 5;
+        _reefX = p.x;
+        _reefZ = p.z;
       case 'amethyst':
         // a ring of crystal shards that go through whatever they meet
         bursts.add(Burst('crystal', p.x, p.z, 0.5, size: 40));

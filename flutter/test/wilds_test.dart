@@ -685,6 +685,33 @@ void main() {
       expect(r.foes.first.hp, 5000); // nothing happened
     });
 
+    test('with its cut-in, the world holds until the release marker, then it resolves once', () {
+      final r = elder('ocean')
+        ..sig = 100
+        ..cinematic = true;
+      r.pet.hp = r.pet.maxHp - 500;
+      final hp0 = r.pet.hp;
+      r.press('signature');
+      run(r, 1.0);
+      expect(r.ultHold, greaterThan(0));
+      expect(r.pet.hp, hp0); // nothing yet: the cut-in has the screen
+      expect(r.events.any((e) => e.type == 'ult_begin'), isTrue);
+      r.ultRelease();
+      expect(r.pet.hp, greaterThan(hp0));
+      final after = r.pet.hp;
+      r.ultRelease(); // a second marker does nothing
+      expect(r.pet.hp, after);
+      // and with no art to hand back, it resolves on its own
+      final q = elder('ocean')
+        ..sig = 100
+        ..cinematic = true;
+      q.pet.hp = q.pet.maxHp - 500;
+      q.press('signature');
+      run(q, 3.5);
+      expect(q.ultHold, 0);
+      expect(q.pet.hp, greaterThan(q.pet.maxHp - 500));
+    });
+
     for (final palette in const ['ocean', 'amber', 'amethyst', 'forest', 'coral', 'obsidian']) {
       test('$palette: ${Raid.sigNames[palette]} lands', () {
         final r = elder(palette)..sig = 100;
@@ -694,7 +721,7 @@ void main() {
         run(r, palette == 'amethyst' ? 1.0 : 0.7); // it winds up for a beat (the world slowed), then fires
         expect(r.sig, 0);
         expect(r.events.any((e) => e.type == 'signature') || r.floaters.any((f) => f.text == Raid.sigNames[palette]), isTrue);
-        if (palette == 'coral') {
+        if (palette == 'coral' || palette == 'ocean') {
           run(r, 2);
           expect(r.pet.hp, greaterThan(hp0));
         } else {

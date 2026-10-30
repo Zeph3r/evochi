@@ -9,6 +9,7 @@ import 'dart:math' as math;
 
 import 'package:evochi/controllers/game_controller.dart';
 import 'package:evochi/core/models/game_state.dart';
+import 'package:evochi/game/personality/personality.dart';
 import 'package:evochi/core/utils/day_keys.dart';
 import 'package:evochi/features/home/nook_sheet.dart';
 import 'package:evochi/features/nest/nest_screen.dart' show StepsCard;
@@ -572,7 +573,7 @@ final sproutintro = Short(
 );
 
 /// Looks at one thing, recorded by name only.
-final lookShorts = <Short>[briarintro, sentintro, sproutintro];
+final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist];
 
 /// 3. The Deep Wilds: a clearing calmed, the way down opens, down a floor, and a Hollow Surge.
 final deep = Short(
@@ -640,6 +641,46 @@ Clip _sigClip(String palette, String colour, Color col, {bool first = false}) =>
         }),
       ],
     );
+
+/// An Ocean Elder of [profile] (its cut-in's personality), hurt, so Healing Mist has something to mend.
+GameState _mistElder(String profile) {
+  final s = mochi('ocean');
+  final j = s.pet!.toJson()..['personality'] = generatePersonality(7, profile: profile).toJson();
+  s.pet = Pet.fromJson(j);
+  return s;
+}
+
+Clip _mistClip(String profile, String label) => Clip(
+      state: () => _mistElder(profile),
+      open: () => const WildsScreen(depth: 2, seed: 9),
+      secs: 4.2,
+      preroll: 1.3,
+      zoom: 0.62,
+      quiet: true,
+      pilot: const PilotStart(signature: false, bolts: false),
+      setup: (s) async {
+        await _god(s);
+        toFirstClearing(s, dist: 26);
+        final p = s.raid!.pet;
+        p.hp = p.maxHp * 0.45; // so the mist has something to mend
+      },
+      beats: [
+        Beat(0.05, (s) => s.say([(label, white)], secs: 1.0, size: 27, y: 165)),
+        Beat(1.0, (s) {
+          s.raid!
+            ..sig = 100
+            ..press('signature');
+        }),
+      ],
+    );
+
+/// Healing Mist, the whole ultimate: the button, the cut-in, the mist rolling back over the Wilds.
+final healmist = Short(
+  id: 'healmist',
+  endTitle: const [('Healing Mist', null)],
+  endSecs: 0.4,
+  clips: [_mistClip('calm', 'Calm'), _mistClip('lively', 'Brave')],
+);
 
 final signatures = Short(
   id: 'signatures',

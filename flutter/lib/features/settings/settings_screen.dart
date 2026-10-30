@@ -183,6 +183,7 @@ class SettingsScreen extends StatelessWidget {
                 toggle('Haptics', null, st.haptics, (x, v) => x.haptics = v),
                 toggle('Larger text', 'Bigger labels, descriptions and item text everywhere.', st.largeText, (x, v) => x.largeText = v),
                 toggle('Reduce motion', 'Crossfades instead of bounces, flashes and particles.', st.reducedMotion, (x, v) => x.reducedMotion = v),
+                toggle('Short ultimates', 'An Elder\'s ultimate without its cut-in. It does exactly the same.', st.shortUltimates, (x, v) => x.shortUltimates = v),
                 toggle('Room-lit villagers', "Villagers lit by each room's lanterns and windows, instead of drawn flat like your Evochi.",
                     st.roomLitVillagers, (x, v) => x.roomLitVillagers = v),
                 ListTile(

@@ -1,0 +1,19 @@
+{
+ "fps": 30,
+ "w": 576,
+ "h": 1248,
+ "abilities": {
+  "healing_mist": {
+   "palette": "ocean",
+   "name": "Healing Mist",
+   "t0": 0.15,
+   "t1": 1.4,
+   "release": 1.38,
+   "n": 39,
+   "variants": {
+    "brave": "ult_healing_mist_brave.webp",
+    "calm": "ult_healing_mist_calm.webp"
+   }
+  }
+ }
+}

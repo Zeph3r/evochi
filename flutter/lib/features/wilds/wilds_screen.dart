@@ -48,6 +48,7 @@ import '../village/mining.dart' show MiningArt, OreKindArt, oreTier, oreName, pa
 import '../village/story_widgets.dart';
 import 'boss_intro.dart';
 import 'deep_floor.dart';
+import 'ult_cutin.dart';
 import 'wilds_art.dart';
 import 'wilds_combat.dart';
 
@@ -144,6 +145,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   CineEvochiArt? _cineEvochi;
   ReactArt? _reactArt; // its reaction to the roar (none while it wears something: the older art carries that)
   JumpArt? _jumpArt; // its leap clear of the Sentinel's beam (the Sentinel's story floor only)
+  UltArt? _ultArt; // an Elder's ultimate, its cut-in (null: the short wind-up)
+  bool _ultOn = false;
   IntroCut? _cine; // playing now
   BossIntroArt? _sentArt; // the Forgotten Sentinel's entrance (its story floor only)
   BossIntroArt? _sproutArt; // the Hollow Sprout's entrance (its story floor only)
@@ -280,6 +283,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       // Sher keeps the camp by the fire: he gives berries and a tip, and the trail is yours to walk
       _ticker.start();
       _loadIntro(m, pet?.stage ?? 1, palette, wearing);
+      _loadUlt();
     });
   }
 
@@ -311,6 +315,18 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     if (up == null) return 0;
     c.toast('Hollow Ward up: the first three hits are turned away', icon: 'item:hollow_ward');
     return up.data['hits'] as int;
+  }
+
+  /// An Elder's ultimate gets its cut-in where there is one for its colour (and short ultimates are off)
+  Future<void> _loadUlt() async {
+    final c = context.read<GameController>();
+    final pet = c.state.pet;
+    final st = c.state.player?.settings;
+    if (pet == null || pet.stage < 3 || (st?.shortUltimates ?? false) || (st?.reducedMotion ?? false)) return;
+    final art = await UltArt.load(pet.paletteId, pet.personality);
+    if (!mounted || art == null) return;
+    _ultArt = art;
+    _raid?.cinematic = true;
   }
 
   Raid _newRaid(WildsMap m) {
@@ -1043,6 +1059,12 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
         case 'signature_wind':
           _sfx('enc_soothe', 0.7);
           a.buzz(Haptic.rumble, strength: 0.4);
+        case 'ult_begin':
+          // the cut-in: the screen is its until the release marker hands back (the combat holds meanwhile)
+          _sfx('enc_glow', 0.8);
+          _sfx('enc_soothe', 0.6);
+          a.buzz(Haptic.rumble, strength: 0.5);
+          if (_ultArt != null) setState(() => _ultOn = true);
         case 'ore_hard':
           _sfx('mine_clink', 0.6);
           a.buzz(Haptic.error, strength: 0.4);
@@ -1692,6 +1714,17 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                       },
                     ),
                   ),
+                if (_ultOn && _ultArt != null)
+                  Positioned.fill(
+                    key: const ValueKey('ult_cutin'),
+                    child: UltCutIn(
+                      art: _ultArt!,
+                      onRelease: () => _raid?.ultRelease(),
+                      onDone: () {
+                        if (mounted) setState(() => _ultOn = false);
+                      },
+                    ),
+                  ),
                 if (_sentCine != null && _sentArt != null)
                   Positioned.fill(
                     key: const ValueKey('sentinel_intro'), // keyed: a card or banner coming and going above it never restarts it
@@ -2159,7 +2192,7 @@ class _MapPainter extends CustomPainter {
       _wave(canvas, wv);
     }
     for (final b in r.bursts) {
-      if (const {'pulse', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare'}.contains(b.kind)) _burst(canvas, b);
+      if (const {'pulse', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare', 'mist'}.contains(b.kind)) _burst(canvas, b);
     }
     // the target ring
     final lock = r.lock;
@@ -2290,7 +2323,7 @@ class _MapPainter extends CustomPainter {
     if (s._miningArt != null) _mineBitsPaint(canvas);
     // above everything: sparks, motes, stars, numbers
     for (final b in r.bursts) {
-      if (!const {'pulse', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare'}.contains(b.kind)) _burst(canvas, b);
+      if (!const {'pulse', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare', 'mist'}.contains(b.kind)) _burst(canvas, b);
     }
     // a glint where something waits to be found
     for (final sp in m.spots) {
@@ -3342,6 +3375,40 @@ class _MapPainter extends CustomPainter {
           final w2 = 3 * u;
           canvas.drawPath(Path()..moveTo(base.dx - w2, base.dy)..lineTo(base.dx + w2, base.dy)..lineTo(base.dx + 1, base.dy - h)..close(), tp);
           canvas.drawLine(base, base - Offset(-1, h * 0.8), hi..strokeWidth = 1);
+        }
+      case 'mist':
+        // Healing Mist, on the battlefield: the mist the cut-in ended in rolls out from your Evochi over everyone
+        // near, soft and low, with aqua light rising out of it as it mends
+        final e = 1 - (1 - k) * (1 - k);
+        final fade = k < 0.08 ? k / 0.08 : (1 - math.max(0, k - 0.5) / 0.5);
+        final r = b.size * (0.35 + 0.65 * e);
+        for (var i = 0; i < 3; i++) {
+          canvas.drawOval(
+              _ellipse(b.x, b.z, r * (1 - i * 0.22)),
+              Paint()
+                ..color = Color.fromRGBO(190, 232, 255, 0.20 * fade)
+                ..maskFilter = MaskFilter.blur(BlurStyle.normal, 14 * u));
+        }
+        canvas.drawOval(
+            _ellipse(b.x, b.z, r),
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 3 * u
+              ..color = Color.fromRGBO(225, 248, 255, 0.55 * fade)
+              ..maskFilter = MaskFilter.blur(BlurStyle.normal, 3 * u));
+        for (var i = 0; i < 16; i++) {
+          final ph = (k * 1.6 + i / 16) % 1.0;
+          final a = i * 2.39996;
+          final rr = r * (0.2 + 0.75 * ((i * 0.61) % 1.0));
+          final at = s._toScreen(b.x + math.cos(a) * rr, b.z + math.sin(a) * rr) - Offset(0, ph * 34 * _up);
+          final al = (1 - ph) * fade;
+          if (i % 4 == 0) {
+            final c = Paint()..color = Color.fromRGBO(235, 252, 255, 0.85 * al);
+            canvas.drawRect(Rect.fromCenter(center: at, width: 2.2 * u, height: 7 * u), c);
+            canvas.drawRect(Rect.fromCenter(center: at, width: 7 * u, height: 2.2 * u), c);
+          } else {
+            canvas.drawCircle(at, 2.0 * u, Paint()..color = Color.fromRGBO(150, 220, 255, 0.8 * al));
+          }
         }
       case 'reef':
         // Reef Bloom: coral and soft light underfoot that heals

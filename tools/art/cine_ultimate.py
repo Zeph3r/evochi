@@ -38,8 +38,11 @@ STAGE = 3
 FPS = 30
 W, H = 576, 1248                  # 9:19.5, portrait: the game covers the screen with it
 T0, T1 = 0.15, 1.40               # the cut-in, in the ultimate's own time (0: the button)
-RELEASE = 1.40                    # the marker: back to the Wilds, the effect resolves
-CUT = 1.10                        # the orbit ends; the release is a new angle
+RELEASE = 1.38                    # the marker: the mist has filled the view; back to the Wilds, the effect resolves
+ORBIT = (0.36, 1.00)              # the camera's 180 degrees round it (one move, no cut)
+SPIN = (0.96, 1.10)               # it turns to face the camera for its release
+YAW0, YAW1 = -62.0, 118.0
+FILL = 1.27                       # the mist rolls over the camera from here
 FN, FF, BN, BF = (-1, True), (1, True), (-1, False), (1, False)
 BODY_C = np.array([0.0, 12.0, -4.0])   # the Elder's middle (its turns, the element's centre)
 HIND = np.array([0.0, 0.0, -14.0])      # where it rears from
@@ -70,48 +73,55 @@ def keyed(keys, t):
 # ---------------------------------------------------------------------------------------------- the abilities
 ABILITIES = {
     'healing_mist': dict(palette='ocean', name='Healing Mist',
-                         sky=((10, 16, 46), (18, 40, 84)), light=(120, 200, 255), core=(225, 248, 255),
+                         sky=((10, 16, 46), (18, 40, 84)), base=(76, 155, 204), light=(118, 214, 255), core=(236, 252, 255),
                          lanterns=(255, 196, 120)),
 }
 
 # ------------------------------------------------------------------------------- the personalities' performance
-# the same beats, performed: amplitude (how big), pace (when the moves land: >1 later), faces (from, state, jaw)
+# the same beats, performed differently: Brave plants itself, head high, and slams its release down with a roar;
+# Calm bows its head, eyes closed, and lifts it slowly as it opens its paws, the release a soft breath out
 PERFORM = {
-    'brave': dict(amp=1.0, lift=1.0, rear=16, head=[(0.15, (6, 0, 0)), (0.55, (-4, 0, 0)), (1.10, (-6, 0, 0)), (1.4, (-10, 0, 0))],
-                  faces=[(0.15, 'fierce:brave', 0), (0.60, 'shout:brave', 18), (CUT, 'fierce:brave', 0), (1.16, 'shout:brave', 24)],
-                  pace=1.0),
-    'calm': dict(amp=0.7, lift=0.85, rear=9, head=[(0.15, (2, 0, 0)), (0.7, (-8, 0, 4)), (1.10, (-6, 0, -2)), (1.4, (-12, 0, 0))],
-                 faces=[(0.15, 'serene:calm', 0), (0.86, 'gaze:calm', 0), (CUT, 'serene:calm', 0), (1.18, 'soothe:calm', 8)],
-                 pace=1.12),
+    'brave': dict(
+        crouch=[(0.15, -3.6), (0.40, -2.2), (0.95, -1.4), (1.10, 0.0), (1.4, -0.6)],
+        lift=[(0.15, 0.0), (0.5, 0.0), (0.95, 1.0), (1.12, 3.5), (1.22, 0.0), (1.4, 0.0)],
+        rear=[(1.02, 0.0), (1.14, 18.0), (1.22, 2.0), (1.40, 4.0)],
+        reach=[(1.02, 0.0), (1.13, 6.0), (1.22, 0.5), (1.4, 0.0)],
+        spread=[(1.02, 0.0), (1.22, 3.0)],
+        stance=2.0,
+        head=[(0.15, (8, 0, 0)), (0.5, (2, 0, 0)), (0.95, (-6, 0, 0)), (1.14, (-18, 0, 0)), (1.4, (-8, 0, 0))],
+        tail=[(0.15, 0.0), (0.6, 4.0), (1.0, -3.0), (1.3, 2.0)],
+        faces=[(0.15, 'fierce:brave', 0), (0.62, 'ready:brave', 0), (1.08, 'shout:brave', 24), (1.32, 'whoop:brave', 0)]),
+    'calm': dict(
+        crouch=[(0.15, -1.6), (0.6, -1.0), (1.0, -0.4), (1.4, -0.2)],
+        lift=[(0.15, 0.0), (1.4, 0.0)],
+        rear=[(1.02, 0.0), (1.22, 6.0), (1.40, 5.0)],
+        reach=[(1.02, 0.0), (1.24, 2.0), (1.4, 1.6)],
+        spread=[(1.02, 0.0), (1.26, 3.5)],
+        stance=0.0,
+        head=[(0.15, (12, 0, 6)), (0.7, (10, 0, -4)), (1.0, (2, 0, 0)), (1.26, (-14, 0, 4)), (1.4, (-12, 0, 2))],
+        tail=[(0.15, 0.0), (0.8, 2.0), (1.3, 1.0)],
+        faces=[(0.15, 'serene:calm', 0), (0.80, 'gaze:calm', 0), (1.02, 'serene:calm', 0), (1.16, 'soothe:calm', 8)]),
 }
 
 
 def pose(pers, t):
-    """the body at t: where it is (root), how it is turned (rear, about its hind feet), its rig"""
+    """the body at t: the rig, its rear about its hind feet, its spin toward the camera for the release"""
     P = PERFORM[pers]
-    a, k = P['amp'], P['pace']
-    tt = T0 + (t - T0) / k if t < CUT else t                      # a calm one gathers slower
-    lift = keyed([(0.15, 0.0), (0.40, 1.5), (0.80, 7.0), (CUT, 9.0)], tt) * P['lift'] if t < CUT else \
-        keyed([(CUT, 6.5), (1.22, 7.5), (1.40, 4.0)], t) * P['lift']
-    crouch = keyed([(0.15, -3.4), (0.42, -1.0), (0.8, 0.0)], tt) * a
-    tuck = keyed([(0.3, 0.0), (0.8, 2.2), (CUT, 2.6)], tt) * a if t < CUT else 0.0
-    rear = keyed([(CUT, 4.0), (1.20, P['rear']), (1.40, P['rear'] * 0.8)], t) if t >= CUT else 0.0
-    reach = keyed([(CUT, 1.0), (1.18, 5.5), (1.40, 4.5)], t) * a if t >= CUT else 0.0
-    spread = keyed([(CUT, 0.5), (1.20, 2.5)], t) * a if t >= CUT else 0.0
+    crouch = keyed(P['crouch'], t)
+    reach = keyed(P['reach'], t)
+    spread = keyed(P['spread'], t) + P['stance'] * keyed([(0.15, 0.0), (0.4, 1.0)], t)
     feet = {
-        FN: (tuck + reach, -tuck * 0.6 + reach * 0.4, spread), FF: (tuck + reach, -tuck * 0.6 + reach * 0.4, spread),
-        BN: (tuck * 0.7, tuck * 0.5, 0.0), BF: (tuck * 0.7, tuck * 0.5, 0.0),
+        FN: (reach, reach * 0.5, spread), FF: (reach, reach * 0.5, spread),
+        BN: (0.0, 0.0, P['stance'] * 0.6), BF: (0.0, 0.0, P['stance'] * 0.6),
     }
-    head_rot = keyed(P['head'], t)
-    tail = keyed([(0.15, 0.0), (0.6, 3.0), (1.0, -2.0), (1.3, 1.0)], t) * a
-    tail_lift = keyed([(0.15, 0.0), (0.8, 4.0), (1.25, 6.0)], t) * a
+    spin = (YAW1 - 0.0) * ease((t - SPIN[0]) / (SPIN[1] - SPIN[0])) if t > SPIN[0] else 0.0
     face, jaw = P['faces'][0][1], P['faces'][0][2]
     for t0, f, j in P['faces']:
         if t >= t0:
             face, jaw = f, j
-    # the jaw eases open and shut a little round its keys, so the mouth never snaps
-    return dict(root=(0.0, lift, 0.0), rear=rear, feet=feet, body=(crouch, crouch * 0.3), head_rot=head_rot,
-                tail=tail, tail_lift=tail_lift, face=face, jaw=jaw)
+    return dict(root=(0.0, keyed(P['lift'], t), 0.0), rear=keyed(P['rear'], t), spin=spin, feet=feet,
+                body=(crouch, crouch * 0.35), head_rot=keyed(P['head'], t), tail=keyed(P['tail'], t),
+                tail_lift=keyed([(0.15, 0.0), (0.8, 4.0), (1.25, 6.0)], t), face=face, jaw=jaw)
 
 
 def character(p):
@@ -119,8 +129,11 @@ def character(p):
     feet = {k: tuple(round(x * 2) / 2 for x in v) for k, v in p['feet'].items()}
     ch = build(STAGE, lo_y=-10, feet=feet, body=p['body'], head_rot=p['head_rot'], tail=p['tail'],
                tail_lift=p['tail_lift'], jaw=p['jaw'])
-    if abs(p['rear']) > 0.2:
-        ch = J.turn_body(ch, head_rotation((-p['rear'], 0, 0)), 1.0, pivot=HIND, pad=(-32, -16, -56, 32, 62, 46))
+    if abs(p['rear']) > 0.2 or abs(p['spin']) > 0.2:
+        # rear about the hind feet, then the whole body turned about its middle toward the camera
+        R = head_rotation((0, p['spin'], 0)) @ head_rotation((-p['rear'], 0, 0))
+        piv = HIND if abs(p['spin']) < 0.2 else np.array([0.0, 0.0, -4.0])
+        ch = J.turn_body(ch, R, 1.0, pivot=piv, pad=(-56, -16, -60, 56, 62, 56))
     return ch
 
 
@@ -131,17 +144,18 @@ def face_name(p):
 
 # ------------------------------------------------------------------------------------------------ the camera
 def camera(t):
-    """(camera, px per voxel, the point it frames, where on screen): the close-up pushing in, the orbit pulling
-    back as it rises, the release from low and in front"""
-    if t < 0.40:
-        u = (t - T0) / (0.40 - T0)
-        return Camera(yaw=lerp(-30, -20, u), pitch=5), lerp(16.0, 18.5, ease(u)), np.array([0.0, 15.5, 26.0]), (0.5, 0.47)
-    if t < CUT:
-        u = ease((t - 0.40) / (CUT - 0.40))
-        target = lerp(np.array([0.0, 15.5, 26.0]), BODY_C + [0, 4, 0], ease(min(1, u * 1.8)))
-        return Camera(yaw=lerp(-20, 160, u), pitch=lerp(5, 15, u)), lerp(18.5, 10.5, ease(min(1, u * 1.6))), target, (0.5, lerp(0.47, 0.60, u))
-    u = (t - CUT) / (T1 - CUT)
-    return Camera(yaw=-14, pitch=lerp(1, 3, u)), lerp(13.0, 12.2, ease(u)), BODY_C + [0, 6, 0], (0.5, 0.56)
+    """(camera, px per voxel, the point it frames, where on screen): the close-up pushing in, then one 180 degree
+    orbit pulling back and rising a little, settling as it turns to face the lens for its release"""
+    face = np.array([0.0, 15.5, 26.0])
+    if t < ORBIT[0]:
+        u = (t - T0) / (ORBIT[0] - T0)
+        return Camera(yaw=lerp(-70, YAW0, u), pitch=6), lerp(16.0, 18.5, ease(u)), face, (0.5, 0.46)
+    u = ease((t - ORBIT[0]) / (ORBIT[1] - ORBIT[0]))
+    back = ease(min(1.0, (t - ORBIT[0]) / 0.4))
+    yaw = lerp(YAW0, YAW1, u) + 6 * ease((t - ORBIT[1]) / (T1 - ORBIT[1])) * (t > ORBIT[1])
+    target = lerp(face, BODY_C + [0, 5, 0], back)
+    scale = lerp(18.5, 11.0, back) + 1.2 * ease((t - SPIN[1]) / (T1 - SPIN[1])) * (t > SPIN[1])
+    return Camera(yaw=yaw, pitch=lerp(6, 11, u)), scale, target, (0.5, lerp(0.46, 0.55, back))
 
 
 def fit_for(cam, scale, target, at, root):
@@ -231,12 +245,139 @@ def floor_light(ab, cam, fit, t, strength):
 
 
 # ------------------------------------------------------------------------------------------- the element
+def _noise(seed, sigma):
+    rng = np.random.default_rng(seed)
+    n = ndimage.gaussian_filter(rng.random((H // 2, W // 2)), sigma, mode='wrap')
+    n = (n - n.min()) / (n.max() - n.min() + 1e-9)
+    return np.asarray(Image.fromarray((n * 255).astype(np.uint8)).resize((W, H), Image.BILINEAR), float) / 255.0
+
+
+_MIST = None
+
+
+def mist_tex():
+    global _MIST
+    if _MIST is None:
+        _MIST = (_noise(1, 14), _noise(2, 7))
+    return _MIST
+
+
 def ribbons(ab, cam, fit, t, root, depth_c, front):
-    """the water's ribbons, spiralling round the body as it gathers: drawn twice, behind then in front"""
-    grow = keyed([(0.30, 0.0), (0.70, 1.0), (CUT, 1.0)], t) if t < CUT else keyed([(CUT, 1.0), (1.4, 1.0)], t)
+    """water gathering into currents round the body: wide, uneven bands that wobble and thin out, drawn twice
+    (the half behind it first)"""
+    grow = keyed([(0.26, 0.0), (0.66, 1.0)], t)
     if grow <= 0.01:
         return None
-    burst = keyed([(1.14, 0.0), (1.40, 1.0)], t) if t >= CUT else 0.0
+    unwind = keyed([(1.04, 0.0), (FILL, 1.0)], t)
+    S = 2
+    im = Image.new('RGBA', (W * S, H * S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    base = BODY_C + np.array(root)
+    n = 60
+    for k in range(3):
+        s = np.linspace(0, 1, n) * grow
+        th = t * 4.6 + k * 2 * math.pi / 3 + s * 3.4 * math.pi
+        wob = np.sin(s * 11 + t * 7 + k * 2) * 2.5
+        r = (23 + 4 * np.sin(s * 6 + k) + wob) * (1 + unwind * 1.6)
+        y = -3 + 26 * s + 3.5 * np.sin(s * 5 + t * 3 + k) + unwind * 8
+        P = np.stack([base[0] + r * np.cos(th), base[1] + y, base[2] + r * 0.9 * np.sin(th)], 1)
+        q, z = px(cam, fit, P)
+        q = q * S
+        for i in range(n - 1):
+            if (z[i] < depth_c) != front:
+                continue
+            u = s[i] / max(grow, 1e-3)
+            fade = u ** 0.7 * (1 - unwind * 0.7)
+            body = math.sin(math.pi * u) * (0.6 + 0.4 * math.sin(i * 0.7 + t * 9 + k))
+            wdt = (2 + 13 * body) * fit.scale / 9 * S
+            deep = tuple(ab['base'])
+            d.line([tuple(q[i]), tuple(q[i + 1])], fill=deep + (int(150 * fade),), width=max(1, int(wdt)))
+            d.line([tuple(q[i]), tuple(q[i + 1])], fill=tuple(ab['light']) + (int(170 * fade),), width=max(1, int(wdt * 0.55)))
+            d.line([tuple(q[i]), tuple(q[i + 1])], fill=tuple(ab['core']) + (int(200 * fade),), width=max(1, int(wdt * 0.18)))
+    return np.asarray(im.resize((W, H), Image.LANCZOS), float) / 255.0
+
+
+def droplets(ab, cam, fit, t, root, depth_c, front):
+    """droplets drawn up out of the ground and swept round: real drops (a rim, a body, a bright catch-light),
+    over whatever is behind them, not just glow"""
+    grow = keyed([(0.20, 0.0), (0.55, 1.0)], t)
+    if grow <= 0.01:
+        return None
+    unwind = keyed([(1.04, 0.0), (FILL, 1.0)], t)
+    S = 2
+    im = Image.new('RGBA', (W * S, H * S), (0, 0, 0, 0))
+    d = ImageDraw.Draw(im)
+    rng = np.random.default_rng(9)
+    base = BODY_C + np.array(root)
+    deep = tuple(ab['base'])
+    for i in range(44):
+        a0, rr, y0, sp = rng.uniform(0, 2 * math.pi), rng.uniform(16, 36), rng.uniform(-8, 30), rng.uniform(1.2, 2.8)
+        rise = keyed([(0.2 + rng.uniform(0, 0.3), -12.0), (0.7 + rng.uniform(0, 0.2), 0.0)], t)
+        a = a0 + t * sp
+        r = rr * (1 + unwind * 2.0)
+        P = base + [r * math.cos(a), y0 + rise + unwind * 12, r * 0.9 * math.sin(a)]
+        q, z = px(cam, fit, [P])
+        if (z[0] < depth_c) != front:
+            continue
+        rad = (0.5 + 0.45 * (i % 5) / 4) * fit.scale * 0.6 * grow * S
+        x, y = q[0] * S
+        al = int(235 * (1 - unwind * 0.8))
+        d.ellipse([x - rad, y - rad * 1.1, x + rad, y + rad], fill=deep + (al,))
+        d.ellipse([x - rad * 0.78, y - rad * 0.86, x + rad * 0.78, y + rad * 0.78], fill=tuple(ab['light']) + (al,))
+        d.ellipse([x - rad * 0.5, y - rad * 0.62, x - rad * 0.05, y - rad * 0.2], fill=(255, 255, 255, al))
+    return np.asarray(im.resize((W, H), Image.LANCZOS), float) / 255.0
+
+
+def mist(ab, cam, fit, t, root):
+    """soft volumes of mist: low round its feet as it gathers, rolling out with the release, and at the end
+    filling the view (the same mist the Wilds shows sweeping over your allies)"""
+    c, _ = px(cam, fit, [[0.0, 0.0, -4.0]])
+    cx, cy = c[0]
+    yy, xx = np.mgrid[0:H, 0:W]
+    n1, n2 = mist_tex()
+    sh = int(t * 60) % W
+    tex = 0.6 * np.roll(n1, sh, 1) + 0.4 * np.roll(n2, -sh // 2, 1)
+    gather = keyed([(0.2, 0.15), (0.9, 0.45), (1.1, 0.6)], t)
+    roll = keyed([(1.04, 0.0), (FILL, 1.0)], t)
+    R = (36 + 160 * roll) * fit.scale
+    d = np.hypot((xx - cx) / 1.0, (yy - cy) * 2.2)
+    ground = np.exp(-(d / R) ** 2) * np.clip(1 - (cy - yy) / (H * 0.32), 0, 1) ** 1.5
+    dens = ground * gather * (0.35 + 0.65 * tex)
+    fill = keyed([(FILL, 0.0), (T1, 1.0)], t)
+    if fill > 0:
+        reach = fill * math.hypot(W, H) * 1.1
+        front = np.clip((reach - np.hypot(xx - cx, yy - cy)) / 140.0, 0, 1)
+        dens = np.maximum(dens, front * (0.55 + 0.45 * tex) * min(1.0, 0.35 + fill))
+    return np.clip(dens, 0, 0.97)[..., None]
+
+
+def heal_lights(ab, cam, fit, t, root):
+    """the healing light rising in the mist as it is released: small soft crosses"""
+    if t < 1.10:
+        return None
+    u = ease((t - 1.10) / (T1 - 1.10))
+    c, _ = px(cam, fit, [BODY_C + np.array(root)])
+    cx, cy = c[0]
+    im = Image.new('RGB', (W, H), (0, 0, 0))
+    dr = ImageDraw.Draw(im)
+    rng = np.random.default_rng(3)
+    for i in range(14):
+        x = cx + rng.uniform(-1, 1) * W * 0.42
+        y = cy + rng.uniform(-0.1, 0.35) * H * 0.4 - u * rng.uniform(60, 160)
+        s = rng.uniform(6, 12)
+        a = min(1.0, u * 3)
+        col = tuple(int(cc * a * 0.8) for cc in ab['core'])
+        dr.rectangle([x - s * 0.3, y - s, x + s * 0.3, y + s], fill=col)
+        dr.rectangle([x - s, y - s * 0.3, x + s, y + s * 0.3], fill=col)
+    return np.asarray(im, float) / 255.0
+
+
+def ribbon_glow(ab, cam, fit, t, root, depth_c, front):
+    """the water's ribbons, spiralling round the body as it gathers: drawn twice, behind then in front"""
+    grow = keyed([(0.30, 0.0), (0.70, 1.0)], t)
+    if grow <= 0.01:
+        return None
+    burst = keyed([(1.14, 0.0), (1.40, 1.0)], t)
     S = 2
     im = Image.new('RGB', (W * S, H * S), (0, 0, 0))
     d = ImageDraw.Draw(im)
@@ -262,11 +403,11 @@ def ribbons(ab, cam, fit, t, root, depth_c, front):
     return np.asarray(im.resize((W, H), Image.LANCZOS), float)
 
 
-def droplets(ab, cam, fit, t, root, depth_c, front):
+def droplet_glow(ab, cam, fit, t, root, depth_c, front):
     grow = keyed([(0.25, 0.0), (0.6, 1.0)], t)
     if grow <= 0.01:
         return None
-    burst = keyed([(1.14, 0.0), (1.40, 1.0)], t) if t >= CUT else 0.0
+    burst = keyed([(1.14, 0.0), (1.40, 1.0)], t)
     im = Image.new('RGB', (W, H), (0, 0, 0))
     d = ImageDraw.Draw(im)
     rng = np.random.default_rng(9)
@@ -287,7 +428,7 @@ def droplets(ab, cam, fit, t, root, depth_c, front):
     return np.asarray(im, float)
 
 
-def release_mist(ab, cam, fit, t, root):
+def release_glow(ab, cam, fit, t, root):
     """the release: mist rolling out toward the camera, and the healing light rising in it"""
     if t < 1.12:
         return None
@@ -299,9 +440,8 @@ def release_mist(ab, cam, fit, t, root):
     R = (20 + 220 * u) * fit.scale / 7
     d = np.hypot(xx - cx, (yy - cy) * 1.2)
     ring = np.exp(-((d - R) / (20 + 40 * u)) ** 2)[..., None] * min(1.0, (R / (60 * fit.scale / 7)) ** 2)
-    low = np.clip((yy - cy) / (H * 0.25), 0, 1)[..., None]           # the mist hugs the ground: clear over the face
-    haze = np.exp(-(d / (R * 1.4 + 1)) ** 2)[..., None] * u * 0.35 * low
-    L += (ring * (1 - u * 0.5) * 0.75 + haze) * np.array(ab['light'], float)
+    haze = np.exp(-(d / (R * 1.3 + 1)) ** 2)[..., None] * u * 0.55
+    L += (ring * (1 - u * 0.5) * 1.1 + haze) * np.array(ab['light'], float)
     # the healing light: small crosses rising through it
     im = Image.new('RGB', (W, H), (0, 0, 0))
     dr = ImageDraw.Draw(im)
@@ -317,6 +457,11 @@ def release_mist(ab, cam, fit, t, root):
         dr.rectangle([x - s, y - s * 0.3, x + s, y + s * 0.3], fill=col)
     L += np.asarray(im, float)
     return L
+
+
+def over(img, layer):
+    a = layer[..., 3:4]
+    return img * (1 - a) + layer[..., :3] * a
 
 
 def bloom(L):
@@ -337,34 +482,54 @@ def frame(args):
     charrender._quad_cache.clear()
     body = r.rgba.astype(float) / 255.0
     a = body[..., 3:4]
+    root = p['root']
     img = backdrop(ab, cam, t) / 255.0
-    gather = keyed([(0.15, 0.4), (0.7, 1.0), (CUT, 1.1), (1.25, 1.6), (1.4, 1.0)], t)
-    _, depth_c = px(cam, fit, [BODY_C + np.array(p['root'])])
+    gather = keyed([(0.15, 0.4), (0.7, 1.0), (1.04, 1.1), (1.18, 1.6), (1.4, 1.0)], t)
+    _, depth_c = px(cam, fit, [BODY_C + np.array(root)])
+    dc = depth_c[0]
+    # behind the Elder: the luminous ground circle, the bright rings and drops, its cyan-blue aura
     behind = floor_light(ab, cam, fit, t, gather)
-    for f in (ribbons, droplets):
-        x = f(ab, cam, fit, t, p['root'], depth_c[0], False)
+    for f in (ribbon_glow, droplet_glow):
+        x = f(ab, cam, fit, t, root, dc, False)
         if x is not None:
             behind += x
-    # an aura round the body: its own light, in the element's colour
-    aura = ndimage.gaussian_filter(a[..., 0], 9)[..., None] * np.array(ab['light'], float) * (0.25 + 0.2 * gather)
+    auracol = np.array(ab['light'], float) * 0.7 + np.array(ab['base'], float) * 0.3
+    aura = ndimage.gaussian_filter(a[..., 0], 9)[..., None] * auracol * (0.25 + 0.2 * gather)
     img = img + bloom(behind + aura) / 255.0
-    # the body: lit a little by its element (the side toward its light picks up the colour)
+    for f in (ribbons, droplets):                     # the organic water, secondary
+        x = f(ab, cam, fit, t, root, dc, False)
+        if x is not None:
+            img = over(img, x * np.array([1, 1, 1, 0.6]))
     tint = 1 + (np.array(ab['light'], float) / 255.0 - 0.5) * 0.12 * gather
     img = img * (1 - a) + np.clip(body[..., :3] * tint, 0, 1) * a
+    # in front: the rings and drops passing before it, the release
     front = np.zeros((H, W, 3))
-    for f in (ribbons, droplets):
-        x = f(ab, cam, fit, t, p['root'], depth_c[0], True)
+    for f in (ribbon_glow, droplet_glow):
+        x = f(ab, cam, fit, t, root, dc, True)
         if x is not None:
             front += x
-    m = release_mist(ab, cam, fit, t, p['root'])
+    m = release_glow(ab, cam, fit, t, root)
     if m is not None:
         front += m
     img = img + bloom(front) / 255.0
-    # the cut into the release: a flash of the element's light
-    fl = max(0.0, 1 - abs(t - CUT) / 0.05) * 0.8 + max(0.0, 1 - (T1 - t) / 0.05) * 0.35
+    for f in (ribbons, droplets):
+        x = f(ab, cam, fit, t, root, dc, True)
+        if x is not None:
+            img = over(img, x * np.array([1, 1, 1, 0.6]))
+    # the peak of the release: a moment's overexposure, the Elder lost in its own light
+    fl = max(0.0, 1 - abs(t - 1.18) / 0.08) * 0.85 + max(0.0, 1 - (T1 - t) / 0.05) * 0.35
     if fl > 0:
-        img = img + fl * np.array(ab['core'], float) / 255.0
-    img = 1 - np.exp(-img * 1.15)                                     # a soft shoulder: light never clips flat
+        # radiating from it, not a flat veil: blinding at the Elder, the night still there at the edges
+        c, _ = px(cam, fit, [BODY_C + np.array(root)])
+        yy, xx = np.mgrid[0:H, 0:W]
+        rad = np.exp(-((xx - c[0][0]) ** 2 + ((yy - c[0][1]) * 0.8) ** 2) / (0.42 * H) ** 2)[..., None]
+        img = img + fl * (rad * 1.25 + 0.08) * np.array(ab['core'], float) / 255.0
+    # the soft mist, secondary until it fills the view at the end (the hand back to the Wilds)
+    mm = mist(ab, cam, fit, t, root)
+    mc = np.array(ab['core'], float) / 255.0 * 0.55 + np.array(ab['light'], float) / 255.0 * 0.45
+    fillk = keyed([(FILL, 0.0), (T1, 1.0)], t)
+    img = img * (1 - mm * (0.55 + 0.45 * fillk)) + mc * mm * (0.55 + 0.45 * fillk) * 1.15
+    img = 1 - np.exp(-img * 1.15)                     # a soft shoulder: light never clips flat
     img = img / (1 - math.exp(-1.15))
     return ability, pers, i, (np.clip(img, 0, 1) * 255).round().astype(np.uint8)
 
@@ -400,7 +565,7 @@ def main(out, ability='healing_mist', perss=('brave', 'calm'), preview=False, sh
         print(fn, '%d KB' % (os.path.getsize(os.path.join(out, fn)) // 1024), flush=True)
     json.dump(meta, open(mp, 'w'), indent=1)
     if sheet:
-        beats = [0.20, 0.36, 0.50, 0.70, 0.90, 1.06, 1.16, 1.26, 1.36]
+        beats = [0.20, 0.34, 0.50, 0.66, 0.82, 0.98, 1.08, 1.16, 1.24, 1.32, 1.40]
         cw, chh = W // 3, H // 3
         S = Image.new('RGB', (cw * len(beats), chh * len(perss)))
         for r_, pr in enumerate(perss):
@@ -416,8 +581,8 @@ def main(out, ability='healing_mist', perss=('brave', 'calm'), preview=False, sh
                              stdin=subprocess.PIPE)
         hold = [frames[pr][0] for pr in perss]
         dark = [(f.astype(float) * 0.25).astype(np.uint8) for f in hold]
-        seq = [dark] * 6 + [[frames[pr][i] for pr in perss] for i in range(len(ts))] + [[frames[pr][-1] for pr in perss]] * 10
-        for row in seq * 2:
+        seq = [dark] * 5 + [[frames[pr][i] for pr in perss] for i in range(len(ts))]
+        for row in seq:
             p.stdin.write(np.concatenate(row, 1).tobytes())
         p.stdin.close()
         p.wait()
