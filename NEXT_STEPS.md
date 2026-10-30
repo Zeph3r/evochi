@@ -24,14 +24,15 @@ The Fading Paths cold open and the beats after it (README: "The onboarding cinem
 
 Still to do:
 
-- **Full-quality plates.** The packs are on the PC (`blender\cine\packs\`, 55 of them, with the current
-  `cine_blender.py`, `cine_pack.py` and `render_cine_pc.py`); double-click `blender\cine\render_cine.bat` to render
-  them on the GPU (progress in `packs\render_status.json`). Then bring the raw frames and depth passes back,
-  `cine_blender.py --regrade`, and `cine_assets.py` into `flutter/assets/art/cine/`. Until then the PC's
-  `assets/art/cine/` holds a stand-in pack of the CPU previews (14 plates; the rest fall back in the app).
-- **Look.** Done against the storyboard at preview size: the steps scene (remodelled sneakers, Mochi facing the
-  camera, the prints visible), the Glasshouse at night (warm inside, Mira at the door at village size), Pip (stands
-  in the Lodge, no counter in front of him). Check the rest at full size: the Hollow creep's density, the crack glow.
+- **Look.** All 55 scenes are rendered at full quality on the PC's GPU and packed in `flutter/assets/art/cine/`
+  (265 WebP plates, 22 MB; analyze clean and 227 tests passing on the PC). Checked against the storyboard: the
+  map's three states, the village at dusk, the Glasshouse by night, the nest, Mira, the aisle, steps, Pip; the cast
+  in close-up at twice the voxel grain with smooth shadow stand-ins; the egg cracks in Lumen gold across the side
+  that faces you; the Elder orbit at one distance in a landscape frame (a wide panel on the pick card). Still worth a
+  look on a phone: the Hollow creep's density in motion, and whether the top band of the map plate (the dark room
+  above the desk) wants a vignette or a tighter crop at zoom 1. To re-render: `cine_pack.py` into
+  `blender\cine\packs\`, drop those entries from `packs\render_status.json`, run `render_cine.bat`, then
+  `--regrade` from the packs and `cine_assets.py`.
 - **Founders.** The app can't tell a founder yet (the waitlist knows, the app doesn't), so `pip_gold` isn't shown.
   A claim code in the beta invite, or the sign-in email matched against the waitlist, would decide it.
 - **The push-in as a real camera move** (storyboard frame 6) and the Glasshouse tracking shot (frame 11): the
