@@ -18,7 +18,7 @@ import cine_pack            # noqa: E402
 args = sys.argv[sys.argv.index('--') + 1:] if '--' in sys.argv else sys.argv[1:]
 mode = 'preview' if '--preview' in args else 'full'
 args = [a for a in args if a != '--preview']
-pack_dir = args[0]
+pack_dir = os.path.abspath(args[0])   # absolute: Blender resolves a relative output path from the drive root
 only = set(args[1:])
 CB.GPU = True
 status_path = os.path.join(pack_dir, 'render_status.json')
