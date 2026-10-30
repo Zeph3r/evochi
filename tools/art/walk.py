@@ -324,7 +324,7 @@ def main(out, preview=False, palettes=None, only=None, gaits=None, wear=False):
         walkers = meta.setdefault('walkers', {})
         old = walkers.get(key, {})
         if wear:
-            old['wear'] = items
+            old['wear'] = {**old.get('wear', {}), **items}     # the mining gear's entries (mining_gear.py) stay
             walkers[key] = old
         else:
             # keep sheets of variants/gaits not re-rendered this time, and the wearables

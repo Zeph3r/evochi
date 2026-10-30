@@ -174,6 +174,42 @@
     "reward_windtrail_mantle": {
      "file": "wear_s02_reward_windtrail_mantle.webp",
      "slot": "back"
+    },
+    "copper_headlamp": {
+     "file": "gear_s02_copper_headlamp.webp",
+     "slot": "gear_helmet"
+    },
+    "copper_pick": {
+     "file": "gear_s02_copper_pick.webp",
+     "slot": "gear_tool"
+    },
+    "copper_satchel": {
+     "file": "gear_s02_copper_satchel.webp",
+     "slot": "gear_satchel"
+    },
+    "copper_lantern": {
+     "file": "gear_s02_copper_lantern.webp",
+     "slot": "gear_lantern"
+    },
+    "copper_harness": {
+     "file": "gear_s02_copper_harness.webp",
+     "slot": "gear_harness"
+    },
+    "copper_paw_guards": {
+     "file": "gear_s02_copper_paw_guards.webp",
+     "slot": "gear_paws"
+    },
+    "iron_pick": {
+     "file": "gear_s02_iron_pick.webp",
+     "slot": "gear_tool"
+    },
+    "iron_harness": {
+     "file": "gear_s02_iron_harness.webp",
+     "slot": "gear_harness"
+    },
+    "iron_paw_guards": {
+     "file": "gear_s02_iron_paw_guards.webp",
+     "slot": "gear_paws"
     }
    }
   },
@@ -337,6 +373,42 @@
     "reward_windtrail_mantle": {
      "file": "wear_s01_reward_windtrail_mantle.webp",
      "slot": "back"
+    },
+    "copper_headlamp": {
+     "file": "gear_s01_copper_headlamp.webp",
+     "slot": "gear_helmet"
+    },
+    "copper_pick": {
+     "file": "gear_s01_copper_pick.webp",
+     "slot": "gear_tool"
+    },
+    "copper_satchel": {
+     "file": "gear_s01_copper_satchel.webp",
+     "slot": "gear_satchel"
+    },
+    "copper_lantern": {
+     "file": "gear_s01_copper_lantern.webp",
+     "slot": "gear_lantern"
+    },
+    "copper_harness": {
+     "file": "gear_s01_copper_harness.webp",
+     "slot": "gear_harness"
+    },
+    "copper_paw_guards": {
+     "file": "gear_s01_copper_paw_guards.webp",
+     "slot": "gear_paws"
+    },
+    "iron_pick": {
+     "file": "gear_s01_iron_pick.webp",
+     "slot": "gear_tool"
+    },
+    "iron_harness": {
+     "file": "gear_s01_iron_harness.webp",
+     "slot": "gear_harness"
+    },
+    "iron_paw_guards": {
+     "file": "gear_s01_iron_paw_guards.webp",
+     "slot": "gear_paws"
     }
    }
   },
@@ -590,6 +662,42 @@
     "reward_windtrail_mantle": {
      "file": "wear_s03_reward_windtrail_mantle.webp",
      "slot": "back"
+    },
+    "copper_headlamp": {
+     "file": "gear_s03_copper_headlamp.webp",
+     "slot": "gear_helmet"
+    },
+    "copper_pick": {
+     "file": "gear_s03_copper_pick.webp",
+     "slot": "gear_tool"
+    },
+    "copper_satchel": {
+     "file": "gear_s03_copper_satchel.webp",
+     "slot": "gear_satchel"
+    },
+    "copper_lantern": {
+     "file": "gear_s03_copper_lantern.webp",
+     "slot": "gear_lantern"
+    },
+    "copper_harness": {
+     "file": "gear_s03_copper_harness.webp",
+     "slot": "gear_harness"
+    },
+    "copper_paw_guards": {
+     "file": "gear_s03_copper_paw_guards.webp",
+     "slot": "gear_paws"
+    },
+    "iron_pick": {
+     "file": "gear_s03_iron_pick.webp",
+     "slot": "gear_tool"
+    },
+    "iron_harness": {
+     "file": "gear_s03_iron_harness.webp",
+     "slot": "gear_harness"
+    },
+    "iron_paw_guards": {
+     "file": "gear_s03_iron_paw_guards.webp",
+     "slot": "gear_paws"
     }
    }
   },
