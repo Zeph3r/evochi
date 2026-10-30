@@ -248,8 +248,8 @@ lights the first path after naming.
 | `nest`, `nest_empty`, `nest_egg_<colour>`, `mira`, `aisle` | the Glasshouse inside at evening with a straw nest of six eggs and Mira beside it: the whole shot, the nest without eggs plus each egg alone as a sprite (for the pick), Mira close, and the aisle for the tracking shot |
 | `steps` | the step screen: the Ocean Eggling (Mochi) walking toward you beside a pair of sneakers on a dawn path, its Lumen prints trailing back up the path; the sneakers are their own fine model (`sneaker_model`: midsole and outsole with toe spring, a white upper with blue overlays, laces, tongue, an open collar, no maker's marks) |
 | `pip`, `pip_gold` | Pip standing in the Trail Guild Lodge holding up his sealed letter, the pigeonholes behind him and the sorting desk beside him; the founders' gold-sealed one |
-| `egg_<colour>_<0-3>`, `egg_shards_<colour>` | each egg as a Home-nest sprite (the Eggling's hero angle) at four crack stages, cracks glowing; the shell in four pieces for the hatch burst |
-| `elder_<colour>_<00-35>` | the three-second Elder glimpse: the Stage-3 Elder on a ring of its affinity's light, one orbit in 36 frames |
+| `egg_<colour>_<0-3>`, `egg_shards_<colour>` | each egg as a Home-nest sprite (the Eggling's hero angle) at four crack stages, the cracks traced in Lumen gold across the side that faces you; the shell in four pieces for the hatch burst |
+| `elder_<colour>_<00-35>` | the three-second Elder glimpse: the Stage-3 Elder on a ring of its affinity's light, one orbit in 36 landscape frames at one distance (no zoom as it turns); the pick card opens it as a wide panel above the egg |
 
 The eggs are the Eggling's own model (`characters.build_eggling`) without its feet, claws and face, so the crest,
 ear plates, scale squares and diamond markings are the game's; the villagers and the Elder are the game's models

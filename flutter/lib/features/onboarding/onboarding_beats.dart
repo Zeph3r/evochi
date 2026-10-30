@@ -220,8 +220,16 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
                         key: ValueKey(picked),
                         padding: const EdgeInsets.all(12),
                         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+                          // the Elder it becomes, a wide panel that opens above the egg once it has lifted
+                          AnimatedSize(
+                            duration: const Duration(milliseconds: 380),
+                            curve: Curves.easeOutCubic,
+                            child: _teaser
+                                ? Padding(padding: const EdgeInsets.only(bottom: 8), child: SizedBox(height: 150, child: _ElderGlimpse(palette: picked)))
+                                : const SizedBox(width: double.infinity),
+                          ),
                           Row(children: [
-                            SizedBox(width: 96, height: 96, child: _teaser ? _ElderGlimpse(palette: picked) : CinePlate('egg_${picked}_0', fit: BoxFit.contain, onMissing: PetSprite(stage: 1, palette: picked, height: 80))),
+                            SizedBox(width: 96, height: 96, child: CinePlate('egg_${picked}_0', fit: BoxFit.contain, onMissing: PetSprite(stage: 1, palette: picked, height: 80))),
                             const SizedBox(width: 12),
                             Expanded(
                               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
@@ -339,8 +347,21 @@ class _ElderGlimpseState extends State<_ElderGlimpse> with SingleTickerProviderS
     if (_frames.isEmpty) {
       return _missing ? PetSprite(stage: 3, palette: widget.palette, height: 90) : const SizedBox.shrink();
     }
-    final i = ((_t * 12) % _frames.length).floor();
-    return RawImage(image: _frames[i], fit: BoxFit.contain);
+    final im = _frames[((_t * 12) % _frames.length).floor()];
+    // the ring of light runs off the frame's sides as the Elder turns side-on: fade the frame's own edges
+    return Center(
+      child: AspectRatio(
+        aspectRatio: im.width / im.height,
+        child: ShaderMask(
+          blendMode: BlendMode.dstIn,
+          shaderCallback: (r) => const LinearGradient(
+            colors: [Color(0x00FFFFFF), Color(0xFFFFFFFF), Color(0xFFFFFFFF), Color(0x00FFFFFF)],
+            stops: [0.0, 0.1, 0.9, 1.0],
+          ).createShader(r),
+          child: RawImage(image: im, fit: BoxFit.fill),
+        ),
+      ),
+    );
   }
 }
 

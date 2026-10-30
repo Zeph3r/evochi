@@ -902,8 +902,13 @@ def egg_character(crack=0.0, seed=0, res=CAST_RES):
         hit = np.zeros(len(spts), bool)
         n_cracks = 3 + int(crack * 6)
         w = max(0.32, 0.9 / M.res)                                     # about a voxel and a bit wide
+        # the first cracks fan across the side that faces the camera (angle 0 is the egg's front), so every crack
+        # stage reads from the hero angle; only the extras of a shell about to burst run round the back
+        n_front = min(n_cracks, 5)
+        front = np.linspace(-1.15, 1.15, n_front) + rng.uniform(-0.12, 0.12, n_front)
+        starts = list(rng.permutation(front)) + list(rng.uniform(1.6, 2 * math.pi - 1.6, n_cracks - n_front))
         for k in range(n_cracks):
-            a0 = rng.uniform(-math.pi, math.pi)
+            a0 = float(starts[k])
             ytop = cy1 - rng.uniform(0.5, 3.5)
             ybot = ytop - (cy1 - cy0) * crack * rng.uniform(0.45, 0.9)
             steps = 9
@@ -934,7 +939,7 @@ def egg_character(crack=0.0, seed=0, res=CAST_RES):
 def egg_palette(variant):
     from palettes import palette
     pal = dict(palette(variant))
-    pal['crack'] = '#FFF1B8'
+    pal['crack'] = '#FFD35C'                  # Lumen gold, so the light reads against the cream shell
     pal['crack_rim'] = '#FFD56A' if variant != 'obsidian' else '#7A6A5A'
     return pal
 
@@ -1446,23 +1451,23 @@ def scene_elder_orbit(variant, frames=ELDER_ORBIT_FRAMES, res=4, expr='default')
     from characters import build
     from palettes import palette
     # the Elder at twice the game's voxel grain (the same model, finer steps: it fills the screen here), its
-    # default face; the camera aims at the body's middle and pulls back only as far as each angle needs, so the
-    # whole of it stays in frame as it turns (a gentle dolly with the orbit)
+    # default face; the camera aims at the body's middle at one distance for the whole orbit, the one its widest
+    # angle needs, so it never pumps in and out as it turns and the whole Elder and its ring stay in frame
     ch = build(3, res=res)
     idx = np.argwhere(ch.model.m > 0)
     lo = (idx.min(0) + ch.model.lo) / ch.model.res
     hi = (idx.max(0) + 1 + ch.model.lo) / ch.model.res
     cx, cz = float(lo[0] + hi[0]) / 2, float(lo[2] + hi[2]) / 2
     hx, hz = float(hi[0] - lo[0]) / 2, float(hi[2] - lo[2]) / 2
-    fov, aspect = 24.0, 800 / 1000
+    # a landscape frame (the long body turns side-on), shown as a wide panel on the pick card
+    W, H = 1000, 720
+    fov, aspect = 24.0, W / H
     tan_h = math.tan(math.radians(fov / 2)) * aspect
-    cams = []
-    for f in range(frames):
-        yaw = 36.0 + 360.0 * f / frames
-        half_w = hx * abs(math.cos(math.radians(yaw))) + hz * abs(math.sin(math.radians(yaw)))
-        dist = max(1.22 * half_w / tan_h, 1.3 * float(hi[1]) / 2 / math.tan(math.radians(fov / 2)))
-        cams.append(orbit_cam(yaw, 11.0, dist, target=(cx, 17.0, cz), fov=fov, fstop=5.6))
-    S = VScene('elder_%s' % variant, 800, 1000, cams[0], world=((0.08, 0.07, 0.12), 0.35), samples=96, transparent=True)
+    yaws = [36.0 + 360.0 * f / frames for f in range(frames)]
+    dist = max(max(1.1 * (hx * abs(math.cos(math.radians(y))) + hz * abs(math.sin(math.radians(y)))) / tan_h for y in yaws),
+               1.25 * float(hi[1]) / 2 / math.tan(math.radians(fov / 2)))
+    cams = [orbit_cam(yaw, 11.0, dist, target=(cx, 13.5, cz), fov=fov, fstop=5.6) for yaw in yaws]   # a little low: the ring's near side stays in
+    S = VScene('elder_%s' % variant, W, H, cams[0], world=((0.08, 0.07, 0.12), 0.35), samples=96, transparent=True)
     S.cameras = cams
     S.keep_alpha = True
     col = AFFINITY_GLOW[AFFINITY_OF[variant]]
