@@ -62,31 +62,31 @@ def _f(front, back):
 JUMP = [
     (0.00, STANCE),
     # anticipation: startled by the light on the ground, then down into a crouch, the weight back on the hind legs
-    (0.04, dict(head=(0, 0.6, 0.4), head_rot=(8, 0, 0), body=(-0.8, -0.4), tail=0.6, tail_lift=1.2, pitch=1, squash=1.02,
+    (0.04, dict(head=(0, 0.6, 0.4), head_rot=(8, 0, 0), body=(-0.8, -0.4), tail=0.6, tail_lift=1.2, pitch=1, squash=1.02, jaw=10,
                 feet=_f((0, 1.4, 0.6, 0), (0, -1.4, 0.4, 0)))),
     (0.09, dict(head=(0, -0.6, 0.6), head_rot=(-4, 0, 0), body=(-1.6, -2.0), tail=0.8, tail_lift=-0.6, pitch=2, squash=0.97,
                 feet=_f((0, 1.6, 0.8, 4), (0, -0.9, 0.6, 6)))),
-    (0.15, dict(head=(0, -1.2, 0.4), head_rot=(-8, 0, 0), body=(-1.9, -2.6), tail=1.0, tail_lift=-1.8, pitch=3, squash=0.94,
+    (0.15, dict(head=(0, -1.2, 0.4), head_rot=(-8, 0, 0), body=(-1.9, -2.6), tail=1.0, tail_lift=-1.8, pitch=3, squash=0.94, jaw=5,
                 feet=_f((0, 1.8, 1.0, 8), (0, -0.3, 0.8, 12)))),
     # the push: the hind legs straighten against the ground, the body rises off them, the front feet leave first
-    (0.21, dict(head=(0, 0.0, 0.0), head_rot=(4, 0, 0), body=(-0.8, -0.6), tail=0.6, tail_lift=-2.2, pitch=5, squash=1.04,
+    (0.21, dict(head=(0, 0.0, 0.0), head_rot=(4, 0, 0), body=(-0.8, -0.6), tail=0.6, tail_lift=-2.2, pitch=5, squash=1.04, jaw=6,
                 feet=_f((-1.0, 2.0, 0.8, 14), (-2.2, 0.0, 0.6, 20)))),
-    (0.26, dict(head=(0, 0.6, -0.2), head_rot=(8, 0, -2), body=(0.2, 0.4), tail=0.2, tail_lift=-2.0, pitch=6, squash=1.07,
+    (0.26, dict(head=(0, 0.6, -0.2), head_rot=(8, 0, -2), body=(0.2, 0.4), tail=0.2, tail_lift=-2.0, pitch=6, squash=1.07, jaw=6,
                 feet=_f((0.8, 1.4, 0.6, 4), (-2.8, 0.6, 0.5, 24)))),
-    (0.29, dict(head=(0, 0.6, 0.2), head_rot=(6, 0, -3), body=(0.2, 0.4), tail=-0.2, tail_lift=-1.2, pitch=5, squash=1.05,
+    (0.29, dict(head=(0, 0.6, 0.2), head_rot=(6, 0, -3), body=(0.2, 0.4), tail=-0.2, tail_lift=-1.2, pitch=5, squash=1.05, jaw=14,
                 feet=_f((1.8, 0.8, 0.4, -6), (-1.0, 0.6, 0.4, 18)))),
     # in the air: the legs tuck in, the tail lifts against the tip of the body, at the top it looks down for the ground
-    (0.38, dict(head=(0, 0.4, 0.6), head_rot=(2, 0, -4), body=(0.4, 0.6), tail=-1.0, tail_lift=0.2, pitch=2, roll=-4,
+    (0.38, dict(head=(0, 0.4, 0.6), head_rot=(2, 0, -4), body=(0.4, 0.6), tail=-1.0, tail_lift=0.2, pitch=2, roll=-4, jaw=22,
                 feet=_f((2.6, 0.2, 0.3, -14), (2.4, 0.8, 0.3, 14)))),
     (0.48, dict(head=(0, 0.0, 1.0), head_rot=(-14, -6, 4), body=(0.6, 0.6), tail=-1.6, tail_lift=1.6, pitch=-1, roll=3,
                 feet=_f((3.0, -0.2, 0.2, -16), (2.8, 1.0, 0.2, 16)))),
     # coming down: the front paws reach for the ground, the hind legs follow, the tail up to balance the dip
-    (0.58, dict(head=(0, 0.2, 0.8), head_rot=(-8, -3, 2), body=(0.4, 0.2), tail=-0.6, tail_lift=2.4, pitch=-5, roll=1, squash=1.02,
+    (0.58, dict(head=(0, 0.2, 0.8), head_rot=(-8, -3, 2), body=(0.4, 0.2), tail=-0.6, tail_lift=2.4, pitch=-5, roll=1, squash=1.02, jaw=6,
                 feet=_f((-0.6, 1.6, 0.5, 10), (0.8, -0.2, 0.4, -4)))),
-    (0.66, dict(head=(0, 0.4, 0.6), head_rot=(-2, 0, 0), body=(0.2, -0.2), tail=0.2, tail_lift=2.8, pitch=-8, squash=1.04,
+    (0.66, dict(head=(0, 0.4, 0.6), head_rot=(-2, 0, 0), body=(0.2, -0.2), tail=0.2, tail_lift=2.8, pitch=-8, squash=1.04, jaw=9,
                 feet=_f((-2.2, 2.0, 0.7, 14), (-0.6, -0.6, 0.5, -6)))),
     # the landing: front paws first, the shoulders take it, then the hind legs come down and settle
-    (0.71, dict(head=(0, 0.6, 0.4), head_rot=(3, 0, 0), body=(0.0, -0.2), tail=0.4, tail_lift=3.0, pitch=-9,
+    (0.71, dict(head=(0, 0.6, 0.4), head_rot=(3, 0, 0), body=(0.0, -0.2), tail=0.4, tail_lift=3.0, pitch=-9, jaw=2,
                 feet=_f((-1.6, 2.0, 0.9, 12), (-0.4, -0.8, 0.6, -6)))),
     (0.77, dict(head=(0, 1.4, 0.8), head_rot=(6, 0, 2), body=(-1.9, -0.8), tail=-0.8, tail_lift=0.6, pitch=-5, squash=0.9,
                 feet=_f((0, 1.8, 1.4, 6), (0.6, -1.2, 0.8, -4)))),
@@ -404,7 +404,8 @@ def render_layer(ch, face, cam, fit):
 
 
 def face_name(state, jaw):
-    return '%s:brave:nomouth' % state if jaw >= 3 and state in ('shout', 'strain', 'fierce') else state
+    """while the jaw is open the mouth is the jaw's, in the voxels (jaw.py): the face keeps its eyes and brows"""
+    return '%s:brave:nomouth' % state if jaw >= 3 else state
 
 
 def background(cam, fit):
