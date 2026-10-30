@@ -1,0 +1,6322 @@
+{
+ "aisle": {
+  "w": 800,
+  "h": 1200,
+  "anchors": {
+   "amber": [
+    -85.5,
+    958.1
+   ],
+   "forest": [
+    265.3,
+    1004.6
+   ],
+   "coral": [
+    681.3,
+    1033.9
+   ],
+   "ocean": [
+    1118.6,
+    1039.4
+   ],
+   "amethyst": [
+    353.7,
+    845.0
+   ],
+   "obsidian": [
+    649.7,
+    859.7
+   ],
+   "nest": [
+    488.0,
+    911.2
+   ],
+   "mira_face": [
+    104.2,
+    509.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_amber_0": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_amber_1": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_amber_2": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_amber_3": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_amethyst_0": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_amethyst_1": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_amethyst_2": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_amethyst_3": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_coral_0": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_coral_1": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_coral_2": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_coral_3": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_forest_0": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_forest_1": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_forest_2": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_forest_3": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_obsidian_0": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_obsidian_1": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_obsidian_2": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_obsidian_3": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_ocean_0": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_ocean_1": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_ocean_2": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_ocean_3": {
+  "w": 700,
+  "h": 760,
+  "anchors": {
+   "ground": [
+    350.0,
+    616.2
+   ],
+   "top": [
+    350.0,
+    105.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_shards_amber": {
+  "w": 900,
+  "h": 760,
+  "anchors": {
+   "cap": [
+    450.0,
+    182.1
+   ],
+   "right": [
+    730.6,
+    503.3
+   ],
+   "left": [
+    152.2,
+    452.6
+   ],
+   "back": [
+    506.4,
+    385.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_shards_amethyst": {
+  "w": 900,
+  "h": 760,
+  "anchors": {
+   "cap": [
+    450.0,
+    182.1
+   ],
+   "right": [
+    730.6,
+    503.3
+   ],
+   "left": [
+    152.2,
+    452.6
+   ],
+   "back": [
+    506.4,
+    385.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_shards_coral": {
+  "w": 900,
+  "h": 760,
+  "anchors": {
+   "cap": [
+    450.0,
+    182.1
+   ],
+   "right": [
+    730.6,
+    503.3
+   ],
+   "left": [
+    152.2,
+    452.6
+   ],
+   "back": [
+    506.4,
+    385.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_shards_forest": {
+  "w": 900,
+  "h": 760,
+  "anchors": {
+   "cap": [
+    450.0,
+    182.1
+   ],
+   "right": [
+    730.6,
+    503.3
+   ],
+   "left": [
+    152.2,
+    452.6
+   ],
+   "back": [
+    506.4,
+    385.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_shards_obsidian": {
+  "w": 900,
+  "h": 760,
+  "anchors": {
+   "cap": [
+    450.0,
+    182.1
+   ],
+   "right": [
+    730.6,
+    503.3
+   ],
+   "left": [
+    152.2,
+    452.6
+   ],
+   "back": [
+    506.4,
+    385.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "egg_shards_ocean": {
+  "w": 900,
+  "h": 760,
+  "anchors": {
+   "cap": [
+    450.0,
+    182.1
+   ],
+   "right": [
+    730.6,
+    503.3
+   ],
+   "left": [
+    152.2,
+    452.6
+   ],
+   "back": [
+    506.4,
+    385.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_00": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    400.9,
+    475.3
+   ],
+   "head": [
+    282.6,
+    234.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_01": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    390.2,
+    472.6
+   ],
+   "head": [
+    249.4,
+    229.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_02": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    381.7,
+    469.4
+   ],
+   "head": [
+    224.3,
+    225.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_03": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    375.3,
+    465.8
+   ],
+   "head": [
+    207.7,
+    219.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_04": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    371.3,
+    462.1
+   ],
+   "head": [
+    199.7,
+    214.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_05": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    369.8,
+    458.2
+   ],
+   "head": [
+    199.8,
+    209.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_06": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    370.8,
+    454.3
+   ],
+   "head": [
+    207.5,
+    204.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_07": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    374.1,
+    450.6
+   ],
+   "head": [
+    221.7,
+    199.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_08": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    379.6,
+    447.1
+   ],
+   "head": [
+    241.7,
+    195.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_09": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    387.1,
+    444.1
+   ],
+   "head": [
+    266.6,
+    192.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_10": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    396.4,
+    441.3
+   ],
+   "head": [
+    295.5,
+    188.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_11": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    407.1,
+    439.0
+   ],
+   "head": [
+    327.5,
+    186.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_12": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    418.9,
+    437.3
+   ],
+   "head": [
+    362.0,
+    184.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_13": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    431.6,
+    436.2
+   ],
+   "head": [
+    398.1,
+    183.2
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_14": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    444.7,
+    435.7
+   ],
+   "head": [
+    435.1,
+    182.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_15": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    457.9,
+    435.7
+   ],
+   "head": [
+    472.4,
+    182.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_16": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    471.1,
+    436.4
+   ],
+   "head": [
+    509.2,
+    183.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_17": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    483.6,
+    437.7
+   ],
+   "head": [
+    545.0,
+    184.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_18": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    495.2,
+    439.5
+   ],
+   "head": [
+    579.1,
+    186.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_19": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    505.6,
+    441.8
+   ],
+   "head": [
+    610.6,
+    189.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_20": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    514.5,
+    444.6
+   ],
+   "head": [
+    638.7,
+    192.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_21": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    521.6,
+    447.8
+   ],
+   "head": [
+    662.8,
+    196.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_22": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    526.8,
+    451.4
+   ],
+   "head": [
+    681.7,
+    200.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_23": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    529.6,
+    455.1
+   ],
+   "head": [
+    694.6,
+    205.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_24": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    530.1,
+    459.0
+   ],
+   "head": [
+    700.8,
+    210.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_25": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    528.1,
+    462.8
+   ],
+   "head": [
+    699.3,
+    215.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_26": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    523.6,
+    466.6
+   ],
+   "head": [
+    689.7,
+    220.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_27": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    516.8,
+    470.1
+   ],
+   "head": [
+    671.4,
+    226.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_28": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    507.8,
+    473.1
+   ],
+   "head": [
+    644.6,
+    230.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_29": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    496.8,
+    475.8
+   ],
+   "head": [
+    609.8,
+    234.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_30": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    484.2,
+    477.8
+   ],
+   "head": [
+    568.1,
+    238.1
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_31": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    470.4,
+    479.2
+   ],
+   "head": [
+    521.0,
+    240.3
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_32": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    455.9,
+    479.9
+   ],
+   "head": [
+    470.6,
+    241.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_33": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    441.2,
+    479.8
+   ],
+   "head": [
+    419.2,
+    241.3
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_34": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    426.8,
+    479.0
+   ],
+   "head": [
+    369.3,
+    239.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amber_35": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    413.2,
+    477.4
+   ],
+   "head": [
+    323.1,
+    237.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_00": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    400.9,
+    475.3
+   ],
+   "head": [
+    282.6,
+    234.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_01": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    390.2,
+    472.6
+   ],
+   "head": [
+    249.4,
+    229.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_02": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    381.7,
+    469.4
+   ],
+   "head": [
+    224.3,
+    225.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_03": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    375.3,
+    465.8
+   ],
+   "head": [
+    207.7,
+    219.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_04": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    371.3,
+    462.1
+   ],
+   "head": [
+    199.7,
+    214.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_05": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    369.8,
+    458.2
+   ],
+   "head": [
+    199.8,
+    209.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_06": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    370.8,
+    454.3
+   ],
+   "head": [
+    207.5,
+    204.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_07": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    374.1,
+    450.6
+   ],
+   "head": [
+    221.7,
+    199.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_08": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    379.6,
+    447.1
+   ],
+   "head": [
+    241.7,
+    195.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_09": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    387.1,
+    444.1
+   ],
+   "head": [
+    266.6,
+    192.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_10": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    396.4,
+    441.3
+   ],
+   "head": [
+    295.5,
+    188.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_11": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    407.1,
+    439.0
+   ],
+   "head": [
+    327.5,
+    186.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_12": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    418.9,
+    437.3
+   ],
+   "head": [
+    362.0,
+    184.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_13": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    431.6,
+    436.2
+   ],
+   "head": [
+    398.1,
+    183.2
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_14": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    444.7,
+    435.7
+   ],
+   "head": [
+    435.1,
+    182.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_15": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    457.9,
+    435.7
+   ],
+   "head": [
+    472.4,
+    182.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_16": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    471.1,
+    436.4
+   ],
+   "head": [
+    509.2,
+    183.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_17": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    483.6,
+    437.7
+   ],
+   "head": [
+    545.0,
+    184.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_18": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    495.2,
+    439.5
+   ],
+   "head": [
+    579.1,
+    186.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_19": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    505.6,
+    441.8
+   ],
+   "head": [
+    610.6,
+    189.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_20": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    514.5,
+    444.6
+   ],
+   "head": [
+    638.7,
+    192.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_21": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    521.6,
+    447.8
+   ],
+   "head": [
+    662.8,
+    196.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_22": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    526.8,
+    451.4
+   ],
+   "head": [
+    681.7,
+    200.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_23": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    529.6,
+    455.1
+   ],
+   "head": [
+    694.6,
+    205.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_24": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    530.1,
+    459.0
+   ],
+   "head": [
+    700.8,
+    210.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_25": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    528.1,
+    462.8
+   ],
+   "head": [
+    699.3,
+    215.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_26": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    523.6,
+    466.6
+   ],
+   "head": [
+    689.7,
+    220.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_27": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    516.8,
+    470.1
+   ],
+   "head": [
+    671.4,
+    226.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_28": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    507.8,
+    473.1
+   ],
+   "head": [
+    644.6,
+    230.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_29": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    496.8,
+    475.8
+   ],
+   "head": [
+    609.8,
+    234.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_30": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    484.2,
+    477.8
+   ],
+   "head": [
+    568.1,
+    238.1
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_31": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    470.4,
+    479.2
+   ],
+   "head": [
+    521.0,
+    240.3
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_32": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    455.9,
+    479.9
+   ],
+   "head": [
+    470.6,
+    241.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_33": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    441.2,
+    479.8
+   ],
+   "head": [
+    419.2,
+    241.3
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_34": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    426.8,
+    479.0
+   ],
+   "head": [
+    369.3,
+    239.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_amethyst_35": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    413.2,
+    477.4
+   ],
+   "head": [
+    323.1,
+    237.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_00": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    400.9,
+    475.3
+   ],
+   "head": [
+    282.6,
+    234.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_01": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    390.2,
+    472.6
+   ],
+   "head": [
+    249.4,
+    229.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_02": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    381.7,
+    469.4
+   ],
+   "head": [
+    224.3,
+    225.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_03": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    375.3,
+    465.8
+   ],
+   "head": [
+    207.7,
+    219.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_04": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    371.3,
+    462.1
+   ],
+   "head": [
+    199.7,
+    214.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_05": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    369.8,
+    458.2
+   ],
+   "head": [
+    199.8,
+    209.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_06": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    370.8,
+    454.3
+   ],
+   "head": [
+    207.5,
+    204.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_07": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    374.1,
+    450.6
+   ],
+   "head": [
+    221.7,
+    199.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_08": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    379.6,
+    447.1
+   ],
+   "head": [
+    241.7,
+    195.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_09": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    387.1,
+    444.1
+   ],
+   "head": [
+    266.6,
+    192.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_10": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    396.4,
+    441.3
+   ],
+   "head": [
+    295.5,
+    188.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_11": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    407.1,
+    439.0
+   ],
+   "head": [
+    327.5,
+    186.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_12": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    418.9,
+    437.3
+   ],
+   "head": [
+    362.0,
+    184.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_13": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    431.6,
+    436.2
+   ],
+   "head": [
+    398.1,
+    183.2
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_14": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    444.7,
+    435.7
+   ],
+   "head": [
+    435.1,
+    182.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_15": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    457.9,
+    435.7
+   ],
+   "head": [
+    472.4,
+    182.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_16": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    471.1,
+    436.4
+   ],
+   "head": [
+    509.2,
+    183.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_17": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    483.6,
+    437.7
+   ],
+   "head": [
+    545.0,
+    184.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_18": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    495.2,
+    439.5
+   ],
+   "head": [
+    579.1,
+    186.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_19": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    505.6,
+    441.8
+   ],
+   "head": [
+    610.6,
+    189.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_20": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    514.5,
+    444.6
+   ],
+   "head": [
+    638.7,
+    192.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_21": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    521.6,
+    447.8
+   ],
+   "head": [
+    662.8,
+    196.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_22": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    526.8,
+    451.4
+   ],
+   "head": [
+    681.7,
+    200.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_23": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    529.6,
+    455.1
+   ],
+   "head": [
+    694.6,
+    205.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_24": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    530.1,
+    459.0
+   ],
+   "head": [
+    700.8,
+    210.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_25": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    528.1,
+    462.8
+   ],
+   "head": [
+    699.3,
+    215.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_26": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    523.6,
+    466.6
+   ],
+   "head": [
+    689.7,
+    220.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_27": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    516.8,
+    470.1
+   ],
+   "head": [
+    671.4,
+    226.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_28": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    507.8,
+    473.1
+   ],
+   "head": [
+    644.6,
+    230.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_29": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    496.8,
+    475.8
+   ],
+   "head": [
+    609.8,
+    234.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_30": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    484.2,
+    477.8
+   ],
+   "head": [
+    568.1,
+    238.1
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_31": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    470.4,
+    479.2
+   ],
+   "head": [
+    521.0,
+    240.3
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_32": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    455.9,
+    479.9
+   ],
+   "head": [
+    470.6,
+    241.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_33": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    441.2,
+    479.8
+   ],
+   "head": [
+    419.2,
+    241.3
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_34": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    426.8,
+    479.0
+   ],
+   "head": [
+    369.3,
+    239.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_coral_35": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    413.2,
+    477.4
+   ],
+   "head": [
+    323.1,
+    237.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_00": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    400.9,
+    475.3
+   ],
+   "head": [
+    282.6,
+    234.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_01": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    390.2,
+    472.6
+   ],
+   "head": [
+    249.4,
+    229.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_02": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    381.7,
+    469.4
+   ],
+   "head": [
+    224.3,
+    225.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_03": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    375.3,
+    465.8
+   ],
+   "head": [
+    207.7,
+    219.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_04": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    371.3,
+    462.1
+   ],
+   "head": [
+    199.7,
+    214.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_05": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    369.8,
+    458.2
+   ],
+   "head": [
+    199.8,
+    209.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_06": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    370.8,
+    454.3
+   ],
+   "head": [
+    207.5,
+    204.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_07": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    374.1,
+    450.6
+   ],
+   "head": [
+    221.7,
+    199.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_08": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    379.6,
+    447.1
+   ],
+   "head": [
+    241.7,
+    195.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_09": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    387.1,
+    444.1
+   ],
+   "head": [
+    266.6,
+    192.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_10": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    396.4,
+    441.3
+   ],
+   "head": [
+    295.5,
+    188.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_11": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    407.1,
+    439.0
+   ],
+   "head": [
+    327.5,
+    186.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_12": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    418.9,
+    437.3
+   ],
+   "head": [
+    362.0,
+    184.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_13": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    431.6,
+    436.2
+   ],
+   "head": [
+    398.1,
+    183.2
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_14": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    444.7,
+    435.7
+   ],
+   "head": [
+    435.1,
+    182.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_15": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    457.9,
+    435.7
+   ],
+   "head": [
+    472.4,
+    182.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_16": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    471.1,
+    436.4
+   ],
+   "head": [
+    509.2,
+    183.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_17": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    483.6,
+    437.7
+   ],
+   "head": [
+    545.0,
+    184.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_18": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    495.2,
+    439.5
+   ],
+   "head": [
+    579.1,
+    186.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_19": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    505.6,
+    441.8
+   ],
+   "head": [
+    610.6,
+    189.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_20": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    514.5,
+    444.6
+   ],
+   "head": [
+    638.7,
+    192.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_21": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    521.6,
+    447.8
+   ],
+   "head": [
+    662.8,
+    196.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_22": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    526.8,
+    451.4
+   ],
+   "head": [
+    681.7,
+    200.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_23": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    529.6,
+    455.1
+   ],
+   "head": [
+    694.6,
+    205.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_24": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    530.1,
+    459.0
+   ],
+   "head": [
+    700.8,
+    210.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_25": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    528.1,
+    462.8
+   ],
+   "head": [
+    699.3,
+    215.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_26": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    523.6,
+    466.6
+   ],
+   "head": [
+    689.7,
+    220.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_27": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    516.8,
+    470.1
+   ],
+   "head": [
+    671.4,
+    226.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_28": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    507.8,
+    473.1
+   ],
+   "head": [
+    644.6,
+    230.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_29": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    496.8,
+    475.8
+   ],
+   "head": [
+    609.8,
+    234.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_30": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    484.2,
+    477.8
+   ],
+   "head": [
+    568.1,
+    238.1
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_31": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    470.4,
+    479.2
+   ],
+   "head": [
+    521.0,
+    240.3
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_32": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    455.9,
+    479.9
+   ],
+   "head": [
+    470.6,
+    241.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_33": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    441.2,
+    479.8
+   ],
+   "head": [
+    419.2,
+    241.3
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_34": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    426.8,
+    479.0
+   ],
+   "head": [
+    369.3,
+    239.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_forest_35": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    413.2,
+    477.4
+   ],
+   "head": [
+    323.1,
+    237.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_00": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    400.9,
+    475.3
+   ],
+   "head": [
+    282.6,
+    234.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_01": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    390.2,
+    472.6
+   ],
+   "head": [
+    249.4,
+    229.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_02": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    381.7,
+    469.4
+   ],
+   "head": [
+    224.3,
+    225.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_03": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    375.3,
+    465.8
+   ],
+   "head": [
+    207.7,
+    219.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_04": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    371.3,
+    462.1
+   ],
+   "head": [
+    199.7,
+    214.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_05": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    369.8,
+    458.2
+   ],
+   "head": [
+    199.8,
+    209.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_06": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    370.8,
+    454.3
+   ],
+   "head": [
+    207.5,
+    204.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_07": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    374.1,
+    450.6
+   ],
+   "head": [
+    221.7,
+    199.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_08": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    379.6,
+    447.1
+   ],
+   "head": [
+    241.7,
+    195.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_09": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    387.1,
+    444.1
+   ],
+   "head": [
+    266.6,
+    192.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_10": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    396.4,
+    441.3
+   ],
+   "head": [
+    295.5,
+    188.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_11": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    407.1,
+    439.0
+   ],
+   "head": [
+    327.5,
+    186.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_12": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    418.9,
+    437.3
+   ],
+   "head": [
+    362.0,
+    184.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_13": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    431.6,
+    436.2
+   ],
+   "head": [
+    398.1,
+    183.2
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_14": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    444.7,
+    435.7
+   ],
+   "head": [
+    435.1,
+    182.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_15": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    457.9,
+    435.7
+   ],
+   "head": [
+    472.4,
+    182.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_16": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    471.1,
+    436.4
+   ],
+   "head": [
+    509.2,
+    183.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_17": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    483.6,
+    437.7
+   ],
+   "head": [
+    545.0,
+    184.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_18": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    495.2,
+    439.5
+   ],
+   "head": [
+    579.1,
+    186.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_19": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    505.6,
+    441.8
+   ],
+   "head": [
+    610.6,
+    189.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_20": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    514.5,
+    444.6
+   ],
+   "head": [
+    638.7,
+    192.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_21": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    521.6,
+    447.8
+   ],
+   "head": [
+    662.8,
+    196.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_22": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    526.8,
+    451.4
+   ],
+   "head": [
+    681.7,
+    200.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_23": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    529.6,
+    455.1
+   ],
+   "head": [
+    694.6,
+    205.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_24": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    530.1,
+    459.0
+   ],
+   "head": [
+    700.8,
+    210.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_25": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    528.1,
+    462.8
+   ],
+   "head": [
+    699.3,
+    215.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_26": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    523.6,
+    466.6
+   ],
+   "head": [
+    689.7,
+    220.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_27": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    516.8,
+    470.1
+   ],
+   "head": [
+    671.4,
+    226.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_28": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    507.8,
+    473.1
+   ],
+   "head": [
+    644.6,
+    230.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_29": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    496.8,
+    475.8
+   ],
+   "head": [
+    609.8,
+    234.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_30": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    484.2,
+    477.8
+   ],
+   "head": [
+    568.1,
+    238.1
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_31": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    470.4,
+    479.2
+   ],
+   "head": [
+    521.0,
+    240.3
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_32": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    455.9,
+    479.9
+   ],
+   "head": [
+    470.6,
+    241.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_33": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    441.2,
+    479.8
+   ],
+   "head": [
+    419.2,
+    241.3
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_34": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    426.8,
+    479.0
+   ],
+   "head": [
+    369.3,
+    239.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_obsidian_35": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    413.2,
+    477.4
+   ],
+   "head": [
+    323.1,
+    237.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_00": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    400.9,
+    475.3
+   ],
+   "head": [
+    282.6,
+    234.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_01": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    390.2,
+    472.6
+   ],
+   "head": [
+    249.4,
+    229.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_02": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    381.7,
+    469.4
+   ],
+   "head": [
+    224.3,
+    225.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_03": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    375.3,
+    465.8
+   ],
+   "head": [
+    207.7,
+    219.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_04": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    371.3,
+    462.1
+   ],
+   "head": [
+    199.7,
+    214.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_05": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    369.8,
+    458.2
+   ],
+   "head": [
+    199.8,
+    209.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_06": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    370.8,
+    454.3
+   ],
+   "head": [
+    207.5,
+    204.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_07": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    374.1,
+    450.6
+   ],
+   "head": [
+    221.7,
+    199.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_08": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    379.6,
+    447.1
+   ],
+   "head": [
+    241.7,
+    195.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_09": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    387.1,
+    444.1
+   ],
+   "head": [
+    266.6,
+    192.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_10": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    396.4,
+    441.3
+   ],
+   "head": [
+    295.5,
+    188.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_11": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    407.1,
+    439.0
+   ],
+   "head": [
+    327.5,
+    186.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_12": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    418.9,
+    437.3
+   ],
+   "head": [
+    362.0,
+    184.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_13": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    431.6,
+    436.2
+   ],
+   "head": [
+    398.1,
+    183.2
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_14": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    444.7,
+    435.7
+   ],
+   "head": [
+    435.1,
+    182.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_15": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    457.9,
+    435.7
+   ],
+   "head": [
+    472.4,
+    182.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_16": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    471.1,
+    436.4
+   ],
+   "head": [
+    509.2,
+    183.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_17": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    483.6,
+    437.7
+   ],
+   "head": [
+    545.0,
+    184.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_18": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    495.2,
+    439.5
+   ],
+   "head": [
+    579.1,
+    186.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_19": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    505.6,
+    441.8
+   ],
+   "head": [
+    610.6,
+    189.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_20": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    514.5,
+    444.6
+   ],
+   "head": [
+    638.7,
+    192.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_21": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    521.6,
+    447.8
+   ],
+   "head": [
+    662.8,
+    196.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_22": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    526.8,
+    451.4
+   ],
+   "head": [
+    681.7,
+    200.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_23": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    529.6,
+    455.1
+   ],
+   "head": [
+    694.6,
+    205.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_24": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    530.1,
+    459.0
+   ],
+   "head": [
+    700.8,
+    210.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_25": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    528.1,
+    462.8
+   ],
+   "head": [
+    699.3,
+    215.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_26": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    523.6,
+    466.6
+   ],
+   "head": [
+    689.7,
+    220.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_27": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    516.8,
+    470.1
+   ],
+   "head": [
+    671.4,
+    226.0
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_28": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    507.8,
+    473.1
+   ],
+   "head": [
+    644.6,
+    230.7
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_29": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    496.8,
+    475.8
+   ],
+   "head": [
+    609.8,
+    234.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_30": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    484.2,
+    477.8
+   ],
+   "head": [
+    568.1,
+    238.1
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_31": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    470.4,
+    479.2
+   ],
+   "head": [
+    521.0,
+    240.3
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_32": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    455.9,
+    479.9
+   ],
+   "head": [
+    470.6,
+    241.4
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_33": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    441.2,
+    479.8
+   ],
+   "head": [
+    419.2,
+    241.3
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_34": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    426.8,
+    479.0
+   ],
+   "head": [
+    369.3,
+    239.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "elder_ocean_35": {
+  "w": 900,
+  "h": 648,
+  "anchors": {
+   "ground": [
+    413.2,
+    477.4
+   ],
+   "head": [
+    323.1,
+    237.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "glasshouse_night": {
+  "w": 933,
+  "h": 1400,
+  "anchors": {
+   "glasshouse_window": [
+    212.2,
+    753.6
+   ],
+   "glasshouse_door": [
+    598.3,
+    868.3
+   ],
+   "glasshouse_ridge": [
+    316.2,
+    387.7
+   ],
+   "waystone": [
+    1090.8,
+    791.2
+   ],
+   "lodge": [
+    1090.7,
+    431.8
+   ],
+   "workshop": [
+    2197.8,
+    606.9
+   ],
+   "mira": [
+    674.4,
+    877.5
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "lumen_print": {
+  "w": 720,
+  "h": 720,
+  "anchors": {},
+  "lines": {},
+  "scale": 1.0
+ },
+ "map_faded": {
+  "w": 1244,
+  "h": 1600,
+  "anchors": {
+   "village": [
+    622.0,
+    1035.8
+   ],
+   "ruins": [
+    977.4,
+    675.0
+   ],
+   "gate": [
+    581.7,
+    581.6
+   ],
+   "cliffs": [
+    212.8,
+    756.8
+   ],
+   "cove": [
+    1082.8,
+    958.9
+   ],
+   "grove": [
+    283.7,
+    1064.9
+   ],
+   "lake": [
+    886.2,
+    812.9
+   ],
+   "lantern": [
+    1221.2,
+    479.2
+   ],
+   "hand": [
+    94.4,
+    1125.8
+   ]
+  },
+  "lines": {
+   "ruins": [
+    [
+     680.2,
+     1004.8
+    ],
+    [
+     690.3,
+     1000.0
+    ],
+    [
+     704.4,
+     994.0
+    ],
+    [
+     720.9,
+     986.7
+    ],
+    [
+     738.8,
+     977.5
+    ],
+    [
+     756.8,
+     966.4
+    ],
+    [
+     773.5,
+     954.4
+    ],
+    [
+     787.6,
+     942.0
+    ],
+    [
+     800.5,
+     928.1
+    ],
+    [
+     812.4,
+     913.9
+    ],
+    [
+     823.5,
+     899.1
+    ],
+    [
+     834.1,
+     884.1
+    ],
+    [
+     844.1,
+     869.6
+    ],
+    [
+     853.7,
+     855.7
+    ],
+    [
+     862.9,
+     842.3
+    ],
+    [
+     871.2,
+     829.0
+    ],
+    [
+     879.1,
+     815.6
+    ],
+    [
+     886.4,
+     802.6
+    ],
+    [
+     894.4,
+     788.3
+    ],
+    [
+     902.8,
+     774.0
+    ],
+    [
+     911.5,
+     760.4
+    ],
+    [
+     921.4,
+     746.4
+    ],
+    [
+     932.5,
+     731.9
+    ],
+    [
+     943.8,
+     717.7
+    ],
+    [
+     954.7,
+     704.5
+    ],
+    [
+     964.5,
+     692.6
+    ],
+    [
+     972.3,
+     683.0
+    ]
+   ],
+   "gate": [
+    [
+     598.9,
+     982.5
+    ],
+    [
+     595.0,
+     972.3
+    ],
+    [
+     589.1,
+     958.7
+    ],
+    [
+     582.3,
+     942.7
+    ],
+    [
+     575.5,
+     924.5
+    ],
+    [
+     570.0,
+     905.9
+    ],
+    [
+     566.6,
+     887.9
+    ],
+    [
+     566.5,
+     871.1
+    ],
+    [
+     570.4,
+     853.8
+    ],
+    [
+     577.1,
+     835.8
+    ],
+    [
+     585.0,
+     817.4
+    ],
+    [
+     592.7,
+     799.3
+    ],
+    [
+     598.4,
+     781.8
+    ],
+    [
+     600.8,
+     764.7
+    ],
+    [
+     598.4,
+     748.7
+    ],
+    [
+     591.3,
+     734.0
+    ],
+    [
+     581.7,
+     720.5
+    ],
+    [
+     570.9,
+     707.7
+    ],
+    [
+     560.8,
+     695.2
+    ],
+    [
+     553.0,
+     682.2
+    ],
+    [
+     549.3,
+     669.2
+    ],
+    [
+     550.1,
+     655.1
+    ],
+    [
+     554.2,
+     640.1
+    ],
+    [
+     560.4,
+     625.2
+    ],
+    [
+     567.4,
+     611.2
+    ],
+    [
+     574.2,
+     599.3
+    ],
+    [
+     579.5,
+     589.7
+    ]
+   ],
+   "cliffs": [
+    [
+     563.5,
+     1015.4
+    ],
+    [
+     553.4,
+     1010.4
+    ],
+    [
+     539.5,
+     1002.9
+    ],
+    [
+     523.0,
+     994.3
+    ],
+    [
+     505.0,
+     983.9
+    ],
+    [
+     486.8,
+     973.3
+    ],
+    [
+     469.8,
+     962.0
+    ],
+    [
+     454.9,
+     950.8
+    ],
+    [
+     441.2,
+     938.2
+    ],
+    [
+     428.2,
+     924.8
+    ],
+    [
+     415.7,
+     911.1
+    ],
+    [
+     403.4,
+     897.9
+    ],
+    [
+     391.1,
+     885.4
+    ],
+    [
+     378.4,
+     874.3
+    ],
+    [
+     365.0,
+     864.4
+    ],
+    [
+     351.1,
+     855.7
+    ],
+    [
+     336.9,
+     847.9
+    ],
+    [
+     322.6,
+     840.4
+    ],
+    [
+     308.6,
+     833.0
+    ],
+    [
+     295.4,
+     825.8
+    ],
+    [
+     282.7,
+     817.3
+    ],
+    [
+     270.4,
+     808.0
+    ],
+    [
+     258.1,
+     798.0
+    ],
+    [
+     246.2,
+     787.9
+    ],
+    [
+     235.4,
+     778.4
+    ],
+    [
+     225.9,
+     770.0
+    ],
+    [
+     218.2,
+     763.3
+    ]
+   ],
+   "cove": [
+    [
+     692.9,
+     1049.8
+    ],
+    [
+     704.2,
+     1048.8
+    ],
+    [
+     719.6,
+     1047.5
+    ],
+    [
+     737.9,
+     1046.1
+    ],
+    [
+     757.9,
+     1044.2
+    ],
+    [
+     778.4,
+     1042.1
+    ],
+    [
+     798.2,
+     1039.8
+    ],
+    [
+     816.2,
+     1037.2
+    ],
+    [
+     834.1,
+     1034.2
+    ],
+    [
+     852.1,
+     1030.8
+    ],
+    [
+     870.0,
+     1027.3
+    ],
+    [
+     887.6,
+     1023.6
+    ],
+    [
+     904.6,
+     1020.1
+    ],
+    [
+     921.0,
+     1016.3
+    ],
+    [
+     936.5,
+     1012.8
+    ],
+    [
+     951.7,
+     1009.1
+    ],
+    [
+     966.0,
+     1006.0
+    ],
+    [
+     979.6,
+     1003.1
+    ],
+    [
+     992.8,
+     999.8
+    ],
+    [
+     1005.1,
+     996.8
+    ],
+    [
+     1016.9,
+     993.2
+    ],
+    [
+     1028.3,
+     989.0
+    ],
+    [
+     1039.9,
+     983.6
+    ],
+    [
+     1051.0,
+     978.0
+    ],
+    [
+     1061.2,
+     972.4
+    ],
+    [
+     1070.1,
+     967.4
+    ],
+    [
+     1077.3,
+     963.4
+    ]
+   ],
+   "grove": [
+    [
+     550.8,
+     1060.7
+    ],
+    [
+     544.2,
+     1062.2
+    ],
+    [
+     535.4,
+     1064.2
+    ],
+    [
+     525.0,
+     1066.6
+    ],
+    [
+     513.2,
+     1069.3
+    ],
+    [
+     500.8,
+     1072.3
+    ],
+    [
+     488.1,
+     1075.3
+    ],
+    [
+     475.6,
+     1078.5
+    ],
+    [
+     463.7,
+     1081.6
+    ],
+    [
+     453.0,
+     1084.3
+    ],
+    [
+     442.9,
+     1087.4
+    ],
+    [
+     433.0,
+     1091.0
+    ],
+    [
+     423.2,
+     1094.8
+    ],
+    [
+     413.5,
+     1098.5
+    ],
+    [
+     404.0,
+     1102.0
+    ],
+    [
+     394.6,
+     1104.8
+    ],
+    [
+     384.9,
+     1106.5
+    ],
+    [
+     375.3,
+     1107.2
+    ],
+    [
+     365.5,
+     1106.0
+    ],
+    [
+     354.9,
+     1103.1
+    ],
+    [
+     343.9,
+     1098.8
+    ],
+    [
+     332.9,
+     1093.8
+    ],
+    [
+     322.0,
+     1088.1
+    ],
+    [
+     311.6,
+     1082.1
+    ],
+    [
+     302.2,
+     1076.5
+    ],
+    [
+     294.2,
+     1071.9
+    ],
+    [
+     287.7,
+     1068.2
+    ]
+   ]
+  },
+  "scale": 1.0
+ },
+ "map_hollow": {
+  "w": 1244,
+  "h": 1600,
+  "anchors": {
+   "village": [
+    622.0,
+    1035.8
+   ],
+   "ruins": [
+    977.4,
+    675.0
+   ],
+   "gate": [
+    581.7,
+    581.6
+   ],
+   "cliffs": [
+    212.8,
+    756.8
+   ],
+   "cove": [
+    1082.8,
+    958.9
+   ],
+   "grove": [
+    283.7,
+    1064.9
+   ],
+   "lake": [
+    886.2,
+    812.9
+   ],
+   "lantern": [
+    1221.2,
+    479.2
+   ],
+   "hand": [
+    94.4,
+    1125.8
+   ]
+  },
+  "lines": {
+   "ruins": [
+    [
+     680.2,
+     1004.8
+    ],
+    [
+     690.3,
+     1000.0
+    ],
+    [
+     704.4,
+     994.0
+    ],
+    [
+     720.9,
+     986.7
+    ],
+    [
+     738.8,
+     977.5
+    ],
+    [
+     756.8,
+     966.4
+    ],
+    [
+     773.5,
+     954.4
+    ],
+    [
+     787.6,
+     942.0
+    ],
+    [
+     800.5,
+     928.1
+    ],
+    [
+     812.4,
+     913.9
+    ],
+    [
+     823.5,
+     899.1
+    ],
+    [
+     834.1,
+     884.1
+    ],
+    [
+     844.1,
+     869.6
+    ],
+    [
+     853.7,
+     855.7
+    ],
+    [
+     862.9,
+     842.3
+    ],
+    [
+     871.2,
+     829.0
+    ],
+    [
+     879.1,
+     815.6
+    ],
+    [
+     886.4,
+     802.6
+    ],
+    [
+     894.4,
+     788.3
+    ],
+    [
+     902.8,
+     774.0
+    ],
+    [
+     911.5,
+     760.4
+    ],
+    [
+     921.4,
+     746.4
+    ],
+    [
+     932.5,
+     731.9
+    ],
+    [
+     943.8,
+     717.7
+    ],
+    [
+     954.7,
+     704.5
+    ],
+    [
+     964.5,
+     692.6
+    ],
+    [
+     972.3,
+     683.0
+    ]
+   ],
+   "gate": [
+    [
+     598.9,
+     982.5
+    ],
+    [
+     595.0,
+     972.3
+    ],
+    [
+     589.1,
+     958.7
+    ],
+    [
+     582.3,
+     942.7
+    ],
+    [
+     575.5,
+     924.5
+    ],
+    [
+     570.0,
+     905.9
+    ],
+    [
+     566.6,
+     887.9
+    ],
+    [
+     566.5,
+     871.1
+    ],
+    [
+     570.4,
+     853.8
+    ],
+    [
+     577.1,
+     835.8
+    ],
+    [
+     585.0,
+     817.4
+    ],
+    [
+     592.7,
+     799.3
+    ],
+    [
+     598.4,
+     781.8
+    ],
+    [
+     600.8,
+     764.7
+    ],
+    [
+     598.4,
+     748.7
+    ],
+    [
+     591.3,
+     734.0
+    ],
+    [
+     581.7,
+     720.5
+    ],
+    [
+     570.9,
+     707.7
+    ],
+    [
+     560.8,
+     695.2
+    ],
+    [
+     553.0,
+     682.2
+    ],
+    [
+     549.3,
+     669.2
+    ],
+    [
+     550.1,
+     655.1
+    ],
+    [
+     554.2,
+     640.1
+    ],
+    [
+     560.4,
+     625.2
+    ],
+    [
+     567.4,
+     611.2
+    ],
+    [
+     574.2,
+     599.3
+    ],
+    [
+     579.5,
+     589.7
+    ]
+   ],
+   "cliffs": [
+    [
+     563.5,
+     1015.4
+    ],
+    [
+     553.4,
+     1010.4
+    ],
+    [
+     539.5,
+     1002.9
+    ],
+    [
+     523.0,
+     994.3
+    ],
+    [
+     505.0,
+     983.9
+    ],
+    [
+     486.8,
+     973.3
+    ],
+    [
+     469.8,
+     962.0
+    ],
+    [
+     454.9,
+     950.8
+    ],
+    [
+     441.2,
+     938.2
+    ],
+    [
+     428.2,
+     924.8
+    ],
+    [
+     415.7,
+     911.1
+    ],
+    [
+     403.4,
+     897.9
+    ],
+    [
+     391.1,
+     885.4
+    ],
+    [
+     378.4,
+     874.3
+    ],
+    [
+     365.0,
+     864.4
+    ],
+    [
+     351.1,
+     855.7
+    ],
+    [
+     336.9,
+     847.9
+    ],
+    [
+     322.6,
+     840.4
+    ],
+    [
+     308.6,
+     833.0
+    ],
+    [
+     295.4,
+     825.8
+    ],
+    [
+     282.7,
+     817.3
+    ],
+    [
+     270.4,
+     808.0
+    ],
+    [
+     258.1,
+     798.0
+    ],
+    [
+     246.2,
+     787.9
+    ],
+    [
+     235.4,
+     778.4
+    ],
+    [
+     225.9,
+     770.0
+    ],
+    [
+     218.2,
+     763.3
+    ]
+   ],
+   "cove": [
+    [
+     692.9,
+     1049.8
+    ],
+    [
+     704.2,
+     1048.8
+    ],
+    [
+     719.6,
+     1047.5
+    ],
+    [
+     737.9,
+     1046.1
+    ],
+    [
+     757.9,
+     1044.2
+    ],
+    [
+     778.4,
+     1042.1
+    ],
+    [
+     798.2,
+     1039.8
+    ],
+    [
+     816.2,
+     1037.2
+    ],
+    [
+     834.1,
+     1034.2
+    ],
+    [
+     852.1,
+     1030.8
+    ],
+    [
+     870.0,
+     1027.3
+    ],
+    [
+     887.6,
+     1023.6
+    ],
+    [
+     904.6,
+     1020.1
+    ],
+    [
+     921.0,
+     1016.3
+    ],
+    [
+     936.5,
+     1012.8
+    ],
+    [
+     951.7,
+     1009.1
+    ],
+    [
+     966.0,
+     1006.0
+    ],
+    [
+     979.6,
+     1003.1
+    ],
+    [
+     992.8,
+     999.8
+    ],
+    [
+     1005.1,
+     996.8
+    ],
+    [
+     1016.9,
+     993.2
+    ],
+    [
+     1028.3,
+     989.0
+    ],
+    [
+     1039.9,
+     983.6
+    ],
+    [
+     1051.0,
+     978.0
+    ],
+    [
+     1061.2,
+     972.4
+    ],
+    [
+     1070.1,
+     967.4
+    ],
+    [
+     1077.3,
+     963.4
+    ]
+   ],
+   "grove": [
+    [
+     550.8,
+     1060.7
+    ],
+    [
+     544.2,
+     1062.2
+    ],
+    [
+     535.4,
+     1064.2
+    ],
+    [
+     525.0,
+     1066.6
+    ],
+    [
+     513.2,
+     1069.3
+    ],
+    [
+     500.8,
+     1072.3
+    ],
+    [
+     488.1,
+     1075.3
+    ],
+    [
+     475.6,
+     1078.5
+    ],
+    [
+     463.7,
+     1081.6
+    ],
+    [
+     453.0,
+     1084.3
+    ],
+    [
+     442.9,
+     1087.4
+    ],
+    [
+     433.0,
+     1091.0
+    ],
+    [
+     423.2,
+     1094.8
+    ],
+    [
+     413.5,
+     1098.5
+    ],
+    [
+     404.0,
+     1102.0
+    ],
+    [
+     394.6,
+     1104.8
+    ],
+    [
+     384.9,
+     1106.5
+    ],
+    [
+     375.3,
+     1107.2
+    ],
+    [
+     365.5,
+     1106.0
+    ],
+    [
+     354.9,
+     1103.1
+    ],
+    [
+     343.9,
+     1098.8
+    ],
+    [
+     332.9,
+     1093.8
+    ],
+    [
+     322.0,
+     1088.1
+    ],
+    [
+     311.6,
+     1082.1
+    ],
+    [
+     302.2,
+     1076.5
+    ],
+    [
+     294.2,
+     1071.9
+    ],
+    [
+     287.7,
+     1068.2
+    ]
+   ]
+  },
+  "scale": 1.0
+ },
+ "map_lit": {
+  "w": 1244,
+  "h": 1600,
+  "anchors": {
+   "village": [
+    622.0,
+    1035.8
+   ],
+   "ruins": [
+    977.4,
+    675.0
+   ],
+   "gate": [
+    581.7,
+    581.6
+   ],
+   "cliffs": [
+    212.8,
+    756.8
+   ],
+   "cove": [
+    1082.8,
+    958.9
+   ],
+   "grove": [
+    283.7,
+    1064.9
+   ],
+   "lake": [
+    886.2,
+    812.9
+   ],
+   "lantern": [
+    1221.2,
+    479.2
+   ],
+   "hand": [
+    94.4,
+    1125.8
+   ]
+  },
+  "lines": {
+   "ruins": [
+    [
+     680.2,
+     1004.8
+    ],
+    [
+     690.3,
+     1000.0
+    ],
+    [
+     704.4,
+     994.0
+    ],
+    [
+     720.9,
+     986.7
+    ],
+    [
+     738.8,
+     977.5
+    ],
+    [
+     756.8,
+     966.4
+    ],
+    [
+     773.5,
+     954.4
+    ],
+    [
+     787.6,
+     942.0
+    ],
+    [
+     800.5,
+     928.1
+    ],
+    [
+     812.4,
+     913.9
+    ],
+    [
+     823.5,
+     899.1
+    ],
+    [
+     834.1,
+     884.1
+    ],
+    [
+     844.1,
+     869.6
+    ],
+    [
+     853.7,
+     855.7
+    ],
+    [
+     862.9,
+     842.3
+    ],
+    [
+     871.2,
+     829.0
+    ],
+    [
+     879.1,
+     815.6
+    ],
+    [
+     886.4,
+     802.6
+    ],
+    [
+     894.4,
+     788.3
+    ],
+    [
+     902.8,
+     774.0
+    ],
+    [
+     911.5,
+     760.4
+    ],
+    [
+     921.4,
+     746.4
+    ],
+    [
+     932.5,
+     731.9
+    ],
+    [
+     943.8,
+     717.7
+    ],
+    [
+     954.7,
+     704.5
+    ],
+    [
+     964.5,
+     692.6
+    ],
+    [
+     972.3,
+     683.0
+    ]
+   ],
+   "gate": [
+    [
+     598.9,
+     982.5
+    ],
+    [
+     595.0,
+     972.3
+    ],
+    [
+     589.1,
+     958.7
+    ],
+    [
+     582.3,
+     942.7
+    ],
+    [
+     575.5,
+     924.5
+    ],
+    [
+     570.0,
+     905.9
+    ],
+    [
+     566.6,
+     887.9
+    ],
+    [
+     566.5,
+     871.1
+    ],
+    [
+     570.4,
+     853.8
+    ],
+    [
+     577.1,
+     835.8
+    ],
+    [
+     585.0,
+     817.4
+    ],
+    [
+     592.7,
+     799.3
+    ],
+    [
+     598.4,
+     781.8
+    ],
+    [
+     600.8,
+     764.7
+    ],
+    [
+     598.4,
+     748.7
+    ],
+    [
+     591.3,
+     734.0
+    ],
+    [
+     581.7,
+     720.5
+    ],
+    [
+     570.9,
+     707.7
+    ],
+    [
+     560.8,
+     695.2
+    ],
+    [
+     553.0,
+     682.2
+    ],
+    [
+     549.3,
+     669.2
+    ],
+    [
+     550.1,
+     655.1
+    ],
+    [
+     554.2,
+     640.1
+    ],
+    [
+     560.4,
+     625.2
+    ],
+    [
+     567.4,
+     611.2
+    ],
+    [
+     574.2,
+     599.3
+    ],
+    [
+     579.5,
+     589.7
+    ]
+   ],
+   "cliffs": [
+    [
+     563.5,
+     1015.4
+    ],
+    [
+     553.4,
+     1010.4
+    ],
+    [
+     539.5,
+     1002.9
+    ],
+    [
+     523.0,
+     994.3
+    ],
+    [
+     505.0,
+     983.9
+    ],
+    [
+     486.8,
+     973.3
+    ],
+    [
+     469.8,
+     962.0
+    ],
+    [
+     454.9,
+     950.8
+    ],
+    [
+     441.2,
+     938.2
+    ],
+    [
+     428.2,
+     924.8
+    ],
+    [
+     415.7,
+     911.1
+    ],
+    [
+     403.4,
+     897.9
+    ],
+    [
+     391.1,
+     885.4
+    ],
+    [
+     378.4,
+     874.3
+    ],
+    [
+     365.0,
+     864.4
+    ],
+    [
+     351.1,
+     855.7
+    ],
+    [
+     336.9,
+     847.9
+    ],
+    [
+     322.6,
+     840.4
+    ],
+    [
+     308.6,
+     833.0
+    ],
+    [
+     295.4,
+     825.8
+    ],
+    [
+     282.7,
+     817.3
+    ],
+    [
+     270.4,
+     808.0
+    ],
+    [
+     258.1,
+     798.0
+    ],
+    [
+     246.2,
+     787.9
+    ],
+    [
+     235.4,
+     778.4
+    ],
+    [
+     225.9,
+     770.0
+    ],
+    [
+     218.2,
+     763.3
+    ]
+   ],
+   "cove": [
+    [
+     692.9,
+     1049.8
+    ],
+    [
+     704.2,
+     1048.8
+    ],
+    [
+     719.6,
+     1047.5
+    ],
+    [
+     737.9,
+     1046.1
+    ],
+    [
+     757.9,
+     1044.2
+    ],
+    [
+     778.4,
+     1042.1
+    ],
+    [
+     798.2,
+     1039.8
+    ],
+    [
+     816.2,
+     1037.2
+    ],
+    [
+     834.1,
+     1034.2
+    ],
+    [
+     852.1,
+     1030.8
+    ],
+    [
+     870.0,
+     1027.3
+    ],
+    [
+     887.6,
+     1023.6
+    ],
+    [
+     904.6,
+     1020.1
+    ],
+    [
+     921.0,
+     1016.3
+    ],
+    [
+     936.5,
+     1012.8
+    ],
+    [
+     951.7,
+     1009.1
+    ],
+    [
+     966.0,
+     1006.0
+    ],
+    [
+     979.6,
+     1003.1
+    ],
+    [
+     992.8,
+     999.8
+    ],
+    [
+     1005.1,
+     996.8
+    ],
+    [
+     1016.9,
+     993.2
+    ],
+    [
+     1028.3,
+     989.0
+    ],
+    [
+     1039.9,
+     983.6
+    ],
+    [
+     1051.0,
+     978.0
+    ],
+    [
+     1061.2,
+     972.4
+    ],
+    [
+     1070.1,
+     967.4
+    ],
+    [
+     1077.3,
+     963.4
+    ]
+   ],
+   "grove": [
+    [
+     550.8,
+     1060.7
+    ],
+    [
+     544.2,
+     1062.2
+    ],
+    [
+     535.4,
+     1064.2
+    ],
+    [
+     525.0,
+     1066.6
+    ],
+    [
+     513.2,
+     1069.3
+    ],
+    [
+     500.8,
+     1072.3
+    ],
+    [
+     488.1,
+     1075.3
+    ],
+    [
+     475.6,
+     1078.5
+    ],
+    [
+     463.7,
+     1081.6
+    ],
+    [
+     453.0,
+     1084.3
+    ],
+    [
+     442.9,
+     1087.4
+    ],
+    [
+     433.0,
+     1091.0
+    ],
+    [
+     423.2,
+     1094.8
+    ],
+    [
+     413.5,
+     1098.5
+    ],
+    [
+     404.0,
+     1102.0
+    ],
+    [
+     394.6,
+     1104.8
+    ],
+    [
+     384.9,
+     1106.5
+    ],
+    [
+     375.3,
+     1107.2
+    ],
+    [
+     365.5,
+     1106.0
+    ],
+    [
+     354.9,
+     1103.1
+    ],
+    [
+     343.9,
+     1098.8
+    ],
+    [
+     332.9,
+     1093.8
+    ],
+    [
+     322.0,
+     1088.1
+    ],
+    [
+     311.6,
+     1082.1
+    ],
+    [
+     302.2,
+     1076.5
+    ],
+    [
+     294.2,
+     1071.9
+    ],
+    [
+     287.7,
+     1068.2
+    ]
+   ]
+  },
+  "scale": 1.0
+ },
+ "mira": {
+  "w": 800,
+  "h": 1200,
+  "anchors": {
+   "amber": [
+    116.3,
+    1362.8
+   ],
+   "forest": [
+    763.7,
+    1495.5
+   ],
+   "coral": [
+    1581.4,
+    1603.4
+   ],
+   "ocean": [
+    2477.8,
+    1659.1
+   ],
+   "amethyst": [
+    763.1,
+    1144.4
+   ],
+   "obsidian": [
+    1288.3,
+    1190.5
+   ],
+   "nest": [
+    1062.7,
+    1294.3
+   ],
+   "mira_face": [
+    303.7,
+    575.8
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "nest": {
+  "w": 800,
+  "h": 1200,
+  "anchors": {
+   "amber": [
+    71.0,
+    813.7
+   ],
+   "forest": [
+    297.1,
+    828.9
+   ],
+   "coral": [
+    530.9,
+    830.2
+   ],
+   "ocean": [
+    758.7,
+    817.7
+   ],
+   "amethyst": [
+    316.4,
+    713.4
+   ],
+   "obsidian": [
+    512.3,
+    714.4
+   ],
+   "nest": [
+    414.1,
+    759.4
+   ],
+   "mira_face": [
+    97.5,
+    459.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "nest_egg_amber": {
+  "w": 600,
+  "h": 900,
+  "anchors": {
+   "amber": [
+    53.3,
+    610.3
+   ],
+   "forest": [
+    222.8,
+    621.7
+   ],
+   "coral": [
+    398.1,
+    622.7
+   ],
+   "ocean": [
+    569.0,
+    613.2
+   ],
+   "amethyst": [
+    237.3,
+    535.1
+   ],
+   "obsidian": [
+    384.3,
+    535.8
+   ],
+   "nest": [
+    310.6,
+    569.5
+   ],
+   "mira_face": [
+    73.2,
+    344.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "nest_egg_amethyst": {
+  "w": 600,
+  "h": 900,
+  "anchors": {
+   "amber": [
+    53.3,
+    610.3
+   ],
+   "forest": [
+    222.8,
+    621.7
+   ],
+   "coral": [
+    398.1,
+    622.7
+   ],
+   "ocean": [
+    569.0,
+    613.2
+   ],
+   "amethyst": [
+    237.3,
+    535.1
+   ],
+   "obsidian": [
+    384.3,
+    535.8
+   ],
+   "nest": [
+    310.6,
+    569.5
+   ],
+   "mira_face": [
+    73.2,
+    344.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "nest_egg_coral": {
+  "w": 600,
+  "h": 900,
+  "anchors": {
+   "amber": [
+    53.3,
+    610.3
+   ],
+   "forest": [
+    222.8,
+    621.7
+   ],
+   "coral": [
+    398.1,
+    622.7
+   ],
+   "ocean": [
+    569.0,
+    613.2
+   ],
+   "amethyst": [
+    237.3,
+    535.1
+   ],
+   "obsidian": [
+    384.3,
+    535.8
+   ],
+   "nest": [
+    310.6,
+    569.5
+   ],
+   "mira_face": [
+    73.2,
+    344.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "nest_egg_forest": {
+  "w": 600,
+  "h": 900,
+  "anchors": {
+   "amber": [
+    53.3,
+    610.3
+   ],
+   "forest": [
+    222.8,
+    621.7
+   ],
+   "coral": [
+    398.1,
+    622.7
+   ],
+   "ocean": [
+    569.0,
+    613.2
+   ],
+   "amethyst": [
+    237.3,
+    535.1
+   ],
+   "obsidian": [
+    384.3,
+    535.8
+   ],
+   "nest": [
+    310.6,
+    569.5
+   ],
+   "mira_face": [
+    73.2,
+    344.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "nest_egg_obsidian": {
+  "w": 600,
+  "h": 900,
+  "anchors": {
+   "amber": [
+    53.3,
+    610.3
+   ],
+   "forest": [
+    222.8,
+    621.7
+   ],
+   "coral": [
+    398.1,
+    622.7
+   ],
+   "ocean": [
+    569.0,
+    613.2
+   ],
+   "amethyst": [
+    237.3,
+    535.1
+   ],
+   "obsidian": [
+    384.3,
+    535.8
+   ],
+   "nest": [
+    310.6,
+    569.5
+   ],
+   "mira_face": [
+    73.2,
+    344.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "nest_egg_ocean": {
+  "w": 600,
+  "h": 900,
+  "anchors": {
+   "amber": [
+    53.3,
+    610.3
+   ],
+   "forest": [
+    222.8,
+    621.7
+   ],
+   "coral": [
+    398.1,
+    622.7
+   ],
+   "ocean": [
+    569.0,
+    613.2
+   ],
+   "amethyst": [
+    237.3,
+    535.1
+   ],
+   "obsidian": [
+    384.3,
+    535.8
+   ],
+   "nest": [
+    310.6,
+    569.5
+   ],
+   "mira_face": [
+    73.2,
+    344.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "nest_empty": {
+  "w": 800,
+  "h": 1200,
+  "anchors": {
+   "amber": [
+    71.0,
+    813.7
+   ],
+   "forest": [
+    297.1,
+    828.9
+   ],
+   "coral": [
+    530.9,
+    830.2
+   ],
+   "ocean": [
+    758.7,
+    817.7
+   ],
+   "amethyst": [
+    316.4,
+    713.4
+   ],
+   "obsidian": [
+    512.3,
+    714.4
+   ],
+   "nest": [
+    414.1,
+    759.4
+   ],
+   "mira_face": [
+    97.5,
+    459.9
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "pip": {
+  "w": 856,
+  "h": 1100,
+  "anchors": {
+   "letter": [
+    266.2,
+    472.7
+   ],
+   "face": [
+    453.6,
+    588.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "pip_gold": {
+  "w": 856,
+  "h": 1100,
+  "anchors": {
+   "letter": [
+    266.2,
+    472.7
+   ],
+   "face": [
+    453.6,
+    588.6
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "steps": {
+  "w": 1200,
+  "h": 1200,
+  "anchors": {
+   "mochi": [
+    200.7,
+    712.1
+   ],
+   "shoes": [
+    816.8,
+    513.9
+   ],
+   "print0": [
+    317.7,
+    723.0
+   ],
+   "print1": [
+    305.5,
+    670.3
+   ],
+   "print2": [
+    435.8,
+    644.1
+   ],
+   "print3": [
+    416.7,
+    602.7
+   ],
+   "print4": [
+    529.1,
+    581.8
+   ],
+   "print5": [
+    506.0,
+    548.3
+   ],
+   "print6": [
+    604.7,
+    531.3
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ },
+ "village_dusk": {
+  "w": 933,
+  "h": 1400,
+  "anchors": {
+   "glasshouse_window": [
+    252.2,
+    792.7
+   ],
+   "glasshouse_door": [
+    368.2,
+    803.6
+   ],
+   "glasshouse_ridge": [
+    263.3,
+    654.2
+   ],
+   "waystone": [
+    517.9,
+    787.9
+   ],
+   "lodge": [
+    532.3,
+    585.2
+   ],
+   "workshop": [
+    784.7,
+    728.3
+   ]
+  },
+  "lines": {},
+  "scale": 1.0
+ }
+}
