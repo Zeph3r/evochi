@@ -196,7 +196,7 @@ FACE_SETS = {
     # brows doing more: startled up, set for the push, thrilled in the air, level watching the ground, a little in
     # coming down, screwed shut at the impact, set again
     'restored': dict(faces=[(0.0, 'surprise', 0.04), (0.08, 'fierce', 0.05), (0.15, 'shout', 0.04), (0.30, 'whoop', 0.05),
-                            (0.44, 'gaze', 0.05), (0.56, 'ready', 0.05), (0.70, 'strain', 0.03), (0.87, 'fierce', 0.06)],
+                            (0.44, 'gaze', 0.05), (0.56, 'ready', 0.05), (0.68, 'strain', 0.03), (0.87, 'fierce', 0.06)],
                      jaw=[(0.0, 0), (0.03, 9), (0.07, 8), (0.11, 0), (0.15, 0), (0.18, 6), (0.22, 16), (0.27, 20),
                           (0.33, 22), (0.40, 24), (0.48, 16), (0.56, 12), (0.66, 14), (0.70, 15), (0.74, 18), (0.80, 18),
                           (0.85, 10), (0.92, 0), (1.10, 0)]),
@@ -789,6 +789,8 @@ def main(out):
     p = os.path.join(out, 'jump_faces.png')
     sheet.save(p, optimize=True)
     print(p, flush=True)
+    if os.environ.get('JUMP_ONLY') == 'sheet':
+        return
     # the video: the two sets side by side, both cameras; real time, then half speed
     n = int(END * FPS) + 1 + int(0.3 * FPS)
     key = lambda i, vi, fs: ('new', round(min(i / FPS, END), 4), vi, fs)   # noqa: E731
