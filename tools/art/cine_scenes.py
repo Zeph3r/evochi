@@ -47,6 +47,11 @@ SAND = ['#E8D7A8', '#DFCC9B']
 WATER_MAP = ['#5FAFD2', '#55A3C8', '#6DBBDC', '#4F9ABF']
 GLASS_WARM = ['#FFF0D2', '#FBE8C4']                 # the Glasshouse's panes at night, lit from inside
 
+# The cast in close-up: the game's own models at twice its voxel grain (the same shapes, finer steps), so a
+# character that fills the screen doesn't break into blocks. Faces and markings are painted decals, so they
+# don't change. The renderer gives every actor a smooth shadow stand-in (cine_blender.actor_arrays).
+CAST_RES = 4
+
 # ------------------------------------------------------------------------------------------------ grades ----
 GRADES = {
     'map': {'bloom': 0.5, 'bloom_threshold': 175.0, 'bloom_wide': 0.22, 'glow': 0.16, 'warm': 0.05,
@@ -825,7 +830,7 @@ def scene_glasshouse_night():
     from cine_blender import Actor
     from village_npcs import build_mira, INK
     from village_npc_render import npc_palette
-    chm = build_mira()
+    chm = build_mira(res=CAST_RES)
     S.actors = [Actor('mira', chm, npc_palette(chm, INK), 'mira', expr='happy', pos=(-8.2, 0.0, -0.9), yaw=math.radians(18), scale=0.17)]
     anchors['mira'] = (-8.2, 0.17 * 19.6, -0.9)
     S.anchors = anchors
@@ -840,14 +845,14 @@ def scene_glasshouse_night():
 EGG_MATS = ('feet', 'feet_shade', 'claw')
 
 
-def egg_character(crack=0.0, seed=0):
+def egg_character(crack=0.0, seed=0, res=CAST_RES):
     """An unhatched Evochi egg: the Eggling's own body (characters.build_eggling) without its feet, claws and face,
     so the crest, ear plates, scale squares and the diamond markings are exactly the game's. `crack` 0..1 carves
     glowing cracks into the shell: fine lines from the crown at 0.3, spreading over the egg at 0.7, and at 1.0 a
     shell about to burst (light through every seam)."""
     import dataclasses
     from characters import build_eggling, egg_mask
-    ch = build_eggling()
+    ch = build_eggling(res=res)
     M = ch.model.copy()
     for mat in EGG_MATS:
         if mat in M.ids:
@@ -857,48 +862,70 @@ def egg_character(crack=0.0, seed=0):
     y0 = (idx[:, 1].min() + M.lo[1]) / M.res
     anchors = {k: (v[0], v[1] - y0, v[2]) for k, v in ch.anchors.items()}
     if crack > 0:
+        # each crack is a line traced on the shell: a jagged path from the crown down (angle round the egg, height),
+        # found on the egg's surface by a ray from its axis, then every outer shell voxel within a hair of the line
+        # becomes crack (light through the shell); branches fork off the longer ones. Continuous at any voxel grain.
+        from scipy.spatial import cKDTree
         rng = np.random.default_rng(31 + seed)
-        body = egg_mask(M, (0, 11.2, 0), 13.0, 13.2, 9.8, 11.6, p=2.25)
-        shell_id = M.ids['shell']
-        shell = (M.m == shell_id) | (M.m == M.ids.get('belly', 0)) | (M.m == M.ids.get('pattern', 0))
-        shell &= M.surface()                                         # the cracks run on the outside only
-        theta = np.arctan2(M.X, M.Z)
-        lat = np.clip((M.Y - 0.0) / 25.0, 0, 1)                       # 0 at the bottom, 1 at the crown
-        cid = M.mid('crack')
+        shell = np.isin(M.m, [M.ids[k] for k in ('shell', 'belly', 'pattern') if k in M.ids]) & M.surface()
+        filled = M.m > 0
+        sidx = np.argwhere(shell)
+        spts = (sidx + M.lo + 0.5) / M.res
+        tree = cKDTree(spts)
+        cy0, cy1 = 0.6, 24.0                                          # the shell's height range (the crown above)
+
+        def on_shell(a, y):
+            """the outermost filled point at angle a, height y (a ray out from the axis)"""
+            d = np.array([math.sin(a), 0.0, math.cos(a)])
+            last = None
+            for rr in np.arange(4.0, 16.0, 0.5 / M.res):
+                q = np.array([0.0, y, 0.0]) + d * rr
+                ii = np.floor(q * M.res).astype(int) - M.lo
+                if np.any(ii < 0) or np.any(ii >= np.array(M.m.shape)):
+                    break
+                if filled[tuple(ii)]:
+                    last = q
+            return last
+
+        def trace(path, width):
+            pts = []
+            for (a0, y0), (a1, y1) in zip(path[:-1], path[1:]):
+                for t in np.linspace(0, 1, 12, endpoint=False):
+                    q = on_shell(a0 + (a1 - a0) * t, y0 + (y1 - y0) * t)
+                    if q is not None:
+                        pts.append(q)
+            if not pts:
+                return np.zeros(len(spts), bool)
+            dd, _ = cKDTree(np.array(pts)).query(spts, distance_upper_bound=width + 0.01)
+            return dd <= width
+
+        hit = np.zeros(len(spts), bool)
         n_cracks = 3 + int(crack * 6)
+        w = max(0.32, 0.9 / M.res)                                     # about a voxel and a bit wide
         for k in range(n_cracks):
             a0 = rng.uniform(-math.pi, math.pi)
-            top = rng.uniform(0.72, 0.95)
-            reach = top - crack * rng.uniform(0.35, 0.8)              # how far down the crack runs
-            # a jagged path: angle wobbles as it goes down
-            steps = 14
-            path = [(a0 + rng.uniform(-0.5, 0.5) * j / steps + 0.25 * math.sin(j * 1.7 + k), top - (top - reach) * j / steps) for j in range(steps + 1)]
-            for (aa, ll), (ab, lb) in zip(path[:-1], path[1:]):
-                da = (theta - aa + math.pi) % (2 * math.pi) - math.pi
-                seg = np.abs(lat - ll) + np.abs(lat - lb)
-                near = (np.abs(da) < 0.04) & (lat <= max(ll, lb) + 0.015) & (lat >= min(ll, lb) - 0.015)
-                near2 = (np.abs((theta - ab + math.pi) % (2 * math.pi) - math.pi) < 0.04) & (lat <= max(ll, lb) + 0.015) & (lat >= min(ll, lb) - 0.015)
-                m = (near | near2) & shell & (np.abs(M.X) + np.abs(M.Z) > 2.0)
-                M.m[m] = cid
-                M.glow[m] = 0.2 + 0.55 * crack
-            # branches
+            ytop = cy1 - rng.uniform(0.5, 3.5)
+            ybot = ytop - (cy1 - cy0) * crack * rng.uniform(0.45, 0.9)
+            steps = 9
+            path = [(a0 + rng.uniform(-0.28, 0.28) * (j > 0) + 0.12 * math.sin(j * 2.1 + k), ytop - (ytop - ybot) * j / steps) for j in range(steps + 1)]
+            hit |= trace(path, w)
             if crack > 0.5:
-                for j in rng.choice(steps, 2, replace=False):
-                    aa, ll = path[j]
-                    for t in np.linspace(0, 1, 8):
-                        a = aa + 0.45 * t * (1 if j % 2 else -1)
-                        l2 = ll - 0.12 * t
-                        da = (theta - a + math.pi) % (2 * math.pi) - math.pi
-                        m = (np.abs(da) < 0.035) & (np.abs(lat - l2) < 0.015) & shell
-                        M.m[m] = cid
-                        M.glow[m] = 0.2 + 0.55 * crack
+                for j in rng.choice(np.arange(2, steps), 2, replace=False):
+                    a, y = path[j]
+                    sgn = 1 if (j + k) % 2 else -1
+                    br = [(a + sgn * 0.42 * t, y - 3.2 * t) for t in np.linspace(0, 1, 5)]
+                    hit |= trace(br, w * 0.8)
+        cid = M.mid('crack')
+        ii = sidx[hit]
+        M.m[ii[:, 0], ii[:, 1], ii[:, 2]] = cid
+        M.glow[ii[:, 0], ii[:, 1], ii[:, 2]] = 0.22 + 0.4 * crack
         if crack >= 0.95:
-            # the seams open: light leaks around every crack
+            # the seams open: light leaks round every crack
             from scipy import ndimage
             cr = M.m == cid
             wide = ndimage.binary_dilation(cr, iterations=1) & shell & ~cr
             M.m[wide] = M.mid('crack_rim')
-            M.glow[wide] = 0.5
+            M.glow[wide] = 0.3
     out = dataclasses.replace(ch, model=M, anchors=anchors)
     out.ground_shift = y0
     return out
@@ -907,7 +934,7 @@ def egg_character(crack=0.0, seed=0):
 def egg_palette(variant):
     from palettes import palette
     pal = dict(palette(variant))
-    pal['crack'] = '#FFE08A'
+    pal['crack'] = '#FFF1B8'
     pal['crack_rim'] = '#FFD56A' if variant != 'obsidian' else '#7A6A5A'
     return pal
 
@@ -1074,9 +1101,11 @@ def _nest_scene(name, cam, eggs='all', mira=True, w=1400, h=2100, lift=None):
         from cine_blender import Actor
         from village_npcs import build_mira, INK
         from village_npc_render import npc_palette
-        chm = build_mira()
+        chm = build_mira(res=CAST_RES)
         S.actors.append(Actor('mira', chm, npc_palette(chm, INK), 'mira', expr='happy', pos=(-11.0, 0.0, -5.0),
                               yaw=math.radians(18 if cam is MIRA_CAM else -30), scale=0.42, camera=eggs in ('all', 'none')))
+    if eggs not in ('all', 'none'):
+        S.models = [(m[0], m[1], dict(m[2] if len(m) > 2 else {}, camera=False)) for m in S.models]
     S.anchors = dict(slots)
     S.anchors['nest'] = (nx, 1.0, nz)
     S.anchors['mira_face'] = (-11.0, 0.42 * 19.6, -5.0 + 0.42 * 8.4)
@@ -1250,7 +1279,7 @@ def scene_steps():
     from cine_blender import Actor
     from characters import build_eggling
     from palettes import palette
-    ch = build_eggling(lean=6.0, feet={(1, True): (1.2, 1.0), (-1, False): (0.6, -0.6)})
+    ch = build_eggling(res=CAST_RES, lean=6.0, feet={(1, True): (1.2, 1.0), (-1, False): (0.6, -0.6)})
     S.actors = [Actor('mochi', ch, dict(palette('ocean')), 'ocean', expr='happy', pos=tuple(mpos.tolist()), yaw=math.radians(hd + 12), scale=0.26)]
     S.anchors = {'mochi': (float(mpos[0]), 6.0 * 0.26, float(mpos[2])), 'shoes': (float(shoe_c[0]), 3.0, float(shoe_c[1]))}
     for k, pr in enumerate(prints):
@@ -1300,7 +1329,7 @@ def scene_pip(gold=False):
     lantern(S, P, M, (-13.0, 9.0, 8.5), s=0.7, lit=True, power=16.0, kelvin=2400)
     S.lights.append({'type': 'area', 'pos': (4.0, 14.0, 26.0), 'aim': (0.0, 7.0, 2.0), 'size': (20.0, 12.0), 'power': 45.0, 'color': 5500})
     S.models.append((M, (), {}))
-    chp = build_pip()
+    chp = build_pip(res=CAST_RES)
     pal = npc_palette(chp, INK)
     if gold:
         # the founders' letter: a gold seal and a gold-edged envelope
@@ -1343,16 +1372,19 @@ def scene_egg_sprite(variant, crack_key='0'):
     cam = orbit_cam(18.0, 13.0, 130.0, target=(0.0, 15.0, 0.0), fov=20.0)
     S = VScene('egg_%s_%s' % (variant, crack_key), 700, 760, cam, world=((0.9, 0.86, 0.8), 0.5), samples=128, transparent=True)
     S.keep_alpha = True
-    S.sky_world = {'sky': ('#B9D6EA', '#FFE3BE'), 'ground': '#7F9F6A', 'strength': 0.65}
-    S.lights.append({'type': 'sun', 'dir': (0.42, -0.78, -0.48), 'power': 2.6, 'color': 4500, 'angle': 4.0})
-    S.lights.append({'type': 'area', 'pos': (-30.0, 30.0, 40.0), 'aim': (0.0, 12.0, 0.0), 'size': (30.0, 30.0), 'power': 180.0, 'color': 6500})
+    # a step dimmer than with the voxels shading themselves: the smooth stand-in leaves the cream shell its full light
+    S.sky_world = {'sky': ('#B9D6EA', '#FFE3BE'), 'ground': '#7F9F6A', 'strength': 0.45}
+    S.lights.append({'type': 'sun', 'dir': (0.42, -0.78, -0.48), 'power': 2.2, 'color': 4500, 'angle': 4.0})
+    S.lights.append({'type': 'area', 'pos': (-30.0, 30.0, 40.0), 'aim': (0.0, 12.0, 0.0), 'size': (30.0, 30.0), 'power': 95.0, 'color': 6500})
     # a shadow catcher under it
     G = Model((-30, -2, -30), (30, 0, 30), [], res=1)
     G.set(G.box((-30, -2, -30), (30, 0, 30)), '#9CC76E')
     S.models.append((G, (), {'shadow_catcher': True}))
     S.actors = [egg_actor('egg', variant, (0.0, 0.0, 0.0), yaw=0.0, scale=1.0, crack=crack, seed=EGG_ORDER.index(variant))]
     if crack >= 0.7:
-        S.lights.append({'type': 'point', 'pos': (0.0, 16.0, 9.0), 'power': 25.0 * crack, 'color': (1.0, 0.8, 0.42), 'radius': 4.0})
+        # the cracks' light spilling onto the grass in front (outside the shell: the smooth stand-in, not the voxels,
+        # is what blocks light now, and a light inside would shine straight through)
+        S.lights.append({'type': 'point', 'pos': (0.0, 4.0, 17.0), 'power': 6.0 * crack, 'color': (1.0, 0.8, 0.42), 'radius': 3.0})
     S.anchors = {'ground': (0.0, 0.0, 0.0), 'top': (0.0, 31.5, 0.0)}
     S.grade = {'bloom': 0.3 if crack > 0 else 0.1, 'bloom_threshold': 190.0, 'warm': 0.02, 'keep_alpha': True}
     S.zmax = 20.0
@@ -1406,14 +1438,30 @@ AFFINITY_OF = {'amber': 'lumen', 'forest': 'nature', 'coral': 'ember', 'ocean': 
 AFFINITY_GLOW = {'lumen': '#F4B84E', 'nature': '#5FA046', 'ember': '#EC7A4A', 'water': '#4C9BCC', 'stone': '#8E887E', 'celestial': '#9975C9'}
 
 
-def scene_elder_orbit(variant, frames=ELDER_ORBIT_FRAMES):
+def scene_elder_orbit(variant, frames=ELDER_ORBIT_FRAMES, res=4, expr='default'):
     """the three-second glimpse of what the egg becomes: the Stage-3 Elder (characters.build_elder, as the game
     draws it) standing on a ring of its affinity's light while the camera orbits it: one scene, a camera per
     frame (rendered as elder_<variant>_00 .. _35)"""
     from cine_blender import Actor
     from characters import build
     from palettes import palette
-    cams = [orbit_cam(36.0 + 360.0 * f / frames, 11.0, 220.0, target=(0.0, 22.0, 0.0), fov=24.0, fstop=4.0) for f in range(frames)]
+    # the Elder at twice the game's voxel grain (the same model, finer steps: it fills the screen here), its
+    # default face; the camera aims at the body's middle and pulls back only as far as each angle needs, so the
+    # whole of it stays in frame as it turns (a gentle dolly with the orbit)
+    ch = build(3, res=res)
+    idx = np.argwhere(ch.model.m > 0)
+    lo = (idx.min(0) + ch.model.lo) / ch.model.res
+    hi = (idx.max(0) + 1 + ch.model.lo) / ch.model.res
+    cx, cz = float(lo[0] + hi[0]) / 2, float(lo[2] + hi[2]) / 2
+    hx, hz = float(hi[0] - lo[0]) / 2, float(hi[2] - lo[2]) / 2
+    fov, aspect = 24.0, 800 / 1000
+    tan_h = math.tan(math.radians(fov / 2)) * aspect
+    cams = []
+    for f in range(frames):
+        yaw = 36.0 + 360.0 * f / frames
+        half_w = hx * abs(math.cos(math.radians(yaw))) + hz * abs(math.sin(math.radians(yaw)))
+        dist = max(1.22 * half_w / tan_h, 1.3 * float(hi[1]) / 2 / math.tan(math.radians(fov / 2)))
+        cams.append(orbit_cam(yaw, 11.0, dist, target=(cx, 17.0, cz), fov=fov, fstop=5.6))
     S = VScene('elder_%s' % variant, 800, 1000, cams[0], world=((0.08, 0.07, 0.12), 0.35), samples=96, transparent=True)
     S.cameras = cams
     S.keep_alpha = True
@@ -1422,20 +1470,20 @@ def scene_elder_orbit(variant, frames=ELDER_ORBIT_FRAMES):
     S.lights.append({'type': 'area', 'pos': (-40.0, 70.0, 50.0), 'aim': (0.0, 20.0, 0.0), 'size': (40.0, 40.0), 'power': 900.0, 'color': (1.0, 0.9, 0.78)})
     S.lights.append({'type': 'area', 'pos': (50.0, 40.0, -40.0), 'aim': (0.0, 20.0, 0.0), 'size': (30.0, 30.0), 'power': 500.0, 'color': rgb})
     S.lights.append({'type': 'point', 'pos': (0.0, 2.0, 0.0), 'power': 220.0, 'color': rgb, 'radius': 6.0})
-    G = Model((-40, -2, -40), (40, 1, 40), [], res=2)
+    G = Model((-50, -2, -58), (50, 1, 42), [], res=4)
     P = CPainter(G, 3)
-    rr = np.sqrt(G.X ** 2 + G.Z ** 2)
-    P.fill((np.abs(rr - 26.0) < 1.2) & (G.Y >= -0.2) & (G.Y < 0.5), [col], glow=1.6, cell=9)
+    rr = np.sqrt((G.X - cx) ** 2 + ((G.Z - cz) * 0.62) ** 2)      # an oval under the long body
+    P.fill((np.abs(rr - 26.0) < 1.4) & (G.Y >= -0.2) & (G.Y < 0.5), [col], glow=1.6, cell=9)
     Gc = Model((-60, -2, -60), (60, 0, 60), [], res=1)
     Gc.set(Gc.box((-60, -2, -60), (60, 0, 60)), '#2A2638')
     S.models.append((Gc, (), {'shadow_catcher': True}))
-    P.fill((np.abs(rr - 30.0) < 0.4) & (G.Y >= -0.2) & (G.Y < 0.3), [col], glow=0.8, cell=9)
+    P.fill((np.abs(rr - 30.0) < 0.5) & (G.Y >= -0.2) & (G.Y < 0.3), [col], glow=0.8, cell=9)
     for k in range(5):
-        m = lumen_print_mask(G, (18.0 * math.cos(k * 1.26), 0.0, 18.0 * math.sin(k * 1.26)), k * 72.0, 0.9)
+        a = k * 1.26
+        m = lumen_print_mask(G, (cx + 30.0 * math.cos(a), 0.0, cz + 30.0 / 0.62 * math.sin(a) * 0.75), k * 72.0, 0.9)
         P.fill(m, [col], glow=1.2, cell=9)
     S.models.append((G, (), {}))
-    ch = build(3)
-    S.actors = [Actor('elder', ch, dict(palette(variant)), variant, expr='determined', pos=(0.0, 0.0, 0.0), yaw=0.0, scale=1.0)]
+    S.actors = [Actor('elder', ch, dict(palette(variant)), variant, expr=expr, pos=(0.0, 0.0, 0.0), yaw=0.0, scale=1.0)]
     S.anchors = {'ground': (0.0, 0.0, 0.0), 'head': ch.anchors.get('head_top', (0, 40, 0))}
     S.grade = {'bloom': 0.5, 'bloom_threshold': 170.0, 'bloom_wide': 0.3, 'keep_alpha': True}
     S.zmax = 40.0

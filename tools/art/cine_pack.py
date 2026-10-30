@@ -50,6 +50,10 @@ def pack(vs, path):
             for kk in ('Q', 'COL', 'UNLIT'):
                 arrays[f'a{j}d{key}{kk}'] = d[kk]
             meta_a['decals'].append(key)
+        if A.get('proxy') is not None:
+            for kk in ('V', 'F', 'C'):
+                arrays[f'a{j}x{kk}'] = A['proxy'][kk]
+            meta_a['proxy'] = True
         actors.append(meta_a)
     meta = {k: getattr(vs, k) for k in SCALARS if hasattr(vs, k)}
     meta['models'] = models
@@ -70,6 +74,7 @@ def unpack(path):
         A = dict(ma)
         A['parts'] = [dict(p, **{key: D[f'a{j}p{k}{key}'] for key in ('C', 'COL', 'VN', 'GLOW')}) for k, p in enumerate(ma['parts'])]
         A['decals'] = {key: {kk: D[f'a{j}d{key}{kk}'] for kk in ('Q', 'COL', 'UNLIT')} for key in ma['decals']}
+        A['proxy'] = {kk: D[f'a{j}x{kk}'] for kk in ('V', 'F', 'C')} if ma.get('proxy') else None
         vs.actor_arrays.append(A)
     vs.grade = vs.grade or {}
     vs.anchors = vs.anchors or {}
