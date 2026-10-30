@@ -323,7 +323,7 @@ def _anim(cells, w, h, box, path):
     x, y, bw, bh = box
     ims = [Image.fromarray(c).resize((w, h), Image.LANCZOS).crop((x, y, x + bw, y + bh)) for c in cells]
     ims[0].save(path, save_all=True, append_images=ims[1:], duration=int(round(1000 / FPS)), loop=0,
-                quality=88, method=6, minimize_size=False, allow_mixed=False)
+                quality=75, method=6, minimize_size=False, allow_mixed=False)
 
 
 def main(out, only=None, preview=False):
