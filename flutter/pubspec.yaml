@@ -52,6 +52,7 @@ flutter:
     - assets/art/wilds/ # the Lumen Wilds: walk sheets, the test clearing (tools/art/walk.py, wilds_art.py)
     - assets/art/economy/ # economy: chest tiers (tools/art/economy_art.py)
     - assets/art/acting/ # personality acting clips, streamed (tools/art/acting.py)
+    - assets/art/cine/ # the onboarding cinematic: plates, the Lumen footprint, the shot list (tools/art/cine_*.py)
     - assets/audio/sfx/
     - assets/audio/ambient/
     - assets/audio/music/ # place music: arrangements of public-domain airs (tools/art/music.py)

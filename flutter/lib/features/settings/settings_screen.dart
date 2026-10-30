@@ -15,6 +15,7 @@ import '../../data/health_adapters/step_source.dart';
 import '../../game/economy/economy.dart' as econ;
 import '../../game/engine.dart' as g;
 import '../caravan/caravan_screen.dart';
+import '../onboarding/cinematic_screen.dart';
 import '../shared/widgets.dart';
 import 'personality_lab.dart';
 
@@ -184,6 +185,13 @@ class SettingsScreen extends StatelessWidget {
                 toggle('Reduce motion', 'Crossfades instead of bounces, flashes and particles.', st.reducedMotion, (x, v) => x.reducedMotion = v),
                 toggle('Room-lit villagers', "Villagers lit by each room's lanterns and windows, instead of drawn flat like your Evochi.",
                     st.roomLitVillagers, (x, v) => x.roomLitVillagers = v),
+                ListTile(
+                  title: const Text('Watch the intro', style: EvochiText.cardTitle),
+                  subtitle: const Text('The Fading Paths: the story the game opens with.', style: EvochiText.caption),
+                  trailing: const Icon(Icons.play_circle_outline_rounded, color: EvochiColor.ink),
+                  onTap: () => Navigator.of(context).push(MaterialPageRoute<void>(
+                      fullscreenDialog: true, builder: (_) => const CinematicScreen(replay: true))),
+                ),
               ]),
             ),
             const SizedBox(height: 10),

@@ -11,6 +11,8 @@ import '../features/bag/bag_screen.dart';
 import '../features/evodex/evodex_screen.dart';
 import '../features/journey/journey_screen.dart';
 import '../features/nest/nest_screen.dart';
+import '../features/onboarding/cinematic_screen.dart';
+import '../features/onboarding/onboarding_beats.dart';
 import '../features/onboarding/onboarding_screens.dart';
 import '../features/shared/ambience.dart';
 import '../features/shared/widgets.dart';
@@ -25,15 +27,15 @@ class RootGate extends StatelessWidget {
   Widget build(BuildContext context) {
     final c = context.watch<GameController>();
     final s = c.state;
-    if (s.player == null) return const WelcomeScreen();
-    if (s.pet == null) return const CreateScreen();
+    if (s.player == null) return const IntroGate(child: WelcomeScreen());
+    if (s.pet == null) return const EggPickScreen();
     switch (s.onboarding.step) {
       case 'connect':
         return const ConnectScreen();
       case 'goal':
         return const GoalScreen();
       case 'awakening':
-        return const AwakeningScreen();
+        return const HatchScreen();
       default:
         return const MainShell();
     }

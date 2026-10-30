@@ -8,6 +8,39 @@ music, and the encounter UI after the Encounter UI Redesign board. Before that: 
 discoveries, the Trail Guild, encounters and companions). README.md covers the project, the art
 pipeline and how to build.
 
+## The onboarding cinematic (in progress)
+
+The Fading Paths cold open and the beats after it (README: "The onboarding cinematic"). What's there:
+
+- `tools/art/cine_scenes.py`, `cine_blender.py`, `cine_pack.py`, `render_cine_pc.py`, `onboarding_cine.py`,
+  `cine_assets.py`: the scenes, the renderer (DoF, depth pass, sky worlds, actors, layered renders, the grade),
+  packs for the PC's GPU, the cut and its preview video, the asset packer.
+- `flutter/lib/features/onboarding/cinematic_player.dart` (the cold open, from the same shot list),
+  `cinematic_screen.dart` (once before Welcome, again from Settings > Watch the intro),
+  `onboarding_beats.dart` (EggPickScreen: Mira's nest; HatchScreen: the egg cracked by real steps, the hatch,
+  naming after it, the name flying to the map and the grove trail lighting). The router uses the new screens;
+  the old CreateScreen and AwakeningScreen stay in `onboarding_screens.dart` unused. A new pet is created as
+  "Eggling" and renamed after the hatch (`renamePet`); the web build's onboarding is unchanged.
+
+Still to do:
+
+- **Full-quality plates.** Only quick CPU previews exist. Pack with `cine_pack.py` and render on the PC:
+  `blender\cine\render_cine.bat` (the packs go in `blender\cine\packs\`), then `cine_blender.py --regrade`
+  here and `cine_assets.py` into `flutter/assets/art/cine/`. The Elder orbits (6 x 36 frames) and the per-egg nest
+  sprites are the long ones.
+- **Look.** Check every plate at full size against the storyboard: the Hollow creep's density, the Glasshouse
+  door shot (Mira's position), the steps scene (the prints are hidden behind Mochi from this camera; the app
+  draws LumenPrint sprites at the `print0..6` anchors instead), the crack glow on the eggs.
+- **Flutter.** Uncompiled: run `1_check.bat`. Likely spots: `withValues` needs Flutter 3.27; the record type
+  returned by `CineCamera.fit`; `RawImage` sizing in `_Plate`; the `freshDays` import from `game/story/story.dart`.
+  Pip's letter (Welcome) and the step screen (Connect) still use the old art: the `pip`, `pip_gold` and `steps`
+  plates are rendered but not wired in.
+- **Sound.** The cut's cues (`footstep`, `lumen_rise`, `hollow_creep`) are mapped to existing sounds in
+  `CinematicScreen`; a real footstep and a Lumen rise belong in `sfx.py`.
+- **The push-in as a real camera move** (storyboard frame 6) and the Glasshouse tracking shot (frame 11): the
+  app zooms the plates for now; `cine_blender.py` can render a camera path as frames (`vs.cameras`, as the
+  Elder orbit does) for a pre-rendered version on the PC's GPU.
+
 ## Not verified yet
 
 - **Flutter now compiles and runs on Windows** (Flutter 3.27.1, VS 2022, 19 Oct 2026): `flutter analyze`
