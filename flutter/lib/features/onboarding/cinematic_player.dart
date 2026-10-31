@@ -20,6 +20,7 @@ import 'package:flutter/services.dart';
 import '../../app/motion.dart';
 import '../../app/theme.dart';
 import '../../core/services/asset_manifest.dart';
+import '../shared/live_scene.dart';
 import '../shared/widgets.dart';
 
 const cineDir = 'assets/art/cine';
@@ -348,6 +349,9 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
   double _shotStart = 0;
   final Set<String> _sfxDone = {};
   bool _done = false;
+  // the plates that live (tools/art/fx_zones/cine.py): their masks, and the scenes' shader
+  final Map<String, ui.Image> _masks = {};
+  ui.FragmentShader? _shader;
 
   @override
   void initState() {
@@ -364,6 +368,17 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
           if (l['plate'] != null) names.add(l['plate'] as String);
         }
       }
+      // the plates that live: their masks and the shader, streaming in like the plates
+      for (final n in names) {
+        final fx = SceneFx.of('$cineDir/$n.webp');
+        if (fx == null) continue;
+        AtlasCache.load(fx.mask).then((m) {
+          if (mounted) _masks[n] = m;
+        }).catchError((Object _) {});
+      }
+      SceneFx.program().then((p) {
+        if (mounted && p != null) _shader ??= p.fragmentShader();
+      });
       // the first two plates before we start; the rest stream in
       final list = names.toList();
       for (final n in list.take(2)) {
@@ -386,6 +401,7 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
   @override
   void dispose() {
     _ticker.dispose();
+    _shader?.dispose();
     super.dispose();
   }
 
@@ -435,7 +451,8 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
       child: Stack(fit: StackFit.expand, children: [
         if (tl != null)
           CustomPaint(
-            painter: _CinePainter(tl, _plates, _shot, _t - _shotStart, DefaultTextStyle.of(context).style),
+            painter: _CinePainter(tl, _plates, _shot, _t - _shotStart, DefaultTextStyle.of(context).style,
+                live: widget.reducedMotion ? null : (shader: _shader, masks: _masks, t: _t)),
             willChange: true,
           ),
         Positioned(
@@ -464,12 +481,16 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
 }
 
 class _CinePainter extends CustomPainter {
-  _CinePainter(this.tl, this.plates, this.shotIndex, this.ts, this.textStyle);
+  _CinePainter(this.tl, this.plates, this.shotIndex, this.ts, this.textStyle, {this.live});
   final CineTimeline tl;
   final Map<String, ui.Image> plates;
   final int shotIndex;
   final double ts; // seconds into the shot
   final TextStyle textStyle;
+
+  /// the living plates (trees, water, lights: live_scene.dart's shader and emitters); null under reduced
+  /// motion, when they stay still with their lights on
+  final ({ui.FragmentShader? shader, Map<String, ui.Image> masks, double t})? live;
 
   Size _size(ui.Image im) => Size(im.width.toDouble(), im.height.toDouble());
 
@@ -488,9 +509,42 @@ class _CinePainter extends CustomPainter {
     return CineCamera(Offset.lerp(cf, ct, k)!, ui.lerpDouble((f['zoom'] as num).toDouble(), (t['zoom'] as num).toDouble(), k)!);
   }
 
-  void _drawPlate(Canvas c, Size size, ui.Image im, ({double scale, Offset origin}) g, {Paint? paint}) {
+  void _drawPlate(Canvas c, Size size, ui.Image im, ({double scale, Offset origin}) g, {Paint? paint, String? name}) {
     final src = Rect.fromLTWH(g.origin.dx, g.origin.dy, size.width / g.scale, size.height / g.scale);
-    c.drawImageRect(im, src, Offset.zero & size, paint ?? (Paint()..filterQuality = FilterQuality.medium));
+    final fx = name == null ? null : SceneFx.of('$cineDir/$name.webp');
+    final lv = live;
+    final mask = lv?.masks[name];
+    final sh = lv?.shader;
+    if (fx != null && lv != null && sh != null && mask != null && mask.width == im.width && mask.height == im.height) {
+      // alive: the scenes' own shader (trees sway, the fall runs, windows breathe), the whole plate placed as the
+      // camera has it
+      final whole = Rect.fromLTWH(-g.origin.dx * g.scale, -g.origin.dy * g.scale, im.width * g.scale, im.height * g.scale);
+      sh
+        ..setFloat(0, whole.left)
+        ..setFloat(1, whole.top)
+        ..setFloat(2, whole.width)
+        ..setFloat(3, whole.height)
+        ..setFloat(4, im.width.toDouble())
+        ..setFloat(5, im.height.toDouble())
+        ..setFloat(6, lv.t % 600.0)
+        ..setFloat(7, 1)
+        ..setFloat(8, 0)
+        ..setFloat(9, 0)
+        ..setImageSampler(0, im)
+        ..setImageSampler(1, mask);
+      c.drawRect(Offset.zero & size, (paint ?? Paint())..shader = sh..filterQuality = FilterQuality.medium);
+    } else {
+      c.drawImageRect(im, src, Offset.zero & size, paint ?? (Paint()..filterQuality = FilterQuality.medium));
+    }
+    if (fx != null) {
+      // its lights, smoke and fireflies, in the plate's own px under the camera
+      c.save();
+      c.clipRect(Offset.zero & size);
+      c.translate(-g.origin.dx * g.scale, -g.origin.dy * g.scale);
+      c.scale(g.scale);
+      SceneFx.paintEmitters(c, fx, (lv?.t ?? 0) % 600.0, moving: lv != null);
+      c.restore();
+    }
   }
 
   @override
@@ -526,7 +580,7 @@ class _CinePainter extends CustomPainter {
     if (plate != null) {
       cam = _camera(shot, plate, ts);
       g = cam.fit(size, _size(plate));
-      _drawPlate(c, size, plate, g);
+      _drawPlate(c, size, plate, g, name: plateName);
     }
     for (final L in (shot['layers'] as List? ?? const []).cast<Map<String, dynamic>>()) {
       final kind = L['kind'] as String;

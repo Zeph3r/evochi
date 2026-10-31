@@ -12,7 +12,7 @@ import sys
 from PIL import Image
 
 EXPR = ['default', 'blink', 'happy', 'curious', 'surprised', 'determined', 'sad', 'sleepy', 'excited',
-        'neutral', 'sick', 'memorial']
+        'neutral', 'sick', 'memorial', 'afraid', 'frustrated', 'affectionate']  # characters.EXPRESSIONS
 VARIANTS = ['amber', 'forest', 'coral', 'ocean', 'amethyst', 'obsidian']
 WEARABLES = {'leaf_scarf': 'neck', 'blue_scarf': 'neck', 'tiny_crown': 'head', 'golden_crest_crown': 'head',
              'explorer_hat': 'head', 'butterfly_clip': 'head', 'red_backpack': 'back', 'explorer_pack': 'back',

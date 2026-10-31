@@ -1,5 +1,5 @@
 {
-  "_doc": "Character emotions (lib/game/emotion/emotion.dart; SceneController.feel). Each: the face per kind of character (evochi: the creature atlases; villager: the villager portraits), how its body moves (a motion the scene knows: bounce, hop, tilt, wiggle, jolt, droop, stomp, cower, lean, sway, nuzzle, none), how long it lasts at an ordinary tempo (ms), its priority (a moment of higher priority is not interrupted by a lower one), an optional end face, sparkle (hearts, stars) and the emotion it settles into after (next). Intensity and the Evochi's personality (expressiveness, amplitude, tempo) scale the motion. afraid, frustrated and affectionate borrow the nearest existing faces until their own are painted.",
+  "_doc": "Character emotions (lib/game/emotion/emotion.dart; SceneController.feel). Each: the face per kind of character (evochi: the creature atlases; villager: the villager portraits), how its body moves (a motion the scene knows: bounce, hop, tilt, wiggle, jolt, droop, stomp, cower, lean, sway, nuzzle, none), how long it lasts at an ordinary tempo (ms), its priority (a moment of higher priority is not interrupted by a lower one), an optional end face, sparkle (hearts, stars) and the emotion it settles into after (next). Intensity and the Evochi's personality (expressiveness, amplitude, tempo) scale the motion.",
   "emotions": {
     "neutral":      {"face": {"evochi": "neutral",    "villager": "neutral"},  "motion": "none",   "ms": 600,  "priority": 0},
     "happy":        {"face": {"evochi": "happy",      "villager": "happy"},    "motion": "bounce", "ms": 1000, "priority": 1, "particles": "hearts"},
@@ -7,11 +7,11 @@
     "curious":      {"face": {"evochi": "curious",    "villager": "thinking"}, "motion": "tilt",   "ms": 1200, "priority": 1},
     "surprised":    {"face": {"evochi": "surprised",  "villager": "worried"},  "motion": "jolt",   "ms": 700,  "priority": 2, "next": "curious"},
     "sad":          {"face": {"evochi": "sad",        "villager": "worried"},  "motion": "droop",  "ms": 1800, "priority": 1},
-    "frustrated":   {"face": {"evochi": "determined", "villager": "worried"},  "motion": "stomp",  "ms": 900,  "priority": 1, "next": "neutral"},
-    "afraid":       {"face": {"evochi": "surprised",  "villager": "worried"},  "motion": "cower",  "ms": 1200, "priority": 2, "end": {"evochi": "sad"}, "next": "neutral"},
+    "frustrated":   {"face": {"evochi": "frustrated", "villager": "worried"},  "motion": "stomp",  "ms": 900,  "priority": 1, "next": "neutral"},
+    "afraid":       {"face": {"evochi": "afraid",     "villager": "worried"},  "motion": "cower",  "ms": 1200, "priority": 2, "next": "neutral"},
     "determined":   {"face": {"evochi": "determined", "villager": "proud"},    "motion": "lean",   "ms": 1100, "priority": 1},
     "sleepy":       {"face": {"evochi": "sleepy",     "villager": "neutral"},  "motion": "sway",   "ms": 2000, "priority": 0},
-    "affectionate": {"face": {"evochi": "happy",      "villager": "happy"},    "motion": "nuzzle", "ms": 1300, "priority": 1, "particles": "hearts"}
+    "affectionate": {"face": {"evochi": "affectionate", "villager": "happy"},    "motion": "nuzzle", "ms": 1300, "priority": 1, "particles": "hearts"}
   },
   "_events": "How your Evochi takes what happens in the game, while you are with it in the Nest: an engine event type, the emotion, its intensity. Only events the game already raises; nothing here grants or changes anything.",
   "events": {

@@ -303,7 +303,10 @@ def build_eggling(res=2, feet=None, lo_y=-1, head=None, tail=0.0, squash=1.0, le
 # Face painting (expressions)
 # ----------------------------------------------------------------------------
 EXPRESSIONS = ['default', 'blink', 'happy', 'curious', 'surprised', 'determined', 'sad',
-               'sleepy', 'excited', 'neutral', 'sick', 'memorial']
+               'sleepy', 'excited', 'neutral', 'sick', 'memorial',
+               # the emotion layer's last three (assets/config/emotions.json): appended, so every older frame keeps
+               # its place in the sheets
+               'afraid', 'frustrated', 'affectionate']
 
 
 def paint_face(ch: Character, cv: Canvas, pal: dict, expr: str):
@@ -448,6 +451,41 @@ def paint_face(ch: Character, cv: Canvas, pal: dict, expr: str):
         for s in (-1, 1):
             cv.paint(cv.m_arc(s * eu, ev - eh * 0.05, ew * 0.75, 0.6, 195, 345, lw), E, lit=0.0)
         smile(1.0, 0.4)
+    elif expr == 'afraid':
+        # wide eyes under brows pulled up in the middle, a small wobbling mouth, a bead of sweat
+        cheeks(0.45)
+        eyes(h=eh * 1.12, dv=0.1, hl=(-0.2, 0.36))
+        for s in (-1, 1):
+            cu = s * eu
+            cv.paint(cv.m_stroke([(cu + s * ew * 0.85, ev + eh * 0.78), (cu - s * ew * 0.6, ev + eh * 1.02)], lw * 1.05), E, lit=0.0)
+        xs = np.linspace(-0.62, 0.62, 5)
+        ys = mv - 0.25 + 0.16 * np.array([0, 1, 0, 1, 0])
+        cv.paint(cv.m_stroke(list(zip(xs, ys)), lw * 0.8), mouth, lit=0.0)
+        sweat()
+    elif expr == 'frustrated':
+        # eyes narrowed under brows pinched down, a tight grimace, cheeks hot
+        cheeks(1.0)
+        for s in (-1, 1):
+            cu = s * eu
+            m = cv.m_rect(cu, ev - 0.35, ew, eh * 0.62, r)
+            # a flat lid across the top
+            cut = cv.V > ev - 0.35 + eh * 0.18
+            cv.paint(m & ~cut, E, lit=0.0)
+            hw = ew * 0.32
+            cv.paint(cv.m_rect(cu - 0.2 * ew, ev - 0.35 - eh * 0.02, hw, hw * 0.8, 0.1), H, lit=0.0)
+        brows(lift=0.62, inner=0.3, weight=1.2)
+        cv.paint(cv.m_arc(0, mv - 0.85, 0.75, 0.45, 25, 155, lw * 0.9), mouth, lit=0.0)
+    elif expr == 'affectionate':
+        # eyes closed in soft arcs, a warm blush, a small closed smile
+        cheeks(1.0, w=1.3)
+        for s in (-1, 1):
+            cv.paint(cv.m_arc(s * eu, ev - eh * 0.3, ew * 0.78, eh * 0.3, 20, 160, lw * 1.1), E, lit=0.0)
+            # three little blush strokes across each cheek
+            for k in (-1, 0, 1):
+                x = s * ch.cheek_u + k * ch.cheek_w * 0.28
+                cv.paint(cv.m_stroke([(x - 0.18, ch.cheek_v - ch.cheek_h * 0.3), (x + 0.18, ch.cheek_v + ch.cheek_h * 0.3)], lw * 0.55),
+                         mouth, 0.55, lit=0.0)
+        smile(1.1, 0.42)
     # ---- the cinematics only (the Wilds' boss entrance; not in the sprite sheets): the Expression Style Kit's
     # faces (face_kit.py), 'shout' / 'strain' / 'fierce', or with a personality, 'fierce:calm'
     elif expr.split(':')[0] in ('shout', 'strain', 'fierce', 'surprise', 'effort', 'focus', 'set', 'whoop', 'gaze', 'ready',
