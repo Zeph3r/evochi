@@ -61,6 +61,7 @@ flutter:
   shaders:
     - shaders/scene_fx.frag
     - shaders/village_fx.frag
+    - shaders/hollow_fx.frag
   fonts:
     - family: Nunito
       fonts:

@@ -266,7 +266,7 @@ def section(ch, P, extra=None, scale=14, region=None):
 
 def render_set(ch, expr, pal, w=380, h=340, fits=None):
     if expr == 'none':                                  # no face: the parts alone
-        CR._quad_cache[(id(ch.model), 'amber', 'none')] = []
+        CR._quad_cache[(id(ch.model), 'amber', 'none')] = (ch.model, [])
     out = []
     for i, (name, cam) in enumerate(VIEWS):
         fit = fits[i] if fits else None

@@ -6,9 +6,14 @@
 // cine_poses.json also holds the clips (a blink, a tilt, presenting the letter...) and how the character idles:
 // a blink every few seconds, a gesture now and then, one to open with. [PoseController.play] starts a clip from
 // the screen (Mira looks down at the egg you pick). Reduced motion: the plate as it is.
+//
+// A plate can instead be acted (tools/art/cine_anim.py: 'anims' in cine_poses.json): its line performed as real
+// motion, every frame rendered, each clip an animated WebP of the box. It opens with 'talk' and then breathes in
+// its 'idle' loop; [PoseController.play] can start a clip again.
 
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -29,9 +34,11 @@ class PoseController extends ChangeNotifier {
 }
 
 class _Poses {
-  _Poses(this.plate, this.atlas, this.box, this.frames, this.clips, this.idle);
+  _Poses(this.plate, this.atlas, this.box, this.frames, this.clips, this.idle, {this.anims = const {}, this.fps = 15});
   final String plate;
-  final String atlas;
+  final String? atlas;
+  final Map<String, ({String file, int n})> anims; // acted: per clip its animated WebP and frame count
+  final double fps;
   final Rect box; // in the plate's packed px
   final Map<String, Rect> frames; // in the sheet
   final Map<String, List<(String, double)>> clips; // frame, seconds
@@ -49,14 +56,19 @@ class _Poses {
         for (final e in j.entries)
           e.key: _Poses(
             e.key,
-            (e.value as Map)['atlas'] as String,
+            (e.value as Map)['atlas'] as String?,
             r((e.value as Map)['box'] as List),
-            {for (final f in ((e.value as Map)['frames'] as Map).entries) f.key as String: r(f.value as List)},
+            {for (final f in (((e.value as Map)['frames'] as Map?) ?? const {}).entries) f.key as String: r(f.value as List)},
             {
-              for (final c in ((e.value as Map)['clips'] as Map).entries)
+              for (final c in (((e.value as Map)['clips'] as Map?) ?? const {}).entries)
                 c.key as String: [for (final s in c.value as List) ((s as List)[0] as String, ((s[1] as num).toDouble()) / 1000)],
             },
-            ((e.value as Map)['idle'] as Map).cast<String, dynamic>(),
+            (((e.value as Map)['idle'] as Map?) ?? const {}).cast<String, dynamic>(),
+            anims: {
+              for (final a in (((e.value as Map)['anims'] as Map?) ?? const {}).entries)
+                a.key as String: (file: (a.value as Map)['file'] as String, n: ((a.value as Map)['n'] as num).toInt()),
+            },
+            fps: (((e.value as Map)['fps'] as num?) ?? 15).toDouble(),
           ),
       };
     } catch (_) {
@@ -82,7 +94,7 @@ class _PosedPlateState extends State<PosedPlate> with SingleTickerProviderStateM
   ui.Image? _sheet;
   _Poses? _poses;
   bool _missing = false;
-  late final Ticker _ticker = createTicker(_tick);
+  late final Ticker _ticker;
   final _rng = math.Random();
   double _t = 0;
   String? _frame; // the pose showing (null: the plate's own)
@@ -96,6 +108,7 @@ class _PosedPlateState extends State<PosedPlate> with SingleTickerProviderStateM
   @override
   void initState() {
     super.initState();
+    _ticker = createTicker(_tick); // (here, never lazily: made first in dispose it looks up a dead context)
     widget.controller?.addListener(_onPlay);
     AtlasCache.load('$cineDir/${widget.name}.webp').then((im) {
       if (mounted) setState(() => _plate = im);
@@ -106,6 +119,10 @@ class _PosedPlateState extends State<PosedPlate> with SingleTickerProviderStateM
       final p = all[widget.name];
       if (!mounted || p == null) return;
       _poses = p;
+      if (p.anims.isNotEmpty) {
+        if (!Motion.reducedNow(context)) _ticker.start();
+        return;
+      }
       AtlasCache.load('$cineDir/${p.atlas}').then((im) {
         if (!mounted) return;
         setState(() => _sheet = im);
@@ -117,6 +134,8 @@ class _PosedPlateState extends State<PosedPlate> with SingleTickerProviderStateM
   @override
   void dispose() {
     widget.controller?.removeListener(_onPlay);
+    _codec?.dispose();
+    _cell?.dispose();
     _ticker.dispose();
     super.dispose();
   }
@@ -127,6 +146,10 @@ class _PosedPlateState extends State<PosedPlate> with SingleTickerProviderStateM
   }
 
   void _start(String clip) {
+    if (_poses?.anims.containsKey(clip) ?? false) {
+      _act(clip);
+      return;
+    }
     final frames = _poses?.clips[clip];
     if (frames == null || frames.isEmpty) return;
     _clip = frames;
@@ -142,10 +165,87 @@ class _PosedPlateState extends State<PosedPlate> with SingleTickerProviderStateM
     return a + _rng.nextDouble() * (b - a);
   }
 
+  // ---- acted (anims): one clip's frames streamed from its animated WebP
+  static final Map<String, Future<Uint8List>> _bytes = {};
+  ui.Codec? _codec;
+  ui.Image? _cell;
+  String? _acting;
+  int _actN = 0, _decoded = -1, _gen = 0;
+  double _actAt = 0;
+  bool _busy = false;
+
+  void _act(String clip) {
+    final p = _poses!;
+    final a = p.anims[clip]!;
+    final gen = ++_gen;
+    _acting = clip;
+    _actN = a.n;
+    _actAt = _t;
+    _decoded = -1;
+    _busy = true;
+    (_bytes['$cineDir/${a.file}'] ??= rootBundle.load('$cineDir/${a.file}').then((b) => b.buffer.asUint8List()))
+        .then(ui.instantiateImageCodec)
+        .then((c) {
+      if (!mounted || gen != _gen) {
+        c.dispose();
+        return;
+      }
+      _codec?.dispose();
+      _codec = c;
+      _busy = false;
+      _actAt = _t; // from its first frame, once it can be shown
+    }).catchError((Object _) {
+      _busy = false;
+    });
+  }
+
+  void _actTick() {
+    final p = _poses!;
+    final clip = _acting;
+    if (clip == null) {
+      final open = p.idle['opening'] as String?;
+      final delay = ((p.idle['opening_at'] as num?) ?? 0.3).toDouble();
+      if (_t >= delay) _act(open != null && p.anims.containsKey(open) ? open : p.anims.keys.first);
+      return;
+    }
+    final c = _codec;
+    if (c == null || _busy) return;
+    final want = ((_t - _actAt) * p.fps).floor();
+    if (clip != 'idle' && want >= _actN) {
+      if (p.anims.containsKey('idle')) _act('idle');
+      return;
+    }
+    if (_decoded >= want) return;
+    _busy = true;
+    final gen = _gen;
+    c.getNextFrame().then((f) {
+      _busy = false;
+      if (!mounted || gen != _gen) {
+        f.image.dispose();
+        return;
+      }
+      _decoded++;
+      if (_decoded < want - 1) {
+        f.image.dispose(); // behind: skip on to the frame it should be
+        return;
+      }
+      setState(() {
+        _cell?.dispose();
+        _cell = f.image;
+      });
+    }, onError: (Object _) {
+      _busy = false;
+    });
+  }
+
   void _tick(Duration d) {
     final p = _poses;
     if (p == null) return;
     _t = d.inMicroseconds / 1e6;
+    if (p.anims.isNotEmpty) {
+      _actTick();
+      return;
+    }
     if (!_opened) {
       _opened = true;
       final open = p.idle['opening'] as String?;
@@ -187,6 +287,13 @@ class _PosedPlateState extends State<PosedPlate> with SingleTickerProviderStateM
     final plate = _plate;
     if (plate == null) return _missing ? (widget.onMissing ?? const SizedBox.shrink()) : const SizedBox.shrink();
     final p = _poses, sheet = _sheet, f = _frame;
+    final cell = _cell;
+    if (p != null && p.anims.isNotEmpty) {
+      return CustomPaint(
+        size: Size.infinite,
+        painter: _PosedPainter(plate, widget.alignment, cell, cell == null ? null : Rect.fromLTWH(0, 0, cell.width.toDouble(), cell.height.toDouble()), p.box),
+      );
+    }
     final src = p == null || sheet == null || f == null ? null : p.frames[f];
     return CustomPaint(
       size: Size.infinite,

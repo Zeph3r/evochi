@@ -16,12 +16,21 @@ PATTERN_MID = 201
 _surf_cache = {}
 
 
+def _hit(cache, k, model):
+    """a cached value for `model`, or None. Keyed by id() but holding the model itself: a freed model's id is
+    reused by the next one built (a second Mira in the same run got the first one's face, sunk inside her head)"""
+    v = cache.get(k)
+    return v[1] if v is not None and v[0] is model else None
+
+
 def surface_for(ch: Character, iso=0.5):
     key = (id(ch.model), iso)
-    if key not in _surf_cache:
+    s = _hit(_surf_cache, key, ch.model)
+    if s is None:
         # the face is painted on the model without what stands in front of it (Alder's spectacles)
-        _surf_cache[key] = Surface(getattr(ch, 'decal_model', None) or ch.model, sigma=0.75, iso=iso)
-    return _surf_cache[key]
+        s = Surface(getattr(ch, 'decal_model', None) or ch.model, sigma=0.75, iso=iso)
+        _surf_cache[key] = (ch.model, s)
+    return s
 
 
 KIT_ISO = 0.22      # the kit's big faces lie on the model's outer shell, clear of every voxel corner
@@ -32,15 +41,16 @@ _quad_cache = {}
 
 def pattern_quads(ch: Character, pal: dict, pal_key: str):
     k = (id(ch.model), pal_key, 'pattern')
-    if k in _quad_cache:
-        return _quad_cache[k]
+    hit = _hit(_quad_cache, k, ch.model)
+    if hit is not None:
+        return hit
     surf = surface_for(ch)
     out = []
     for frame, ext, fn in ch.pattern_decals:
         cv = Canvas(*ext, cell=0.08)
         fn(cv, pal)
         out += project_canvas(surf, frame, cv, PATTERN_MID, lift=0.06)
-    _quad_cache[k] = out
+    _quad_cache[k] = (ch.model, out)
     return out
 
 
@@ -50,8 +60,9 @@ KIT_LIFT = 0.12
 
 def face_quads(ch: Character, pal: dict, pal_key: str, expr: str):
     k = (id(ch.model), pal_key, expr)
-    if k in _quad_cache:
-        return _quad_cache[k]
+    hit = _hit(_quad_cache, k, ch.model)
+    if hit is not None:
+        return hit
     from face_kit import parse, extent as kit_extent
     kit = parse(expr) is not None
     surf = surface_for(ch, KIT_ISO if kit else 0.5)
@@ -59,7 +70,7 @@ def face_quads(ch: Character, pal: dict, pal_key: str, expr: str):
     cv = Canvas(*ext, cell=0.07)
     paint_face(ch, cv, pal, expr)
     q = project_canvas(surf, ch.face, cv, FACE_MID, lift=KIT_LIFT if kit else FACE_LIFT)
-    _quad_cache[k] = q
+    _quad_cache[k] = (ch.model, q)
     return q
 
 

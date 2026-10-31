@@ -20,7 +20,7 @@ sys.path.insert(0, HERE)
 
 import scene_pack  # noqa: E402
 
-SCALARS = scene_pack.SCALARS + ('sky_world', 'zmax', 'keep_alpha', 'polylines', 'cameras')
+SCALARS = scene_pack.SCALARS + ('sky_world', 'zmax', 'keep_alpha', 'polylines', 'cameras', 'anim')
 
 
 def pack(vs, path):

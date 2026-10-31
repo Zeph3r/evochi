@@ -65,7 +65,7 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _introTimer = Timer(const Duration(milliseconds: 3700), _endIntro);
+    _introTimer = Timer(const Duration(milliseconds: 4500), _endIntro); // her line acted through (mira_talk), then the nest
     LumenPrint.warm();
     CineTimeline.load().then((tl) {
       if (!mounted) return;

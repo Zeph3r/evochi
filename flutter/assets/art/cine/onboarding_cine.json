@@ -95,7 +95,7 @@
   },
   {
    "id": "map_hollow",
-   "dur": 4.0,
+   "dur": 4.6,
    "plate": "map_faded",
    "camera": {
     "from": {
@@ -112,27 +112,23 @@
    },
    "layers": [
     {
-     "kind": "reveal",
-     "plate": "map_lit",
-     "how": "trails",
-     "from": -10.0,
-     "to": -9.0,
-     "reverse": true,
-     "dim_from": 0.0,
-     "dim_to": 2.2
-    },
-    {
-     "kind": "reveal",
-     "plate": "map_hollow",
-     "how": "edges",
-     "from": 0.4,
-     "to": 3.6
+     "kind": "hollow",
+     "lit": "map_lit",
+     "faded": "map_faded",
+     "hollow": "map_hollow",
+     "field": "map_hollow_field",
+     "from": 0.2,
+     "to": 4.3,
+     "p0": 0.0,
+     "p1": 0.93,
+     "dim": 1.0,
+     "shake": 0.6
     }
    ],
    "caption": {
     "text": "Time and the Hollow dimmed them.",
     "in": 0.6,
-    "out": 3.8
+    "out": 4.3
    },
    "sfx": {
     "t": 0.4,
@@ -157,6 +153,18 @@
     "ease": "inout"
    },
    "layers": [
+    {
+     "kind": "hollow",
+     "lit": "map_lit",
+     "faded": "map_faded",
+     "hollow": "map_hollow",
+     "field": "map_hollow_field",
+     "from": 0.0,
+     "to": 1.0,
+     "p0": 0.93,
+     "p1": 0.93,
+     "dim": 1.0
+    },
     {
      "kind": "reveal",
      "plate": "map_lit",
@@ -218,6 +226,147 @@
      ],
      "speed": 55,
      "size": 7
+    },
+    {
+     "kind": "villagers",
+     "tint": [
+      0.6,
+      0.55,
+      0.74
+     ],
+     "walkers": [
+      {
+       "who": "npc_alder",
+       "path": [
+        [
+         600,
+         1235
+        ],
+        [
+         574,
+         1080
+        ],
+        [
+         552,
+         968
+        ]
+       ],
+       "speed": 42,
+       "h": [
+        66,
+        46
+       ],
+       "lantern": true,
+       "fps": 10
+      },
+      {
+       "who": "npc_mira",
+       "path": [
+        [
+         478,
+         902
+        ],
+        [
+         430,
+         872
+        ],
+        [
+         392,
+         842
+        ]
+       ],
+       "speed": 24,
+       "h": [
+        38,
+        34
+       ],
+       "fps": 11,
+       "face": [
+        -0.2,
+        -1.0
+       ]
+      },
+      {
+       "who": "npc_bram",
+       "path": [
+        [
+         592,
+         908
+        ],
+        [
+         690,
+         902
+        ],
+        [
+         765,
+         888
+        ]
+       ],
+       "speed": 30,
+       "h": [
+        42,
+        40
+       ],
+       "lantern": true,
+       "fps": 10,
+       "start": 0.3
+      },
+      {
+       "who": "npc_pip",
+       "path": [
+        [
+         680,
+         880
+        ],
+        [
+         600,
+         878
+        ],
+        [
+         470,
+         884
+        ]
+       ],
+       "speed": 36,
+       "h": [
+        30,
+        30
+       ],
+       "fps": 14,
+       "start": 0.6
+      },
+      {
+       "who": "s01",
+       "look": "amber",
+       "circle": [
+        430,
+        1065,
+        34
+       ],
+       "speed": 52,
+       "h": [
+        24,
+        28
+       ],
+       "fps": 16
+      },
+      {
+       "who": "s01",
+       "look": "ocean",
+       "circle": [
+        430,
+        1065,
+        34
+       ],
+       "speed": 52,
+       "h": [
+        24,
+        28
+       ],
+       "fps": 16,
+       "phase": 2.4
+      }
+     ]
     }
    ],
    "caption": {

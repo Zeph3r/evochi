@@ -41,6 +41,16 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
+# the village at dusk, lived in: who walks where in village_dusk (plate px), how tall they stand there
+VILLAGERS = [
+    {'who': 'npc_alder', 'path': [[600, 1235], [574, 1080], [552, 968]], 'speed': 42, 'h': [66, 46], 'lantern': True, 'fps': 10},
+    {'who': 'npc_mira', 'path': [[478, 902], [430, 872], [392, 842]], 'speed': 24, 'h': [38, 34], 'fps': 11, 'face': [-0.2, -1.0]},
+    {'who': 'npc_bram', 'path': [[592, 908], [690, 902], [765, 888]], 'speed': 30, 'h': [42, 40], 'lantern': True, 'fps': 10, 'start': 0.3},
+    {'who': 'npc_pip', 'path': [[680, 880], [600, 878], [470, 884]], 'speed': 36, 'h': [30, 30], 'fps': 14, 'start': 0.6},
+    {'who': 's01', 'look': 'amber', 'circle': [430, 1065, 34], 'speed': 52, 'h': [24, 28], 'fps': 16},
+    {'who': 's01', 'look': 'ocean', 'circle': [430, 1065, 34], 'speed': 52, 'h': [24, 28], 'fps': 16, 'phase': 2.4},
+]
+
 # ------------------------------------------------------------------------------------------------ the cut ----
 SHOTS = [
     {'id': 'black_print', 'dur': 1.4, 'plate': None, 'bg': '#000000',
@@ -55,17 +65,22 @@ SHOTS = [
      'camera': {'from': {'cx': 0.36, 'cy': 0.55, 'zoom': 1.45}, 'to': {'cx': 0.62, 'cy': 0.42, 'zoom': 1.45}, 'ease': 'inout'},
      'layers': [{'kind': 'walkers', 'n': 7, 'speed': 0.12, 'size': 0.012}],
      'caption': {'text': 'The Evochi watched over them.', 'in': 0.3, 'out': 2.8}},
-    {'id': 'map_hollow', 'dur': 4.0, 'plate': 'map_faded',
+    # the Hollow takes the map (flutter/shaders/hollow_fx.frag over hollow_field.py's field): it breaks out at the far
+    # places and along the north edge, runs down the trails putting their lights out, a violet front burning with
+    # sparks and ash rising off it, the room going dark, until only the village still glows
+    {'id': 'map_hollow', 'dur': 4.6, 'plate': 'map_faded',
      'camera': {'from': {'cx': 0.5, 'cy': 0.45, 'zoom': 1.25}, 'to': {'cx': 0.5, 'cy': 0.5, 'zoom': 1.0}, 'ease': 'inout'},
-     'layers': [{'kind': 'reveal', 'plate': 'map_lit', 'how': 'trails', 'from': -10.0, 'to': -9.0, 'reverse': True, 'dim_from': 0.0, 'dim_to': 2.2},
-                {'kind': 'reveal', 'plate': 'map_hollow', 'how': 'edges', 'from': 0.4, 'to': 3.6}],
-     'caption': {'text': 'Time and the Hollow dimmed them.', 'in': 0.6, 'out': 3.8},
+     'layers': [{'kind': 'hollow', 'lit': 'map_lit', 'faded': 'map_faded', 'hollow': 'map_hollow', 'field': 'map_hollow_field',
+                 'from': 0.2, 'to': 4.3, 'p0': 0.0, 'p1': 0.93, 'dim': 1.0, 'shake': 0.6}],
+     'caption': {'text': 'Time and the Hollow dimmed them.', 'in': 0.6, 'out': 4.3},
      'sfx': {'t': 0.4, 'name': 'hollow_creep'}},
     {'id': 'map_reignite', 'dur': 3.0, 'plate': 'map_hollow',
      'camera': {'from': {'cx': 0.33, 'cy': 0.68, 'zoom': 1.9}, 'to': {'cx': 0.33, 'cy': 0.66, 'zoom': 2.0}, 'ease': 'inout'},
      # footsteps walk the dim grove trail, each print landing and cooling to an ember, and the trail lights
      # up just behind them: the footstep on the sound, the light answering it
-     'layers': [{'kind': 'reveal', 'plate': 'map_lit', 'how': 'trail', 'trail': 'grove', 'from': 1.1, 'to': 4.1, 'flicker': True, 'glow': True},
+     'layers': [{'kind': 'hollow', 'lit': 'map_lit', 'faded': 'map_faded', 'hollow': 'map_hollow', 'field': 'map_hollow_field',
+                 'from': 0.0, 'to': 1.0, 'p0': 0.93, 'p1': 0.93, 'dim': 1.0},
+                {'kind': 'reveal', 'plate': 'map_lit', 'how': 'trail', 'trail': 'grove', 'from': 1.1, 'to': 4.1, 'flicker': True, 'glow': True},
                 {'kind': 'steps', 'plate': 'map_lit', 'trail': 'grove', 'from': 0.9, 'to': 2.7, 'start': 0.0, 'end': 0.6,
                  'stride': 0.05, 'size': 0.042, 'squash': 0.8, 'ember': 0.4}],
      'caption': {'text': 'But Lumen still answers to footsteps.', 'in': 1.1, 'out': 3.0},
@@ -73,7 +88,11 @@ SHOTS = [
     {'id': 'village_push', 'dur': 4.0, 'plate': 'village_dusk', 'xfade': 0.6,
      'camera': {'from': {'cx': 0.5, 'cy': 0.5, 'zoom': 1.0}, 'to': {'cx': 'anchor:glasshouse_window', 'zoom': 2.6}, 'ease': 'in'},
      # birds flying home over the ridge (the app draws them; the plate itself lives through fx_zones/cine.py)
-     'layers': [{'kind': 'birds', 'n': 5, 'y': [40, 150], 'speed': 55, 'size': 7}],
+     'layers': [{'kind': 'birds', 'n': 5, 'y': [40, 150], 'speed': 55, 'size': 7},
+                # the village lived in (flutter/lib/features/onboarding/village_life.dart): Alder up the path with his
+                # lantern, Mira taking her pot to the Glasshouse, Bram home past the forge, Pip crossing the green,
+                # two hatchlings chasing each other round the grass (plate px; h: their height there, near to far)
+                {'kind': 'villagers', 'tint': [0.6, 0.55, 0.74], 'walkers': VILLAGERS}],
      'caption': {'text': 'And something here is still glowing.', 'in': 0.4, 'out': 3.4}},
     {'id': 'glasshouse', 'dur': 2.2, 'plate': 'glasshouse_night', 'xfade': 0.8,
      'camera': {'from': {'cx': 'anchor:glasshouse_window', 'zoom': 1.15}, 'to': {'cx': 'anchor:glasshouse_window', 'zoom': 1.35}, 'ease': 'out'},

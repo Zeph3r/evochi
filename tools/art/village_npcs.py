@@ -47,8 +47,8 @@ def recolor(M, mask, col):
 
 
 # animatable parts: every voxel belongs to one (Model.layer); pivots live on the Character
-BODY, HEAD, ARM = 0, 1, 2
-PART_NAMES = ('body', 'head', 'arm')
+BODY, HEAD, ARM, JAW = 0, 1, 2, 3
+PART_NAMES = ('body', 'head', 'arm', 'jaw')   # (a jaw only where a cinematic opens one: build_pip(jaw=True))
 
 
 def tag(M, mask, part):
@@ -295,7 +295,8 @@ def build_bram(res=2) -> Character:
 # ----------------------------------------------------------------------------
 # Pip the Courier: upright rust sparrow, navy post cap, messenger satchel
 # ----------------------------------------------------------------------------
-def build_pip(res=2) -> Character:
+def build_pip(res=2, jaw=False) -> Character:
+    """jaw: the lower half of the beak its own part (pivot at its root), for the cinematics' talking"""
     M = Model((-18, -1, -16), (18, 38, 16), [], res=res)
     FEATH, STRIPE, BELLY = '#D9954D', '#AD652F', '#F3E5C9'
     NAVY, NAVY_HI, GOLD = '#203B50', '#2F5571', '#E8B956'
@@ -381,6 +382,12 @@ def build_pip(res=2) -> Character:
     put(M, roll, '#FBF5E8')
     put(M, roll & (np.abs(M.Z - 3.3) < 0.5), '#203B50', empty=False)
     tag(M, (head | beak | cap | visor | (M.Y > 22.0)) & ~held & ~body, HEAD)
+    if jaw:
+        # the lower beak, and a dark mouth just inside it that shows when it drops
+        low = beak & (M.Y < 17.4)
+        inside = (M.Z > 6.0) & (M.Z < 7.4) & (np.abs(M.X) < 1.3) & (np.abs(M.Y - 17.3) < 0.7) & (M.m > 0) & ~low
+        recolor(M, inside, '#4A2418')
+        tag(M, low, JAW)
     face = Frame(center=(0, 19.2, 1.0), n=(0, 0.02, 1), reach=20)
     ch = Character(stage=0, model=M, face=face, eye_u=3.4, eye_v=1.5, eye_w=1.6, eye_h=3.0,
                    cheek_u=4.9, cheek_v=-1.0, cheek_w=1.6, cheek_h=1.2, mouth_v=-4.4,
@@ -389,7 +396,7 @@ def build_pip(res=2) -> Character:
     ch.palette = face_palette('#E69878', brow='#7A4E2E')
     ch.no_mouth = True
     ch.decal_model, ch.no_decal = bare, hat
-    ch.pivots = {'head': (0, 14.6, 0.6), 'arm': (-7.4, 13.6, 1.4)}
+    ch.pivots = {'head': (0, 14.6, 0.6), 'arm': (-7.4, 13.6, 1.4), 'jaw': (0, 17.3, 7.2)}
     ch.size = 0.84
     return ch
 

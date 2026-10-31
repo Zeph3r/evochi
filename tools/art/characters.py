@@ -486,6 +486,21 @@ def paint_face(ch: Character, cv: Canvas, pal: dict, expr: str):
                 cv.paint(cv.m_stroke([(x - 0.18, ch.cheek_v - ch.cheek_h * 0.3), (x + 0.18, ch.cheek_v + ch.cheek_h * 0.3)], lw * 0.55),
                          mouth, 0.55, lit=0.0)
         smile(1.1, 0.42)
+    # ---- talking (the cinematics' animated lines, cine_anim.py): eyes open on you, the mouth through its shapes
+    # as the words come; 'talk_happy' the closed-eye smile still talking
+    elif expr in ('talk_a', 'talk_o', 'talk_e', 'talk_happy'):
+        cheeks(w=1.1 if expr == 'talk_happy' else 1.0)
+        if expr == 'talk_happy':
+            for s in (-1, 1):
+                cv.paint(cv.m_arc(s * eu, ev - eh * 0.25, ew * 0.85, eh * 0.38, 15, 165, lw * 1.25), E, lit=0.0)
+        else:
+            eyes()
+        if expr == 'talk_o':
+            cv.paint(cv.m_ellipse(0, mv - 0.35, 0.62, 0.72), pal['mouth_in'], lit=0.0)
+        elif expr == 'talk_e':
+            open_mouth(2.0, 0.9, tongue=False)
+        else:
+            open_mouth(2.0 if expr == 'talk_a' else 2.3, 1.45, tongue=True)
     # ---- the cinematics only (the Wilds' boss entrance; not in the sprite sheets): the Expression Style Kit's
     # faces (face_kit.py), 'shout' / 'strain' / 'fierce', or with a personality, 'fierce:calm'
     elif expr.split(':')[0] in ('shout', 'strain', 'fierce', 'surprise', 'effort', 'focus', 'set', 'whoop', 'gaze', 'ready',

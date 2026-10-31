@@ -23,6 +23,8 @@ import '../../app/theme.dart';
 import '../../core/services/asset_manifest.dart';
 import '../shared/live_scene.dart';
 import '../shared/widgets.dart';
+import 'hollow_fx.dart';
+import 'village_life.dart';
 
 const cineDir = 'assets/art/cine';
 
@@ -368,6 +370,11 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
   // the plates that live (tools/art/fx_zones/cine.py): their masks, and the scenes' shader
   final Map<String, ui.Image> _masks = {};
   ui.FragmentShader? _shader;
+  // the Hollow taking the map: its shader and field
+  ui.FragmentShader? _hollowShader;
+  HollowField? _hollowField;
+  // the villagers out walking (village_life.dart): their walk sheets
+  final Map<String, WalkSheet> _walkSheets = {};
 
   @override
   void initState() {
@@ -378,11 +385,34 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
       if (!mounted) return;
       _tl = tl;
       final names = <String>{};
+      String? field;
       for (final s in tl.shots) {
         if (s['plate'] != null) names.add(s['plate'] as String);
         for (final l in (s['layers'] as List? ?? const [])) {
           if (l['plate'] != null) names.add(l['plate'] as String);
+          if (l['kind'] == 'villagers') {
+            for (final w in (l['walkers'] as List).cast<Map<String, dynamic>>()) {
+              final key = '${w['who']}/${w['look'] ?? 'default'}';
+              WalkSheet.load(w['who'] as String, (w['look'] as String?) ?? 'default').then((ws) {
+                if (mounted && ws != null) _walkSheets[key] = ws;
+              });
+            }
+          }
+          if (l['kind'] == 'hollow') {
+            for (final k in const ['lit', 'faded', 'hollow']) {
+              if (l[k] != null) names.add(l[k] as String);
+            }
+            field = l['field'] as String?;
+          }
         }
+      }
+      if (field != null) {
+        HollowField.load('$cineDir/$field.png').then((f) {
+          if (mounted) _hollowField = f;
+        });
+        HollowField.program().then((p) {
+          if (mounted && p != null) _hollowShader ??= p.fragmentShader();
+        });
       }
       // the plates that live: their masks and the shader, streaming in like the plates
       for (final n in names) {
@@ -418,6 +448,7 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
   void dispose() {
     _ticker.dispose();
     _shader?.dispose();
+    _hollowShader?.dispose();
     super.dispose();
   }
 
@@ -468,7 +499,8 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
         if (tl != null)
           CustomPaint(
             painter: _CinePainter(tl, _plates, _shot, _t - _shotStart, DefaultTextStyle.of(context).style,
-                live: widget.reducedMotion ? null : (shader: _shader, masks: _masks, t: _t)),
+                live: widget.reducedMotion ? null : (shader: _shader, masks: _masks, t: _t),
+                hollow: (shader: _hollowShader, field: _hollowField), walkSheets: _walkSheets),
             willChange: true,
           ),
         Positioned(
@@ -497,7 +529,7 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
 }
 
 class _CinePainter extends CustomPainter {
-  _CinePainter(this.tl, this.plates, this.shotIndex, this.ts, this.textStyle, {this.live});
+  _CinePainter(this.tl, this.plates, this.shotIndex, this.ts, this.textStyle, {this.live, this.hollow, this.walkSheets = const {}});
   final CineTimeline tl;
   final Map<String, ui.Image> plates;
   final int shotIndex;
@@ -507,6 +539,12 @@ class _CinePainter extends CustomPainter {
   /// the living plates (trees, water, lights: live_scene.dart's shader and emitters); null under reduced
   /// motion, when they stay still with their lights on
   final ({ui.FragmentShader? shader, Map<String, ui.Image> masks, double t})? live;
+
+  /// the Hollow's shader and field (hollow_fx.dart), as they load
+  final ({ui.FragmentShader? shader, HollowField? field})? hollow;
+
+  /// the villagers' walk sheets, by 'who/look'
+  final Map<String, WalkSheet> walkSheets;
 
   Size _size(ui.Image im) => Size(im.width.toDouble(), im.height.toDouble());
 
@@ -602,7 +640,15 @@ class _CinePainter extends CustomPainter {
     }
     for (final L in (shot['layers'] as List? ?? const []).cast<Map<String, dynamic>>()) {
       final kind = L['kind'] as String;
-      if (kind == 'reveal' && plate != null && g != null) {
+      if (kind == 'hollow' && plate != null && g != null) {
+        _paintHollow(c, size, L, g, ts);
+      } else if (kind == 'villagers' && plate != null && g != null) {
+        final gg = g;
+        c.save();
+        c.clipRect(Offset.zero & size);
+        paintVillagers(c, L, ts, walkSheets, gg.scale, (p) => Offset((p.dx - gg.origin.dx) * gg.scale, (p.dy - gg.origin.dy) * gg.scale));
+        c.restore();
+      } else if (kind == 'reveal' && plate != null && g != null) {
         final over = plates[L['plate'] as String];
         if (over == null) continue;
         var p = ((ts - (L['from'] as num).toDouble()) / math.max(1e-6, (L['to'] as num).toDouble() - (L['from'] as num).toDouble())).clamp(0.0, 1.0);
@@ -748,6 +794,40 @@ class _CinePainter extends CustomPainter {
         c.drawRect(Offset.zero & size, Paint()..color = Colors.black.withValues(alpha: k));
       }
     }
+  }
+
+  /// the Hollow taking the map: how far it has come at [ts] in the shot, eased from p0 to p1 over [from, to]
+  double _hollowP(Map<String, dynamic> L, double ts) {
+    final f = (L['from'] as num).toDouble(), t = (L['to'] as num).toDouble();
+    final u = ((ts - f) / math.max(1e-3, t - f)).clamp(0.0, 1.0);
+    final p0 = (L['p0'] as num).toDouble(), p1 = (L['p1'] as num).toDouble();
+    return p0 + (p1 - p0) * _ease(u, 'inout');
+  }
+
+  void _paintHollow(Canvas c, Size size, Map<String, dynamic> L, ({double scale, Offset origin}) g, double ts) {
+    final lit = plates[L['lit']], faded = plates[L['faded']], hol = plates[L['hollow']];
+    final sh = hollow?.shader, field = hollow?.field;
+    final p = _hollowP(L, ts);
+    final p0 = (L['p0'] as num).toDouble(), p1 = (L['p1'] as num).toDouble();
+    final dim = ((L['dim'] as num?) ?? 1).toDouble() * (p1 > p0 ? ((p - p0) / (p1 - p0)) : 1.0).clamp(0.0, 1.0);
+    if (lit == null || faded == null || hol == null || sh == null || field == null) {
+      // (no shader here) the Hollow's plate over what was, darkening
+      if (hol != null) {
+        _drawPlate(c, size, hol, g, paint: Paint()..color = Colors.white.withValues(alpha: (p / 0.9).clamp(0.0, 1.0)));
+      }
+      c.drawRect(Offset.zero & size, Paint()..color = const Color(0xFF0D0716).withValues(alpha: 0.35 * dim));
+      return;
+    }
+    // a tremor as it comes (the room shudders with each surge)
+    final shake = ((L['shake'] as num?) ?? 0).toDouble() * (live == null ? 0 : 1);
+    var gg = g;
+    if (shake > 0 && p > 0.02 && p < p1 - 0.01) {
+      final k = shake * 2.2 * math.pow(math.sin(ts * 1.9) * 0.5 + 0.5, 3).toDouble();
+      gg = (scale: g.scale, origin: g.origin + Offset(math.sin(ts * 37.0) * k, math.cos(ts * 29.0) * k) / g.scale);
+    }
+    paintHollow(c, size, gg, sh,
+        lit: lit, faded: faded, hollow: hol, field: field, p: p, dim: dim, t: live?.t ?? ts,
+        progressAt: (ago) => _hollowP(L, ts - ago), motes: live != null);
   }
 
   void _edgeMask(Canvas c, Rect plate, double p) {

@@ -92,7 +92,7 @@ def main(out, expr='shout', stages=(2, 3)):
             q = probe_quads(ch, float(expr[3:]))
         else:
             q = CR.face_quads(ch, pal, 'amber', expr)
-        CR._quad_cache[(id(ch.model), 'amber', expr)] = q
+        CR._quad_cache[(id(ch.model), 'amber', expr)] = (ch.model, q)
         cen = np.array([d.center for d in q])
         off = ~on_head(st, cen)
         scale = 255 if max(np.max(d.color) for d in q) > 1.5 else 1

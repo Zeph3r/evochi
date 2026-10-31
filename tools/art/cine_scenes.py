@@ -1106,7 +1106,7 @@ def glasshouse_interior(S, P, M, rng, evening=True):
     return slope, ridge_y
 
 
-def _nest_scene(name, cam, eggs='all', mira=True, w=1400, h=2100, lift=None, mira_expr='happy', mira_pose=None):
+def _nest_scene(name, cam, eggs='all', mira=True, w=1400, h=2100, lift=None, mira_expr='happy', mira_pose=None, mira_faces=()):
     """the Glasshouse at evening with the nest of six eggs in the aisle and Mira beside it. eggs: 'all' | 'none' | a
     variant (that egg alone in the picture; the others still light and shadow)"""
     import village_scenes as VS
@@ -1143,7 +1143,7 @@ def _nest_scene(name, cam, eggs='all', mira=True, w=1400, h=2100, lift=None, mir
         chm = build_mira(res=CAST_RES)
         S.actors.append(Actor('mira', chm, npc_palette(chm, INK), 'mira', expr=mira_expr, pos=(-11.0, 0.0, -5.0),
                               yaw=math.radians(18 if cam is MIRA_CAM else -30), scale=0.42, camera=eggs in ('all', 'none'),
-                              pose=mira_pose))
+                              pose=mira_pose, faces=tuple(mira_faces)))
     if eggs not in ('all', 'none'):
         S.models = [(m[0], m[1], dict(m[2] if len(m) > 2 else {}, camera=False)) for m in S.models]
     S.anchors = dict(slots)
@@ -1191,6 +1191,25 @@ MIRA_TALK_POSES = {
     'mira_c4': ('happy', {'head': (2.0, 10.0, 4.0)}),
     'mira_c5': ('default', {'head': (10.0, 14.0, 6.0)}),
 }
+
+
+def scene_mira_anim():
+    """Mira close, her line acted frame by frame (cine_anim.perf_mira): the plate at rest, then her box per frame"""
+    import cine_anim
+    perf = cine_anim.perf_mira()
+    S = _nest_scene('mira_anim', MIRA_CAM, 'all', mira=True, mira_expr='default', mira_pose=dict(perf['rest']['pose']),
+                    mira_faces=perf['faces'])
+    S.anim = {k: perf[k] for k in ('actor', 'fps', 'rest', 'clips')}
+    return S
+
+
+def scene_pip_anim():
+    """Pip's line acted frame by frame (cine_anim.perf_pip), his lower beak free to open"""
+    import cine_anim
+    perf = cine_anim.perf_pip()
+    S = scene_pip(False, 'default', dict(perf['rest']['pose']), 'pip_anim', jaw=True, faces=perf['faces'])
+    S.anim = {k: perf[k] for k in ('actor', 'fps', 'rest', 'clips')}
+    return S
 
 
 def scene_mira_talk(name):
@@ -1298,7 +1317,7 @@ def scene_steps(matte=False):
 
 
 # ------------------------------------------------------------------------------------------ Pip's letter ----
-def scene_pip(gold=False, expr='default', pose=None, name=None):
+def scene_pip(gold=False, expr='default', pose=None, name=None, jaw=False, faces=()):
     """Beat 4: Pip the Courier up close, holding out the letter (his courier model, the letter in his wing). The
     gold-sealed founders' letter is the same shot with the seal recoloured. Rendered over the Lodge's counter in
     evening lantern light."""
@@ -1338,7 +1357,7 @@ def scene_pip(gold=False, expr='default', pose=None, name=None):
     lantern(S, P, M, (-13.0, 9.0, 8.5), s=0.7, lit=True, power=16.0, kelvin=2400)
     S.lights.append({'type': 'area', 'pos': (4.0, 14.0, 26.0), 'aim': (0.0, 7.0, 2.0), 'size': (20.0, 12.0), 'power': 30.0, 'color': 5500})
     S.models.append((M, (), {}))
-    chp = build_pip(res=CAST_RES)
+    chp = build_pip(res=CAST_RES, jaw=jaw)
     pal = npc_palette(chp, INK)
     if gold:
         # the founders' letter: a gold seal and a gold-edged envelope
@@ -1348,7 +1367,7 @@ def scene_pip(gold=False, expr='default', pose=None, name=None):
                 Mp.m[Mp.m == Mp.ids[src]] = Mp.mid(dst)
         pal['#E8B956'] = '#E8B956'
         pal['#F2D27A'] = '#F2D27A'
-    S.actors = [Actor('pip', chp, pal, 'pip', expr=expr, pos=ppos, yaw=math.radians(10), scale=sc_, pose=pose)]
+    S.actors = [Actor('pip', chp, pal, 'pip', expr=expr, pos=ppos, yaw=math.radians(10), scale=sc_, pose=pose, faces=tuple(faces))]
     S.anchors = {'letter': (ppos[0] - sc_ * 9.0, sc_ * 24.0, ppos[2] + sc_ * 4.0), 'face': face}
     S.grade = {'bloom': 0.22, 'bloom_threshold': 205.0, 'glow': 0.08, 'warm': 0.05, 'saturation': 1.05, 'vignette': 0.26,
                'split': {'highlights': '#FFD9A0', 'shadows': '#5A5A9A', 'amount': 0.1}, 'grain': 0.01}
@@ -1531,6 +1550,7 @@ SCENES = {
     **{n: (lambda n=n: scene_pip_pose(n)) for n in PIP_POSES},
     **{n: (lambda n=n: scene_nest_pose(n)) for n in MIRA_POSES}, 'pip_gold': lambda: scene_pip(True),
     **{n: (lambda n=n: scene_mira_talk(n)) for n in MIRA_TALK_POSES},
+    'mira_anim': scene_mira_anim, 'pip_anim': scene_pip_anim,
 }
 for _v in EGG_ORDER:
     SCENES['nest_egg_' + _v] = (lambda v=_v: scene_nest_egg(v))

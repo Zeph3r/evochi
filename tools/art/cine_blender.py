@@ -66,6 +66,8 @@ class Actor:
     # a pose: per part ('head', 'arm', 'body'), a turn about its pivot (pitch about x, yaw about up, roll about
     # the facing axis, degrees), for characters built in parts (village_npcs: Pip and Mira's heads and arms)
     pose: dict = None
+    # more faces packed alongside `expr`, for an animated scene to switch between (vs.anim: talking, blinking)
+    faces: tuple = ()
 
 
 def actor_arrays(a: Actor):
@@ -107,6 +109,11 @@ def actor_arrays(a: Actor):
         d = decal(face_quads(ch, a.pal, a.pal_key, a.expr))
         if d:
             decals['face'] = d
+    for e in a.faces or ():
+        if e != a.expr:
+            d = decal(face_quads(ch, a.pal, a.pal_key, e))
+            if d:
+                decals['face_' + e] = d
     head = 'head' if any(p['name'] == 'head' for p in parts) else 'body'
     # a smooth stand-in (as the villagers have, village_npc_render.shadow_proxy) casts the shadows and blocks the
     # bounce light, so the voxel steps never shade themselves: no dark lines down every spike and curve
@@ -197,11 +204,23 @@ def actor_objects(A, coll):
             ob = parts[pname][0]
             ob.rotation_mode = 'XYZ'
             ob.rotation_euler = (math.radians(pitch), -math.radians(roll), math.radians(yaw_))
+    # a jaw opens with the head it hangs from
+    if 'jaw' in parts and 'head' in parts:
+        jo, jorig = parts['jaw']
+        jo.parent = parts['head'][0]
+        jo.location = Vector(B(np.asarray(jorig) - np.asarray(parts['head'][1])) * SCALE)
+    faces = {}
     for key, d in A['decals'].items():
-        host, horigin = parts.get(A['head'] if key == 'face' else 'body', parts['body'])
+        isface = key == 'face' or key.startswith('face_')
+        host, horigin = parts.get(A['head'] if isface else 'body', parts['body'])
         ob = quads_object('%s %s' % (A['name'], key), d['Q'], d['COL'], horigin, mats['decal'], coll, attr={'Unlit': d['UNLIT']})
         ob.parent = host
         ob.location = (0, 0, 0)
+        if isface:
+            faces[key] = ob
+            ob.hide_render = key != 'face'      # the other faces wait for an animated frame to wear them
+    ACTOR_PARTS[A['name']] = {'root': root, 'root_loc': root.location.copy(), 'scale': A['scale'], 'faces': faces,
+                              'parts': {k: (ob, ob.location.copy(), ob.parent is root) for k, (ob, _) in parts.items()}}
     proxy = A.get('proxy')
     proxies = A.get('proxies') or []
     for ob in list(coll.objects):
@@ -221,6 +240,49 @@ def actor_objects(A, coll):
         pob.parent = host
         pob.location = (0, 0, 0)
     return root
+
+
+ACTOR_PARTS = {}    # per packed actor: its root, parts (object, rest location, hangs from the root) and faces
+
+
+def pose_actor(name, fr):
+    """one animated frame on a packed actor: `pose` {part: (pitch, yaw, roll) degrees}, `face` (an expression
+    packed in its faces, else its own), `breath` (the body rising: a fraction of its height, from the feet; what
+    sits on it rides up with it), `lift` (the whole actor up, its own model units)"""
+    R = ACTOR_PARTS[name]
+    b = float(fr.get('breath', 0.0))
+    pose = fr.get('pose') or {}
+    for pname, (ob, loc0, on_root) in R['parts'].items():
+        p, y, r = pose.get(pname, (0.0, 0.0, 0.0))
+        ob.rotation_mode = 'XYZ'
+        ob.rotation_euler = (math.radians(p), -math.radians(r), math.radians(y))
+        if pname == 'body':
+            ob.scale = (1 - b * 0.45, 1 - b * 0.45, 1 + b)
+        elif on_root:
+            ob.location = loc0 + Vector((0.0, 0.0, b * loc0.z))
+    R['root'].location = R['root_loc'] + Vector((0.0, 0.0, float(fr.get('lift', 0.0)) * R['scale'] * SCALE))
+    want = 'face_' + fr['face'] if fr.get('face') and 'face_' + fr['face'] in R['faces'] else 'face'
+    for k, ob in R['faces'].items():
+        ob.hide_render = k != want
+    bpy.context.view_layer.update()
+
+
+def _actor_box(sc, cam, name, W, H, margin=0.12):
+    """the actor's on-screen box (px, top-left origin), grown by `margin` of its size (more above: a nod or a
+    hop moves up)"""
+    root = ACTOR_PARTS[name]['root']
+    xs, ys = [], []
+    for ob in bpy.data.objects:
+        if ob.type != 'MESH' or not ob.name.startswith(name + ' '):
+            continue
+        for c in ob.bound_box:
+            co = world_to_camera_view(sc, cam, ob.matrix_world @ Vector(c))
+            xs.append(co.x * W)
+            ys.append((1 - co.y) * H)
+    del root
+    x0, x1, y0, y1 = min(xs), max(xs), min(ys), max(ys)
+    mw, mh = (x1 - x0) * margin, (y1 - y0) * margin
+    return [max(0, int(x0 - mw)), max(0, int(y0 - mh * 1.6)), min(W, int(x1 + mw + 1)), min(H, int(y1 + mh * 0.6 + 1))]
 
 
 def _proxy_object(name, proxy, origin, coll):
@@ -435,6 +497,9 @@ def render(vs, raw_path, mode='full'):
         setup_sky_world(skyw['sky'], skyw.get('strength', 0.6), skyw.get('ground'), skyw.get('horizon_width', 0.35))
     else:
         VB.setup_world(vs.world[0], vs.world[1])
+    anim = getattr(vs, 'anim', None)
+    if anim:
+        pose_actor(anim['actor'], anim['rest'])      # the plate: the character at rest
     zmax = getattr(vs, 'zmax', None) or 60.0
     raw_dir = os.path.dirname(os.path.abspath(raw_path))
     cameras = getattr(vs, 'cameras', None)
@@ -466,7 +531,38 @@ def render(vs, raw_path, mode='full'):
         out = {'w': W, 'h': H, 'anchors': anchors, 'lines': lines, 'camera': camd, 'zmax': zmax, 'scale': scale}
         if cameras:
             META_FRAMES[fname] = out
+    if anim and out is not None:
+        out['anim'] = render_anim(vs, sc, cam, anim, raw_dir, zmax, W, H)
     return out
+
+
+def render_anim(vs, sc, cam, anim, raw_dir, zmax, W, H):
+    """the actor's clips, frame by frame, in only its box (the rest of the shot is the plate): RAW/<name>_<clip>_<i>
+    _raw.png (cropped to the box) and its depth"""
+    box = anim.get('box') or _actor_box(sc, cam, anim['actor'], W, H)
+    x0, y0, x1, y1 = box
+    sc.render.use_persistent_data = True
+    sc.render.use_border = True
+    sc.render.use_crop_to_border = True
+    sc.render.border_min_x, sc.render.border_max_x = x0 / W, x1 / W
+    sc.render.border_min_y, sc.render.border_max_y = 1 - y1 / H, 1 - y0 / H
+    counts = {}
+    t0 = time.time()
+    for clip, frames in anim['clips'].items():
+        for i, fr in enumerate(frames):
+            pose_actor(anim['actor'], fr)
+            fname = '%s_%s_%03d' % (vs.name, clip, i)
+            _compositor_depth(sc, raw_dir, fname, zmax)
+            sc.render.filepath = os.path.join(raw_dir, fname + '_raw.png')
+            bpy.ops.render.render(write_still=True)
+            for fn in os.listdir(raw_dir):
+                if fn.startswith(fname + '_z') and fn.endswith('.exr') and fn != fname + '_z.exr':
+                    os.replace(os.path.join(raw_dir, fn), os.path.join(raw_dir, fname + '_z.exr'))
+        counts[clip] = len(frames)
+        print(f'{vs.name} {clip}: {len(frames)} frames, {time.time() - t0:.0f}s so far', flush=True)
+    sc.render.use_border = False
+    pose_actor(anim['actor'], anim['rest'])
+    return {'box': box, 'clips': counts, 'fps': anim.get('fps', 15)}
 
 
 # ------------------------------------------------------------------------------------------------- grade ----
