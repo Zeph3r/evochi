@@ -24,6 +24,7 @@ SETS = {
     'pip': {
         'frames': {'p0': 'pip_p0', 'p1': 'pip_p1', 'p2': 'pip_p2', 'p3': 'pip_p3', 'p4': 'pip_p4', 'p5': 'pip_p5', 'p6': 'pip_p6', 'p7': 'pip_p7'},
         'cap': 1100,
+        'focus': ('face', (-650, -400, 400, 250)),  # where to look for what moved: round an anchor (full-size px)
         'clips': {
             'blink': [['p1', 130]],
             'tilt': [['p2', 70], ['p3', 70], ['p4', 1500], ['p3', 70], ['p2', 70]],
@@ -34,6 +35,8 @@ SETS = {
     'nest_empty': {
         'frames': {'m0': 'nest_m0', 'm1': 'nest_m1', 'm2': 'nest_m2', 'm3': 'nest_m3', 'm4': 'nest_m4', 'm5': 'nest_m5'},
         'cap': 1200,
+        # (the Glasshouse's glass and lamps render a little differently every time: only round Mira counts)
+        'focus': ('mira_face', (-500, -500, 500, 700)),
         'clips': {
             'blink': [['m1', 130]],
             'look': [['m2', 80], ['m3', 80], ['m4', 1600], ['m3', 80], ['m2', 80]],
@@ -53,17 +56,26 @@ def cut(graded, out, name, spec, meta_in, meta_out):
     k = min(1.0, spec['cap'] / max(base.size))
     size = (round(base.width * k), round(base.height * k))
     packed = {f: im.resize(size, Image.LANCZOS) for f, im in frames.items()}
-    # where any pose differs from the rest pose (the character and whatever its light and shadow touch)
-    b = np.asarray(packed[keys[0]], np.int16)
+    # where any pose differs from the rest pose (the character and whatever its light and shadow touch), round the
+    # character only, ignoring specks
+    b = np.asarray(base, np.int16)
     diff = np.zeros(b.shape[:2], bool)
     for f in keys[1:]:
-        diff |= np.abs(np.asarray(packed[f], np.int16) - b).sum(-1) > 24
-    diff = ndimage.binary_opening(diff, iterations=1)
-    diff = ndimage.binary_dilation(diff, iterations=8)
+        diff |= np.abs(np.asarray(frames[f], np.int16) - b).sum(-1) > 60
+    anchor, (wx0, wy0, wx1, wy1) = spec['focus']
+    ax, ay = meta_in[spec['frames'][keys[0]]]['anchors'][anchor]
+    win = np.zeros_like(diff)
+    win[int(max(0, ay + wy0)):int(ay + wy1), int(max(0, ax + wx0)):int(ax + wx1)] = True
+    diff = ndimage.binary_opening(diff & win, iterations=2)
+    lab, n = ndimage.label(diff)
+    if n > 3:
+        sizes = ndimage.sum(diff, lab, range(1, n + 1))
+        diff = np.isin(lab, 1 + np.argsort(sizes)[-3:])
+    diff = ndimage.binary_dilation(diff, iterations=16)
     ys, xs = np.nonzero(diff)
     pad = FEATHER + 6
-    x0, x1 = max(0, xs.min() - pad), min(size[0], xs.max() + 1 + pad)
-    y0, y1 = max(0, ys.min() - pad), min(size[1], ys.max() + 1 + pad)
+    x0, x1 = max(0, int(xs.min() * k) - pad), min(size[0], int(xs.max() * k) + 1 + pad)
+    y0, y1 = max(0, int(ys.min() * k) - pad), min(size[1], int(ys.max() * k) + 1 + pad)
     w, h = x1 - x0, y1 - y0
     # the feather: full inside, fading to nothing at the box's edge (not where it meets the picture's own edge)
     yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
@@ -82,7 +94,7 @@ def cut(graded, out, name, spec, meta_in, meta_out):
         cell.putalpha(Image.fromarray(a))
         cx, cy = (i % cols) * w, (i // cols) * h
         sheet.paste(cell, (cx, cy))
-        rects[f] = [cx, cy, w, h]
+        rects[f] = [int(cx), int(cy), int(w), int(h)]
     sheet_name = name + '_poses.webp'
     sheet.save(os.path.join(out, sheet_name), 'WEBP', quality=86, method=6, exact=False)
     # the rest pose is the plate

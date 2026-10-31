@@ -111,13 +111,26 @@ def actor_arrays(a: Actor):
     # a smooth stand-in (as the villagers have, village_npc_render.shadow_proxy) casts the shadows and blocks the
     # bounce light, so the voxel steps never shade themselves: no dark lines down every spike and curve
     proxy = None
-    if a.shadow:
+    proxies = []
+    if a.shadow and a.pose is not None and has_parts:
+        # a posed character: a stand-in per part, turning with it (one for the whole body would stay at rest and
+        # swallow a turned head in its own shadow)
+        from village_npc_render import shadow_proxy
+        layer = getattr(M, 'layer', None)
+        for pid in np.unique(PART):
+            Mk = M.copy()
+            Mk.m[layer != pid] = 0
+            if not np.any(Mk.m):
+                continue
+            PV, PF, PC = shadow_proxy(Mk, a.pal, sigma=0.6 * M.res / 2.0)
+            proxies.append({'part': PART_NAMES[pid], 'V': PV, 'F': PF, 'C': PC})
+    elif a.shadow:
         from village_npc_render import shadow_proxy
         PV, PF, PC = shadow_proxy(M, a.pal, sigma=0.6 * M.res / 2.0)
         proxy = {'V': PV, 'F': PF, 'C': PC}
     # (a posed head or arm keeps the smooth stand-in's rest shadow: small turns, an invisible difference)
     return {'name': a.name, 'pos': list(a.pos), 'yaw': a.yaw, 'rot': list(a.rot), 'scale': a.scale, 'camera': a.camera,
-            'shadow': a.shadow, 'glow_k': a.glow_k, 'parts': parts, 'decals': decals, 'head': head, 'proxy': proxy,
+            'shadow': a.shadow, 'glow_k': a.glow_k, 'parts': parts, 'decals': decals, 'head': head, 'proxy': proxy, 'proxies': proxies,
             'pose': {k: list(v) for k, v in (a.pose or {}).items()}}
 
 
@@ -190,36 +203,48 @@ def actor_objects(A, coll):
         ob.parent = host
         ob.location = (0, 0, 0)
     proxy = A.get('proxy')
+    proxies = A.get('proxies') or []
     for ob in list(coll.objects):
         if ob.name.startswith(A['name'] + ' ') and ob.type == 'MESH':
             ob.visible_camera = bool(A['camera'])
-            ob.visible_shadow = bool(A['shadow']) and proxy is None
-            if proxy is not None:
+            ob.visible_shadow = bool(A['shadow']) and proxy is None and not proxies
+            if proxy is not None or proxies:
                 # the voxel surface neither shadows nor occludes itself; the smooth proxy does that
                 ob.visible_diffuse = False
                 ob.visible_glossy = False
     if proxy is not None:
-        V = B(np.asarray(proxy['V'], np.float64)) * SCALE
-        F = np.asarray(proxy['F'], np.int32)
-        me = bpy.data.meshes.new(A['name'] + ' proxy')
-        me.vertices.add(len(V))
-        me.vertices.foreach_set('co', V.astype(np.float32).ravel())
-        me.loops.add(F.size)
-        me.loops.foreach_set('vertex_index', F.ravel())
-        me.polygons.add(len(F))
-        me.polygons.foreach_set('loop_start', (np.arange(len(F)) * 3).astype(np.int32))
-        me.polygons.foreach_set('loop_total', np.full(len(F), 3, np.int32))
-        me.update(calc_edges=True)
-        ca = me.color_attributes.new('Col', 'FLOAT_COLOR', 'POINT')
-        lin = VB.srgb_to_linear(np.asarray(proxy['C'], np.float32)[:, :3])
-        ca.data.foreach_set('color', np.concatenate([lin, np.ones((len(V), 1), np.float32)], 1).astype(np.float32).ravel())
-        me.shade_smooth()
-        me.materials.append(_proxy_material())
-        pob = bpy.data.objects.new(A['name'] + '_proxy', me)
-        coll.objects.link(pob)
+        pob = _proxy_object(A['name'] + '_proxy', proxy, (0.0, 0.0, 0.0), coll)
         pob.parent = root
-        pob.visible_camera = False
+    for px in proxies:
+        host, horigin = parts.get(px['part'], parts['body'])
+        pob = _proxy_object('%s_proxy_%s' % (A['name'], px['part']), px, horigin, coll)
+        pob.parent = host
+        pob.location = (0, 0, 0)
     return root
+
+
+def _proxy_object(name, proxy, origin, coll):
+    """a smooth shadow stand-in (village_npc_render.shadow_proxy) as an object, its vertices about [origin]"""
+    V = B(np.asarray(proxy['V'], np.float64) - np.asarray(origin, np.float64)) * SCALE
+    F = np.asarray(proxy['F'], np.int32)
+    me = bpy.data.meshes.new(name)
+    me.vertices.add(len(V))
+    me.vertices.foreach_set('co', V.astype(np.float32).ravel())
+    me.loops.add(F.size)
+    me.loops.foreach_set('vertex_index', F.ravel())
+    me.polygons.add(len(F))
+    me.polygons.foreach_set('loop_start', (np.arange(len(F)) * 3).astype(np.int32))
+    me.polygons.foreach_set('loop_total', np.full(len(F), 3, np.int32))
+    me.update(calc_edges=True)
+    ca = me.color_attributes.new('Col', 'FLOAT_COLOR', 'POINT')
+    lin = VB.srgb_to_linear(np.asarray(proxy['C'], np.float32)[:, :3])
+    ca.data.foreach_set('color', np.concatenate([lin, np.ones((len(V), 1), np.float32)], 1).astype(np.float32).ravel())
+    me.shade_smooth()
+    me.materials.append(_proxy_material())
+    pob = bpy.data.objects.new(name, me)
+    coll.objects.link(pob)
+    pob.visible_camera = False
+    return pob
 
 
 def _proxy_material():

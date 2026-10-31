@@ -1184,7 +1184,8 @@ MIRA_POSES = {
 
 def scene_nest_pose(name):
     expr, pose = MIRA_POSES[name]
-    return _nest_scene(name, NEST_CAM, 'none', mira=True, mira_expr=expr, mira_pose=pose)
+    # (a pose, even the rest one, gives her a shadow stand-in per part, so every pose is lit alike)
+    return _nest_scene(name, NEST_CAM, 'none', mira=True, mira_expr=expr, mira_pose=pose or {})
 
 
 def scene_nest_egg(v):
@@ -1355,7 +1356,7 @@ PIP_POSES = {
 
 def scene_pip_pose(name):
     expr, pose = PIP_POSES[name]
-    return scene_pip(False, expr, pose, name)
+    return scene_pip(False, expr, pose or {}, name)
 
 
 # ------------------------------------------------------------------------------------- egg sprites, hatch ----
