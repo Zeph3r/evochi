@@ -133,6 +133,13 @@ quick part) and by `flutter analyze` and the test suite on the PC.
   the lanterns breathe, Bram's forge flickers, chimney smoke, fireflies); the cinematic player draws any plate
   with zones through `scene_fx.frag` and its emitters under the shot's camera.
 
+- **Pip and Mira in motion (decision A, done 31 Oct):** their shots re-rendered on the PC's GPU in poses (an
+  actor's head or arm turned about its pivot, each part with its own shadow stand-in); `tools/art/cine_poses.py`
+  cuts the feathered box where they move into one sheet per shot (`pip_poses.webp`, `nest_empty_poses.webp`,
+  `cine_poses.json` with the clips and idle timing), and `posed_plate.dart` plays it: Pip lifts the letter toward
+  you as he speaks, tilts his head, blinks; Mira blinks, looks down at the eggs, lifts her flower, looks back at
+  you, and looks down at the egg you pick. Adding a pose is a scene entry and a clip in `SETS`.
+
 ## Decisions (31 Oct)
 
 A and B approved as recommended: Pip and Mira get rendered pose layers; the three faces are painted (done:

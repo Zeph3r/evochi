@@ -16,6 +16,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart' show rootBundle;
 
 import '../../app/motion.dart';
+import '../../core/services/asset_manifest.dart';
 import 'cinematic_player.dart';
 
 /// Starts one of a posed plate's clips from outside (say, when the player picks an egg).
