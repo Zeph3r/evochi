@@ -2,8 +2,8 @@
 //
 // With the onboarding cinematic's pack (assets/art/cine/), Welcome is Pip's letter (Pip the Courier holding up his
 // sealed letter in the Trail Guild Lodge, asking where to deliver your letters) and Connect is the steps beat (the
-// Ocean Eggling, Mochi, walking down a dawn path, a glow walking the Lumen prints pressed in behind it: the
-// same footprint the cold open began with). Without the pack, both fall back to the scenes below.
+// Ocean Eggling, Mochi, walking down a dawn path, its steps landing on the path behind it one by one, each glowing
+// as it lands and gone a few steps later: the same footprint the cold open began with). Without the pack, both fall back to the scenes below.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -598,7 +598,7 @@ class _ConnectScreenState extends State<ConnectScreen> with SingleTickerProvider
   bool _busy = false;
   String? _note;
   // the prints lighting one after another along Mochi's walk, looping
-  late final AnimationController _walk = AnimationController(vsync: this, duration: const Duration(milliseconds: 4200));
+  late final AnimationController _walk = AnimationController(vsync: this, duration: const Duration(milliseconds: _StepsPainter.loopMs));
   Map<String, dynamic>? _steps; // the steps plate's cine.json entry
   bool _classic = false;
 
@@ -622,7 +622,6 @@ class _ConnectScreenState extends State<ConnectScreen> with SingleTickerProvider
   void didChangeDependencies() {
     super.didChangeDependencies();
     if (MediaQuery.of(context).disableAnimations) {
-      _walk.value = 1.0;
       _walk.stop();
     } else if (!_walk.isAnimating) {
       _walk.repeat();
@@ -654,10 +653,12 @@ class _ConnectScreenState extends State<ConnectScreen> with SingleTickerProvider
 
   Widget _stepsBeat(BuildContext context, GameController c, Map<String, dynamic> m) {
     final plate = CineFit.plateSize(m);
-    final prints = <Offset>[
+    // each print's centre, and where one unit across and one unit back from its toes land (its perspective)
+    final prints = <(Offset, Offset, Offset)>[
       for (var i = 0; i < 7; i++)
-        if (CineFit.anchor(m, 'print$i') case final a?) a,
+        if ((CineFit.anchor(m, 'print$i'), CineFit.anchor(m, 'print${i}_x'), CineFit.anchor(m, 'print${i}_y')) case (final a?, final x?, final y?)) (a, x, y),
     ];
+    final reduce = MediaQuery.of(context).disableAnimations;
     return Scaffold(
       backgroundColor: EvochiColor.panel,
       body: Column(children: [
@@ -668,12 +669,17 @@ class _ConnectScreenState extends State<ConnectScreen> with SingleTickerProvider
             final fit = CineFit(box.biggest, plate, alignment: const Alignment(0, 0.2));
             return Stack(fit: StackFit.expand, children: [
               const CinePlate('steps', alignment: Alignment(0, 0.2)),
+              // Mochi's steps on the path behind it, then Mochi drawn back over them (its own pixels from the plate),
+              // so a step never lands on it
               IgnorePointer(
                 child: AnimatedBuilder(
                   animation: _walk,
-                  builder: (_, __) => CustomPaint(painter: _PrintsPainter([for (final p in prints) fit.point(p)], _walk.value, plate.width * fit.k)),
+                  builder: (_, __) => CustomPaint(
+                    painter: _StepsPainter([for (final (a, x, y) in prints) (fit.point(a), fit.point(x), fit.point(y))], _walk.value, still: reduce),
+                  ),
                 ),
               ),
+              const IgnorePointer(child: CinePlate('steps_mochi', alignment: Alignment(0, 0.2))),
               const IgnorePointer(
                 child: DecoratedBox(
                   decoration: BoxDecoration(
@@ -786,35 +792,49 @@ class _Sheet extends StatelessWidget {
       );
 }
 
-/// Mochi's prints lighting one after another along its walk (the oldest, furthest up the path, first; the newest by
-/// its feet last), then fading together before the walk starts again. The same footprint as the cold open's.
-class _PrintsPainter extends CustomPainter {
-  _PrintsPainter(this.at, this.t, this.plateW);
-  final List<Offset> at; // print0 (newest, by Mochi) .. print6 (oldest)
-  final double t; // 0..1 through one walk
-  final double plateW; // the plate's drawn width
+/// Mochi's steps landing one after another on the path behind it (the oldest, furthest up the path, first; the
+/// newest just behind it last), each flaring as it lands, cooling to an ember and gone three steps later, as on the
+/// map. Each print lies in the ground's perspective (the plate's print anchors). The same footprint as the cold
+/// open's.
+class _StepsPainter extends CustomPainter {
+  _StepsPainter(this.prints, this.t, {this.still = false});
+
+  /// print0 (newest, just behind Mochi) .. print6 (oldest, up the path): (centre, one unit across, one unit back)
+  final List<(Offset, Offset, Offset)> prints;
+  final double t; // 0..1 through the loop
+  final bool still; // reduced motion: the trail as faint embers, nothing moving
+
+  static const loopMs = 5000;
+  static const _pace = 0.45; // s between steps: Mochi's waddle
+  static const _first = 0.25; // s into the loop the oldest lands
+
   @override
   void paint(Canvas c, Size size) {
-    final n = at.length;
-    if (n == 0) return;
-    // the prints are pressed into the path in the plate, an ember in each; a wave of light walks down them
-    // toward Mochi, each one brightening as it passes and cooling after
+    final n = prints.length;
+    final s = t * loopMs / 1000;
     for (var i = 0; i < n; i++) {
-      final order = n - 1 - i; // the oldest first
-      final since = t - order / n * 0.72;
-      if (since < 0) continue;
-      var glow = math.exp(-since / 0.14);
-      if (t > 0.86) glow *= (1 - (t - 0.86) / 0.14).clamp(0.0, 1.0);
-      // which way it walks there: toward the next (newer) print
-      final to = i > 0 ? at[i - 1] : at[i] + (at[i] - at[math.min(i + 1, n - 1)]);
-      final d = to - at[i];
-      final heading = math.atan2(d.dx, -d.dy * 2.4);
-      FootTrail.stamp(c, at[i], plateW * 0.042, heading: heading, glow: glow * 0.85, squash: 0.42, land: (since / 0.04).clamp(0.0, 1.0));
+      final (at, x, y) = prints[i];
+      double glow, opacity = 1, land = 1;
+      if (still) {
+        glow = 0.3;
+        opacity = 0.7;
+      } else {
+        // the oldest lands first, then each one nearer Mochi
+        final landed = _first + (n - 1 - i) * _pace;
+        final since = s - landed;
+        if (since < 0) continue;
+        // it lands bright, cools to an ember, and is gone a few steps later
+        glow = 0.3 + 0.7 * math.exp(-since / 0.3);
+        land = (since / 0.08).clamp(0.0, 1.0);
+        opacity = 1 - ((since - 3 * _pace) / 0.5).clamp(0.0, 1.0);
+        if (opacity <= 0) continue;
+      }
+      FootTrail.stampOn(c, at, x - at, y - at, glow: glow, land: land, opacity: opacity);
     }
   }
 
   @override
-  bool shouldRepaint(_PrintsPainter o) => o.t != t || o.at != at;
+  bool shouldRepaint(_StepsPainter o) => o.t != t || o.prints != prints || o.still != still;
 }
 
 /// What the system's step permission sheet will ask, drawn so it is familiar when it appears: the platform's

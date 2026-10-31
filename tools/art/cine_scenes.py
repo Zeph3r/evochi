@@ -1180,12 +1180,16 @@ def scene_aisle():
 
 
 # ------------------------------------------------------------------------------------- the steps screen ----
-def scene_steps():
-    """Beat 3, the steps screen: the Ocean Eggling (Mochi) walking toward us through dawn grass, every step it took
-    behind it a glowing Lumen print. Just Mochi and its trail (no sneakers: real-world props break the world), framed
-    on the Eggling with the prints leading the eye back up the path."""
+def scene_steps(matte=False):
+    """Beat 3, the steps screen: the Ocean Eggling (Mochi) walking toward us through dawn grass down a clean sandy
+    path. Its steps are the app's: each print lands, glows and fades on the path behind it (onboarding_screens.dart),
+    placed by the anchors here (print<k>: the foot's centre, print<k>_x / _y: where one unit across and one unit
+    back from the toes land, so the app draws each print in the ground's perspective). No real-world props (they
+    break the world). [matte]: Mochi alone on transparent (the rest hidden from the camera), the same frame, so the
+    app can draw Mochi back over the prints: a step behind it never lands on it."""
     cam = {'pos': (-3.0, 20.0, 50.0), 'target': (-1.5, 1.2, 0.5), 'fov': 36.0, 'focus': (-6.5, 1.5, 11.5), 'fstop': 3.6}
-    S = VScene('steps', 1400, 1400, cam, world=((0.9, 0.85, 0.75), 0.4), samples=160, transparent=True, sky=('#8FB8D8', '#F7D7A8'))
+    S = VScene('steps_matte' if matte else 'steps', 1400, 1400, cam, world=((0.9, 0.85, 0.75), 0.4), samples=24 if matte else 160,
+               transparent=True, sky=('#8FB8D8', '#F7D7A8'))
     S.sky_world = {'sky': ('#8FB8D8', '#F7D7A8'), 'ground': '#6F8F5A', 'strength': 0.3}
     S.lights.append({'type': 'sun', 'dir': (0.55, -0.42, -0.72), 'power': 1.5, 'color': 3200, 'angle': 2.5})
     S.zmax = 30.0
@@ -1225,13 +1229,17 @@ def scene_steps():
     hd = math.degrees(math.atan2(mdir[0], mdir[2]))
     across = np.array([mdir[2], 0.0, -mdir[0]])
     prints = []
+    s_ = 0.46  # the foot's size (foot_mask2d's units)
     for k in range(7):
         side = 1.0 if k % 2 == 0 else -1.0
         q = mpos - mdir * (3.4 + k * 3.4) + across * side * 1.2
-        # pressed into the sand, a faint ember in each, the newest (by Mochi) a little brighter
-        press_print(P, M, float(q[0]), float(q[2]), hd, 0.46, glow=0.24 - k * 0.025, colors=('#DDAA5C', '#D4A052'))
-        prints.append({'pos': (float(q[0]), -0.2, float(q[2])), 'heading': hd})
-    S.models.append((M, (), {}))
+        # the app's foot (FootTrail, one unit long, toes toward -y) scaled to this foot: K world units a unit
+        K = 10.0 * s_
+        c = q + mdir * 0.7 * s_
+        prints.append({'pos': (float(c[0]), 0.0, float(c[2])),
+                       'x': tuple(float(v) for v in (c + across * K)),
+                       'y': tuple(float(v) for v in (c - mdir * K))})
+    S.models.append((M, (), {'camera': False} if matte else {}))
     from cine_blender import Actor
     from characters import build_eggling
     from palettes import palette
@@ -1240,6 +1248,12 @@ def scene_steps():
     S.anchors = {'mochi': (float(mpos[0]), 6.0 * 0.26, float(mpos[2]))}
     for k, pr in enumerate(prints):
         S.anchors['print%d' % k] = pr['pos']
+        S.anchors['print%d_x' % k] = (pr['x'][0], 0.0, pr['x'][2])
+        S.anchors['print%d_y' % k] = (pr['y'][0], 0.0, pr['y'][2])
+    if matte:
+        S.keep_alpha = True
+        S.grade = {'keep_alpha': True}
+        return S
     S.grade = {'bloom': 0.4, 'bloom_threshold': 185.0, 'bloom_wide': 0.15, 'glow': 0.14, 'warm': 0.05, 'saturation': 1.08,
                'split': {'highlights': '#FFE0B0', 'shadows': '#6A6A9A', 'amount': 0.08}, 'vignette': 0.22, 'grain': 0.008,
                'mist': {'start': 18.0, 'end': 44.0, 'amount': 0.22, 'color': '#F4E2C4', 'power': 1.2}, 'sky_mix': 0.6}
@@ -1454,7 +1468,7 @@ SCENES = {
     'village_dusk': scene_village_dusk,
     'glasshouse_night': scene_glasshouse_night,
     'nest': scene_nest, 'nest_empty': scene_nest_empty, 'mira': scene_mira, 'aisle': scene_aisle,
-    'steps': scene_steps, 'pip': scene_pip, 'pip_gold': lambda: scene_pip(True),
+    'steps': scene_steps, 'steps_matte': lambda: scene_steps(True), 'pip': scene_pip, 'pip_gold': lambda: scene_pip(True),
 }
 for _v in EGG_ORDER:
     SCENES['nest_egg_' + _v] = (lambda v=_v: scene_nest_egg(v))

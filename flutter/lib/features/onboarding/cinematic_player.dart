@@ -11,6 +11,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -176,30 +177,45 @@ class FootTrail {
   /// [glow] 0..1; [squash] foreshortens the ground (1 = straight down on it); [side] steps it left or right
   static void stamp(Canvas c, Offset at, double size, {double heading = 0, double glow = 0.5, double squash = 1, double side = 0, double land = 1}) {
     if (glow <= 0.01) return;
-    final g = glow.clamp(0.0, 1.0);
     c.save();
     c.translate(at.dx, at.dy);
     c.scale(1, squash);
     c.rotate(heading);
     c.translate(side * size * 0.36, 0);
     c.scale(size * (1 + 0.12 * (1 - land))); // a touch bigger as the foot comes down, then settled
+    _layers(c, glow.clamp(0.0, 1.0));
+    c.restore();
+  }
+
+  /// one print laid on the ground in its own perspective: [at] is the foot's centre on screen, [ex] where one unit
+  /// across the foot lands from there and [ey] one unit back from the toes (a scene's print anchors give both)
+  static void stampOn(Canvas c, Offset at, Offset ex, Offset ey, {double glow = 0.5, double land = 1, double opacity = 1}) {
+    if (glow <= 0.01 || opacity <= 0.01) return;
+    final k = 1 + 0.12 * (1 - land);
+    c.save();
+    c.translate(at.dx, at.dy);
+    c.transform(Float64List.fromList([ex.dx * k, ex.dy * k, 0, 0, ey.dx * k, ey.dy * k, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1]));
+    _layers(c, glow.clamp(0.0, 1.0), opacity.clamp(0.0, 1.0));
+    c.restore();
+  }
+
+  static void _layers(Canvas c, double g, [double o = 1]) {
     // the halo first, then the pressed rim (the ground a shade darker on the far edge), then the light inside
     c.drawCircle(
         const Offset(0, -0.02),
         0.62,
         Paint()
           ..blendMode = BlendMode.plus
-          ..shader = ui.Gradient.radial(const Offset(0, -0.02), 0.62, [const Color(0xFFFFC14E).withValues(alpha: 0.32 * g), const Color(0x00FFC14E)]));
+          ..shader = ui.Gradient.radial(const Offset(0, -0.02), 0.62, [const Color(0xFFFFC14E).withValues(alpha: 0.32 * g * o), const Color(0x00FFC14E)]));
     // the body in amber (normal blending, so it stays gold on bright parchment and sand instead of washing out to
     // white), the light pooled in its middle added on top
-    c.drawPath(_foot.shift(const Offset(0, -0.04)), Paint()..color = const Color(0xFF4A2C10).withValues(alpha: 0.22 + 0.16 * g));
-    c.drawPath(_foot, Paint()..color = const Color(0xFFE59528).withValues(alpha: 0.22 + 0.5 * g));
+    c.drawPath(_foot.shift(const Offset(0, -0.04)), Paint()..color = const Color(0xFF4A2C10).withValues(alpha: (0.22 + 0.16 * g) * o));
+    c.drawPath(_foot, Paint()..color = const Color(0xFFE59528).withValues(alpha: (0.22 + 0.5 * g) * o));
     c.drawPath(
         _foot,
         Paint()
           ..blendMode = BlendMode.plus
-          ..shader = ui.Gradient.radial(const Offset(0, 0.05), 0.5, [const Color(0xFFFFE08A).withValues(alpha: 0.5 * g), const Color(0x00FFD27A)]));
-    c.restore();
+          ..shader = ui.Gradient.radial(const Offset(0, 0.05), 0.5, [const Color(0xFFFFE08A).withValues(alpha: 0.5 * g * o), const Color(0x00FFD27A)]));
   }
 
   /// a walk along [path] (screen points) up to [head] (0..1 of its length): a print every [stride] px,
