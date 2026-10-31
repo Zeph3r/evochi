@@ -305,7 +305,7 @@ class _Rec {
   Future<void> _preload() async {
     const palettes = ['amber', 'forest', 'coral', 'ocean', 'amethyst', 'obsidian'];
     final names = <String>[
-      'lumen_print', 'map_lit', 'map_faded', 'map_hollow', 'village_dusk', 'glasshouse_night', 'pip', 'pip_gold', 'steps', 'nest', 'nest_empty',
+      'lumen_print', 'map_lit', 'map_faded', 'map_hollow', 'village_dusk', 'glasshouse_night', 'pip', 'pip_gold', 'steps', 'steps_mochi', 'nest', 'nest_empty',
       for (final p in palettes) ...['nest_egg_$p', 'egg_${p}_0'],
       for (var k = 1; k < 4; k++) 'egg_${_palette}_$k',
       'egg_shards_$_palette',
