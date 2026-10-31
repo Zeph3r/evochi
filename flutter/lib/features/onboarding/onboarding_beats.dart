@@ -432,6 +432,7 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
   HatchPlan _plan = HatchPlan.fallback;
   final Set<int> _fired = {};
   bool _reduce = false;
+  double _zoom = 1;
 
   @override
   void initState() {
@@ -440,7 +441,12 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
     _ticker = createTicker((d) {
       if (!mounted) return;
       _clock.value = d.inMicroseconds / 1e6;
-      if (_phase == _HatchPhase.bursting || _phase == _HatchPhase.hatched) _beats();
+      if (_phase == _HatchPhase.bursting || _phase == _HatchPhase.hatched) {
+        _beats();
+        // the camera push: the scene (and the egg with it) is laid out again at the new zoom
+        final z = _zoomAt(_t);
+        if (z != _zoom) setState(() => _zoom = z);
+      }
     })..start();
     final c = context.read<GameController>();
     final noSteps = c.state.steps.connection == 'none';
@@ -529,6 +535,20 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
     if (_phase == _HatchPhase.bursting && u >= _plan.burst + 0.6) setState(() => _phase = _HatchPhase.hatched); // a plan with no emerge beat
   }
 
+  /// The camera through the hatch: it pushes in slowly on the egg while it shakes and cracks, holds through the
+  /// burst, and eases back out as the creature looks round, before the name card. The scene keeps the egg's
+  /// ground point where it is, so the push is on the egg.
+  double _zoomAt(double t) {
+    if (_reduce) return 1;
+    final u = t - _burstAt;
+    final b = _plan.burst;
+    if (u <= 0) return 1;
+    if (u < b) return 1 + 0.16 * Curves.easeInOut.transform(u / b);
+    if (u < b + 0.5) return 1.16;
+    final back = ((u - b - 0.5) / math.max(0.3, _plan.naming - b - 0.7)).clamp(0.0, 1.0);
+    return 1 + 0.16 * (1 - Curves.easeInOut.transform(back));
+  }
+
   /// A small knock to the whole scene as the shell breaks, dying away in a few tenths of a second.
   Offset _impulse(double t) {
     if (_reduce || _phase.index > _HatchPhase.hatched.index) return Offset.zero;
@@ -587,6 +607,7 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
               habitat: 'meadow',
               decor: c.state.placements,
               focus: Offset(0.5, gy),
+              zoom: _zoom,
               reducedMotion: reduce,
               pet: PetConfig(stage: p.stage, palette: p.paletteId, personality: p.personality, visible: showPet),
             ),

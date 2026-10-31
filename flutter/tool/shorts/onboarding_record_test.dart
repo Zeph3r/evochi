@@ -5,6 +5,7 @@
 // at 1080x1920), with the sounds the game made written down for the mix.
 //
 //   flutter test tool/shorts/onboarding_record_test.dart [--dart-define=ONB_UNTIL=22]   (just the first 22 s)
+//       [--dart-define=ONB_FROM=50]   (played through from the start, but only filmed from 50 s on: the hatch)
 //   python3 tools/shorts/encode_parts.py seg|audio|join ... (a long take, in pieces), or tools/shorts/encode.py
 //
 // Frames land in _shorts/onboarding/frames.rgba, with cues.json and meta.json (the format encode.py reads).
@@ -40,6 +41,7 @@ const _frame = Duration(microseconds: 1000000 ~/ fps);
 const _view = Size(360, 640);
 const _scale = 3.0; // 1080x1920
 const _limit = int.fromEnvironment('ONB_UNTIL'); // stop after this many seconds (0: the whole onboarding)
+const _from = int.fromEnvironment('ONB_FROM'); // film from this many seconds in (the rest still plays, unfilmed)
 const _palette = 'coral'; // the egg in the middle of the nest (the Ocean one sits at its right edge, off a narrow phone)
 final _stop = File('_transfer/stop_shorts.flag');
 
@@ -96,19 +98,21 @@ class _Rec {
   final cues = <Map<String, Object?>>[];
   late final GameController controller;
   RandomAccessFile? _raw;
-  int frame = 0;
+  int frame = 0; // frames filmed
+  int tick = 0; // frames played
   bool capturing = false;
   String _screen = '';
   final _sw = Stopwatch()..start();
 
-  double get t => frame / fps;
+  double get t => tick / fps;
+  bool get _filming => capturing && t >= _from;
 
   Future<void> run() async {
     tester.view.physicalSize = Size(_view.width * 3, _view.height * 3);
     tester.view.devicePixelRatio = 3;
     addTearDown(tester.view.reset);
     AudioService.record = cues;
-    AudioService.clock = () => capturing ? t : -1;
+    AudioService.clock = () => _filming ? t - _from : -1;
     _raw = await tester.runAsync(() => File('${dir.path}/frames.rgba').open(mode: FileMode.write));
     try {
       await _preload();
@@ -138,7 +142,7 @@ class _Rec {
       File('${dir.path}/cues.json').writeAsStringSync(jsonEncode(cues));
       File('${dir.path}/meta.json').writeAsStringSync(jsonEncode(meta));
     });
-    debugPrint('recorded $frame frames (${t.toStringAsFixed(1)} s) in ${(_sw.elapsedMilliseconds / 1000).toStringAsFixed(0)} s');
+    debugPrint('recorded $frame frames (${(frame / fps).toStringAsFixed(1)} s, from ${_from}s) in ${(_sw.elapsedMilliseconds / 1000).toStringAsFixed(0)} s');
   }
 
   // ----------------------------------------------------------------------------------- the take
@@ -215,17 +219,18 @@ class _Rec {
     if (_stop.existsSync()) throw StateError('stopped by _transfer/stop_shorts.flag');
     if (_limit > 0 && t >= _limit) throw _Cut();
     await tester.pump(_frame);
+    tick++;
     final s = _which();
     if (s != _screen) {
       _screen = s;
       await _settle();
-    } else if (frame % 10 == 0) {
+    } else if (tick % 10 == 0) {
       // anything else loading (a sheet's art, the shot list) gets a moment of real time
       await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 6)));
       await tester.pump();
     }
     await _snap();
-    if (frame % 30 == 0) debugPrint('frame $frame  t ${t.toStringAsFixed(1)}  $_screen  ${(_sw.elapsedMilliseconds / 1000).toStringAsFixed(0)} s');
+    if (tick % 30 == 0) debugPrint('frame $frame  t ${t.toStringAsFixed(1)}  $_screen  ${(_sw.elapsedMilliseconds / 1000).toStringAsFixed(0)} s');
   }
 
   String _which() {
@@ -251,7 +256,7 @@ class _Rec {
 
   Future<void> _snap() async {
     final ro = _shot.currentContext?.findRenderObject() as RenderRepaintBoundary?;
-    if (ro == null || !capturing) return;
+    if (ro == null || !_filming) return;
     final bytes = await tester.runAsync(() async {
       final img = await ro.toImage(pixelRatio: _scale);
       final bd = await img.toByteData(format: ui.ImageByteFormat.rawRgba);
