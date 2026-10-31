@@ -242,11 +242,11 @@ lights the first path after naming.
 
 | Plate | What it is |
 |---|---|
-| `lumen_print` | the golden Lumen footprint, an additive sprite on black (the app draws it with a plus blend) |
+| `lumen_print` | the golden Lumen footprint pressed into dark ground, the light pooled in the step: an additive sprite on black for the opening (the app draws it with a plus blend in a soft halo) |
 | `map_lit`, `map_faded`, `map_hollow` | Alder's map as a diorama on his desk: parchment, a relief of hills, groves, the lake and river, Sunlit Village, the Mossy Ruins, the Sentinel's gate, the cliffs and the cove, his lantern, compass, quill and hand; the trails as gold inlay, as faded ink, and with the Hollow's violet crystals and vines creeping in from the far edge. Same camera, so the app reveals one over another; `cine.json` carries the trails as polylines in plate pixels |
 | `village_dusk`, `glasshouse_night` | Sunlit Village from above at dusk, every window lit, the Glasshouse glowing (where the push-in starts), and the Glasshouse close with Mira in its open door (where it lands) |
 | `nest`, `nest_empty`, `nest_egg_<colour>`, `mira`, `aisle` | the Glasshouse inside at evening with a straw nest of six eggs and Mira beside it: the whole shot, the nest without eggs plus each egg alone as a sprite (for the pick), Mira close, and the aisle for the tracking shot |
-| `steps` | the step screen: the Ocean Eggling (Mochi) walking toward you beside a pair of sneakers on a dawn path, its Lumen prints trailing back up the path; the sneakers are their own fine model (`sneaker_model`: midsole and outsole with toe spring, a white upper with blue overlays, laces, tongue, an open collar, no maker's marks) |
+| `steps` | the step screen: the Ocean Eggling (Mochi) walking toward you down a dawn path, its Lumen prints pressed into the sand behind it (`press_print`: the foot carved a voxel deep, a faint ember in each, fading back up the path). No real-world props: they break the world |
 | `pip`, `pip_gold` | Pip standing in the Trail Guild Lodge holding up his sealed letter, the pigeonholes behind him and the sorting desk beside him; the founders' gold-sealed one |
 | `egg_<colour>_<0-3>`, `egg_shards_<colour>` | each egg as a Home-nest sprite (the Eggling's hero angle) at four crack stages, the cracks traced in Lumen gold across the side that faces you; the shell in four pieces for the hatch burst |
 | `elder_<colour>_<00-35>` | the three-second Elder glimpse: the Stage-3 Elder on a ring of its affinity's light, one orbit in 36 landscape frames at one distance (no zoom as it turns); the pick card opens it as a wide panel above the egg |
@@ -262,8 +262,16 @@ pass (`<plate>_z.exr`) for haze by distance, gradient skies that light the scene
 actor hidden from the camera still lights and shadows, so an egg comes out as its own sprite lit by the room)
 and a film grade (bloom, soft glow, haze, warm highlights and cool shadows, vignette, grain).
 
+**Footsteps** everywhere after the opening are `FootTrail` (cinematic_player.dart): the Eggling's foot drawn in
+code, pressed into the ground (a dark rim, amber body, the light pooled inside), flaring as it lands and cooling to
+an ember, a few motes off the newest. The walkers on the map leave fading trails of them; on the reignite shot they
+walk the grove trail and its light follows just behind (a `steps` layer, the trail grown by distance); after naming
+they walk on from where the name lands while the light spreads both ways; on the steps screen a glow walks the
+prints pressed into the plate toward Mochi. Reveals draw their mask first and keep the lit plate inside it
+(`srcIn`), so a reveal shows only what has been reached.
+
 **The cut** is `tools/art/onboarding_cine.py`: the shot list (camera moves over the plates, reveals that grow
-along the trails or in from the edges, the footprint, tiny Evochi walking the trails, captions, sound cues),
+along the trails or in from the edges, the footprint, footsteps, tiny Evochi walking the trails, captions, sound cues),
 written out as `onboarding_cine.json` and previewed as a video from the same plates. The app plays the same
 JSON (`flutter/lib/features/onboarding/cinematic_player.dart`), skippable from the first frame; it runs once
 before Welcome (`IntroGate`) and again from Settings > Watch the intro. With the pack, Welcome is Pip's letter (the

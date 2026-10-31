@@ -2,7 +2,7 @@
 //
 // With the onboarding cinematic's pack (assets/art/cine/), Welcome is Pip's letter (Pip the Courier holding up his
 // sealed letter in the Trail Guild Lodge, asking where to deliver your letters) and Connect is the steps beat (the
-// Ocean Eggling, Mochi, walking beside a pair of sneakers, its golden Lumen prints lighting one after another: the
+// Ocean Eggling, Mochi, walking down a dawn path, a glow walking the Lumen prints pressed in behind it: the
 // same footprint the cold open began with). Without the pack, both fall back to the scenes below.
 
 import 'dart:async';
@@ -796,21 +796,19 @@ class _PrintsPainter extends CustomPainter {
   void paint(Canvas c, Size size) {
     final n = at.length;
     if (n == 0) return;
+    // the prints are pressed into the path in the plate, an ember in each; a wave of light walks down them
+    // toward Mochi, each one brightening as it passes and cooling after
     for (var i = 0; i < n; i++) {
-      final order = n - 1 - i; // the oldest lights first
-      final on = (t * 1.25 - order / n * 0.8).clamp(0.0, 1.0);
-      final fade = t > 0.86 ? (1 - (t - 0.86) / 0.14).clamp(0.0, 1.0) : 1.0;
-      final k = Curves.easeOut.transform((on * 4).clamp(0.0, 1.0)) * fade;
-      if (k <= 0) continue;
+      final order = n - 1 - i; // the oldest first
+      final since = t - order / n * 0.72;
+      if (since < 0) continue;
+      var glow = math.exp(-since / 0.14);
+      if (t > 0.86) glow *= (1 - (t - 0.86) / 0.14).clamp(0.0, 1.0);
       // which way it walks there: toward the next (newer) print
       final to = i > 0 ? at[i - 1] : at[i] + (at[i] - at[math.min(i + 1, n - 1)]);
       final d = to - at[i];
       final heading = math.atan2(d.dx, -d.dy * 2.4);
-      c.save();
-      c.translate(at[i].dx, at[i].dy);
-      c.scale(1, 0.42); // the ground seen at a low angle
-      LumenPrint.paint(c, Offset.zero, plateW * 0.055, strength: 0.55 + 0.45 * k, heading: heading);
-      c.restore();
+      FootTrail.stamp(c, at[i], plateW * 0.042, heading: heading, glow: glow * 0.85, squash: 0.42, land: (since / 0.04).clamp(0.0, 1.0));
     }
   }
 

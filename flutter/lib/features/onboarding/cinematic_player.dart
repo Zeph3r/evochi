@@ -114,8 +114,9 @@ class CineCamera {
   }
 }
 
-/// The golden footprint: the one effect the whole onboarding shares. Drawn additively from the rendered sprite
-/// (cine/lumen_print.webp, on black) with a slow pulse, or as a soft procedural glow before the sprite loads.
+/// The opening's golden footprint, pressed into dark ground: drawn additively from the rendered sprite
+/// (cine/lumen_print.webp, on black) in a soft halo, with a slow pulse, or as a soft glow before the sprite loads.
+/// The smaller prints everywhere else are [FootTrail].
 class LumenPrint {
   static ui.Image? _sprite;
   static Future<ui.Image>? _loading;
@@ -134,6 +135,13 @@ class LumenPrint {
       ..color = Colors.white.withValues(alpha: strength.clamp(0.0, 1.0))
       ..filterQuality = FilterQuality.medium;
     if (s != null) {
+      // a soft warm halo the print sits in (the light pooled in the step spilling out round it)
+      c.drawCircle(
+          Offset.zero,
+          size * 0.42,
+          Paint()
+            ..blendMode = BlendMode.plus
+            ..shader = ui.Gradient.radial(Offset.zero, size * 0.42, [const Color(0xFFFFB84A).withValues(alpha: 0.28 * strength.clamp(0.0, 1.0)), const Color(0x00FFB84A)]));
       c.drawImageRect(s, Rect.fromLTWH(0, 0, s.width.toDouble(), s.height.toDouble()),
           Rect.fromCenter(center: Offset.zero, width: size, height: size), paint);
     } else {
@@ -144,6 +152,100 @@ class LumenPrint {
       c.drawCircle(Offset.zero, size * 0.5, g);
     }
     c.restore();
+  }
+}
+
+/// Lumen footsteps: faint golden prints pressed into the ground, left behind as something walks. The Eggling's
+/// own foot (a rounded pad and three toes) drawn in code, so it costs a few fills and two cheap gradients a print:
+/// a dark rim where the ground is pressed, the light pooled inside it, a soft halo. A print flares as the foot
+/// lands, then cools to a faint ember; older ones fade away behind. Shared by the cold open's map shots, the
+/// steps screen and the naming beat.
+class FootTrail {
+  /// the foot, one unit long, toes toward -y (forward = up when the heading is 0)
+  static final Path _foot = () {
+    final p = Path()..addRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: const Offset(0, 0.14), width: 0.6, height: 0.56), const Radius.circular(0.24)));
+    for (final (x, y) in const [(-0.22, -0.3), (0.0, -0.38), (0.22, -0.3)]) {
+      p.addOval(Rect.fromCenter(center: Offset(x, y), width: 0.17, height: 0.2));
+    }
+    return p;
+  }();
+
+  /// one print at [at], [size] px long, facing [heading] on the ground (radians, 0 = toes up the screen), lit
+  /// [glow] 0..1; [squash] foreshortens the ground (1 = straight down on it); [side] steps it left or right
+  static void stamp(Canvas c, Offset at, double size, {double heading = 0, double glow = 0.5, double squash = 1, double side = 0, double land = 1}) {
+    if (glow <= 0.01) return;
+    final g = glow.clamp(0.0, 1.0);
+    c.save();
+    c.translate(at.dx, at.dy);
+    c.scale(1, squash);
+    c.rotate(heading);
+    c.translate(side * size * 0.36, 0);
+    c.scale(size * (1 + 0.12 * (1 - land))); // a touch bigger as the foot comes down, then settled
+    // the halo first, then the pressed rim (the ground a shade darker on the far edge), then the light inside
+    c.drawCircle(
+        const Offset(0, -0.02),
+        0.62,
+        Paint()
+          ..blendMode = BlendMode.plus
+          ..shader = ui.Gradient.radial(const Offset(0, -0.02), 0.62, [const Color(0xFFFFC14E).withValues(alpha: 0.32 * g), const Color(0x00FFC14E)]));
+    // the body in amber (normal blending, so it stays gold on bright parchment and sand instead of washing out to
+    // white), the light pooled in its middle added on top
+    c.drawPath(_foot.shift(const Offset(0, -0.04)), Paint()..color = const Color(0xFF4A2C10).withValues(alpha: 0.22 + 0.16 * g));
+    c.drawPath(_foot, Paint()..color = const Color(0xFFE59528).withValues(alpha: 0.22 + 0.5 * g));
+    c.drawPath(
+        _foot,
+        Paint()
+          ..blendMode = BlendMode.plus
+          ..shader = ui.Gradient.radial(const Offset(0, 0.05), 0.5, [const Color(0xFFFFE08A).withValues(alpha: 0.5 * g), const Color(0x00FFD27A)]));
+    c.restore();
+  }
+
+  /// a walk along [path] (screen points) up to [head] (0..1 of its length): a print every [stride] px,
+  /// alternating feet. Each flares as it lands and cools over [flare] px of further walking to [ember]; with
+  /// [fadeLen] the oldest fade out entirely that far behind. A few motes lift off the newest.
+  static void walk(Canvas c, List<Offset> path, double head,
+      {required double stride, required double size, double squash = 1, double ember = 0.22, double flare = 0, double fadeLen = double.infinity, double from = 0, int? seed}) {
+    if (path.length < 2 || head <= from) return;
+    final cum = <double>[0];
+    for (var i = 1; i < path.length; i++) {
+      cum.add(cum.last + (path[i] - path[i - 1]).distance);
+    }
+    final total = cum.last;
+    if (total <= 0) return;
+    final flareLen = flare > 0 ? flare : stride * 2.5;
+    final h = head.clamp(0.0, 1.0) * total, s0 = from.clamp(0.0, 1.0) * total;
+    var seg = 0;
+    // start inside the fade window (the step count keeps the feet alternating the same way)
+    var k = fadeLen.isFinite ? math.max(0, ((h - fadeLen - s0) / stride).ceil()) : 0;
+    for (var s = s0 + k * stride; s <= h; s += stride, k++) {
+      final behind = h - s;
+      while (seg < cum.length - 2 && cum[seg + 1] < s) {
+        seg++;
+      }
+      final a = path[seg], b = path[seg + 1];
+      final u = (cum[seg + 1] - cum[seg]) <= 0 ? 0.0 : (s - cum[seg]) / (cum[seg + 1] - cum[seg]);
+      final at = Offset.lerp(a, b, u)!;
+      final d = b - a;
+      final heading = math.atan2(d.dx, -d.dy / squash);
+      final land = (behind / (stride * 0.5)).clamp(0.0, 1.0);
+      var glow = ember + (1 - ember) * math.exp(-behind / flareLen);
+      if (fadeLen.isFinite) glow *= (1 - behind / fadeLen).clamp(0.0, 1.0);
+      stamp(c, at, size, heading: heading, glow: glow, squash: squash, side: k.isEven ? -1 : 1, land: land);
+      if (behind < stride * 1.5) _motes(c, at, size, behind / (stride * 1.5), (seed ?? 0) * 31 + k);
+    }
+  }
+
+  /// two or three motes drifting up off a fresh print, gone by the next step
+  static void _motes(Canvas c, Offset at, double size, double u, int seed) {
+    final rnd = math.Random(seed);
+    final p = Paint()..blendMode = BlendMode.plus;
+    for (var i = 0; i < 3; i++) {
+      final dx = (rnd.nextDouble() - 0.5) * size * 0.9;
+      final rise = size * (0.5 + rnd.nextDouble() * 0.9) * u;
+      final a = (1 - u) * (0.5 + 0.4 * rnd.nextDouble());
+      p.color = const Color(0xFFFFD27A).withValues(alpha: a);
+      c.drawCircle(at + Offset(dx + math.sin(u * 5 + i) * size * 0.06, -rise), size * (0.05 + 0.03 * rnd.nextDouble()), p);
+    }
   }
 }
 
@@ -169,6 +271,49 @@ class TrailReveal {
       }
     }
     return p;
+  }
+
+  /// one trail between [a] and [b] (0..1 of its length): light that spreads both ways from a point
+  static Path span(List<Offset> pts, double a, double b) {
+    final p = Path();
+    if (pts.length < 2 || b <= a) return p;
+    final cum = <double>[0];
+    for (var i = 1; i < pts.length; i++) {
+      cum.add(cum.last + (pts[i] - pts[i - 1]).distance);
+    }
+    final total = cum.last, sa = a.clamp(0.0, 1.0) * total, sb = b.clamp(0.0, 1.0) * total;
+    Offset at(double s) {
+      var i = 0;
+      while (i < cum.length - 2 && cum[i + 1] < s) {
+        i++;
+      }
+      final len = cum[i + 1] - cum[i];
+      return Offset.lerp(pts[i], pts[i + 1], len <= 0 ? 0 : (s - cum[i]) / len)!;
+    }
+
+    final start = at(sa);
+    p.moveTo(start.dx, start.dy);
+    for (var i = 1; i < pts.length - 1; i++) {
+      if (cum[i] > sa && cum[i] < sb) p.lineTo(pts[i].dx, pts[i].dy);
+    }
+    final end = at(sb);
+    p.lineTo(end.dx, end.dy);
+    return p;
+  }
+
+  /// the point [f] (0..1) of the way along one trail, by distance
+  static Offset at(List<Offset> pts, double f) {
+    var total = 0.0;
+    for (var i = 1; i < pts.length; i++) {
+      total += (pts[i] - pts[i - 1]).distance;
+    }
+    var left = f.clamp(0.0, 1.0) * total;
+    for (var i = 1; i < pts.length; i++) {
+      final d = (pts[i] - pts[i - 1]).distance;
+      if (left <= d) return Offset.lerp(pts[i - 1], pts[i], d <= 0 ? 0 : left / d)!;
+      left -= d;
+    }
+    return pts.last;
   }
 
   /// where the newest tip is (for the glow that leads the light)
@@ -379,21 +524,25 @@ class _CinePainter extends CustomPainter {
         }
         if (p <= 0 || alpha <= 0) continue;
         final how = L['how'] as String;
-        // the over plate, through a mask (dstIn) that grows along the trails or in from the edges, drawn in
-        // plate space under the shot's camera
+        // the over plate, through a mask that grows along the trails or in from the edges, drawn in plate space
+        // under the shot's camera
         c.saveLayer(Offset.zero & size, Paint()..color = Colors.white.withValues(alpha: alpha));
         c.save();
         c.translate(-g.origin.dx * g.scale, -g.origin.dy * g.scale);
         c.scale(g.scale);
         final plateRect = Rect.fromLTWH(0, 0, over.width.toDouble(), over.height.toDouble());
+        // the mask first (white where the over plate shows), then the over plate kept only inside it (srcIn): a
+        // mask drawn over the picture with dstIn would leave everything outside its own strokes untouched, so the
+        // whole lit plate showed at once
         c.saveLayer(plateRect, Paint());
-        c.drawImage(over, Offset.zero, Paint());
         if (how == 'trails' || how == 'trail') {
           final keys = how == 'trail' ? [L['trail'] as String] : tl.trailKeys(L['plate'] as String);
           final trails = [for (final k in keys) tl.trail(L['plate'] as String, k)];
           final sc = ((tl.plateMeta(L['plate'] as String)['scale'] as num?) ?? 1).toDouble();
           final width = 28.0 * sc;
-          final path = TrailReveal.path(trails, p);
+          // one trail grows by distance along it (so it can follow footsteps walking it); all of them by point,
+          // in order, as they always have
+          final path = how == 'trail' ? TrailReveal.span(trails.first, 0, p) : TrailReveal.path(trails, p);
           c.drawPath(
               path,
               Paint()
@@ -401,12 +550,12 @@ class _CinePainter extends CustomPainter {
                 ..strokeWidth = width
                 ..strokeCap = StrokeCap.round
                 ..strokeJoin = StrokeJoin.round
-                ..blendMode = BlendMode.dstIn
                 ..maskFilter = MaskFilter.blur(BlurStyle.normal, width * 0.3)
                 ..color = Colors.white);
+          c.drawImage(over, Offset.zero, Paint()..blendMode = BlendMode.srcIn);
           c.restore();
           if (L['glow'] == true && p < 1) {
-            final tip = TrailReveal.tip(trails, p);
+            final tip = how == 'trail' ? TrailReveal.at(trails.first, p) : TrailReveal.tip(trails, p);
             if (tip != null) {
               c.drawCircle(
                   tip,
@@ -418,6 +567,7 @@ class _CinePainter extends CustomPainter {
           }
         } else {
           _edgeMask(c, plateRect, p);
+          c.drawImage(over, Offset.zero, Paint()..blendMode = BlendMode.srcIn);
           c.restore();
         }
         c.restore();
@@ -437,6 +587,21 @@ class _CinePainter extends CustomPainter {
           at = Offset((pp.dx - g.origin.dx) * g.scale, (pp.dy - g.origin.dy) * g.scale);
         }
         LumenPrint.paint(c, at, sz, strength: rise * (0.85 + 0.15 * pulse));
+      } else if (kind == 'steps' && plate != null && g != null) {
+        // footsteps walking a trail: each print lands, flares and cools, the newest leading the light
+        final t0 = (L['from'] as num).toDouble(), t1 = (L['to'] as num).toDouble();
+        if (ts < t0) continue;
+        final pts = tl.trail((L['plate'] as String?) ?? plateName!, L['trail'] as String);
+        final sp = [for (final q in pts) Offset((q.dx - g.origin.dx) * g.scale, (q.dy - g.origin.dy) * g.scale)];
+        final a = ((L['start'] as num?) ?? 0).toDouble(), b = ((L['end'] as num?) ?? 1).toDouble();
+        final u = ((ts - t0) / math.max(1e-3, t1 - t0)).clamp(0.0, 1.0);
+        FootTrail.walk(c, sp, a + (b - a) * u,
+            from: a,
+            stride: (L['stride'] as num).toDouble() * size.height,
+            size: (L['size'] as num).toDouble() * size.height,
+            squash: ((L['squash'] as num?) ?? 0.8).toDouble(),
+            ember: ((L['ember'] as num?) ?? 0.3).toDouble(),
+            seed: 11);
       } else if (kind == 'walkers' && plate != null && g != null) {
         final keys = tl.trailKeys(plateName!);
         if (keys.isEmpty) continue;
@@ -447,6 +612,9 @@ class _CinePainter extends CustomPainter {
         for (var i = 0; i < n; i++) {
           final pts = tl.trail(plateName, keys[i % keys.length]);
           final ph = (ts * speed + i * 0.37) % 1.0;
+          // the prints it leaves on the lit trail behind it, fading a few steps back
+          final sp = [for (final q in pts) Offset((q.dx - g.origin.dx) * g.scale, (q.dy - g.origin.dy) * g.scale)];
+          FootTrail.walk(c, sp, ph, stride: r * 1.35, size: r * 1.05, squash: 0.8, ember: 0.3, flare: r * 2.2, fadeLen: r * 11, seed: i);
           final q = CineTimeline._along(pts, ph);
           final at = Offset((q.dx - g.origin.dx) * g.scale, (q.dy - g.origin.dy) * g.scale - r * 0.8);
           final bob = 1 + 0.1 * math.sin(ts * 9 + i);
@@ -475,7 +643,7 @@ class _CinePainter extends CustomPainter {
   }
 
   void _edgeMask(Canvas c, Rect plate, double p) {
-    // a ring of soft blobs around the edges, growing inward: dstIn keeps the over plate where they are
+    // a ring of soft blobs around the edges, growing inward: the mask the over plate is then kept inside
     final cx = plate.center;
     final maxR = plate.longestSide * 0.85;
     final mask = Path();
@@ -491,7 +659,7 @@ class _CinePainter extends CustomPainter {
       mask.addOval(Rect.fromCircle(center: Offset.lerp(edge, tip, 0.5)!, radius: r * 1.3));
       mask.addOval(Rect.fromCircle(center: edge, radius: maxR * 0.14 + r));
     }
-    c.drawPath(mask, Paint()..blendMode = BlendMode.dstIn..color = Colors.white..maskFilter = MaskFilter.blur(BlurStyle.normal, plate.shortestSide * 0.03));
+    c.drawPath(mask, Paint()..color = Colors.white..maskFilter = MaskFilter.blur(BlurStyle.normal, plate.shortestSide * 0.03));
   }
 
   void _caption(Canvas c, Size size, String text, double alpha) {

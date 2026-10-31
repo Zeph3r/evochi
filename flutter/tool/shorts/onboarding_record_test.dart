@@ -4,7 +4,7 @@
 // and the name flies to Alder's map. Under the Shorts recorder's fixed clock (every frame an exact 1/30 s step
 // at 1080x1920), with the sounds the game made written down for the mix.
 //
-//   flutter test tool/shorts/onboarding_record_test.dart
+//   flutter test tool/shorts/onboarding_record_test.dart [--dart-define=ONB_UNTIL=22]   (just the first 22 s)
 //   python3 tools/shorts/encode_parts.py seg|audio|join ... (a long take, in pieces), or tools/shorts/encode.py
 //
 // Frames land in _shorts/onboarding/frames.rgba, with cues.json and meta.json (the format encode.py reads).
@@ -39,6 +39,7 @@ const fps = 30;
 const _frame = Duration(microseconds: 1000000 ~/ fps);
 const _view = Size(360, 640);
 const _scale = 3.0; // 1080x1920
+const _limit = int.fromEnvironment('ONB_UNTIL'); // stop after this many seconds (0: the whole onboarding)
 const _palette = 'coral'; // the egg in the middle of the nest (the Ocean one sits at its right edge, off a narrow phone)
 final _stop = File('_transfer/stop_shorts.flag');
 
@@ -79,6 +80,8 @@ void main() {
   }, timeout: const Timeout(Duration(minutes: 90)));
 }
 
+class _Cut implements Exception {}
+
 class _NoSave extends GameRepository {
   _NoSave() : super(local: MemoryStore());
   @override
@@ -116,7 +119,11 @@ class _Rec {
       await tester.pumpWidget(_stage());
       await _settle();
       capturing = true;
-      await _play();
+      try {
+        await _play();
+      } on _Cut {
+        debugPrint('== cut at ${t.toStringAsFixed(1)} s (ONB_UNTIL)');
+      }
     } finally {
       await tester.runAsync(() async => _raw?.closeSync());
       AudioService.record = null;
@@ -206,6 +213,7 @@ class _Rec {
   /// pictures are decoded, so nothing pops in on camera.
   Future<void> _step() async {
     if (_stop.existsSync()) throw StateError('stopped by _transfer/stop_shorts.flag');
+    if (_limit > 0 && t >= _limit) throw _Cut();
     await tester.pump(_frame);
     final s = _which();
     if (s != _screen) {

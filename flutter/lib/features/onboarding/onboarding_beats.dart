@@ -796,33 +796,47 @@ class _MapBeatPainter extends CustomPainter {
       )..layout();
       tp.paint(c, at - Offset(tp.width / 2, tp.height / 2));
     }
-    // the print lands, then the trail lights from it
-    final p = ((t - 1.6) / 1.6).clamp(0.0, 1.0);
-    if (t > 1.4) {
-      LumenPrint.paint(c, land, size.height * 0.05, strength: ((t - 1.4) / 0.3).clamp(0.0, 1.0) * (0.85 + 0.15 * math.sin(t * 6)));
+    // where the name lands, a soft flash; then its footsteps walk on along the trail, and the light spreads out
+    // both ways from where it touched down
+    final trail = tl_.trail('map_lit', 'grove');
+    final landed = t - 1.6;
+    if (landed > 0 && landed < 0.6) {
+      final k = landed / 0.6;
+      c.drawCircle(
+          land,
+          size.height * (0.03 + 0.07 * k),
+          Paint()
+            ..blendMode = BlendMode.plus
+            ..shader = ui.Gradient.radial(land, size.height * (0.03 + 0.07 * k), [const Color(0xFFFFD27A).withValues(alpha: 0.7 * (1 - k)), const Color(0x00FFC24E)]));
     }
+    final p = ((t - 1.75) / 1.7).clamp(0.0, 1.0);
     final li = lit;
     if (p > 0 && li != null) {
-      final trail = tl_.trail('map_lit', 'grove');
       c.save();
       c.translate(-g.origin.dx * g.scale, -g.origin.dy * g.scale);
       c.scale(g.scale);
       final plateRect = Rect.fromLTWH(0, 0, li.width.toDouble(), li.height.toDouble());
+      // the mask, then the lit plate kept only inside it: this one trail, not every lit path on the map
       c.saveLayer(plateRect, Paint());
-      c.drawImage(li, Offset.zero, Paint());
       const width = 28.0;
+      final spread = Curves.easeOut.transform(p) * 0.5;
       c.drawPath(
-          TrailReveal.path([trail], p),
+          TrailReveal.span(trail, 0.5 - spread, 0.5 + spread),
           Paint()
             ..style = PaintingStyle.stroke
             ..strokeWidth = width
             ..strokeCap = StrokeCap.round
             ..strokeJoin = StrokeJoin.round
-            ..blendMode = BlendMode.dstIn
             ..maskFilter = const MaskFilter.blur(BlurStyle.normal, width * 0.3)
             ..color = Colors.white);
+      c.drawImage(li, Offset.zero, Paint()..blendMode = BlendMode.srcIn);
       c.restore();
       c.restore();
+    }
+    if (landed > 0) {
+      final sp = [for (final q in trail) Offset((q.dx - g.origin.dx) * g.scale, (q.dy - g.origin.dy) * g.scale)];
+      FootTrail.walk(c, sp, 0.5 + 0.3 * (landed / 1.8).clamp(0.0, 1.0),
+          from: 0.5, stride: size.height * 0.05, size: size.height * 0.042, squash: 0.8, ember: 0.4, seed: 5);
     }
     _caption(c, size, 'One path lit. Many more to go.', ((t - 2.6) / 0.5).clamp(0.0, 1.0));
   }

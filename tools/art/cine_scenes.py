@@ -188,20 +188,54 @@ def lumen_print_mask(M, pos, heading=0.0, s=1.0):
     return (pad | toes) & (M.Y >= y) & (M.Y < y + 0.5 * s)
 
 
+def foot_mask2d(M, x, z, heading=0.0, s=1.0):
+    """the Eggling's foot on the ground plane (every height): the same pad and three claws as lumen_print_mask"""
+    a = math.radians(heading)
+    dx, dz = M.X - x, M.Z - z
+    u = dx * math.cos(a) - dz * math.sin(a)
+    v = dx * math.sin(a) + dz * math.cos(a)
+    pad = ((np.abs(u) / (3.1 * s)) ** 3 + (np.abs(v + 0.4 * s) / (3.2 * s)) ** 3) <= 1.0
+    toes = np.zeros(M.m.shape, bool)
+    for tu in (-2.0, 0.0, 2.0):
+        toes |= ((u - tu * s) ** 2 / (0.75 * s) ** 2 + (v - 3.9 * s) ** 2 / (1.1 * s) ** 2) <= 1.0
+    return pad | toes
+
+
+def press_print(P, M, x, z, heading=0.0, s=1.0, glow=0.3, ground_top=0.0, depth=1, colors=('#E3A146', '#D9963E'), rim=0.0):
+    """a footprint pressed into the ground, not stood on it: the top [depth] voxel layers under the foot taken
+    out, and the floor of the dent lit faintly from within (Lumen left in the step). Faint by design: a trail of
+    them reads as footsteps left behind."""
+    foot = foot_mask2d(M, x, z, heading, s)
+    cell = 1.0 / M.res
+    dent = foot & (M.Y < ground_top) & (M.Y >= ground_top - depth * cell)
+    M.m[dent] = 0
+    M.glow[dent] = 0.0
+    floor = foot & (M.Y < ground_top - depth * cell) & (M.Y >= ground_top - (depth + 1) * cell)
+    P.fill(floor, list(colors), glow=glow, cell=9)
+    # the light pools toward the middle of the step and thins at its edges
+    r = np.sqrt((M.X - x) ** 2 + (M.Z - z) ** 2) / (4.2 * s)
+    M.glow[floor] = (glow * np.clip(1.15 - 0.6 * r, 0.45, 1.0))[floor]
+    if rim > 0:
+        # the pressed edge catching a little of it, on the ground around the dent
+        from scipy import ndimage
+        top = (M.Y < ground_top) & (M.Y >= ground_top - cell)
+        edge = ndimage.binary_dilation(foot & top, iterations=1) & top & ~foot & (M.m > 0)
+        M.glow[edge] = np.maximum(M.glow[edge], rim)
+    return foot
+
+
 def scene_lumen_print():
     """the footprint alone, glowing on black: an additive sprite (the app draws it with a plus / screen blend) for
     the black opening, the step screen, the egg's cracks and the lit path after naming. The plate is square; the
     print heads up the picture, its glow fading into the black around it."""
-    cam = {'pos': (0.0, 30.0, 0.001), 'target': (0.0, 0.0, 0.0), 'fov': 32.0}
+    cam = {'pos': (0.0, 26.0, 12.0), 'target': (0.0, 0.0, 0.4), 'fov': 32.0}
     S = VScene('lumen_print', 720, 720, cam, world=((0.0, 0.0, 0.0), 0.0), samples=64, transparent=False)
     M = Model((-10, -2, -10), (10, 3, 10), [], res=4)
     P = CPainter(M, 5)
-    # a dark ground catches the glow around the print
-    P.fill((M.Y >= -1.0) & (M.Y < 0.0), ['#1A1A22', '#17171F'], cell=0.5)
-    m = lumen_print_mask(M, (0, 0, 0), 0.0, 1.0)
-    P.fill(m, ['#F0A232', '#F7AD3E'], glow=0.55, cell=9)
-    P.fill(m & (M.Y >= 0.25), ['#FFD36A'], glow=0.8, cell=9)
-    S.lights.append({'type': 'point', 'pos': (0.0, 2.2, 0.8), 'power': 3.0, 'color': (1.0, 0.78, 0.4), 'radius': 1.8})
+    # dark ground, the footprint pressed into it two voxels deep, the light pooled in the dent (and spilling
+    # onto its walls), not a raised stamp
+    P.fill((M.Y >= -1.5) & (M.Y < 0.0), ['#2A2530', '#26212C'], cell=0.5)
+    press_print(P, M, 0.0, 0.0, 180.0, 1.0, glow=0.95, depth=2, colors=('#F4A83A', '#FAB446'), rim=0.16)
     S.models.append((M, ()))
     S.exposure = -0.8
     S.grade = {'bloom': 0.7, 'bloom_threshold': 120.0, 'bloom_wide': 0.5, 'glow': 0.2, 'lift': (-0.08, -0.08, -0.08)}
@@ -1145,86 +1179,12 @@ def scene_aisle():
     return _nest_scene('aisle', AISLE_CAM, 'all', mira=True)
 
 
-
 # ------------------------------------------------------------------------------------- the steps screen ----
-SNEAKER = {'upper': ['#F6F4EF', '#EFEDE7', '#F3F1EB'], 'accent': ['#4C86C4', '#4379B5', '#5590CE'], 'navy': ['#2B3F5C', '#253752'],
-           'mid': ['#FBF8F1', '#F2EEE5'], 'out': ['#B8B1A4', '#AAA396'], 'lace': ['#FFFFFF', '#F7F7F4'], 'lining': ['#33465F', '#2C3D54']}
-
-
-def sneaker_model(pos, heading=0.0, s=1.0, res=6, seed=3, C=SNEAKER):
-    """a voxel sneaker as its own fine model, standing on the ground at pos with its toe along heading (degrees, 0 = +z):
-    a white midsole on a grey outsole with toe spring, a white upper with a rounded toe box, the throat with its eyestays,
-    crossing laces and eyelets, the tongue, an open collar lined in navy, and blue overlays (toe cap, heel counter, a side
-    band rising to the heel, a heel tab). No maker's marks."""
-    x, y, z = pos
-    R = 7.5 * s
-    M = Model((x - R, y - 1, z - R), (x + R, y + 8.0 * s, z + R), [], res=res)
-    P = CPainter(M, seed)
-    a = math.radians(heading)
-    du, dz_ = M.X - x, M.Z - z
-    u = du * math.cos(a) - dz_ * math.sin(a)          # across (+ is the shoe's right when it points away)
-    v = du * math.sin(a) + dz_ * math.cos(a)          # along, the toe at +v
-    L, W = 11.0 * s, 4.5 * s
-    tn = v / (L / 2)
-    halfw = W / 2 * (0.78 + 0.22 * np.exp(-((tn - 0.3) / 0.55) ** 2))
-    foot = ((np.abs(u) / (halfw + 0.25 * s)) ** 2.4 + np.abs(tn) ** 2.6) <= 1.0
-    upper_fp = ((np.abs(u) / halfw) ** 2.4 + (np.abs(tn) / 0.96) ** 2.6) <= 1.0
-    # the sole: toe spring at the front, a little rocker at the heel
-    yb = y + 0.95 * s * np.clip((tn - 0.5) / 0.5, 0, 1) ** 2 + 0.18 * s * np.clip((-tn - 0.82) / 0.18, 0, 1)
-    outsole = foot & (M.Y >= yb) & (M.Y < yb + 0.45 * s)
-    P.fill(outsole, C['out'], cell=9)
-    P.fill(outsole & (((np.floor((v + 40) / (0.55 * s))) % 2) == 0) & (M.Y < yb + 0.2 * s), ['#9C9588'], cell=9)
-    st = yb + 1.4 * s
-    midsole = foot & (M.Y >= yb + 0.45 * s) & (M.Y < st)
-    P.fill(midsole, C['mid'], cell=(9, 9, 9))
-    P.fill(midsole & (M.Y >= st - 0.22 * s), ['#E4DFD4'], cell=9)
-    # the upper's height over the sole: a low round toe box, the instep rising to the throat, the collar, the heel
-    toe = 0.25 * s + 1.9 * s * np.sqrt(np.clip(1 - ((tn - 0.5) / 0.5) ** 2, 0, 1))
-    instep = np.interp(tn, [-0.22, 0.5], [3.9 * s, 2.15 * s])
-    collar = np.where(tn < -0.84, 4.5 * s, 4.1 * s)
-    h = np.where(tn > 0.5, toe, np.where(tn > -0.22, instep, collar))
-    h = h * (1 - 0.32 * np.clip(np.abs(u) / halfw, 0, 1) ** 3)
-    top = st + h
-    upper = upper_fp & (M.Y >= st) & (M.Y < top)
-    P.fill(upper, C['upper'], cell=(0.5, 0.5, 0.5))
-    shell = upper & (M.Y >= top - 0.45 * s)
-    # overlays: the toe cap, the heel counter, a side band rising toward the heel, a mudguard line
-    P.fill(upper & (tn > 0.62) & (M.Y < st + 1.05 * s), C['accent'], cell=9)
-    P.fill(upper & (tn < -0.7) & (M.Y < st + 3.1 * s - (tn + 1.0) * 2.0 * s), C['accent'], cell=9)
-    band_y = st + 1.0 * s + 1.5 * s * np.clip((0.35 - tn) / 1.0, 0, 1)
-    P.fill(upper & (np.abs(u) > 0.62 * halfw) & (np.abs(M.Y - band_y) < 0.32 * s) & (tn > -0.72) & (tn < 0.45), C['accent'], cell=9)
-    P.fill(upper & (M.Y < st + 0.3 * s), ['#E9E6DE'], cell=9)
-    # the throat: eyestays either side in blue, the tongue's grey between, laces crossing it with navy eyelets
-    throat = shell & (tn > -0.24) & (tn < 0.5)
-    P.fill(throat & (np.abs(u) < 0.66 * halfw), ['#DDE3EA', '#D3DAE2'], cell=9)
-    P.fill(throat & (np.abs(u) >= 0.4 * halfw) & (np.abs(u) < 0.7 * halfw), C['accent'], cell=9)
-    for k in np.linspace(-0.16, 0.4, 5):
-        row = np.abs(tn - k - 0.06 * np.abs(u) / halfw) < 0.04
-        P.fill(throat & row & (np.abs(u) < 0.5 * halfw), C['lace'], cell=9)
-        P.fill(throat & (np.abs(tn - k) < 0.045) & (np.abs(np.abs(u) - 0.55 * halfw) < 0.09 * halfw + 0.12), C['navy'], cell=9)
-    # the tongue rising out of the collar, a soft slab leaning back
-    tongue = (np.abs(u) < 0.42 * halfw) & (tn > -0.3 + (M.Y - st - 3.6 * s) * 0.05) & (tn < -0.12 + (M.Y - st - 3.6 * s) * 0.0) & \
-             (M.Y >= st + 3.2 * s) & (M.Y < st + 4.75 * s)
-    P.fill(tongue & (M.m == 0) | tongue, C['upper'], cell=9)
-    P.fill(tongue & (M.Y >= st + 4.45 * s), C['accent'], cell=9)
-    # the collar: the ankle opening cut down into the upper, its walls lined in navy, a padded rim
-    hole = (np.abs(u) < 0.62 * halfw) & (tn > -0.84) & (tn < -0.26) & (M.Y >= st + 1.5 * s)
-    hole &= ((np.abs(u) / (0.62 * halfw)) ** 2 + ((tn + 0.55) / 0.29) ** 2) <= 1.0
-    near = ((np.abs(u) / (0.62 * halfw + 0.35 * s)) ** 2 + ((tn + 0.55) / (0.29 + 0.07)) ** 2) <= 1.0
-    P.fill(upper & near & ~hole & (M.Y >= st + 1.2 * s), C['lining'], cell=9)
-    P.fill(upper & near & ~hole & (M.Y >= top - 0.4 * s), ['#EDF1F5', '#E4E9EF'], cell=9)
-    M.m[hole & ~tongue] = 0
-    # the heel tab: a small blue loop at the top of the heel
-    tab = (np.abs(u) < 0.28 * halfw) & (tn < -0.9) & (tn > -1.0) & (M.Y >= st + 4.2 * s) & (M.Y < st + 5.1 * s)
-    P.fill(tab, C['accent'], cell=9)
-    return M
-
-
 def scene_steps():
-    """Beat 3, the steps screen: the Ocean Eggling (Mochi) walking beside a pair of sneakers through dawn grass,
-    every step it took behind it a glowing Lumen print. Rendered as layers: the plate (grass, sneakers, the
-    Eggling and the prints) and the prints alone as sprites the app can bring in one by one."""
-    cam = {'pos': (1.5, 17.0, 52.0), 'target': (3.0, 1.8, 4.0), 'fov': 38.0, 'focus': (-1.0, 1.5, 9.0), 'fstop': 3.6}
+    """Beat 3, the steps screen: the Ocean Eggling (Mochi) walking toward us through dawn grass, every step it took
+    behind it a glowing Lumen print. Just Mochi and its trail (no sneakers: real-world props break the world), framed
+    on the Eggling with the prints leading the eye back up the path."""
+    cam = {'pos': (-3.0, 20.0, 50.0), 'target': (-1.5, 1.2, 0.5), 'fov': 36.0, 'focus': (-6.5, 1.5, 11.5), 'fstop': 3.6}
     S = VScene('steps', 1400, 1400, cam, world=((0.9, 0.85, 0.75), 0.4), samples=160, transparent=True, sky=('#8FB8D8', '#F7D7A8'))
     S.sky_world = {'sky': ('#8FB8D8', '#F7D7A8'), 'ground': '#6F8F5A', 'strength': 0.3}
     S.lights.append({'type': 'sun', 'dir': (0.55, -0.42, -0.72), 'power': 1.5, 'color': 3200, 'angle': 2.5})
@@ -1241,12 +1201,11 @@ def scene_steps():
     path = catmull([(14.0, -34.0), (6.0, -16.0), (0.0, -2.0), (-6.0, 13.0), (-14.0, 26.0), (-24.0, 42.0)], 120)
     dpath, tpath = dist2d(X2, Z2, path)
     P.fill(ground & (dpath < 4.2 + 1.0 * np.sin(Z2 * 0.5))[:, None, :], ['#E6D5B4', '#DCC9A4', '#EBDCBE'], cell=0.75)
-    # grass tufts and flowers either side (none on the path or under the shoes)
-    shoe_c = np.array([10.0, -1.0])
-    for _ in range(460):
+    # grass tufts and flowers either side of the path
+    for _ in range(520):
         x, z = rng.uniform(-36, 36), rng.uniform(-36, 40)
         ix, iz = int((x - M.lo[0] / M.res) * M.res), int((z - M.lo[2] / M.res) * M.res)
-        if dpath[ix, iz] < 4.8 or math.hypot(x - shoe_c[0], z - shoe_c[1]) < 9.0:
+        if dpath[ix, iz] < 4.8:
             continue
         L = Local(M, (x - 1.5, -0.5, z - 1.5), (x + 1.5, 4.5, z + 1.5))
         if rng.random() < 0.7:
@@ -1269,24 +1228,16 @@ def scene_steps():
     for k in range(7):
         side = 1.0 if k % 2 == 0 else -1.0
         q = mpos - mdir * (3.4 + k * 3.4) + across * side * 1.2
-        m = lumen_print_mask(M, (float(q[0]), 0.0, float(q[2])), hd, 0.46)
-        g = 0.62 - k * 0.06
-        P.fill(m, LUMEN, glow=g, cell=9)
-        P.fill(m & (M.Y >= 0.17), LUMEN_HI, glow=g * 1.1, cell=9)
-        prints.append({'pos': (float(q[0]), 0.2, float(q[2])), 'heading': hd})
-        if k < 5:
-            S.lights.append({'type': 'point', 'pos': (float(q[0]), 1.4, float(q[2])), 'power': 2.2 - k * 0.3, 'color': (1.0, 0.8, 0.42), 'radius': 1.2})
-    # the sneakers beside the path: a pair side-on to us (toes to the left, the way it walks), the far one a half
-    # step back, as if someone stopped there
-    for k, (c, turn) in enumerate((((7.5, 2.5), -4.0), ((13.0, -4.0), 6.0))):
-        S.models.append((sneaker_model((c[0], 0.0, c[1]), -90.0 + turn, s=1.0, seed=3 + k), ()))
+        # pressed into the sand, a faint ember in each, the newest (by Mochi) a little brighter
+        press_print(P, M, float(q[0]), float(q[2]), hd, 0.46, glow=0.24 - k * 0.025, colors=('#DDAA5C', '#D4A052'))
+        prints.append({'pos': (float(q[0]), -0.2, float(q[2])), 'heading': hd})
     S.models.append((M, (), {}))
     from cine_blender import Actor
     from characters import build_eggling
     from palettes import palette
     ch = build_eggling(res=CAST_RES, lean=6.0, feet={(1, True): (1.2, 1.0), (-1, False): (0.6, -0.6)})
     S.actors = [Actor('mochi', ch, dict(palette('ocean')), 'ocean', expr='happy', pos=tuple(mpos.tolist()), yaw=math.radians(hd + 12), scale=0.26)]
-    S.anchors = {'mochi': (float(mpos[0]), 6.0 * 0.26, float(mpos[2])), 'shoes': (float(shoe_c[0]), 3.0, float(shoe_c[1]))}
+    S.anchors = {'mochi': (float(mpos[0]), 6.0 * 0.26, float(mpos[2]))}
     for k, pr in enumerate(prints):
         S.anchors['print%d' % k] = pr['pos']
     S.grade = {'bloom': 0.4, 'bloom_threshold': 185.0, 'bloom_wide': 0.15, 'glow': 0.14, 'warm': 0.05, 'saturation': 1.08,

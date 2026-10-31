@@ -17,7 +17,10 @@ black) seen through a camera, with layers drawn over it and a caption:
   layers    reveal: another plate shown through a growing mask ('trails' grows along the trail polylines, in
             order, 'edges' grows in from the picture's edges with noise, 'trail' is one named trail)
             print: the Lumen footprint sprite, additive, at a plate point, with a pulse
-            walkers: tiny silhouettes travelling the trails
+            steps: footprints pressed into a named trail, walking from 'start' to 'end' (0-1 of its length)
+                   between 'from' and 'to' seconds; each lands, flares and cools to an 'ember' (the app's
+                   FootTrail; the preview video leaves them out)
+            walkers: tiny silhouettes travelling the trails, leaving a few fading prints behind them
             flicker: a reveal that stutters before it holds
             fade: a plain fade from black / to black
   caption   the line, shown in the lower third with a gentle fade
@@ -57,8 +60,11 @@ SHOTS = [
      'sfx': {'t': 0.4, 'name': 'hollow_creep'}},
     {'id': 'map_reignite', 'dur': 3.0, 'plate': 'map_hollow',
      'camera': {'from': {'cx': 0.33, 'cy': 0.68, 'zoom': 1.9}, 'to': {'cx': 0.33, 'cy': 0.66, 'zoom': 2.0}, 'ease': 'inout'},
-     'layers': [{'kind': 'print', 'at': 'trail:grove:0.35', 'size': 0.05, 'in': 0.9, 'rise': 0.15, 'pulse': 1.0},
-                {'kind': 'reveal', 'plate': 'map_lit', 'how': 'trail', 'trail': 'grove', 'from': 1.0, 'to': 2.3, 'flicker': True, 'glow': True}],
+     # footsteps walk the dim grove trail, each print landing and cooling to an ember, and the trail lights
+     # up just behind them: the footstep on the sound, the light answering it
+     'layers': [{'kind': 'reveal', 'plate': 'map_lit', 'how': 'trail', 'trail': 'grove', 'from': 1.1, 'to': 4.1, 'flicker': True, 'glow': True},
+                {'kind': 'steps', 'plate': 'map_lit', 'trail': 'grove', 'from': 0.9, 'to': 2.7, 'start': 0.0, 'end': 0.6,
+                 'stride': 0.05, 'size': 0.042, 'squash': 0.8, 'ember': 0.4}],
      'caption': {'text': 'But Lumen still answers to footsteps.', 'in': 1.1, 'out': 3.0},
      'sfx': {'t': 0.9, 'name': 'footstep'}},
     {'id': 'village_push', 'dur': 4.0, 'plate': 'village_dusk',
