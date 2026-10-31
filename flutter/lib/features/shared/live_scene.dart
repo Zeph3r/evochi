@@ -20,11 +20,14 @@ import 'package:flutter/services.dart';
 
 /// One scene's effects: its mask and its emitters, from assets/config/scene_fx.json.
 class SceneFx {
-  SceneFx._(this.mask, this.width, this.height, this.emitters);
+  SceneFx._(this.mask, this.width, this.height, this.emitters, [this.wind = 1]);
   final String mask;
   final double width;
   final double height;
   final List<FxEmitter> emitters;
+
+  /// how hard the wind blows on this picture (1 = a breezy day): more for a picture seen small
+  final double wind;
 
   static final Map<String, SceneFx> _all = {};
   static Future<ui.FragmentProgram?>? _program;
@@ -45,6 +48,7 @@ class SceneFx {
           (m['w'] as num).toDouble(),
           (m['h'] as num).toDouble(),
           [for (var i = 0; i < list.length; i++) FxEmitter.fromJson(list[i] as Map<String, dynamic>, i)],
+          ((m['wind'] as num?) ?? 1).toDouble(),
         );
       });
     } catch (e) {

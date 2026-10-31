@@ -20,6 +20,9 @@ black) seen through a camera, with layers drawn over it and a caption:
             steps: footprints pressed into a named trail, walking from 'start' to 'end' (0-1 of its length)
                    between 'from' and 'to' seconds; each lands, flares and cools to an 'ember' (the app's
                    FootTrail; the preview video leaves them out)
+            birds: a few birds flying home across the sky ('y': [top, bottom] of their band in plate px, 'n',
+                   'speed' plate px a second, 'size'); the app's only (the plates themselves live through
+                   tools/art/fx_zones/cine.py)
             walkers: tiny silhouettes travelling the trails, leaving a few fading prints behind them
             flicker: a reveal that stutters before it holds
             fade: a plain fade from black / to black
@@ -69,6 +72,8 @@ SHOTS = [
      'sfx': {'t': 0.9, 'name': 'footstep'}},
     {'id': 'village_push', 'dur': 4.0, 'plate': 'village_dusk', 'xfade': 0.6,
      'camera': {'from': {'cx': 0.5, 'cy': 0.5, 'zoom': 1.0}, 'to': {'cx': 'anchor:glasshouse_window', 'zoom': 2.6}, 'ease': 'in'},
+     # birds flying home over the ridge (the app draws them; the plate itself lives through fx_zones/cine.py)
+     'layers': [{'kind': 'birds', 'n': 5, 'y': [40, 150], 'speed': 55, 'size': 7}],
      'caption': {'text': 'And something here is still glowing.', 'in': 0.4, 'out': 3.4}},
     {'id': 'glasshouse', 'dur': 2.2, 'plate': 'glasshouse_night', 'xfade': 0.8,
      'camera': {'from': {'cx': 'anchor:glasshouse_window', 'zoom': 1.15}, 'to': {'cx': 'anchor:glasshouse_window', 'zoom': 1.35}, 'ease': 'out'},

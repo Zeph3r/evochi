@@ -30,12 +30,15 @@ Zones live in tools/art/fx_zones/*.py, one module per area, each with a SCENES d
                 {'t': 'smoke', 'x': 712, 'y': 250, 'n': 6, 's': 14, 'h': 170, 'drift': 40},
             ],
             'also': ['village/square_day_dim.webp'],  # optional: the same zones on other variants
+            'wind': 2.6,  # optional: how hard the wind blows (1 = a breezy day; for a plate seen small, as in
+                          # the cold open's wide shots, more, so the sway still reads)
         },
     }
 
 Effects: tree, blades, grass, cloth, smoke, fall, still, fire, crystal, lamp, and none (clears).
-A 4th element can tune the sway: {'amp': 0.5} (0-1, default per effect) and {'fade': 0.2} (the
-bottom of the shape moves this much of the top: blades and stems are rooted).
+A 4th element can tune the sway: {'amp': 0.5} (0-1, default per effect), {'fade': 0.2} (the
+bottom of the shape moves this much of the top: blades and stems are rooted) and {'halo': 8} (the sway
+reaches that many px past what the key picked, so an outline moves, not only what is inside it).
 Keys: all, green, water, waterfall, fire, warm (lit window glass), white, pale, smoky, crystal,
 bright, cloth.
 
@@ -238,7 +241,12 @@ def bake(rel, spec):
             kind[sel] = b_val
         if amp is not None:
             amp = opts.get('amp', amp)
-            field = sel.astype(np.float32) * amp
+            src = sel
+            if opts.get('halo'):
+                # the sway reaches a few px past the leaves, so the canopy's outline moves too (inside the outline
+                # a voxel canopy's stripes hide a sideways slide)
+                src = ndimage.binary_dilation(sel, iterations=int(opts['halo'])) & visible
+            field = src.astype(np.float32) * amp
             if 'fade' in opts:  # the bottom of the shape moves less (a trunk, a blade's root)
                 ys = np.nonzero(zone.any(axis=1))[0]
                 y0, y1 = ys.min(), ys.max() + 1
@@ -253,7 +261,10 @@ def bake(rel, spec):
     name = rel.replace('/', '__').rsplit('.', 1)[0] + '.webp'
     out = os.path.join(OUT_DIR, name)
     Image.fromarray(mask, 'RGB').save(out, 'WEBP', lossless=True, quality=100, method=6)
-    return {'mask': 'assets/art/fx/' + name, 'w': w, 'h': h, 'emit': spec.get('emit', [])}, img, mask
+    out = {'mask': 'assets/art/fx/' + name, 'w': w, 'h': h, 'emit': spec.get('emit', [])}
+    if 'wind' in spec:
+        out['wind'] = spec['wind']
+    return out, img, mask
 
 
 TINT = {  # preview colours: (channel, value) -> colour

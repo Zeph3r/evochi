@@ -5,6 +5,9 @@ plate with zones through the same shader as the game's scenes (cinematic_player.
 # left of the Lodge into its pool, the Lodge (top centre), the Glasshouse (left), Bram's workshop (right), the
 # market awning, the Waystone, the path down to the gate
 VILLAGE_DUSK = [
+    # a breeze over the lawns: the grass shimmers in passing gusts
+    ('grass', [0, 980, 933, 1400], 'green'),
+    ('grass', [0, 860, 140, 1000], 'green'),
     # the trees on the far hills: a gentle sway only (the terraces' grass is green too, so keep it small)
     ('tree', [0, 200, 933, 520], 'green', {'amp': 0.3}),
     # the canopies against the sky on the far ridge (hazy blue-grey, so marked by shape), swaying from the top
@@ -12,15 +15,15 @@ VILLAGE_DUSK = [
     ('tree', ('e', 690, 108, 50, 44), 'all', {'amp': 0.6, 'fade': 0.2}),
     ('tree', ('e', 868, 164, 38, 32), 'all', {'amp': 0.6, 'fade': 0.2}),
     ('tree', ('e', 205, 172, 34, 28), 'all', {'amp': 0.5, 'fade': 0.2}),
-    # nearer canopies, swaying properly
-    ('tree', ('e', 50, 590, 70, 80), 'green', {'amp': 0.85}),
-    ('tree', ('e', 160, 520, 50, 45), 'green', {'amp': 0.8}),
-    ('tree', ('e', 360, 560, 45, 40), 'green', {'amp': 0.8}),
-    ('tree', ('e', 740, 610, 55, 50), 'green', {'amp': 0.8}),
-    ('tree', ('e', 895, 590, 45, 60), 'green', {'amp': 0.8}),
-    ('tree', ('e', 60, 845, 68, 68), 'green', {'amp': 1.0, 'fade': 0.35}),
-    ('tree', ('e', 232, 955, 82, 75), 'green', {'amp': 1.0, 'fade': 0.35}),
-    ('tree', ('e', 822, 968, 78, 66), 'green', {'amp': 1.0, 'fade': 0.35}),
+    # nearer canopies: rooted at the trunk, their outlines moving (halo)
+    ('tree', ('e', 50, 600, 72, 92), 'green', {'amp': 0.85, 'fade': 0.3, 'halo': 6}),
+    ('tree', ('e', 158, 516, 52, 46), 'green', {'amp': 0.8, 'fade': 0.3, 'halo': 6}),
+    ('tree', ('e', 362, 560, 46, 42), 'green', {'amp': 0.8, 'fade': 0.3, 'halo': 6}),
+    ('tree', ('e', 742, 610, 56, 52), 'green', {'amp': 0.8, 'fade': 0.3, 'halo': 6}),
+    ('tree', ('e', 898, 592, 46, 62), 'green', {'amp': 0.8, 'fade': 0.3, 'halo': 6}),
+    ('tree', ('e', 64, 842, 70, 70), 'green', {'amp': 1.0, 'fade': 0.25, 'halo': 8}),
+    ('tree', ('e', 232, 952, 84, 76), 'green', {'amp': 1.0, 'fade': 0.25, 'halo': 8}),
+    ('tree', ('e', 824, 966, 80, 68), 'green', {'amp': 1.0, 'fade': 0.25, 'halo': 8}),
     # the waterfall off the cliff, and its pool
     # (at dusk the fall is a dim lilac-grey column, so it is marked by its shape, not its colour)
     ('fall', [280, 366, 338, 512]),
@@ -53,7 +56,7 @@ VILLAGE_DUSK_EMIT = [
     {'t': 'glow', 'x': 262, 'y': 735, 'r': 95, 'c': '#ffd97a', 'kind': 'lamp', 'a': 0.3},
     # Bram's forge through the workshop window, and his chimney
     {'t': 'glow', 'x': 822, 'y': 836, 'r': 58, 'c': '#ffb04a', 'kind': 'fire', 'a': 0.55},
-    {'t': 'smoke', 'x': 826, 'y': 600, 'n': 6, 's': 10, 'h': 170, 'drift': 34, 'c': '#d9d2e6', 'a': 0.4},
+    {'t': 'smoke', 'x': 826, 'y': 600, 'n': 7, 's': 10, 'h': 190, 'drift': 70, 'c': '#d9d2e6', 'a': 0.4},
     # the lanterns along the paths
     *[{'t': 'glow', 'x': x, 'y': y, 'r': r, 'c': '#ffe08a', 'kind': 'lamp', 'a': 0.55}
       for x, y, r in ((580, 780, 14), (612, 778, 14), (640, 860, 16), (700, 936, 14), (808, 896, 14), (818, 926, 12),
@@ -62,8 +65,13 @@ VILLAGE_DUSK_EMIT = [
     {'t': 'smoke', 'x': 306, 'y': 556, 'n': 5, 's': 9, 'h': 40, 'drift': 6, 'c': '#e8eef8', 'a': 0.3, 'kind': 'steam'},
     # fireflies over the village
     {'t': 'motes', 'kind': 'firefly', 'x': 20, 'y': 640, 'w': 900, 'h': 420, 'n': 18, 'c': '#f6ff9a', 's': 4},
+    # leaves off the trees, blowing across on the wind, near and far
+    {'t': 'leaves', 'x': 0, 'y': 780, 'w': 933, 'h': 420, 'n': 9, 'c': ['#6f9a45', '#88b04f', '#a9b95c', '#c49a4a']},
+    {'t': 'leaves', 'x': 0, 'y': 430, 'w': 933, 'h': 260, 'n': 5, 'c': ['#5f8a42', '#7aa04c']},
 ]
 
 SCENES = {
-    'cine/village_dusk.webp': {'fx': VILLAGE_DUSK, 'emit': VILLAGE_DUSK_EMIT},
+    # seen whole on a phone before the camera pushes in, so a stronger wind than the game's scenes: the trees have
+    # to read as moving in a four-second shot
+    'cine/village_dusk.webp': {'fx': VILLAGE_DUSK, 'emit': VILLAGE_DUSK_EMIT, 'wind': 3.4},
 }

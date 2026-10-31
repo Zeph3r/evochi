@@ -208,6 +208,18 @@
     },
     "ease": "in"
    },
+   "layers": [
+    {
+     "kind": "birds",
+     "n": 5,
+     "y": [
+      40,
+      150
+     ],
+     "speed": 55,
+     "size": 7
+    }
+   ],
    "caption": {
     "text": "And something here is still glowing.",
     "in": 0.4,

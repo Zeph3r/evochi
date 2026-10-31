@@ -71,10 +71,10 @@
     "t": "smoke",
     "x": 826,
     "y": 600,
-    "n": 6,
+    "n": 7,
     "s": 10,
-    "h": 170,
-    "drift": 34,
+    "h": 190,
+    "drift": 70,
     "c": "#d9d2e6",
     "a": 0.4
    },
@@ -208,8 +208,35 @@
     "n": 18,
     "c": "#f6ff9a",
     "s": 4
+   },
+   {
+    "t": "leaves",
+    "x": 0,
+    "y": 780,
+    "w": 933,
+    "h": 420,
+    "n": 9,
+    "c": [
+     "#6f9a45",
+     "#88b04f",
+     "#a9b95c",
+     "#c49a4a"
+    ]
+   },
+   {
+    "t": "leaves",
+    "x": 0,
+    "y": 430,
+    "w": 933,
+    "h": 260,
+    "n": 5,
+    "c": [
+     "#5f8a42",
+     "#7aa04c"
+    ]
    }
-  ]
+  ],
+  "wind": 3.4
  },
  "assets/art/habitats/market_far.webp": {
   "mask": "assets/art/fx/habitats__market_far.webp",

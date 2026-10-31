@@ -527,7 +527,7 @@ class _CinePainter extends CustomPainter {
         ..setFloat(4, im.width.toDouble())
         ..setFloat(5, im.height.toDouble())
         ..setFloat(6, lv.t % 600.0)
-        ..setFloat(7, 1)
+        ..setFloat(7, fx.wind)
         ..setFloat(8, 0)
         ..setFloat(9, 0)
         ..setImageSampler(0, im)
@@ -695,6 +695,35 @@ class _CinePainter extends CustomPainter {
           final bob = 1 + 0.1 * math.sin(ts * 9 + i);
           c.drawOval(Rect.fromCenter(center: at, width: r * 1.6 * bob, height: r * 1.8), ink);
           c.drawOval(Rect.fromCenter(center: at.translate(0, -r * 1.1), width: r * 0.8, height: r * 1.0), ink);
+        }
+      } else if (kind == 'birds' && plate != null && g != null) {
+        // a few birds flying home across the dusk sky, wings beating, in the plate's own px under the camera
+        final n = ((L['n'] as num?) ?? 4).toInt();
+        final band = (L['y'] as List).cast<num>();
+        final speed = ((L['speed'] as num?) ?? 60).toDouble(); // plate px a second
+        final sz = ((L['size'] as num?) ?? 7).toDouble();
+        final ink = Paint()
+          ..color = const Color(0xFF2B2740).withValues(alpha: 0.85)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = sz * 0.32 * g.scale
+          ..strokeCap = StrokeCap.round
+          ..strokeJoin = StrokeJoin.round;
+        final pw = plate.width.toDouble();
+        for (var i = 0; i < n; i++) {
+          final r1 = math.sin(i * 12.9898) * 43758.5453, r2 = math.sin(i * 78.233) * 12345.6789;
+          final f1 = r1 - r1.floorToDouble(), f2 = r2 - r2.floorToDouble();
+          // a loose flock: each its own height, lag and pace
+          final x = (f1 * pw * 0.6 + (ts + 14) * speed * (0.85 + 0.3 * f2)) % (pw + 80) - 40;
+          final y = band[0] + (band[1] - band[0]) * f2 + math.sin(ts * 0.9 + i) * 4;
+          final flap = math.sin(ts * (8.5 + 3 * f1) + i * 2.1);
+          final at = Offset((x - g.origin.dx) * g.scale, (y - g.origin.dy) * g.scale);
+          final w = sz * g.scale, up = (0.15 + 0.55 * flap) * sz * g.scale;
+          c.drawPath(
+              Path()
+                ..moveTo(at.dx - w, at.dy - up)
+                ..quadraticBezierTo(at.dx - w * 0.45, at.dy - up * 0.2, at.dx, at.dy)
+                ..quadraticBezierTo(at.dx + w * 0.45, at.dy - up * 0.2, at.dx + w, at.dy - up),
+              ink);
         }
       } else if (kind == 'fade') {
         final k = ((ts - (L['from'] as num).toDouble()) / (L['dur'] as num).toDouble()).clamp(0.0, 1.0);
