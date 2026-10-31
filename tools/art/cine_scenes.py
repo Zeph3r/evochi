@@ -1173,13 +1173,29 @@ def scene_nest_empty():
 # holds, a look back at you. (pitch, yaw, roll) per part, degrees; yaw + turns her face to her left (toward the
 # eggs in this shot)
 MIRA_POSES = {
-    'nest_m0': ('happy', None),
+    'nest_m0': ('default', None),
     'nest_m1': ('blink', None),
-    'nest_m2': ('happy', {'head': (4.0, 6.0, 3.0)}),
-    'nest_m3': ('happy', {'head': (8.0, 12.0, 6.0)}),
-    'nest_m4': ('proud', {'head': (10.0, 15.0, 7.0), 'arm': (7.0, 0.0, 0.0)}),
-    'nest_m5': ('happy', {'head': (-3.0, -5.0, -4.0)}),
+    'nest_m2': ('default', {'head': (4.0, 6.0, 3.0)}),
+    'nest_m3': ('default', {'head': (8.0, 12.0, 6.0)}),
+    'nest_m4': ('happy', {'head': (10.0, 15.0, 7.0), 'arm': (7.0, 0.0, 0.0)}),
+    'nest_m5': ('default', {'head': (-3.0, -5.0, -4.0)}),
 }
+
+# Mira close (MIRA_CAM), for her line: turned to you, nodding as she talks, a warm squint at "waiting for you",
+# a glance down at the nest
+MIRA_TALK_POSES = {
+    'mira_c0': ('default', {'head': (0.0, 8.0, 0.0)}),
+    'mira_c1': ('blink', {'head': (0.0, 8.0, 0.0)}),
+    'mira_c2': ('default', {'head': (4.0, 9.0, 1.0)}),
+    'mira_c3': ('default', {'head': (-3.0, 7.0, -1.5)}),
+    'mira_c4': ('happy', {'head': (2.0, 10.0, 4.0)}),
+    'mira_c5': ('default', {'head': (10.0, 14.0, 6.0)}),
+}
+
+
+def scene_mira_talk(name):
+    expr, pose = MIRA_TALK_POSES[name]
+    return _nest_scene(name, MIRA_CAM, 'all', mira=True, mira_expr=expr, mira_pose=pose)
 
 
 def scene_nest_pose(name):
@@ -1282,7 +1298,7 @@ def scene_steps(matte=False):
 
 
 # ------------------------------------------------------------------------------------------ Pip's letter ----
-def scene_pip(gold=False, expr='happy', pose=None, name=None):
+def scene_pip(gold=False, expr='default', pose=None, name=None):
     """Beat 4: Pip the Courier up close, holding out the letter (his courier model, the letter in his wing). The
     gold-sealed founders' letter is the same shot with the seal recoloured. Rendered over the Lodge's counter in
     evening lantern light."""
@@ -1293,7 +1309,9 @@ def scene_pip(gold=False, expr='happy', pose=None, name=None):
     sc_ = 0.42
     ppos = (0.5, 0.0, 2.0)
     face = (ppos[0], sc_ * 19.2, ppos[2] + sc_ * 8.6)
-    cam = {'pos': (4.0, 9.5, 31.0), 'target': (-0.5, 8.6, 2.0), 'fov': 40.0, 'focus': face, 'fstop': 2.0}
+    # framed whole (cap, face, beak, the letter) and high in the picture, so the panel under it never covers his
+    # beak; the face in focus and kept crisp (a deeper focus than a portrait's)
+    cam = {'pos': (4.0, 10.8, 38.0), 'target': (-0.8, 5.2, 2.0), 'fov': 40.0, 'focus': face, 'fstop': 4.5}
     S = VScene(name or ('pip_gold' if gold else 'pip'), 1400, 1800, cam, world=((0.88, 0.84, 0.78), 0.16), samples=160)
     M = Model((-20, -2, -14), (20, 22, 29), [], res=3)
     P = CPainter(M, 71)
@@ -1318,7 +1336,7 @@ def scene_pip(gold=False, expr='happy', pose=None, name=None):
         VS.parcel(P, M, px, 0.0, pz, s_, s_ * 0.6, s_)
     lantern(S, P, M, (9.0, 14.5, 0.0), s=0.9, lit=True, power=38.0, kelvin=2400, hang_to=R['h'])
     lantern(S, P, M, (-13.0, 9.0, 8.5), s=0.7, lit=True, power=16.0, kelvin=2400)
-    S.lights.append({'type': 'area', 'pos': (4.0, 14.0, 26.0), 'aim': (0.0, 7.0, 2.0), 'size': (20.0, 12.0), 'power': 45.0, 'color': 5500})
+    S.lights.append({'type': 'area', 'pos': (4.0, 14.0, 26.0), 'aim': (0.0, 7.0, 2.0), 'size': (20.0, 12.0), 'power': 30.0, 'color': 5500})
     S.models.append((M, (), {}))
     chp = build_pip(res=CAST_RES)
     pal = npc_palette(chp, INK)
@@ -1332,7 +1350,7 @@ def scene_pip(gold=False, expr='happy', pose=None, name=None):
         pal['#F2D27A'] = '#F2D27A'
     S.actors = [Actor('pip', chp, pal, 'pip', expr=expr, pos=ppos, yaw=math.radians(10), scale=sc_, pose=pose)]
     S.anchors = {'letter': (ppos[0] - sc_ * 9.0, sc_ * 24.0, ppos[2] + sc_ * 4.0), 'face': face}
-    S.grade = {'bloom': 0.4, 'bloom_threshold': 175.0, 'glow': 0.14, 'warm': 0.05, 'saturation': 1.05, 'vignette': 0.26,
+    S.grade = {'bloom': 0.22, 'bloom_threshold': 205.0, 'glow': 0.08, 'warm': 0.05, 'saturation': 1.05, 'vignette': 0.26,
                'split': {'highlights': '#FFD9A0', 'shadows': '#5A5A9A', 'amount': 0.1}, 'grain': 0.01}
     S.zmax = 8.0
     return S
@@ -1343,14 +1361,14 @@ def scene_pip(gold=False, expr='happy', pose=None, name=None):
 # blink, a tilt of the head toward you, and his wing lifting the letter toward you. (pitch, yaw, roll) per part,
 # degrees: yaw + turns his face toward the camera, roll - raises the letter wing, pitch + tips it toward you
 PIP_POSES = {
-    'pip_p0': ('happy', None),
+    'pip_p0': ('default', None),                                            # at rest: eyes open, on you
     'pip_p1': ('blink', None),
-    'pip_p2': ('happy', {'head': (0.0, 4.0, 3.0)}),
-    'pip_p3': ('happy', {'head': (-1.0, 8.0, 6.0)}),
-    'pip_p4': ('happy', {'head': (-2.0, 11.0, 9.0)}),
-    'pip_p5': ('happy', {'arm': (4.0, 0.0, -5.0)}),
-    'pip_p6': ('happy', {'arm': (8.0, 0.0, -10.0), 'head': (0.0, -3.0, -2.0)}),
-    'pip_p7': ('proud', {'arm': (12.0, 0.0, -14.0), 'head': (0.0, -5.0, -4.0)}),
+    'pip_p2': ('default', {'head': (4.0, 1.0, 0.0)}),                       # talking: a nod down...
+    'pip_p3': ('default', {'head': (-3.0, 2.0, 1.5)}),                      # ...and up
+    'pip_p4': ('curious', {'head': (-1.0, 9.0, 7.0)}),                      # a tilt, curious
+    'pip_p5': ('default', {'arm': (6.0, 0.0, -7.0), 'head': (0.0, -2.0, -1.0)}),
+    'pip_p6': ('default', {'arm': (10.0, 0.0, -12.0), 'head': (0.0, -4.0, -3.0)}),
+    'pip_p7': ('happy', {'arm': (12.0, 0.0, -14.0), 'head': (0.0, -5.0, -4.0)}),  # the letter held out: a beaming peak
 }
 
 
@@ -1512,6 +1530,7 @@ SCENES = {
     'steps': scene_steps, 'steps_matte': lambda: scene_steps(True), 'pip': scene_pip,
     **{n: (lambda n=n: scene_pip_pose(n)) for n in PIP_POSES},
     **{n: (lambda n=n: scene_nest_pose(n)) for n in MIRA_POSES}, 'pip_gold': lambda: scene_pip(True),
+    **{n: (lambda n=n: scene_mira_talk(n)) for n in MIRA_TALK_POSES},
 }
 for _v in EGG_ORDER:
     SCENES['nest_egg_' + _v] = (lambda v=_v: scene_nest_egg(v))

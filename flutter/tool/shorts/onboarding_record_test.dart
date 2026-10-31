@@ -157,7 +157,7 @@ class _Rec {
     // Mira's nest: pick the Coral egg, it lifts and glows, the Elder it becomes turns on its ring
     await _until(() => _has(find.byType(EggPickScreen)), 6);
     _log('nest');
-    await _hold(2.6);
+    await _hold(4.4); // Mira's line, close on her, then the nest
     await _tap(find.byWidgetPredicate((w) => w is Semantics && w.properties.label == 'Coral egg'));
     await _hold(5.0);
     await _tap(find.text('This one'));

@@ -23,14 +23,17 @@ from scipy import ndimage
 SETS = {
     'pip': {
         'frames': {'p0': 'pip_p0', 'p1': 'pip_p1', 'p2': 'pip_p2', 'p3': 'pip_p3', 'p4': 'pip_p4', 'p5': 'pip_p5', 'p6': 'pip_p6', 'p7': 'pip_p7'},
-        'cap': 1100,
+        'cap': 1800,
         'focus': ('face', (-650, -400, 400, 250)),  # where to look for what moved: round an anchor (full-size px)
         'clips': {
             'blink': [['p1', 130]],
-            'tilt': [['p2', 70], ['p3', 70], ['p4', 1500], ['p3', 70], ['p2', 70]],
-            'present': [['p5', 80], ['p6', 80], ['p7', 1700], ['p6', 80], ['p5', 80]],
+            # his line: nodding as he talks, the letter up at the end
+            'talk': [['p2', 110], ['p0', 120], ['p3', 110], ['p0', 150], ['p2', 110], ['p0', 120], ['p3', 100], ['p0', 160],
+                     ['p2', 110], ['p0', 120], ['p3', 110], ['p0', 140], ['p5', 80], ['p6', 80], ['p7', 900], ['p6', 80], ['p5', 80]],
+            'tilt': [['p4', 1300]],
+            'present': [['p5', 80], ['p6', 80], ['p7', 900], ['p6', 80], ['p5', 80]],
         },
-        'idle': {'blink_every': [2.6, 5.0], 'gesture_every': [6.5, 9.5], 'gestures': ['tilt', 'present'], 'opening': 'present', 'opening_at': 0.7},
+        'idle': {'blink_every': [2.6, 5.0], 'gesture_every': [5.5, 8.5], 'gestures': ['tilt', 'present'], 'opening': 'talk', 'opening_at': 0.25},
     },
     'nest_empty': {
         'frames': {'m0': 'nest_m0', 'm1': 'nest_m1', 'm2': 'nest_m2', 'm3': 'nest_m3', 'm4': 'nest_m4', 'm5': 'nest_m5'},
@@ -39,10 +42,23 @@ SETS = {
         'focus': ('mira_face', (-500, -500, 500, 700)),
         'clips': {
             'blink': [['m1', 130]],
-            'look': [['m2', 80], ['m3', 80], ['m4', 1600], ['m3', 80], ['m2', 80]],
+            'look': [['m2', 80], ['m3', 80], ['m4', 900], ['m3', 700], ['m2', 80]],
             'back': [['m5', 1300]],
         },
         'idle': {'blink_every': [2.8, 5.2], 'gesture_every': [7.0, 11.0], 'gestures': ['back', 'look'], 'opening': 'look', 'opening_at': 1.0},
+    },
+    'mira': {
+        'frames': {'c0': 'mira_c0', 'c1': 'mira_c1', 'c2': 'mira_c2', 'c3': 'mira_c3', 'c4': 'mira_c4', 'c5': 'mira_c5'},
+        'cap': 1600,
+        'focus': ('mira_face', (-500, -500, 500, 700)),
+        'clips': {
+            'blink': [['c1', 130]],
+            # her line: nodding as she talks, warm at "waiting for you", then a glance at the nest
+            'talk': [['c2', 120], ['c0', 130], ['c3', 110], ['c0', 160], ['c2', 120], ['c0', 130], ['c3', 110], ['c0', 150],
+                     ['c2', 120], ['c0', 140], ['c4', 900], ['c0', 200], ['c5', 900]],
+            'glance': [['c5', 1100]],
+        },
+        'idle': {'blink_every': [2.8, 5.2], 'gesture_every': [6.0, 9.0], 'gestures': ['glance'], 'opening': 'talk', 'opening_at': 0.3},
     },
 }
 

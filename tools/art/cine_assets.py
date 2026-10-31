@@ -19,7 +19,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 
 LOSSLESS = {'lumen_print'}
 PLATE_MAX = {'map_lit': 1600, 'map_faded': 1600, 'map_hollow': 1600, 'village_dusk': 1400, 'glasshouse_night': 1400,
-             'nest': 1200, 'nest_empty': 1200, 'mira': 1200, 'aisle': 1200, 'steps': 1200, 'pip': 1100, 'pip_gold': 1100}
+             'nest': 1200, 'nest_empty': 1200, 'mira': 1600, 'aisle': 1200, 'steps': 1200, 'pip': 1800, 'pip_gold': 1800}
 
 
 def pack(plate_dir, out_dir, max_default=1200, quality=82):

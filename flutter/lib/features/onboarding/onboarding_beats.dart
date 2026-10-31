@@ -57,9 +57,15 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
   final _mira = PoseController();
   bool _fallback = false; // no cinematic pack: a plain row of eggs to pick from
 
+  /// Mira's line comes first, close on her (she turns to you, nods as she talks, smiles at "waiting for you" and
+  /// glances at the nest); then the shot settles on the nest. A tap moves straight on.
+  bool _intro = true;
+  Timer? _introTimer;
+
   @override
   void initState() {
     super.initState();
+    _introTimer = Timer(const Duration(milliseconds: 3700), _endIntro);
     LumenPrint.warm();
     CineTimeline.load().then((tl) {
       if (!mounted) return;
@@ -73,8 +79,14 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
     });
   }
 
+  void _endIntro() {
+    _introTimer?.cancel();
+    if (mounted && _intro) setState(() => _intro = false);
+  }
+
   @override
   void dispose() {
+    _introTimer?.cancel();
     _lift.dispose();
     _mira.dispose();
     super.dispose();
@@ -195,6 +207,21 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
             },
           );
         }),
+        // Mira close as she speaks, the shot then settling on the nest
+        if (!_fallback)
+          IgnorePointer(
+            ignoring: !_intro,
+            child: AnimatedOpacity(
+              opacity: _intro ? 1 : 0,
+              duration: Motion.reduced(context) ? Duration.zero : const Duration(milliseconds: 650),
+              curve: Curves.easeInOut,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _endIntro,
+                child: const PosedPlate('mira', alignment: Alignment(0, -0.25)),
+              ),
+            ),
+          ),
         // Mira's line and the header
         SafeArea(
           child: Column(children: [
@@ -243,7 +270,7 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
               child: AnimatedSwitcher(
                 duration: const Duration(milliseconds: 350),
                 child: picked == null
-                    ? const _HintCard(key: ValueKey('hint'), text: 'Tap an egg to pick it up.')
+                    ? (_intro && !_fallback ? const SizedBox(key: ValueKey('intro'), height: 0) : const _HintCard(key: ValueKey('hint'), text: 'Tap an egg to pick it up.'))
                     : GameCard(
                         key: ValueKey(picked),
                         padding: const EdgeInsets.all(12),
