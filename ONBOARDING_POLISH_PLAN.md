@@ -128,8 +128,18 @@ quick part) and by `flutter analyze` and the test suite on the PC.
   an Emotions card in the personality lab plays any emotion at any intensity on any personality; tests keep the
   config inside what the art can draw. Not yet: dialogue lines carrying a feeling (needs the villager pose work
   in decision A), and Pip and Mira themselves.
+- **Cold open, living village (31 Oct, asked for):** `tools/art/fx_zones/cine.py` gives `village_dusk` the game's
+  living-scene zones (trees sway, the waterfall runs into its pool with a little spray, the Lodge's windows and
+  the lanterns breathe, Bram's forge flickers, chimney smoke, fireflies); the cinematic player draws any plate
+  with zones through `scene_fx.frag` and its emitters under the shot's camera.
 
-## Decisions to make
+## Decisions (31 Oct)
+
+A and B approved as recommended: Pip and Mira get rendered pose layers; the three faces are painted (done:
+`afraid`, `frustrated`, `affectionate` are in every hero sheet and `emotions.json` uses them). C stands as
+recommended (automatic, developer override).
+
+## Decisions as proposed
 
 - **A. Pip and Mira in motion.** Recommended: render them as layered pose sequences in Blender on the PC's GPU
   (entrance, breathing, blink, head tilt, presenting the letter or the egg), composited over plates rendered
