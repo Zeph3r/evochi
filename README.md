@@ -248,7 +248,7 @@ lights the first path after naming.
 | `nest`, `nest_empty`, `nest_egg_<colour>`, `mira`, `aisle` | the Glasshouse inside at evening with a straw nest of six eggs and Mira beside it: the whole shot, the nest without eggs plus each egg alone as a sprite (for the pick), Mira close, and the aisle for the tracking shot |
 | `steps` | the step screen: the Ocean Eggling (Mochi) walking toward you down a dawn path, its Lumen prints pressed into the sand behind it (`press_print`: the foot carved a voxel deep, a faint ember in each, fading back up the path). No real-world props: they break the world |
 | `pip`, `pip_gold` | Pip standing in the Trail Guild Lodge holding up his sealed letter, the pigeonholes behind him and the sorting desk beside him; the founders' gold-sealed one |
-| `egg_<colour>_<0-3>`, `egg_shards_<colour>` | each egg as a Home-nest sprite (the Eggling's hero angle) at four crack stages, the cracks traced in Lumen gold across the side that faces you; the shell in four pieces for the hatch burst |
+| `egg_<colour>_<0-3>`, `egg_shards_<colour>` | each egg as a Home-nest sprite (the Eggling's hero angle) at four crack stages, the cracks traced in Lumen gold across the side that faces you; the shell in four pieces (unused: the app breaks the egg's own sprite instead, see The hatch) |
 | `elder_<colour>_<00-35>` | the three-second Elder glimpse: the Stage-3 Elder on a ring of its affinity's light, one orbit in 36 landscape frames at one distance (no zoom as it turns); the pick card opens it as a wide panel above the egg |
 
 The eggs are the Eggling's own model (`characters.build_eggling`) without its feet, claws and face, so the crest,
@@ -270,6 +270,22 @@ they walk on from where the name lands while the light spreads both ways; on the
 prints pressed into the plate toward Mochi. Reveals draw their mask first and keep the lit plate inside it
 (`srcIn`), so a reveal shows only what has been reached.
 
+**The hatch** is data: `flutter/assets/config/hatch.json` lists its beats in seconds from the tap (sounds, haptic
+feels, shakes, crack steps, the burst, and the creature's reactions) and each egg's style (its light and the shape
+of its burst: Lumen motes, leaves, sparks, droplets, stone grit, stars). `hatch_timeline.dart` paints it: the egg
+goes still as its light gathers, shakes, cracks with light pushing out while the camera pushes in, then its own
+sprite breaks along jagged lines into five pieces in a flash, a ring of light runs over the ground, a knock goes
+through the scene, and the Eggling springs out (`emerge`), looks round and does its personality's hatch act before
+the name card. Under reduced motion the egg fades in a soft flash, with no shakes, push or knock.
+
+**Motion and feelings.** `flutter/lib/app/motion.dart` holds the interface's durations and curves, reduced motion
+as the app sees it (the OS setting or the in-game toggle) and `Entrance` (cards and lines of speech fade and rise
+in). Onboarding steps fade in over each other. Characters' feelings are `assets/config/emotions.json`: eleven
+emotions with a face per kind of character, a motion, a length, a priority and what each settles into, played by
+`SceneController.feel(emotion, intensity)` and sized by the Evochi's personality (expressiveness, amplitude,
+tempo); the same file maps game events to feelings the Nest shows. Settings > Personality lab > Emotions plays any of
+them on any personality; `tool/shorts/emotions_record_test.dart` films the whole set on the three profiles.
+
 **The cut** is `tools/art/onboarding_cine.py`: the shot list (camera moves over the plates, reveals that grow
 along the trails or in from the edges, the footprint, footsteps, tiny Evochi walking the trails, captions, sound cues),
 written out as `onboarding_cine.json` and previewed as a video from the same plates. The app plays the same
@@ -280,8 +296,8 @@ before Welcome (`IntroGate`) and again from Settings > Watch the intro. With the
 under the promise "No location. Just your steps."); without it both fall back to their scenes.
 
 **Sound** (`python3 sfx.py ../../assets/audio --cine`, then MP3 into `flutter/assets/audio/sfx/`): `cine_footstep`
-(the one step the onboarding keeps coming back to: the black opening, the second step on the map, the hatch ring
-filling), `cine_lumen_rise` (the trails lighting; the name reaching the map) and `cine_hollow` (the Hollow creeping
+(the one step the onboarding keeps coming back to: the black opening, the second step on the map, the hatch's
+first beat), `cine_lumen_rise` (the trails lighting; the name reaching the map) and `cine_hollow` (the Hollow creeping
 in).
 
 ```bash
