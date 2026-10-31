@@ -378,7 +378,7 @@ class _CreateScreenState extends State<CreateScreen> {
               const SizedBox(width: 46),
             Expanded(
               child: Column(children: [
-                TitleImage('title_create_your', height: 28, label: 'Create your Evochi'),
+                const TitleImage('title_create_your', height: 28, label: 'Create your Evochi'),
                 ExcludeSemantics(child: Image.asset(art.title('wordmark_evochi'), height: 50)),
                 const Tag('A small beginning, a big adventure.'),
               ]),

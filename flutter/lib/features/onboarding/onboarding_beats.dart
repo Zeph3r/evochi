@@ -513,17 +513,21 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
             reducedMotion: reduce,
             pet: PetConfig(stage: p.stage, palette: p.paletteId, personality: p.personality, visible: showPet),
           ),
+          // the painter fills the hero (the rect is in its coordinates): a bare CustomPaint would shrink to
+          // nothing in the middle and draw the egg half a screen to the right
           heroBuilder: (ctx, rect) => rect == null
               ? const SizedBox.shrink()
-              : CustomPaint(
-                  painter: _EggPainter(
-                    palette: p.paletteId,
-                    stage: stage,
-                    phase: _phase,
-                    t: _t,
-                    burstAt: _burstAt,
-                    pet: rect,
-                    progress: (steps / hatchSteps).clamp(0.0, 1.0),
+              : SizedBox.expand(
+                  child: CustomPaint(
+                    painter: _EggPainter(
+                      palette: p.paletteId,
+                      stage: stage,
+                      phase: _phase,
+                      t: _t,
+                      burstAt: _burstAt,
+                      pet: rect,
+                      progress: (steps / hatchSteps).clamp(0.0, 1.0),
+                    ),
                   ),
                 ),
           header: const SizedBox(height: 8),
@@ -815,7 +819,7 @@ class _MapBeatPainter extends CustomPainter {
             ..strokeCap = StrokeCap.round
             ..strokeJoin = StrokeJoin.round
             ..blendMode = BlendMode.dstIn
-            ..maskFilter = MaskFilter.blur(BlurStyle.normal, width * 0.3)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, width * 0.3)
             ..color = Colors.white);
       c.restore();
       c.restore();

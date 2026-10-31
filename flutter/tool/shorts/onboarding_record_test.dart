@@ -67,6 +67,7 @@ void main() {
   });
 
   testWidgets('record the onboarding', (tester) async {
+    // ignore: invalid_use_of_visible_for_testing_member
     SharedPreferences.setMockInitialValues({}); // a fresh install: the intro has never been seen
     final dir = Directory('_shorts/onboarding');
     await tester.runAsync(() async {
