@@ -195,7 +195,8 @@ def assemble(raw_dir, pack_dir, out_dir, scene, plate, cap):
     x0, y0, x1, y1 = an['box']
     base = np.asarray(Image.open(os.path.join(raw_dir, scene + '_raw.png')).convert('RGBA')).astype(np.float32)
     H, W = base.shape[:2]
-    zb = CB.read_depth(os.path.join(raw_dir, scene + '_z.exr'))
+    zp0 = os.path.join(raw_dir, scene + '_z.exr')
+    zb = CB.read_depth(zp0) if vs.grade.get('mist') and os.path.exists(zp0) else None   # (only the haze uses depth)
     k = min(1.0, cap / max(W, H))
     size = (round(W * k), round(H * k))
 
@@ -223,9 +224,9 @@ def assemble(raw_dir, pack_dir, out_dir, scene, plate, cap):
             fr = base.copy()
             h_, w_ = min(im.shape[0], H - y0), min(im.shape[1], W - x0)
             fr[y0:y0 + h_, x0:x0 + w_] = im[:h_, :w_]
-            z = zb.copy()
+            z = None if zb is None else zb.copy()
             zp = os.path.join(raw_dir, fname + '_z.exr')
-            if os.path.exists(zp):
+            if z is not None and os.path.exists(zp):
                 zf = CB.read_depth(zp)
                 if zf.shape == zb.shape:
                     z = zf
