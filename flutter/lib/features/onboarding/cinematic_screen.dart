@@ -31,10 +31,11 @@ class IntroSeen {
   }
 }
 
-/// Plays the cold open, then [next] (the Welcome screen on first launch). From Settings it just pops.
+/// Plays the cold open, then calls [onFinished] (the first launch: IntroGate shows Welcome in its place, under
+/// the root router). From Settings it just pops.
 class CinematicScreen extends StatelessWidget {
-  const CinematicScreen({super.key, this.next, this.replay = false});
-  final Widget? next;
+  const CinematicScreen({super.key, this.onFinished, this.replay = false});
+  final VoidCallback? onFinished;
   final bool replay;
 
   @override
@@ -57,13 +58,9 @@ class CinematicScreen extends StatelessWidget {
           Navigator.of(context).pop();
           return;
         }
-        if (next != null) {
-          Navigator.of(context).pushReplacement(PageRouteBuilder(
-            pageBuilder: (_, __, ___) => next!,
-            transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: a, child: child),
-            transitionDuration: const Duration(milliseconds: 700),
-          ));
-        }
+        // not a new route: the root router (RootGate) has to stay in place, or the state changes after Welcome
+        // (the guest start, the egg) would have nothing to move the player on
+        onFinished?.call();
       },
     );
   }
@@ -91,8 +88,13 @@ class _IntroGateState extends State<IntroGate> {
   @override
   Widget build(BuildContext context) {
     final seen = _seen;
-    if (seen == null) return const ColoredBox(color: Colors.black);
-    if (seen) return widget.child;
-    return CinematicScreen(next: widget.child);
+    return AnimatedSwitcher(
+      duration: const Duration(milliseconds: 700),
+      child: seen == null
+          ? const ColoredBox(key: ValueKey('wait'), color: Colors.black, child: SizedBox.expand())
+          : seen
+              ? KeyedSubtree(key: const ValueKey('child'), child: widget.child)
+              : CinematicScreen(key: const ValueKey('cine'), onFinished: () => setState(() => _seen = true)),
+    );
   }
 }

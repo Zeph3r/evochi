@@ -87,7 +87,8 @@ class _SceneScaffoldState extends State<SceneScaffold> {
           // no rect until the hero has been measured (the first frame), so nothing jumps into place
           return ListenableBuilder(
             listenable: Listenable.merge([_ground, _heroTop]),
-            builder: (ctx, _) => hb(ctx, _heroTop.value <= 0 ? null : scenePetRect(widget.config(_ground.value), size)?.shift(Offset(0, -_heroTop.value))),
+            // (the pet's spot even while it is hidden: the hatch screen draws the egg there)
+            builder: (ctx, _) => hb(ctx, _heroTop.value <= 0 ? null : scenePetRect(widget.config(_ground.value), size, evenHidden: true)?.shift(Offset(0, -_heroTop.value))),
           );
         }
         return widget.hero ?? const SizedBox.expand();

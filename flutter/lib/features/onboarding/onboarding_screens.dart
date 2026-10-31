@@ -638,7 +638,7 @@ class _ConnectScreenState extends State<ConnectScreen> with SingleTickerProvider
         if (_note != null) ...[const SizedBox(height: 8), Text(_note!, style: EvochiText.bodyText.copyWith(color: EvochiColor.gold900))],
         const SizedBox(height: 12),
         EvochiButton(
-          label: _busy ? 'Waiting for permission...' : 'Connect ${c.health.displayName}',
+          label: _busy ? 'Waiting for permission...' : 'Use ${c.health.displayName}',
           large: true,
           icon: const VoxelIcon('steps', size: 28),
           onPressed: _busy ? null : _health,
@@ -958,7 +958,8 @@ class _GoalScreenState extends State<GoalScreen> {
         petLabel: p.name,
         minHero: 160,
         headerAllowance: 40,
-        config: (gy) => SceneConfig(habitat: 'meadow', decor: c.state.placements, focus: Offset(0.5, gy), reducedMotion: reduce, pet: PetConfig(stage: 1, palette: p.paletteId, personality: p.personality)),
+        // the egg hatches after this screen: the meadow without the Eggling, so the hatch is its first appearance
+        config: (gy) => SceneConfig(habitat: 'meadow', decor: c.state.placements, focus: Offset(0.5, gy), reducedMotion: reduce, pet: PetConfig(stage: 1, palette: p.paletteId, personality: p.personality, visible: false)),
         header: const SizedBox(height: 8),
         panel: _Sheet(children: [
           const Row(children: [VoxelIcon('star', size: 40), SizedBox(width: 8), Text('Pick a daily goal', style: EvochiText.pageTitle)]),

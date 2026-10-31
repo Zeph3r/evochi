@@ -67,9 +67,11 @@ class SceneConfig {
 
 /// Where [HabitatScene] draws the pet in a scene of [size] (its atlas frame, before any reaction
 /// motion), or null without a visible pet. The same placement as HabitatScene.build: keep them in step.
-Rect? scenePetRect(SceneConfig cfg, Size size) {
+/// Where the pet stands in the scene. [evenHidden]: the spot all the same while it is hidden, for what stands
+/// in its place (the egg on the hatch screen, before it hatches).
+Rect? scenePetRect(SceneConfig cfg, Size size, {bool evenHidden = false}) {
   final p = cfg.pet;
-  if (p == null || !p.visible || size.isEmpty) return null;
+  if (p == null || (!p.visible && !evenHidden) || size.isEmpty) return null;
   final m = AssetManifest.instance!;
   final hab = m.habitat(cfg.habitat);
   final w = size.width, h = size.height;
