@@ -39,7 +39,7 @@ def pack(vs, path):
     actors = []
     for j, a in enumerate(getattr(vs, 'actors', None) or []):
         A = actor_arrays(a)
-        meta_a = {k: A[k] for k in ('name', 'pos', 'yaw', 'rot', 'scale', 'camera', 'shadow', 'glow_k', 'head')}
+        meta_a = {k: A[k] for k in ('name', 'pos', 'yaw', 'rot', 'scale', 'camera', 'shadow', 'glow_k', 'head', 'pose')}
         meta_a['parts'] = []
         for k, p in enumerate(A['parts']):
             for key in ('C', 'COL', 'VN', 'GLOW'):

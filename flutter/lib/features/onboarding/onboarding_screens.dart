@@ -23,6 +23,7 @@ import '../shared/scene_view.dart';
 import '../shared/sprite.dart';
 import '../shared/widgets.dart';
 import 'cinematic_player.dart';
+import 'posed_plate.dart';
 
 // ------------------------------------------------------------------ welcome ----
 class WelcomeScreen extends StatefulWidget {
@@ -80,7 +81,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
         AnimatedBuilder(
           animation: _drift,
           builder: (_, child) => Transform.scale(scale: 1.0 + 0.06 * Curves.easeInOut.transform(_drift.value), alignment: toward, child: child),
-          child: const CinePlate('pip', alignment: Alignment(0, -0.35)),
+          // Pip in motion over his Lodge: a blink, a tilt of the head, the letter lifted toward you
+          child: const PosedPlate('pip', alignment: Alignment(0, -0.35)),
         ),
         // the lower part of the room darkens into the choices
         const IgnorePointer(

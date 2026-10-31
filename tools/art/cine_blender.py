@@ -63,6 +63,9 @@ class Actor:
     shadow: bool = True
     rot: tuple = (0.0, 0.0, 0.0)     # extra tilt (pitch about x, roll about z, degrees), after the yaw
     glow_k: float = 4.0
+    # a pose: per part ('head', 'arm', 'body'), a turn about its pivot (pitch about x, yaw about up, roll about
+    # the facing axis, degrees), for characters built in parts (village_npcs: Pip and Mira's heads and arms)
+    pose: dict = None
 
 
 def actor_arrays(a: Actor):
@@ -112,8 +115,10 @@ def actor_arrays(a: Actor):
         from village_npc_render import shadow_proxy
         PV, PF, PC = shadow_proxy(M, a.pal, sigma=0.6 * M.res / 2.0)
         proxy = {'V': PV, 'F': PF, 'C': PC}
+    # (a posed head or arm keeps the smooth stand-in's rest shadow: small turns, an invisible difference)
     return {'name': a.name, 'pos': list(a.pos), 'yaw': a.yaw, 'rot': list(a.rot), 'scale': a.scale, 'camera': a.camera,
-            'shadow': a.shadow, 'glow_k': a.glow_k, 'parts': parts, 'decals': decals, 'head': head, 'proxy': proxy}
+            'shadow': a.shadow, 'glow_k': a.glow_k, 'parts': parts, 'decals': decals, 'head': head, 'proxy': proxy,
+            'pose': {k: list(v) for k, v in (a.pose or {}).items()}}
 
 
 def B(v):
@@ -173,6 +178,12 @@ def actor_objects(A, coll):
                           attr={'Glow': p['GLOW']})
         ob.parent = root
         parts[p['name']] = (ob, p['origin'])
+    # the pose: each part turned about its own pivot (its object's origin); model axes -> Blender's
+    for pname, (pitch, yaw_, roll) in (A.get('pose') or {}).items():
+        if pname in parts:
+            ob = parts[pname][0]
+            ob.rotation_mode = 'XYZ'
+            ob.rotation_euler = (math.radians(pitch), -math.radians(roll), math.radians(yaw_))
     for key, d in A['decals'].items():
         host, horigin = parts.get(A['head'] if key == 'face' else 'body', parts['body'])
         ob = quads_object('%s %s' % (A['name'], key), d['Q'], d['COL'], horigin, mats['decal'], coll, attr={'Unlit': d['UNLIT']})

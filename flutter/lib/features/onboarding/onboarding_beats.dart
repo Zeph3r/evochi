@@ -37,6 +37,7 @@ import '../shared/sprite.dart';
 import '../shared/widgets.dart';
 import 'cinematic_player.dart';
 import 'hatch_timeline.dart';
+import 'posed_plate.dart';
 
 const hatchSteps = 150;
 const _placeholderName = 'Eggling';
@@ -53,6 +54,7 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
   late final AnimationController _lift = AnimationController(vsync: this, duration: const Duration(milliseconds: 520));
   String? _picked;
   bool _teaser = false;
+  final _mira = PoseController();
   bool _fallback = false; // no cinematic pack: a plain row of eggs to pick from
 
   @override
@@ -74,6 +76,7 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
   @override
   void dispose() {
     _lift.dispose();
+    _mira.dispose();
     super.dispose();
   }
 
@@ -83,6 +86,7 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
     c.mutate((s) => s.onboarding.draftPalette = id);
     c.audio.play('ui_tap', volume: 0.5);
     c.audio.buzz(Haptic.tick);
+    _mira.play('look');
     setState(() {
       _picked = id;
       _teaser = false;
@@ -127,7 +131,8 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
       backgroundColor: const Color(0xFF1A2432),
       body: Stack(fit: StackFit.expand, children: [
         // the Glasshouse at evening, the nest without its eggs
-        CinePlate('nest_empty', alignment: const Alignment(0, 0.2), onMissing: Image.asset(AssetManifest.instance!.thumb('meadow'), fit: BoxFit.cover)),
+        // (Mira in motion beside it: she blinks, looks down at the eggs, and at the one you pick)
+        PosedPlate('nest_empty', alignment: const Alignment(0, 0.2), controller: _mira, onMissing: Image.asset(AssetManifest.instance!.thumb('meadow'), fit: BoxFit.cover)),
         // the eggs, each its own sprite lit in place; the picked one lifts and glows
         LayoutBuilder(builder: (ctx, box) {
           final m = _meta;

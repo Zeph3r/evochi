@@ -1106,7 +1106,7 @@ def glasshouse_interior(S, P, M, rng, evening=True):
     return slope, ridge_y
 
 
-def _nest_scene(name, cam, eggs='all', mira=True, w=1400, h=2100, lift=None):
+def _nest_scene(name, cam, eggs='all', mira=True, w=1400, h=2100, lift=None, mira_expr='happy', mira_pose=None):
     """the Glasshouse at evening with the nest of six eggs in the aisle and Mira beside it. eggs: 'all' | 'none' | a
     variant (that egg alone in the picture; the others still light and shadow)"""
     import village_scenes as VS
@@ -1141,8 +1141,9 @@ def _nest_scene(name, cam, eggs='all', mira=True, w=1400, h=2100, lift=None):
         from village_npcs import build_mira, INK
         from village_npc_render import npc_palette
         chm = build_mira(res=CAST_RES)
-        S.actors.append(Actor('mira', chm, npc_palette(chm, INK), 'mira', expr='happy', pos=(-11.0, 0.0, -5.0),
-                              yaw=math.radians(18 if cam is MIRA_CAM else -30), scale=0.42, camera=eggs in ('all', 'none')))
+        S.actors.append(Actor('mira', chm, npc_palette(chm, INK), 'mira', expr=mira_expr, pos=(-11.0, 0.0, -5.0),
+                              yaw=math.radians(18 if cam is MIRA_CAM else -30), scale=0.42, camera=eggs in ('all', 'none'),
+                              pose=mira_pose))
     if eggs not in ('all', 'none'):
         S.models = [(m[0], m[1], dict(m[2] if len(m) > 2 else {}, camera=False)) for m in S.models]
     S.anchors = dict(slots)
@@ -1165,6 +1166,25 @@ def scene_nest():
 
 def scene_nest_empty():
     return _nest_scene('nest_empty', NEST_CAM, 'none', mira=True)
+
+
+# Mira beside the nest in motion: the same shot rendered in a few poses, the app cuts her out of each (a feathered
+# box round her) and plays them over the plate: a blink, a lean to look down at the eggs, a little lift of what she
+# holds, a look back at you. (pitch, yaw, roll) per part, degrees; yaw + turns her face to her left (toward the
+# eggs in this shot)
+MIRA_POSES = {
+    'nest_m0': ('happy', None),
+    'nest_m1': ('blink', None),
+    'nest_m2': ('happy', {'head': (4.0, 6.0, 3.0)}),
+    'nest_m3': ('happy', {'head': (8.0, 12.0, 6.0)}),
+    'nest_m4': ('proud', {'head': (10.0, 15.0, 7.0), 'arm': (7.0, 0.0, 0.0)}),
+    'nest_m5': ('happy', {'head': (-3.0, -5.0, -4.0)}),
+}
+
+
+def scene_nest_pose(name):
+    expr, pose = MIRA_POSES[name]
+    return _nest_scene(name, NEST_CAM, 'none', mira=True, mira_expr=expr, mira_pose=pose)
 
 
 def scene_nest_egg(v):
@@ -1261,7 +1281,7 @@ def scene_steps(matte=False):
 
 
 # ------------------------------------------------------------------------------------------ Pip's letter ----
-def scene_pip(gold=False):
+def scene_pip(gold=False, expr='happy', pose=None, name=None):
     """Beat 4: Pip the Courier up close, holding out the letter (his courier model, the letter in his wing). The
     gold-sealed founders' letter is the same shot with the seal recoloured. Rendered over the Lodge's counter in
     evening lantern light."""
@@ -1273,7 +1293,7 @@ def scene_pip(gold=False):
     ppos = (0.5, 0.0, 2.0)
     face = (ppos[0], sc_ * 19.2, ppos[2] + sc_ * 8.6)
     cam = {'pos': (4.0, 9.5, 31.0), 'target': (-0.5, 8.6, 2.0), 'fov': 40.0, 'focus': face, 'fstop': 2.0}
-    S = VScene('pip_gold' if gold else 'pip', 1400, 1800, cam, world=((0.88, 0.84, 0.78), 0.16), samples=160)
+    S = VScene(name or ('pip_gold' if gold else 'pip'), 1400, 1800, cam, world=((0.88, 0.84, 0.78), 0.16), samples=160)
     M = Model((-20, -2, -14), (20, 22, 29), [], res=3)
     P = CPainter(M, 71)
     rng = np.random.default_rng(71)
@@ -1309,13 +1329,33 @@ def scene_pip(gold=False):
                 Mp.m[Mp.m == Mp.ids[src]] = Mp.mid(dst)
         pal['#E8B956'] = '#E8B956'
         pal['#F2D27A'] = '#F2D27A'
-    S.actors = [Actor('pip', chp, pal, 'pip', expr='happy', pos=ppos, yaw=math.radians(10), scale=sc_)]
+    S.actors = [Actor('pip', chp, pal, 'pip', expr=expr, pos=ppos, yaw=math.radians(10), scale=sc_, pose=pose)]
     S.anchors = {'letter': (ppos[0] - sc_ * 9.0, sc_ * 24.0, ppos[2] + sc_ * 4.0), 'face': face}
     S.grade = {'bloom': 0.4, 'bloom_threshold': 175.0, 'glow': 0.14, 'warm': 0.05, 'saturation': 1.05, 'vignette': 0.26,
                'split': {'highlights': '#FFD9A0', 'shadows': '#5A5A9A', 'amount': 0.1}, 'grain': 0.01}
     S.zmax = 8.0
     return S
 
+
+
+# Pip in motion: the same shot in a few poses (the app cuts him out of each and plays them over the plate): a
+# blink, a tilt of the head toward you, and his wing lifting the letter toward you. (pitch, yaw, roll) per part,
+# degrees: yaw + turns his face toward the camera, roll - raises the letter wing, pitch + tips it toward you
+PIP_POSES = {
+    'pip_p0': ('happy', None),
+    'pip_p1': ('blink', None),
+    'pip_p2': ('happy', {'head': (0.0, 4.0, 3.0)}),
+    'pip_p3': ('happy', {'head': (-1.0, 8.0, 6.0)}),
+    'pip_p4': ('happy', {'head': (-2.0, 11.0, 9.0)}),
+    'pip_p5': ('happy', {'arm': (4.0, 0.0, -5.0)}),
+    'pip_p6': ('happy', {'arm': (8.0, 0.0, -10.0), 'head': (0.0, -3.0, -2.0)}),
+    'pip_p7': ('proud', {'arm': (12.0, 0.0, -14.0), 'head': (0.0, -5.0, -4.0)}),
+}
+
+
+def scene_pip_pose(name):
+    expr, pose = PIP_POSES[name]
+    return scene_pip(False, expr, pose, name)
 
 
 # ------------------------------------------------------------------------------------- egg sprites, hatch ----
@@ -1468,7 +1508,9 @@ SCENES = {
     'village_dusk': scene_village_dusk,
     'glasshouse_night': scene_glasshouse_night,
     'nest': scene_nest, 'nest_empty': scene_nest_empty, 'mira': scene_mira, 'aisle': scene_aisle,
-    'steps': scene_steps, 'steps_matte': lambda: scene_steps(True), 'pip': scene_pip, 'pip_gold': lambda: scene_pip(True),
+    'steps': scene_steps, 'steps_matte': lambda: scene_steps(True), 'pip': scene_pip,
+    **{n: (lambda n=n: scene_pip_pose(n)) for n in PIP_POSES},
+    **{n: (lambda n=n: scene_nest_pose(n)) for n in MIRA_POSES}, 'pip_gold': lambda: scene_pip(True),
 }
 for _v in EGG_ORDER:
     SCENES['nest_egg_' + _v] = (lambda v=_v: scene_nest_egg(v))
