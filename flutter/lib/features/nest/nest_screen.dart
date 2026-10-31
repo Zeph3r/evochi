@@ -12,6 +12,7 @@ import '../../controllers/game_controller.dart';
 import '../../core/services/haptics.dart';
 import '../../core/utils/day_keys.dart';
 import '../../game/economy/economy.dart' as econ;
+import '../../game/emotion/emotion.dart';
 import '../../game/engine.dart' as g;
 import '../../game/vitality/vitality.dart';
 import '../caravan/caravan_screen.dart';
@@ -41,6 +42,7 @@ class _NestScreenState extends State<NestScreen> {
   DateTime _lastInput = DateTime.now();
   DateTime? _napUntil;
   Timer? _idle;
+  StreamSubscription<g.GameEvent>? _feelings;
 
   // Sleep (style guide §20): the pet dozes in a quiet state (no touches for a while, sooner at
   // night) or when its bed is tapped. Any interaction wakes it.
@@ -58,11 +60,21 @@ class _NestScreenState extends State<NestScreen> {
     _idle = Timer.periodic(const Duration(seconds: 5), (_) {
       if (mounted && widget.active) setState(() {});
     });
+    // what happens in the game shows on its face while you are with it (assets/config/emotions.json "events")
+    _feelings = context.read<GameController>().events.listen((e) {
+      if (!mounted || !widget.active) return;
+      final f = Emotions.forEvent(e.type);
+      if (f == null) return;
+      final c = context.read<GameController>();
+      if (_sleeping(c) || (c.view.pet?.dead ?? true)) return;
+      scene.feel(f.$1, intensity: f.$2);
+    });
   }
 
   @override
   void dispose() {
     _idle?.cancel();
+    _feelings?.cancel();
     super.dispose();
   }
 
@@ -93,7 +105,7 @@ class _NestScreenState extends State<NestScreen> {
     setState(() {
       if (_sleeping(c)) {
         _touch();
-        scene.react('surprised');
+        scene.feel('surprised', intensity: 0.7); // woken: a start, then a curious look round
       } else {
         _napUntil = DateTime.now().add(const Duration(minutes: 1));
       }

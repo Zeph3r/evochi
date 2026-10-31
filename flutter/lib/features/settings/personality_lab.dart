@@ -1,7 +1,9 @@
 // Developer tools: the personality lab. Shows who your Evochi is (its saved traits, profile, signature, habits,
 // repertoires and style), lets you ask a preview director what it would do in a context and mood (every
 // candidate's weight, its factors, what was ruled out and why, the cooldowns that follow), force any behaviour,
-// and play the three profiles side by side. Nothing here is saved: it never changes the companion.
+// play the three profiles side by side, and play any emotion (assets/config/emotions.json) at any intensity on
+// any personality, to see how the same feeling looks on different companions. Nothing here is saved: it never
+// changes the companion.
 
 import 'dart:math' as math;
 
@@ -10,10 +12,12 @@ import 'package:provider/provider.dart';
 
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
+import '../../game/emotion/emotion.dart';
 import '../../game/personality/catalog.dart';
 import '../../game/personality/director.dart';
 import '../../game/personality/personality.dart';
 import '../shared/acting.dart';
+import '../shared/scene_view.dart';
 import '../shared/widgets.dart';
 
 const _contexts = ['idle', 'hatch', 'feed', 'pet', 'play', 'reward', 'return', 'wilds_open', 'wilds_calmed'];
@@ -36,6 +40,9 @@ class _PersonalityLabScreenState extends State<PersonalityLabScreen> {
   String? _forced;
   int _replay = 0, _sideReplay = 0;
   double _now = 0;
+  final _feelScene = SceneController();
+  String _emotion = 'happy';
+  double _intensity = 1;
 
   Personality _who(GameController c) {
     final s = _seed;
@@ -183,6 +190,43 @@ class _PersonalityLabScreenState extends State<PersonalityLabScreen> {
                           _replay++;
                         })),
             ]),
+          ]),
+        ),
+        const SizedBox(height: 10),
+        GameCard(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Emotions', style: EvochiText.cardTitle),
+            Text(
+                Emotions.table.isEmpty
+                    ? 'No emotions loaded (assets/config/emotions.json).'
+                    : 'How a feeling looks on this personality: its face, a motion sized by the intensity, its expressiveness and style, and what it settles into.',
+                style: EvochiText.caption),
+            const SizedBox(height: 6),
+            Wrap(spacing: 4, runSpacing: 4, children: [
+              for (final e in Emotions.table.keys) ChoiceChip(label: Text(e), selected: _emotion == e, onSelected: (_) => setState(() => _emotion = e)),
+            ]),
+            _Slider('intensity', _intensity, (v) => setState(() => _intensity = v)),
+            SizedBox(
+              height: 200,
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: HabitatScene(
+                  key: ValueKey('feel:${p.seed}:$stage:$palette'),
+                  controller: _feelScene,
+                  config: SceneConfig(
+                    habitat: 'meadow',
+                    focus: const Offset(0.5, 0.86),
+                    reducedMotion: MediaQuery.of(context).disableAnimations,
+                    pet: PetConfig(stage: stage, palette: palette, personality: p),
+                  ),
+                ),
+              ),
+            ),
+            if (Emotions.of(_emotion) case final e?)
+              Text('${e.id}: face ${e.face('evochi')}${e.end('evochi') != null ? ' then ${e.end('evochi')}' : ''} · ${e.motion} · ${e.ms} ms · priority ${e.priority}${e.next != null ? ' · then ${e.next}' : ''}',
+                  style: EvochiText.tiny),
+            const SizedBox(height: 6),
+            EvochiButton(label: 'Feel it', small: true, onPressed: () => _feelScene.feel(_emotion, intensity: _intensity)),
           ]),
         ),
         const SizedBox(height: 10),

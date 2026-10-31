@@ -10,6 +10,7 @@ import 'controllers/game_controller.dart';
 import 'core/services/asset_manifest.dart';
 import 'data/local/local_store.dart';
 import 'data/repositories/game_repository.dart';
+import 'game/emotion/emotion.dart';
 import 'features/shared/live_scene.dart';
 
 Future<void> main() async {
@@ -17,6 +18,7 @@ Future<void> main() async {
   await SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   await AssetManifest.load();
   await SceneFx.load();
+  await Emotions.load();
   try {
     GameConfig.current = GameConfig.parse(await rootBundle.loadString('assets/config/balance_v1.json'));
   } catch (_) {

@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 
 import '../../core/services/asset_manifest.dart';
+import '../../game/emotion/emotion.dart';
 import '../../game/personality/director.dart';
 import '../../game/personality/personality.dart';
 import '../../game/vitality/vitality.dart';
@@ -89,12 +90,16 @@ Rect? scenePetRect(SceneConfig cfg, Size size, {bool evenHidden = false}) {
 }
 
 class _Reaction {
-  _Reaction(this.expr, this.motion, this.start, this.dur, [this.exprEnd]);
+  _Reaction(this.expr, this.motion, this.start, this.dur, [this.exprEnd, this.amp = 1, this.priority = 1, this.next, this.nextIntensity = 0.7]);
   final String expr;
   final String? exprEnd;
   final String motion;
   final Duration start;
   final Duration dur;
+  final double amp; // how big the motion is (intensity x personality)
+  final int priority; // a lower one does not cut this short
+  final String? next; // the emotion it settles into
+  final double nextIntensity;
 }
 
 class _Particle {
@@ -111,6 +116,13 @@ class SceneController extends ChangeNotifier {
   Rect? petRect;
   void react(String kind) {
     _queue.add(kind);
+    notifyListeners();
+  }
+
+  /// How it feels (an emotion in assets/config/emotions.json) at [intensity] 0-1: its face and a motion sized by
+  /// the intensity and its personality. A moment of higher priority already playing is not cut short.
+  void feel(String emotion, {double intensity = 1}) {
+    _queue.add('feel:$emotion:${intensity.clamp(0.0, 1.0).toStringAsFixed(2)}');
     notifyListeners();
   }
 }
@@ -151,6 +163,7 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
       // 30 fps target (style guide §20)
       if ((t - _t).inMilliseconds >= 32) {
         _t = t;
+        _settle();
         _idleTick();
         _advance();
         _repaint.value++;
@@ -196,6 +209,11 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
     final q = widget.controller._queue;
     while (q.isNotEmpty) {
       final kind = q.removeAt(0);
+      if (kind.startsWith('feel:')) {
+        final parts = kind.split(':');
+        _feel(parts[1], double.tryParse(parts[2]) ?? 1);
+        continue;
+      }
       final ctx = reactionContexts[kind];
       if (ctx != null && _perform(ctx)) continue;
       const spec = {
@@ -218,6 +236,45 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
       _reaction = _Reaction(s[0], motion, _t, Duration(milliseconds: int.parse(s[2])));
       if (s[3].isNotEmpty) _burst(s[3]);
     }
+  }
+
+  /// how big its motions are: its personality's amplitude and expressiveness (1 without a personality)
+  double get _amp {
+    final who = widget.config.pet?.personality;
+    if (who == null) return 1;
+    return (who.style['amplitude'] ?? 1) * (0.75 + 0.5 * who.trait('expressiveness'));
+  }
+
+  /// its tempo (above 1 is quicker)
+  double get _tempo => widget.config.pet?.personality?.style['tempo'] ?? 1;
+
+  void _feel(String emotion, double intensity) {
+    final e = Emotions.of(emotion);
+    if (e == null) return;
+    final cur = _reaction;
+    if (cur != null && _t < cur.start + cur.dur && cur.priority > e.priority) return; // a bigger moment is playing
+    final reduce = widget.config.reducedMotion;
+    _stop();
+    _reaction = _Reaction(
+      e.face('evochi'),
+      reduce ? 'none' : e.motion,
+      _t,
+      Duration(milliseconds: (e.ms / _tempo).round()),
+      e.end('evochi'),
+      (_amp * (0.45 + 0.55 * intensity)).clamp(0.3, 1.6),
+      e.priority,
+      e.next,
+      intensity * 0.7,
+    );
+    if (e.particles != null && !reduce && intensity >= 0.4) _burst(e.particles!);
+  }
+
+  /// when a feeling ends it settles into the next, if it has one
+  void _settle() {
+    final r = _reaction;
+    if (r == null || r.next == null || _player != null || _t < r.start + r.dur) return;
+    _reaction = null;
+    if (r.next != 'neutral') _feel(r.next!, r.nextIntensity);
   }
 
   bool get _canAct {
@@ -247,13 +304,13 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
     final st = _acting;
     final reduce = widget.config.reducedMotion;
     // its face at once; the clip takes over from its first frame
-    _reaction = _Reaction(b.expr, reduce || (st != null && st.clips.containsKey(b.clip)) ? 'none' : b.motion, _t, dur, b.exprEnd);
+    _reaction = _Reaction(b.expr, reduce || (st != null && st.clips.containsKey(b.clip)) ? 'none' : b.motion, _t, dur, b.exprEnd, _amp);
     if (!reduce && st != null && b.clip != null && st.clips.containsKey(b.clip)) {
       final req = ++_playReq;
       ActingPlayer.open(st, b.clip!, p.palette, p.equipped).then((pl) {
         if (pl == null) {
           // a piece without its frames: the simple motion, as it would have been
-          if (mounted && req == _playReq) _reaction = _Reaction(b.expr, b.motion, _t, dur, b.exprEnd);
+          if (mounted && req == _playReq) _reaction = _Reaction(b.expr, b.motion, _t, dur, b.exprEnd, _amp);
           return;
         }
         if (!mounted || req != _playReq || !_canAct) {
@@ -483,24 +540,67 @@ class _PetPainter extends CustomPainter {
     if (r != null) {
       final mt = ((state._t - r.start).inMicroseconds / r.dur.inMicroseconds).clamp(0.0, 1.0);
       final hpx = e.h * scale;
+      final k = r.amp;
+      // in, held, out: for the motions that are a pose rather than a bounce
+      final env = mt < 0.2 ? Curves.easeOut.transform(mt / 0.2) : (mt > 0.8 ? Curves.easeIn.transform((1 - mt) / 0.2) : 1.0);
       switch (r.motion) {
         case 'bounce':
           final b = math.sin(math.min(1, mt * 2) * math.pi);
-          dy = -b * hpx * 0.08;
-          sy *= 1 + b * 0.04;
-          sx *= 1 - b * 0.03;
-          if (mt > 0.5) dy = -math.sin((mt - 0.5) * 2 * math.pi) * hpx * 0.035;
+          dy = -b * hpx * 0.08 * k;
+          sy *= 1 + b * 0.04 * k;
+          sx *= 1 - b * 0.03 * k;
+          if (mt > 0.5) dy = -math.sin((mt - 0.5) * 2 * math.pi) * hpx * 0.035 * k;
         case 'hop':
           final ph = (mt * 2) % 1;
           final b = math.sin(ph * math.pi);
-          dy = -b * hpx * 0.13;
-          final squash = (ph < 0.12 || ph > 0.88) ? 0.06 : 0.0;
-          sy *= 1 - squash + b * 0.03;
+          dy = -b * hpx * 0.13 * k;
+          final squash = (ph < 0.12 || ph > 0.88) ? 0.06 * k : 0.0;
+          sy *= 1 - squash + b * 0.03 * k;
           sx *= 1 + squash;
         case 'tilt':
-          rot = math.sin(math.min(1, mt * 1.6) * math.pi) * 0.09;
+          rot = math.sin(math.min(1, mt * 1.6) * math.pi) * 0.09 * k;
         case 'wiggle':
-          rot = math.sin(mt * math.pi * 6) * 0.05 * (1 - mt);
+          rot = math.sin(mt * math.pi * 6) * 0.05 * (1 - mt) * k;
+        case 'jolt':
+          // surprised: a quick start up and back, stretched, then down again
+          final b = math.sin(math.min(1, mt * 2.6) * math.pi);
+          dy = -b * hpx * 0.07 * k;
+          sy *= 1 + b * 0.06 * k;
+          sx *= 1 - b * 0.04 * k;
+          rot = -b * 0.04 * k;
+        case 'droop':
+          // sad: it sinks and slumps a little, head going down
+          dy = hpx * 0.015 * env * k;
+          sy *= 1 - 0.06 * env * k;
+          sx *= 1 + 0.03 * env * k;
+          rot = 0.035 * env * k;
+        case 'stomp':
+          // frustrated: two short stamps, leaning into each
+          final ph = (mt * 2) % 1;
+          final b = math.sin(ph * math.pi);
+          dy = -b * hpx * 0.045 * k;
+          final land = ph > 0.82 ? 0.08 * k : 0.0;
+          sy *= 1 - land;
+          sx *= 1 + land * 0.8;
+          rot = (mt < 0.5 ? 1 : -1) * 0.035 * b * k;
+        case 'cower':
+          // afraid: it shrinks back and trembles
+          sx *= 1 - 0.05 * env * k;
+          sy *= 1 - 0.11 * env * k;
+          rot = math.sin(t * 55) * 0.014 * env * k - 0.03 * env * k;
+        case 'lean':
+          // determined: it leans in and sets itself
+          rot = 0.075 * env * k;
+          sy *= 1 + 0.03 * env * k;
+          dy = -hpx * 0.01 * env * k;
+        case 'sway':
+          // sleepy: a slow sway, nearly nodding off
+          rot = math.sin(mt * math.pi * 2) * 0.05 * k;
+          sy *= 1 - 0.03 * math.sin(mt * math.pi) * k;
+        case 'nuzzle':
+          // affectionate: little tilts from side to side with soft bobs
+          rot = math.sin(mt * math.pi * 4) * 0.05 * env * k;
+          dy = -(math.sin(mt * math.pi * 4)).abs() * hpx * 0.022 * env * k;
         case 'emerge':
           // out of the shell: crouched small, it springs up past its size, lands with a squash and settles
           final grow = mt < 0.2 ? 0.62 : (mt < 0.55 ? 0.62 + 0.44 * Curves.easeOut.transform((mt - 0.2) / 0.35) : 1.06 - 0.06 * ((mt - 0.55) / 0.45));

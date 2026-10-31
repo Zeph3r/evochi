@@ -119,6 +119,15 @@ quick part) and by `flutter analyze` and the test suite on the PC.
   longer rebuilds every frame (the egg, the knock and the map beat repaint from one clock), and the waiting card
   keeps its place so the creature comes out where the egg stood. The rendered shell plates (`egg_shards_*`)
   stay unused: their pieces overlap in one sheet.
+- **Phase 4 (the emotion layer, in part):** `assets/config/emotions.json` + `game/emotion/emotion.dart` (the
+  eleven emotions: faces per kind of character, motion, duration, priority, sparkle, an end face, what each
+  settles into; plus engine events mapped to feelings); `SceneController.feel(emotion, intensity)` sized by the
+  pet's expressiveness and style (amplitude, tempo), which now also size its personality's own reactions; seven
+  new motions (jolt, droop, stomp, cower, lean, sway, nuzzle); the Nest shows level-ups, goals, bonds,
+  recoveries, quests and the rest on its face while you are there; waking it is a start, then a curious look;
+  an Emotions card in the personality lab plays any emotion at any intensity on any personality; tests keep the
+  config inside what the art can draw. Not yet: dialogue lines carrying a feeling (needs the villager pose work
+  in decision A), and Pip and Mira themselves.
 
 ## Decisions to make
 
