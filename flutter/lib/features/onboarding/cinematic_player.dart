@@ -546,6 +546,8 @@ class _CinePainter extends CustomPainter {
         ..setFloat(7, fx.wind)
         ..setFloat(8, 0)
         ..setFloat(9, 0)
+        ..setFloat(10, fx.rustle)
+        ..setFloat(11, fx.flicker)
         ..setImageSampler(0, im)
         ..setImageSampler(1, mask);
       c.drawRect(Offset.zero & size, (paint ?? Paint())..shader = sh..filterQuality = FilterQuality.medium);

@@ -33,32 +33,33 @@ VILLAGE_DUSK = [
     ('lamp', [140, 660, 390, 810], 'warm'),
     ('lamp', [140, 660, 390, 810], 'bright'),
     ('cloth', [90, 800, 245, 900], 'cloth', {'amp': 0.5}),
-    # lit windows: the Lodge, Bram's workshop (his forge flickers), the lanterns
-    ('lamp', [420, 600, 660, 730], 'warm'),
-    ('lamp', [420, 600, 660, 730], 'bright'),
-    ('fire', [770, 800, 870, 875], 'warm'),
-    ('fire', [770, 800, 870, 875], 'bright'),
-    ('lamp', [560, 760, 720, 960], 'bright'),
-    ('lamp', [760, 880, 840, 940], 'bright'),
-    ('lamp', [20, 930, 70, 980], 'bright'),
-    ('lamp', [370, 680, 420, 720], 'bright'),
+    # lit windows, flame light behind the glass (only the panes: the walls round them get their light from the
+    # glows): the Lodge's five, Bram's workshop
+    *[('window', r, k) for r in ([434, 625, 465, 656], [517, 628, 546, 656], [599, 629, 629, 658],
+                                 [430, 679, 469, 716], [592, 684, 632, 721], [792, 814, 846, 860])
+      for k in ('warm', 'bright')],
+    # the lanterns, and the little lights along the paths
+    *[('window', ('e', x, y, rx, ry), 'bright')
+      for x, y, rx, ry in ((586, 778, 10, 12), (613, 778, 7, 7), (581, 841, 7, 7), (665, 833, 8, 11), (663, 869, 6, 7),
+                           (643, 875, 10, 13), (777, 814, 7, 7), (791, 873, 7, 7), (808, 896, 7, 7), (806, 919, 7, 7),
+                           (817, 924, 7, 7), (702, 938, 7, 7), (44, 956, 8, 8), (377, 776, 7, 7), (385, 731, 7, 11))],
 ]
 
 _WARM = '#ffc561'
 VILLAGE_DUSK_EMIT = [
     # the Lodge's windows and door
-    {'t': 'glow', 'x': 448, 'y': 640, 'r': 26, 'c': _WARM, 'kind': 'lamp', 'a': 0.45},
-    {'t': 'glow', 'x': 530, 'y': 640, 'r': 26, 'c': _WARM, 'kind': 'lamp', 'a': 0.45},
-    {'t': 'glow', 'x': 615, 'y': 640, 'r': 26, 'c': _WARM, 'kind': 'lamp', 'a': 0.45},
-    {'t': 'glow', 'x': 452, 'y': 690, 'r': 24, 'c': _WARM, 'kind': 'lamp', 'a': 0.4},
-    {'t': 'glow', 'x': 612, 'y': 690, 'r': 24, 'c': _WARM, 'kind': 'lamp', 'a': 0.4},
+    {'t': 'glow', 'x': 449, 'y': 641, 'r': 30, 'c': _WARM, 'kind': 'window', 'a': 0.55},
+    {'t': 'glow', 'x': 531, 'y': 642, 'r': 30, 'c': _WARM, 'kind': 'window', 'a': 0.55},
+    {'t': 'glow', 'x': 614, 'y': 643, 'r': 30, 'c': _WARM, 'kind': 'window', 'a': 0.55},
+    {'t': 'glow', 'x': 449, 'y': 697, 'r': 28, 'c': _WARM, 'kind': 'window', 'a': 0.5},
+    {'t': 'glow', 'x': 612, 'y': 702, 'r': 28, 'c': _WARM, 'kind': 'window', 'a': 0.5},
     # the Glasshouse, warm inside
     {'t': 'glow', 'x': 262, 'y': 735, 'r': 95, 'c': '#ffd97a', 'kind': 'lamp', 'a': 0.3},
     # Bram's forge through the workshop window, and his chimney
-    {'t': 'glow', 'x': 822, 'y': 836, 'r': 58, 'c': '#ffb04a', 'kind': 'fire', 'a': 0.55},
+    {'t': 'glow', 'x': 819, 'y': 837, 'r': 58, 'c': '#ffb04a', 'kind': 'window', 'a': 0.55},
     {'t': 'smoke', 'x': 826, 'y': 600, 'n': 7, 's': 10, 'h': 190, 'drift': 70, 'c': '#d9d2e6', 'a': 0.4},
     # the lanterns along the paths
-    *[{'t': 'glow', 'x': x, 'y': y, 'r': r, 'c': '#ffe08a', 'kind': 'lamp', 'a': 0.55}
+    *[{'t': 'glow', 'x': x, 'y': y, 'r': r, 'c': '#ffe08a', 'kind': 'window', 'a': 0.6}
       for x, y, r in ((580, 780, 14), (612, 778, 14), (640, 860, 16), (700, 936, 14), (808, 896, 14), (818, 926, 12),
                       (44, 955, 14), (396, 700, 12), (775, 812, 12), (885, 810, 12), (248, 607, 10), (805, 605, 12))],
     # spray where the fall meets the pool
@@ -73,5 +74,5 @@ VILLAGE_DUSK_EMIT = [
 SCENES = {
     # seen whole on a phone before the camera pushes in, so a stronger wind than the game's scenes: the trees have
     # to read as moving in a four-second shot
-    'cine/village_dusk.webp': {'fx': VILLAGE_DUSK, 'emit': VILLAGE_DUSK_EMIT, 'wind': 3.4},
+    'cine/village_dusk.webp': {'fx': VILLAGE_DUSK, 'emit': VILLAGE_DUSK_EMIT, 'wind': 3.4, 'rustle': 1.0, 'flicker': 1.0},
 }

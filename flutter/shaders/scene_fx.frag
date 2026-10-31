@@ -4,7 +4,8 @@
 //      ripples, anything else is foliage (sways in gusts, its leaves shimmer).
 //   G  255 falling water (streaks run down), 128 still water (ripples, glints), 64 grass (a faint
 //      fine shimmer, nothing moves).
-//   B  255 fire (flickers), 200 crystal (pulses), 128 lamp or window (breathes).
+//   B  255 fire (flickers), 200 crystal (pulses), 150 window (flame light behind glass: flickers by
+//      uFlicker, else breathes), 128 lamp (breathes).
 // Everything is in the image's own pixels, so a scene looks the same at any size.
 
 #version 460 core
@@ -17,6 +18,9 @@ uniform vec2 uTex;   // the image's size in px (the mask has the same size)
 uniform float uTime; // seconds, wrapped on the Dart side
 uniform float uWind; // 1 = a breezy day; 0 = still
 uniform vec2 uOffset; // where this image sits in a bigger world (px): its gusts and ripples line up with its neighbours'
+uniform float uRustle;  // 0 = the game's scenes; above it, the leaves inside a canopy ruffle on their own and catch
+                        // the light (a picture seen small and briefly, the cold open's village)
+uniform float uFlicker; // 0 = windows breathe slowly like lamps; 1 = they flicker like flame light
 
 uniform sampler2D uImage;
 uniform sampler2D uMask;
@@ -83,6 +87,19 @@ void main() {
       d.y += sin(t * 2.1 + wp.x * 0.03) * 0.45 * g * s;
       float leaf = noise(wp * 0.085 + vec2(t * 0.8, -t * 0.35)) - 0.5;
       light += leaf * 0.11 * g * sway;
+      if (uRustle > 0.0) {
+        // the leaves themselves: each clump swings to and fro on its own beat (a phase that drifts smoothly over
+        // the canopy, so the voxel layers bend rather than slide as one), harder inside a gust, and the light
+        // catches the leaves as they turn
+        float ph = noise(wp * 0.02) * 6.2832 + noise(wp * 0.045 + 7.0) * 2.0;
+        float sw = sin(t * 2.3 + ph);
+        float k = uRustle * sway * (0.5 + 0.5 * g);
+        d.x += sw * 3.6 * k;
+        d.y += cos(t * 1.7 + ph * 1.3) * 1.1 * k;
+        light += cos(t * 2.3 + ph) * 0.06 * k;
+        float glint = noise(wp * 0.14 + vec2(t * 1.6, -t * 0.7));
+        light += smoothstep(0.72, 0.92, glint) * 0.07 * uRustle * sway;
+      }
     }
   }
 
@@ -120,7 +137,22 @@ void main() {
     float own = hash(floor(px / 48.0)) * 6.2832;
     float p = 0.5 + 0.5 * sin(t * 1.15 + own);
     float fl = noise(vec2(t * 4.5 + own, 0.5));
-    gain *= 0.88 + 0.2 * p + 0.08 * (fl - 0.5);
+    float calm = 0.88 + 0.2 * p + 0.08 * (fl - 0.5);
+    // a window (B 150) in a scene that asks for it (uFlicker): flame light behind glass, the same rhythm the
+    // window's glow keeps (live_scene.dart flame()): small quick wavers over a slower swell, and now and then
+    // a dip as the flame gutters. Its time drifts slowly over the image, so a pane keeps one flame and the
+    // next window along has its own
+    float fw = (kind > 140.0 && kind < 170.0) ? uFlicker : 0.0;
+    if (fw > 0.0) {
+      float seed = px.x * 0.006 + px.y * 0.016 + 2.5 * sin(px.x * 0.0041 - px.y * 0.0029);
+      float f = 0.5 + 0.5 * (0.45 * sin(t * 7.1 + seed) + 0.3 * sin(t * 12.7 + seed * 1.7) + 0.25 * sin(t * 2.3 + seed * 0.6));
+      float dip = smoothstep(0.78, 1.0, 0.5 + 0.5 * sin(t * 0.83 + seed * 2.1));
+      float flame = 0.9 + 0.2 * f - 0.12 * dip;
+      gain *= mix(calm, flame, fw);
+      tint += vec3(0.05, 0.02, -0.012) * (f - 0.5) * fw;
+    } else {
+      gain *= calm;
+    }
   }
 
   vec2 at = clamp((px + d) / uTex, vec2(0.5) / uTex, vec2(1.0) - vec2(0.5) / uTex);

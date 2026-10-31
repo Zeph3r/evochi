@@ -20,7 +20,7 @@ import 'package:flutter/services.dart';
 
 /// One scene's effects: its mask and its emitters, from assets/config/scene_fx.json.
 class SceneFx {
-  SceneFx._(this.mask, this.width, this.height, this.emitters, [this.wind = 1]);
+  SceneFx._(this.mask, this.width, this.height, this.emitters, [this.wind = 1, this.rustle = 0, this.flicker = 0]);
   final String mask;
   final double width;
   final double height;
@@ -28,6 +28,23 @@ class SceneFx {
 
   /// how hard the wind blows on this picture (1 = a breezy day): more for a picture seen small
   final double wind;
+
+  /// leaves ruffling inside their canopies (0: the canopy sways as one)
+  final double rustle;
+
+  /// lit windows and lanterns flickering like flame light (0: they breathe slowly)
+  final double flicker;
+
+  /// One light's flame: small quick wavers over a slower swell, a dip now and then as it gutters, 0..1: the same
+  /// rhythm the shader gives a window's panes at the same spot of the image (scene_fx.frag), so a glow and its
+  /// window keep time.
+  static double flame(double t, double x, double y) {
+    final seed = x * 0.006 + y * 0.016 + 2.5 * math.sin(x * 0.0041 - y * 0.0029);
+    final f = 0.5 + 0.5 * (0.45 * math.sin(t * 7.1 + seed) + 0.3 * math.sin(t * 12.7 + seed * 1.7) + 0.25 * math.sin(t * 2.3 + seed * 0.6));
+    final d = ((0.5 + 0.5 * math.sin(t * 0.83 + seed * 2.1) - 0.78) / 0.22).clamp(0.0, 1.0);
+    final dip = d * d * (3 - 2 * d);
+    return (0.2 * f - 0.12 * dip + 0.12) / 0.32; // the pane's gain (0.78..1.1) as 0..1
+  }
 
   static final Map<String, SceneFx> _all = {};
   static Future<ui.FragmentProgram?>? _program;
@@ -49,6 +66,8 @@ class SceneFx {
           (m['h'] as num).toDouble(),
           [for (var i = 0; i < list.length; i++) FxEmitter.fromJson(list[i] as Map<String, dynamic>, i)],
           ((m['wind'] as num?) ?? 1).toDouble(),
+          ((m['rustle'] as num?) ?? 0).toDouble(),
+          ((m['flicker'] as num?) ?? 0).toDouble(),
         );
       });
     } catch (e) {
@@ -387,9 +406,11 @@ class _LivePainter extends CustomPainter {
         ..setFloat(4, iw)
         ..setFloat(5, ih)
         ..setFloat(6, t)
-        ..setFloat(7, motion)
+        ..setFloat(7, motion * (fx?.wind ?? 1))
         ..setFloat(8, 0)
         ..setFloat(9, 0)
+        ..setFloat(10, motion * (fx?.rustle ?? 0))
+        ..setFloat(11, fx?.flicker ?? 0)
         ..setImageSampler(0, image)
         ..setImageSampler(1, m);
       paint.shader = sh;
@@ -508,6 +529,13 @@ class _Particles {
           }
         case 'sun':
           a *= 0.85 + 0.15 * math.sin(t * 0.31 + seed);
+        case 'window':
+          {
+            // the light out of a lit window keeping time with its panes: it wavers, swells and gutters
+            final f = SceneFx.flame(t, e.x, e.y);
+            a *= 0.62 + 0.42 * f;
+            r *= 0.94 + 0.1 * f;
+          }
         default: // lamp
           a *= 0.82 + 0.14 * math.sin(t * 1.15 + seed) + 0.04 * math.sin(t * 7.3 + seed * 3);
       }

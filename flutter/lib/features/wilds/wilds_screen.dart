@@ -2171,6 +2171,8 @@ class _MapPainter extends CustomPainter {
         ..setFloat(7, 1)
         ..setFloat(8, t.rect.left)
         ..setFloat(9, t.rect.top)
+        ..setFloat(10, 0) // no leaf rustle, no flame flicker (scene_fx.frag)
+        ..setFloat(11, 0)
         ..setImageSampler(0, t.img)
         ..setImageSampler(1, t.mask!);
       canvas.drawRect(t.rect, Paint()..shader = sh);
@@ -2672,6 +2674,8 @@ class _MapPainter extends CustomPainter {
         ..setFloat(7, 1)
         ..setFloat(8, at.dx - a.ax)
         ..setFloat(9, at.dy - a.ay)
+        ..setFloat(10, 0)
+        ..setFloat(11, 0)
         ..setImageSampler(0, a.img)
         ..setImageSampler(1, a.mask!);
       canvas.drawRect(Rect.fromLTWH(-a.ax, -a.ay, w, h), Paint()

@@ -131,7 +131,11 @@ quick part) and by `flutter analyze` and the test suite on the PC.
 - **Cold open, living village (31 Oct, asked for):** `tools/art/fx_zones/cine.py` gives `village_dusk` the game's
   living-scene zones (trees sway, the waterfall runs into its pool with a little spray, the Lodge's windows and
   the lanterns breathe, Bram's forge flickers, chimney smoke, fireflies); the cinematic player draws any plate
-  with zones through `scene_fx.frag` and its emitters under the shot's camera.
+  with zones through `scene_fx.frag` and its emitters under the shot's camera. Since: a stronger wind for a
+  plate seen whole, leaves blowing across, birds; then (asked for) the leaves move inside each canopy (`rustle`:
+  clumps swing on their own beat and catch the light) and the windows burn like flame light (`flicker`, zones of
+  kind `window`: only the panes, each window its own small waver, swell and gutter, 0.78-1.1 of its light; their
+  glows keep time with them through `SceneFx.flame`, so the light on the walls breathes with the glass).
 
 - **Pip and Mira in motion (decision A, done 31 Oct):** their shots re-rendered on the PC's GPU in poses (an
   actor's head or arm turned about its pivot, each part with its own shadow stand-in); `tools/art/cine_poses.py`

@@ -9,7 +9,8 @@ lib/features/shared/live_scene.dart). This script says where each effect goes:
               in gusts and its leaves shimmer).
     G  surface: 255 falling water (streaks run down), 128 still water (ripples and glints),
               64 grass (a faint fine shimmer, no movement)
-    B  kind:  255 fire (flickers), 200 crystal (slow pulse), 128 lamp or window (breathes),
+    B  kind:  255 fire (flickers), 200 crystal (slow pulse), 150 window (flame light: flickers in a scene
+              with 'flicker', else breathes), 128 lamp (breathes),
               80 cloth, 40 smoke
 * Emitters, drawn over the scene by a painter: glows, embers, smoke and steam, bubbles, motes
   (dust, pollen, fireflies, sparks) and drifting leaves.
@@ -32,10 +33,13 @@ Zones live in tools/art/fx_zones/*.py, one module per area, each with a SCENES d
             'also': ['village/square_day_dim.webp'],  # optional: the same zones on other variants
             'wind': 2.6,  # optional: how hard the wind blows (1 = a breezy day; for a plate seen small, as in
                           # the cold open's wide shots, more, so the sway still reads)
+            'rustle': 1.0,   # optional: leaves ruffling inside their canopies and catching the light (0 = off)
+            'flicker': 1.0,  # optional: 'window' zones flicker like flame light (0 = they breathe like lamps);
+                             # glows of kind 'window' keep time with their panes
         },
     }
 
-Effects: tree, blades, grass, cloth, smoke, fall, still, fire, crystal, lamp, and none (clears).
+Effects: tree, blades, grass, cloth, smoke, fall, still, fire, crystal, lamp, window, and none (clears).
 A 4th element can tune the sway: {'amp': 0.5} (0-1, default per effect), {'fade': 0.2} (the
 bottom of the shape moves this much of the top: blades and stems are rooted) and {'halo': 8} (the sway
 reaches that many px past what the key picked, so an outline moves, not only what is inside it).
@@ -95,6 +99,7 @@ EFFECTS = {
     'fire': (None, 255, None),
     'crystal': (None, 200, None),
     'lamp': (None, 128, None),
+    'window': (None, 150, None),  # flame light behind glass: flickers where the scene asks ('flicker'), else a lamp
 }
 SWAY_FEATHER = 4.0  # px: the sway amplitude fades out past a shape's edge instead of stopping dead
 EMITTERS = {'glow', 'embers', 'smoke', 'bubbles', 'motes', 'leaves'}
@@ -262,20 +267,21 @@ def bake(rel, spec):
     out = os.path.join(OUT_DIR, name)
     Image.fromarray(mask, 'RGB').save(out, 'WEBP', lossless=True, quality=100, method=6)
     out = {'mask': 'assets/art/fx/' + name, 'w': w, 'h': h, 'emit': spec.get('emit', [])}
-    if 'wind' in spec:
-        out['wind'] = spec['wind']
+    for k in ('wind', 'rustle', 'flicker'):
+        if k in spec:
+            out[k] = spec[k]
     return out, img, mask
 
 
 TINT = {  # preview colours: (channel, value) -> colour
     (1, 255): (0, 255, 255), (1, 128): (30, 90, 255), (1, 64): (190, 255, 0),
-    (2, 255): (255, 30, 0), (2, 200): (190, 60, 255), (2, 128): (255, 230, 0), (2, 80): (255, 80, 200), (2, 40): (160, 160, 160),
+    (2, 255): (255, 30, 0), (2, 200): (190, 60, 255), (2, 128): (255, 230, 0), (2, 150): (255, 140, 40), (2, 80): (255, 80, 200), (2, 40): (160, 160, 160),
 }
 
 
 def counts(mask):
     c = {'sway': int((mask[..., 0] > 0).sum())}
-    names = {(1, 255): 'fall', (1, 128): 'still', (1, 64): 'grass', (2, 255): 'fire', (2, 200): 'crystal', (2, 128): 'lamp', (2, 80): 'cloth', (2, 40): 'smoke'}
+    names = {(1, 255): 'fall', (1, 128): 'still', (1, 64): 'grass', (2, 255): 'fire', (2, 200): 'crystal', (2, 128): 'lamp', (2, 150): 'window', (2, 80): 'cloth', (2, 40): 'smoke'}
     for (ch, val), n in names.items():
         k = int((mask[..., ch] == val).sum())
         if k:
