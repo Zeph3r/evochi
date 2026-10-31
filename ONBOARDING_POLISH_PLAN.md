@@ -25,7 +25,7 @@ or the six affinities.
 | Opening cinematic | `features/onboarding/cinematic_player.dart` (`_CinePainter`, `CineTimeline`, `CineCamera`, `FootTrail`), `cinematic_screen.dart`, `assets/art/cine/onboarding_cine.json` from `tools/art/onboarding_cine.py`, plates from `tools/art/cine_scenes.py` | 7 shots over Cycles plates, eased pans and zooms clamped to the plate, reveals, footsteps, captions, 3 sound cues; cuts between shots; repaints every frame with blurred masks | working shot crossfades; captions laid out once; ambient Lumen motes; parallax only where a plate is rendered in depth layers (the village push); reduced-motion path |
 | Pip / Welcome | `onboarding_screens.dart` `WelcomeScreen._pipLetter`, plate `pip` | still plate, 9 s drift, text card | **needs a decision (A):** Pip rendered as layered poses (entrance, breathing, blink, head tilt, presenting the letter) over a Pip-less Lodge plate |
 | Egg pick | `onboarding_beats.dart` `EggPickScreen` | lift 520 ms easeOutBack with a glow, Elder glimpse panel, card swap | egg wobble on pick, a selection ring and label (not colour alone), guard against rapid re-picks, selection haptic |
-| Hatch | `onboarding_beats.dart` `HatchScreen`, `_EggPainter`, `_MapBeat`; `shared/scene_view.dart` `react('hatch')` | ring fills with steps, crack stages 0-3, 0.65 s burst, `excited/hop`, naming card, map beat | a data-driven 4 s timeline (below) built from the existing egg crack sprites, shell plates, sounds and haptics; the ticker moved off whole-screen `setState` |
+| Hatch | `onboarding_beats.dart` `HatchScreen`, `_EggPainter`, `_MapBeat`; `shared/scene_view.dart` `react('hatch')` | ring fills with steps, crack stages 0-3, 0.65 s burst, `excited/hop`, naming card, map beat | a data-driven 4 s timeline (below) built from the existing egg crack sprites, sounds and haptics; the ticker moved off whole-screen `setState` |
 | Buttons | `shared/widgets.dart` `EvochiButton`, `shared/kit.dart` `Kit.button` | default, pressed (60 ms, 3 px sink, gradient swap), disabled; no loading, focus or success; press ignores reduced motion | loading and success states, focus ring, a 150 ms eased release, reduced motion respected |
 | Panels and sheets | `GameCard`/`Kit.card`, `showEvochiSheet`, `SpeechCard`, `KitDialog` | rich materials (grain, bevels, inset shadows, 9-slice frames); no entrance or exit motion | a shared `Entrance` (fade and rise, 280 ms ease-out) on cards and speech; fade-through between onboarding steps in `RootGate` |
 | Particles | `shared/live_scene.dart` (`SceneFx`, stateless atlas particles), `scene_view.dart` `_burst`, onboarding painters, `FootTrail` | cheap and stateless; no global cap or quality tier | a quality tier (auto, with a developer override) read by the particle code; caps |
@@ -77,7 +77,7 @@ Eggling's personality reaction), shared by all six eggs:
 | A, quiet | 0.0-0.6 s | ambient motion eases down, a faint inner glow, `enc_glow` |
 | B, shaking | 0.6-1.3 s | irregular seeded shakes with pauses and small turns, building; light haptic ticks |
 | C, cracks | 1.3-2.0 s | the existing crack sprites step up, affinity light leaks, a few rising motes, `enc_rumble` |
-| D, burst | 2.0-2.3 s | flash, the rendered shell pieces (`egg_shards_*`) thrown out, a small camera impulse, `enc_awaken`, a stronger haptic |
+| D, burst | 2.0-2.3 s | flash, the egg's own sprite broken into pieces and thrown out, a small camera impulse, the break sound and its haptic |
 | E, reveal | 2.3-3.1 s | the Eggling rises with anticipation, overshoot and a soft landing (squash on the sprite, no mesh distortion) |
 | F, payoff | 3.1-4.0 s | blink, a curious look around, notices you, its personality reaction; a moment of quiet before the name card |
 
@@ -99,6 +99,26 @@ is already saved by the engine).
 
 Every batch is checked by recording the real app (`tool/shorts/onboarding_record_test.dart`, `ONB_UNTIL` for a
 quick part) and by `flutter analyze` and the test suite on the PC.
+
+## Progress
+
+- **Phase 1 (done, 31 Oct):** `lib/app/motion.dart` (duration and curve tokens, `Motion.reduced` /
+  `reducedNow`, the `Entrance` widget); the four OS-only reduce-motion reads now honour the in-game toggle too;
+  `RootGate` fades each onboarding step in over the last (a plain cut going backwards, e.g. a reset); the cold
+  open's crossfades work (the shot before is painted again, held at its end) and two more were added (the first
+  print into the map, the map into the village).
+- **Phase 2 (in part):** `EvochiButton` presses with an eased release that a quick tap still shows, a `busy`
+  state (spinner, no taps), a focus ring and a hover lift; `SpeechCard` rises in and writes its line out (a tap
+  finishes it); the egg pick rocks the lifted egg, pools its light on the straw, ticks a haptic, and ignores a
+  second tap on the same egg.
+- **Phase 3 (built, being verified):** the hatch runs from `assets/config/hatch.json` through
+  `features/onboarding/hatch_timeline.dart`: quiet, four shakes, three crack steps with light pushing out, the
+  egg's own sprite broken into five pieces, a flash, a ring of light, the gold motes and each affinity's burst
+  (leaves, sparks, droplets, grit, stars, motes), a small knock to the scene, then the Eggling springs out
+  (`emerge`), looks round (`look`) and does its personality's hatch act before the name card. The screen no
+  longer rebuilds every frame (the egg, the knock and the map beat repaint from one clock), and the waiting card
+  keeps its place so the creature comes out where the egg stood. The rendered shell plates (`egg_shards_*`)
+  stay unused: their pieces overlap in one sheet.
 
 ## Decisions to make
 

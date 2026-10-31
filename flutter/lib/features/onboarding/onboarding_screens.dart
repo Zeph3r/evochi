@@ -12,6 +12,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/constants.dart';
+import '../../app/motion.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/utils/ids.dart';
@@ -1015,7 +1016,7 @@ class _AwakeningScreenState extends State<AwakeningScreen> {
   @override
   void initState() {
     super.initState();
-    final reduce = WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.disableAnimations;
+    final reduce = Motion.reducedNow(context);
     _timer = Timer(Duration(milliseconds: reduce ? 50 : 900), () {
       if (!mounted) return;
       setState(() => _revealed = true);

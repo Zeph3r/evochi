@@ -78,7 +78,9 @@ class _SceneScaffoldState extends State<SceneScaffold> {
     return LayoutBuilder(builder: (context, box) {
       final size = Size(box.maxWidth, box.maxHeight);
       final maxPanel = math.max(140.0, box.maxHeight - widget.headerAllowance - widget.minHero - widget.bottomInset - MediaQuery.of(context).padding.top);
-      final hero = Builder(builder: (probe) {
+      // a LayoutBuilder, not a Builder: it builds again whenever the hero's size changes (a panel growing or
+      // shrinking under it) and so measures the ground again, even when nothing above it rebuilt
+      final hero = LayoutBuilder(builder: (probe, _) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted && probe.mounted) _measure(probe);
         });

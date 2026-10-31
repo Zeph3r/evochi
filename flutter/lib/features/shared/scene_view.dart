@@ -208,6 +208,8 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
         'sad': ['sad', 'none', '1400', ''],
         'snack': ['excited', 'hop', '1000', 'hearts'], // food picked in the Bag
         'hatch': ['excited', 'hop', '1200', 'stars'],
+        'emerge': ['surprised', 'emerge', '900', ''], // out of the shell (the hatch screen)
+        'look': ['curious', 'tilt', '700', ''], // a first look round
       };
       final s = spec[kind];
       if (s == null) continue;
@@ -499,6 +501,26 @@ class _PetPainter extends CustomPainter {
           rot = math.sin(math.min(1, mt * 1.6) * math.pi) * 0.09;
         case 'wiggle':
           rot = math.sin(mt * math.pi * 6) * 0.05 * (1 - mt);
+        case 'emerge':
+          // out of the shell: crouched small, it springs up past its size, lands with a squash and settles
+          final grow = mt < 0.2 ? 0.62 : (mt < 0.55 ? 0.62 + 0.44 * Curves.easeOut.transform((mt - 0.2) / 0.35) : 1.06 - 0.06 * ((mt - 0.55) / 0.45));
+          var qx = 1.0, qy = 1.0;
+          if (mt < 0.2) {
+            final k = math.sin(mt / 0.2 * math.pi / 2);
+            qx = 1 + 0.1 * k;
+            qy = 1 - 0.14 * k;
+          } else if (mt < 0.34) {
+            final k = 1 - (mt - 0.2) / 0.14;
+            qx = 1 - 0.07 * k;
+            qy = 1 + 0.1 * k;
+          } else if (mt > 0.78 && mt < 0.94) {
+            final k = math.sin((mt - 0.78) / 0.16 * math.pi);
+            qx = 1 + 0.08 * k;
+            qy = 1 - 0.1 * k;
+          }
+          if (mt > 0.2 && mt < 0.8) dy = -math.sin((mt - 0.2) / 0.6 * math.pi) * hpx * 0.12;
+          sx *= grow * qx;
+          sy *= grow * qy;
       }
     }
     // shadow

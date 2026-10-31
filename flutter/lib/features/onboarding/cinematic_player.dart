@@ -17,6 +17,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
 
+import '../../app/motion.dart';
 import '../../app/theme.dart';
 import '../../core/services/asset_manifest.dart';
 import '../shared/widgets.dart';
@@ -346,7 +347,6 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
   int _shot = 0;
   double _shotStart = 0;
   final Set<String> _sfxDone = {};
-  ui.Image? _prevFrame;
   bool _done = false;
 
   @override
@@ -435,7 +435,7 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
       child: Stack(fit: StackFit.expand, children: [
         if (tl != null)
           CustomPaint(
-            painter: _CinePainter(tl, _plates, _shot, _t - _shotStart, _prevFrame, DefaultTextStyle.of(context).style),
+            painter: _CinePainter(tl, _plates, _shot, _t - _shotStart, DefaultTextStyle.of(context).style),
             willChange: true,
           ),
         Positioned(
@@ -464,17 +464,16 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
 }
 
 class _CinePainter extends CustomPainter {
-  _CinePainter(this.tl, this.plates, this.shotIndex, this.ts, this.prev, this.textStyle);
+  _CinePainter(this.tl, this.plates, this.shotIndex, this.ts, this.textStyle);
   final CineTimeline tl;
   final Map<String, ui.Image> plates;
   final int shotIndex;
   final double ts; // seconds into the shot
-  final ui.Image? prev;
   final TextStyle textStyle;
 
   Size _size(ui.Image im) => Size(im.width.toDouble(), im.height.toDouble());
 
-  CineCamera _camera(Map<String, dynamic> shot, ui.Image plate) {
+  CineCamera _camera(Map<String, dynamic> shot, ui.Image plate, double ts) {
     final c = shot['camera'] as Map<String, dynamic>?;
     final name = shot['plate'] as String;
     if (c == null) return CineCamera(Offset(plate.width / 2, plate.height / 2), 1);
@@ -497,13 +496,35 @@ class _CinePainter extends CustomPainter {
   @override
   void paint(Canvas c, Size size) {
     final shot = tl.shots[shotIndex];
+    _paintShot(c, size, shot, ts);
+    // a shot with an xfade dissolves in over the last moment of the one before (painted again, held at its end),
+    // rather than cutting
+    final xf = (shot['xfade'] as num?)?.toDouble();
+    if (xf != null && shotIndex > 0 && ts < xf) {
+      final prev = tl.shots[shotIndex - 1];
+      final k = 1 - _ease(ts / xf, 'inout');
+      c.saveLayer(Offset.zero & size, Paint()..color = Colors.white.withValues(alpha: k));
+      _paintShot(c, size, prev, (prev['dur'] as num).toDouble());
+      c.restore();
+    }
+    final cap = shot['caption'] as Map<String, dynamic>?;
+    if (cap != null) {
+      final tin = (cap['in'] as num).toDouble(), tout = (cap['out'] as num).toDouble();
+      if (ts >= tin && ts <= tout) {
+        final a = math.min(1.0, math.min((ts - tin) / 0.4, (tout - ts) / 0.4));
+        _caption(c, size, cap['text'] as String, a);
+      }
+    }
+  }
+
+  void _paintShot(Canvas c, Size size, Map<String, dynamic> shot, double ts) {
     c.drawRect(Offset.zero & size, Paint()..color = Colors.black);
     final plateName = shot['plate'] as String?;
     final ui.Image? plate = plateName == null ? null : plates[plateName];
     ({double scale, Offset origin})? g;
     CineCamera? cam;
     if (plate != null) {
-      cam = _camera(shot, plate);
+      cam = _camera(shot, plate, ts);
       g = cam.fit(size, _size(plate));
       _drawPlate(c, size, plate, g);
     }
@@ -626,20 +647,6 @@ class _CinePainter extends CustomPainter {
         c.drawRect(Offset.zero & size, Paint()..color = Colors.black.withValues(alpha: k));
       }
     }
-    final xf = (shot['xfade'] as num?)?.toDouble();
-    if (xf != null && prev != null && ts < xf) {
-      final k = 1 - _ease(ts / xf, 'inout');
-      c.drawImageRect(prev!, Rect.fromLTWH(0, 0, prev!.width.toDouble(), prev!.height.toDouble()), Offset.zero & size,
-          Paint()..color = Colors.white.withValues(alpha: k));
-    }
-    final cap = shot['caption'] as Map<String, dynamic>?;
-    if (cap != null) {
-      final tin = (cap['in'] as num).toDouble(), tout = (cap['out'] as num).toDouble();
-      if (ts >= tin && ts <= tout) {
-        final a = math.min(1.0, math.min((ts - tin) / 0.4, (tout - ts) / 0.4));
-        _caption(c, size, cap['text'] as String, a);
-      }
-    }
   }
 
   void _edgeMask(Canvas c, Rect plate, double p) {
@@ -737,17 +744,86 @@ class CineFit {
   static Size plateSize(Map<String, dynamic> meta) => Size((meta['w'] as num).toDouble(), (meta['h'] as num).toDouble());
 }
 
-/// A villager's line over a plate: their name as a tag, the line under it.
-class SpeechCard extends StatelessWidget {
-  const SpeechCard({super.key, required this.name, required this.text});
+/// A villager's line over a plate: their name as a tag, the line under it. The card rises in, then the line
+/// writes itself out (a tap finishes it); the words not yet written already hold their place, so nothing
+/// reflows. Under reduced motion the line is simply there.
+class SpeechCard extends StatefulWidget {
+  const SpeechCard({super.key, required this.name, required this.text, this.delay = const Duration(milliseconds: 120)});
   final String name;
   final String text;
+  final Duration delay;
   @override
-  Widget build(BuildContext context) => GameCard(
-        padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
-        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-          Text(name, style: EvochiText.tag),
-          Text(text, style: EvochiText.bodyText),
-        ]),
+  State<SpeechCard> createState() => _SpeechCardState();
+}
+
+class _SpeechCardState extends State<SpeechCard> with SingleTickerProviderStateMixin {
+  static const _perChar = 0.026; // seconds: about 38 characters a second
+  late final AnimationController _a = AnimationController(vsync: this);
+  Timer? _wait;
+
+  @override
+  void initState() {
+    super.initState();
+    _start();
+  }
+
+  @override
+  void didUpdateWidget(SpeechCard old) {
+    super.didUpdateWidget(old);
+    if (old.text != widget.text) _start();
+  }
+
+  void _start() {
+    _wait?.cancel();
+    if (Motion.reducedNow(context)) {
+      _a.value = 1;
+      return;
+    }
+    _a.value = 0;
+    _a.duration = Duration(milliseconds: (widget.text.length * _perChar * 1000).round());
+    // the line starts writing as the card finishes rising in
+    _wait = Timer(widget.delay + Motion.base * 0.6, () {
+      if (mounted) _a.forward();
+    });
+  }
+
+  @override
+  void dispose() {
+    _wait?.cancel();
+    _a.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Entrance(
+        delay: widget.delay,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: () {
+            _wait?.cancel();
+            _a.value = 1;
+          },
+          child: GameCard(
+            padding: const EdgeInsets.fromLTRB(12, 8, 12, 10),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+              Text(widget.name, style: EvochiText.tag),
+              Semantics(
+                label: widget.text,
+                child: ExcludeSemantics(
+                  child: AnimatedBuilder(
+                    animation: _a,
+                    builder: (_, __) {
+                      final n = (widget.text.length * _a.value).round();
+                      return Text.rich(TextSpan(style: EvochiText.bodyText, children: [
+                        TextSpan(text: widget.text.substring(0, n)),
+                        TextSpan(text: widget.text.substring(n), style: const TextStyle(color: Color(0x00000000))),
+                      ]));
+                    },
+                  ),
+                ),
+              ),
+            ]),
+          ),
+        ),
       );
 }

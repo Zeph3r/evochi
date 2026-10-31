@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/constants.dart';
+import '../../app/motion.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/services/asset_manifest.dart';
@@ -66,7 +67,10 @@ KitButtonPalette buttonPalette(ButtonTone t) => switch (t) {
     };
 
 /// Chunky game button: a dark outline, a gloss strip under the label, and a hard edge it sinks into
-/// (3 px) while pressed. Debounces repeat taps (style guide §23 "Fast repeated tap").
+/// (3 px) while pressed, coming back up eased (a quick tap still shows the press). Debounces repeat taps
+/// (style guide §23 "Fast repeated tap"). [busy] holds it while something it started is working (a spinner by
+/// the label, no further taps); it shows a focus ring for keyboards and switch access, and lifts a little
+/// under a mouse.
 class EvochiButton extends StatefulWidget {
   const EvochiButton({
     super.key,
@@ -82,6 +86,7 @@ class EvochiButton extends StatefulWidget {
     this.labelGroup,
     this.hPad,
     this.iconGap = 8,
+    this.busy = false,
   });
   /// The labels of the buttons beside this one: all of them take the size at which the longest fits.
   final List<String>? labelGroup;
@@ -98,67 +103,123 @@ class EvochiButton extends StatefulWidget {
   final bool small;
   final bool expand;
   final String? semanticLabel;
+  /// Working on what it started: keeps its colour, shows a spinner, takes no taps.
+  final bool busy;
 
   @override
   State<EvochiButton> createState() => _EvochiButtonState();
 }
 
-class _EvochiButtonState extends State<EvochiButton> {
-  bool _down = false;
+class _EvochiButtonState extends State<EvochiButton> with SingleTickerProviderStateMixin {
+  // 0 up, 1 fully down: goes down quickly, comes back up eased, and always completes its press first, so a
+  // quick tap still shows the button sinking
+  late final AnimationController _p = AnimationController(vsync: this, duration: Motion.press, reverseDuration: Motion.release);
+  bool _held = false;
+  bool _focus = false;
+  bool _hover = false;
   DateTime _last = DateTime.fromMillisecondsSinceEpoch(0);
+
+  @override
+  void dispose() {
+    _p.dispose();
+    super.dispose();
+  }
+
+  void _press() {
+    _held = true;
+    _p.forward();
+  }
+
+  void _release() {
+    _held = false;
+    if (_p.isCompleted) {
+      _p.reverse();
+    } else if (_p.isAnimating && _p.status == AnimationStatus.forward) {
+      _p.forward().whenCompleteOrCancel(() {
+        if (!_held && mounted) _p.reverse();
+      });
+    }
+  }
+
+  void _activate() {
+    final t = DateTime.now();
+    if (t.difference(_last).inMilliseconds < 350) return;
+    _last = t;
+    context.read<GameController>().audio.tick();
+    widget.onPressed!();
+  }
 
   @override
   Widget build(BuildContext context) {
     final enabled = widget.onPressed != null;
+    final live = enabled && !widget.busy;
     final p = enabled ? buttonPalette(widget.tone) : KitButtonPalette.disabled;
-    final down = _down && enabled;
+    final reduce = Motion.reduced(context);
     final h = widget.large ? 56.0 : (widget.small ? 44.0 : 48.0);
+    final radius = widget.large ? 14.0 : (widget.small ? 10.0 : 13.0);
     final style = EvochiText.button.copyWith(
       color: p.fg,
       fontSize: widget.labelSize ?? (widget.large ? 20 : (widget.small ? 15 : 17)),
       shadows: p.textShadow == null ? null : [Shadow(color: p.textShadow!, offset: const Offset(0, 1))],
     );
-    final child = AnimatedContainer(
-      duration: const Duration(milliseconds: 60),
-      height: h,
-      transform: Matrix4.translationValues(0, down ? 3 : 0, 0),
-      padding: EdgeInsets.symmetric(horizontal: widget.hPad ?? (widget.small ? 12 : 18)),
-      decoration: Kit.button(p, pressed: down, small: widget.small, disabled: !enabled, radius: widget.large ? 14 : (widget.small ? 10 : 13)),
-      child: Row(
-        mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          if (widget.icon != null) ...[widget.icon!, SizedBox(width: widget.iconGap)],
-          // a lone label that doesn't fit shrinks a little rather than losing its end ("Need 150 more"),
-          // never below 12 px: past that it wraps to two lines; buttons in a row share one size
-          // through [labelSize] instead, so they read evenly
-          Flexible(
-            child: widget.labelGroup != null
-                ? KitRowLabel(widget.label, group: widget.labelGroup!, style: style, min: 12)
-                : FitLabel(widget.label, style: style, min: 12.5),
+    final lead = widget.busy
+        ? SizedBox(width: style.fontSize! * 0.95, height: style.fontSize! * 0.95, child: CircularProgressIndicator(strokeWidth: 2.4, color: p.fg))
+        : widget.icon;
+    final label = Row(
+      mainAxisSize: widget.expand ? MainAxisSize.max : MainAxisSize.min,
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        if (lead != null) ...[lead, SizedBox(width: widget.iconGap)],
+        // a lone label that doesn't fit shrinks a little rather than losing its end ("Need 150 more"),
+        // never below 12 px: past that it wraps to two lines; buttons in a row share one size
+        // through [labelSize] instead, so they read evenly
+        Flexible(
+          child: widget.labelGroup != null
+              ? KitRowLabel(widget.label, group: widget.labelGroup!, style: style, min: 12)
+              : FitLabel(widget.label, style: style, min: 12.5),
+        ),
+      ],
+    );
+    final child = AnimatedBuilder(
+      animation: _p,
+      child: label,
+      builder: (_, inner) {
+        final k = live ? _p.value : 0.0;
+        final down = k > 0.4;
+        final dy = reduce ? 0.0 : (k > 0 ? 3.0 * Curves.easeOut.transform(k) : (_hover && live ? -1.0 : 0.0));
+        return Transform.translate(
+          offset: Offset(0, dy),
+          child: Container(
+            height: h,
+            padding: EdgeInsets.symmetric(horizontal: widget.hPad ?? (widget.small ? 12 : 18)),
+            decoration: Kit.button(p, pressed: down, small: widget.small, disabled: !enabled, radius: radius),
+            foregroundDecoration: _focus && live
+                ? BoxDecoration(borderRadius: BorderRadius.circular(radius + 3), border: Border.all(color: const Color(0xFFFFF4D6), width: 2.5))
+                : null,
+            child: inner,
           ),
-        ],
-      ),
+        );
+      },
     );
     return Semantics(
       button: true,
-      enabled: enabled,
+      enabled: live,
       label: widget.semanticLabel ?? widget.label,
+      value: widget.busy ? 'working' : null,
       child: ExcludeSemantics(
-        child: GestureDetector(
-          onTapDown: enabled ? (_) => setState(() => _down = true) : null,
-          onTapCancel: () => setState(() => _down = false),
-          onTapUp: enabled ? (_) => setState(() => _down = false) : null,
-          onTap: enabled
-              ? () {
-                  final t = DateTime.now();
-                  if (t.difference(_last).inMilliseconds < 350) return;
-                  _last = t;
-                  context.read<GameController>().audio.tick();
-                  widget.onPressed!();
-                }
-              : null,
-          child: child,
+        child: FocusableActionDetector(
+          enabled: live,
+          mouseCursor: live ? SystemMouseCursors.click : MouseCursor.defer,
+          onShowFocusHighlight: (v) => setState(() => _focus = v),
+          onShowHoverHighlight: (v) => setState(() => _hover = v),
+          actions: {ActivateIntent: CallbackAction<ActivateIntent>(onInvoke: (_) => _activate())},
+          child: GestureDetector(
+            onTapDown: live ? (_) => _press() : null,
+            onTapCancel: _release,
+            onTapUp: live ? (_) => _release() : null,
+            onTap: live ? _activate : null,
+            child: child,
+          ),
         ),
       ),
     );

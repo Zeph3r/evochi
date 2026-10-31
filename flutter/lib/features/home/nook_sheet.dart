@@ -15,6 +15,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 
+import '../../app/motion.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/models/game_state.dart';
@@ -820,7 +821,7 @@ class _HatchShowState extends State<_HatchShow> with SingleTickerProviderStateMi
     super.initState();
     final c = context.read<GameController>();
     _skippable = c.state.flags['hatchSeen'] == true;
-    final reduced = WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.disableAnimations;
+    final reduced = Motion.reducedNow(context);
     _a.addListener(_beats);
     _a.addStatusListener((st) {
       if (st == AnimationStatus.completed) _reveal();

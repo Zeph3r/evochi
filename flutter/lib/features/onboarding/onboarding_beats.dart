@@ -4,10 +4,12 @@
 //                   plus each egg as its own lit sprite), tap one and it lifts in a glow of its colour, with a
 //                   glimpse of the Elder it becomes; "This one?" creates the pet (named later, after the hatch).
 //   HatchScreen     the egg in the Home nest: real steps since the egg was chosen crack it (the four crack
-//                   sprites), a ring shows the way to 150, "Hatch now" is never far; the hatch pops the shell
-//                   into shards and gold motes, the Eggling tumbles in with its hatch act, then the name is asked
-//                   while it watches, the name flies in Lumen to Alder's map and one trail near Sunlit Village
-//                   lights up: "One path lit. Many more to go."
+//                   sprites), a ring shows the way to 150, "Hatch now" is never far; the hatch plays the beats
+//                   in assets/config/hatch.json (hatch_timeline.dart): quiet, shakes, cracks pouring light, the
+//                   shell breaking apart with its affinity's burst, the Eggling springing out, looking round and
+//                   doing its personality's hatch act; then the name is asked while it watches, the name flies
+//                   in Lumen to Alder's map and one trail near Sunlit Village lights up: "One path lit. Many
+//                   more to go."
 //
 // Both fall back to the game's own sprites when a plate is missing from the pack, so a build without the
 // cinematic art still plays through.
@@ -21,9 +23,11 @@ import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/constants.dart';
+import '../../app/motion.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/services/asset_manifest.dart';
+import '../../core/services/haptics.dart';
 import '../../core/utils/ids.dart';
 import '../../game/engine.dart' as g;
 import '../../game/story/story.dart' show freshDays;
@@ -32,6 +36,7 @@ import '../shared/scene_view.dart';
 import '../shared/sprite.dart';
 import '../shared/widgets.dart';
 import 'cinematic_player.dart';
+import 'hatch_timeline.dart';
 
 const hatchSteps = 150;
 const _placeholderName = 'Eggling';
@@ -73,9 +78,11 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
   }
 
   void _pick(String id) {
+    if (id == _picked) return; // a second tap on the egg already in hand changes nothing
     final c = context.read<GameController>();
     c.mutate((s) => s.onboarding.draftPalette = id);
     c.audio.play('ui_tap', volume: 0.5);
+    c.audio.buzz(Haptic.tick);
     setState(() {
       _picked = id;
       _teaser = false;
@@ -130,23 +137,38 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
           final k = math.max(box.maxWidth / pw, box.maxHeight / ph);
           final dx = (box.maxWidth - pw * k) / 2;
           final dy = (box.maxHeight - ph * k) * 0.6;
+          final reduce = Motion.reduced(context);
           return AnimatedBuilder(
             animation: _lift,
-            builder: (_, __) => Stack(children: [
+            builder: (_, __) {
+              final v = _lift.value;
+              final lift = 26 * (reduce ? Curves.easeOut.transform(v) : Curves.easeOutBack.transform(v));
+              // lifted, it rocks on its base a couple of times and settles
+              final rock = reduce ? 0.0 : 0.075 * math.sin(v * math.pi * 3.2) * math.pow(1 - v, 1.4);
+              return Stack(children: [
               for (final p in palettes)
                 Positioned(
                   left: dx,
-                  top: dy - (p.id == picked ? 26 * Curves.easeOutBack.transform(_lift.value) : 0),
+                  top: dy - (p.id == picked ? lift : 0),
                   width: pw * k,
                   height: ph * k,
                   child: IgnorePointer(
-                    child: Opacity(opacity: picked == null || p.id == picked ? 1 : 0.78, child: CinePlate('nest_egg_${p.id}', fit: BoxFit.fill)),
+                    child: Opacity(
+                      opacity: picked == null || p.id == picked ? 1 : 0.78,
+                      child: p.id == picked && rock != 0 && _slot(p.id) != null
+                          ? Transform(
+                              transform: Matrix4.rotationZ(rock),
+                              origin: Offset(_slot(p.id)!.dx * pw * k, _slot(p.id)!.dy * ph * k + 2),
+                              child: CinePlate('nest_egg_${p.id}', fit: BoxFit.fill),
+                            )
+                          : CinePlate('nest_egg_${p.id}', fit: BoxFit.fill),
+                    ),
                   ),
                 ),
               if (picked != null && _slot(picked) != null)
                 Positioned.fill(
                   child: IgnorePointer(
-                    child: CustomPaint(painter: _GlowPainter(Offset(dx + _slot(picked)!.dx * pw * k, dy + _slot(picked)!.dy * ph * k - 26 * _lift.value), _paletteGlow(picked), _lift.value)),
+                    child: CustomPaint(painter: _GlowPainter(Offset(dx + _slot(picked)!.dx * pw * k, dy + _slot(picked)!.dy * ph * k), lift, _paletteGlow(picked), v)),
                   ),
                 ),
               // tap targets over each egg
@@ -164,7 +186,8 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
                       child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: () => _pick(p.id)),
                     ),
                   ),
-            ]),
+              ]);
+            },
           );
         }),
         // Mira's line and the header
@@ -287,18 +310,26 @@ Color _paletteGlow(String pal) {
 }
 
 class _GlowPainter extends CustomPainter {
-  _GlowPainter(this.at, this.color, this.k);
-  final Offset at;
+  _GlowPainter(this.at, this.lift, this.color, this.k);
+  final Offset at; // where the egg sits in the nest
+  final double lift; // how far it has risen
   final Color color;
   final double k;
   @override
   void paint(Canvas c, Size size) {
+    // its own light around it, and the same light pooled on the straw where it sat
+    final egg = at.translate(0, -30 - lift);
     final r = 70.0 + 30 * k;
-    c.drawCircle(at.translate(0, -30), r, Paint()..blendMode = BlendMode.plus..shader = ui.Gradient.radial(at.translate(0, -30), r, [color.withValues(alpha: 0.55 * k), color.withValues(alpha: 0)]));
+    c.drawCircle(egg, r, Paint()..blendMode = BlendMode.plus..shader = ui.Gradient.radial(egg, r, [color.withValues(alpha: 0.55 * k), color.withValues(alpha: 0)]));
+    final pool = at.translate(0, 2);
+    c.save();
+    c.translate(pool.dx, pool.dy);
+    c.scale(1, 0.32);
+    c.drawCircle(Offset.zero, 62, Paint()..blendMode = BlendMode.plus..shader = ui.Gradient.radial(Offset.zero, 62, [color.withValues(alpha: 0.42 * k), color.withValues(alpha: 0)]));
+    c.restore();
   }
-
   @override
-  bool shouldRepaint(_GlowPainter o) => o.at != at || o.k != k || o.color != color;
+  bool shouldRepaint(_GlowPainter o) => o.at != at || o.lift != lift || o.k != k || o.color != color;
 }
 
 /// Three seconds of the Elder it becomes: the orbit frames from the cinematic pack when they are there, else
@@ -385,8 +416,11 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
   final _scene = SceneController();
   _HatchPhase _phase = _HatchPhase.waiting;
   late final Ticker _ticker;
-  double _t = 0;
-  double _burstAt = 0;
+  // the screen's clock: the egg, the burst, the camera nudge and the map beat repaint from it, so the screen
+  // itself only rebuilds when something changes (a phase, a step, a card)
+  final _clock = ValueNotifier<double>(0);
+  double get _t => _clock.value;
+  double _burstAt = 0; // when the hatch began (the tap)
   double _mapAt = 0;
   Timer? _hatchNow;
   bool _hatchNowReady = false;
@@ -395,6 +429,9 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
   CineTimeline? _tl;
   ui.Image? _mapPlate;
   ui.Image? _mapLit;
+  HatchPlan _plan = HatchPlan.fallback;
+  final Set<int> _fired = {};
+  bool _reduce = false;
 
   @override
   void initState() {
@@ -402,13 +439,17 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
     LumenPrint.warm();
     _ticker = createTicker((d) {
       if (!mounted) return;
-      setState(() => _t = d.inMicroseconds / 1e6);
+      _clock.value = d.inMicroseconds / 1e6;
+      if (_phase == _HatchPhase.bursting || _phase == _HatchPhase.hatched) _beats();
     })..start();
     final c = context.read<GameController>();
     final noSteps = c.state.steps.connection == 'none';
-    final reduce = WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.disableAnimations;
-    _hatchNow = Timer(Duration(seconds: reduce ? 1 : (noSteps ? 4 : 75)), () {
+    _reduce = Motion.reducedNow(context);
+    _hatchNow = Timer(Duration(seconds: _reduce ? 1 : (noSteps ? 4 : 75)), () {
       if (mounted) setState(() => _hatchNowReady = true);
+    });
+    HatchPlan.load().then((p) {
+      if (mounted) setState(() => _plan = p);
     });
     CineTimeline.load().then((tl) async {
       _tl = tl;
@@ -425,6 +466,7 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
     _ticker.dispose();
     _hatchNow?.cancel();
     _name.dispose();
+    _clock.dispose();
     super.dispose();
   }
 
@@ -448,21 +490,52 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
 
   void _hatch() {
     if (_phase != _HatchPhase.waiting) return;
-    final c = context.read<GameController>();
-    c.audio.play('cine_footstep', volume: 0.6); // the footstep from the opening
+    _reduce = Motion.reducedNow(context);
     setState(() {
       _phase = _HatchPhase.bursting;
       _burstAt = _t;
     });
-    Timer(const Duration(milliseconds: 650), () {
-      if (!mounted) return;
-      setState(() => _phase = _HatchPhase.hatched);
-      _scene.react('hatch'); // its signature, the first thing it ever does
-      c.audio.play('evolve_fanfare', volume: 0.5);
-      Timer(const Duration(milliseconds: 1600), () {
-        if (mounted) setState(() => _phase = _HatchPhase.naming);
-      });
-    });
+    _beats();
+  }
+
+  /// Plays the hatch's beats as their times come: sounds, feels, the creature's reactions, and the name card at
+  /// the end.
+  void _beats() {
+    final u = _t - _burstAt;
+    final c = context.read<GameController>();
+    for (var i = 0; i < _plan.beats.length; i++) {
+      final b = _plan.beats[i];
+      if (b.t > u) break;
+      if (!_fired.add(i)) continue;
+      // back from the background halfway through: what it missed happens, silently
+      final late = u - b.t > 0.5;
+      if (b.sfx != null && !late) c.audio.play(b.sfx!, volume: b.vol);
+      if (b.buzz != null && !late) {
+        final feel = Haptic.values.asNameMap()[b.buzz];
+        if (feel != null) c.audio.buzz(feel);
+      }
+      switch (b.react) {
+        case 'emerge':
+          // out of the shell: from here the scene draws it, crouched small, springing up and landing
+          _scene.react('emerge');
+          setState(() => _phase = _HatchPhase.hatched);
+        case null:
+          break;
+        default:
+          _scene.react(b.react!); // look, then its personality's own hatch act
+      }
+    }
+    if (_phase == _HatchPhase.hatched && u >= _plan.naming) setState(() => _phase = _HatchPhase.naming);
+    if (_phase == _HatchPhase.bursting && u >= _plan.burst + 0.6) setState(() => _phase = _HatchPhase.hatched); // a plan with no emerge beat
+  }
+
+  /// A small knock to the whole scene as the shell breaks, dying away in a few tenths of a second.
+  Offset _impulse(double t) {
+    if (_reduce || _phase.index > _HatchPhase.hatched.index) return Offset.zero;
+    final u = t - _burstAt - _plan.burst;
+    if (u < 0 || u > 0.45) return Offset.zero;
+    final k = math.exp(-u * 9) * 7;
+    return Offset(math.sin(u * 55) * k, math.cos(u * 47) * k * 0.6);
   }
 
   void _confirmName() {
@@ -501,42 +574,55 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
     final mapping = _phase == _HatchPhase.mapping || _phase == _HatchPhase.done;
     return Scaffold(
       body: Stack(fit: StackFit.expand, children: [
-        SceneScaffold(
-          controller: _scene,
-          onPetTap: () => _scene.react('pet'),
-          petLabel: p.name,
-          headerAllowance: 40,
-          config: (gy) => SceneConfig(
-            habitat: 'meadow',
-            decor: c.state.placements,
-            focus: Offset(0.5, gy),
-            reducedMotion: reduce,
-            pet: PetConfig(stage: p.stage, palette: p.paletteId, personality: p.personality, visible: showPet),
-          ),
-          // the painter fills the hero (the rect is in its coordinates): a bare CustomPaint would shrink to
-          // nothing in the middle and draw the egg half a screen to the right
-          heroBuilder: (ctx, rect) => rect == null
-              ? const SizedBox.shrink()
-              : SizedBox.expand(
-                  child: CustomPaint(
-                    painter: _EggPainter(
-                      palette: p.paletteId,
-                      stage: stage,
-                      phase: _phase,
-                      t: _t,
-                      burstAt: _burstAt,
-                      pet: rect,
-                      progress: (steps / hatchSteps).clamp(0.0, 1.0),
+        ValueListenableBuilder<double>(
+          valueListenable: _clock,
+          // always the same Transform (offset zero at rest), so the scene below is never rebuilt from scratch
+          builder: (_, t, child) => Transform.translate(offset: _impulse(t), child: child),
+          child: SceneScaffold(
+            controller: _scene,
+            onPetTap: () => _scene.react('pet'),
+            petLabel: p.name,
+            headerAllowance: 40,
+            config: (gy) => SceneConfig(
+              habitat: 'meadow',
+              decor: c.state.placements,
+              focus: Offset(0.5, gy),
+              reducedMotion: reduce,
+              pet: PetConfig(stage: p.stage, palette: p.paletteId, personality: p.personality, visible: showPet),
+            ),
+            // the painter fills the hero (the rect is in its coordinates): a bare CustomPaint would shrink to
+            // nothing in the middle and draw the egg half a screen to the right
+            heroBuilder: (ctx, rect) => rect == null
+                ? const SizedBox.shrink()
+                : SizedBox.expand(
+                    child: CustomPaint(
+                      painter: _EggPainter(
+                        palette: p.paletteId,
+                        stage: stage,
+                        phase: _phase,
+                        clock: _clock,
+                        start: _burstAt,
+                        plan: _plan,
+                        reduce: reduce,
+                        pet: rect,
+                        progress: (steps / hatchSteps).clamp(0.0, 1.0),
+                      ),
                     ),
                   ),
-                ),
-          header: const SizedBox(height: 8),
-          panel: Padding(
-            padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
-            child: _panel(c, p.name, steps, reduce),
+            header: const SizedBox(height: 8),
+            panel: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
+              child: _panel(c, p.name, steps, reduce),
+            ),
           ),
         ),
-        if (mapping) Positioned.fill(child: _MapBeat(tl: _tl, plate: _mapPlate, lit: _mapLit, t: _t - _mapAt, name: p.name)),
+        if (mapping)
+          Positioned.fill(
+            child: ValueListenableBuilder<double>(
+              valueListenable: _clock,
+              builder: (_, t, __) => _MapBeat(tl: _tl, plate: _mapPlate, lit: _mapLit, t: t - _mapAt, name: p.name),
+            ),
+          ),
         if (_phase == _HatchPhase.done)
           Positioned(
             left: 16,
@@ -544,13 +630,15 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
             bottom: 40,
             child: SafeArea(
               top: false,
-              child: GameCard(
-                padding: const EdgeInsets.all(14),
-                child: Column(children: [
-                  Text('${p.name} is home.', style: EvochiText.section, textAlign: TextAlign.center),
-                  const SizedBox(height: 10),
-                  EvochiButton(label: 'Enter the nest', large: true, onPressed: _finish),
-                ]),
+              child: Entrance(
+                child: GameCard(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(children: [
+                    Text('${p.name} is home.', style: EvochiText.section, textAlign: TextAlign.center),
+                    const SizedBox(height: 10),
+                    EvochiButton(label: 'Enter the nest', large: true, onPressed: _finish),
+                  ]),
+                ),
               ),
             ),
           ),
@@ -559,11 +647,17 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
   }
 
   Widget _panel(GameController c, String name, int steps, bool reduce) {
-    switch (_phase) {
-      case _HatchPhase.waiting:
-      case _HatchPhase.bursting:
-        final left = math.max(0, hatchSteps - steps);
-        return GameCard(
+    final left = math.max(0, hatchSteps - steps);
+    final waiting = _phase == _HatchPhase.waiting;
+    // the waiting card keeps its place (invisible) until the name card comes, so the creature comes out exactly
+    // where the egg stood: the scene's ground follows the panel's top
+    final wait = IgnorePointer(
+      ignoring: !waiting,
+      child: AnimatedOpacity(
+        opacity: waiting ? 1 : 0,
+        duration: Motion.base,
+        curve: Motion.exit,
+        child: GameCard(
           padding: const EdgeInsets.all(16),
           child: Column(children: [
             Semantics(liveRegion: true, child: Text(steps >= hatchSteps ? 'It wants out.' : 'Your first $hatchSteps steps will hatch it.', style: EvochiText.pageTitle, textAlign: TextAlign.center)),
@@ -584,44 +678,61 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
                 setState(() => _hatchNowReady = true);
               }),
           ]),
-        );
+        ),
+      ),
+    );
+    switch (_phase) {
+      case _HatchPhase.waiting:
+      case _HatchPhase.bursting:
+        return wait;
       case _HatchPhase.hatched:
-        return GameCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(children: [
-            Semantics(liveRegion: true, child: const Text('It hatched!', style: EvochiText.pageTitle, textAlign: TextAlign.center)),
-            const SizedBox(height: 6),
-            const Text('It blinks at you.', textAlign: TextAlign.center, style: EvochiText.bodyText),
-          ]),
-        );
-      case _HatchPhase.naming:
-        return GameCard(
-          padding: const EdgeInsets.all(16),
-          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-            const Text('What will you name your Evochi?', style: EvochiText.section, textAlign: TextAlign.center),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _name,
-              autofocus: true,
-              maxLength: GameConfig.current.nameMax,
-              textAlign: TextAlign.center,
-              onChanged: (_) {
-                if (_err != null) setState(() => _err = null);
-              },
-              onSubmitted: (_) => _confirmName(),
-              style: EvochiText.number.copyWith(fontSize: 22),
-              decoration: InputDecoration(
-                counterText: '',
-                hintText: 'Lumi',
-                errorText: _err,
-                filled: true,
-                fillColor: EvochiColor.inset,
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+        return Stack(alignment: Alignment.bottomCenter, children: [
+          wait,
+          Entrance(
+            delay: const Duration(milliseconds: 500),
+            child: GameCard(
+              padding: const EdgeInsets.all(16),
+              child: SizedBox(
+                width: double.infinity,
+                child: Column(mainAxisSize: MainAxisSize.min, children: [
+                  Semantics(liveRegion: true, child: const Text('It hatched!', style: EvochiText.pageTitle, textAlign: TextAlign.center)),
+                  const SizedBox(height: 6),
+                  const Text('It blinks at you.', textAlign: TextAlign.center, style: EvochiText.bodyText),
+                ]),
               ),
             ),
-            const SizedBox(height: 10),
-            EvochiButton(label: 'Confirm', large: true, onPressed: _confirmName),
-          ]),
+          ),
+        ]);
+      case _HatchPhase.naming:
+        return Entrance(
+          child: GameCard(
+            padding: const EdgeInsets.all(16),
+            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+              const Text('What will you name your Evochi?', style: EvochiText.section, textAlign: TextAlign.center),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _name,
+                autofocus: true,
+                maxLength: GameConfig.current.nameMax,
+                textAlign: TextAlign.center,
+                onChanged: (_) {
+                  if (_err != null) setState(() => _err = null);
+                },
+                onSubmitted: (_) => _confirmName(),
+                style: EvochiText.number.copyWith(fontSize: 22),
+                decoration: InputDecoration(
+                  counterText: '',
+                  hintText: 'Lumi',
+                  errorText: _err,
+                  filled: true,
+                  fillColor: EvochiColor.inset,
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                ),
+              ),
+              const SizedBox(height: 10),
+              EvochiButton(label: 'Confirm', large: true, onPressed: _confirmName),
+            ]),
+          ),
         );
       case _HatchPhase.mapping:
       case _HatchPhase.done:
@@ -630,22 +741,35 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
   }
 }
 
-/// The egg over the nest (the crack-stage sprite from the pack, else a painted egg), the step ring under it, and
-/// the burst: shell pieces flung out and gold motes rising.
+/// The egg over the nest (the crack-stage sprite from the pack, else a painted egg) with the step ring under it,
+/// and the hatch through [plan]: it goes quiet as its light gathers, shakes, cracks with light pushing out,
+/// then breaks (its own sprite in pieces) in a flash with the Lumen motes and its affinity's burst.
 class _EggPainter extends CustomPainter {
-  _EggPainter({required this.palette, required this.stage, required this.phase, required this.t, required this.burstAt, required this.pet, required this.progress});
+  _EggPainter({
+    required this.palette,
+    required this.stage,
+    required this.phase,
+    required this.clock,
+    required this.start,
+    required this.plan,
+    required this.reduce,
+    required this.pet,
+    required this.progress,
+  }) : super(repaint: clock);
   final String palette;
   final int stage;
   final _HatchPhase phase;
-  final double t;
-  final double burstAt;
+  final ValueNotifier<double> clock;
+  final double start; // when the hatch began
+  final HatchPlan plan;
+  final bool reduce;
   final Rect pet;
   final double progress;
 
   static final Map<String, ui.Image?> _sprites = {};
   static final Set<String> _loading = {};
 
-  ui.Image? _sprite(String key) {
+  static ui.Image? _sprite(String key) {
     if (_sprites.containsKey(key)) return _sprites[key];
     if (!_loading.contains(key)) {
       _loading.add(key);
@@ -660,64 +784,59 @@ class _EggPainter extends CustomPainter {
 
   @override
   void paint(Canvas c, Size size) {
+    final t = clock.value;
+    final hatching = phase != _HatchPhase.waiting;
+    final u = hatching ? t - start : -1.0; // seconds into the hatch
     final ground = Offset(pet.center.dx, pet.bottom);
     final h = pet.height * 0.92;
-    final bob = math.sin(t * 2.6) * (2 + 6 * progress);
-    final rock = math.sin(t * 3.1) * (0.02 + 0.06 * progress) * (stage >= 1 ? 1 : 0.5);
-    if (phase == _HatchPhase.waiting || phase == _HatchPhase.bursting) {
-      // the ring: the way to 150 steps, filling clockwise
+    final st = plan.style(palette);
+    // waiting, it bobs and rocks more as it fills; when the hatch starts it goes still for a moment
+    final calm = u < 0 ? 1.0 : (1 - u / 0.6).clamp(0.0, 1.0);
+    final bob = math.sin(t * 2.6) * (2 + 6 * progress) * calm;
+    var rock = math.sin(t * 3.1) * (0.02 + 0.06 * progress) * (stage >= 1 ? 1 : 0.5) * calm;
+    if (reduce) rock *= 0.3;
+    final sprite = _sprite('egg_${palette}_${math.max(stage, plan.crack(u))}');
+    _sprite('egg_${palette}_3'); // the one that breaks, ready before it is needed
+    // the ring: the way to 150 steps, filling clockwise; it fades as the hatch begins
+    final ringA = u < 0 ? 1.0 : (1 - u / 0.4).clamp(0.0, 1.0);
+    if (ringA > 0) {
       final rr = Rect.fromCenter(center: ground.translate(0, -h * 0.42), width: h * 1.25, height: h * 1.25);
-      c.drawArc(rr, -math.pi / 2, 2 * math.pi, false, Paint()..style = PaintingStyle.stroke..strokeWidth = 5..color = const Color(0x66FFF0DE));
-      c.drawArc(rr, -math.pi / 2, 2 * math.pi * progress, false, Paint()..style = PaintingStyle.stroke..strokeWidth = 5..strokeCap = StrokeCap.round..color = const Color(0xFFF4B84E));
+      c.drawArc(rr, -math.pi / 2, 2 * math.pi, false, Paint()..style = PaintingStyle.stroke..strokeWidth = 5..color = const Color(0xFFFFF0DE).withValues(alpha: 0.4 * ringA));
+      c.drawArc(rr, -math.pi / 2, 2 * math.pi * progress, false, Paint()..style = PaintingStyle.stroke..strokeWidth = 5..strokeCap = StrokeCap.round..color = const Color(0xFFF4B84E).withValues(alpha: ringA));
     }
-    if (phase == _HatchPhase.waiting || (phase == _HatchPhase.bursting && t - burstAt < 0.25)) {
+    final centre = ground.translate(0, -h * 0.45);
+    if (u < plan.burst) {
+      // the light gathering inside, then pushing out through the cracks
+      final gather = u < 0 ? 0.0 : Curves.easeIn.transform((u / plan.burst).clamp(0.0, 1.0));
+      final rays = u < plan.crackFrom ? 0.0 : ((u - plan.crackFrom) / math.max(0.01, plan.burst - plan.crackFrom)).clamp(0.0, 1.0);
+      if (stage >= 2 && u < 0) {
+        final k = 0.35 + 0.25 * math.sin(t * 4);
+        c.drawCircle(centre, h * 0.7, Paint()..blendMode = BlendMode.plus..shader = ui.Gradient.radial(centre, h * 0.7, [const Color(0xFFFFD56A).withValues(alpha: 0.35 * k * (stage - 1)), const Color(0x00FFD56A)]));
+      }
+      final (srot, shop) = reduce || u < 0 ? (0.0, 0.0) : plan.shake(u);
       c.save();
-      c.translate(ground.dx, ground.dy);
-      c.rotate(rock);
+      c.translate(ground.dx, ground.dy - shop * h);
+      c.rotate(rock + srot);
       c.translate(0, bob * 0.2);
-      final im = _sprite('egg_${palette}_$stage');
-      if (im != null) {
-        final w = h * im.width / im.height;
-        c.drawImageRect(im, Rect.fromLTWH(0, 0, im.width.toDouble(), im.height.toDouble()), Rect.fromLTWH(-w / 2, -h, w, h), Paint()..filterQuality = FilterQuality.medium);
+      if (sprite != null) {
+        final w = h * sprite.width / sprite.height;
+        c.drawImageRect(sprite, Rect.fromLTWH(0, 0, sprite.width.toDouble(), sprite.height.toDouble()), Rect.fromLTWH(-w / 2, -h, w, h), Paint()..filterQuality = FilterQuality.medium);
       } else {
-        _plainEgg(c, h, stage);
+        _plainEgg(c, h, math.max(stage, plan.crack(u)));
       }
       c.restore();
-      if (stage >= 2) {
-        final k = 0.35 + 0.25 * math.sin(t * 4);
-        c.drawCircle(ground.translate(0, -h * 0.45), h * 0.7, Paint()..blendMode = BlendMode.plus..shader = ui.Gradient.radial(ground.translate(0, -h * 0.45), h * 0.7, [const Color(0xFFFFD56A).withValues(alpha: 0.35 * k * (stage - 1)), const Color(0x00FFD56A)]));
-      }
+      HatchFx.innerLight(c, centre, h, st.glow, gather, reduce ? 0 : rays, t);
+      return;
     }
-    if (phase == _HatchPhase.bursting || (phase == _HatchPhase.hatched && t - burstAt < 2.2)) {
-      final u = t - burstAt;
-      // a flash, then the shards and the motes
-      if (u < 0.35) {
-        c.drawCircle(ground.translate(0, -h * 0.45), h * (0.6 + u * 2.5), Paint()..blendMode = BlendMode.plus..color = const Color(0xFFFFF0C0).withValues(alpha: (1 - u / 0.35) * 0.9));
-      }
-      final rnd = math.Random(7);
-      final shardCol = palette == 'obsidian' ? const Color(0xFF3E414B) : const Color(0xFFFFF0DE);
-      for (var i = 0; i < 14; i++) {
-        final a = rnd.nextDouble() * math.pi * 2;
-        final sp = 120 + rnd.nextDouble() * 220;
-        final x = ground.dx + math.cos(a) * sp * u;
-        final y = ground.dy - h * 0.45 + math.sin(a) * sp * u * 0.6 + 260 * u * u;
-        final s = h * (0.06 + rnd.nextDouble() * 0.08);
-        final alpha = (1 - u / 2.0).clamp(0.0, 1.0);
-        c.save();
-        c.translate(x, y);
-        c.rotate(a + u * 6);
-        c.drawRect(Rect.fromCenter(center: Offset.zero, width: s, height: s * 0.7), Paint()..color = shardCol.withValues(alpha: alpha));
-        c.restore();
-      }
-      for (var i = 0; i < 22; i++) {
-        final a = rnd.nextDouble() * math.pi * 2;
-        final sp = 40 + rnd.nextDouble() * 120;
-        final x = ground.dx + math.cos(a) * sp * u + math.sin(u * 5 + i) * 6;
-        final y = ground.dy - h * 0.45 - (30 + rnd.nextDouble() * 160) * u;
-        final alpha = (1 - u / 2.2).clamp(0.0, 1.0);
-        c.drawCircle(Offset(x, y), 3 + rnd.nextDouble() * 4, Paint()..blendMode = BlendMode.plus..color = const Color(0xFFFFC24E).withValues(alpha: alpha * 0.9));
-      }
+    // the burst
+    final b = u - plan.burst;
+    if (b > 2.6) return;
+    final shell = _sprites['egg_${palette}_3'];
+    if (shell != null) {
+      final w = h * shell.width / shell.height;
+      HatchFx.shell(c, shell, Rect.fromLTWH(ground.dx - w / 2, ground.dy - h, w, h), b, h, reduce: reduce);
     }
+    HatchFx.burst(c, ground, h, st, b, n: reduce ? 0.3 : 1, reduce: reduce);
   }
 
   void _plainEgg(Canvas c, double h, int stage) {

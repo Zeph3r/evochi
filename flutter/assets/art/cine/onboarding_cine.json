@@ -28,6 +28,7 @@
    "id": "map_lit",
    "dur": 3.2,
    "plate": "map_faded",
+   "xfade": 0.6,
    "camera": {
     "from": {
      "cx": 0.5,
@@ -194,6 +195,7 @@
    "id": "village_push",
    "dur": 4.0,
    "plate": "village_dusk",
+   "xfade": 0.6,
    "camera": {
     "from": {
      "cx": 0.5,

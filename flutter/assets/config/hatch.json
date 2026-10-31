@@ -1,0 +1,29 @@
+{
+  "_doc": "The first hatch (onboarding_beats.dart HatchScreen, hatch_timeline.dart). Times in seconds from the tap. A beat can play a sound (sfx, vol), a haptic feel (buzz: a Haptic name), shake the egg (shake: strength 0-1), raise its cracks (crack: 1-3), burst it (burst), or start a reaction on the creature (react: emerge, look, hatch = its personality's signature). Phases: A quiet 0-0.6, B shaking 0.6-1.3, C cracks 1.3-2.0, D burst 2.0-2.3, E reveal 2.1-3.0, F payoff 3.0-4.3, then the name card. styles: each egg's light and the shape of its burst (motes, leaves, sparks, droplets, grit, stars); every burst also carries the gold Lumen motes.",
+  "naming": 4.3,
+  "beats": [
+    {"t": 0.0, "sfx": "cine_footstep", "vol": 0.6},
+    {"t": 0.1, "sfx": "enc_glow", "vol": 0.3},
+    {"t": 0.66, "shake": 0.45, "sfx": "mine_lumen_chip", "vol": 0.22, "buzz": "tick"},
+    {"t": 0.92, "shake": 0.7, "sfx": "mine_lumen_chip", "vol": 0.3, "buzz": "tick"},
+    {"t": 1.1, "shake": 0.55, "buzz": "tick"},
+    {"t": 1.2, "shake": 1.0, "sfx": "mine_lumen_chip", "vol": 0.38, "buzz": "tap"},
+    {"t": 1.3, "crack": 1, "sfx": "mine_lumen_crack", "vol": 0.35},
+    {"t": 1.55, "crack": 2, "sfx": "mine_lumen_crack", "vol": 0.45},
+    {"t": 1.8, "crack": 3, "sfx": "mine_lumen_crack", "vol": 0.55},
+    {"t": 2.0, "burst": true, "sfx": "mine_lumen_break", "vol": 0.6},
+    {"t": 2.1, "react": "emerge"},
+    {"t": 2.25, "sfx": "evolve_fanfare", "vol": 0.45},
+    {"t": 3.1, "react": "look"},
+    {"t": 3.25, "sfx": "pet_chirp", "vol": 0.55},
+    {"t": 3.6, "react": "hatch"}
+  ],
+  "styles": {
+    "amber": {"glow": "#F4B84E", "burst": "motes"},
+    "forest": {"glow": "#78B55B", "burst": "leaves"},
+    "coral": {"glow": "#EC7A4A", "burst": "sparks"},
+    "ocean": {"glow": "#4C9BCC", "burst": "droplets"},
+    "obsidian": {"glow": "#DD6A5B", "burst": "grit"},
+    "amethyst": {"glow": "#9975C9", "burst": "stars"}
+  }
+}

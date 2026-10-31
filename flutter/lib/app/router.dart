@@ -1,4 +1,4 @@
-// Navigation: onboarding gate -> five-tab shell. Tabs keep their own state (IndexedStack);
+// Navigation: onboarding gate (each step fading in over the last) -> five-tab shell. Tabs keep their own state (IndexedStack);
 // nested screens (Inspect, Evolution, Settings) push on top and return to the initiating tab.
 // The Village (lib/features/village) and Home Tales (lib/features/home: Home Map, Garden, Cottage,
 // Kitchen / Apothecary, Skills) push named routes on top of the shell from their own open* helpers.
@@ -17,28 +17,51 @@ import '../features/onboarding/onboarding_screens.dart';
 import '../features/shared/ambience.dart';
 import '../features/shared/widgets.dart';
 import '../features/shop/shop_screen.dart';
+import 'motion.dart';
 
 /// The app's root navigator, so app-wide listeners (the Skill-up card) can open dialogs.
 final rootNavigatorKey = GlobalKey<NavigatorState>();
 
-class RootGate extends StatelessWidget {
+class RootGate extends StatefulWidget {
   const RootGate({super.key});
+  @override
+  State<RootGate> createState() => _RootGateState();
+}
+
+class _RootGateState extends State<RootGate> {
+  int _last = -1;
+  int _gen = 0;
+
   @override
   Widget build(BuildContext context) {
     final c = context.watch<GameController>();
     final s = c.state;
-    if (s.player == null) return const IntroGate(child: WelcomeScreen());
-    if (s.pet == null) return const EggPickScreen();
-    switch (s.onboarding.step) {
-      case 'connect':
-        return const ConnectScreen();
-      case 'goal':
-        return const GoalScreen();
-      case 'awakening':
-        return const HatchScreen();
-      default:
-        return const MainShell();
-    }
+    final (int at, Widget screen) = s.player == null
+        ? (0, const IntroGate(child: WelcomeScreen()))
+        : s.pet == null
+            ? (1, const EggPickScreen())
+            : switch (s.onboarding.step) {
+                'connect' => (2, const ConnectScreen()),
+                'goal' => (3, const GoalScreen()),
+                'awakening' => (4, const HatchScreen()),
+                _ => (5, const MainShell()),
+              };
+    // forward through onboarding, each step fades in over the last (which stops taking taps). Back to an earlier
+    // one (a reset, a released pet) is a plain cut: the screen being left may need what just went away.
+    if (at < _last) _gen++;
+    _last = at;
+    return AnimatedSwitcher(
+      key: ValueKey(_gen),
+      duration: Motion.page,
+      switchInCurve: Motion.enter,
+      switchOutCurve: Motion.exit,
+      layoutBuilder: (current, previous) => Stack(fit: StackFit.expand, children: [...previous, if (current != null) current]),
+      transitionBuilder: (child, a) => IgnorePointer(
+        ignoring: child.key != ValueKey(at),
+        child: FadeTransition(opacity: a, child: child),
+      ),
+      child: KeyedSubtree(key: ValueKey(at), child: screen),
+    );
   }
 }
 

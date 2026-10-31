@@ -11,6 +11,7 @@ import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart' show rootBundle;
 import 'package:flutter/widgets.dart';
 
+import '../../app/motion.dart';
 import '../../core/services/asset_manifest.dart';
 import '../../game/personality/catalog.dart';
 import '../../game/personality/director.dart';
@@ -276,7 +277,7 @@ class _ActingSpriteState extends State<ActingSprite> with SingleTickerProviderSt
     if (!mounted) return;
     final req = ++_req;
     _stop();
-    final reduce = WidgetsBinding.instance.platformDispatcher.accessibilityFeatures.disableAnimations;
+    final reduce = Motion.reducedNow(context);
     var b = widget.behavior;
     if (b == null) {
       final c = (widget.director ?? directorFor(widget.personality)).choose(widget.context, personalityNow());
