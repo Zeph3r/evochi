@@ -9,7 +9,7 @@
   "anims": {
    "talk": {
     "file": "pip_talk.webp",
-    "n": 59
+    "n": 74
    },
    "idle": {
     "file": "pip_idle.webp",
@@ -125,7 +125,7 @@
   "anims": {
    "talk": {
     "file": "mira_talk.webp",
-    "n": 57
+    "n": 62
    },
    "idle": {
     "file": "mira_idle.webp",
