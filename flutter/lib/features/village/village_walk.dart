@@ -485,8 +485,36 @@ const _routines = <String, (List<_Stop>, double, double, double)>{
   ], 1.4, 3.0, 7.0),
 };
 
+/// The Square filmed rather than walked (the onboarding's cold open): no Evochi of yours in it, no buttons, no
+/// taps; the villagers out on their rounds; the camera gliding from [from] to [to] (world x, z) over [dur]
+/// seconds of [clock], closing in from [zoomFrom] to [zoomTo]; a warm light breathing at [glow] (world x, z: the
+/// Glasshouse, where the eggs are).
+class VillageCine {
+  const VillageCine({required this.from, required this.to, required this.dur, required this.clock, this.zoomFrom = 1, this.zoomTo = 1, this.glow});
+  final Offset from, to;
+  final double dur, zoomFrom, zoomTo;
+  final double Function() clock;
+  final Offset? glow;
+
+  double get u {
+    final x = (clock() / dur).clamp(0.0, 1.0);
+    return x * x * (3 - 2 * x);
+  }
+}
+
+/// Where the villagers stand outside when the Square is filmed (they live indoors when you walk it)
+const _cineNpcs = [
+  {'id': 'pip', 'x': -4.6, 'z': -20.2, 'place': 'lodge'},
+  {'id': 'alder', 'x': 4.8, 'z': -20.4, 'place': 'lodge'},
+  {'id': 'bram', 'x': 24.4, 'z': -1.2, 'place': 'workshop'},
+  {'id': 'mira', 'x': -25.4, 'z': 5.6, 'place': 'glasshouse'},
+];
+
 class VillageWalkScreen extends StatefulWidget {
-  const VillageWalkScreen({super.key, this.map = 'village', this.arrive, this.talk});
+  const VillageWalkScreen({super.key, this.map = 'village', this.arrive, this.talk, this.cine});
+
+  /// Filmed, not walked (see [VillageCine]).
+  final VillageCine? cine;
 
   /// Which map ('village', 'trail'), and the way you came in (null: a fresh visit).
   final String map;
@@ -549,12 +577,16 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   bool get ready => lay != null && _pet != null && _cam != null && _viewTiles().every((t) => t.ready);
 
   // dp per picture px (a room is seen a little closer than the outdoors)
-  double get _k => _view.width / ((_indoors ? _unitsIndoors : _unitsAcross) * lay!.ppu);
+  double get _k {
+    final c = widget.cine;
+    final z = c == null ? 1.0 : c.zoomFrom + (c.zoomTo - c.zoomFrom) * c.u;
+    return _view.width / ((_indoors ? _unitsIndoors : _unitsAcross) * lay!.ppu) * z;
+  }
 
   @override
   void initState() {
     super.initState();
-    VillageWalkScreen.current = this;
+    if (widget.cine == null) VillageWalkScreen.current = this;
     me = VillageWalker(0, 0);
     _load();
   }
@@ -584,7 +616,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       ui.FragmentProgram.fromAsset('shaders/village_fx.frag'),
     ]);
     final npcs = <_Npc>[];
-    for (final n in l.npcs) {
+    for (final n in (widget.cine != null && l.npcs.isEmpty ? [for (final m in _cineNpcs) WalkNpc(m)] : l.npcs)) {
       final art = n.art;
       // their outdoor sheets when this build has them (the portrait sprite otherwise)
       final walker = await WalkerArt.exists('npc_${n.id}') ? await WalkerArt.load('npc_${n.id}', 'default') : null;
@@ -665,6 +697,13 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
       }
     });
     _ticker = createTicker(_tick)..start();
+    if (widget.cine != null) {
+      // filmed: they're already out and about
+      for (final n in _npcs) {
+        n.wait = 0.2 + _rnd.nextDouble() * 1.2;
+      }
+      return;
+    }
     final want = widget.talk;
     if (want != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -786,7 +825,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     _mineTick(l, dt);
     _npcTick(l, dt);
     _critterTick(l, dt);
-    _checkExits(l);
+    if (widget.cine == null) _checkExits(l);
     _cartTick(l);
     if (me.wait > 0) {
       me.wait -= dt;
@@ -997,6 +1036,15 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     return Rect.fromCenter(center: cam, width: _view.width / k, height: _view.height / k);
   }
 
+  /// Filmed: the whole glide's view at once (its tiles all loaded before it starts)
+  Rect _cineRect() {
+    final c = widget.cine, l = lay;
+    if (c == null || l == null || _view.isEmpty) return Rect.zero;
+    final k0 = _view.width / (_unitsAcross * l.ppu) * math.min(c.zoomFrom, c.zoomTo);
+    final a = l.toImage(c.from.dx, c.from.dy), b = l.toImage(c.to.dx, c.to.dy);
+    return Rect.fromPoints(a, b).inflate(math.max(_view.width, _view.height) / k0 / 2 + 60);
+  }
+
   Iterable<WalkTile> _viewTiles() {
     final v = _viewRect();
     return (lay?.tiles ?? const <WalkTile>[]).where((t) => t.core.overlaps(v));
@@ -1007,9 +1055,9 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   /// Load the tiles round the view (a tile's width ahead), let go of the ones far behind.
   void _streamTiles() {
     final l = lay;
-    final v = _viewRect();
+    final v = widget.cine != null ? _cineRect() : _viewRect();
     if (l == null || v.isEmpty) return;
-    final want = v.inflate(700), keep = v.inflate(1800);
+    final want = v.inflate(widget.cine != null ? 0 : 700), keep = v.inflate(1800);
     final c = v.center;
     final need = l.tiles.where((t) => !t.ready && !t.loading && t.core.overlaps(want)).toList()
       ..sort((a, b) => (a.core.center - c).distanceSquared.compareTo((b.core.center - c).distanceSquared));
@@ -1069,6 +1117,12 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     final l = lay!;
     if (_view.isEmpty) return;
     final k = _k;
+    final cine = widget.cine;
+    if (cine != null) {
+      final a = l.toImage(cine.from.dx, cine.from.dy), b = l.toImage(cine.to.dx, cine.to.dy);
+      _cam = Offset.lerp(a, b, cine.u);
+      return;
+    }
     var p = l.toImage(me.x, me.z, me.y);
     // while a villager talks, frame the two of you in the space above the talk panel
     final talkId = _talkNpc?.replaceFirst('npc_', '');
@@ -1666,6 +1720,20 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
   @override
   Widget build(BuildContext context) {
     _reduced = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
+    if (widget.cine != null) {
+      return IgnorePointer(
+        child: ColoredBox(
+          color: const Color(0xFF86B566),
+          child: LayoutBuilder(builder: (ctx, b) {
+            final size = Size(b.maxWidth, b.maxHeight);
+            if (size != _view) _view = size;
+            if (lay == null || _pet == null) return const SizedBox.expand();
+            _follow(1);
+            return CustomPaint(size: size, painter: _WalkPainter(this, const {}));
+          }),
+        ),
+      );
+    }
     final c = context.watch<GameController>();
     if (lay != null && _wearing(c.state).join(',') != _lookKey) _refreshLook(c.state);
     final marks = q.npcMarkers(c.state);
@@ -2168,9 +2236,11 @@ class _WalkPainter extends CustomPainter {
         cover(dst.shift(g), c.z);
       }));
     }
-    items.add((s.me.z, () {
-      cover(_pet(canvas, scr(l.toImage(s.me.x, s.me.z, s.me.y)), upk, l), s.me.z);
-    }));
+    if (s.widget.cine == null) {
+      items.add((s.me.z, () {
+        cover(_pet(canvas, scr(l.toImage(s.me.x, s.me.z, s.me.y)), upk, l), s.me.z);
+      }));
+    }
     items.sort((a, b) => a.$1.compareTo(b.$1));
     for (final (_, draw) in items) {
       draw();
@@ -2194,8 +2264,21 @@ class _WalkPainter extends CustomPainter {
       _chip(canvas, top, 'Needs better gear');
       canvas.restore();
     }
+    // filmed: the Glasshouse breathing its warm light (the eggs inside)
+    final glow = s.widget.cine?.glow;
+    if (glow != null) {
+      final at = scr(l.toImage(glow.dx, glow.dy, 2.0));
+      final r = 5.5 * upk * (1 + 0.06 * math.sin(s._t * 2.4));
+      final a = 0.32 + 0.12 * math.sin(s._t * 2.4);
+      canvas.drawCircle(
+          at,
+          r,
+          Paint()
+            ..blendMode = BlendMode.plus
+            ..shader = ui.Gradient.radial(at, r, [Color.fromRGBO(255, 214, 130, a), Color.fromRGBO(255, 190, 90, a * 0.4), const Color(0x00FFB050)], const [0.0, 0.45, 1.0]));
+    }
     // a "!" over whoever has something for you; a name when you are close
-    for (final n in s._npcs) {
+    for (final n in s.widget.cine != null ? const <_Npc>[] : s._npcs) {
       final head = scr(l.toImage(n.x, n.z)) - Offset(0, n.h * upk * 1.0);
       final near = math.sqrt(math.pow(s.me.x - n.x, 2) + math.pow(s.me.z - n.z, 2)) < 6.5;
       final mark = marks['npc_${n.id}'];
@@ -2206,7 +2289,7 @@ class _WalkPainter extends CustomPainter {
       }
       if (mark != null) _marker(canvas, Offset(head.dx, y - 4 * math.sin(s._t * 3.2).abs()), mark == 'handin');
     }
-    if (s.widget.map == 'village') {
+    if (s.widget.map == 'village' && s.widget.cine == null) {
       for (final e in _buildings['village']!.entries) {
         final mark = e.key == 'waystone' ? marks['waystone'] : q.places[e.key]?.npcs.map((n) => marks[n]).whereType<String>().firstOrNull;
         if (mark == null) continue;

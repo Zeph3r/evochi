@@ -41,16 +41,6 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
-# the village at dusk, lived in: who walks where in village_dusk (plate px), how tall they stand there
-VILLAGERS = [
-    {'who': 'npc_alder', 'path': [[600, 1235], [574, 1080], [552, 968]], 'speed': 42, 'h': [66, 46], 'lantern': True, 'fps': 10},
-    {'who': 'npc_mira', 'path': [[478, 902], [430, 872], [392, 842]], 'speed': 24, 'h': [38, 34], 'fps': 11, 'face': [-0.2, -1.0]},
-    {'who': 'npc_bram', 'path': [[592, 908], [690, 902], [765, 888]], 'speed': 30, 'h': [42, 40], 'lantern': True, 'fps': 10, 'start': 0.3},
-    {'who': 'npc_pip', 'path': [[680, 880], [600, 878], [470, 884]], 'speed': 36, 'h': [30, 30], 'fps': 14, 'start': 0.6},
-    {'who': 's01', 'look': 'amber', 'circle': [430, 1065, 34], 'speed': 52, 'h': [24, 28], 'fps': 16},
-    {'who': 's01', 'look': 'ocean', 'circle': [430, 1065, 34], 'speed': 52, 'h': [24, 28], 'fps': 16, 'phase': 2.4},
-]
-
 # ------------------------------------------------------------------------------------------------ the cut ----
 SHOTS = [
     {'id': 'black_print', 'dur': 1.4, 'plate': None, 'bg': '#000000',
@@ -85,18 +75,13 @@ SHOTS = [
                  'stride': 0.05, 'size': 0.042, 'squash': 0.8, 'ember': 0.4}],
      'caption': {'text': 'But Lumen still answers to footsteps.', 'in': 1.1, 'out': 3.0},
      'sfx': {'t': 0.9, 'name': 'footstep'}},
-    {'id': 'village_push', 'dur': 4.0, 'plate': 'village_dusk', 'xfade': 0.6,
-     'camera': {'from': {'cx': 0.5, 'cy': 0.5, 'zoom': 1.0}, 'to': {'cx': 'anchor:glasshouse_window', 'zoom': 2.6}, 'ease': 'in'},
-     # birds flying home over the ridge (the app draws them; the plate itself lives through fx_zones/cine.py)
-     'layers': [{'kind': 'birds', 'n': 5, 'y': [40, 150], 'speed': 55, 'size': 7},
-                # the village lived in (flutter/lib/features/onboarding/village_life.dart): Alder up the path with his
-                # lantern, Mira taking her pot to the Glasshouse, Bram home past the forge, Pip crossing the green,
-                # two hatchlings chasing each other round the grass (plate px; h: their height there, near to far)
-                {'kind': 'villagers', 'tint': [0.6, 0.55, 0.74], 'walkers': VILLAGERS}],
-     'caption': {'text': 'And something here is still glowing.', 'in': 0.4, 'out': 3.4}},
-    {'id': 'glasshouse', 'dur': 2.2, 'plate': 'glasshouse_night', 'xfade': 0.8,
-     'camera': {'from': {'cx': 'anchor:glasshouse_window', 'zoom': 1.15}, 'to': {'cx': 'anchor:glasshouse_window', 'zoom': 1.35}, 'ease': 'out'},
-     'layers': [{'kind': 'fade', 'to': 'black', 'from': 1.6, 'dur': 0.6}]},
+    # the Sunlit Village itself, in the day, filmed by the game's own walk screen (village_walk.dart's
+    # VillageCine): the villagers out on their rounds, the falls and the stream running, the camera gliding
+    # down from the Lodge over the Square to the Glasshouse, where a warm light breathes (the eggs)
+    {'id': 'village_live', 'dur': 5.6, 'plate': None, 'live': 'village', 'xfade': 0.9,
+     'cine': {'from': [-1.0, -15.0], 'to': [-30.0, -2.0], 'zoomFrom': 0.72, 'zoomTo': 1.1, 'glow': [-32.5, -6.0]},
+     'caption': {'text': 'And something here is still glowing.', 'in': 1.0, 'out': 4.8},
+     'layers': [{'kind': 'fade', 'to': 'black', 'from': 5.0, 'dur': 0.6}]},
 ]
 
 FPS = 30

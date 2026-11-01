@@ -23,8 +23,8 @@ import '../../app/theme.dart';
 import '../../core/services/asset_manifest.dart';
 import '../shared/live_scene.dart';
 import '../shared/widgets.dart';
+import '../village/village_walk.dart';
 import 'hollow_fx.dart';
-import 'village_life.dart';
 
 const cineDir = 'assets/art/cine';
 
@@ -373,8 +373,6 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
   // the Hollow taking the map: its shader and field
   ui.FragmentShader? _hollowShader;
   HollowField? _hollowField;
-  // the villagers out walking (village_life.dart): their walk sheets
-  final Map<String, WalkSheet> _walkSheets = {};
 
   @override
   void initState() {
@@ -390,14 +388,6 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
         if (s['plate'] != null) names.add(s['plate'] as String);
         for (final l in (s['layers'] as List? ?? const [])) {
           if (l['plate'] != null) names.add(l['plate'] as String);
-          if (l['kind'] == 'villagers') {
-            for (final w in (l['walkers'] as List).cast<Map<String, dynamic>>()) {
-              final key = '${w['who']}/${w['look'] ?? 'default'}';
-              WalkSheet.load(w['who'] as String, (w['look'] as String?) ?? 'default').then((ws) {
-                if (mounted && ws != null) _walkSheets[key] = ws;
-              });
-            }
-          }
           if (l['kind'] == 'hollow') {
             for (final k in const ['lit', 'faded', 'hollow']) {
               if (l[k] != null) names.add(l[k] as String);
@@ -490,17 +480,53 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
     widget.onDone();
   }
 
+  /// The live shot (the Square, filmed by its own walk screen): mounted from the start so its picture is
+  /// loaded and its villagers already out by the time it comes up; its clock the seconds into that shot.
+  ({Map<String, dynamic> shot, double start})? get _live {
+    final tl = _tl;
+    if (tl == null) return null;
+    var start = 0.0;
+    for (final s in tl.shots) {
+      if (s['live'] != null) return (shot: s, start: start);
+      start += (s['dur'] as num).toDouble();
+    }
+    return null;
+  }
+
+  VillageCine? _cine;
+
+  VillageCine? _liveCine() {
+    final lv = _live;
+    if (lv == null) return null;
+    return _cine ??= () {
+      final m = (lv.shot['cine'] as Map).cast<String, dynamic>();
+      Offset o(Object? v) => Offset(((v as List)[0] as num).toDouble(), (v[1] as num).toDouble());
+      return VillageCine(
+        from: o(m['from']),
+        to: o(m['to']),
+        dur: (lv.shot['dur'] as num).toDouble(),
+        zoomFrom: ((m['zoomFrom'] as num?) ?? 1).toDouble(),
+        zoomTo: ((m['zoomTo'] as num?) ?? 1).toDouble(),
+        glow: m['glow'] == null ? null : o(m['glow']),
+        clock: () => math.max(0.0, _t - lv.start),
+      );
+    }();
+  }
+
   @override
   Widget build(BuildContext context) {
     final tl = _tl;
+    final cine = _liveCine();
     return Material(
       color: Colors.black,
       child: Stack(fit: StackFit.expand, children: [
+        // (mounted a few seconds ahead, so its picture is in and its villagers out when it comes up)
+        if (cine != null && _t > _live!.start - 6.0) VillageWalkScreen(map: (_live!.shot['live'] as String), cine: cine),
         if (tl != null)
           CustomPaint(
             painter: _CinePainter(tl, _plates, _shot, _t - _shotStart, DefaultTextStyle.of(context).style,
                 live: widget.reducedMotion ? null : (shader: _shader, masks: _masks, t: _t),
-                hollow: (shader: _hollowShader, field: _hollowField), walkSheets: _walkSheets),
+                hollow: (shader: _hollowShader, field: _hollowField)),
             willChange: true,
           ),
         Positioned(
@@ -529,7 +555,7 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
 }
 
 class _CinePainter extends CustomPainter {
-  _CinePainter(this.tl, this.plates, this.shotIndex, this.ts, this.textStyle, {this.live, this.hollow, this.walkSheets = const {}});
+  _CinePainter(this.tl, this.plates, this.shotIndex, this.ts, this.textStyle, {this.live, this.hollow});
   final CineTimeline tl;
   final Map<String, ui.Image> plates;
   final int shotIndex;
@@ -542,9 +568,6 @@ class _CinePainter extends CustomPainter {
 
   /// the Hollow's shader and field (hollow_fx.dart), as they load
   final ({ui.FragmentShader? shader, HollowField? field})? hollow;
-
-  /// the villagers' walk sheets, by 'who/look'
-  final Map<String, WalkSheet> walkSheets;
 
   Size _size(ui.Image im) => Size(im.width.toDouble(), im.height.toDouble());
 
@@ -628,7 +651,8 @@ class _CinePainter extends CustomPainter {
   }
 
   void _paintShot(Canvas c, Size size, Map<String, dynamic> shot, double ts) {
-    c.drawRect(Offset.zero & size, Paint()..color = Colors.black);
+    // a live shot (the Square itself, VillageWalkScreen filmed) shows through: only its layers paint here
+    if (shot['live'] == null) c.drawRect(Offset.zero & size, Paint()..color = Colors.black);
     final plateName = shot['plate'] as String?;
     final ui.Image? plate = plateName == null ? null : plates[plateName];
     ({double scale, Offset origin})? g;
@@ -642,12 +666,7 @@ class _CinePainter extends CustomPainter {
       final kind = L['kind'] as String;
       if (kind == 'hollow' && plate != null && g != null) {
         _paintHollow(c, size, L, g, ts);
-      } else if (kind == 'villagers' && plate != null && g != null) {
-        final gg = g;
-        c.save();
-        c.clipRect(Offset.zero & size);
-        paintVillagers(c, L, ts, walkSheets, gg.scale, (p) => Offset((p.dx - gg.origin.dx) * gg.scale, (p.dy - gg.origin.dy) * gg.scale));
-        c.restore();
+
       } else if (kind == 'reveal' && plate != null && g != null) {
         final over = plates[L['plate'] as String];
         if (over == null) continue;
