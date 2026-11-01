@@ -239,11 +239,18 @@ def ink(mask, depth, unit_m, zmax):
     near = depth[iy, ix]                                    # the actor's depth at its nearest pixel
     behind = (depth > near + 0.6 * unit_m) | (depth >= zmax * 0.999)
     ring = np.clip(w + 0.5 - dist, 0, 1) * behind * (dist > 0)
-    # inside: a step in depth of more than ~2 model units (an arm, a pot, a wing in front of the body)
-    r = max(1, int(round(w * 0.32)))
-    dact = np.where(act, depth, np.inf)
-    nmin = ndimage.minimum_filter(dact, size=2 * r + 1)
-    inner = act & ((depth - nmin) > 2.2 * unit_m)
+    # inside: a step in depth (a part standing in front of another): between neighbouring pixels the depth jumps
+    # by more than the surface's own slope carries it, by over ~2 model units (charrender's inner lines); the
+    # line on the far side, a third of the outline's width
+    inner = np.zeros(act.shape, bool)
+    for dy, dx in ((0, 1), (0, -1), (1, 0), (-1, 0)):
+        d1 = np.roll(depth, (dy, dx), (0, 1))          # the neighbour on the near side
+        d2 = np.roll(depth, (2 * dy, 2 * dx), (0, 1))  # and the one past it (its slope)
+        a1 = np.roll(act, (dy, dx), (0, 1))
+        jump = (depth - d1) - np.maximum(0, d1 - d2)
+        inner |= act & a1 & (jump > 2.2 * unit_m)
+    r = max(1, int(round(w * 0.3)))
+    inner = ndimage.binary_dilation(inner, iterations=max(0, r - 1)) & act if r > 1 else inner
     inner = ndimage.gaussian_filter(inner.astype(np.float32), 0.6) * 1.6
     a = np.maximum(ring, np.clip(inner, 0, 1) * 0.85)
     return np.clip(ndimage.gaussian_filter(a, 0.45), 0, 1)
