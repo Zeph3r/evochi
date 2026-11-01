@@ -26,6 +26,9 @@ import 'cinematic_player.dart';
 import 'posed_plate.dart';
 
 // ------------------------------------------------------------------ welcome ----
+/// the sign-in row's labels: the three share the size at which the longest fits
+const _signIn = ['Apple', 'Google', 'Email'];
+
 class WelcomeScreen extends StatefulWidget {
   const WelcomeScreen({super.key});
   @override
@@ -113,12 +116,14 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
               child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
                 EvochiButton(label: 'Begin Your Journey', large: true, icon: const Icon(Icons.play_arrow_rounded, color: EvochiColor.ink, size: 30), onPressed: _startGuest),
                 const SizedBox(height: 10),
+                // three to a row on a narrow phone: tight padding, one shared label size, so 'Google' never
+                // breaks onto two lines
                 Row(children: [
-                  Expanded(child: EvochiButton(label: 'Apple', tone: ButtonTone.cream, small: true, icon: const Icon(Icons.apple, color: EvochiColor.ink), onPressed: () => _provider('Apple'))),
+                  Expanded(child: EvochiButton(label: 'Apple', tone: ButtonTone.cream, small: true, hPad: 6, iconGap: 4, labelGroup: _signIn, icon: const Icon(Icons.apple, color: EvochiColor.ink, size: 20), onPressed: () => _provider('Apple'))),
                   const SizedBox(width: 8),
-                  Expanded(child: EvochiButton(label: 'Google', tone: ButtonTone.cream, small: true, icon: const Icon(Icons.g_mobiledata_rounded, color: EvochiColor.ink, size: 26), onPressed: () => _provider('Google'))),
+                  Expanded(child: EvochiButton(label: 'Google', tone: ButtonTone.cream, small: true, hPad: 6, iconGap: 2, labelGroup: _signIn, icon: const Icon(Icons.g_mobiledata_rounded, color: EvochiColor.ink, size: 24), onPressed: () => _provider('Google'))),
                   const SizedBox(width: 8),
-                  Expanded(child: EvochiButton(label: 'Email', tone: ButtonTone.cream, small: true, icon: const Icon(Icons.mail_rounded, color: EvochiColor.wood), onPressed: _email)),
+                  Expanded(child: EvochiButton(label: 'Email', tone: ButtonTone.cream, small: true, hPad: 6, iconGap: 4, labelGroup: _signIn, icon: const Icon(Icons.mail_rounded, color: EvochiColor.wood, size: 20), onPressed: _email)),
                 ]),
                 const SizedBox(height: 10),
                 const Text(
