@@ -322,9 +322,9 @@ def paint_face(ch: Character, cv: Canvas, pal: dict, expr: str):
             cv.paint(cv.m_rect(s * ch.cheek_u, ch.cheek_v, ch.cheek_w * w, ch.cheek_h, 0.25),
                      pal['cheek'], alpha, lit=0.5)
 
-    def eyes(h=eh, dv=0.0, hl=(-0.25, 0.32), w=ew):
+    def eyes(h=eh, dv=0.0, hl=(-0.25, 0.32), w=ew, du=0.0):
         for s in (-1, 1):
-            cu = s * eu
+            cu = s * eu + du
             cv.paint(cv.m_rect(cu, ev + dv, w, h, r), E, lit=0.0)
             hw = w * 0.38
             cv.paint(cv.m_rect(cu + hl[0] * w, ev + dv + h / 2 - h * hl[1] + 0.05, hw, hw * 1.1, hw * 0.2),
@@ -488,6 +488,15 @@ def paint_face(ch: Character, cv: Canvas, pal: dict, expr: str):
         smile(1.1, 0.42)
     # ---- talking (the cinematics' animated lines, cine_anim.py): eyes open on you, the mouth through its shapes
     # as the words come; 'talk_happy' the closed-eye smile still talking
+    elif expr.startswith('look_'):
+        # the eyes turned (the cinematics' acting: a glance at the letter, down at the eggs): 'look_' + any of
+        # u d l r (up, down, the viewer's left, right); the highlight goes with them
+        d = expr[5:]
+        du = (-0.34 if 'l' in d else 0.34 if 'r' in d else 0.0) * ew
+        dvv = (0.22 if 'u' in d else -0.26 if 'd' in d else 0.0) * eh
+        cheeks()
+        eyes(dv=dvv, du=du, hl=(-0.25 + (0.18 if 'r' in d else -0.05 if 'l' in d else 0.0), 0.32))
+        smile()
     elif expr in ('talk_a', 'talk_o', 'talk_e', 'talk_happy'):
         cheeks(w=1.1 if expr == 'talk_happy' else 1.0)
         if expr == 'talk_happy':

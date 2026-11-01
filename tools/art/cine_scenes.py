@@ -1199,7 +1199,7 @@ def scene_mira_anim():
     perf = cine_anim.perf_mira()
     S = _nest_scene('mira_anim', MIRA_CAM, 'all', mira=True, mira_expr='default', mira_pose=dict(perf['rest']['pose']),
                     mira_faces=perf['faces'])
-    S.anim = {k: perf[k] for k in ('actor', 'fps', 'rest', 'clips')}
+    S.anim = dict({k: perf[k] for k in ('actor', 'fps', 'rest', 'clips')}, ink=True)
     return S
 
 
@@ -1208,7 +1208,7 @@ def scene_pip_anim():
     import cine_anim
     perf = cine_anim.perf_pip()
     S = scene_pip(False, 'default', dict(perf['rest']['pose']), 'pip_anim', jaw=True, faces=perf['faces'])
-    S.anim = {k: perf[k] for k in ('actor', 'fps', 'rest', 'clips')}
+    S.anim = dict({k: perf[k] for k in ('actor', 'fps', 'rest', 'clips')}, ink=True)
     return S
 
 

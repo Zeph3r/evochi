@@ -79,8 +79,14 @@ class _Poses {
 
 /// [name]'s plate, cover-fitted with [alignment] like [CinePlate], with its character playing its poses.
 class PosedPlate extends StatefulWidget {
-  const PosedPlate(this.name, {super.key, this.alignment = Alignment.center, this.onMissing, this.controller});
+  const PosedPlate(this.name, {super.key, this.alignment = Alignment.center, this.onMissing, this.controller, this.speed = 1, this.autoplay = true});
   final String name;
+
+  /// how fast it plays (the cast showcase slows it down to study a performance)
+  final double speed;
+
+  /// open with its line on its own (off: only when [controller] asks)
+  final bool autoplay;
   final Alignment alignment;
   final Widget? onMissing;
   final PoseController? controller;
@@ -205,6 +211,10 @@ class _PosedPlateState extends State<PosedPlate> with SingleTickerProviderStateM
     if (clip == null) {
       final open = p.idle['opening'] as String?;
       final delay = ((p.idle['opening_at'] as num?) ?? 0.3).toDouble();
+      if (!widget.autoplay) {
+        if (p.anims.containsKey('idle')) _act('idle');
+        return;
+      }
       if (_t >= delay) _act(open != null && p.anims.containsKey(open) ? open : p.anims.keys.first);
       return;
     }
@@ -238,10 +248,14 @@ class _PosedPlateState extends State<PosedPlate> with SingleTickerProviderStateM
     });
   }
 
+  double _last = 0;
+
   void _tick(Duration d) {
     final p = _poses;
     if (p == null) return;
-    _t = d.inMicroseconds / 1e6;
+    final now = d.inMicroseconds / 1e6;
+    _t += (now - _last).clamp(0.0, 0.1) * widget.speed;
+    _last = now;
     if (p.anims.isNotEmpty) {
       _actTick();
       return;

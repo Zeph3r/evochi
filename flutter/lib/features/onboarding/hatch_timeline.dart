@@ -101,8 +101,10 @@ class HatchPlan {
       hop += b.shake * 0.035 * math.sin(k * math.pi);
     }
     if (u > crackFrom && u < burst) {
+      // a tremble that grows while the cracks open, and stops dead for the held breath before it breaks
       final k = (u - crackFrom) / math.max(0.01, burst - crackFrom);
-      rot += 0.02 * k * math.sin(u * 71) + 0.012 * k * math.sin(u * 43);
+      final hush = ((burst - u - 0.08) / 0.3).clamp(0.0, 1.0);
+      rot += (0.02 * k * math.sin(u * 71) + 0.012 * k * math.sin(u * 43)) * hush;
     }
     return (rot, hop);
   }

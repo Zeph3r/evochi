@@ -219,7 +219,7 @@ def actor_objects(A, coll):
         if isface:
             faces[key] = ob
             ob.hide_render = key != 'face'      # the other faces wait for an animated frame to wear them
-    ACTOR_PARTS[A['name']] = {'root': root, 'root_loc': root.location.copy(), 'scale': A['scale'], 'faces': faces,
+    ACTOR_PARTS[A['name']] = {'root': root, 'root_loc': root.location.copy(), 'root_rot': tuple(root.rotation_euler), 'scale': A['scale'], 'faces': faces,
                               'parts': {k: (ob, ob.location.copy(), ob.parent is root) for k, (ob, _) in parts.items()}}
     proxy = A.get('proxy')
     proxies = A.get('proxies') or []
@@ -261,6 +261,10 @@ def pose_actor(name, fr):
         elif on_root:
             ob.location = loc0 + Vector((0.0, 0.0, b * loc0.z))
     R['root'].location = R['root_loc'] + Vector((0.0, 0.0, float(fr.get('lift', 0.0)) * R['scale'] * SCALE))
+    # a lean: the whole of them tipped about their feet (pitch + toward the camera, roll + to their left)
+    lp, lr = fr.get('lean', (0.0, 0.0))
+    r0 = R['root_rot']
+    R['root'].rotation_euler = (r0[0] + math.radians(lp), r0[1] - math.radians(lr), r0[2])
     want = 'face_' + fr['face'] if fr.get('face') and 'face_' + fr['face'] in R['faces'] else 'face'
     for k, ob in R['faces'].items():
         ob.hide_render = k != want
@@ -421,6 +425,62 @@ def _compositor_depth(sc, out_dir, name, zmax):
     nt.links.new(rl.outputs['Image'], go.inputs[0])
 
 
+def _compositor_anim(sc, out_dir, name, zmax, actor):
+    """an acted frame's passes for its ink (cine_anim.py draws the outline): RAW/<name>_d.png the depth (16-bit,
+    0..zmax metres) and RAW/<name>_m.png the actor's own coverage (its objects' index, antialiased)"""
+    vl = bpy.context.view_layer
+    vl.use_pass_z = True
+    vl.use_pass_object_index = True
+    for ob in bpy.data.objects:
+        if ob.type == 'MESH':
+            ob.pass_index = 7 if ob.name.startswith(actor + ' ') else 0
+    nt = bpy.data.node_groups.new('comp_' + name, 'CompositorNodeTree')
+    sc.compositing_node_group = nt
+    rl = nt.nodes.new('CompositorNodeRLayers')
+    mr = nt.nodes.new('ShaderNodeMapRange')
+    mr.inputs['From Min'].default_value = 0.0
+    mr.inputs['From Max'].default_value = zmax
+    mr.inputs['To Min'].default_value = 0.0
+    mr.inputs['To Max'].default_value = 1.0
+    mr.clamp = True
+    nt.links.new(rl.outputs['Depth'], mr.inputs['Value'])
+    idm = nt.nodes.new('CompositorNodeIDMask')
+    if 'Index' in idm.inputs:          # (Blender 5: the index and the antialiasing are inputs)
+        idm.inputs['Index'].default_value = 7
+        idm.inputs['Anti-Alias'].default_value = True
+    else:
+        idm.index = 7
+        idm.use_antialiasing = True
+    ob_out = next(o for o in rl.outputs if o.name in ('Object Index', 'IndexOB', 'Index OB'))
+    nt.links.new(ob_out, idm.inputs[0])
+    for suffix, src, depth in (('_d', mr.outputs['Result'], '16'), ('_m', idm.outputs[0], '8')):
+        fo = nt.nodes.new('CompositorNodeOutputFile')
+        fo.directory = out_dir
+        fo.file_name = name + suffix
+        try:
+            fo.format.media_type = 'IMAGE'
+        except Exception:
+            pass
+        fo.format.file_format = 'PNG'
+        fo.format.color_mode = 'BW'
+        fo.format.color_depth = depth
+        it = fo.file_output_items.new('FLOAT', 'v')
+        it.save_as_render = False
+        nt.links.new(src, fo.inputs['v'])
+    go = nt.nodes.new('NodeGroupOutput')
+    nt.interface.new_socket('Image', in_out='OUTPUT', socket_type='NodeSocketColor')
+    nt.links.new(rl.outputs['Image'], go.inputs[0])
+
+
+def _settle_passes(raw_dir, fname):
+    """the compositor names its files with the frame number: back to <fname>_z.exr / _d.png / _m.png"""
+    for fn in os.listdir(raw_dir):
+        for suf, ext in (('_z', '.exr'), ('_d', '.png'), ('_m', '.png')):
+            want = fname + suf + ext
+            if fn.startswith(fname + suf) and fn.endswith(ext) and fn != want:
+                os.replace(os.path.join(raw_dir, fn), os.path.join(raw_dir, want))
+
+
 def read_depth(path):
     """the depth EXR as a float32 (h, w) array in metres (clamped at the scene's zmax)"""
     import OpenEXR
@@ -517,10 +577,14 @@ def render(vs, raw_path, mode='full'):
         if camd_.get('fov_h'):
             cam.data.sensor_fit = 'HORIZONTAL'
             cam.data.angle = math.radians(camd_['fov_h'])
-        _compositor_depth(sc, raw_dir, fname, zmax)
+        if anim and anim.get('ink'):
+            _compositor_anim(sc, raw_dir, fname, zmax, anim['actor'])
+        else:
+            _compositor_depth(sc, raw_dir, fname, zmax)
         sc.render.filepath = fraw
         t = time.time()
         bpy.ops.render.render(write_still=True)
+        _settle_passes(raw_dir, fname)
         print(f'{fname}: rendered in {time.time() - t:.1f}s -> {fraw}', flush=True)
         for fn in os.listdir(raw_dir):
             if fn.startswith(fname + '_z') and fn.endswith('.exr') and fn != fname + '_z.exr':
@@ -552,17 +616,20 @@ def render_anim(vs, sc, cam, anim, raw_dir, zmax, W, H):
         for i, fr in enumerate(frames):
             pose_actor(anim['actor'], fr)
             fname = '%s_%s_%03d' % (vs.name, clip, i)
-            _compositor_depth(sc, raw_dir, fname, zmax)
+            if anim.get('ink'):
+                _compositor_anim(sc, raw_dir, fname, zmax, anim['actor'])
+            else:
+                _compositor_depth(sc, raw_dir, fname, zmax)
             sc.render.filepath = os.path.join(raw_dir, fname + '_raw.png')
             bpy.ops.render.render(write_still=True)
-            for fn in os.listdir(raw_dir):
-                if fn.startswith(fname + '_z') and fn.endswith('.exr') and fn != fname + '_z.exr':
-                    os.replace(os.path.join(raw_dir, fn), os.path.join(raw_dir, fname + '_z.exr'))
+            _settle_passes(raw_dir, fname)
         counts[clip] = len(frames)
         print(f'{vs.name} {clip}: {len(frames)} frames, {time.time() - t0:.0f}s so far', flush=True)
     sc.render.use_border = False
     pose_actor(anim['actor'], anim['rest'])
-    return {'box': box, 'clips': counts, 'fps': anim.get('fps', 15)}
+    R = ACTOR_PARTS[anim['actor']]
+    return {'box': box, 'clips': counts, 'fps': anim.get('fps', 15), 'ink': bool(anim.get('ink')),
+            'unit_m': R['scale'] * SCALE, 'zmax': zmax}
 
 
 # ------------------------------------------------------------------------------------------------- grade ----

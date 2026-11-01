@@ -29,11 +29,14 @@ void main() {
     }
   });
 
-  test('the order holds: shakes, cracks, burst, out, then the name', () async {
+  test('the order holds: shakes, cracks, a held breath, burst, out, then the name', () async {
     final p = await HatchPlan.load();
     final emerge = p.beats.firstWhere((b) => b.react == 'emerge').t;
     expect(p.crackFrom, lessThan(p.burst));
-    expect(p.beats.where((b) => b.shake > 0).every((b) => b.t < p.crackFrom), isTrue);
+    // it shakes before it cracks (and each crack jolts it), and nothing shakes in the breath before the break
+    expect(p.beats.firstWhere((b) => b.shake > 0).t, lessThan(p.crackFrom));
+    expect(p.beats.where((b) => b.shake > 0).every((b) => b.t < p.burst - 0.3), isTrue);
+    expect(p.shake(p.burst - 0.05).$1.abs(), lessThan(1e-9));
     expect(emerge, greaterThanOrEqualTo(p.burst));
     expect(p.beats.every((b) => b.t < p.naming), isTrue);
     expect(p.crack(p.burst), 3);

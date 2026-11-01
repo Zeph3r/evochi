@@ -948,10 +948,17 @@ class CineFit {
 /// writes itself out (a tap finishes it); the words not yet written already hold their place, so nothing
 /// reflows. Under reduced motion the line is simply there.
 class SpeechCard extends StatefulWidget {
-  const SpeechCard({super.key, required this.name, required this.text, this.delay = const Duration(milliseconds: 120)});
+  const SpeechCard({super.key, required this.name, required this.text, this.delay = const Duration(milliseconds: 120), this.speakAt, this.perChar});
   final String name;
   final String text;
   final Duration delay;
+
+  /// When the line starts writing, if not as the card finishes rising in: with a speaker acting it
+  /// (posed_plate.dart), when they start to talk
+  final Duration? speakAt;
+
+  /// Seconds a character; spoken lines go at the speaker's pace (their mouth moves for as long as it writes)
+  final double? perChar;
   @override
   State<SpeechCard> createState() => _SpeechCardState();
 }
@@ -980,9 +987,9 @@ class _SpeechCardState extends State<SpeechCard> with SingleTickerProviderStateM
       return;
     }
     _a.value = 0;
-    _a.duration = Duration(milliseconds: (widget.text.length * _perChar * 1000).round());
-    // the line starts writing as the card finishes rising in
-    _wait = Timer(widget.delay + Motion.base * 0.6, () {
+    _a.duration = Duration(milliseconds: (widget.text.length * (widget.perChar ?? _perChar) * 1000).round());
+    // the line starts writing as the card finishes rising in (or as its speaker starts to talk)
+    _wait = Timer(widget.speakAt ?? widget.delay + Motion.base * 0.6, () {
       if (mounted) _a.forward();
     });
   }

@@ -65,7 +65,7 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _introTimer = Timer(const Duration(milliseconds: 4500), _endIntro); // her line acted through (mira_talk), then the nest
+    _introTimer = Timer(const Duration(milliseconds: 5000), _endIntro); // her line acted through (mira_talk), then the nest
     LumenPrint.warm();
     CineTimeline.load().then((tl) {
       if (!mounted) return;
@@ -229,7 +229,7 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 if (!again) BackSquareButton(onTap: () => c.mutate((s) => s.player = null)) else const SizedBox(width: 46),
-                const Expanded(child: SpeechCard(name: 'Mira', text: "I've been keeping these warm. One of them has been waiting for you.")),
+                const Expanded(child: SpeechCard(name: 'Mira', text: "I've been keeping these warm. One of them has been waiting for you.", speakAt: Duration(milliseconds: 560), perChar: 0.043)),
                 const SizedBox(width: 46),
               ]),
             ),
@@ -436,7 +436,7 @@ class _HintCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------------------------- the hatch ----
-enum _HatchPhase { waiting, bursting, hatched, naming, mapping, done }
+enum _HatchPhase { waiting, bursting, hatched, naming, named, mapping, done }
 
 class HatchScreen extends StatefulWidget {
   const HatchScreen({super.key});
@@ -454,6 +454,7 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
   double get _t => _clock.value;
   double _burstAt = 0; // when the hatch began (the tap)
   double _mapAt = 0;
+  double _namedAt = 0;
   Timer? _hatchNow;
   bool _hatchNowReady = false;
   late final TextEditingController _name = TextEditingController();
@@ -575,10 +576,12 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
     final u = t - _burstAt;
     final b = _plan.burst;
     if (u <= 0) return 1;
-    if (u < b) return 1 + 0.16 * Curves.easeInOut.transform(u / b);
-    if (u < b + 0.5) return 1.16;
-    final back = ((u - b - 0.5) / math.max(0.3, _plan.naming - b - 0.7)).clamp(0.0, 1.0);
-    return 1 + 0.16 * (1 - Curves.easeInOut.transform(back));
+    if (u < b) return 1 + 0.28 * Curves.easeInOut.transform(u / b);
+    // the break knocks the camera back a little (a punch), then it holds on the creature
+    if (u < b + 0.14) return 1.28 - 0.1 * Curves.easeOut.transform((u - b) / 0.14);
+    if (u < b + 0.7) return 1.18;
+    final back = ((u - b - 0.7) / math.max(0.3, _plan.naming - b - 0.9)).clamp(0.0, 1.0);
+    return 1 + 0.18 * (1 - Curves.easeInOut.transform(back));
   }
 
   /// A small knock to the whole scene as the shell breaks, dying away in a few tenths of a second.
@@ -586,7 +589,7 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
     if (_reduce || _phase.index > _HatchPhase.hatched.index) return Offset.zero;
     final u = t - _burstAt - _plan.burst;
     if (u < 0 || u > 0.45) return Offset.zero;
-    final k = math.exp(-u * 9) * 7;
+    final k = math.exp(-u * 8) * 12;
     return Offset(math.sin(u * 55) * k, math.cos(u * 47) * k * 0.6);
   }
 
@@ -598,14 +601,26 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
       return;
     }
     c.run((s, n) => g.renamePet(s, v.name));
-    c.audio.play('cine_lumen_rise', volume: 0.5); // the name flies in Lumen to the map and lights the grove trail
     FocusScope.of(context).unfocus();
+    // it hears its name: a happy hop with the name rising over it in gold, a chirp; then the name flies in Lumen
+    // to the map and lights the grove trail
+    c.audio.play('pet_chirp', volume: 0.6);
+    c.audio.play('reward_chime', volume: 0.4);
+    _scene.react('reward');
     setState(() {
-      _phase = _HatchPhase.mapping;
-      _mapAt = _t;
+      _phase = _HatchPhase.named;
+      _namedAt = _t;
     });
-    Timer(const Duration(milliseconds: 4200), () {
-      if (mounted) setState(() => _phase = _HatchPhase.done);
+    Timer(Duration(milliseconds: _reduce ? 600 : 1500), () {
+      if (!mounted) return;
+      c.audio.play('cine_lumen_rise', volume: 0.5);
+      setState(() {
+        _phase = _HatchPhase.mapping;
+        _mapAt = _t;
+      });
+      Timer(const Duration(milliseconds: 4200), () {
+        if (mounted) setState(() => _phase = _HatchPhase.done);
+      });
     });
   }
 
@@ -647,7 +662,13 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
             // nothing in the middle and draw the egg half a screen to the right
             heroBuilder: (ctx, rect) => rect == null
                 ? const SizedBox.shrink()
-                : SizedBox.expand(
+                : Stack(fit: StackFit.expand, children: [
+                  if (_phase == _HatchPhase.named)
+                    ValueListenableBuilder<double>(
+                      valueListenable: _clock,
+                      builder: (_, t, __) => _NameRise(name: p.name, at: rect, u: t - _namedAt),
+                    ),
+                  SizedBox.expand(
                     child: CustomPaint(
                       painter: _EggPainter(
                         palette: p.paletteId,
@@ -662,6 +683,7 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
                       ),
                     ),
                   ),
+                ]),
             header: const SizedBox(height: 8),
             panel: Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 40),
@@ -669,6 +691,30 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
             ),
           ),
         ),
+        // the break: a flash of the egg's light over the whole screen, gone in a breath
+        if (!reduce && (_phase == _HatchPhase.bursting || _phase == _HatchPhase.hatched))
+          Positioned.fill(
+            child: IgnorePointer(
+              child: ValueListenableBuilder<double>(
+                valueListenable: _clock,
+                builder: (_, t, __) {
+                  final u = t - _burstAt - _plan.burst;
+                  if (u < 0 || u > 0.5) return const SizedBox.shrink();
+                  final k = u < 0.04 ? u / 0.04 : math.exp(-(u - 0.04) * 9);
+                  final glow = _plan.style(p.paletteId).glow;
+                  return DecoratedBox(
+                    decoration: BoxDecoration(
+                      gradient: RadialGradient(center: const Alignment(0, 0.1), radius: 1.1, colors: [
+                        const Color(0xFFFFFBEA).withValues(alpha: 0.92 * k),
+                        Color.lerp(glow, const Color(0xFFFFF4D6), 0.5)!.withValues(alpha: 0.55 * k),
+                        glow.withValues(alpha: 0.18 * k),
+                      ], stops: const [0.0, 0.45, 1.0]),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ),
         if (mapping)
           Positioned.fill(
             child: ValueListenableBuilder<double>(
@@ -698,6 +744,35 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
       ]),
     );
   }
+
+  Widget _nameCard({bool live = true}) => GameCard(
+        padding: const EdgeInsets.all(16),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+          const Text('What will you name your Evochi?', style: EvochiText.section, textAlign: TextAlign.center),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _name,
+            autofocus: live,
+            maxLength: GameConfig.current.nameMax,
+            textAlign: TextAlign.center,
+            onChanged: (_) {
+              if (_err != null) setState(() => _err = null);
+            },
+            onSubmitted: (_) => _confirmName(),
+            style: EvochiText.number.copyWith(fontSize: 22),
+            decoration: InputDecoration(
+              counterText: '',
+              hintText: 'Lumi',
+              errorText: _err,
+              filled: true,
+              fillColor: EvochiColor.inset,
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+            ),
+          ),
+          const SizedBox(height: 10),
+          EvochiButton(label: 'Confirm', large: true, onPressed: _confirmName),
+        ]),
+      );
 
   Widget _panel(GameController c, String name, int steps, bool reduce) {
     final left = math.max(0, hatchSteps - steps);
@@ -739,59 +814,88 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
       case _HatchPhase.bursting:
         return wait;
       case _HatchPhase.hatched:
+        // no card while it comes out and looks round: the creature has the stage (the waiting card keeps its
+        // place, unseen, so the ground stays put)
         return Stack(alignment: Alignment.bottomCenter, children: [
           wait,
-          Entrance(
-            delay: const Duration(milliseconds: 500),
-            child: GameCard(
-              padding: const EdgeInsets.all(16),
-              child: SizedBox(
-                width: double.infinity,
-                child: Column(mainAxisSize: MainAxisSize.min, children: [
-                  Semantics(liveRegion: true, child: const Text('It hatched!', style: EvochiText.pageTitle, textAlign: TextAlign.center)),
-                  const SizedBox(height: 6),
-                  const Text('It blinks at you.', textAlign: TextAlign.center, style: EvochiText.bodyText),
-                ]),
-              ),
-            ),
-          ),
+          Semantics(liveRegion: true, label: 'It hatched!', child: const SizedBox(width: 1, height: 1)),
         ]);
       case _HatchPhase.naming:
-        return Entrance(
-          child: GameCard(
-            padding: const EdgeInsets.all(16),
-            child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-              const Text('What will you name your Evochi?', style: EvochiText.section, textAlign: TextAlign.center),
-              const SizedBox(height: 10),
-              TextField(
-                controller: _name,
-                autofocus: true,
-                maxLength: GameConfig.current.nameMax,
-                textAlign: TextAlign.center,
-                onChanged: (_) {
-                  if (_err != null) setState(() => _err = null);
-                },
-                onSubmitted: (_) => _confirmName(),
-                style: EvochiText.number.copyWith(fontSize: 22),
-                decoration: InputDecoration(
-                  counterText: '',
-                  hintText: 'Lumi',
-                  errorText: _err,
-                  filled: true,
-                  fillColor: EvochiColor.inset,
-                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
-                ),
-              ),
-              const SizedBox(height: 10),
-              EvochiButton(label: 'Confirm', large: true, onPressed: _confirmName),
-            ]),
-          ),
-        );
+        return Entrance(child: _nameCard());
+      case _HatchPhase.named:
+        // it hears its name: the card goes, keeping its place (the ground stays put under the creature)
+        return IgnorePointer(child: TweenAnimationBuilder<double>(tween: Tween(begin: 1, end: 0), duration: Motion.base, builder: (_, v, child) => Opacity(opacity: v, child: child), child: ExcludeFocus(child: _nameCard(live: false))));
       case _HatchPhase.mapping:
       case _HatchPhase.done:
         return const SizedBox.shrink();
     }
   }
+}
+
+/// Its name, heard: rising in gold over it with a little burst of sparkles as it hops, [u] seconds after it was
+/// given, over the creature's box [at].
+class _NameRise extends StatelessWidget {
+  const _NameRise({required this.name, required this.at, required this.u});
+  final String name;
+  final Rect at;
+  final double u;
+
+  @override
+  Widget build(BuildContext context) {
+    final k = Curves.easeOutBack.transform((u / 0.45).clamp(0.0, 1.0));
+    final fade = u < 1.1 ? 1.0 : (1 - (u - 1.1) / 0.4).clamp(0.0, 1.0);
+    return IgnorePointer(
+      child: CustomPaint(
+        painter: _SparklePainter(Offset(at.center.dx, at.top + at.height * 0.15), u, fade),
+        child: Align(
+          alignment: Alignment.topLeft,
+          child: Transform.translate(
+            offset: Offset(at.center.dx - 120, at.top - 26 - 34 * k),
+            child: SizedBox(
+              width: 240,
+              child: Opacity(
+                opacity: (k.clamp(0.0, 1.0)) * fade,
+                child: Transform.scale(
+                  scale: 0.7 + 0.3 * k,
+                  child: Text(name,
+                      textAlign: TextAlign.center,
+                      style: EvochiText.pageTitle.copyWith(color: const Color(0xFFFFE08A), fontSize: 30, shadows: const [
+                        Shadow(color: Color(0xCC5A3A12), offset: Offset(0, 2), blurRadius: 3),
+                        Shadow(color: Color(0x99FFC14E), blurRadius: 14),
+                      ])),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SparklePainter extends CustomPainter {
+  _SparklePainter(this.c, this.u, this.fade);
+  final Offset c;
+  final double u, fade;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (u <= 0) return;
+    final p = Paint()..blendMode = BlendMode.plus;
+    for (var i = 0; i < 14; i++) {
+      final a = i / 14 * math.pi * 2 + 0.3;
+      final sp = 60.0 + 40 * ((i * 37) % 7) / 7;
+      final r = sp * Curves.easeOut.transform((u / 0.8).clamp(0.0, 1.0));
+      final at = c + Offset(math.cos(a) * r, math.sin(a) * r * 0.7 - 20 * u);
+      final s = (3.5 + (i % 3)) * (1 - (u / 1.4).clamp(0.0, 1.0));
+      if (s <= 0) continue;
+      p.shader = RadialGradient(colors: [Color.fromRGBO(255, 236, 160, 0.95 * fade), const Color(0x00FFC14E)]).createShader(Rect.fromCircle(center: at, radius: s * 3));
+      canvas.drawCircle(at, s * 3, p);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_SparklePainter o) => o.u != u;
 }
 
 /// The egg over the nest (the crack-stage sprite from the pack, else a painted egg) with the step ring under it,

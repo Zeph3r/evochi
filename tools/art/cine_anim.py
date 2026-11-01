@@ -87,75 +87,116 @@ def _talk(text, start, face_end=None):
     return mouth, words, start + total
 
 
+def _key(t, keys):
+    """a keyed value at t: keys [(time, value, ease)], value a number or a tuple; ease 'smooth' (in and out),
+    'out' (decelerating), 'back' (past the mark and settling back: follow-through), 'hold' (a step)"""
+    if t <= keys[0][0]:
+        return keys[0][1]
+    for (t0, v0, *_), (t1, v1, *e) in zip(keys, keys[1:]):
+        if t <= t1:
+            u = (t - t0) / max(1e-6, t1 - t0)
+            ease = e[0] if e else 'smooth'
+            if ease == 'hold':
+                k = 0.0 if u < 1 else 1.0
+            elif ease == 'out':
+                k = 1 - (1 - u) ** 3
+            elif ease == 'back':
+                c = 1.9
+                k = 1 + (c + 1) * (u - 1) ** 3 + c * (u - 1) ** 2
+            else:
+                k = u * u * (3 - 2 * u)
+            if isinstance(v0, tuple):
+                return tuple(a + (b - a) * k for a, b in zip(v0, v1))
+            return v0 + (v1 - v0) * k
+    return keys[-1][1]
+
+
+def _add(*vs):
+    return tuple(sum(x) for x in zip(*vs))
+
+
 def perf_mira():
-    """'I've been keeping these warm. One of them has been waiting for you.' turned to you, a nod on the words, the
-    pot lifted a little at 'these warm', a warm squint and a tilt at 'waiting for you', settling back"""
+    """'I've been keeping these warm. One of them has been waiting for you.' Each beat led by the eyes, then the
+    head, then the body, the pot settling last: at 'these warm' a look down at the eggs (eyes first), the pot
+    offered toward them; back to you (eyes first again) for 'one of them', leaning in a little; a warm squint
+    and a tilt at 'waiting for you'; settling back to rest"""
     rest = {'pose': {'head': (0.0, 8.0, 0.0), 'arm': (0.0, 0.0, 0.0)}, 'face': 'default', 'breath': 0.0}
     line = "I've been keeping these warm. One of them has been waiting for you."
-    mouth, words, end = _talk(line, 0.12)
-    warm_at = end - 0.95       # 'waiting for you'
+    S = 0.25
+    mouth, words, end = _talk(line, S)
+    warm0 = S + _syllables("I've been keeping")[1]              # 'these warm'
+    back0 = S + _syllables("I've been keeping these warm.")[1]  # 'One of them'
+    wait0 = end - 0.95                                          # 'waiting for you'
+    head_k = [(0.0, (0.0, 8.0, 0.0)), (warm0 + 0.05, (0.0, 8.0, 0.0)), (warm0 + 0.42, (12.0, 15.0, 6.0), 'back'),
+              (back0 - 0.05, (11.0, 14.0, 5.0)), (back0 + 0.38, (-1.0, 7.0, -1.0), 'back'), (wait0, (0.0, 8.0, 0.0)),
+              (wait0 + 0.35, (3.0, 10.0, 7.0), 'back'), (end + 0.45, (3.0, 10.0, 7.0)), (end + 0.95, (0.0, 8.0, 0.0))]
+    arm_k = [(0.0, (0.0, 0.0, 0.0)), (warm0 + 0.15, (0.0, 0.0, 0.0)), (warm0 + 0.55, (-9.0, 0.0, -3.0), 'back'),
+             (back0 + 0.1, (-8.0, 0.0, -3.0)), (back0 + 0.65, (0.0, 0.0, 0.0), 'back')]
+    lean_k = [(0.0, (0.0, 0.0)), (warm0 + 0.1, (0.0, 0.0)), (warm0 + 0.5, (2.0, 1.5)), (back0, (2.0, 1.5)),
+              (back0 + 0.45, (3.5, 0.0)), (end + 0.3, (3.0, -1.0)), (end + 0.95, (0.0, 0.0))]
+    frames = []
+    n = int(round((end + 1.0) * FPS))
+    for i in range(n):
+        t = i / FPS
+        nod = sum(_bump(t, w, 0.07, 0.3) for w in words if not (warm0 - 0.05 < w < back0 + 0.3))
+        head = _add(_key(t, head_k), (1.6 * nod + 0.5 * math.sin(t * 2.1), 0.8 * math.sin(t * 0.9), 0.8 * math.sin(t * 1.3 + 0.4)))
+        m = mouth(t)
+        if warm0 - 0.12 <= t < back0 - 0.12:
+            face = 'look_dr' if not m else m      # eyes on the eggs (the words go on)
+        elif t >= wait0 and t < end:
+            face = 'talk_happy' if m else 'happy'
+        elif end <= t < end + 0.5:
+            face = 'happy'
+        else:
+            face = m or 'default'
+        frames.append({'pose': {'head': head, 'arm': _key(t, arm_k)}, 'face': face, 'lean': _key(t, lean_k),
+                       'breath': 0.012 * math.sin(t * 2 * math.pi / 3.2) + 0.005 * nod})
+    idle = _idle(rest, 18, blink_at=None)
+    return {'actor': 'mira', 'fps': FPS, 'rest': rest, 'clips': {'talk': frames, 'idle': idle},
+            'faces': ['blink', 'happy', 'talk_a', 'talk_o', 'talk_e', 'talk_happy', 'look_dr'], 'speech_at': S}
+
+
+def perf_pip():
+    """'Pip the Courier, at your service! Where should I deliver your letters?' First the letter: his eyes go
+    to it, then his head, he dips and lifts it high (the wing overshooting, the letter settling last), leans in
+    and looks back at you; then he talks, a hop at 'service!', a curious tilt with the letter held out to you on
+    the question, and settles"""
+    rest = {'pose': {'head': (0.0, 0.0, 0.0), 'arm': (0.0, 0.0, 0.0), 'jaw': (0.0, 0.0, 0.0)}, 'face': 'default', 'breath': 0.0}
+    line = 'Pip the Courier, at your service! Where should I deliver your letters?'
+    S = 1.05
+    mouth, words, end = _talk(line, S)
+    serv = S + _syllables('Pip the Courier, at your')[1] + 0.12
+    ask = S + _syllables('Pip the Courier, at your service! Where should I deliver your')[1]
+    head_k = [(0.0, (0.0, 0.0, 0.0)), (0.18, (0.0, 0.0, 0.0)), (0.48, (-7.0, -11.0, -5.0), 'back'), (0.70, (-7.0, -11.0, -5.0)),
+              (0.98, (1.0, 3.0, 1.0), 'back'), (ask - 0.25, (0.0, 2.0, 0.0)), (ask + 0.2, (-1.0, 6.0, 9.0), 'back'),
+              (end + 0.25, (-1.0, 6.0, 9.0)), (end + 0.7, (0.0, 0.0, 0.0))]
+    arm_k = [(0.0, (0.0, 0.0, 0.0)), (0.32, (0.0, 0.0, 2.0)), (0.62, (4.0, 0.0, -17.0), 'back'), (0.95, (3.0, 0.0, -13.0)),
+             (S + 0.6, (1.0, 0.0, -5.0)), (ask - 0.2, (1.0, 0.0, -5.0)), (ask + 0.25, (11.0, 0.0, -13.0), 'back'),
+             (end + 0.3, (10.0, 0.0, -12.0)), (end + 0.75, (0.0, 0.0, 0.0), 'back')]
+    lean_k = [(0.0, (0.0, 0.0)), (0.30, (-1.5, 0.0)), (0.62, (-2.5, 1.0)), (0.95, (3.0, 0.0), 'back'), (S + 0.5, (1.0, 0.0)),
+              (ask - 0.2, (1.0, 0.0)), (ask + 0.25, (4.5, -1.5), 'back'), (end + 0.3, (4.0, -1.5)), (end + 0.75, (0.0, 0.0))]
     frames = []
     n = int(round((end + 0.8) * FPS))
     for i in range(n):
         t = i / FPS
-        nod = sum(_bump(t, w, 0.07, 0.3) for w in words[:-3])
-        tilt = _ease((t - warm_at) / 0.35) * (1 - _ease((t - end - 0.45) / 0.5))
-        head = (1.8 * nod + 0.6 * math.sin(t * 2.1) + 3.0 * tilt, 8.0 + 2.0 * math.sin(t * 0.9) + 2.0 * tilt,
-                1.2 * math.sin(t * 1.3 + 0.4) + 6.0 * tilt)
-        lift = _ease((t - 0.7) / 0.4) * (1 - _ease((t - 1.6) / 0.6))       # 'these warm': the pot a little up
-        arm = (-5.0 * lift + 1.5 * tilt, 0.0, 0.0)
-        m = mouth(t)
-        if t >= warm_at and t < end:
-            face = 'talk_happy' if m else 'happy'
-        elif t >= end and tilt > 0.35:
-            face = 'happy'
-        else:
-            face = m or 'default'
-        frames.append({'pose': {'head': head, 'arm': arm}, 'face': face, 'breath': 0.012 * math.sin(t * 2 * math.pi / 3.2) + 0.006 * nod})
-    # ease the last frames back to rest (the idle starts there)
-    for k in range(6):
-        f = frames[-6 + k]
-        u = _ease((k + 1) / 6)
-        f['pose'] = {p: _lerp3(v, rest['pose'][p], u) for p, v in f['pose'].items()}
-        f['breath'] *= 1 - u
-        if k >= 3:
-            f['face'] = 'default'
-    idle = _idle(rest, 18, blink_at=None)
-    return {'actor': 'mira', 'fps': FPS, 'rest': rest, 'clips': {'talk': frames, 'idle': idle},
-            'faces': ['blink', 'happy', 'talk_a', 'talk_o', 'talk_e', 'talk_happy']}
-
-
-def perf_pip():
-    """'Pip the Courier, at your service! Where should I deliver your letters?' bright and bouncy: a hop at
-    'service!', the beak working, a curious tilt on the question with the letter held out to you"""
-    rest = {'pose': {'head': (0.0, 0.0, 0.0), 'arm': (0.0, 0.0, 0.0), 'jaw': (0.0, 0.0, 0.0)}, 'face': 'default', 'breath': 0.0}
-    line = 'Pip the Courier, at your service! Where should I deliver your letters?'
-    mouth, words, end = _talk(line, 0.12)
-    serv = 0.12 + _syllables('Pip the Courier, at your')[1] + 0.12    # the stress of 'service'
-    ask = 0.12 + _syllables('Pip the Courier, at your service! Where should I deliver your')[1]
-    frames = []
-    n = int(round((end + 0.7) * FPS))
-    for i in range(n):
-        t = i / FPS
         nod = sum(_bump(t, w, 0.06, 0.24) for w in words)
         hop = _bump(t, serv, 0.12, 0.34)
-        q = _ease((t - ask + 0.25) / 0.4) * (1 - _ease((t - end - 0.2) / 0.45))     # the question: tilt, letter out
-        head = (2.2 * nod - 3.0 * hop - 1.0 * q, 2.0 * math.sin(t * 1.7) + 4.0 * q, 1.5 * math.sin(t * 2.3) + 8.0 * q)
-        arm = (2.0 * math.sin(t * 3.1) + 10.0 * q + 4.0 * hop, 0.0, -2.0 * math.sin(t * 3.1 + 0.6) - 12.0 * q - 6.0 * hop)
+        dip = _bump(t, 0.36, 0.12, 0.18)        # the little crouch before he lifts it
+        head = _add(_key(t, head_k), (2.0 * nod - 3.0 * hop, 1.5 * math.sin(t * 1.7), 1.2 * math.sin(t * 2.3)))
+        arm = _add(_key(t, arm_k), (1.5 * math.sin(t * 3.1) + 4.0 * hop, 0.0, -1.5 * math.sin(t * 3.1 + 0.6) - 6.0 * hop))
         m = mouth(t)
         jaw = {'talk_a': 18.0, 'talk_o': 14.0, 'talk_e': 11.0}.get(m, 0.0)
-        face = 'happy' if hop > 0.5 else 'default'
-        frames.append({'pose': {'head': head, 'arm': arm, 'jaw': (jaw, 0.0, 0.0)}, 'face': face,
-                       'breath': 0.015 * math.sin(t * 2 * math.pi / 2.4) + 0.025 * hop - 0.012 * _bump(t, serv - 0.2, 0.08, 0.1),
-                       'lift': 0.9 * hop})
-    for k in range(5):
-        f = frames[-5 + k]
-        u = _ease((k + 1) / 5)
-        f['pose'] = {p: _lerp3(v, rest['pose'][p], u) for p, v in f['pose'].items()}
-        f['breath'] *= 1 - u
-        f['lift'] *= 1 - u
+        if 0.10 <= t < 0.74:
+            face = 'look_ul'        # his eyes on the letter first
+        elif hop > 0.5:
+            face = 'happy'
+        else:
+            face = 'default'
+        frames.append({'pose': {'head': head, 'arm': arm, 'jaw': (jaw, 0.0, 0.0)}, 'face': face, 'lean': _key(t, lean_k),
+                       'breath': 0.015 * math.sin(t * 2 * math.pi / 2.4) + 0.025 * hop - 0.03 * dip, 'lift': 0.9 * hop})
     idle = _idle(rest, 30, blink_at=1.2, arm_bob=True)
-    return {'actor': 'pip', 'fps': FPS, 'rest': rest, 'clips': {'talk': frames, 'idle': idle}, 'faces': ['blink', 'happy']}
+    return {'actor': 'pip', 'fps': FPS, 'rest': rest, 'clips': {'talk': frames, 'idle': idle}, 'faces': ['blink', 'happy', 'look_ul'],
+            'speech_at': S}
 
 
 def _idle(rest, n, blink_at=None, arm_bob=False):
@@ -180,6 +221,32 @@ PERFS = {'mira': perf_mira, 'pip': perf_pip}
 
 # ------------------------------------------------------------------------------------------------ assemble ----
 FEATHER = 16   # packed px
+INK = (59, 41, 35)    # village_npcs.INK: the line the villagers are drawn in everywhere else
+
+
+def ink(mask, depth, unit_m, zmax):
+    """the villagers' ink on an acted frame, as the game draws it round its sprites (charrender: an outline
+    round the silhouette, thinner lines inside where a part stands in front of another): from the actor's own
+    coverage `mask` (0-1) and the scene's depth (metres). The outline goes only onto what is behind them, never
+    onto what stands in front (the eggs before Mira). Returns the ink's alpha (0-1)."""
+    from scipy import ndimage
+    act = mask > 0.5
+    if not act.any():
+        return np.zeros_like(mask)
+    ys = np.nonzero(act.any(1))[0]
+    w = max(2.0, 0.011 * (ys.max() - ys.min()))           # the outline: bold, as the small sprites read in the game
+    dist, (iy, ix) = ndimage.distance_transform_edt(~act, return_indices=True)
+    near = depth[iy, ix]                                    # the actor's depth at its nearest pixel
+    behind = (depth > near + 0.6 * unit_m) | (depth >= zmax * 0.999)
+    ring = np.clip(w + 0.5 - dist, 0, 1) * behind * (dist > 0)
+    # inside: a step in depth of more than ~2 model units (an arm, a pot, a wing in front of the body)
+    r = max(1, int(round(w * 0.32)))
+    dact = np.where(act, depth, np.inf)
+    nmin = ndimage.minimum_filter(dact, size=2 * r + 1)
+    inner = act & ((depth - nmin) > 2.2 * unit_m)
+    inner = ndimage.gaussian_filter(inner.astype(np.float32), 0.6) * 1.6
+    a = np.maximum(ring, np.clip(inner, 0, 1) * 0.85)
+    return np.clip(ndimage.gaussian_filter(a, 0.45), 0, 1)
 
 
 def assemble(raw_dir, pack_dir, out_dir, scene, plate, cap):
@@ -200,10 +267,28 @@ def assemble(raw_dir, pack_dir, out_dir, scene, plate, cap):
     k = min(1.0, cap / max(W, H))
     size = (round(W * k), round(H * k))
 
-    def grade(rgba, z):
-        g = CB.grade_image(rgba, z, vs.grade, W, H, sky=vs.sky, transparent=vs.transparent)
-        return Image.fromarray(np.clip(g[..., :3], 0, 255).astype(np.uint8))
-    plate_im = grade(base, zb).resize(size, Image.LANCZOS)
+    inked = bool(an.get('ink'))
+
+    def passes(fname, shape, at):
+        """the frame's ink alpha, full size (the frame's own passes cover only its box at [at])"""
+        mp, dp = os.path.join(raw_dir, fname + '_m.png'), os.path.join(raw_dir, fname + '_d.png')
+        if not (inked and os.path.exists(mp) and os.path.exists(dp)):
+            return None
+        m = np.asarray(Image.open(mp).convert('F'), np.float32) / 255.0
+        d = np.asarray(Image.open(dp), np.float32)
+        d = d / (65535.0 if d.max() > 255 else 255.0) * an['zmax']
+        a = ink(m, d, an['unit_m'], an['zmax'])
+        out = np.zeros(shape, np.float32)
+        hh, ww = min(a.shape[0], shape[0] - at[1]), min(a.shape[1], shape[1] - at[0])
+        out[at[1]:at[1] + hh, at[0]:at[0] + ww] = a[:hh, :ww]
+        return out
+
+    def grade(rgba, z, a=None):
+        g = CB.grade_image(rgba, z, vs.grade, W, H, sky=vs.sky, transparent=vs.transparent)[..., :3]
+        if a is not None:
+            g = g * (1 - a[..., None]) + np.array(INK, np.float32) * a[..., None]
+        return Image.fromarray(np.clip(g, 0, 255).astype(np.uint8))
+    plate_im = grade(base, zb, passes(scene, (H, W), (0, 0))).resize(size, Image.LANCZOS)
     plate_im.save(os.path.join(out_dir, plate + '.webp'), 'WEBP', quality=82, method=6)
     # the box in packed px, inside the picture
     bx0, by0 = int(x0 * k), int(y0 * k)
@@ -232,7 +317,7 @@ def assemble(raw_dir, pack_dir, out_dir, scene, plate, cap):
                     z = zf
                 else:
                     z[y0:y0 + min(zf.shape[0], h_), x0:x0 + min(zf.shape[1], w_)] = zf[:h_, :w_]
-            cell = grade(fr, z).resize(size, Image.LANCZOS).crop((bx0, by0, bx1, by1)).convert('RGBA')
+            cell = grade(fr, z, passes(fname, (H, W), (x0, y0))).resize(size, Image.LANCZOS).crop((bx0, by0, bx1, by1)).convert('RGBA')
             cell.putalpha(alpha)
             cells.append(cell)
         fn = '%s_%s.webp' % (plate, clip)

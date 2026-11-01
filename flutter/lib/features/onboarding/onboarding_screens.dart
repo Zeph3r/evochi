@@ -107,7 +107,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
               child: Column(children: [
                 Semantics(header: true, label: 'Evochi', child: ExcludeSemantics(child: Image.asset(art.title('wordmark_evochi'), height: 46))),
                 const SizedBox(height: 10),
-                const SpeechCard(name: 'Pip', text: 'Pip the Courier, at your service! Where should I deliver your letters?'),
+                // written as he says it (pip_talk: he lifts the letter first, then talks from about 1.3 s)
+                const SpeechCard(name: 'Pip', text: 'Pip the Courier, at your service! Where should I deliver your letters?', speakAt: Duration(milliseconds: 1300), perChar: 0.044),
               ]),
             ),
             const Spacer(),
