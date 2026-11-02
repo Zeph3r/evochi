@@ -27,7 +27,7 @@ black) seen through a camera, with layers drawn over it and a caption:
             flicker: a reveal that stutters before it holds
             fade: a plain fade from black / to black
   caption   the line, shown in the lower third with a gentle fade
-  sfx       a named sound cue (the app's audio service; the preview video is silent)
+  sfx       a named sound cue, or a list of them (the app's audio service; the preview video is silent)
 """
 from __future__ import annotations
 
@@ -45,7 +45,8 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SHOTS = [
     {'id': 'black_print', 'dur': 1.4, 'plate': None, 'bg': '#000000',
      'layers': [{'kind': 'print', 'at': [0.5, 0.6], 'size': 0.16, 'in': 0.45, 'rise': 0.25, 'pulse': 1.0}],
-     'sfx': {'t': 0.4, 'name': 'footstep'}},
+     # the score (onboarding_score.py's onb_cold_open, written to these shots) starts with the first frame
+     'sfx': [{'t': 0.0, 'name': 'score'}, {'t': 0.4, 'name': 'footstep'}]},
     {'id': 'map_lit', 'dur': 3.2, 'plate': 'map_faded', 'xfade': 0.6,
      'camera': {'from': {'cx': 0.5, 'cy': 0.56, 'zoom': 1.0}, 'to': {'cx': 0.5, 'cy': 0.5, 'zoom': 1.08}, 'ease': 'inout'},
      'layers': [{'kind': 'reveal', 'plate': 'map_lit', 'how': 'trails', 'from': 0.15, 'to': 2.6, 'glow': True}],

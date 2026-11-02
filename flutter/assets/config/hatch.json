@@ -71,11 +71,6 @@
    "react": "emerge"
   },
   {
-   "t": 2.75,
-   "sfx": "evolve_fanfare",
-   "vol": 0.45
-  },
-  {
    "t": 3.6,
    "react": "look"
   },

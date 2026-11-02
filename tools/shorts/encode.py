@@ -26,6 +26,54 @@ def decode(path):
     return np.frombuffer(raw, np.float32).reshape(-1, 2).copy()
 
 
+
+def lay_score(mix, cues, sound, sr):
+    """the score's cues (AudioService.cue): each plays from its moment, once or as a loop (a pass every 'loop' s,
+    each ringing on), until the next cue fades it out over that cue's 'fade'; 'cueVol' moves its volume"""
+    import numpy as np
+    n = len(mix)
+    ev = sorted([c for c in cues if ('cue' in c or 'cueVol' in c) and c.get('t', -1) >= 0], key=lambda c: c['t'])
+    starts = [i for i, c in enumerate(ev) if 'cue' in c]
+    for k, i in enumerate(starts):
+        c = ev[i]
+        if not c['cue']:
+            continue
+        s = sound(c['cue'])
+        if s is None:
+            continue
+        t0 = c['t']
+        nxt = ev[starts[k + 1]] if k + 1 < len(starts) else None
+        t1 = nxt['t'] if nxt else n / sr
+        fade = float(nxt.get('fade', 1.2)) if nxt else 0.0
+        a, b = int(t0 * sr), min(n, int((t1 + fade) * sr))
+        if b <= a:
+            continue
+        seg = np.zeros((b - a, 2), np.float32)
+        loop = c.get('loop')
+        passes = [0.0]
+        if loop:
+            while t0 + passes[-1] + loop < t1:
+                passes.append(passes[-1] + loop)
+        for p in passes:
+            q = int(p * sr)
+            m = min(len(s), len(seg) - q)
+            if m > 0:
+                seg[q:q + m] += s[:m]
+        # its volume over time: the start, any changes, the fade in and out
+        tt = np.arange(len(seg)) / sr + t0
+        pts = [(t0, float(c.get('vol', 0.6)))]
+        for e in ev[i + 1:starts[k + 1] if k + 1 < len(starts) else len(ev)]:
+            pts += [(e['t'], pts[-1][1]), (e['t'] + float(e.get('fade', 1.0)), float(e['cueVol']))]
+        g = np.interp(tt, [p[0] for p in pts], [p[1] for p in pts])
+        fi = float(c.get('fadeIn') or 0)
+        if fi > 0:
+            g *= np.clip((tt - t0) / fi, 0, 1)
+        if nxt and fade > 0:
+            g *= np.clip(1 - (tt - t1) / fade, 0, 1)
+        elif nxt:
+            g *= tt < t1
+        mix[a:b] += seg * g[:, None].astype(np.float32) * 0.9
+
 def find(root, name):
     for sub in ('sfx', 'ambient', 'music'):
         for ext in ('.mp3', '.wav', '.ogg'):
@@ -95,6 +143,7 @@ def main(short_dir, root, out, skip='0'):
             seg = fade(loop_to(m, int((t1 - t0) * SR)) * 0.42, 0.6, 0.6)
             a = int(t0 * SR)
             mix[a:a + len(seg)] += seg[:max(0, n - a)]
+    lay_score(mix, cues, sound, SR)
     # the game's sounds, where they happened
     for c in cues:
         if 'sfx' not in c or c['t'] < -0.05 or c['t'] > dur:

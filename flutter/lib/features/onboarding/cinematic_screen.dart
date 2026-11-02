@@ -47,6 +47,7 @@ class CinematicScreen extends StatelessWidget {
       onSfx: (name) {
         // the cut's cues (tools/art/sfx.py --cine): the one footstep the whole onboarding hears, the Lumen rising
         // along the trails, the Hollow creeping in
+        if (name == 'score') return c.audio.cue('onb_cold_open', volume: 0.7, fadeOut: 0.8); // its music, to the shot
         const map = {'footstep': 'cine_footstep', 'lumen_rise': 'cine_lumen_rise', 'hollow_creep': 'cine_hollow'};
         final s = map[name];
         if (s != null) c.audio.play(s, volume: name == 'footstep' ? 0.6 : 0.5);
@@ -55,6 +56,7 @@ class CinematicScreen extends StatelessWidget {
         await IntroSeen.set(true);
         if (!context.mounted) return;
         if (replay) {
+          c.audio.cue(null, fadeOut: 1.0);
           Navigator.of(context).pop();
           return;
         }

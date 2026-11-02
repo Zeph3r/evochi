@@ -19,10 +19,16 @@
      "pulse": 1.0
     }
    ],
-   "sfx": {
-    "t": 0.4,
-    "name": "footstep"
-   }
+   "sfx": [
+    {
+     "t": 0.0,
+     "name": "score"
+    },
+    {
+     "t": 0.4,
+     "name": "footstep"
+    }
+   ]
   },
   {
    "id": "map_lit",

@@ -17,9 +17,11 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:provider/provider.dart';
 
 import '../../app/motion.dart';
 import '../../app/theme.dart';
+import '../../controllers/game_controller.dart';
 import '../../core/services/asset_manifest.dart';
 import '../shared/live_scene.dart';
 import '../shared/widgets.dart';
@@ -458,8 +460,9 @@ class _CinematicPlayerState extends State<CinematicPlayer> with SingleTickerProv
       return;
     }
     final s = tl.shots[shot];
-    final sfx = s['sfx'] as Map<String, dynamic>?;
-    if (sfx != null) {
+    // a shot's sounds: one cue, or several
+    final cues = switch (s['sfx']) { final Map<String, dynamic> m => [m], final List<dynamic> l => l.cast<Map<String, dynamic>>(), _ => const <Map<String, dynamic>>[] };
+    for (final sfx in cues) {
       final key = '${s['id']}:${sfx['name']}';
       if (t - start >= (sfx['t'] as num).toDouble() && !_sfxDone.contains(key)) {
         _sfxDone.add(key);
@@ -967,11 +970,36 @@ class _SpeechCardState extends State<SpeechCard> with SingleTickerProviderStateM
   static const _perChar = 0.026; // seconds: about 38 characters a second
   late final AnimationController _a = AnimationController(vsync: this);
   Timer? _wait;
+  // the speaker's voice (AudioService.voice): a soft note on each syllable as the line writes out
+  static const _voices = {'Pip': 'pip', 'Mira': 'mira'};
+  int _said = 0;
+  double _voiceAt = -1;
 
   @override
   void initState() {
     super.initState();
+    _a.addListener(_speak);
     _start();
+  }
+
+  static bool _vowel(String c) => 'aeiouyAEIOUY'.contains(c);
+
+  void _speak() {
+    final who = _voices[widget.name];
+    final text = widget.text;
+    final n = (text.length * _a.value).round();
+    if (who == null || n <= _said) return;
+    var syllable = false;
+    for (var i = _said; i < n; i++) {
+      if (_vowel(text[i]) && (i == 0 || !_vowel(text[i - 1]))) syllable = true;
+    }
+    _said = n;
+    final at = _a.value * (_a.duration?.inMilliseconds ?? 0);
+    if (!syllable || at - _voiceAt < 95) return;
+    _voiceAt = at;
+    try {
+      context.read<GameController>().audio.voice(who);
+    } catch (_) {}
   }
 
   @override
@@ -983,9 +1011,12 @@ class _SpeechCardState extends State<SpeechCard> with SingleTickerProviderStateM
   void _start() {
     _wait?.cancel();
     if (Motion.reducedNow(context)) {
+      _said = widget.text.length;
       _a.value = 1;
       return;
     }
+    _said = 0;
+    _voiceAt = -1;
     _a.value = 0;
     _a.duration = Duration(milliseconds: (widget.text.length * (widget.perChar ?? _perChar) * 1000).round());
     // the line starts writing as the card finishes rising in (or as its speaker starts to talk)

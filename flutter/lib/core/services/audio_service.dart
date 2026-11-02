@@ -9,6 +9,8 @@
 // - An ambient bed, behind the Sound effects switch: the kitchen fire, the cauldron, the forge, the
 //   stream, a waterfall (tools/art/ambience.py). Beds crossfade into their next pass instead of
 //   relying on the codec's loop, so an mp3's padding never leaves a gap.
+// Over both, the score (cue, sting): the onboarding's music, written to its screens from the Evochi call
+// (tools/music/onboarding_score.py), behind the Music switch. One cue plays at a time, once or as a loop.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -75,6 +77,17 @@ const placeSounds = <String, PlaceSound>{
   'hollow': PlaceSound(bed: 'amb_forest', music: []),
   'dusk': PlaceSound(music: []),
   'market': PlaceSound(music: []),
+  // the onboarding's Glasshouse (Mira and the eggs): its sounds under the score, no playlist
+  'mira': PlaceSound(bed: 'amb_glasshouse', music: []),
+};
+
+/// The score's loops (tools/music/onboarding_score.py): seconds of music in each file before its ring-out. The
+/// next pass starts there while the last one rings.
+const scoreLoops = <String, double>{
+  'onb_pip': 16 * 4 * 60 / 108,
+  'onb_mira': 24 * 3 * 60 / 76,
+  'onb_wait': 32,
+  'onb_naming': 8 * 4 * 60 / 66,
 };
 
 /// How loud each bed plays (the kitchen fire is a faint crackle on purpose).
@@ -114,6 +127,14 @@ class AudioService {
   _Bed? _bed;
   String? _bedName;
   late final _MusicBus _bus = _MusicBus(_rel);
+  _Cue? _cue;
+  String? _cueName;
+  double _cueVolume = 0;
+  Timer? _then;
+  final _stings = <AudioPlayer>{};
+  late final List<AudioPlayer> _voices = List.generate(3, (_) => _lowLatency());
+  int _nextVoice = 0;
+  final _rng = math.Random();
 
   bool _configured = false;
 
@@ -126,6 +147,7 @@ class AudioService {
     this.haptics = haptics;
     if (s || first) _applyBed();
     if (m || first) _applyMusic(); // the first call (app start) begins the Nest's music
+    if (m && !first) _resumeCue();
   }
 
   String? _rel(String name) {
@@ -198,6 +220,7 @@ class AudioService {
     _paused = false;
     _applyBed(fade: fade);
     _applyMusic();
+    _resumeCue();
   }
 
   /// Into the background: everything stops at once.
@@ -208,6 +231,115 @@ class AudioService {
     _bedName = null;
     await bed?.stop(fade);
     _bus.stop(fade: fade);
+    // a cue that was playing once is over; a loop picks up again when the app is back
+    final cue = _cue;
+    _cue = null;
+    if (cue != null && cue.loop == null) _cueName = null;
+    await cue?.stop(fade);
+  }
+
+  // ---- the score ---------------------------------------------------------------------------------------------
+  /// Play the score's [name] at [volume] (null: stop it): once, or as a loop if it's one of [scoreLoops]. The
+  /// cue before fades out over [fadeOut]; this one fades in over [fadeIn]. The same loop asked for again only
+  /// changes its volume. [then] follows as the next cue [thenAt] s in, unless another cue has come first.
+  void cue(String? name, {double volume = 0.6, double fadeIn = 0, double fadeOut = 1.2, String? then, double thenAt = 0, double thenVolume = 0.5}) {
+    _then?.cancel();
+    _then = null;
+    if (then != null) {
+      _then = Timer(Duration(milliseconds: (thenAt * 1000).round()), () {
+        _then = null;
+        cue(then, volume: thenVolume, fadeOut: 0.8);
+      });
+    }
+    final loop = name == null ? null : scoreLoops[name];
+    if (name != null && name == _cueName && loop != null) {
+      if (volume == _cueVolume) return;
+      _cueVolume = volume;
+      final rec = record;
+      if (rec != null) {
+        rec.add({'t': clock?.call() ?? 0, 'cueVol': volume, 'fade': 1.0});
+        return;
+      }
+      _cue?.setVolume(volume, 1.0);
+      return;
+    }
+    _cueName = name;
+    _cueVolume = volume;
+    final rec = record;
+    if (rec != null) {
+      rec.add({'t': clock?.call() ?? 0, 'cue': name, 'vol': volume, 'loop': loop, 'fade': fadeOut, 'fadeIn': fadeIn});
+      return;
+    }
+    _cue?.stop(fadeOut);
+    _cue = null;
+    _startCue(fadeIn);
+  }
+
+  void _startCue(double fadeIn) {
+    final name = _cueName;
+    if (name == null || _paused || !music) return;
+    final rel = _rel(name);
+    if (rel == null) return;
+    final c = _Cue(rel, _cueVolume, scoreLoops[name]);
+    _cue = c;
+    c.start(fadeIn);
+  }
+
+  void _resumeCue() {
+    if (record != null) return;
+    if (!music) {
+      _cue?.stop(1.0);
+      _cue = null;
+      return;
+    }
+    if (_cue == null && _cueName != null && scoreLoops.containsKey(_cueName)) _startCue(1.0);
+  }
+
+  /// One of the score's single moments (a crack's note), over whatever cue plays; behind the Music switch.
+  Future<void> sting(String name, {double volume = 0.6}) async {
+    final rec = record;
+    if (rec != null) {
+      rec.add({'t': clock?.call() ?? 0, 'sfx': name, 'vol': volume});
+      return;
+    }
+    if (!music || _paused) return;
+    final rel = _rel(name);
+    if (rel == null) return;
+    final p = AudioPlayer();
+    _stings.add(p);
+    try {
+      await p.setReleaseMode(ReleaseMode.stop);
+      p.onPlayerComplete.listen((_) {
+        _stings.remove(p);
+        _Fader.kill(p);
+      });
+      await _Fader.set(p, volume);
+      await p.play(AssetSource(rel));
+    } catch (_) {
+      _stings.remove(p);
+      await _Fader.kill(p);
+    }
+  }
+
+  /// A speaker's voice as their line writes out: a soft note of the call's scale in their timbre (voice_pip_1..5,
+  /// voice_mira_1..5), behind the Sound effects switch.
+  Future<void> voice(String who, {double volume = 0.32}) async {
+    final name = 'voice_${who}_${1 + _rng.nextInt(5)}';
+    final rec = record;
+    if (rec != null) {
+      rec.add({'t': clock?.call() ?? 0, 'sfx': name, 'vol': volume});
+      return;
+    }
+    if (!sound || _paused) return;
+    final rel = _rel(name);
+    if (rel == null) return;
+    final p = _voices[_nextVoice];
+    _nextVoice = (_nextVoice + 1) % _voices.length;
+    try {
+      await p.stop();
+      await p.setVolume(volume);
+      await p.play(AssetSource(rel));
+    } catch (_) {}
   }
 
   /// An encounter's track (null: back to the place's music). A name with no file (e.g. 'none')
@@ -284,6 +416,7 @@ class AudioService {
       return;
     }
     final s = _sounds;
+    if (s.music.isNotEmpty && _cueName != null && !scoreLoops.containsKey(_cueName)) cue(null, fadeOut: 2.0);
     _bus.want(_place, s.music, s.musicVolume);
   }
 
@@ -348,6 +481,73 @@ class _Fader {
       await p.stop();
       await p.dispose();
     } catch (_) {}
+  }
+}
+
+/// A player for short, quick sounds (Android's sound pool; elsewhere the usual player).
+AudioPlayer _lowLatency() {
+  final p = AudioPlayer();
+  p.setPlayerMode(PlayerMode.lowLatency).catchError((_) {});
+  return p;
+}
+
+/// One of the score's cues: a single play, or a loop whose next pass starts [loop] s into the last (the file
+/// rings on past that point; the passes overlap by its ring-out, so the seam is a held chord ringing into a
+/// downbeat).
+class _Cue {
+  _Cue(this.rel, this.volume, this.loop);
+  final String rel;
+  double volume;
+  final double? loop;
+  final _players = <AudioPlayer>{};
+  Timer? _next;
+  bool _stopped = false;
+
+  Future<void> start(double fadeIn) => _pass(fadeIn);
+
+  Future<void> _pass(double fadeIn) async {
+    if (_stopped) return;
+    final p = AudioPlayer();
+    _players.add(p);
+    try {
+      await p.setReleaseMode(ReleaseMode.stop);
+      await _Fader.set(p, fadeIn > 0 ? 0 : volume);
+      p.onPlayerComplete.listen((_) {
+        _players.remove(p);
+        _Fader.kill(p);
+      });
+      await p.play(AssetSource(rel));
+      if (_stopped) {
+        _players.remove(p);
+        return _Fader.kill(p);
+      }
+      if (fadeIn > 0) _Fader.ramp(p, volume, fadeIn);
+      final l = loop;
+      if (l != null) _next = Timer(Duration(milliseconds: (l * 1000).round()), () => _pass(0));
+    } catch (_) {
+      _players.remove(p);
+      await _Fader.kill(p);
+    }
+  }
+
+  void setVolume(double v, double seconds) {
+    volume = v;
+    for (final p in _players) {
+      if (!_stopped) _Fader.ramp(p, v, seconds);
+    }
+  }
+
+  Future<void> stop(double fade) async {
+    _stopped = true;
+    _next?.cancel();
+    for (final p in _players.toList()) {
+      _players.remove(p);
+      if (fade > 0) {
+        _Fader.ramp(p, 0, fade, then: () => _Fader.kill(p));
+      } else {
+        await _Fader.kill(p);
+      }
+    }
   }
 }
 

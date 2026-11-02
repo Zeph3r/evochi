@@ -31,6 +31,7 @@ import '../../core/services/haptics.dart';
 import '../../core/utils/ids.dart';
 import '../../game/engine.dart' as g;
 import '../../game/story/story.dart' show freshDays;
+import '../shared/ambience.dart';
 import '../shared/scene_scaffold.dart';
 import '../shared/scene_view.dart';
 import '../shared/sprite.dart';
@@ -66,6 +67,8 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
   void initState() {
     super.initState();
     _introTimer = Timer(const Duration(milliseconds: 5000), _endIntro); // her line acted through (mira_talk), then the nest
+    // Mira's lullaby (the call in 3/4, tools/music/onboarding_score.py), on through the steps and the goal
+    context.read<GameController>().audio.cue('onb_mira', volume: 0.5, fadeIn: 1.5, fadeOut: 2.0);
     LumenPrint.warm();
     CineTimeline.load().then((tl) {
       if (!mounted) return;
@@ -139,7 +142,7 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
     final again = c.state.pastPets.isNotEmpty;
     final picked = _picked;
     final info = picked == null ? null : palettes.firstWhere((p) => p.id == picked);
-    return Scaffold(
+    return Ambience('mira', child: Scaffold(
       backgroundColor: const Color(0xFF1A2432),
       body: Stack(fit: StackFit.expand, children: [
         // the Glasshouse at evening, the nest without its eggs
@@ -303,7 +306,7 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
           ]),
         ),
       ]),
-    );
+    ));
   }
 }
 
@@ -488,6 +491,8 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
     })..start();
     final c = context.read<GameController>();
     final noSteps = c.state.steps.connection == 'none';
+    // waiting for the egg: nearly nothing (a pad, a slow heartbeat); each crack your steps open plays a note
+    c.audio.cue('onb_wait', volume: 0.6, fadeIn: 2.5, fadeOut: 3.0);
     _reduce = Motion.reducedNow(context);
     _hatchNow = Timer(Duration(seconds: _reduce ? 1 : (noSteps ? 4 : 75)), () {
       if (mounted) setState(() => _hatchNowReady = true);
@@ -538,6 +543,7 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
   void _stepCrack(int stage) {
     final c = context.read<GameController>();
     c.audio.play('mine_lumen_crack', volume: 0.3 + 0.15 * stage);
+    c.audio.sting('onb_crack_$stage', volume: 0.7); // the call's next note: A, D, then F# (it's ready)
     if (stage >= 3) c.audio.play('enc_glow', volume: 0.35);
     c.audio.buzz(stage >= 3 ? Haptic.thump : Haptic.hit, strength: const [0.5, 0.75, 1.0][(stage - 1).clamp(0, 2)]);
     _knocks.add((_t, 6.0 + 4.0 * stage));
@@ -548,6 +554,8 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
   void _hatch() {
     if (_phase != _HatchPhase.waiting) return;
     _reduce = Motion.reducedNow(context);
+    // the score's hatch (on hatch.json's beats from this tap), then a quiet harp while it's named
+    context.read<GameController>().audio.cue('onb_hatch', volume: 0.75, fadeOut: 0.5, then: 'onb_naming', thenAt: 14.75, thenVolume: 0.55);
     setState(() {
       _phase = _HatchPhase.bursting;
       _burstAt = _t;
@@ -641,7 +649,9 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
     // it hears its name: a happy hop with the name rising over it in gold, a chirp; then the name flies in Lumen
     // to the map and lights the grove trail
     c.audio.play('pet_chirp', volume: 0.6);
-    c.audio.play('reward_chime', volume: 0.4);
+    c.audio.play('reward_chime', volume: 0.3);
+    // the whole Main Theme, at last: the name rising, flying to the map, then "is home" and on into the Nest
+    c.audio.cue('onb_home', volume: 0.75, fadeOut: 1.5);
     _scene.react('reward');
     setState(() {
       _phase = _HatchPhase.named;

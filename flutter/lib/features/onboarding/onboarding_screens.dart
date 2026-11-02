@@ -45,6 +45,8 @@ class _WelcomeScreenState extends State<WelcomeScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
+    // the title answers the cold open's question; Pip's tune follows (tools/music/onboarding_score.py)
+    context.read<GameController>().audio.cue('onb_title', volume: 0.7, fadeOut: 1.6, then: 'onb_pip', thenAt: 4.2, thenVolume: 0.5);
     CineTimeline.load().then((tl) {
       if (!mounted) return;
       final m = tl.plateMeta('pip');
@@ -613,6 +615,7 @@ class _ConnectScreenState extends State<ConnectScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
+    context.read<GameController>().audio.cue('onb_mira', volume: 0.42); // Mira's lullaby carries on, lower
     LumenPrint.warm();
     CineTimeline.load().then((tl) {
       if (!mounted) return;
@@ -950,6 +953,12 @@ class GoalScreen extends StatefulWidget {
 class _GoalScreenState extends State<GoalScreen> {
   final _scene = SceneController();
   int? _sel;
+
+  @override
+  void initState() {
+    super.initState();
+    context.read<GameController>().audio.cue('onb_mira', volume: 0.42);
+  }
 
   @override
   Widget build(BuildContext context) {
