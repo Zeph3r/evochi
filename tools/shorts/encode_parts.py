@@ -50,7 +50,9 @@ def lay_score(mix, cues, sound, sr):
     each ringing on), until the next cue fades it out over that cue's 'fade'; 'cueVol' moves its volume"""
     import numpy as np
     n = len(mix)
-    ev = sorted([c for c in cues if ('cue' in c or 'cueVol' in c) and c.get('t', -1) >= 0], key=lambda c: c['t'])
+    # a cue asked for just before filming began (the cold open's, on its first tick) starts with the film
+    ev = sorted([dict(c, t=max(0.0, c['t'])) for c in cues if ('cue' in c or 'cueVol' in c) and c.get('t', -1) >= -1.5],
+                key=lambda c: c['t'])
     starts = [i for i, c in enumerate(ev) if 'cue' in c]
     for k, i in enumerate(starts):
         c = ev[i]
@@ -104,7 +106,7 @@ def find(root, name):
 def audio(d, root, out):
     m = meta(d)
     cues = json.load(open(os.path.join(d, 'cues.json')))
-    dur = m['frames'] / m['fps']
+    dur = m['frames'] / m['fps'] + float(os.environ.get('TAIL', 0))   # TAIL: seconds held on the last frame
     n = int(dur * SR) + SR
     mix = np.zeros((n, 2), np.float32)
     cache = {}
@@ -144,11 +146,30 @@ def audio(d, root, out):
         mix[a:a + len(x)] += x[:max(0, n - a)]
         used += 1
     mix = mix[:int(dur * SR)]
+    k = int(3 * SR)   # the end fades (the music would otherwise stop mid-phrase)
+    mix[-k:] *= np.cos(np.linspace(0, np.pi / 2, k))[:, None] ** 2
     mix = np.tanh(mix * 1.15) / np.tanh(1.15)
     peak = float(np.abs(mix).max() or 1.0)
     mix *= 0.89 / peak
     mix.astype(np.float32).tofile(out)
     print(out, f'{dur:.2f}s', used, 'sounds', sorted({c.get('sfx') or c.get('music') or c.get('cue') for c in cues if c.get('t', -1) >= 0} - {None}))
+
+
+def hold(d, secs, out):
+    """the last frame held for [secs] (the music carrying on past the take)"""
+    m = meta(d)
+    w, h, fps = m['w'], m['h'], m['fps']
+    size = w * h * 4
+    with open(os.path.join(d, 'frames.rgba'), 'rb') as f:
+        f.seek((m['frames'] - 1) * size)
+        b = f.read(size)
+    p = subprocess.Popen(['ffmpeg', '-v', 'error', '-y', '-f', 'rawvideo', '-pix_fmt', 'rgba', '-s', f'{w}x{h}', '-r', str(fps), '-i', '-',
+                          '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '19', '-pix_fmt', 'yuv420p', '-r', str(fps), out], stdin=subprocess.PIPE)
+    for _ in range(int(float(secs) * fps)):
+        p.stdin.write(b)
+    p.stdin.close()
+    p.wait()
+    print(out, 'held', secs, 's')
 
 
 def join(d, out, segs):
@@ -167,5 +188,7 @@ if __name__ == '__main__':
         seg(*a)
     elif mode == 'audio':
         audio(*a)
+    elif mode == 'hold':
+        hold(*a)
     elif mode == 'join':
         join(a[0], a[1], a[2:])

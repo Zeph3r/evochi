@@ -32,7 +32,9 @@ def lay_score(mix, cues, sound, sr):
     each ringing on), until the next cue fades it out over that cue's 'fade'; 'cueVol' moves its volume"""
     import numpy as np
     n = len(mix)
-    ev = sorted([c for c in cues if ('cue' in c or 'cueVol' in c) and c.get('t', -1) >= 0], key=lambda c: c['t'])
+    # a cue asked for just before filming began (the cold open's, on its first tick) starts with the film
+    ev = sorted([dict(c, t=max(0.0, c['t'])) for c in cues if ('cue' in c or 'cueVol' in c) and c.get('t', -1) >= -1.5],
+                key=lambda c: c['t'])
     starts = [i for i, c in enumerate(ev) if 'cue' in c]
     for k, i in enumerate(starts):
         c = ev[i]
