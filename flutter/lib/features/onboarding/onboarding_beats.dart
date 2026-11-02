@@ -455,6 +455,11 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
   double _burstAt = 0; // when the hatch began (the tap)
   double _mapAt = 0;
   double _namedAt = 0;
+  // the cracks your steps open while you walk (38, 90 and 150 steps): each one jolts the screen, buzzes harder
+  // than the last and rocks the egg, as the hatch's own cracks do
+  int? _shownStage;
+  final List<(double, double)> _knocks = []; // (clock time, size)
+  double _wobbleAt = -9, _wobbleK = 0;
   Timer? _hatchNow;
   bool _hatchNowReady = false;
   late final TextEditingController _name = TextEditingController();
@@ -520,11 +525,24 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
     return n;
   }
 
+  /// The crack your steps have opened: 1 at a quarter of the way (38 steps), 2 at 60% (90), 3 when it's ready (150).
   int _crackStage(int steps) {
     if (steps >= hatchSteps) return 3;
     if (steps >= hatchSteps * 0.6) return 2;
     if (steps >= hatchSteps * 0.25) return 1;
     return 0;
+  }
+
+  /// A crack your steps just opened: the sound of it, a knock to the screen, a haptic hit that grows with each crack,
+  /// and the egg rocking with it
+  void _stepCrack(int stage) {
+    final c = context.read<GameController>();
+    c.audio.play('mine_lumen_crack', volume: 0.3 + 0.15 * stage);
+    if (stage >= 3) c.audio.play('enc_glow', volume: 0.35);
+    c.audio.buzz(stage >= 3 ? Haptic.thump : Haptic.hit, strength: const [0.5, 0.75, 1.0][(stage - 1).clamp(0, 2)]);
+    _knocks.add((_t, 6.0 + 4.0 * stage));
+    _wobbleAt = _t;
+    _wobbleK = 0.45 + 0.3 * stage;
   }
 
   void _hatch() {
@@ -551,7 +569,8 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
       if (b.sfx != null && !late) c.audio.play(b.sfx!, volume: b.vol);
       if (b.buzz != null && !late) {
         final feel = Haptic.values.asNameMap()[b.buzz];
-        if (feel != null) c.audio.buzz(feel);
+        // each crack buzzes harder than the last; the break hardest
+        if (feel != null) c.audio.buzz(feel, strength: b.crack > 0 ? 0.45 + 0.275 * (b.crack - 1) : 1.0);
       }
       switch (b.react) {
         case 'emerge':
@@ -596,10 +615,17 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
       final k = math.exp(-u * 8) * size;
       o += Offset(math.sin(u * 55 + seed) * k, math.cos(u * 47 + seed) * k * 0.6);
     }
-    for (final b in _plan.beats) {
-      if (b.crack > 0) knock(b.t, 5.0 + 2.0 * b.crack, b.crack * 1.7);
+    for (final (at0, size) in _knocks) {
+      final u = t - at0;
+      if (u < 0 || u > 0.45) continue;
+      final k = math.exp(-u * 8) * size;
+      o += Offset(math.sin(u * 55 + size) * k, math.cos(u * 47 + size) * k * 0.6);
     }
-    knock(_plan.burst, 12, 0);
+    if (_phase == _HatchPhase.waiting) return o;
+    for (final b in _plan.beats) {
+      if (b.crack > 0) knock(b.t, 7.0 + 3.0 * b.crack, b.crack * 1.7);
+    }
+    knock(_plan.burst, 16, 0);
     return o;
   }
 
@@ -647,6 +673,13 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
     final reduce = MediaQuery.of(context).disableAnimations;
     final steps = _stepsSince(c);
     final stage = _crackStage(steps);
+    final was = _shownStage;
+    _shownStage = stage;
+    if (was != null && stage > was && _phase == _HatchPhase.waiting) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _stepCrack(stage);
+      });
+    }
     final showPet = _phase.index >= _HatchPhase.hatched.index;
     final mapping = _phase == _HatchPhase.mapping || _phase == _HatchPhase.done;
     return Scaffold(
@@ -690,6 +723,8 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
                         reduce: reduce,
                         pet: rect,
                         progress: (steps / hatchSteps).clamp(0.0, 1.0),
+                        wobbleAt: _wobbleAt,
+                        wobbleK: _wobbleK,
                       ),
                     ),
                   ),
@@ -922,6 +957,8 @@ class _EggPainter extends CustomPainter {
     required this.reduce,
     required this.pet,
     required this.progress,
+    this.wobbleAt = -9,
+    this.wobbleK = 0,
   }) : super(repaint: clock);
   final String palette;
   final int stage;
@@ -932,6 +969,7 @@ class _EggPainter extends CustomPainter {
   final bool reduce;
   final Rect pet;
   final double progress;
+  final double wobbleAt, wobbleK; // a crack your steps just opened: the egg rocks with it
 
   static final Map<String, ui.Image?> _sprites = {};
   static final Set<String> _loading = {};
@@ -980,7 +1018,15 @@ class _EggPainter extends CustomPainter {
         final k = 0.35 + 0.25 * math.sin(t * 4);
         c.drawCircle(centre, h * 0.7, Paint()..blendMode = BlendMode.plus..shader = ui.Gradient.radial(centre, h * 0.7, [const Color(0xFFFFD56A).withValues(alpha: 0.35 * k * (stage - 1)), const Color(0x00FFD56A)]));
       }
-      final (srot, shop) = reduce || u < 0 ? (0.0, 0.0) : plan.shake(u);
+      var (srot, shop) = reduce || u < 0 ? (0.0, 0.0) : plan.shake(u);
+      final wu = t - wobbleAt;
+      if (!reduce && u < 0 && wu >= 0 && wu < 0.5) {
+        final k = wu / 0.5;
+        srot += wobbleK * 0.13 * math.sin(k * math.pi * 4) * (1 - k);
+        shop += wobbleK * 0.045 * math.sin(k * math.pi);
+        // a flash of the light inside through the new crack
+        c.drawCircle(centre, h * 0.8, Paint()..blendMode = BlendMode.plus..shader = ui.Gradient.radial(centre, h * 0.8, [st.glow.withValues(alpha: 0.5 * (1 - k)), st.glow.withValues(alpha: 0)]));
+      }
       c.save();
       c.translate(ground.dx, ground.dy - shop * h);
       c.rotate(rock + srot);
