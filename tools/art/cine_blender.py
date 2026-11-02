@@ -91,11 +91,15 @@ def actor_arrays(a: Actor):
         parts.append({'name': pname, 'origin': list(origin), 'C': C[sel].astype(np.float32), 'COL': COL[sel].astype(np.float32),
                       'VN': VN[sel].astype(np.float32), 'GLOW': GLOW[sel].astype(np.float32)})
 
-    def decal(quads):
+    def decal(quads, lift=LIFT):
         keep = [q for q in quads if q.alpha >= 0.35]
         if not keep:
             return None
-        Q = np.stack([q.pts + np.asarray(q.normal) * LIFT for q in keep]).astype(np.float32)
+        Q = np.stack([q.pts + np.asarray(q.normal) * lift for q in keep]).astype(np.float32)
+        # each painted cell a touch bigger than its square, so neighbours overlap: abutting quads leave hairline
+        # gaps a close-up shows (the surface glinting through a black eye as cracks)
+        c = Q.mean(1, keepdims=True)
+        Q = (c + (Q - c) * 1.22).astype(np.float32)
         COLq = np.stack([np.asarray(q.color, np.float32) for q in keep])
         unlit = np.array([1.0 - float(q.lit) for q in keep], np.float32)
         return {'Q': Q, 'COL': COLq, 'UNLIT': unlit}
@@ -105,13 +109,14 @@ def actor_arrays(a: Actor):
         d = decal(pq)
         if d:
             decals['markings'] = d
+    FACE_LIFT = LIFT * 1.8     # a face a little further off the voxels: their steps poked through a close-up's eyes
     if a.expr:
-        d = decal(face_quads(ch, a.pal, a.pal_key, a.expr))
+        d = decal(face_quads(ch, a.pal, a.pal_key, a.expr), FACE_LIFT)
         if d:
             decals['face'] = d
     for e in a.faces or ():
         if e != a.expr:
-            d = decal(face_quads(ch, a.pal, a.pal_key, e))
+            d = decal(face_quads(ch, a.pal, a.pal_key, e), FACE_LIFT)
             if d:
                 decals['face_' + e] = d
     head = 'head' if any(p['name'] == 'head' for p in parts) else 'body'

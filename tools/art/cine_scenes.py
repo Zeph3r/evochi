@@ -891,6 +891,13 @@ def egg_character(crack=0.0, seed=0, res=CAST_RES):
     for mat in EGG_MATS:
         if mat in M.ids:
             M.m[M.m == M.ids[mat]] = 0
+    # no snout on an egg (the Eggling's raised cream muzzle read as lips): what stood out of the shell goes, what
+    # lay in it is shell again
+    if 'belly' in M.ids:
+        body = egg_mask(M, (0, 11.2, 0), 13.0, 13.2, 9.8, 11.6, p=2.25)
+        bel = M.m == M.ids['belly']
+        M.m[bel & ~body] = 0
+        M.m[bel & body] = M.ids['shell']
     # the egg sits a little lower without its feet: drop it onto the ground
     idx = np.argwhere(M.m > 0)
     y0 = (idx[:, 1].min() + M.lo[1]) / M.res

@@ -584,13 +584,23 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
     return 1 + 0.18 * (1 - Curves.easeInOut.transform(back));
   }
 
-  /// A small knock to the whole scene as the shell breaks, dying away in a few tenths of a second.
+  /// A knock to the whole scene with every crack (harder as they open) and a bigger one as the shell breaks,
+  /// each dying away in a few tenths of a second; the haptics land with them (hatch.json).
   Offset _impulse(double t) {
     if (_reduce || _phase.index > _HatchPhase.hatched.index) return Offset.zero;
-    final u = t - _burstAt - _plan.burst;
-    if (u < 0 || u > 0.45) return Offset.zero;
-    final k = math.exp(-u * 8) * 12;
-    return Offset(math.sin(u * 55) * k, math.cos(u * 47) * k * 0.6);
+    final at = t - _burstAt;
+    var o = Offset.zero;
+    void knock(double when, double size, double seed) {
+      final u = at - when;
+      if (u < 0 || u > 0.45) return;
+      final k = math.exp(-u * 8) * size;
+      o += Offset(math.sin(u * 55 + seed) * k, math.cos(u * 47 + seed) * k * 0.6);
+    }
+    for (final b in _plan.beats) {
+      if (b.crack > 0) knock(b.t, 5.0 + 2.0 * b.crack, b.crack * 1.7);
+    }
+    knock(_plan.burst, 12, 0);
+    return o;
   }
 
   void _confirmName() {

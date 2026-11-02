@@ -37,7 +37,7 @@
    "crack": 1,
    "sfx": "mine_lumen_crack",
    "vol": 0.4,
-   "buzz": "tap"
+   "buzz": "hit"
   },
   {
    "t": 1.62,
@@ -45,7 +45,7 @@
    "crack": 2,
    "sfx": "mine_lumen_crack",
    "vol": 0.45,
-   "buzz": "tick"
+   "buzz": "hit"
   },
   {
    "t": 1.74,
@@ -57,7 +57,7 @@
    "crack": 3,
    "sfx": "mine_lumen_crack",
    "vol": 0.55,
-   "buzz": "tap"
+   "buzz": "thump"
   },
   {
    "t": 2.5,

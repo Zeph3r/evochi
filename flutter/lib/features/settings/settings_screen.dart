@@ -396,7 +396,7 @@ class SettingsScreen extends StatelessWidget {
               ),
             ],
             const SizedBox(height: 8),
-            Text('Evochi ${c.config.version} - ${c.repo.storageOk ? 'saved on this device' : 'storage unavailable, progress kept in memory'}',
+            Text('Evochi ${c.config.version} (build ${const String.fromEnvironment('BUILD_NUMBER', defaultValue: 'dev')}) - ${c.repo.storageOk ? 'saved on this device' : 'storage unavailable, progress kept in memory'}',
                 textAlign: TextAlign.center, style: EvochiText.caption),
           ]),
         ),
