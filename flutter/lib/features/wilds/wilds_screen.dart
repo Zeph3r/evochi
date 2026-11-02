@@ -1190,6 +1190,10 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
         _input.pulse = true;
       case 'dodge':
         _input.dodge = true;
+      case 'signature':
+        // an Elder's ultimate: straight into the raid's buffer (it fires as soon as the current move lets it; the
+        // raid ignores it until it's charged)
+        _raid!.press('signature');
       case 'item':
         _eat();
     }
