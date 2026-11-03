@@ -5,8 +5,9 @@ hatch's on hatch.json's beats, so each file starts when its screen says and need
     python3 onboarding_score.py OUT_DIR [cue ... | voices]   (OUT_DIR: flutter/assets/audio/music; the voices go
                                                               to its sibling sfx/)
 
-The story the theme tells: the call's first note alone in the dark (the footprint); the call as the paths light; it
-falters and goes out with the Hollow; the first note again, warmer, as Lumen answers a footstep; the village in the day,
+The story the theme tells: the call's first note alone in the dark (the footprint); the call as the paths light; the
+Hollow swallows it, rising under it with its own motif (D-Eb-D, A-Bb: a half step against the call's home and fifth, on
+tremolo strings, for its later appearances); the first note again, warmer, as Lumen answers a footstep; the village in the day,
 where the phrase stops on its question (the dominant) as the picture fades. The title answers it. Pip and Mira get
 their own turns of the call (a courier's hop, a glasshouse lullaby in 3/4). Waiting for the egg is near silence: each
 crack your steps open plays the call's next note (A, D, F#). The hatch builds, holds its breath, bursts into the call.
@@ -186,7 +187,7 @@ def _hollow_motif(mx):
 # =============================================================================================== the cold open ===
 # shots (onboarding_cine.py): black_print 0-1.4 | map_lit 1.4-4.6 | map_walkers 4.6-7.6 | map_hollow 7.6-12.2 |
 # map_reignite 12.2-15.2 | village_live 15.2-20.8 (fades to black from 20.2)
-def cold_open(hollow='sag'):
+def cold_open(hollow='motif'):
     mx = new_mix(25.0)
     # the footprint (0.4, with its sound): the call's first note, alone
     bell(mx, 0.42, 'A4', 0.42)
@@ -229,7 +230,7 @@ def cold_open(hollow='sag'):
     mx.note('bass', 13.4, 2.0, m('D2'), 0.26, att=1.4, rel=0.9, bus='low2')
     sparkle(mx, 13.4, 15.2, 5, vel=0.14, seed=4)
     # "And something here is still glowing." the village in the day: the call carries on (E5 D5), reaches higher
-    # (bar 6) and stops on its question (bar 4) as the picture fades; the village's own sounds under it
+    # (bar 6) and stops on its question (bar 4) as the picture fades (no village bed: its stream was too much)
     bpm = 90
     sp = 60 / bpm
     lead = [(15.30, 'E5 .5 D5 1.5', 2), (16.30, 'B4 .5 D5 .5 G5 1.5 F#5 .5 E5 1', 4), (18.97, 'F#5 1 E5 1 r 2', 4)]
@@ -253,9 +254,6 @@ def cold_open(hollow='sag'):
             mx.note('pizz', t + j * 0.01, 0.2, p, 0.2, pan=0.45, bus='perc')
     for t, p in ((18.4, 'F#6'), (18.75, 'A6'), (19.1, 'D7'), (19.6, 'E7')):
         mx.note('glock', t, 0.1, m(p), 0.17, pan=0.35, bus='sparkle', ring=3)
-    amb = vsco.decode(os.path.join(GAME, 'assets/audio/ambient/amb_village.mp3'))[:int(6.6 * vsco.SR)].copy()
-    env = np.interp(np.arange(len(amb)) / vsco.SR, [0, 0.9, 5.0, 5.9, 6.6], [0, 1, 1, 0.15, 0])
-    mx.put(15.0, (amb * env[:, None]).astype(np.float32), 'amb', gain=0.9)
     return mx, dict(lufs=-18.5, fade_out=1.2)
 
 
@@ -621,8 +619,8 @@ def voices(out_dir):
             print(wav[:-4] + '.mp3')
 
 
-CUES = {'onb_cold_open': cold_open, 'onb_cold_open_chords': lambda: cold_open('chords'),
-        'onb_cold_open_motif': lambda: cold_open('motif'), 'onb_title': title, 'onb_pip': pip, 'onb_mira': mira, 'onb_wait': wait,
+# (the Hollow's other takes, to compare: cold_open('sag'), cold_open('chords'))
+CUES = {'onb_cold_open': cold_open, 'onb_title': title, 'onb_pip': pip, 'onb_mira': mira, 'onb_wait': wait,
         'onb_crack_1': lambda: crack(1), 'onb_crack_2': lambda: crack(2), 'onb_crack_3': lambda: crack(3),
         'onb_hatch': hatch, 'onb_naming': naming, 'onb_home': home}
 
