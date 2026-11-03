@@ -113,10 +113,80 @@ def new_mix(seconds, sends=None, seed=5):
     return mx
 
 
+def _hollow_sag(mx):
+    """take 1: the climb (bar 3) starts, falters, sags out of tune and goes out over a low drone and a rub"""
+    def sag(t0, t1, depth):
+        return lambda t: np.clip((t - t0) / (t1 - t0), 0, 1) ** 1.5 * depth
+    sp = 60 / 80
+    for k, (b, d, p) in enumerate(melody('G4 .5 B4 .5 D5 1 E5 .5 F#5 .5 G5 1')):
+        t = 7.6 + b * sp
+        # each later note sags further, and the last one falls away
+        mx.note('flute', t, d * sp + (0.9 if k == 5 else 0), p, 0.44 - 0.04 * k, pan=-0.05, bus='world',
+                bend=(lambda tt, k=k: -0.22 * max(0, k - 1) - (tt * 1.6 if k >= 4 else tt * 0.25 * (k >= 2))))
+    pad(mx, 7.6, 3.3, 'Em7', low=50, vel=0.26, att=0.5, rel=1.2, bus='world', bend=sag(0.8, 3.3, -1.2))
+    mx.fx['world'] = lambda x: vsco.darken(x, [(0, 0), (8.6, 0), (10.4, 0.85), (25, 0.85)])
+    mx.note('bass', 8.2, 4.6, m('D1') + 12, 0.42, att=1.6, rel=1.4, bus='low')
+    mx.note('celli', 8.4, 4.2, m('D2'), 0.4, att=1.4, rel=1.4, bus='low')
+    mx.note('violas', 8.8, 2.4, 51, 0.26, att=1.2, rel=0.8, bus='low')
+    mx.note('violins', 9.0, 2.0, 63, 0.2, att=1.0, rel=0.8, pan=0.3, bus='low')
+    mx.note('violins', 9.2, 1.9, 62, 0.2, att=1.0, rel=0.8, pan=0.4, bus='low')
+
+
+def _hollow_chords(mx):
+    """in tune, the light going out of the harmony: the climb gets as far as D and sticks there, its D repeating
+    like a music box running down (slower, softer), while the chords under it darken G - Gm - Eb - Bb/D and empty
+    to a bare D-A fifth (no third: no colour left). Only the last D bends away."""
+    sp = 60 / 80
+    for k, (b, d, p) in enumerate(melody('G4 .5 B4 .5 D5 2', beats=3)):
+        mx.note('flute', 7.6 + b * sp, d * sp, p, 0.44, pan=-0.05, bus='world')
+    mx.note('piano', 7.6, 0.1, m('G4'), 0.26, ring=2, bus='world', human=0)
+    # the stuck note, slowing and fading
+    t, gap, v = 9.1, 0.42, 0.44
+    while t < 11.0:
+        bell(mx, t, 'D5', v, bus='world', ring=1.6)
+        t += gap
+        gap *= 1.22
+        v *= 0.8
+    mx.note('flute', 11.05, 1.1, m('D5'), 0.3, pan=-0.05, bus='world', att=0.2, rel=0.6,
+            bend=lambda tt: -np.clip((tt - 0.35) / 0.8, 0, 1) ** 1.4 * 1.0)
+    for t0, d, sym in ((7.6, 0.8, 'G'), (8.35, 0.8, 'Gm'), (9.1, 0.8, 'Ebmaj7'), (9.85, 0.8, 'Bb/D')):
+        pad(mx, t0, d, sym, low=50, vel=0.27, att=0.25, rel=0.5, bus='world')
+    # the bare fifth, low, taking the room
+    for name, p, v in (('bass', m('D2'), 0.42), ('celli', m('D2'), 0.4), ('celli', m('A2'), 0.3), ('violas', m('A3'), 0.22)):
+        mx.note(name, 10.6, 1.6, p, v, att=0.4, rel=1.2, bus='low', pan=-0.2 if name != 'violas' else 0.2)
+    mx.note('bass', 8.4, 2.2, m('D2'), 0.3, att=1.2, rel=0.3, bus='low')
+    mx.fx['world'] = lambda x: vsco.darken(x, [(0, 0), (9.0, 0), (11.0, 0.8), (25, 0.8)])
+
+
+# the Hollow's own motif: a half step against the call's home and its fifth (D-Eb-D, A-Bb), low tremolo strings
+HOLLOW_MOTIF = [(8.0, 0.6, 'D2'), (8.6, 1.0, 'Eb2'), (9.6, 0.5, 'D2'), (10.1, 0.4, 'A1'), (10.5, 1.3, 'Bb1')]
+
+
+def _hollow_motif(mx):
+    """the Hollow gets its own voice: the climb starts (G B D) and is swallowed; under it, on tremolo celli and
+    basses, D-Eb-D, A-Bb (a half step above the call's home and its fifth), rising out of nothing to the swell, a
+    high tremolo half step (D-Eb) shivering over the front as it spreads"""
+    sp = 60 / 80
+    for k, (b, d, p) in enumerate(melody('G4 .5 B4 .5 D5 2', beats=3)):
+        mx.note('flute', 7.6 + b * sp, d * sp, p, 0.44 - 0.05 * k, pan=-0.05, bus='world', rel=0.5)
+    pad(mx, 7.6, 1.2, 'G', low=50, vel=0.26, att=0.25, rel=0.9, bus='world')
+    for i, (t, d, n) in enumerate(HOLLOW_MOTIF):
+        v = 0.34 + 0.06 * i
+        mx.note('vc_trem', t, d + 0.05, m(n) + 12, v, att=0.12, rel=0.35, bus='low', pan=-0.2, human=0)
+        mx.note('cb_trem', t, d + 0.05, m(n), v * 0.95, att=0.12, rel=0.35, bus='low', pan=-0.1, human=0)
+        mx.note('bass', t, d + 0.05, m(n), v * 0.6, att=0.1, rel=0.35, bus='low', human=0)
+    # the high shiver: D5 and Eb5 together, out of nothing to the swell
+    for p, pan in ((m('D5'), 0.35), (m('Eb5'), 0.5)):
+        mx.note('vln_trem', 8.5, 2.5, p, 0.3, att=1.8, rel=0.8, bus='shiver', pan=pan, human=0)
+    mx.note('vla_trem', 9.2, 1.9, m('A3'), 0.26, att=1.2, rel=0.8, bus='shiver', pan=0.15, human=0)
+    mx.ramp('shiver', [(0, 0.3), (8.5, 0.3), (10.6, 1.0), (11.4, 0.0), (25, 0)])
+    mx.fx['world'] = lambda x: vsco.darken(x, [(0, 0), (8.4, 0), (9.6, 0.85), (25, 0.85)])
+
+
 # =============================================================================================== the cold open ===
 # shots (onboarding_cine.py): black_print 0-1.4 | map_lit 1.4-4.6 | map_walkers 4.6-7.6 | map_hollow 7.6-12.2 |
 # map_reignite 12.2-15.2 | village_live 15.2-20.8 (fades to black from 20.2)
-def cold_open():
+def cold_open(hollow='sag'):
     mx = new_mix(25.0)
     # the footprint (0.4, with its sound): the call's first note, alone
     bell(mx, 0.42, 'A4', 0.42)
@@ -137,24 +207,10 @@ def cold_open():
     mx.note('bass', 4.6, 3.0, m('G2'), 0.2, att=0.6, rel=0.8, bus='low')
     for i, p in enumerate(['D4', 'G4', 'B4', 'G4', 'D4', 'A4', 'B4', 'D5']):
         mx.note('pizz', 4.6 + 0.375 * i, 0.3, m(p), 0.26 + 0.03 * (i % 2), pan=-0.6 + 1.2 * i / 7, bus='perc')
-    # "Time and the Hollow dimmed them." the climb (bar 3) starts, falters, sags and goes out; a low drone and the
-    # Hollow's swell take the room; only a far glint is left (the village)
-    def sag(t0, t1, depth):
-        return lambda t: np.clip((t - t0) / (t1 - t0), 0, 1) ** 1.5 * depth
-    sp = 60 / 80
-    for k, (b, d, p) in enumerate(melody('G4 .5 B4 .5 D5 1 E5 .5 F#5 .5 G5 1')):
-        t = 7.6 + b * sp
-        # each later note sags further, and the last one falls away
-        mx.note('flute', t, d * sp + (0.9 if k == 5 else 0), p, 0.44 - 0.04 * k, pan=-0.05, bus='world',
-                bend=(lambda tt, k=k: -0.22 * max(0, k - 1) - (tt * 1.6 if k >= 4 else tt * 0.25 * (k >= 2))))
-    pad(mx, 7.6, 3.3, 'Em7', low=50, vel=0.26, att=0.5, rel=1.2, bus='world', bend=sag(0.8, 3.3, -1.2))
-    mx.fx['world'] = lambda x: vsco.darken(x, [(0, 0), (8.6, 0), (10.4, 0.85), (25, 0.85)])
-    # the drone and the rub
-    mx.note('bass', 8.2, 4.6, m('D1') + 12, 0.42, att=1.6, rel=1.4, bus='low')
-    mx.note('celli', 8.4, 4.2, m('D2'), 0.4, att=1.4, rel=1.4, bus='low')
-    mx.note('violas', 8.8, 2.4, 51, 0.26, att=1.2, rel=0.8, bus='low')
-    mx.note('violins', 9.0, 2.0, 63, 0.2, att=1.0, rel=0.8, pan=0.3, bus='low')
-    mx.note('violins', 9.2, 1.9, 62, 0.2, att=1.0, rel=0.8, pan=0.4, bus='low')
+    # "Time and the Hollow dimmed them." (the front runs 7.8-11.9; only the village glows at the end)
+    hollow_fn = {'sag': _hollow_sag, 'chords': _hollow_chords, 'motif': _hollow_motif}[hollow]
+    hollow_fn(mx)
+    # the Hollow's swell: a timpani roll and a cymbal drawn backwards into its height (10.6), then the drone thins
     mx.sfx('timp_roll', 8.3, gain=0.5, rate=2 ** (-4 / 12), end=2.8, fade_out=0.5, bus='hollow')
     mx.ramp('hollow', [(0, 0.15), (8.3, 0.15), (10.6, 1.0), (11.2, 0.25), (25, 0.25)])
     cr = vsco.sound('cym_soft')[::-1]
@@ -565,7 +621,8 @@ def voices(out_dir):
             print(wav[:-4] + '.mp3')
 
 
-CUES = {'onb_cold_open': cold_open, 'onb_title': title, 'onb_pip': pip, 'onb_mira': mira, 'onb_wait': wait,
+CUES = {'onb_cold_open': cold_open, 'onb_cold_open_chords': lambda: cold_open('chords'),
+        'onb_cold_open_motif': lambda: cold_open('motif'), 'onb_title': title, 'onb_pip': pip, 'onb_mira': mira, 'onb_wait': wait,
         'onb_crack_1': lambda: crack(1), 'onb_crack_2': lambda: crack(2), 'onb_crack_3': lambda: crack(3),
         'onb_hatch': hatch, 'onb_naming': naming, 'onb_home': home}
 

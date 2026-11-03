@@ -45,6 +45,11 @@ INSTRUMENTS = {
     'celli': ('Strings/Cello Section/susvib/*.wav', r'susvib_([A-G]#?\d)_v(\d)', 'sus', 0.08, 0.55),
     'bass': ('Strings/Solo Contrabass/SusNV/*.wav', r'SusNV_([A-G]#?\d)_v(\d)', 'sus', 0.08, 0.5),
     'pizz': ('Strings/Violin Section/Pizz/*_rr1.wav', r'Pizz_([A-G]#?\d)_v(\d)', 'pluck', 0.0, 0.25),
+    # tremolo sections (the Hollow's shiver)
+    'vln_trem': ('Strings/Violin Section/Trem/*.wav', r'Trem_([A-G]#?\d)_v(\d)', 'sus', 0.05, 0.4),
+    'vla_trem': ('Strings/Viola Section/trem/*_rr1.wav', r'trem_([A-G]#?\d)_v(\d)', 'sus', 0.05, 0.4),
+    'vc_trem': ('Strings/Cello Section/trem/*.wav', r'trem_([A-G]#?\d)_v(\d)', 'sus', 0.05, 0.45),
+    'cb_trem': ('Strings/Solo Contrabass/Trem/*_rr1.wav', r'Trem_([A-G]#?\d)_v(\d)', 'sus', 0.05, 0.45),
     'piano': ('Keys/Upright Piano/Player_dyn*_rr1_*.wav', 'piano', 'pluck', 0.0, 0.5),
 }
 
