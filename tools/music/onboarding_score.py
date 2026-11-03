@@ -542,13 +542,14 @@ def home():
 
 def voices(out_dir):
     """the speakers' voices as their lines write out (AudioService.voice): five soft notes of D major each, Pip a
-    quick pizzicato, Mira a damped harp, low and warm"""
+    quick pizzicato, Mira a low, breathy clarinet hum (a plucked note read as a stray piano under her lullaby)"""
     from scipy.signal import butter, sosfilt
-    for who, name, notes, hold, cut in (('pip', 'pizz', ('D5', 'E5', 'F#5', 'A5', 'B5'), 0.07, 5200),
-                                        ('mira', 'harp', ('A4', 'B4', 'D5', 'E5', 'F#5'), 0.13, 2600)):
+    for who, name, notes, hold, cut, vel in (('pip', 'pizz', ('D5', 'E5', 'F#5', 'A5', 'B5'), 0.07, 5200, 0.55),
+                                             ('mira', 'clarinet', ('D4', 'E4', 'F#4', 'A4', 'B4'), 0.11, 1900, 0.3)):
         for i, n in enumerate(notes):
             mx = new_mix(0.6, seed=70 + i)
-            mx.note(name, 0.0, hold, m(n), 0.55, ring=0, rel=0.08 if who == 'pip' else 0.12, human=0)
+            kw = dict(ring=0, rel=0.08) if who == 'pip' else dict(att=0.03, rel=0.14)
+            mx.note(name, 0.0, hold, m(n), vel, human=0, **kw)
             x = mx.render(rt=0.8, wet=0.35)
             sos = butter(2, cut, 'low', fs=vsco.SR, output='sos')
             x = np.stack([sosfilt(sos, x[:, c]) for c in range(2)], 1)

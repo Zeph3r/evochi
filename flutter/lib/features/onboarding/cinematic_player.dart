@@ -971,7 +971,8 @@ class _SpeechCardState extends State<SpeechCard> with SingleTickerProviderStateM
   late final AnimationController _a = AnimationController(vsync: this);
   Timer? _wait;
   // the speaker's voice (AudioService.voice): a soft note on each syllable as the line writes out
-  static const _voices = {'Pip': 'pip', 'Mira': 'mira'};
+  // (who, the gap between notes in ms, how loud): Pip chatters, Mira hums on every other syllable or so
+  static const _voices = {'Pip': ('pip', 95, 0.32), 'Mira': ('mira', 190, 0.24)};
   int _said = 0;
   double _voiceAt = -1;
 
@@ -985,20 +986,21 @@ class _SpeechCardState extends State<SpeechCard> with SingleTickerProviderStateM
   static bool _vowel(String c) => 'aeiouyAEIOUY'.contains(c);
 
   void _speak() {
-    final who = _voices[widget.name];
+    final v = _voices[widget.name];
     final text = widget.text;
     final n = (text.length * _a.value).round();
-    if (who == null || n <= _said) return;
+    if (v == null || n <= _said) return;
+    final (who, gap, vol) = v;
     var syllable = false;
     for (var i = _said; i < n; i++) {
       if (_vowel(text[i]) && (i == 0 || !_vowel(text[i - 1]))) syllable = true;
     }
     _said = n;
     final at = _a.value * (_a.duration?.inMilliseconds ?? 0);
-    if (!syllable || at - _voiceAt < 95) return;
+    if (!syllable || at - _voiceAt < gap) return;
     _voiceAt = at;
     try {
-      context.read<GameController>().audio.voice(who);
+      context.read<GameController>().audio.voice(who, volume: vol);
     } catch (_) {}
   }
 

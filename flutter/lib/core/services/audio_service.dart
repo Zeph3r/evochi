@@ -134,6 +134,7 @@ class AudioService {
   final _stings = <AudioPlayer>{};
   late final List<AudioPlayer> _voices = List.generate(3, (_) => _lowLatency());
   int _nextVoice = 0;
+  final _lastVoice = <String, int>{};
   final _rng = math.Random();
 
   bool _configured = false;
@@ -322,9 +323,14 @@ class AudioService {
   }
 
   /// A speaker's voice as their line writes out: a soft note of the call's scale in their timbre (voice_pip_1..5,
-  /// voice_mira_1..5), behind the Sound effects switch.
+  /// a pizzicato; voice_mira_1..5, a low clarinet hum), behind the Sound effects switch.
   Future<void> voice(String who, {double volume = 0.32}) async {
-    final name = 'voice_${who}_${1 + _rng.nextInt(5)}';
+    // never the same note twice running
+    final last = _lastVoice[who];
+    var k = _rng.nextInt(last == null ? 5 : 4);
+    if (last != null && k >= last) k++;
+    _lastVoice[who] = k;
+    final name = 'voice_${who}_${1 + k}';
     final rec = record;
     if (rec != null) {
       rec.add({'t': clock?.call() ?? 0, 'sfx': name, 'vol': volume});

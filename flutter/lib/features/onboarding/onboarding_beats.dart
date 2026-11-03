@@ -68,7 +68,7 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
     super.initState();
     _introTimer = Timer(const Duration(milliseconds: 5000), _endIntro); // her line acted through (mira_talk), then the nest
     // Mira's lullaby (the call in 3/4, tools/music/onboarding_score.py), on through the steps and the goal
-    context.read<GameController>().audio.cue('onb_mira', volume: 0.5, fadeIn: 1.5, fadeOut: 2.0);
+    context.read<GameController>().audio.cue('onb_mira', volume: 0.5, fadeIn: 1.5, fadeOut: 0.9);
     LumenPrint.warm();
     CineTimeline.load().then((tl) {
       if (!mounted) return;
