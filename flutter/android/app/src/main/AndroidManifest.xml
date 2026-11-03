@@ -3,6 +3,8 @@
     <uses-permission android:name="android.permission.VIBRATE" />
     <!-- Health Connect: read-only step count -->
     <uses-permission android:name="android.permission.health.READ_STEPS" />
+    <!-- The phone's own step counter, live, while the first egg waits for your steps (MainActivity.kt) -->
+    <uses-permission android:name="android.permission.ACTIVITY_RECOGNITION" />
     <application
         android:label="Evochi"
         android:name="${applicationName}"

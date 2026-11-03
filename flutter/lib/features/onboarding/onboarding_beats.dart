@@ -29,6 +29,7 @@ import '../../controllers/game_controller.dart';
 import '../../core/services/asset_manifest.dart';
 import '../../core/services/haptics.dart';
 import '../../core/utils/ids.dart';
+import '../../data/health_adapters/live_steps.dart';
 import '../../game/engine.dart' as g;
 import '../../game/story/story.dart' show freshDays;
 import '../shared/ambience.dart';
@@ -532,6 +533,11 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
   // while it waits, the steps are read every 15 s (Health Connect only hears of them when the phone's step tracker
   // writes them in, so the sooner we ask the sooner a crack opens)
   Timer? _poll;
+  // the phone's own step counter, live (live_steps.dart): the steps Health Connect had when it started, plus every
+  // step since; the hatch counts whichever is higher, so a step is never counted twice
+  StreamSubscription<int>? _liveSub;
+  int? _liveFrom;
+  int _live = 0;
   late final TextEditingController _name = TextEditingController();
   String? _err;
   CineTimeline? _tl;
@@ -561,6 +567,16 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
     // waiting for the egg: nearly nothing (a pad, a slow heartbeat); each crack your steps open plays a note
     c.audio.cue('onb_wait', volume: 0.6, fadeIn: 2.5, fadeOut: 3.0);
     _reduce = Motion.reducedNow(context);
+    if (c.state.steps.connection == 'health') {
+      LiveSteps.start().then((ok) {
+        if (!ok || !mounted || _phase != _HatchPhase.waiting) return;
+        _liveSub = LiveSteps.since().listen((n) {
+          if (!mounted) return;
+          _liveFrom ??= _stepsSince(context.read<GameController>());
+          if (n != _live) setState(() => _live = n);
+        }, onError: (_) {});
+      });
+    }
     if (!noSteps) {
       _poll = Timer.periodic(const Duration(seconds: 15), (_) {
         if (mounted && _phase == _HatchPhase.waiting) context.read<GameController>().sync();
@@ -590,6 +606,7 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
     _ticker.dispose();
     _hatchNow?.cancel();
     _poll?.cancel();
+    _liveSub?.cancel();
     _name.dispose();
     _clock.dispose();
     super.dispose();
@@ -629,6 +646,8 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
 
   void _hatch() {
     if (_phase != _HatchPhase.waiting) return;
+    _liveSub?.cancel(); // the counter's done its job
+    _liveSub = null;
     _reduce = Motion.reducedNow(context);
     // the score's hatch (on hatch.json's beats from this tap), then a quiet harp while it's named
     context.read<GameController>().audio.cue('onb_hatch', volume: 0.75, fadeOut: 0.5, then: 'onb_naming', thenAt: 14.75, thenVolume: 0.55);
@@ -757,7 +776,8 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
     final c = context.watch<GameController>();
     final p = c.state.pet!;
     final reduce = MediaQuery.of(context).disableAnimations;
-    final steps = _stepsSince(c);
+    final from = _liveFrom;
+    final steps = math.max(_stepsSince(c), from == null ? 0 : from + _live);
     final stage = _crackStage(steps);
     final was = _shownStage;
     _shownStage = stage;
