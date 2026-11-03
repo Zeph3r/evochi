@@ -37,7 +37,7 @@ SETS = {
     },
     'nest_empty': {
         'frames': {'m0': 'nest_m0', 'm1': 'nest_m1', 'm2': 'nest_m2', 'm3': 'nest_m3', 'm4': 'nest_m4', 'm5': 'nest_m5'},
-        'cap': 1200,
+        'cap': 2100,   # the whole render: the phone fills its height with it, so anything less goes soft
         # (the Glasshouse's glass and lamps render a little differently every time: only round Mira counts)
         'focus': ('mira_face', (-500, -500, 500, 700)),
         'clips': {

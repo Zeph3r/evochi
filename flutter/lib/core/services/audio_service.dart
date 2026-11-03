@@ -142,6 +142,7 @@ class AudioService {
   void configure({required bool sound, required bool music, required bool haptics}) {
     final first = !_configured;
     _configured = true;
+    if (first) _shareTheSpeaker();
     final s = this.sound != sound, m = this.music != music;
     this.sound = sound;
     this.music = music;
@@ -149,6 +150,22 @@ class AudioService {
     if (s || first) _applyBed();
     if (m || first) _applyMusic(); // the first call (app start) begins the Nest's music
     if (m && !first) _resumeCue();
+  }
+
+  /// Every player in the app plays alongside the others. By default each one asks Android for the audio focus as
+  /// it starts, and the one that had it pauses: every sound effect or voice note cut the music dead (the music
+  /// only came back with its loop's next pass). And on iOS the game's music follows the silent switch and plays
+  /// under whatever else the phone is playing (a podcast on a walk), as a game's should.
+  static void _shareTheSpeaker() {
+    if (record != null) return;
+    try {
+      AudioPlayer.global
+          .setAudioContext(AudioContext(
+            android: const AudioContextAndroid(audioFocus: AndroidAudioFocus.none, usageType: AndroidUsageType.game, contentType: AndroidContentType.music),
+            iOS: AudioContextIOS(category: AVAudioSessionCategory.ambient),
+          ))
+          .catchError((_) {});
+    } catch (_) {}
   }
 
   String? _rel(String name) {

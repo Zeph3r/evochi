@@ -77,6 +77,25 @@ void main() {
     expect(s.pet!.name, 'Ember');
   });
 
+  test('the egg chosen a moment ago can go back to the nest, before the daily goal', () {
+    var s = GameState.fresh(t0, tzName);
+    s = g.startGuest(s, t0, tzName).state;
+    s = g.createPet(s, name: 'Ember', paletteId: 'coral', requestId: 'req-1', now: t0).state;
+    expect(s.onboarding.step, 'connect');
+    final back = g.returnEgg(s);
+    expect(back.error, isNull);
+    expect(back.state.pet, isNull);
+    expect(back.state.onboarding.step, 'create');
+    expect(back.state.onboarding.draftPalette, 'coral');
+    expect(back.state.unlocks.containsKey('palette:coral'), isFalse);
+    // a different egg this time, and a new pet for it
+    final again = g.createPet(back.state, name: 'Ember', paletteId: 'ocean', requestId: 'req-2', now: t0 + 1000);
+    expect(again.error, isNull);
+    expect(again.state.pet!.paletteId, 'ocean');
+    // past the steps beat it's yours
+    expect(g.returnEgg(freshPet()).error, 'too_late');
+  });
+
   test('name validation', () {
     expect(g.validateName('  Ember  ').name, 'Ember');
     expect(g.validateName('').ok, isFalse);

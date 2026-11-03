@@ -349,6 +349,22 @@ ActionResult createPet(GameState state, {required String name, required String p
   return _ok(s, [GameEvent('pet_created', {'petId': s.pet!.id})]);
 }
 
+/// Back to the nest from the steps beat: the egg chosen a moment ago goes back (it hasn't been walked with yet),
+/// so the pick is open again with its colour still the one in hand. Only before the daily goal is set.
+ActionResult returnEgg(GameState state) {
+  final p = state.pet;
+  if (p == null) return _fail(state, 'no_pet');
+  if (state.pastPets.isNotEmpty || state.onboarding.step != 'connect') return _fail(state, 'too_late');
+  final s = state.copy();
+  s.pet = null;
+  if (s.unlocks['palette:${p.paletteId}'] == p.createdAt) s.unlocks.remove('palette:${p.paletteId}');
+  s.onboarding
+    ..step = 'create'
+    ..requestId = null
+    ..draftPalette = p.paletteId;
+  return _ok(s);
+}
+
 ActionResult setConnection(GameState state, String connection, int now) {
   final s = state.copy();
   s.steps.connection = connection;

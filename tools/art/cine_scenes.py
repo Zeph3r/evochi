@@ -1113,6 +1113,12 @@ def glasshouse_interior(S, P, M, rng, evening=True):
     return slope, ridge_y
 
 
+# where each egg sits in the nest (x, z from the nest's centre) and how big: the front row nearest the camera
+NEST_SLOTS = {'forest': (-5.1, 4.6), 'coral': (0.0, 4.6), 'ocean': (5.1, 4.6),
+              'amethyst': (-4.9, -5.5), 'amber': (0.0, -5.5), 'obsidian': (4.9, -5.5)}
+NEST_EGG_SCALE = 0.145
+
+
 def _nest_scene(name, cam, eggs='all', mira=True, w=1400, h=2100, lift=None, mira_expr='happy', mira_pose=None, mira_faces=()):
     """the Glasshouse at evening with the nest of six eggs in the aisle and Mira beside it. eggs: 'all' | 'none' | a
     variant (that egg alone in the picture; the others still light and shadow)"""
@@ -1129,11 +1135,10 @@ def _nest_scene(name, cam, eggs='all', mira=True, w=1400, h=2100, lift=None, mir
     S.actors = []
     slots = {}
     for k, v in enumerate(EGG_ORDER):
-        # two gentle rows: four in front, two behind between them
-        if k < 4:
-            ex, ez = nx - 9.9 + k * 6.6, nz + 3.6 + (0.8 if k in (1, 2) else 0.0)
-        else:
-            ex, ez = nx - 3.3 + (k - 4) * 6.6, nz - 3.4
+        # two clear rows of three, inside a phone's view of the plate (the middle 69% of its width): the back row
+        # far enough behind that none of the front three hides it, each egg its own spot to tap
+        ex, ez = NEST_SLOTS[v]
+        ex, ez = nx - 0.4 + ex, nz + ez
         slots[v] = (ex, 1.0, ez)
         if eggs == 'none':
             continue
@@ -1141,7 +1146,7 @@ def _nest_scene(name, cam, eggs='all', mira=True, w=1400, h=2100, lift=None, mir
             pos = (ex, 0.9 + 1.6, ez)
         else:
             pos = (ex, 0.9, ez)
-        S.actors.append(egg_actor('egg_' + v, v, pos, yaw=math.radians(rng.uniform(-25, 25)), scale=0.21,
+        S.actors.append(egg_actor('egg_' + v, v, pos, yaw=math.radians(rng.uniform(-25, 25)), scale=NEST_EGG_SCALE,
                                   camera=(eggs == 'all' or eggs == v), rot=(rng.uniform(-6, 6), rng.uniform(-6, 6), 0)))
     if mira:
         from cine_blender import Actor

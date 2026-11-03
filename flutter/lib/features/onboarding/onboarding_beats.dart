@@ -52,27 +52,36 @@ class EggPickScreen extends StatefulWidget {
 
 class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProviderStateMixin {
   Map<String, dynamic>? _meta;
+  final Map<String, Rect> _crops = {}; // each egg's own picture on the plate (plate pixels): tools/art/cine_repack.py
   late final AnimationController _lift = AnimationController(vsync: this, duration: const Duration(milliseconds: 520));
   String? _picked;
+  String? _settling; // put back: it sinks into its place as the lift runs backwards
+  // Mira says her line once; back at the nest to choose again, she's already said it
+  static bool _spoken = false;
   bool _teaser = false;
   final _mira = PoseController();
   bool _fallback = false; // no cinematic pack: a plain row of eggs to pick from
 
   /// Mira's line comes first, close on her (she turns to you, nods as she talks, smiles at "waiting for you" and
   /// glances at the nest); then the shot settles on the nest. A tap moves straight on.
-  bool _intro = true;
+  late bool _intro = !_spoken;
   Timer? _introTimer;
 
   @override
   void initState() {
     super.initState();
-    _introTimer = Timer(const Duration(milliseconds: 5000), _endIntro); // her line acted through (mira_talk), then the nest
+    if (_intro) _introTimer = Timer(const Duration(milliseconds: 5000), _endIntro); // her line acted through (mira_talk), then the nest
+    _spoken = true;
     // Mira's lullaby (the call in 3/4, tools/music/onboarding_score.py), on through the steps and the goal
     context.read<GameController>().audio.cue('onb_mira', volume: 0.5, fadeIn: 1.5, fadeOut: 0.9);
     LumenPrint.warm();
     CineTimeline.load().then((tl) {
       if (!mounted) return;
       final m = tl.plateMeta('nest_empty');
+      for (final p in palettes) {
+        final c = (tl.plateMeta('nest_egg_${p.id}')['crop'] as List?)?.map((v) => (v as num).toDouble()).toList();
+        if (c != null && c.length == 4) _crops[p.id] = Rect.fromLTRB(c[0], c[1], c[2], c[3]);
+      }
       setState(() {
         _meta = m.isEmpty ? null : m;
         _fallback = m.isEmpty;
@@ -104,11 +113,29 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
     _mira.play('look');
     setState(() {
       _picked = id;
+      _settling = null;
       _teaser = false;
     });
     _lift.forward(from: 0);
     Timer(const Duration(milliseconds: 900), () {
       if (mounted && _picked == id) setState(() => _teaser = true);
+    });
+  }
+
+  /// Changed your mind: the egg goes back down into the nest and every egg is there to choose again.
+  void _putBack() {
+    final id = _picked;
+    if (id == null) return;
+    final c = context.read<GameController>();
+    c.audio.play('ui_tap', volume: 0.4);
+    c.audio.buzz(Haptic.tick);
+    setState(() {
+      _picked = null;
+      _settling = id;
+      _teaser = false;
+    });
+    _lift.reverse().then((_) {
+      if (mounted && _settling == id) setState(() => _settling = null);
     });
   }
 
@@ -148,7 +175,7 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
         // the Glasshouse at evening, the nest without its eggs
         // (Mira in motion beside it: she blinks, looks down at the eggs, and at the one you pick)
         PosedPlate('nest_empty', alignment: const Alignment(0, 0.2), controller: _mira, onMissing: Image.asset(AssetManifest.instance!.thumb('meadow'), fit: BoxFit.cover)),
-        // the eggs, each its own sprite lit in place; the picked one lifts and glows
+        // the eggs, each its own sprite lit in place (two rows of three); the picked one lifts and glows
         LayoutBuilder(builder: (ctx, box) {
           final m = _meta;
           if (m == null) return const SizedBox.shrink();
@@ -158,54 +185,69 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
           final dx = (box.maxWidth - pw * k) / 2;
           final dy = (box.maxHeight - ph * k) * 0.6;
           final reduce = Motion.reduced(context);
+          final full = Rect.fromLTWH(0, 0, pw, ph);
+          // back row first, so the front row draws over it and takes the taps where they meet
+          final order = [for (final p in palettes) if (_slot(p.id) != null) p]..sort((a, b) => _slot(a.id)!.dy.compareTo(_slot(b.id)!.dy));
+          Rect onScreen(Rect r) => Rect.fromLTRB(dx + r.left * k, dy + r.top * k, dx + r.right * k, dy + r.bottom * k);
           return AnimatedBuilder(
             animation: _lift,
             builder: (_, __) {
               final v = _lift.value;
+              final up = picked ?? _settling;
               final lift = 26 * (reduce ? Curves.easeOut.transform(v) : Curves.easeOutBack.transform(v));
               // lifted, it rocks on its base a couple of times and settles
-              final rock = reduce ? 0.0 : 0.075 * math.sin(v * math.pi * 3.2) * math.pow(1 - v, 1.4);
+              final rock = reduce || picked == null ? 0.0 : 0.075 * math.sin(v * math.pi * 3.2) * math.pow(1 - v, 1.4);
               return Stack(children: [
-              for (final p in palettes)
-                Positioned(
-                  left: dx,
-                  top: dy - (p.id == picked ? lift : 0),
-                  width: pw * k,
-                  height: ph * k,
-                  child: IgnorePointer(
-                    child: Opacity(
-                      opacity: picked == null || p.id == picked ? 1 : 0.78,
-                      child: p.id == picked && rock != 0 && _slot(p.id) != null
-                          ? Transform(
-                              transform: Matrix4.rotationZ(rock),
-                              origin: Offset(_slot(p.id)!.dx * pw * k, _slot(p.id)!.dy * ph * k + 2),
-                              child: CinePlate('nest_egg_${p.id}', fit: BoxFit.fill),
-                            )
-                          : CinePlate('nest_egg_${p.id}', fit: BoxFit.fill),
+                for (final p in order)
+                  Builder(builder: (_) {
+                    final crop = _crops[p.id] ?? full;
+                    final r = onScreen(crop);
+                    final slot = _slot(p.id)!;
+                    final img = CinePlate('nest_egg_${p.id}', fit: BoxFit.fill);
+                    return Positioned(
+                      left: r.left,
+                      top: r.top - (p.id == up ? lift : 0),
+                      width: r.width,
+                      height: r.height,
+                      child: IgnorePointer(
+                        child: Opacity(
+                          opacity: picked == null || p.id == picked ? 1 : 0.78,
+                          child: p.id == picked && rock != 0
+                              ? Transform(
+                                  transform: Matrix4.rotationZ(rock),
+                                  origin: Offset((slot.dx * pw - crop.left) * k, (slot.dy * ph - crop.top) * k + 2),
+                                  child: img,
+                                )
+                              : img,
+                        ),
+                      ),
+                    );
+                  }),
+                if (up != null && _slot(up) != null)
+                  Positioned.fill(
+                    child: IgnorePointer(
+                      child: CustomPaint(painter: _GlowPainter(Offset(dx + _slot(up)!.dx * pw * k, dy + _slot(up)!.dy * ph * k), lift, _paletteGlow(up), v)),
                     ),
                   ),
-                ),
-              if (picked != null && _slot(picked) != null)
-                Positioned.fill(
-                  child: IgnorePointer(
-                    child: CustomPaint(painter: _GlowPainter(Offset(dx + _slot(picked)!.dx * pw * k, dy + _slot(picked)!.dy * ph * k), lift, _paletteGlow(picked), v)),
-                  ),
-                ),
-              // tap targets over each egg
-              for (final p in palettes)
-                if (_slot(p.id) != null)
-                  Positioned(
-                    left: dx + _slot(p.id)!.dx * pw * k - 46,
-                    top: dy + _slot(p.id)!.dy * ph * k - 70,
-                    width: 92,
-                    height: 110,
-                    child: Semantics(
-                      button: true,
-                      selected: p.id == picked,
-                      label: '${p.label} egg',
-                      child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: () => _pick(p.id)),
-                    ),
-                  ),
+                // a tap target over each egg, the size of the egg (its picture less the shadow round it)
+                for (final p in order)
+                  Builder(builder: (_) {
+                    final slot = _slot(p.id)!;
+                    final crop = _crops[p.id];
+                    final r = crop == null
+                        ? Rect.fromCenter(center: Offset(dx + slot.dx * pw * k, dy + slot.dy * ph * k - 30), width: 92, height: 110)
+                        : Rect.fromLTRB(onScreen(crop).left + onScreen(crop).width * 0.1, onScreen(crop).top, onScreen(crop).right - onScreen(crop).width * 0.1,
+                            dy + slot.dy * ph * k + 8);
+                    return Positioned.fromRect(
+                      rect: r.translate(0, p.id == picked ? -lift : 0),
+                      child: Semantics(
+                        button: true,
+                        selected: p.id == picked,
+                        label: '${p.label} egg',
+                        child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: () => _pick(p.id)),
+                      ),
+                    );
+                  }),
               ]);
             },
           );
@@ -232,7 +274,32 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
               padding: const EdgeInsets.fromLTRB(14, 8, 14, 0),
               child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
                 if (!again) BackSquareButton(onTap: () => c.mutate((s) => s.player = null)) else const SizedBox(width: 46),
-                const Expanded(child: SpeechCard(name: 'Mira', text: "I've been keeping these warm. One of them has been waiting for you.", speakAt: Duration(milliseconds: 560), perChar: 0.043)),
+                Expanded(
+                  child: Stack(clipBehavior: Clip.none, children: [
+                    // her line stays put underneath (never written out twice); the Elder glimpse covers it while an
+                    // egg is in your hands
+                    AnimatedOpacity(
+                      opacity: picked != null && _teaser ? 0 : 1,
+                      duration: const Duration(milliseconds: 250),
+                      child: const SpeechCard(name: 'Mira', text: "I've been keeping these warm. One of them has been waiting for you.", speakAt: Duration(milliseconds: 560), perChar: 0.043),
+                    ),
+                    Positioned(
+                      left: 0,
+                      right: 0,
+                      top: 0,
+                      child: AnimatedSwitcher(
+                        duration: const Duration(milliseconds: 380),
+                        child: picked != null && _teaser
+                            ? GameCard(
+                                key: ValueKey('elder:$picked'),
+                                padding: const EdgeInsets.all(8),
+                                child: SizedBox(height: 150, child: _ElderGlimpse(palette: picked)),
+                              )
+                            : const SizedBox(key: ValueKey('none'), width: double.infinity),
+                      ),
+                    ),
+                  ]),
+                ),
                 const SizedBox(width: 46),
               ]),
             ),
@@ -278,27 +345,24 @@ class _EggPickScreenState extends State<EggPickScreen> with SingleTickerProvider
                         key: ValueKey(picked),
                         padding: const EdgeInsets.all(12),
                         child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
-                          // the Elder it becomes, a wide panel that opens above the egg once it has lifted
-                          AnimatedSize(
-                            duration: const Duration(milliseconds: 380),
-                            curve: Curves.easeOutCubic,
-                            child: _teaser
-                                ? Padding(padding: const EdgeInsets.only(bottom: 8), child: SizedBox(height: 150, child: _ElderGlimpse(palette: picked)))
-                                : const SizedBox(width: double.infinity),
-                          ),
                           Row(children: [
-                            SizedBox(width: 96, height: 96, child: CinePlate('egg_${picked}_0', fit: BoxFit.contain, onMissing: PetSprite(stage: 1, palette: picked, height: 80))),
-                            const SizedBox(width: 12),
+                            SizedBox(width: 64, height: 64, child: CinePlate('egg_${picked}_0', fit: BoxFit.contain, onMissing: PetSprite(stage: 1, palette: picked, height: 56))),
+                            const SizedBox(width: 10),
                             Expanded(
                               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
                                 Text('${info!.label} egg', style: EvochiText.section),
-                                const SizedBox(height: 4),
+                                const SizedBox(height: 2),
                                 Text(_teaser ? _teaserLine(picked) : 'It rocks gently in your hands.', style: EvochiText.bodyText),
                               ]),
                             ),
                           ]),
                           const SizedBox(height: 10),
-                          EvochiButton(label: 'This one', large: true, icon: const VoxelIcon('paw', size: 28), onPressed: _confirm),
+                          // changed your mind: put it back (or tap another egg)
+                          Row(children: [
+                            Expanded(flex: 2, child: EvochiButton(label: 'Put it back', tone: ButtonTone.cream, onPressed: _putBack)),
+                            const SizedBox(width: 8),
+                            Expanded(flex: 3, child: EvochiButton(label: 'This one', icon: const VoxelIcon('paw', size: 24), onPressed: _confirm)),
+                          ]),
                         ]),
                       ),
               ),
@@ -465,6 +529,9 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
   double _wobbleAt = -9, _wobbleK = 0;
   Timer? _hatchNow;
   bool _hatchNowReady = false;
+  // while it waits, the steps are read every 15 s (Health Connect only hears of them when the phone's step tracker
+  // writes them in, so the sooner we ask the sooner a crack opens)
+  Timer? _poll;
   late final TextEditingController _name = TextEditingController();
   String? _err;
   CineTimeline? _tl;
@@ -494,6 +561,14 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
     // waiting for the egg: nearly nothing (a pad, a slow heartbeat); each crack your steps open plays a note
     c.audio.cue('onb_wait', volume: 0.6, fadeIn: 2.5, fadeOut: 3.0);
     _reduce = Motion.reducedNow(context);
+    if (!noSteps) {
+      _poll = Timer.periodic(const Duration(seconds: 15), (_) {
+        if (mounted && _phase == _HatchPhase.waiting) context.read<GameController>().sync();
+      });
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) context.read<GameController>().sync();
+      });
+    }
     _hatchNow = Timer(Duration(seconds: _reduce ? 1 : (noSteps ? 4 : 75)), () {
       if (mounted) setState(() => _hatchNowReady = true);
     });
@@ -514,6 +589,7 @@ class _HatchScreenState extends State<HatchScreen> with SingleTickerProviderStat
   void dispose() {
     _ticker.dispose();
     _hatchNow?.cancel();
+    _poll?.cancel();
     _name.dispose();
     _clock.dispose();
     super.dispose();

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -19,10 +21,22 @@ class _EvochiAppState extends State<EvochiApp> with WidgetsBindingObserver {
   bool _precached = false;
   late final _navSound = NavSound(() => context.read<GameController>().audio);
 
+  // the steps are read again every minute while the app is open (not only when it comes back to the front), so a
+  // walk with the app on screen counts as it happens
+  Timer? _live;
+
+  void _liveSync() {
+    _live?.cancel();
+    _live = Timer.periodic(const Duration(minutes: 1), (_) {
+      if (mounted) context.read<GameController>().sync();
+    });
+  }
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    _liveSync();
   }
 
   @override
@@ -37,6 +51,7 @@ class _EvochiAppState extends State<EvochiApp> with WidgetsBindingObserver {
 
   @override
   void dispose() {
+    _live?.cancel();
     WidgetsBinding.instance.removeObserver(this);
     super.dispose();
   }
@@ -47,9 +62,11 @@ class _EvochiAppState extends State<EvochiApp> with WidgetsBindingObserver {
     if (state == AppLifecycleState.paused || state == AppLifecycleState.inactive) {
       c.flush();
       c.audio.stopAmbient();
+      _live?.cancel();
     } else if (state == AppLifecycleState.resumed) {
       c.sync();
       c.audio.startAmbient();
+      _liveSync();
     }
   }
 

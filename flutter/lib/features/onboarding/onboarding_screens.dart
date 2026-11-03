@@ -703,6 +703,12 @@ class _ConnectScreenState extends State<ConnectScreen> with SingleTickerProvider
                   ),
                 ),
               ),
+              // changed your mind about the egg: back to the nest to choose again
+              Positioned(
+                left: 14,
+                top: MediaQuery.of(context).padding.top + 8,
+                child: BackSquareButton(onTap: () => c.run((s, n) => g.returnEgg(s))),
+              ),
             ]);
           }),
         ),
