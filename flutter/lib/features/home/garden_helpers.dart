@@ -43,14 +43,14 @@ class HelperRow extends StatelessWidget {
               : 'Tends this bed from its next planting.';
       final view = h.plotView(s, plotId, c.now);
       final mood = grownUp
-          ? 'Grown up!'
+          ? '${helper.name} has grown up!'
           : view.empty
-              ? 'Resting until you plant'
+              ? '${helper.name} is napping by the bed'
               : view.ripe
-                  ? 'Cheering: it\'s ripe!'
+                  ? '${helper.name} is proud of this crop'
                   : now
-                      ? 'Tending: watering, weeding, nurturing'
-                      : 'Waiting for the next planting';
+                      ? '${helper.name} is tending your crops'
+                      : '${helper.name} waits for the next planting';
       return Container(
         margin: const EdgeInsets.only(top: 10),
         padding: const EdgeInsets.all(8),
@@ -115,6 +115,29 @@ class HelperRow extends StatelessWidget {
         ),
       ]);
     }
+    // every helper slot in use: the one at work could move here, and the next slot's level
+    if (h.helpersAtWork(s) >= h.helperSlots(s)) {
+      final busy = [for (final e in s.home.helpers.entries) if (h.helperOf(s, e.key) case final p?) (e.key, p)];
+      final next = h.nextHelperSlot(s);
+      final one = busy.length == 1 ? busy.first : null;
+      return _Box(children: [
+        const Icon(Icons.eco_rounded, color: _leaf, size: 26),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            '${one != null ? '${one.$2.name} is tending bed ${_bedNo(one.$1)}.' : 'Your helpers are all at work.'}${next != null ? ' Another helper joins at Farming $next.' : ''}',
+            style: EvochiText.caption.copyWith(fontSize: 12.5),
+          ),
+        ),
+        EvochiButton(
+          label: one != null ? 'Move ${one.$2.name} here' : 'Change',
+          small: true,
+          expand: false,
+          tone: ButtonTone.cream,
+          onPressed: () => one != null ? _assign(c, plotId, one.$2.id) : showHelperPicker(context, plotId),
+        ),
+      ]);
+    }
     return _Box(children: [
       const Icon(Icons.eco_rounded, color: _leaf, size: 26),
       const SizedBox(width: 8),
@@ -129,6 +152,8 @@ class HelperRow extends StatelessWidget {
     ]);
   }
 }
+
+int _bedNo(String plotId) => h.plotDefs.indexWhere((d) => d.id == plotId) + 1;
 
 void _assign(GameController c, String plotId, String? petId) {
   final r = c.run((s, n) => h.assignHelper(s, plotId, petId, n));
@@ -151,18 +176,31 @@ Future<void> showHelperPicker(BuildContext context, String plotId) => showEvochi
         return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
           const Padding(padding: EdgeInsets.fromLTRB(4, 4, 4, 2), child: Text('Who tends this bed?', style: EvochiText.cardTitle)),
           const Padding(
-            padding: EdgeInsets.fromLTRB(4, 0, 4, 8),
+            padding: EdgeInsets.fromLTRB(4, 0, 4, 6),
             child: Text('A helper keeps its bed watered, adds one to every harvest and sometimes brings a Golden one. One bed each.', style: EvochiText.caption),
+          ),
+          // the slots: those in use, and the ones still to open
+          Padding(
+            padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
+            child: Row(children: [
+              for (var i = 0; i < 1 + h.helperSlotLevels.length; i++) ...[
+                Expanded(child: _Slot(open: i < h.helperSlots(s), used: i < h.helpersAtWork(s), level: i == 0 ? null : h.helperSlotLevels[i - 1])),
+                if (i < h.helperSlotLevels.length) const SizedBox(width: 6),
+              ],
+            ]),
           ),
           for (final p in h.helperCandidates(s))
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: GestureDetector(
                 onTap: () {
+                  if (h.bedOf(s, p.id) == null && h.helpersAtWork(s) >= h.helperSlots(s)) return; // no free slot
                   _assign(c, plotId, p.id);
                   Navigator.of(ctx).maybePop();
                 },
-                child: Container(
+                child: Opacity(
+                  opacity: h.bedOf(s, p.id) == null && h.helpersAtWork(s) >= h.helperSlots(s) ? 0.5 : 1,
+                  child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: Kit.card(highlight: p.id == current),
                   child: Row(children: [
@@ -176,6 +214,7 @@ Future<void> showHelperPicker(BuildContext context, String plotId) => showEvochi
                     ),
                     if (p.id == current) const Icon(Icons.check_circle_rounded, color: _leaf),
                   ]),
+                ),
                 ),
               ),
             ),
@@ -477,23 +516,62 @@ class _BreathingState extends State<_Breathing> with SingleTickerProviderStateMi
 }
 
 // ------------------------------------------------------------------ the plot actor ----
-/// What a helper is doing on its bed, from what the bed is doing (and what just happened).
-enum HelperMood { resting, idle, planting, watering, tending, nurturing, ready, harvest }
+// The helper stands just outside its bed, feet on the walkway, turned toward it, its watering can resting on the
+// path beside it. Most of the time it just lives there (breathing, blinking, swaying, a glance at the crop, now
+// and then a butterfly to watch, napping when the bed is empty, admiring a ripe crop). Every 12-20 s (sooner for
+// an energetic one; and once soon after the garden opens) it does one bit of work, by telekinesis: the can floats
+// up over the crop, tips, pours and settles back; or leaves circle it while the plants lean in and pulse. Its
+// harvest: it gathers itself, the basket lands by the bed, the crop lifts out piece by piece into it, and it hops.
+// A Golden one surprises it first. No arms and no walking: everything it moves, it moves with nature magic.
 
-HelperMood helperMood({required h.PlotView p, required bool tending, required double t, double offset = 0}) {
-  if (p.empty) return HelperMood.resting;
-  if (p.ripe) return HelperMood.ready;
-  if (!tending) return HelperMood.idle;
-  // growing: a working loop, each a little under two and a half seconds
-  const loop = [HelperMood.idle, HelperMood.tending, HelperMood.watering, HelperMood.idle, HelperMood.nurturing];
-  return loop[((t + offset) / _beat).floor() % loop.length];
+/// What a helper is doing.
+enum HelperMood { sleeping, idle, glancing, butterfly, admiring, cheering, watering, nurturing, harvest }
+
+const _waterLen = 3.2, _nurtureLen = 2.8;
+
+/// How long a harvest plays: a helper's (anticipation, the crop into the basket, a hop) or the plain burst.
+int harvestMillis({required bool golden, required bool tended}) => tended ? (golden ? 2700 : 1900) : HarvestBurst.millis(golden);
+
+/// The crops leaning toward their helper as it nurtures them (radians, + toward the right), by bed.
+final gardenLean = <String, ValueNotifier<double>>{};
+
+ValueNotifier<double> leanOf(String plotId) => gardenLean.putIfAbsent(plotId, () => ValueNotifier(0));
+
+/// A helper's timetable: when its work comes round, and what it does, from its personality.
+class _Plan {
+  _Plan(Pet pet, this.rank)
+      : energy = pet.personality.traits['energy'] ?? 0.5,
+        curiosity = pet.personality.traits['curiosity'] ?? 0.5,
+        expressive = pet.personality.traits['expressiveness'] ?? 0.5,
+        seed = pet.id.hashCode & 0xffff;
+  final double energy, curiosity, expressive;
+  final int seed, rank;
+
+  double get period => 20 - 8 * energy;
+  double get first => 1.2 + rank * 2.6;
+  double get blinkEvery => 3.2 + (seed % 14) / 10;
+  double get phase => (seed % 100) / 100 * 6;
+
+  /// The work under way at [t], and how far into it.
+  (HelperMood, double)? work(double t) {
+    if (t < first) return null;
+    final k = ((t - first) / period).floor();
+    final u = t - first - k * period;
+    final kind = k == 0 || (k + (curiosity > 0.55 ? 1 : 0)).isEven ? HelperMood.watering : HelperMood.nurturing;
+    final len = kind == HelperMood.watering ? _waterLen : _nurtureLen;
+    return u < len ? (kind, u) : null;
+  }
+
+  /// A butterfly's visit (the curious get more), and how far into it.
+  double? butterfly(double t) {
+    final every = 30 + 22 * (1 - curiosity);
+    final start = first + period * 0.5 + 3 + (seed % 7);
+    if (t < start) return null;
+    final u = (t - start) % every;
+    return u < 5.0 ? u : null;
+  }
 }
 
-const _beat = 2.4;
-
-/// The helper on its bed: perched at the bed's inner corner, facing it, with its telekinesis props (a floating
-/// watering can, a swirl of leaves, a green glow from the soil, a seed pouch, a harvest basket). [bed] and
-/// [plate] are in the plate's pixels.
 class PlotActor extends StatefulWidget {
   const PlotActor({
     super.key,
@@ -502,9 +580,9 @@ class PlotActor extends StatefulWidget {
     required this.tending,
     required this.bed,
     required this.plate,
-    this.planted = false,
-    this.splashed = false,
-    this.harvested = false,
+    this.rank = 0,
+    this.harvest,
+    this.onTap,
     this.animate = true,
   });
   final Pet pet;
@@ -512,7 +590,10 @@ class PlotActor extends StatefulWidget {
   final bool tending;
   final Rect bed;
   final Size plate;
-  final bool planted, splashed, harvested, animate;
+  final int rank; // its place among the garden's helpers (their first bits of work are staggered)
+  final (Map<String, int>, bool)? harvest; // just harvested, by it: the items, Golden?
+  final VoidCallback? onTap;
+  final bool animate;
 
   @override
   State<PlotActor> createState() => _PlotActorState();
@@ -520,166 +601,392 @@ class PlotActor extends StatefulWidget {
 
 class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMixin {
   late final AnimationController _a = AnimationController(vsync: this, duration: const Duration(seconds: 60));
+  late _Plan _plan = _Plan(widget.pet, widget.rank);
+  double? _harvestAt; // when its harvest began (the clock)
+  double? _tapAt; // when it was tapped (its name shows a moment)
 
-  // something that just happened plays its own loop through, from when it happened
-  HelperMood? _event;
-  double _t0 = 0;
-  static const _lengths = {HelperMood.planting: 2.2, HelperMood.watering: _beat, HelperMood.harvest: 2.1};
+  double get _clock => (_a.lastElapsedDuration?.inMicroseconds ?? 0) / 1e6;
 
   @override
   void initState() {
     super.initState();
     if (widget.animate) _a.repeat();
-    if (widget.harvested) _start(HelperMood.harvest);
-  }
-
-  void _start(HelperMood m) {
-    _event = m;
-    _t0 = _clock;
+    _a.addListener(_lean);
+    if (widget.harvest != null) _harvestAt = 0;
   }
 
   @override
   void didUpdateWidget(PlotActor old) {
     super.didUpdateWidget(old);
-    if (widget.harvested && !old.harvested) _start(HelperMood.harvest);
-    if (widget.planted && !old.planted) _start(HelperMood.planting);
-    if (widget.splashed && !old.splashed) _start(HelperMood.watering);
+    if (widget.pet.id != old.pet.id || widget.rank != old.rank) _plan = _Plan(widget.pet, widget.rank);
+    if (widget.harvest != null && !identical(widget.harvest, old.harvest)) _harvestAt = _clock;
   }
-
-  double get _clock => (_a.lastElapsedDuration?.inMicroseconds ?? 0) / 1e6;
 
   @override
   void dispose() {
+    _a.removeListener(_lean);
+    leanOf(widget.p.id).value = 0;
     _a.dispose();
     super.dispose();
   }
 
-  @override
-  Widget build(BuildContext context) {
-    final w = widget;
-    final off = (w.p.id.hashCode % 97) / 97 * _beat * 5;
-    return AnimatedBuilder(
-      animation: _a,
-      builder: (ctx, _) {
-        final t = w.animate ? _clock : 0.0;
-        // planted, it sows and then waters
-        if (_event == HelperMood.planting && t - _t0 >= _lengths[HelperMood.planting]! && w.tending) {
-          _event = HelperMood.watering;
-          _t0 += _lengths[HelperMood.planting]!;
-        }
-        final ev = _event;
-        if (ev != null && w.animate && t - _t0 < _lengths[ev]!) return _actor(ev, t, t - _t0);
-        final mood = helperMood(p: w.p, tending: w.tending, t: t, offset: off);
-        return _actor(mood, t, (t + off) % _beat);
-      },
-    );
+  // the plants lean toward it while it nurtures them (set on the tick, not while building)
+  void _lean() {
+    final w = _plan.work(_clock);
+    var v = 0.0;
+    if (w != null && w.$1 == HelperMood.nurturing && widget.tending && !widget.p.empty) {
+      final u = w.$2;
+      v = 0.09 * math.sin(((u - 0.3) / 2.1).clamp(0.0, 1.0) * math.pi);
+    }
+    final n = leanOf(widget.p.id);
+    final toward = -v; // (its helper stands on its right: the tops lean right)
+    if ((n.value - toward).abs() > 0.002) n.value = toward;
   }
 
-  Widget _actor(HelperMood mood, double t, double u) {
+  void _tap() {
+    setState(() => _tapAt = _clock);
+    widget.onTap?.call();
+  }
+
+  @override
+  Widget build(BuildContext context) => AnimatedBuilder(animation: _a, builder: (ctx, _) => _frame(widget.animate ? _clock : 0.0));
+
+  Widget _frame(double t) {
     final w = widget;
     final bed = w.bed;
-    // perched at the bed's outer front corner, facing in: the left beds' left corner, the right beds' right
-    // (the art faces left: the left beds' helpers are turned round)
-    final left = bed.center.dx < w.plate.width / 2;
-    final ph = bed.height * 0.92;
+    // every helper stands on the walkway at its bed's right front corner, turned toward it (as the art faces):
+    // the left beds' helpers in the path between the beds, the right beds' in the margin, so none meet
+    const dir = -1.0; // toward the bed
+    final ph = bed.height * 0.9;
     final pw = ph * 330 / 375;
-    final dir = left ? 1.0 : -1.0; // toward the bed
-    final foot = Offset(left ? bed.left + pw * 0.2 : bed.right - pw * 0.2, bed.bottom + bed.height * 0.08);
-    // its body: breathing, and what the mood does to it
-    final br = math.sin(t * math.pi * (mood == HelperMood.resting ? 0.66 : 1.0));
-    var sy = 1 + 0.022 * br, sx = 1 - 0.012 * br, lift = 0.0, lean = 0.0;
-    var expr = 'default';
+    final fx = (bed.right + pw * 0.3).clamp(pw * 0.5 + 2, w.plate.width - pw * 0.5 - 2);
+    final foot = Offset(fx, bed.bottom - bed.height * 0.04);
+    final ps = bed.height * 0.5; // a prop's size
+    final rest = Offset(foot.dx + dir * pw * 0.46, foot.dy - ps * 0.12); // the can, on the bed's front corner
+    final over = Offset(bed.center.dx - dir * bed.width * 0.06, bed.top + bed.height * 0.12);
+    final basketAt = Offset(bed.right - bed.width * 0.24, bed.bottom - ps * 0.2);
+
+    // ---- what it's doing
+    var mood = HelperMood.idle;
+    var u = 0.0;
+    final hv = _harvestAt;
+    final harvest = w.harvest;
+    final golden = harvest?.$2 ?? false;
+    final hLen = harvestMillis(golden: golden, tended: true) / 1000;
+    if (harvest != null && hv != null && t - hv < hLen) {
+      mood = HelperMood.harvest;
+      u = t - hv;
+    } else if (w.p.empty) {
+      mood = HelperMood.sleeping;
+    } else if (w.p.ripe) {
+      final c = (t + _plan.phase) % 5.5;
+      mood = c < 1.3 * (0.6 + _plan.expressive * 0.6) ? HelperMood.cheering : HelperMood.admiring;
+      u = c;
+    } else if (w.tending && _plan.work(t) != null) {
+      (mood, u) = _plan.work(t)!;
+    } else if (_plan.butterfly(t) != null) {
+      mood = HelperMood.butterfly;
+      u = _plan.butterfly(t)!;
+    } else if ((t + _plan.phase) % 7.3 < 1.4) {
+      mood = HelperMood.glancing;
+      u = (t + _plan.phase) % 7.3;
+    }
+
+    // ---- its body
+    final br = math.sin((t + _plan.phase) * math.pi * (mood == HelperMood.sleeping ? 0.6 : 0.95));
+    var sy = 1 + 0.022 * br, sx = 1 - 0.012 * br, lift = 0.0, tilt = 0.0;
+    final sway = 0.012 * math.sin(t * 1.3 + _plan.phase);
+    var expr = ((t + _plan.phase) % _plan.blinkEvery) < 0.13 ? 'blink' : 'default';
+    var crest = 0.0; // its crest glowing as it works
+    var aura = 0.0;
+    double ramp(double a, double b) => ((u - a) / (b - a)).clamp(0.0, 1.0);
+    // butterfly path (in plate px), for its eyes to follow
+    Offset? fly;
     switch (mood) {
-      case HelperMood.resting:
+      case HelperMood.sleeping:
         expr = 'sleepy';
       case HelperMood.idle:
-        expr = (t % 3.7) < 0.14 ? 'blink' : 'default';
-        lean = 0.03 * math.sin(t * 0.9);
-      case HelperMood.planting:
+        break;
+      case HelperMood.glancing:
         expr = 'curious';
-        lean = 0.05 * dir;
-      case HelperMood.watering:
-        expr = 'determined';
-        lean = 0.06 * dir;
-      case HelperMood.tending:
-        expr = 'happy';
-        lift = 3 * math.sin(u / 0.6 * math.pi).abs();
-      case HelperMood.nurturing:
+        tilt = 0.06 * dir * math.sin(ramp(0, 1.4) * math.pi);
+      case HelperMood.butterfly:
+        expr = u < 4.4 ? 'curious' : 'happy';
+        final k = u / 5.0;
+        fly = Offset(
+          foot.dx + dir * pw * (0.2 + 0.9 * math.sin(k * math.pi)) + 12 * math.sin(u * 3.1),
+          foot.dy - ph * (1.05 + 0.25 * math.sin(u * 1.7)) - 10 * math.sin(u * 5.3),
+        );
+        tilt = ((fly.dx - foot.dx) / (pw * 1.2)).clamp(-1.0, 1.0) * 0.07;
+      case HelperMood.admiring:
         expr = 'affectionate';
-      case HelperMood.ready:
+        tilt = 0.04 * dir;
+      case HelperMood.cheering:
         expr = 'excited';
-        final hop = math.max(0.0, math.sin(t * 2 * math.pi / 0.9));
-        lift = ph * 0.12 * hop;
+        final hop = math.max(0.0, math.sin(u * 2 * math.pi / 0.65));
+        lift = ph * 0.1 * hop * (0.6 + _plan.expressive * 0.6);
         sy *= 1 + 0.05 * hop;
-        sx *= 1 - 0.03 * hop;
+      case HelperMood.watering:
+        crest = ramp(0, 0.3) * (1 - ramp(2.4, 3.0));
+        expr = u < 0.9 ? 'determined' : (u < 2.4 ? 'happy' : 'default');
+        if (u < 0.3) sy *= 1 - 0.05 * math.sin(ramp(0, 0.3) * math.pi);
+        // its eyes on the can: a tilt toward where it is
+        tilt = 0.07 * dir * math.sin(ramp(0.2, 3.0) * math.pi);
+      case HelperMood.nurturing:
+        crest = ramp(0, 0.3) * (1 - ramp(2.3, 2.8));
+        aura = ramp(0.25, 0.6) * (1 - ramp(2.2, 2.8));
+        expr = u < 0.3 ? 'determined' : 'affectionate';
+        if (u < 0.3) sy *= 1 - 0.05 * math.sin(ramp(0, 0.3) * math.pi);
       case HelperMood.harvest:
-        expr = 'happy';
-        final k = (u / 0.7).clamp(0.0, 1.0);
-        lift = ph * 0.22 * math.sin(k * math.pi);
+        // Golden: a surprise first (a step back, wide eyes, a tilt)
+        final g0 = golden ? 0.5 : 0.0;
+        if (golden && u < g0) {
+          expr = 'surprised';
+          tilt = -0.1 * dir * math.sin(ramp(0, g0) * math.pi);
+          lift = ph * 0.05 * math.sin(ramp(0, 0.25) * math.pi);
+        } else {
+          final v = u - g0;
+          crest = (v / 0.25).clamp(0.0, 1.0) * (1 - ((v - 1.0) / 0.3).clamp(0.0, 1.0));
+          aura = ((v - 0.25) / 0.3).clamp(0.0, 1.0) * (1 - ((v - 1.1) / 0.3).clamp(0.0, 1.0));
+          expr = v < 0.55 ? 'determined' : (v < 1.25 ? 'happy' : (golden ? 'excited' : 'happy'));
+          if (v < 0.25) sy *= 1 - 0.06 * math.sin(v / 0.25 * math.pi);
+          if (v > 1.25 && v < 1.8) {
+            final k = (v - 1.25) / 0.55;
+            lift = ph * 0.18 * math.sin(k * math.pi);
+            sy *= 1 + 0.06 * math.sin(k * math.pi);
+          }
+        }
     }
     final petRect = Rect.fromLTWH(foot.dx - pw / 2, foot.dy - ph - lift, pw, ph);
+    final head = Offset(petRect.left + pw * 0.45, petRect.top + ph * 0.08);
+    final body = Offset(petRect.center.dx, petRect.top + ph * 0.6);
+
+    // ---- the can: resting on the path, or up over the crop
+    var canAt = rest;
+    var canTip = 0.0;
+    var canLit = 0.0;
+    final canOut = mood == HelperMood.watering;
+    if (canOut) {
+      Offset arc(Offset a, Offset b, double k) {
+        final m = Offset((a.dx + b.dx) / 2, math.min(a.dy, b.dy) - bed.height * 0.35);
+        final e = Curves.easeInOut.transform(k);
+        return Offset.lerp(Offset.lerp(a, m, e)!, Offset.lerp(m, b, e)!, e)!;
+      }
+
+      if (u < 0.3) {
+        canAt = rest + Offset(0, -2 * math.sin(ramp(0, 0.3) * math.pi)); // a wobble: it's noticed
+      } else if (u < 0.9) {
+        canAt = arc(rest, over, ramp(0.3, 0.9));
+      } else if (u < 2.4) {
+        canAt = over + Offset(0, math.sin(t * 5) * 1.5);
+      } else if (u < 3.0) {
+        canAt = arc(over, rest, ramp(2.4, 3.0));
+      } else {
+        canAt = rest + Offset(0, -3 * math.sin(ramp(3.0, 3.2) * math.pi)); // settles with a little bounce
+      }
+      canTip = (ramp(0.9, 1.15) - ramp(2.15, 2.4)) * 0.62;
+      canLit = ramp(0.25, 0.4) * (1 - ramp(2.9, 3.2));
+    }
+    final showCan = w.tending && !w.p.empty && mood != HelperMood.harvest;
+
     final kids = <Widget>[
-      // the soil glowing as it nurtures (behind everything on the bed)
-      Positioned.fill(child: CustomPaint(painter: _MagicPainter(mood: mood, t: t, u: u, bed: bed, head: Offset(petRect.left + pw * (left ? 0.62 : 0.38), petRect.top + ph * 0.3), dir: dir))),
-      // the helper
+      Positioned.fill(
+        child: IgnorePointer(
+          child: CustomPaint(
+            painter: _MagicPainter(
+              mood: mood, t: t, u: u, bed: bed, head: head, body: body, dir: dir, crest: crest, aura: aura, golden: golden,
+              can: canOut ? canAt : null, canLit: canLit, canTip: canTip, fly: fly, ps: ps, pw: pw,
+            ),
+          ),
+        ),
+      ),
+      // the helper (tap it for its name)
       Positioned.fromRect(
         rect: petRect,
-        child: Transform(
-          alignment: Alignment.bottomCenter,
-          transform: Matrix4.identity()
-            ..rotateZ(lean)
-            ..scale(left ? -sx : sx, sy, 1),
-          child: PetSprite(stage: w.pet.stage, palette: w.pet.paletteId, expr: expr, overlays: w.pet.equipped.values.toList(), height: ph),
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: _tap,
+          child: Semantics(
+            button: true,
+            label: '${w.pet.name}, your helper',
+            child: Transform(
+              alignment: Alignment.bottomCenter,
+              transform: Matrix4.identity()
+                ..rotateZ(tilt)
+                ..multiply(Matrix4.skewX(sway))
+                ..scale(sx, sy, 1),
+              child: PetSprite(stage: w.pet.stage, palette: w.pet.paletteId, expr: expr, overlays: w.pet.equipped.values.toList(), height: ph),
+            ),
+          ),
         ),
       ),
     ];
-    // the props it floats
-    final over = Offset(bed.center.dx - dir * bed.width * 0.05, bed.top + bed.height * 0.05);
-    final ps = bed.height * 0.62;
-    Widget prop(String file, Offset at, double angle, {double opacity = 1, double size = 1}) => Positioned(
-          left: at.dx - ps * size / 2,
-          top: at.dy - ps * size / 2,
-          width: ps * size,
-          height: ps * size,
-          child: Opacity(
-            opacity: opacity.clamp(0.0, 1.0),
-            child: Transform(
-              alignment: Alignment.center,
-              transform: Matrix4.identity()
-                ..rotateZ(angle)
-                ..scale(left ? -1.0 : 1.0, 1.0, 1.0),
-              child: Image.asset('assets/art/home/$file.webp', filterQuality: FilterQuality.none, excludeFromSemantics: true, gaplessPlayback: true),
+    Widget img(String file, Offset at, double size, {double angle = 0, double opacity = 1, bool flip = false, double squash = 1}) => Positioned(
+          left: at.dx - size / 2,
+          top: at.dy - size / 2,
+          width: size,
+          height: size,
+          child: IgnorePointer(
+            child: Opacity(
+              opacity: opacity.clamp(0.0, 1.0),
+              child: Transform(
+                alignment: Alignment.bottomCenter,
+                transform: Matrix4.identity()
+                  ..rotateZ(angle)
+                  ..scale(flip ? -1.0 : 1.0, squash, 1.0),
+                child: Image.asset('assets/art/home/$file.webp', filterQuality: FilterQuality.none, excludeFromSemantics: true, gaplessPlayback: true),
+              ),
             ),
           ),
         );
-    double inOut(double u, double len) => (math.min(u / 0.3, (len - u) / 0.3)).clamp(0.0, 1.0);
-    switch (mood) {
-      case HelperMood.watering:
-        // up, tilt, pour, back
-        final tilt = u < 0.4 ? 0.0 : (u < 0.7 ? (u - 0.4) / 0.3 : (u < 1.9 ? 1.0 : math.max(0.0, 1 - (u - 1.9) / 0.4)));
-        final bob = math.sin(t * 5) * 2;
-        kids.add(prop('prop_watering_can', over + Offset(0, -ps * 0.1 + bob), -0.6 * tilt * (left ? -1 : 1), opacity: inOut(u, _beat)));
-      case HelperMood.planting:
-        kids.add(prop('prop_seed_pouch', over + Offset(0, -ps * 0.15 + math.sin(t * 4) * 2), 0.35 * math.sin(u * 6), opacity: inOut(u, 2.2), size: 0.8));
-      case HelperMood.harvest:
-        final k = (u / 1.6).clamp(0.0, 1.0);
-        kids.add(prop('prop_basket', Offset(bed.center.dx, bed.top - bed.height * 0.2 * Curves.easeOut.transform(k)), 0.06 * math.sin(t * 6), opacity: (1 - (u - 1.6) / 0.5).clamp(0.0, 1.0), size: 1.05));
-      default:
-        break;
+    // the can's art spouts to the left: turned round to pour into a bed on its right
+    if (showCan) kids.add(img('prop_watering_can', canAt, ps * (canOut && u > 0.3 && u < 3.0 ? 1.1 : 0.9), angle: canTip * dir));
+
+    // ---- its harvest: the basket by the bed, the crop lifting into it, the counts over it
+    if (mood == HelperMood.harvest && harvest != null) {
+      final g0 = golden ? 0.5 : 0.0;
+      final v = u - g0;
+      final land = ((v - 0.25) / 0.3).clamp(0.0, 1.0);
+      final gone = ((v - (hLen - g0 - 0.3)) / 0.3).clamp(0.0, 1.0);
+      final mouth = basketAt - Offset(0, ps * 0.22);
+      // the pieces: up to five of each, the Gilded one last
+      final bits = <String>[];
+      for (final e in harvest.$1.entries.where((e) => !e.key.startsWith('gilded_'))) {
+        for (var i = 0; i < math.min(e.value, 5); i++) {
+          bits.add(e.key);
+        }
+      }
+      bits.addAll(harvest.$1.keys.where((k) => k.startsWith('gilded_')));
+      var bump = 0.0;
+      for (var i = 0; i < bits.length; i++) {
+        final s0 = 0.55 + i * (0.6 / math.max(1, bits.length));
+        final k = ((v - s0) / 0.42).clamp(0.0, 1.0);
+        if (v - s0 > 0.42 && v - s0 < 0.6) bump = math.max(bump, math.sin((v - s0 - 0.42) / 0.18 * math.pi));
+        if (k <= 0 || k >= 1) continue;
+        final from = Offset(bed.left + bed.width * (0.2 + 0.6 * ((i * 0.37 + 0.13) % 1)), bed.center.dy + bed.height * 0.05);
+        final ctl = Offset((from.dx + mouth.dx) / 2, math.min(from.dy, mouth.dy) - bed.height * (0.55 + 0.1 * (i % 3)));
+        final e = Curves.easeInOutSine.transform(k);
+        final at = Offset.lerp(Offset.lerp(from, ctl, e)!, Offset.lerp(ctl, mouth, e)!, e)!;
+        final gilded = bits[i].startsWith('gilded_');
+        kids.add(Positioned(
+          left: at.dx - (gilded ? 18 : 12),
+          top: at.dy - (gilded ? 18 : 12),
+          child: IgnorePointer(child: Transform.rotate(angle: (1 - k) * (i.isEven ? 0.8 : -0.8), child: ItemImage(bits[i], size: gilded ? 36 : 24))),
+        ));
+      }
+      kids.add(img('prop_basket', basketAt + Offset(0, -10 * (1 - Curves.easeOutBack.transform(land))), ps * 1.05 * (0.6 + 0.4 * Curves.easeOutBack.transform(land)),
+          opacity: land * (1 - gone), squash: 1 - 0.1 * bump));
+      // the counts, rising over the basket
+      if (v > 1.2) {
+        final r = ((v - 1.2) / 0.5).clamp(0.0, 1.0);
+        kids.add(Positioned(
+          left: basketAt.dx - 90,
+          width: 180,
+          top: mouth.dy - 30 - 34 * Curves.easeOut.transform(r),
+          child: IgnorePointer(
+            child: Opacity(
+              opacity: (math.min(1.0, r * 3) * (1 - gone)).clamp(0.0, 1.0),
+              child: Column(mainAxisSize: MainAxisSize.min, children: [
+                if (golden)
+                  Container(
+                    margin: const EdgeInsets.only(bottom: 3),
+                    padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 2),
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(10),
+                      gradient: const LinearGradient(begin: Alignment.topCenter, end: Alignment.bottomCenter, colors: [Color(0xFFFFF1B8), _gold]),
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: Text('Golden harvest!', style: EvochiText.tag.copyWith(fontWeight: FontWeight.w900, fontSize: 12.5, color: const Color(0xFF6B4410))),
+                  ),
+                Row(mainAxisSize: MainAxisSize.min, children: [
+                  for (final e in harvest.$1.entries) ...[
+                    ItemImage(e.key, size: 20),
+                    Text('+${e.value}', style: EvochiText.number.copyWith(fontSize: 14, color: Colors.white, shadows: const [Shadow(color: Color(0xAA000000), blurRadius: 3)])),
+                    const SizedBox(width: 3),
+                  ],
+                ]),
+              ]),
+            ),
+          ),
+        ));
+      }
     }
-    return IgnorePointer(child: Stack(clipBehavior: Clip.none, children: kids));
+
+    // ---- its name, a moment, when tapped
+    final ta = _tapAt;
+    if (ta != null && t - ta < 2.4) {
+      final k = t - ta;
+      final what = switch (mood) {
+        HelperMood.sleeping => 'napping',
+        HelperMood.watering => 'watering',
+        HelperMood.nurturing => 'nurturing the crop',
+        HelperMood.butterfly => 'watching a butterfly',
+        HelperMood.admiring || HelperMood.cheering => 'proud of this one',
+        HelperMood.harvest => 'harvesting',
+        _ => 'keeping watch',
+      };
+      kids.add(Positioned(
+        left: head.dx - 80,
+        width: 160,
+        top: petRect.top - 30,
+        child: IgnorePointer(
+          child: Opacity(
+            opacity: (math.min(k / 0.15, (2.4 - k) / 0.3)).clamp(0.0, 1.0),
+            child: Center(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: const Color(0xF7FFFBF2),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _leaf, width: 1.5),
+                  boxShadow: const [BoxShadow(color: Color(0x33281910), blurRadius: 4, offset: Offset(0, 2))],
+                ),
+                child: Text.rich(
+                  TextSpan(children: [
+                    TextSpan(text: w.pet.name, style: const TextStyle(fontWeight: FontWeight.w900)),
+                    TextSpan(text: ' · $what'),
+                  ]),
+                  style: EvochiText.tag.copyWith(fontSize: 11.5, color: const Color(0xFF2F5A22)),
+                ),
+              ),
+            ),
+          ),
+        ),
+      ));
+    }
+    return Stack(clipBehavior: Clip.none, children: kids);
   }
 }
 
-/// The helper's magic: leaves swirling over the crop, the soil glowing, water falling, seeds dropping, little
-/// "!" marks when the crop is ripe, Zs when it rests, and a faint trail of green from its head to what it lifts.
+/// The helper's magic: its crest glowing, an aura, a trail of green from its head to what it moves, the pour,
+/// leaves circling it, the crop's growth pulse, a butterfly, Zs, a heart, and a Golden harvest's burst.
 class _MagicPainter extends CustomPainter {
-  _MagicPainter({required this.mood, required this.t, required this.u, required this.bed, required this.head, required this.dir});
+  _MagicPainter({
+    required this.mood,
+    required this.t,
+    required this.u,
+    required this.bed,
+    required this.head,
+    required this.body,
+    required this.dir,
+    required this.crest,
+    required this.aura,
+    required this.golden,
+    required this.can,
+    required this.canLit,
+    required this.canTip,
+    required this.fly,
+    required this.ps,
+    required this.pw,
+  });
   final HelperMood mood;
-  final double t, u;
+  final double t, u, dir, crest, aura, canLit, canTip, ps, pw;
   final Rect bed;
-  final Offset head;
-  final double dir;
+  final Offset head, body;
+  final bool golden;
+  final Offset? can, fly;
+
+  static const _magic = Color(0xFF9BE36A);
 
   static void _leaf(Canvas c, Offset at, double size, double angle, double a) {
     c.save();
@@ -697,104 +1004,167 @@ class _MagicPainter extends CustomPainter {
     c.restore();
   }
 
+  void _trail(Canvas c, Offset from, Offset to, double a) {
+    if (a <= 0.01) return;
+    final mid = Offset((from.dx + to.dx) / 2, math.min(from.dy, to.dy) - bed.height * 0.3);
+    for (var i = 0; i < 7; i++) {
+      final k = ((i / 7) + t * 0.7) % 1.0;
+      final p = Offset.lerp(Offset.lerp(from, mid, k)!, Offset.lerp(mid, to, k)!, k)!;
+      if (i.isEven) {
+        _leaf(c, p, 3.2, k * 6 + t, a * 0.85 * math.sin(k * math.pi));
+      } else {
+        c.drawCircle(p, 1.8, Paint()..color = const Color(0xFFD2F7A6).withValues(alpha: a * 0.85 * math.sin(k * math.pi)));
+      }
+    }
+  }
+
   @override
   void paint(Canvas c, Size size) {
-    final crop = Offset(bed.center.dx, bed.center.dy - bed.height * 0.1);
-    final over = Offset(bed.center.dx - dir * bed.width * 0.05, bed.top + bed.height * 0.05 - bed.height * 0.06);
-    void trail(Offset to, double a) {
-      // a few green motes along a soft curve from the helper's head to the prop
-      final mid = Offset((head.dx + to.dx) / 2, math.min(head.dy, to.dy) - bed.height * 0.25);
-      for (var i = 1; i < 6; i++) {
-        final k = ((i / 6) + t * 0.6) % 1.0;
-        final p = Offset.lerp(Offset.lerp(head, mid, k)!, Offset.lerp(mid, to, k)!, k)!;
-        c.drawCircle(p, 1.6 + 1.2 * math.sin(k * math.pi), Paint()..color = const Color(0xFFB8F07A).withValues(alpha: a * 0.8 * math.sin(k * math.pi)));
-      }
-      c.drawCircle(to, bed.height * 0.28, Paint()
-        ..color = const Color(0xFF9BE36A).withValues(alpha: 0.22 * a)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8));
+    // its crest, glowing
+    if (crest > 0.01) {
+      c.drawCircle(head, ps * 0.32, Paint()
+        ..color = _magic.withValues(alpha: 0.55 * crest)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7));
     }
-
-    double inOut(double len) => (math.min(u / 0.3, (len - u) / 0.3)).clamp(0.0, 1.0);
+    // the aura round it
+    if (aura > 0.01) {
+      final r = Rect.fromCenter(center: body, width: pw * 1.25, height: pw * 0.95);
+      c.drawOval(r, Paint()
+        ..color = (golden && mood == HelperMood.harvest ? const Color(0xFFFFE08A) : _magic).withValues(alpha: 0.28 * aura * (0.8 + 0.2 * math.sin(t * 7)))
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9));
+    }
+    final crop = Offset(bed.center.dx, bed.center.dy - bed.height * 0.05);
+    double ramp(double a, double b) => ((u - a) / (b - a)).clamp(0.0, 1.0);
     switch (mood) {
-      case HelperMood.tending:
-        // leaves circling the crop, rising
-        for (var i = 0; i < 6; i++) {
-          final a = t * 2.2 + i * math.pi / 3;
-          final r = bed.width * 0.26;
-          final p = crop + Offset(math.cos(a) * r, math.sin(a) * r * 0.35 - (u * 6 + i * 2) % 14);
-          _leaf(c, p, bed.height * 0.07, a + math.pi / 2, inOut(_beat) * (0.55 + 0.45 * math.sin(a).abs()));
-        }
-      case HelperMood.nurturing:
-        // the soil glowing, a soft column of green rising out of it
-        final k = inOut(_beat);
-        final pulse = 0.7 + 0.3 * math.sin(t * 5);
-        final col = Rect.fromCenter(center: bed.center.translate(0, -bed.height * 0.25), width: bed.width * 0.78, height: bed.height * 1.25);
-        c.drawRRect(
-          RRect.fromRectAndRadius(col, Radius.circular(bed.height * 0.3)),
-          Paint()
-            ..shader = LinearGradient(
-              begin: Alignment.bottomCenter,
-              end: Alignment.topCenter,
-              colors: [const Color(0xFFC6F58A).withValues(alpha: 0.45 * k * pulse), const Color(0x00C6F58A)],
-            ).createShader(col),
-        );
-        for (var i = 0; i < 7; i++) {
-          final x = bed.left + bed.width * (0.15 + 0.7 * ((i * 0.37) % 1));
-          final y = bed.bottom - bed.height * 0.2 - ((u * 30 + i * 9) % (bed.height * 1.1));
-          c.drawCircle(Offset(x, y), 1.8, Paint()..color = Colors.white.withValues(alpha: 0.8 * k));
-        }
-        trail(crop, k * 0.7);
       case HelperMood.watering:
-        final k = inOut(_beat);
-        trail(over, k);
-        // the pour: drops from the spout to the soil
-        if (u > 0.65 && u < 2.0) {
-          final spout = over + Offset(dir * bed.height * 0.3, bed.height * 0.12);
-          for (var i = 0; i < 9; i++) {
-            final f = ((u * 2.4) + i / 9) % 1.0;
-            final p = spout + Offset(dir * f * bed.height * 0.1 + math.sin(i * 7.0) * 3, f * bed.height * 0.55);
-            c.drawOval(Rect.fromCenter(center: p, width: 3, height: 5), Paint()..color = const Color(0xFF7CC4F2).withValues(alpha: 0.9 * (1 - f * 0.5)));
+        final cn = can;
+        if (cn != null) {
+          _trail(c, head, cn, canLit);
+          c.drawCircle(cn, ps * 0.45, Paint()
+            ..color = _magic.withValues(alpha: 0.22 * canLit)
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8));
+          // the pour: a few drops from the spout
+          if (u > 1.1 && u < 2.25) {
+            final spout = cn + Offset(dir * ps * 0.5, ps * 0.05);
+            for (var i = 0; i < 6; i++) {
+              final f = ((u * 2.2) + i / 6) % 1.0;
+              final p = spout + Offset(dir * f * ps * 0.15 + math.sin(i * 7.0) * 2.5, f * bed.height * 0.5);
+              c.drawOval(Rect.fromCenter(center: p, width: 3, height: 5), Paint()..color = const Color(0xFF7CC4F2).withValues(alpha: 0.9 * (1 - f * 0.6)));
+            }
           }
         }
-      case HelperMood.planting:
-        final k = inOut(2.2);
-        trail(over, k);
-        for (var i = 0; i < 6; i++) {
-          final f = ((u * 1.8) + i / 6) % 1.0;
-          final p = over + Offset(math.sin(i * 5.0) * bed.width * 0.12, bed.height * 0.1 + f * bed.height * 0.5);
-          c.drawCircle(p, 2, Paint()..color = const Color(0xFF7A5230).withValues(alpha: k * (1 - f)));
+      case HelperMood.nurturing:
+        // three leaves circling it, then the crop's pulse
+        final a = aura;
+        for (var i = 0; i < 3; i++) {
+          final ang = t * 2.6 + i * 2 * math.pi / 3;
+          final p = body + Offset(math.cos(ang) * pw * 0.62, math.sin(ang) * pw * 0.22 - pw * 0.1);
+          _leaf(c, p, ps * 0.13, ang + math.pi / 2, a * (0.6 + 0.4 * math.sin(ang).abs()));
+        }
+        _trail(c, head, crop, a * 0.8);
+        final k = ramp(1.5, 2.3);
+        if (k > 0 && k < 1) {
+          c.drawOval(Rect.fromCenter(center: crop, width: bed.width * (0.3 + 0.7 * k), height: bed.height * (0.25 + 0.6 * k)), Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = 3
+            ..color = const Color(0xFFC6F58A).withValues(alpha: 0.8 * (1 - k)));
+          c.drawRect(bed.deflate(bed.height * 0.1), Paint()
+            ..color = const Color(0xFFC6F58A).withValues(alpha: 0.18 * math.sin(k * math.pi))
+            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10));
         }
       case HelperMood.harvest:
-        trail(Offset(bed.center.dx, bed.top - bed.height * 0.15), (1 - u / 2.0).clamp(0.0, 1.0));
-      case HelperMood.ready:
-        // "!" marks over its head
+        final g0 = golden ? 0.5 : 0.0;
+        final v = u - g0;
+        if (v > 0.2 && v < 1.3) _trail(c, head, crop, (math.min((v - 0.2) / 0.2, (1.3 - v) / 0.2)).clamp(0.0, 1.0));
+        // a Golden harvest's burst, gold and green, at the basket
+        if (golden && v > 1.15 && v < 2.1) {
+          final k = ((v - 1.15) / 0.95).clamp(0.0, 1.0);
+          final at = Offset(bed.center.dx, bed.bottom - ps * 0.4);
+          c.drawCircle(at, ps * (0.4 + 2.2 * Curves.easeOut.transform(k)), Paint()
+            ..shader = RadialGradient(colors: [const Color(0xFFFFF3C0).withValues(alpha: 0.9 * (1 - k)), const Color(0xFFB8F07A).withValues(alpha: 0.4 * (1 - k)), const Color(0x00FFD45A)])
+                .createShader(Rect.fromCircle(center: at, radius: ps * 2.6)));
+          for (var i = 0; i < 10; i++) {
+            final a = i * math.pi / 5 + 0.3;
+            final d = ps * (0.5 + 2.0 * Curves.easeOut.transform(k));
+            final p = at + Offset(math.cos(a) * d, math.sin(a) * d * 0.6);
+            c.drawCircle(p, 2.4, Paint()..color = (i.isEven ? Colors.white : const Color(0xFFFFE08A)).withValues(alpha: 1 - k));
+          }
+        }
+      case HelperMood.butterfly:
+        final f = fly;
+        if (f != null) {
+          final flap = math.sin(t * 22).abs();
+          final paint = Paint()..color = const Color(0xFFFFB3C9).withValues(alpha: math.min(1.0, math.min(u / 0.4, (5 - u) / 0.4)).clamp(0.0, 1.0));
+          for (final sgn in [-1.0, 1.0]) {
+            c.drawOval(Rect.fromCenter(center: f + Offset(sgn * 3.5 * (0.4 + 0.6 * flap), -1), width: 6 * (0.4 + 0.6 * flap), height: 7), paint);
+          }
+          c.drawLine(f + const Offset(0, -3), f + const Offset(0, 3), Paint()
+            ..color = const Color(0xFF5A3A2A)
+            ..strokeWidth = 1.4);
+        }
+      case HelperMood.sleeping:
+        for (var i = 0; i < 2; i++) {
+          final f = ((t / 3.4) + i / 2) % 1.0;
+          final tp = TextPainter(
+            text: TextSpan(text: 'z', style: TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w900, fontSize: 9 + 6 * f, color: const Color(0xFF5B6B8A).withValues(alpha: 0.85 * math.sin(f * math.pi)))),
+            textDirection: TextDirection.ltr,
+          )..layout();
+          tp.paint(c, head + Offset(-dir * (4 + f * 12) - tp.width / 2, -f * bed.height * 0.45 - 4));
+        }
+      case HelperMood.admiring:
+        // a little heart, now and then
+        final k = ((t * 0.5) % 1.0);
+        if (k < 0.6) {
+          final p = head + Offset(dir * 10, -8 - k * 18);
+          final a = math.sin(k / 0.6 * math.pi) * 0.9;
+          final hp = Path()
+            ..moveTo(p.dx, p.dy + 3)
+            ..cubicTo(p.dx - 6, p.dy - 2, p.dx - 3, p.dy - 6, p.dx, p.dy - 3)
+            ..cubicTo(p.dx + 3, p.dy - 6, p.dx + 6, p.dy - 2, p.dx, p.dy + 3);
+          c.drawPath(hp, Paint()..color = const Color(0xFFFF8FA8).withValues(alpha: a));
+        }
+      case HelperMood.cheering:
         for (var i = -1; i <= 1; i++) {
           final a = -math.pi / 2 + i * 0.5;
           final k = 0.5 + 0.5 * math.sin(t * 6 + i);
-          final o = head + Offset(0, -bed.height * 0.35);
-          final p1 = o + Offset(math.cos(a), math.sin(a)) * bed.height * 0.12;
-          final p2 = o + Offset(math.cos(a), math.sin(a)) * bed.height * (0.22 + 0.04 * k);
-          c.drawLine(p1, p2, Paint()
+          final o = head + const Offset(0, -6);
+          c.drawLine(o + Offset(math.cos(a), math.sin(a)) * 8, o + Offset(math.cos(a), math.sin(a)) * (15 + 3 * k), Paint()
             ..color = const Color(0xFFFFC93C)
-            ..strokeWidth = 3
+            ..strokeWidth = 2.6
             ..strokeCap = StrokeCap.round);
         }
-      case HelperMood.resting:
-        // Zs, drifting up
-        for (var i = 0; i < 3; i++) {
-          final f = ((t / 3.0) + i / 3) % 1.0;
-          final tp = TextPainter(
-            text: TextSpan(text: 'z', style: TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w900, fontSize: 9 + 7 * f, color: const Color(0xFF5B6B8A).withValues(alpha: math.sin(f * math.pi)))),
-            textDirection: TextDirection.ltr,
-          )..layout();
-          tp.paint(c, head + Offset(-dir * (6 + f * 14), -bed.height * 0.3 - f * bed.height * 0.5));
-        }
       case HelperMood.idle:
+      case HelperMood.glancing:
         break;
     }
   }
 
   @override
   bool shouldRepaint(_MagicPainter old) => true;
+}
+
+/// One helper slot in the picker: in use, free, or opening at a Farming level.
+class _Slot extends StatelessWidget {
+  const _Slot({required this.open, required this.used, required this.level});
+  final bool open, used;
+  final int? level;
+  @override
+  Widget build(BuildContext context) => Container(
+        height: 40,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(10),
+          color: open ? (used ? const Color(0xFFE6F0D4) : const Color(0xFFF7FBEF)) : const Color(0xFFEDE4D6),
+          border: Border.all(color: open ? _leaf : const Color(0xFFD2C2AA), width: 1.5),
+        ),
+        child: Center(
+          child: open
+              ? Icon(used ? Icons.eco_rounded : Icons.add_rounded, color: _leaf, size: 20)
+              : Row(mainAxisSize: MainAxisSize.min, children: [
+                  const Icon(Icons.lock_rounded, size: 14, color: Color(0xFF9C8A70)),
+                  const SizedBox(width: 2),
+                  Text('Farming $level', style: EvochiText.tag.copyWith(fontSize: 11, color: const Color(0xFF8A7860))),
+                ]),
+        ),
+      );
 }
 

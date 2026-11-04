@@ -63,7 +63,7 @@ class _GardenScreenState extends State<GardenScreen> {
   String? _sel;
   String? _planted; // pops in once
   String? _splash; // watered just now
-  final Map<String, (Map<String, int>, bool)> _pops = {}; // just harvested: the burst over the bed (Golden?)
+  final Map<String, (Map<String, int>, bool, bool)> _pops = {}; // just harvested: the items, Golden?, by its helper?
   Timer? _tick;
   final List<Timer> _timers = [];
 
@@ -96,15 +96,18 @@ class _GardenScreenState extends State<GardenScreen> {
     if (!r.ok) return;
     final ev = r.events.firstWhere((e) => e.type == 'harvested');
     final golden = ev.data['golden'] == true;
-    final pop = ((ev.data['items'] as Map).cast<String, int>(), golden);
+    final tended = ev.data['tender'] != null && h.helperOf(c.state, pid) != null;
+    final pop = ((ev.data['items'] as Map).cast<String, int>(), golden, tended);
     setState(() => _pops[pid] = pop);
-    _later(HarvestBurst.millis(golden), () {
+    _later(harvestMillis(golden: golden, tended: tended), () {
       if (identical(_pops[pid], pop)) _pops.remove(pid);
     });
     c.audio.play('coin', volume: 0.6);
-    c.audio.play('harvest_pop', volume: 0.55);
+    // a helper's harvest lands in its basket a moment later (and a Golden one after its surprise)
+    final lands = tended ? (golden ? 1300 : 800) : 0;
+    _timers.add(Timer(Duration(milliseconds: lands), () => c.audio.play('harvest_pop', volume: 0.55)));
     if (golden) {
-      c.audio.play('golden_harvest', volume: 0.7);
+      _timers.add(Timer(Duration(milliseconds: tended ? 1750 : 0), () => c.audio.play('golden_harvest', volume: 0.7)));
       c.audio.buzz(Haptic.reward);
       c.analytics.track('golden_harvest', {'crop': ev.data['crop']});
     }
@@ -192,6 +195,10 @@ class _GardenScreenState extends State<GardenScreen> {
                 pops: _pops,
                 animate: !reduce,
                 onBed: (p) => _tapBed(c, p),
+                onHelper: (p) {
+                  c.audio.play('pet_chirp', volume: 0.45);
+                  setState(() => _sel = p.id);
+                },
               ),
               // the lower field: the beds beyond the plate, each opened by a Farming level
               if (plots.any((p) => !homeArt.hasGardenAnchor(p.id)))
@@ -262,14 +269,16 @@ class _GardenPlate extends StatelessWidget {
     required this.pops,
     required this.animate,
     required this.onBed,
+    required this.onHelper,
   });
   final List<h.PlotView> plots;
   final String selected;
   final String? planted;
   final String? splash;
-  final Map<String, (Map<String, int>, bool)> pops;
+  final Map<String, (Map<String, int>, bool, bool)> pops;
   final bool animate;
   final ValueChanged<h.PlotView> onBed;
+  final ValueChanged<h.PlotView> onHelper;
 
   @override
   Widget build(BuildContext context) {
@@ -311,27 +320,25 @@ class _GardenPlate extends StatelessWidget {
                       animate: animate,
                       helper: h.helperOf(s, p.id),
                       tending: h.tended(s, p.id),
-                      leftBed: geo[p.id]!.bed.center.dx < 0.5,
                       onTap: () => onBed(p),
                     ),
                   ),
-                // each bed's helper, on the bed itself
-                for (final p in plots)
-                  if (h.helperOf(s, p.id) case final pet?)
-                    Positioned.fill(
-                      child: PlotActor(
-                        key: ValueKey('actor:${p.id}:${pet.id}'),
-                        pet: pet,
-                        p: p,
-                        tending: h.tended(s, p.id),
-                        bed: px(geo[p.id]!.bed),
-                        plate: Size(w, hPlate),
-                        planted: planted == p.id,
-                        splashed: splash == p.id,
-                        harvested: pops.containsKey(p.id),
-                        animate: animate,
-                      ),
+                // each bed's helper, beside it on the walkway
+                for (final (i, p) in plots.where((p) => h.helperOf(s, p.id) != null).indexed)
+                  Positioned.fill(
+                    child: PlotActor(
+                      key: ValueKey('actor:${p.id}:${h.helperOf(s, p.id)!.id}'),
+                      pet: h.helperOf(s, p.id)!,
+                      p: p,
+                      tending: h.tended(s, p.id),
+                      bed: px(geo[p.id]!.bed),
+                      plate: Size(w, hPlate),
+                      rank: i,
+                      harvest: switch (pops[p.id]) { (final items, final golden, true) => (items, golden), _ => null },
+                      onTap: () => onHelper(p),
+                      animate: animate,
                     ),
+                  ),
                 // a discovery's clue (Lumen Trails), on the plate's top 86% that's shown
                 ClueGlint(place: 'garden', width: w, height: hPlate * 0.86),
               ]),
@@ -357,6 +364,12 @@ class _Crop extends StatelessWidget {
         child: img,
       );
     }
+    // it leans toward its helper while being nurtured
+    img = ValueListenableBuilder<double>(
+      valueListenable: leanOf(p.id),
+      child: img,
+      builder: (_, lean, child) => lean == 0 ? child! : Transform(alignment: Alignment.bottomCenter, transform: Matrix4.skewX(lean), child: child),
+    );
     // a freshly planted bed pops in
     return TweenAnimationBuilder<double>(
       key: ValueKey('${p.id}:${p.plantedAt}'),
@@ -378,17 +391,15 @@ class _BedButton extends StatelessWidget {
     required this.animate,
     required this.helper,
     required this.tending,
-    required this.leftBed,
     required this.onTap,
   });
   final h.PlotView p;
   final bool selected;
   final bool splash;
-  final (Map<String, int>, bool)? pop;
+  final (Map<String, int>, bool, bool)? pop;
   final bool animate;
   final Pet? helper;
   final bool tending;
-  final bool leftBed; // (its helper sits at the outer corner; its name goes on the inner one)
   final VoidCallback onTap;
 
   String get _label {
@@ -431,11 +442,16 @@ class _BedButton extends StatelessWidget {
                 left: 0,
                 right: 0,
                 top: 0,
-                child: Center(child: FractionalTranslation(translation: const Offset(0, -0.55), child: _BedChip(p))),
+                // (hidden while its harvest plays: the crop and the basket are the show)
+                child: Center(
+                  child: AnimatedOpacity(
+                    opacity: pop == null ? 1 : 0,
+                    duration: Duration(milliseconds: pop == null ? 300 : 100),
+                    child: FractionalTranslation(translation: const Offset(0, -0.55), child: _BedChip(p)),
+                  ),
+                ),
               ),
-              if (helper != null && tending)
-                Positioned(left: leftBed ? null : 4, right: leftBed ? 4 : null, top: 4, child: TendedPill(name: helper!.name, small: true)),
-              if (pop != null) Positioned.fill(child: HarvestBurst(key: ObjectKey(pop), items: pop!.$1, golden: pop!.$2, animate: animate)),
+              if (pop != null && !pop!.$3) Positioned.fill(child: HarvestBurst(key: ObjectKey(pop), items: pop!.$1, golden: pop!.$2, animate: animate)),
             ]),
           ),
         ),
@@ -796,7 +812,7 @@ class _LowerField extends StatelessWidget {
   const _LowerField({required this.plots, required this.selected, required this.pops, required this.animate, required this.onBed});
   final List<h.PlotView> plots;
   final String selected;
-  final Map<String, (Map<String, int>, bool)> pops;
+  final Map<String, (Map<String, int>, bool, bool)> pops;
   final bool animate;
   final ValueChanged<h.PlotView> onBed;
   @override
@@ -820,7 +836,7 @@ class _FieldBed extends StatelessWidget {
   const _FieldBed({required this.p, required this.selected, required this.pop, required this.animate, required this.helper, required this.tending, required this.onTap});
   final h.PlotView p;
   final bool selected;
-  final (Map<String, int>, bool)? pop;
+  final (Map<String, int>, bool, bool)? pop;
   final bool animate;
   final Pet? helper;
   final bool tending;

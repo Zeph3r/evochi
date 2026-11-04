@@ -143,6 +143,18 @@ const gildedOf = {
 
 bool canHelp(Pet p) => p.paletteId == helperPalette && p.stage == helperStage;
 
+/// Helper slots: one from the start, and one more as each of the lower field's first three beds opens
+/// (Farming 6, 8 and 10), so the garden never fills with helpers before it has room for them.
+const helperSlotLevels = [6, 8, 10];
+
+int helperSlots(GameState s) => 1 + helperSlotLevels.where((l) => skillLevel(skillXp(s, 'farming')).level >= l).length;
+
+/// The Farming level that opens the next helper slot (null: all open).
+int? nextHelperSlot(GameState s) => helperSlotLevels.where((l) => skillLevel(skillXp(s, 'farming')).level < l).firstOrNull;
+
+/// The helpers at work (each still resting at home).
+int helpersAtWork(GameState s) => s.home.helpers.values.where((id) => s.companions.any((p) => p.id == id)).length;
+
 /// The resting Evochis that could tend a bed.
 List<Pet> helperCandidates(GameState s) => [for (final p in s.companions) if (canHelp(p)) p];
 
@@ -187,6 +199,10 @@ g.ActionResult assignHelper(GameState state, String plotId, String? petId, int n
   if (pet == null) return _fail(state, 'not_resting');
   if (!canHelp(pet)) return _fail(state, 'cant_help', {'palette': pet.paletteId, 'stage': pet.stage});
   final old = bedOf(s, petId);
+  // a new helper needs a free slot (one moving beds doesn't)
+  if (old == null && helpersAtWork(s) >= helperSlots(s)) {
+    return _fail(state, 'no_slot', {'slots': helperSlots(state), 'next': nextHelperSlot(state)});
+  }
   if (old != null) {
     s.home.helpers.remove(old);
     s.home.plots[old]?.tender = null;

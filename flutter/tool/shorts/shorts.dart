@@ -1252,22 +1252,19 @@ GameState gardenSave() {
   var s = mochi('forest');
   s = s.copy();
   var xp = 0;
-  for (var l = 1; l < 5; l++) {
+  for (var l = 1; l < 6; l++) {
     xp += home.skillCurveBase + home.skillCurveStep * (l - 1);
   }
-  s.home.skills['farming'] = xp;
-  for (final (id, name) in const [('fern', 'Fern'), ('moss', 'Moss'), ('sprig', 'Sprig')]) {
+  s.home.skills['farming'] = xp; // Farming 6: two helper slots
+  for (final (id, name) in const [('fern', 'Fern'), ('moss', 'Moss')]) {
     s.companions.add(Pet(id: id, requestId: 'req-$id', name: name, paletteId: 'forest', stage: 2, habitatId: 'sunlit_meadow', createdAt: _t0, createdDay: '2026-10-21'));
   }
-  s.home.helpers.addAll({'p1': 'fern', 'p2': 'moss', 'p3': 'sprig'});
+  s.home.helpers.addAll({'p1': 'fern', 'p3': 'moss'});
   final ago = _t0 - 3 * 3600000;
-  // a tended bed that isn't Golden this time (the roll is seeded on the planting)
-  for (var k = 0; k < 50; k++) {
-    s.home.plots['p1'] = PlotState(crop: 'meadow_carrot', plantedAt: ago - k * 1000, watered: true, tender: 'fern');
-    if (!home.goldenHarvest(s, 'p1')) break;
-  }
-  s.home.plots['p2'] = PlotState(crop: 'sunberry', plantedAt: ago, watered: true, tender: 'moss', sun: true, boost: 1.0);
-  s.home.plots['p3'] = PlotState(crop: 'glowleaf', plantedAt: DateTime.now().millisecondsSinceEpoch - 20 * 60000, watered: true, tender: 'sprig');
+  // Fern's bed: ripe, and a Sunstone on it (a Golden harvest); Moss's: growing; bed 2 ripe, untended
+  s.home.plots['p1'] = PlotState(crop: 'sunberry', plantedAt: ago, watered: true, tender: 'fern', sun: true, boost: 1.0);
+  s.home.plots['p2'] = PlotState(crop: 'meadow_carrot', plantedAt: ago);
+  s.home.plots['p3'] = PlotState(crop: 'glowleaf', plantedAt: DateTime.now().millisecondsSinceEpoch - 20 * 60000, watered: true, tender: 'moss');
   g.grantItem(s, 'seed_sunberry', 4, 'shorts', _t0);
   g.grantItem(s, 'seed_meadow_carrot', 3, 'shorts', _t0);
   return s;
@@ -1281,17 +1278,16 @@ final gardenShort = Short(
     Clip(
       state: gardenSave,
       open: () => const Ambience('garden', child: GardenScreen()),
-      secs: 9.5,
+      secs: 11.5,
       preroll: 0.6,
       pilot: const PilotStart(on: false),
       loaded: () => true,
       beats: [
-        Beat(0.2, (s) => s.say(const [('Forest Juveniles\n', mint), ('tend your beds', white)], secs: 2.2, size: 27, y: 480)),
-        Beat(2.4, (s) => s.tapWhere(_bed('Bed 1:'))),
-        Beat(2.6, (s) => s.say(const [('+1 every harvest', white)], secs: 1.6, size: 27, y: 480)),
-        Beat(4.4, (s) => s.tapWhere(_bed('Bed 2:'))),
-        Beat(4.6, (s) => s.say(const [('and sometimes...\n', white), ('GOLDEN', gold)], secs: 2.2, size: 30, y: 480)),
-        Beat(7.2, (s) => s.say(const [('One helper\n', white), ('to a bed', mint)], secs: 2.0, size: 27, y: 480)),
+        Beat(0.2, (s) => s.say(const [('Forest Juveniles\n', mint), ('tend your beds', white)], secs: 2.6, size: 27, y: 480)),
+        Beat(3.6, (s) => s.say(const [('watering ', white), ('by magic', mint)], secs: 2.8, size: 27, y: 480)),
+        Beat(7.0, (s) => s.tapWhere(_bed('Bed 1:'))),
+        Beat(7.1, (s) => s.say(const [('and sometimes...\n', white), ('GOLDEN', gold)], secs: 2.6, size: 30, y: 480)),
+        Beat(10.0, (s) => s.tapWhere(_bed('Fern, your helper'))),
       ],
     ),
   ],
