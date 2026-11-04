@@ -591,7 +591,7 @@ final sproutintro = Short(
 );
 
 /// Looks at one thing, recorded by name only.
-final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort, gardenLower, gardenOrders, blastsShort, telegraphs, runs, windup, galleries, capfolk];
+final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort, gardenLower, gardenOrders, blastsShort, telegraphs, runs, windup, galleries, capfolk, finds];
 
 /// 3. The Deep Wilds: a clearing calmed, the way down opens, down a floor, and a Hollow Surge.
 final deep = Short(
@@ -919,6 +919,41 @@ final capfolk = Short(
             if (m.caps.isNotEmpty) s.screen!.forage(m.caps.first.id);
           }),
           Beat(2.8, (s) => s.autopilot.on = true),
+        ],
+      ),
+  ],
+);
+
+/// The finds (not for posting): a Deep Wilds chest, then the mine's cart and barrel, each searched.
+final finds = Short(
+  id: 'finds',
+  endTitle: const [('Finds', null)],
+  endSecs: 0.4,
+  clips: [
+    for (final (depth, seed, mine, label) in const [(2, 9, false, 'Deep Wilds chest'), (1, 3, true, "Miner's cart"), (2, 4, true, 'Barrel')])
+      Clip(
+        state: () => mochi('amber'),
+        open: () => WildsScreen(depth: depth, seed: seed, mine: mine),
+        secs: 3.2,
+        preroll: 1.0,
+        zoom: 0.6,
+        quiet: true,
+        pilot: const PilotStart(on: false),
+        setup: (s) async {
+          await _god(s);
+          final sp = s.screen!.map!.spots.where((x) => x.kind == 'chest').firstOrNull;
+          if (sp != null) placeNear(s, sp.x, sp.z, dist: 16);
+        },
+        beats: [
+          Beat(0.05, (s) => s.say([(label, white)], secs: 1.0, size: 27, y: 165)),
+          Beat(0.4, (s) {
+            final sp = s.screen!.map!.spots.where((x) => x.kind == 'chest').firstOrNull;
+            if (sp != null) s.autopilot.walkTo = Offset(sp.x + 30, sp.z + 10); // (beside it, so it shows)
+          }),
+          Beat(1.6, (s) {
+            final sp = s.screen!.map!.spots.where((x) => x.kind == 'chest').firstOrNull;
+            if (sp != null) s.screen!.search(sp.id);
+          }),
         ],
       ),
   ],

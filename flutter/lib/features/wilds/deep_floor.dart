@@ -588,12 +588,19 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
         }
         _foes(plan, rng, r, cx, cz, rr * 0.5, wantFoes - 1, depth, elite: true);
       case 'treasure':
-        add('chest', cx, cz - 6, flip: false, force: true); // a dead end: the chest is what you came for
+        // a dead end: what's in it is what you came for (in the mine, a miner's cart or a barrel)
+        final box = mine ? (rng.p(0.5) ? 'cart' : 'barrel') : 'chest';
+        add(box, cx, cz - 6, flip: false, force: true);
         if (mine) _ores(plan, rng, k, r, cx, cz, rr, depth, radii['ore'] ?? 9, clearOfWays, count: 1);
         if (nest && !plan.spots.any((sp) => sp['kind'] == 'nest')) _nest(plan, rng, cx, cz, rr, mine);
         plan.spots.add({
-          'id': 'chest_${r.i}', 'kind': 'chest', 'x': cx, 'z': cz - 2, 'r': 20, 'label': 'Open', 'title': 'An old chest',
-          'text': 'Moss on the lid, a little light leaking out of the seam.',
+          'id': 'chest_${r.i}', 'kind': 'chest', 'box': box, 'x': cx, 'z': cz - 2, 'r': 24, 'label': mine ? 'Search' : 'Open',
+          'title': switch (box) { 'cart' => "A miner's cart", 'barrel' => 'An old barrel', _ => 'An old chest' },
+          'text': switch (box) {
+            'cart' => 'Left on a stub of rail, still heaped with ore. Something glints under the top of the pile.',
+            'barrel' => "A miner's barrel, its lid wedged tight. Something rattles inside when you nudge it.",
+            _ => 'Moss on the lid, a little light leaking out of the seam.',
+          },
         });
         if (depth >= 4) _foes(plan, rng, r, cx, cz, rr * 0.5, 2, depth);
       case 'shrine':
@@ -857,7 +864,9 @@ Future<WildsMap> makeFloor(int depth, int seed, {String? story, String? place, S
   final images = (thicket['images'] as Map).cast<String, dynamic>();
   final radii = {for (final e in images.entries) e.key: ((e.value as Map)['radius'] as num? ?? 0).toDouble()};
   radii['gate'] = 0; // its footprint is its own shape (below)
-  radii['chest'] = 6;
+  radii['chest'] = 11; // (a big old chest: about 32 units across)
+  radii['cart'] = 14;
+  radii['barrel'] = 9;
   radii['ore'] = 9;
   final plan = planFloor(kit, depth, seed, radii, story: story, mine: mine, nest: nest);
   // the gate's footprint: its pillars and the sealed opening (as in tools/art/wilds_maps.py SHAPES)
@@ -884,8 +893,19 @@ Future<WildsMap> makeFloor(int depth, int seed, {String? story, String? place, S
   for (final k in kinds) {
     if (k == 'chest') {
       final img = await _image('assets/art/economy/chest_wood_closed.webp');
-      // the chest art is a UI picture: stand it on its base, about 16 units wide
-      propArt[k] = PropArt(img, img.width / 2, img.height * 0.92, img.width / 16);
+      // the chest art is a UI picture: stand it on its base, about 32 units wide (a find worth the walk)
+      propArt[k] = PropArt(img, img.width / 2, img.height * 0.92, img.width / 32);
+      continue;
+    }
+    if (k == 'cart' || k == 'barrel') {
+      // the mine's finds (tools/art/mine_props.py), and how each looks searched
+      final meta = (jsonDecode(await rootBundle.loadString('${wildsBase}mine_props.json')) as Map).cast<String, dynamic>();
+      for (final key in [k, '${k}_open']) {
+        final p = (meta[key] as Map).cast<String, dynamic>();
+        final a = p['anchor'] as List;
+        // drawn half as big again as modelled: a find worth the walk, like the chests
+        propArt[key] = PropArt(await _image(wildsBase + (p['image'] as String)), (a[0] as num).toDouble(), (a[1] as num).toDouble(), (p['scale'] as num).toDouble() / 1.5);
+      }
       continue;
     }
     final p = (images[k] as Map?)?.cast<String, dynamic>();

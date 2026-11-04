@@ -210,10 +210,12 @@ class MapSpot {
         label = j['label'] as String? ?? 'Look',
         title = j['title'] as String? ?? '',
         text = j['text'] as String? ?? '',
-        need = (j['need'] as num?)?.toInt();
+        need = (j['need'] as num?)?.toInt(),
+        box = j['box'] as String?;
   final String id, kind, label, title, text;
   final double x, z, r;
   final int? need; // level needed (a gate)
+  final String? box; // a find's container: 'chest', or in the mine a 'cart' or a 'barrel'
 }
 
 class GroundTile {

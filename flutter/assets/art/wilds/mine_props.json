@@ -1,0 +1,34 @@
+{
+ "cart": {
+  "image": "mine_cart.webp",
+  "anchor": [
+   93.0,
+   120.6
+  ],
+  "scale": 6.0
+ },
+ "cart_open": {
+  "image": "mine_cart_open.webp",
+  "anchor": [
+   93.0,
+   120.6
+  ],
+  "scale": 6.0
+ },
+ "barrel": {
+  "image": "mine_barrel.webp",
+  "anchor": [
+   42.0,
+   94.0
+  ],
+  "scale": 6.0
+ },
+ "barrel_open": {
+  "image": "mine_barrel_open.webp",
+  "anchor": [
+   62.0,
+   94.0
+  ],
+  "scale": 6.0
+ }
+}

@@ -78,6 +78,9 @@ abstract class WildsDirectorHandle {
 
   /// Forage a patch of glowcaps by its id, as its spot's Forage does.
   void forage(String spotId);
+
+  /// Open a find (a chest, or the mine's cart or barrel) by its spot's id, as its Open or Search does.
+  void search(String spotId);
 }
 
 /// The Blast's and the Pulse's names, by colour (their full names; the buttons' words: _CombatPad).
@@ -139,6 +142,12 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
 
   @override
   void banner(String text, [double secs = 2.6]) => _showBanner(text, secs);
+
+  @override
+  void search(String spotId) {
+    final sp = _map?.spots.where((x) => x.id == spotId).firstOrNull;
+    if (sp != null && !_used.contains(sp.id)) _openChest(sp);
+  }
 
   @override
   void forage(String spotId) {
@@ -1541,8 +1550,22 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       r.items[id] = (r.items[id] ?? 0) + n;
       found.add('$n ${_lootName(id)}');
     });
+    // a miner's cart is heaped with ore: some of it comes too
+    final box = s.box ?? 'chest';
+    if (box == 'cart') {
+      final ore = depth <= 1 ? 'copper_ore' : 'iron_ore';
+      final n = 2 + rng.nextInt(3);
+      r.items[ore] = (r.items[ore] ?? 0) + n;
+      found.add('$n ${_lootName(ore)}');
+    }
     _showBanner('Found: ${found.join(', ')}', 3.2);
     _sfx('reward_chime', 0.7);
+    if (box != 'chest') {
+      // emptied: the cart's ore gone, the barrel's lid off
+      final open = m.propArt['${box}_open'];
+      if (open != null) setState(() => m.propArt[box] = open);
+      return;
+    }
     // the lid stays open
     _image('assets/art/economy/chest_wood_open.webp').then((img) {
       final a = m.propArt['chest'];
@@ -2159,7 +2182,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                     'camp' => r.pet.hp >= r.pet.maxHp ? 'Your Evochi is fresh already.' : null,
                     _ => null,
                   },
-            primary: used ? 'OK' : switch (s.kind) { 'chest' => 'Open', 'shrine' => buffDefs[blessings.$1]!.name, _ => 'Rest' },
+            primary: used ? 'OK' : switch (s.kind) { 'chest' => s.box == 'cart' || s.box == 'barrel' ? 'Search' : 'Open', 'shrine' => buffDefs[blessings.$1]!.name, _ => 'Rest' },
             secondary: used ? null : (s.kind == 'shrine' ? buffDefs[blessings.$2]!.name : 'Leave it'),
             onPrimary: () {
               if (!used) {
