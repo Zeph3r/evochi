@@ -3,15 +3,19 @@
 // in an arc, its count rising; a Golden harvest with a gold flash, a ring of glints and its banner).
 // The rules are in game/home/home.dart (garden helpers).
 
+import 'dart:convert';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show rootBundle;
 import 'package:provider/provider.dart';
 
 import '../../app/constants.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/models/game_state.dart';
+import '../../core/services/asset_manifest.dart';
 import '../../core/services/haptics.dart';
 import '../../game/home/home.dart' as h;
 import '../shared/kit.dart';
@@ -604,6 +608,9 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
   late _Plan _plan = _Plan(widget.pet, widget.rank);
   double? _harvestAt; // when its harvest began (the clock)
   double? _tapAt; // when it was tapped (its name shows a moment)
+  _Walker? _art; // its in-world sprite (the walkable maps' 8 directions)
+  int _facing = 7;
+  double _turnAt = -9;
 
   double get _clock => (_a.lastElapsedDuration?.inMicroseconds ?? 0) / 1e6;
 
@@ -613,12 +620,19 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
     if (widget.animate) _a.repeat();
     _a.addListener(_lean);
     if (widget.harvest != null) _harvestAt = 0;
+    _loadArt();
+  }
+
+  Future<void> _loadArt() async {
+    final a = await _Walker.load(widget.pet);
+    if (mounted) setState(() => _art = a);
   }
 
   @override
   void didUpdateWidget(PlotActor old) {
     super.didUpdateWidget(old);
     if (widget.pet.id != old.pet.id || widget.rank != old.rank) _plan = _Plan(widget.pet, widget.rank);
+    if (widget.pet.id != old.pet.id || widget.pet.stage != old.pet.stage) _loadArt();
     if (widget.harvest != null && !identical(widget.harvest, old.harvest)) _harvestAt = _clock;
   }
 
@@ -649,7 +663,7 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
   }
 
   @override
-  Widget build(BuildContext context) => AnimatedBuilder(animation: _a, builder: (ctx, _) => _frame(widget.animate ? _clock : 0.0));
+  Widget build(BuildContext context) => _art == null ? const SizedBox.shrink() : AnimatedBuilder(animation: _a, builder: (ctx, _) => _frame(widget.animate ? _clock : 0.0));
 
   Widget _frame(double t) {
     final w = widget;
@@ -657,10 +671,13 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
     // every helper stands on the walkway at its bed's right front corner, turned toward it (as the art faces):
     // the left beds' helpers in the path between the beds, the right beds' in the margin, so none meet
     const dir = -1.0; // toward the bed
-    final ph = bed.height * 0.9;
-    final pw = ph * 330 / 375;
-    final fx = (bed.right + pw * 0.3).clamp(pw * 0.5 + 2, w.plate.width - pw * 0.5 - 2);
-    final foot = Offset(fx, bed.bottom - bed.height * 0.04);
+    // its in-world sprite's frame: where its feet are (so it stands on them, and turns on them)
+    final art = _art!;
+    final gx = art.gx / art.fw, gy = art.gy / art.fh;
+    final ph = bed.height * 1.08; // the frame (the body is about half of it)
+    final pw = ph * art.fw / art.fh;
+    final fx = (bed.right + pw * 0.26).clamp(pw * gx + 2, w.plate.width - pw * (1 - gx) - 2);
+    final foot = Offset(fx, bed.bottom - bed.height * 0.02);
     final ps = bed.height * 0.5; // a prop's size
     final rest = Offset(foot.dx + dir * pw * 0.46, foot.dy - ps * 0.12); // the can, on the bed's front corner
     final over = Offset(bed.center.dx - dir * bed.width * 0.06, bed.top + bed.height * 0.12);
@@ -696,7 +713,6 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
     final br = math.sin((t + _plan.phase) * math.pi * (mood == HelperMood.sleeping ? 0.6 : 0.95));
     var sy = 1 + 0.022 * br, sx = 1 - 0.012 * br, lift = 0.0, tilt = 0.0;
     final sway = 0.012 * math.sin(t * 1.3 + _plan.phase);
-    var expr = ((t + _plan.phase) % _plan.blinkEvery) < 0.13 ? 'blink' : 'default';
     var crest = 0.0; // its crest glowing as it works
     var aura = 0.0;
     double ramp(double a, double b) => ((u - a) / (b - a)).clamp(0.0, 1.0);
@@ -704,14 +720,14 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
     Offset? fly;
     switch (mood) {
       case HelperMood.sleeping:
-        expr = 'sleepy';
+        // curled up for a nap
+        sy *= 0.93;
+        sx *= 1.03;
       case HelperMood.idle:
         break;
       case HelperMood.glancing:
-        expr = 'curious';
         tilt = 0.06 * dir * math.sin(ramp(0, 1.4) * math.pi);
       case HelperMood.butterfly:
-        expr = u < 4.4 ? 'curious' : 'happy';
         final k = u / 5.0;
         fly = Offset(
           foot.dx + dir * pw * (0.2 + 0.9 * math.sin(k * math.pi)) + 12 * math.sin(u * 3.1),
@@ -719,36 +735,30 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
         );
         tilt = ((fly.dx - foot.dx) / (pw * 1.2)).clamp(-1.0, 1.0) * 0.07;
       case HelperMood.admiring:
-        expr = 'affectionate';
         tilt = 0.04 * dir;
       case HelperMood.cheering:
-        expr = 'excited';
         final hop = math.max(0.0, math.sin(u * 2 * math.pi / 0.65));
         lift = ph * 0.1 * hop * (0.6 + _plan.expressive * 0.6);
         sy *= 1 + 0.05 * hop;
       case HelperMood.watering:
         crest = ramp(0, 0.3) * (1 - ramp(2.4, 3.0));
-        expr = u < 0.9 ? 'determined' : (u < 2.4 ? 'happy' : 'default');
         if (u < 0.3) sy *= 1 - 0.05 * math.sin(ramp(0, 0.3) * math.pi);
         // its eyes on the can: a tilt toward where it is
         tilt = 0.07 * dir * math.sin(ramp(0.2, 3.0) * math.pi);
       case HelperMood.nurturing:
         crest = ramp(0, 0.3) * (1 - ramp(2.3, 2.8));
         aura = ramp(0.25, 0.6) * (1 - ramp(2.2, 2.8));
-        expr = u < 0.3 ? 'determined' : 'affectionate';
         if (u < 0.3) sy *= 1 - 0.05 * math.sin(ramp(0, 0.3) * math.pi);
       case HelperMood.harvest:
         // Golden: a surprise first (a step back, wide eyes, a tilt)
         final g0 = golden ? 0.5 : 0.0;
         if (golden && u < g0) {
-          expr = 'surprised';
           tilt = -0.1 * dir * math.sin(ramp(0, g0) * math.pi);
           lift = ph * 0.05 * math.sin(ramp(0, 0.25) * math.pi);
         } else {
           final v = u - g0;
           crest = (v / 0.25).clamp(0.0, 1.0) * (1 - ((v - 1.0) / 0.3).clamp(0.0, 1.0));
           aura = ((v - 0.25) / 0.3).clamp(0.0, 1.0) * (1 - ((v - 1.1) / 0.3).clamp(0.0, 1.0));
-          expr = v < 0.55 ? 'determined' : (v < 1.25 ? 'happy' : (golden ? 'excited' : 'happy'));
           if (v < 0.25) sy *= 1 - 0.06 * math.sin(v / 0.25 * math.pi);
           if (v > 1.25 && v < 1.8) {
             final k = (v - 1.25) / 0.55;
@@ -757,9 +767,36 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
           }
         }
     }
-    final petRect = Rect.fromLTWH(foot.dx - pw / 2, foot.dy - ph - lift, pw, ph);
-    final head = Offset(petRect.left + pw * 0.45, petRect.top + ph * 0.08);
-    final body = Offset(petRect.center.dx, petRect.top + ph * 0.6);
+    final petRect = Rect.fromLTWH(foot.dx - pw * gx, foot.dy - ph * gy - lift, pw, ph);
+    final head = Offset(foot.dx - pw * 0.06, foot.dy - lift - ph * 0.47);
+    final body = Offset(foot.dx - pw * 0.04, foot.dy - lift - ph * 0.24);
+    // which way it faces (the sheet's rows: 0 toward you, then round clockwise as seen from above: 6 left, 7 down-left)
+    var face = 7;
+    switch (mood) {
+      case HelperMood.sleeping:
+      case HelperMood.cheering:
+        face = 0;
+      case HelperMood.glancing:
+        face = u < 0.7 ? 0 : 7;
+      case HelperMood.watering:
+        face = u > 0.6 && u < 2.6 ? 6 : 7; // watching its can up over the crop
+      case HelperMood.butterfly:
+        final f = fly;
+        if (f != null) {
+          final a = math.atan2(f.dy - foot.dy, f.dx - foot.dx); // screen angle to the butterfly
+          // nearest of the eight (0 is down the screen)
+          face = (((math.pi / 2 - a) / (math.pi / 4)).round() % 8 + 8) % 8;
+        }
+      default:
+        face = 7;
+    }
+    if (face != _facing) {
+      _facing = face;
+      _turnAt = t;
+    }
+    // a little shuffle of its feet as it turns
+    final turning = t - _turnAt;
+    final col = turning >= 0 && turning < 0.36 ? 1 + (turning / 0.06).floor() % 12 : 0;
 
     // ---- the can: resting on the path, or up over the crop
     var canAt = rest;
@@ -789,13 +826,22 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
     }
     final showCan = w.tending && !w.p.empty && mood != HelperMood.harvest;
 
+    // contact shadows: its own (smaller and fainter as it hops), the can's (on the path, or on the soil under it
+    // as it floats), the basket's
+    final up = (lift / (ph * 0.2)).clamp(0.0, 1.0);
+    final soil = bed.center.dy + bed.height * 0.18;
+    final shadows = <(Offset, double, double)>[
+      (foot + const Offset(0, 1), pw * 0.5 * (1 - 0.3 * up), 0.3 * (1 - 0.45 * up)),
+      if (showCan) canOut && u > 0.35 && u < 2.95 ? (Offset(canAt.dx, soil), ps * 0.5, 0.12) : (Offset(canAt.dx, rest.dy + ps * 0.4), ps * 0.62, 0.24),
+    ];
+
     final kids = <Widget>[
       Positioned.fill(
         child: IgnorePointer(
           child: CustomPaint(
             painter: _MagicPainter(
               mood: mood, t: t, u: u, bed: bed, head: head, body: body, dir: dir, crest: crest, aura: aura, golden: golden,
-              can: canOut ? canAt : null, canLit: canLit, canTip: canTip, fly: fly, ps: ps, pw: pw,
+              can: canOut ? canAt : null, canLit: canLit, canTip: canTip, fly: fly, ps: ps, pw: pw, shadows: shadows,
             ),
           ),
         ),
@@ -810,12 +856,23 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
             button: true,
             label: '${w.pet.name}, your helper',
             child: Transform(
-              alignment: Alignment.bottomCenter,
+              // it breathes, sways and turns on its feet
+              alignment: Alignment(gx * 2 - 1, gy * 2 - 1),
               transform: Matrix4.identity()
                 ..rotateZ(tilt)
                 ..multiply(Matrix4.skewX(sway))
                 ..scale(sx, sy, 1),
-              child: PetSprite(stage: w.pet.stage, palette: w.pet.paletteId, expr: expr, overlays: w.pet.equipped.values.toList(), height: ph),
+              // a touch of shade at its feet, as the ground would give it
+              child: ShaderMask(
+                blendMode: BlendMode.modulate,
+                shaderCallback: (r) => LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: const [Colors.white, Colors.white, Color(0xFFCFC6B8)],
+                  stops: [0, (gy - 0.14).clamp(0.0, 1.0), gy],
+                ).createShader(r),
+                child: CustomPaint(size: Size(pw, ph), painter: _WalkerPainter(art, _facing, col)),
+              ),
             ),
           ),
         ),
@@ -874,6 +931,7 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
           child: IgnorePointer(child: Transform.rotate(angle: (1 - k) * (i.isEven ? 0.8 : -0.8), child: ItemImage(bits[i], size: gilded ? 36 : 24))),
         ));
       }
+      shadows.add((basketAt + Offset(0, ps * 0.5), ps * 0.85, 0.24 * land * (1 - gone)));
       kids.add(img('prop_basket', basketAt + Offset(0, -10 * (1 - Curves.easeOutBack.transform(land))), ps * 1.05 * (0.6 + 0.4 * Curves.easeOutBack.transform(land)),
           opacity: land * (1 - gone), squash: 1 - 0.1 * bump));
       // the counts, rising over the basket
@@ -978,7 +1036,9 @@ class _MagicPainter extends CustomPainter {
     required this.fly,
     required this.ps,
     required this.pw,
+    required this.shadows,
   });
+  final List<(Offset, double, double)> shadows; // where, how wide, how dark
   final HelperMood mood;
   final double t, u, dir, crest, aura, canLit, canTip, ps, pw;
   final Rect bed;
@@ -1020,6 +1080,12 @@ class _MagicPainter extends CustomPainter {
 
   @override
   void paint(Canvas c, Size size) {
+    for (final (at, wd, a) in shadows) {
+      if (a <= 0.01) continue;
+      c.drawOval(Rect.fromCenter(center: at, width: wd, height: wd * 0.3), Paint()
+        ..color = const Color(0xFF3A2A14).withValues(alpha: a)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5));
+    }
     // its crest, glowing
     if (crest > 0.01) {
       c.drawCircle(head, ps * 0.32, Paint()
@@ -1075,6 +1141,18 @@ class _MagicPainter extends CustomPainter {
       case HelperMood.harvest:
         final g0 = golden ? 0.5 : 0.0;
         final v = u - g0;
+        if (golden && u < 0.75) {
+          // a Golden one surprises it: a "!" pops up over its head
+          final k = (u / 0.12).clamp(0.0, 1.0);
+          final at = head + Offset(0, -14 - 6 * Curves.easeOutBack.transform(k));
+          final a = (1 - ((u - 0.55) / 0.2).clamp(0.0, 1.0));
+          c.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: at, width: 16, height: 18), const Radius.circular(6)), Paint()..color = Colors.white.withValues(alpha: a));
+          final tp = TextPainter(
+            text: TextSpan(text: '!', style: TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w900, fontSize: 14, color: const Color(0xFFE0A21E).withValues(alpha: a))),
+            textDirection: TextDirection.ltr,
+          )..layout();
+          tp.paint(c, at - Offset(tp.width / 2, tp.height / 2));
+        }
         if (v > 0.2 && v < 1.3) _trail(c, head, crop, (math.min((v - 0.2) / 0.2, (1.3 - v) / 0.2)).clamp(0.0, 1.0));
         // a Golden harvest's burst, gold and green, at the basket
         if (golden && v > 1.15 && v < 2.1) {
@@ -1166,5 +1244,52 @@ class _Slot extends StatelessWidget {
                 ]),
         ),
       );
+}
+
+/// A helper's in-world sprite: the walkable maps' sheet for its stage and palette (8 directions down, the idle
+/// stance then the walk across), and what it wears, a row per item (a direction per frame).
+class _Walker {
+  _Walker(this.sheet, this.wear, this.fw, this.fh, this.gx, this.gy);
+  final ui.Image sheet;
+  final List<ui.Image> wear;
+  final double fw, fh, gx, gy;
+
+  static Map<String, dynamic>? _meta;
+  static final _cache = <String, _Walker>{};
+
+  static Future<_Walker> load(Pet pet) async {
+    final key = '${pet.stage}|${pet.paletteId}|${pet.equipped.values.join(',')}';
+    final hit = _cache[key];
+    if (hit != null) return hit;
+    final meta = _meta ??= (jsonDecode(await rootBundle.loadString('${artBase}wilds/wilds_walk.json')) as Map).cast<String, dynamic>();
+    final w = ((meta['walkers'] as Map)['s0${pet.stage.clamp(1, 3)}'] as Map).cast<String, dynamic>();
+    final sheets = (((w['gaits'] as Map)['walk'] as Map)['sheets'] as Map).cast<String, dynamic>();
+    final sheet = await AtlasCache.load('${artBase}wilds/${sheets[pet.paletteId] ?? sheets['forest']}');
+    final wm = (w['wear'] as Map?)?.cast<String, dynamic>() ?? const {};
+    final wear = <ui.Image>[
+      for (final id in pet.equipped.values)
+        if (wm[id] is Map) await AtlasCache.load('${artBase}wilds/${(wm[id] as Map)['file']}'),
+    ];
+    final g = w['ground'] as List;
+    return _cache[key] = _Walker(sheet, wear, (w['frameW'] as num).toDouble(), (w['frameH'] as num).toDouble(), (g[0] as num).toDouble(), (g[1] as num).toDouble());
+  }
+}
+
+class _WalkerPainter extends CustomPainter {
+  _WalkerPainter(this.art, this.facing, this.col);
+  final _Walker art;
+  final int facing, col;
+  @override
+  void paint(Canvas canvas, Size size) {
+    final dst = Offset.zero & size;
+    final paint = Paint()..filterQuality = FilterQuality.medium;
+    canvas.drawImageRect(art.sheet, Rect.fromLTWH(col * art.fw, facing * art.fh, art.fw, art.fh), dst, paint);
+    for (final w in art.wear) {
+      canvas.drawImageRect(w, Rect.fromLTWH(facing * art.fw, 0, art.fw, art.fh), dst, paint);
+    }
+  }
+
+  @override
+  bool shouldRepaint(_WalkerPainter old) => old.facing != facing || old.col != col || old.art != art;
 }
 
