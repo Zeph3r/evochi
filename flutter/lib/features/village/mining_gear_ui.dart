@@ -202,7 +202,9 @@ class _Loadout extends StatelessWidget {
         margin: const EdgeInsets.only(bottom: 10),
         decoration: BoxDecoration(color: const Color(0xFFEFF8E2), borderRadius: BorderRadius.circular(12), border: Border.all(color: const Color(0xFFB7D98B))),
         child: Text(
-          'Breaks ${[for (var t = 1; t <= tier; t++) mine.tierNames[t]!.toLowerCase()].join(', ')} ore · Mining power ${(power * 100).round()}%',
+          tier == 0
+              ? 'Needs a pick to break ore'
+              : 'Breaks ${[for (var t = 1; t <= tier; t++) mine.tierNames[t]!.toLowerCase()].join(', ')} ore${mine.bareTierOf(s) > 0 ? ' (bare paws: an Obsidian)' : ''} · Mining power ${(power * 100).round()}%',
           style: const TextStyle(fontFamily: EvochiText.game, fontWeight: FontWeight.w900, fontSize: 14, color: EvochiColor.healthy),
         ),
       ),

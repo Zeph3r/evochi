@@ -398,7 +398,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       ores: [for (final (id, kind, x, z) in m.ores) OreRock(id, kind, x, z, hits: _oreHits[kind] ?? 3, tier: oreTier[kind] ?? 1)],
       miningPower: mine.miningPowerOf(c.state),
       oreTier: mine.oreTierOf(c.state),
-      gearTier: mine.gearTierOf(c.state),
+      gearTier: mine.fullTierOf(c.state),
     );
     final carry = widget.carry;
     if (carry != null) {
@@ -3184,6 +3184,12 @@ class _MapPainter extends CustomPainter {
 
   static const _groundBursts = {'pulse', 'tremor', 'rockrise', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare', 'mistwave', 'mistlinger'};
 
+  /// Your Evochi's stage, for its moves' size and flourish: an Eggling's are small and simple, a Juvenile's
+  /// fuller, an Elder's the whole show.
+  int get _stage => (s._raid?.stage ?? 3).clamp(1, 3);
+  double get _grow => const [0.55, 0.78, 1.0][_stage - 1];
+  int _by(int egg, int juv, int elder) => _stage == 1 ? egg : (_stage == 2 ? juv : elder);
+
   /// A Blast's colours, by its Evochi's: (its bright core, its body, its deep edge)
   static (Color, Color, Color) _blastCols(String tag) => switch (tag) {
         'forest' => (const Color(0xFFF0FFDC), const Color(0xFF8FE36A), const Color(0xFF3E9A3A)),
@@ -3232,8 +3238,7 @@ class _MapPainter extends CustomPainter {
     canvas.restore();
   }
 
-  /// Its colour's own bits, flung from [c] along [dir] (a unit screen vector) [f] of the way out (0..1): leaves,
-  /// embers, droplets, crystal glints, sun motes.
+  /// One of its colour's own bits: a leaf, an ember, a droplet, a crystal glint, a sun mote.
   void _themed(Canvas canvas, String tag, Offset at, double size, double spin, double a) {
     final (light, mid, _) = _blastCols(tag);
     switch (tag) {
@@ -3254,7 +3259,8 @@ class _MapPainter extends CustomPainter {
   }
 
   /// A Blast: an orb of its colour's energy, a flame of a tail behind it, a swirl round it, and its colour's
-  /// own bits riding along (a Forest's leaves circle it as they do a helper's telekinesis).
+  /// own bits riding along (a Forest's leaves circle it as they do a helper's telekinesis). Smaller and
+  /// simpler for a younger Evochi.
   void _blast(Canvas canvas, Shot sh, Offset g) {
     final u = s._u / 2.7;
     final t = s._t;
@@ -3265,14 +3271,13 @@ class _MapPainter extends CustomPainter {
       mid = HSVColor.fromAHSV(1, (t * 240 + sh.x * 3) % 360, 0.55, 1).toColor();
       deep = HSVColor.fromAHSV(1, (t * 240 + sh.x * 3 + 40) % 360, 0.7, 0.85).toColor();
     }
-    final sc = sh.prism ? 0.7 : (sh.shard ? 0.8 : 1.0);
+    final sc = (sh.prism ? 0.7 : (sh.shard ? 0.8 : 1.0)) * (sh.shard ? 1.0 : _grow);
     final grow = Curves.easeOutBack.transform((sh.t / 0.08).clamp(0.0, 1.0));
     final tailW = s._toScreen(sh.x - sh.vx / sp * 42 * sc, sh.z - sh.vz / sp * 42 * sc) - Offset(0, sh.height * _up);
     final d = g - tailW;
     final len = math.max(d.distance, 1e-6);
     final f = d / len, n = Offset(-f.dy, f.dx);
     final w = 9.5 * u * sc * grow;
-    // the tail: a flame of its colour, flickering, fading back to nothing
     for (var layer = 0; layer < 2; layer++) {
       final ww = layer == 0 ? w * 1.25 : w * 0.55;
       final tip = tailW + n * math.sin(t * 34 + sh.x) * 2.5 * u;
@@ -3286,143 +3291,175 @@ class _MapPainter extends CustomPainter {
         ..blendMode = BlendMode.plus
         ..shader = ui.Gradient.linear(g, tailW, [col.withValues(alpha: layer == 0 ? 0.55 : 0.8), col.withValues(alpha: 0)]));
     }
-    // its glow, its translucent body, its bright heart
     _addGlow(canvas, g, 28 * u * sc * grow, mid.withValues(alpha: 0.6));
     canvas.drawCircle(g, w, Paint()..shader = ui.Gradient.radial(g, w, [light, mid.withValues(alpha: 0.78), deep.withValues(alpha: 0.35)], const [0.0, 0.55, 1.0]));
     canvas.drawCircle(g - Offset(w * 0.25, w * 0.3), w * 0.32, Paint()..color = Colors.white.withValues(alpha: 0.9));
-    // a swirl of energy round it
-    final ring = Rect.fromCenter(center: g, width: w * 3.0, height: w * 2.2);
-    for (var i = 0; i < 2; i++) {
-      canvas.drawArc(ring, t * 13 + i * math.pi, 1.7, false, _add(light.withValues(alpha: 0.75))
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 2.4 * u
-        ..strokeCap = StrokeCap.round);
+    // a swirl of energy round it (an Elder's has a second, wider ring)
+    final arcs = _by(1, 2, 2);
+    for (var ring = 0; ring < (_stage >= 3 ? 2 : 1); ring++) {
+      final rr = Rect.fromCenter(center: g, width: w * (3.0 + ring * 1.2), height: w * (2.2 + ring * 0.9));
+      for (var i = 0; i < arcs; i++) {
+        canvas.drawArc(rr, t * (13 - ring * 5) * (ring.isEven ? 1 : -1) + i * math.pi, 1.7, false, _add(light.withValues(alpha: 0.75 - ring * 0.3))
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = (2.4 - ring) * u
+          ..strokeCap = StrokeCap.round);
+      }
     }
-    // its colour's own: leaves circling it and trailing off, embers, droplets, glints, sun rays
     if (tag == 'amber' && !sh.prism) {
-      for (var i = 0; i < 4; i++) {
-        final a = t * 5 + i * math.pi / 2;
+      final rays = _by(4, 6, 8);
+      for (var i = 0; i < rays; i++) {
+        final a = t * 5 + i * math.pi * 2 / rays;
         canvas.drawLine(g + Offset(math.cos(a), math.sin(a)) * w * 1.1, g + Offset(math.cos(a), math.sin(a)) * w * 2.2, _add(light.withValues(alpha: 0.7))
           ..strokeWidth = 1.8 * u
           ..strokeCap = StrokeCap.round);
       }
     } else if (!sh.prism) {
-      final orbit = tag == 'forest' ? 3 : 2;
+      final orbit = tag == 'forest' ? _by(1, 2, 3) : _by(1, 2, 2);
       for (var i = 0; i < orbit; i++) {
         final a = t * 9 + i * math.pi * 2 / orbit;
         _themed(canvas, tag, g + Offset(math.cos(a) * w * 1.75, math.sin(a) * w * 1.15), 5 * u * sc, a * 2, 0.95);
       }
-      for (var i = 0; i < 4; i++) {
-        final k = ((i / 4) + sh.t * 2.4) % 1.0;
+      final trail = _by(2, 3, 5);
+      for (var i = 0; i < trail; i++) {
+        final k = ((i / trail) + sh.t * 2.4) % 1.0;
         final at = Offset.lerp(g, tailW, k)! + n * math.sin(k * 9 + i * 2) * 5 * u + (tag == 'coral' ? Offset(0, -k * 6 * u) : Offset.zero);
         _themed(canvas, tag, at, (4.8 - 2 * k) * u * sc, k * 8 + i, (1 - k) * 0.9);
       }
     }
   }
 
-  /// An Obsidian's boulder: it heaves up out of the cracked ground, then flies tumbling, dust streaming off it.
+  /// A voxel rock (a boulder, a heaved rock, a chunk): a big block with a smaller one fused to each side,
+  /// lit from the top left, flecked, a vein of violet light in it. [s0] its size in screen px.
+  void _voxelRock(Canvas canvas, Offset c, double s0, double spin, double a, {bool vein = true, int seed = 0}) {
+    canvas.save();
+    canvas.translate(c.dx, c.dy);
+    canvas.rotate(spin);
+    void cube(Offset o, double S, int k) {
+      final top = Path()..moveTo(o.dx, o.dy - S)..lineTo(o.dx + S, o.dy - S * 0.5)..lineTo(o.dx, o.dy)..lineTo(o.dx - S, o.dy - S * 0.5)..close();
+      final lf = Path()..moveTo(o.dx - S, o.dy - S * 0.5)..lineTo(o.dx, o.dy)..lineTo(o.dx, o.dy + S)..lineTo(o.dx - S, o.dy + S * 0.5)..close();
+      final rt = Path()..moveTo(o.dx + S, o.dy - S * 0.5)..lineTo(o.dx, o.dy)..lineTo(o.dx, o.dy + S)..lineTo(o.dx + S, o.dy + S * 0.5)..close();
+      canvas.drawPath(top, Paint()..shader = ui.Gradient.linear(o - Offset(S, S), o + Offset(S * 0.4, 0), [Color.fromRGBO(196, 190, 216, a), Color.fromRGBO(160, 154, 182, a)]));
+      canvas.drawPath(lf, Paint()..shader = ui.Gradient.linear(o + Offset(-S, 0), o + Offset(0, S), [Color.fromRGBO(122, 116, 144, a), Color.fromRGBO(96, 90, 118, a)]));
+      canvas.drawPath(rt, Paint()..shader = ui.Gradient.linear(o, o + Offset(S, S), [Color.fromRGBO(74, 70, 94, a), Color.fromRGBO(52, 48, 70, a)]));
+      // flecks, so it reads as stone
+      final fleck = Paint()..color = Color.fromRGBO(40, 36, 54, 0.45 * a);
+      for (var i = 0; i < 5; i++) {
+        final h1 = ((i * 37 + k * 13 + seed * 7) % 11) / 11, h2 = ((i * 53 + k * 29 + seed * 3) % 13) / 13;
+        final face = i % 3;
+        final p = switch (face) {
+          0 => o + Offset((h1 - 0.5) * S, -S * 0.5 + (h2 - 0.5) * S * 0.4),
+          1 => o + Offset(-S * (0.2 + 0.6 * h1), S * (0.1 + 0.6 * h2)),
+          _ => o + Offset(S * (0.2 + 0.6 * h1), S * (0.1 + 0.6 * h2)),
+        };
+        canvas.drawRect(Rect.fromCenter(center: p, width: S * 0.16, height: S * 0.16), fleck);
+      }
+      // its lit top edge
+      canvas.drawLine(o + Offset(-S, -S * 0.5), o + Offset(0, -S), Paint()
+        ..color = Color.fromRGBO(232, 228, 245, 0.7 * a)
+        ..strokeWidth = math.max(1, S * 0.08));
+      final out = Path()..moveTo(o.dx, o.dy - S)..lineTo(o.dx + S, o.dy - S * 0.5)..lineTo(o.dx + S, o.dy + S * 0.5)..lineTo(o.dx, o.dy + S)..lineTo(o.dx - S, o.dy + S * 0.5)..lineTo(o.dx - S, o.dy - S * 0.5)..close();
+      canvas.drawPath(out, Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(1.2, S * 0.1)
+        ..strokeJoin = StrokeJoin.round
+        ..color = Color.fromRGBO(28, 24, 38, a));
+    }
+
+    cube(Offset(-s0 * 0.55, -s0 * 0.45), s0 * 0.55, 1);
+    cube(Offset.zero, s0, 0);
+    cube(Offset(s0 * 0.62, s0 * 0.35), s0 * 0.45, 2);
+    if (vein) {
+      final v = Path()
+        ..moveTo(-s0 * 0.85, -s0 * 0.25)
+        ..lineTo(-s0 * 0.45, s0 * 0.05)
+        ..lineTo(-s0 * 0.2, -s0 * 0.02)
+        ..lineTo(0, s0 * 0.45)
+        ..lineTo(s0 * 0.35, s0 * 0.2)
+        ..lineTo(s0 * 0.7, s0 * 0.45);
+      canvas.drawPath(v, _add(Color.fromRGBO(190, 160, 255, 0.55 * a), blur: s0 * 0.12)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = s0 * 0.22);
+      canvas.drawPath(v, _add(Color.fromRGBO(235, 220, 255, 0.9 * a))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = math.max(1, s0 * 0.07));
+    }
+    canvas.restore();
+  }
+
+  /// An Obsidian's boulder: it heaves up out of the cracked ground beside it, then flies tumbling, dust
+  /// streaming off it (an Eggling's is a stone, a Juvenile's a rock, an Elder's a boulder).
   void _boulder(Canvas canvas, Shot sh) {
     final u = s._u / 2.7;
     final ground = s._toScreen(sh.x, sh.z);
     final rising = sh.t < sh.rise;
     final k = rising ? Curves.easeOutBack.transform((sh.t / sh.rise).clamp(0.0, 1.0)) : 1.0;
     final c = ground - Offset(0, sh.height * _up);
-    final r = 16.5 * u * (0.55 + 0.45 * k);
+    final r = 15 * u * _grow * (0.55 + 0.45 * k);
     final fly = rising ? 0.0 : sh.t - sh.rise;
     final sp = math.max(1e-6, math.sqrt(sh.vx * sh.vx + sh.vz * sh.vz));
-    // its shadow
-    canvas.drawOval(Rect.fromCenter(center: ground + Offset(0, 2 * u), width: r * 2.4, height: r * 0.8), Paint()
-      ..color = Color.fromRGBO(20, 16, 30, rising ? 0.35 : 0.28)
+    canvas.drawOval(Rect.fromCenter(center: ground + Offset(0, 2 * u), width: r * 2.6, height: r * 0.85), Paint()
+      ..color = Color.fromRGBO(20, 16, 30, rising ? 0.38 : 0.28)
       ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
-    // dust streaming off it in flight
     if (!rising) {
-      for (var i = 0; i < 5; i++) {
-        final kk = ((i / 5) + fly * 3) % 1.0;
-        final at = s._toScreen(sh.x - sh.vx / sp * (6 + 26 * kk), sh.z - sh.vz / sp * (6 + 26 * kk)) - Offset(0, (sh.height - 2 * kk) * _up);
-        canvas.drawCircle(at, (3 + 6 * kk) * u, Paint()..color = Color.fromRGBO(176, 168, 186, 0.45 * (1 - kk)));
+      for (var i = 0; i < _by(3, 4, 6); i++) {
+        final kk = ((i / 6) + fly * 3) % 1.0;
+        final at = s._toScreen(sh.x - sh.vx / sp * (6 + 30 * kk), sh.z - sh.vz / sp * (6 + 30 * kk)) - Offset(0, (sh.height - 2 * kk) * _up);
+        canvas.drawCircle(at, (3 + 7 * kk) * u * _grow, Paint()..color = Color.fromRGBO(176, 168, 186, 0.45 * (1 - kk)));
       }
     }
     canvas.save();
-    if (rising) canvas.clipRect(Rect.fromLTRB(c.dx - 200, c.dy - 200, c.dx + 200, ground.dy + 3 * u)); // still half in the ground
-    final spin = rising ? math.sin(sh.t * 40) * 0.06 : fly * 10 * (sh.vx >= 0 ? 1 : -1);
-    final pts = <Offset>[];
-    for (var i = 0; i < 8; i++) {
-      final a = i * math.pi / 4 + spin;
-      final j = 0.82 + 0.22 * ((i * 37 + 11) % 7) / 6;
-      pts.add(c + Offset(math.cos(a), math.sin(a) * 0.92) * r * j);
-    }
-    final body = Path()..addPolygon(pts, true);
-    canvas.drawPath(body, Paint()
-      ..shader = ui.Gradient.linear(c - Offset(r, r), c + Offset(r, r), const [Color(0xFFB4AFC6), Color(0xFF6E6A82), Color(0xFF3E3B50)], const [0.0, 0.5, 1.0]));
-    // its facets
-    final facet = Paint()
-      ..color = const Color(0x553A3648)
-      ..strokeWidth = 1.4 * u;
-    final mid = c + Offset(math.cos(spin + 0.6), math.sin(spin + 0.6)) * r * 0.18;
-    for (final i in const [1, 4, 6]) {
-      canvas.drawLine(mid, pts[i], facet);
-    }
-    // a vein of its own violet light
-    final vein = Path()..moveTo(pts[2].dx * 0.6 + c.dx * 0.4, pts[2].dy * 0.6 + c.dy * 0.4);
-    vein.lineTo(mid.dx, mid.dy);
-    vein.lineTo(pts[5].dx * 0.55 + c.dx * 0.45, pts[5].dy * 0.55 + c.dy * 0.45);
-    canvas.drawPath(vein, _add(const Color(0xCCC9B8FF), blur: 1.5)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.8 * u);
-    canvas.drawPath(body, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2 * u
-      ..strokeJoin = StrokeJoin.round
-      ..color = const Color(0xFF26232F));
+    if (rising) canvas.clipRect(Rect.fromLTRB(c.dx - 300, c.dy - 300, c.dx + 300, ground.dy + 4 * u)); // still half in the ground
+    final spin = rising ? math.sin(sh.t * 40) * 0.05 : fly * 9 * (sh.vx >= 0 ? 1 : -1);
+    _voxelRock(canvas, c, r * 0.7, spin, 1, vein: _stage >= 2, seed: sh.x.round());
     canvas.restore();
-    // pebbles falling off it as it comes up
     if (rising) {
-      for (var i = 0; i < 4; i++) {
+      // soil and pebbles tumbling off it as it comes up
+      for (var i = 0; i < _by(3, 4, 6); i++) {
         final kk = (sh.t / sh.rise + i * 0.21) % 1.0;
-        canvas.drawRect(Rect.fromCenter(center: c + Offset((i - 1.5) * r * 0.5, -r * 0.4 + kk * r * 1.3), width: 2.6 * u, height: 2.6 * u),
-            Paint()..color = Color.fromRGBO(92, 86, 108, 1 - kk));
+        final at = c + Offset((i - 2.5) * r * 0.35, -r * 0.3 + kk * r * 1.2);
+        canvas.drawRect(Rect.fromCenter(center: at, width: 3 * u, height: 3 * u), Paint()..color = Color.fromRGBO(i.isEven ? 120 : 92, i.isEven ? 96 : 86, i.isEven ? 70 : 108, 1 - kk));
       }
     }
   }
 
-  /// A Blast leaves it: a flash at its front, a cone of light the way it goes, a puff of its colour's own bits.
   void _blastFire(Canvas canvas, Burst b, double k, Offset g, double u) {
     final (light, mid, _) = _blastCols(b.tag);
+    final gr = _grow;
     final c = g - Offset(0, 8 * _up);
     final dir = Offset(b.dx, b.dz * 0.6);
     final dl = math.max(dir.distance, 1e-6);
     final f = dir / dl, n = Offset(-f.dy, f.dx);
-    _addGlow(canvas, c, (12 + 22 * k) * u, mid.withValues(alpha: 0.8 * (1 - k)));
+    _addGlow(canvas, c, (12 + 22 * k) * u * gr, mid.withValues(alpha: 0.8 * (1 - k)));
     final cone = Path()
       ..moveTo(c.dx, c.dy)
-      ..lineTo(c.dx + f.dx * 26 * u + n.dx * 9 * u, c.dy + f.dy * 26 * u + n.dy * 9 * u)
-      ..lineTo(c.dx + f.dx * 30 * u, c.dy + f.dy * 30 * u)
-      ..lineTo(c.dx + f.dx * 26 * u - n.dx * 9 * u, c.dy + f.dy * 26 * u - n.dy * 9 * u)
+      ..lineTo(c.dx + (f.dx * 26 + n.dx * 9) * u * gr, c.dy + (f.dy * 26 + n.dy * 9) * u * gr)
+      ..lineTo(c.dx + f.dx * 30 * u * gr, c.dy + f.dy * 30 * u * gr)
+      ..lineTo(c.dx + (f.dx * 26 - n.dx * 9) * u * gr, c.dy + (f.dy * 26 - n.dy * 9) * u * gr)
       ..close();
     canvas.drawPath(cone, Paint()
       ..blendMode = BlendMode.plus
-      ..shader = ui.Gradient.linear(c, c + f * 30 * u, [light.withValues(alpha: 0.8 * (1 - k)), mid.withValues(alpha: 0)]));
-    for (var i = 0; i < 5; i++) {
-      final a = math.atan2(f.dy, f.dx) + (i - 2) * 0.45;
-      final at = c + Offset(math.cos(a), math.sin(a)) * (6 + 18 * Curves.easeOut.transform(k)) * u;
-      _themed(canvas, b.tag, at, 4.5 * u, a + k * 6, 1 - k);
+      ..shader = ui.Gradient.linear(c, c + f * 30 * u * gr, [light.withValues(alpha: 0.8 * (1 - k)), mid.withValues(alpha: 0)]));
+    final bits = _by(3, 4, 6);
+    for (var i = 0; i < bits; i++) {
+      final a = math.atan2(f.dy, f.dx) + (i - (bits - 1) / 2) * 0.4;
+      final at = c + Offset(math.cos(a), math.sin(a)) * (6 + 18 * Curves.easeOut.transform(k)) * u * gr;
+      _themed(canvas, b.tag, at, 4.5 * u * gr, a + k * 6, 1 - k);
     }
   }
 
-  /// Where a Blast lands: a ring and a flash of its colour, and its bits thrown out (leaves scatter, embers
-  /// rise, droplets splash, glints shatter).
   void _blastHit(Canvas canvas, Burst b, double k, Offset g, double u) {
     final (light, mid, _) = _blastCols(b.tag);
     final c = g - Offset(0, 7 * _up);
-    final sz = b.size;
+    final sz = b.size * _grow;
     final e = Curves.easeOutCubic.transform(k);
     _addGlow(canvas, c, (16 + 28 * e) * u * sz, mid.withValues(alpha: 0.85 * (1 - k)));
     canvas.drawOval(Rect.fromCenter(center: c, width: (10 + 58 * e) * u * sz, height: (6 + 34 * e) * u * sz), _add(light.withValues(alpha: 0.95 * (1 - k)))
       ..style = PaintingStyle.stroke
       ..strokeWidth = (3 - 2 * k) * u);
     final rnd = math.Random((b.x * 13 + b.z * 7).round());
-    for (var i = 0; i < 8; i++) {
-      final a = i * math.pi / 4 + rnd.nextDouble() * 0.6;
+    final bits = _by(5, 7, 10);
+    for (var i = 0; i < bits; i++) {
+      final a = i * math.pi * 2 / bits + rnd.nextDouble() * 0.6;
       final v = (20 + rnd.nextDouble() * 20) * u * sz;
       final fall = b.tag == 'coral' ? -10.0 : (b.tag == 'ocean' ? 26.0 : 12.0);
       final at = c + Offset(math.cos(a) * v * e, math.sin(a) * v * 0.6 * e + fall * u * k * k);
@@ -3430,74 +3467,125 @@ class _MapPainter extends CustomPainter {
     }
   }
 
-  /// An Obsidian stamps: the ground cracks open where its boulder comes up, and grit flies.
-  void _rockRise(Canvas canvas, Burst b, double k, Offset g, double u) {
-    final crack = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.4 * u
-      ..strokeCap = StrokeCap.round
-      ..color = Color.fromRGBO(34, 30, 44, 0.85 * (1 - k * k));
-    final grow = Curves.easeOut.transform((k / 0.3).clamp(0.0, 1.0));
-    for (var i = 0; i < 6; i++) {
-      final a = i * math.pi / 3 + 0.4;
-      final p = Path()..moveTo(g.dx, g.dy);
-      for (var j = 1; j <= 3; j++) {
-        final rr = j / 3 * 16 * u * grow;
-        final jit = ((i * 7 + j * 3) % 5 - 2) * 0.12;
-        p.lineTo(g.dx + math.cos(a + jit) * rr, g.dy + math.sin(a + jit) * rr * 0.5);
+  /// Cracks across the ground from [c]: [n] of them out to [reach] px, thick at the root and thinning, forking
+  /// (a Juvenile's and an Elder's), each a dark split with a seam of violet light in it and its lifted edge
+  /// catching the light; broken slabs tilt up at the root.
+  void _crackWeb(Canvas canvas, Offset c, double reach, int n, double grow, double fade, double u, int seed, {bool fork = true, bool slabs = true}) {
+    if (fade <= 0.01 || grow <= 0.01) return;
+    final sinP = s._map!.sinP;
+    void crack(Offset from, double a, double len, double w0, int depth, int salt) {
+      final pts = <Offset>[from];
+      var at = from, ang = a;
+      const steps = 6;
+      for (var j = 1; j <= steps; j++) {
+        ang += (((salt * 31 + j * 17 + seed) % 13) / 13 - 0.5) * 0.7;
+        final seg = len / steps * (0.75 + 0.5 * ((salt * 7 + j * 3) % 5) / 4);
+        at = at + Offset(math.cos(ang) * seg, math.sin(ang) * seg * sinP);
+        pts.add(at);
       }
-      canvas.drawPath(p, crack);
-      canvas.drawPath(p, _add(Color.fromRGBO(185, 160, 255, 0.5 * (1 - k)))
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 0.9 * u);
+      final shown = (pts.length - 1) * grow;
+      for (var j = 0; j < pts.length - 1; j++) {
+        if (j >= shown) break;
+        final part = math.min(1.0, shown - j);
+        final p0 = pts[j], p1 = Offset.lerp(pts[j], pts[j + 1], part)!;
+        final w = w0 * (1 - j / steps * 0.8);
+        // the lifted edge, a hair above the split
+        canvas.drawLine(p0 - Offset(0, w * 0.55), p1 - Offset(0, w * 0.55), Paint()
+          ..color = Color.fromRGBO(214, 198, 168, 0.55 * fade)
+          ..strokeWidth = math.max(1, w * 0.35)
+          ..strokeCap = StrokeCap.round);
+        canvas.drawLine(p0, p1, Paint()
+          ..color = Color.fromRGBO(22, 18, 30, 0.92 * fade)
+          ..strokeWidth = w
+          ..strokeCap = StrokeCap.round);
+        canvas.drawLine(p0, p1, _add(Color.fromRGBO(170, 130, 255, 0.55 * fade), blur: w * 0.6)
+          ..strokeWidth = w * 0.9
+          ..strokeCap = StrokeCap.round);
+        canvas.drawLine(p0, p1, _add(Color.fromRGBO(225, 205, 255, 0.85 * fade))
+          ..strokeWidth = math.max(0.8, w * 0.28)
+          ..strokeCap = StrokeCap.round);
+      }
+      if (fork && depth == 0) {
+        for (final (j, side) in const [(2, 1.0), (4, -1.0)]) {
+          if (j < shown) crack(pts[j], ang + side * (0.6 + 0.2 * ((salt + j) % 3)), len * 0.38, w0 * 0.55, 1, salt * 3 + j);
+        }
+      }
     }
-    for (var i = 0; i < 6; i++) {
-      final a = i * 1.05 + 0.3;
-      final rr = (4 + 14 * k) * u;
-      canvas.drawCircle(g + Offset(math.cos(a) * rr, math.sin(a) * rr * 0.5 - 6 * u * k), (3 + 5 * k) * u, Paint()..color = Color.fromRGBO(170, 160, 150, 0.4 * (1 - k)));
+
+    for (var i = 0; i < n; i++) {
+      crack(c, i * math.pi * 2 / n + ((seed + i * 5) % 7) * 0.05, reach * (0.75 + 0.35 * ((i * 5 + seed) % 4) / 3), 5.5 * u, 0, i + 1);
+    }
+    // broken slabs tipped up round the root
+    if (slabs) {
+      final sl = math.min(1.0, grow * 1.6);
+      for (var i = 0; i < n; i++) {
+        final a = (i + 0.5) * math.pi * 2 / n;
+        final at = c + Offset(math.cos(a) * reach * 0.16, math.sin(a) * reach * 0.16 * sinP);
+        final sz = reach * 0.07 * sl;
+        canvas.save();
+        canvas.translate(at.dx, at.dy);
+        canvas.rotate(a * 0.3);
+        final slab = Path()..moveTo(-sz, 0)..lineTo(-sz * 0.6, -sz * 0.9)..lineTo(sz * 0.8, -sz * 0.7)..lineTo(sz, 0)..close();
+        canvas.drawPath(slab, Paint()..color = Color.fromRGBO(150, 128, 98, 0.95 * fade));
+        canvas.drawPath(Path()..moveTo(-sz * 0.6, -sz * 0.9)..lineTo(sz * 0.8, -sz * 0.7)..lineTo(sz * 0.5, -sz * 0.45)..lineTo(-sz * 0.5, -sz * 0.6)..close(), Paint()..color = Color.fromRGBO(196, 176, 140, 0.95 * fade));
+        canvas.drawPath(slab, Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = 1.2
+          ..color = Color.fromRGBO(40, 30, 24, 0.8 * fade));
+        canvas.restore();
+      }
     }
   }
 
-  /// A boulder strikes: it shatters into chunks, dust bursts out and a ring runs over the ground.
+  /// An Obsidian stamps: the ground cracks open where its boulder comes up, a mound of soil heaves, grit flies.
+  void _rockRise(Canvas canvas, Burst b, double k, Offset g, double u) {
+    final grow = Curves.easeOut.transform((k / 0.3).clamp(0.0, 1.0));
+    final fade = 1 - ((k - 0.55) / 0.45).clamp(0.0, 1.0);
+    canvas.drawOval(Rect.fromCenter(center: g, width: 34 * u * _grow * grow, height: 14 * u * _grow * grow), Paint()..color = Color.fromRGBO(60, 44, 30, 0.5 * fade));
+    _crackWeb(canvas, g, 30 * u * _grow, _by(4, 5, 7), grow, fade, u * _grow, b.x.round(), fork: _stage >= 2, slabs: _stage >= 2);
+    for (var i = 0; i < _by(4, 6, 8); i++) {
+      final a = i * 0.8 + 0.3;
+      final rr = (4 + 18 * k) * u * _grow;
+      canvas.drawCircle(g + Offset(math.cos(a) * rr, math.sin(a) * rr * 0.5 - 8 * u * k), (3 + 6 * k) * u * _grow, Paint()..color = Color.fromRGBO(170, 156, 136, 0.45 * (1 - k)));
+    }
+  }
+
+  /// A boulder strikes: it shatters into voxel chunks, dust bursts out, a ring runs over the ground.
   void _rockHit(Canvas canvas, Burst b, double k, Offset g, double u) {
     final c = g - Offset(0, 6 * _up);
-    final sz = b.size;
+    final sz = b.size * _grow;
     final e = Curves.easeOut.transform(k);
     canvas.drawOval(Rect.fromCenter(center: g, width: (10 + 46 * e) * u * sz, height: (5 + 22 * e) * u * sz), Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = (4 - 3 * k) * u
       ..color = Color.fromRGBO(220, 210, 235, 0.7 * (1 - k)));
-    for (var i = 0; i < 7; i++) {
+    for (var i = 0; i < _by(4, 6, 8); i++) {
       final a = i * 0.9 + b.x;
-      final rr = (6 + 20 * e) * u * sz;
-      canvas.drawCircle(g + Offset(math.cos(a) * rr, math.sin(a) * rr * 0.5 - 4 * u * e), (4 + 8 * e) * u * sz, Paint()..color = Color.fromRGBO(178, 170, 186, 0.45 * (1 - k)));
+      final rr = (6 + 22 * e) * u * sz;
+      canvas.drawCircle(g + Offset(math.cos(a) * rr, math.sin(a) * rr * 0.5 - 5 * u * e), (5 + 9 * e) * u * sz, Paint()..color = Color.fromRGBO(178, 170, 186, 0.45 * (1 - k)));
     }
     final rnd = math.Random((b.x * 31 + b.z * 17).round());
-    for (var i = 0; i < 9; i++) {
+    for (var i = 0; i < _by(4, 6, 9); i++) {
       final a = -math.pi + rnd.nextDouble() * math.pi * 2;
       final v = (18 + rnd.nextDouble() * 22) * u * sz;
       final tt = k * 0.6;
       final at = c + Offset(math.cos(a) * v * tt * 1.6 + b.dx * 10 * u * tt, math.sin(a) * v * tt * 0.7 - 34 * u * tt + 90 * u * tt * tt);
-      canvas.save();
-      canvas.translate(at.dx, at.dy);
-      canvas.rotate(tt * (8 + i));
-      final cs = (2.4 + rnd.nextDouble() * 2.6) * u * sz;
-      canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: cs * 2, height: cs * 2), Paint()..color = Color.fromRGBO(98, 92, 116, 1 - k * 0.6));
-      canvas.drawRect(Rect.fromLTWH(-cs, -cs, cs * 2, cs * 0.7), Paint()..color = Color.fromRGBO(170, 164, 190, 1 - k * 0.6));
-      canvas.restore();
+      _voxelRock(canvas, at, (2.6 + rnd.nextDouble() * 2.8) * u * sz, tt * (8 + i), 1 - k * 0.6, vein: false, seed: i);
     }
   }
 
-  /// A Pulse on the ground: a translucent band of its colour rolling out, a bright edge, and a second one behind.
+  /// A Pulse on the ground: a translucent band of its colour rolling out with a bright edge (and a second
+  /// behind it, a Juvenile's on).
   void _pulseRing(Canvas canvas, Burst b, double k) {
     final (light, mid, _) = _blastCols(b.tag);
-    for (var w = 0; w < 2; w++) {
+    final bright = const [0.7, 0.85, 1.0][_stage - 1];
+    for (var w = 0; w < (_stage >= 2 ? 2 : 1); w++) {
       final kk = ((k - w * 0.18) / (1 - w * 0.18)).clamp(0.0, 1.0);
       if (kk <= 0) continue;
       final rr = b.size * (0.12 + 0.88 * Curves.easeOutCubic.transform(kk));
       final rect = _ellipse(b.x, b.z, rr);
       final R = rect.width / 2;
-      final fade = (1 - kk) * (w == 0 ? 1.0 : 0.55);
+      final fade = (1 - kk) * (w == 0 ? 1.0 : 0.55) * bright;
       canvas.save();
       canvas.translate(rect.center.dx, rect.center.dy);
       canvas.scale(1, rect.height / rect.width);
@@ -3511,16 +3599,17 @@ class _MapPainter extends CustomPainter {
     }
   }
 
-  /// A Pulse from its body: a shell of its colour's light bursting out all round it, and its bits flung with it.
+  /// A Pulse from its body: shells of its colour's light bursting out all round it, its bits flung with them
+  /// (one shell and a few bits for an Eggling; two shells and a storm of them for an Elder).
   void _pulseWave(Canvas canvas, Burst b, double k, Offset g, double u) {
     final (light, mid, _) = _blastCols(b.tag);
     final c = g - Offset(0, 10 * _up);
-    for (var w = 0; w < 2; w++) {
+    for (var w = 0; w < (_stage >= 3 ? 2 : 1); w++) {
       final kk = ((k - w * 0.12) / (1 - w * 0.12)).clamp(0.0, 1.0);
       if (kk <= 0) continue;
       final rr = b.size * s._u * (0.15 + 0.75 * Curves.easeOutCubic.transform(kk));
       final rect = Rect.fromCenter(center: c, width: rr * 2, height: rr * 1.15);
-      final fade = (1 - kk) * (w == 0 ? 1.0 : 0.6);
+      final fade = (1 - kk) * (w == 0 ? 1.0 : 0.6) * const [0.7, 0.85, 1.0][_stage - 1];
       canvas.save();
       canvas.translate(rect.center.dx, rect.center.dy);
       canvas.scale(1, rect.height / rect.width);
@@ -3530,58 +3619,42 @@ class _MapPainter extends CustomPainter {
       canvas.restore();
     }
     final e = Curves.easeOutCubic.transform(k);
-    for (var i = 0; i < 18; i++) {
-      final a = i * math.pi * 2 / 18 + 0.2 * math.sin(i * 2.3);
+    final bits = _by(8, 12, 18);
+    for (var i = 0; i < bits; i++) {
+      final a = i * math.pi * 2 / bits + 0.2 * math.sin(i * 2.3);
       final rr = b.size * s._u * (0.2 + 0.85 * e) * (0.85 + 0.15 * math.sin(i * 1.7));
       final lift = b.tag == 'coral' ? -14 * u * k : (b.tag == 'ocean' ? 10 * u * k * k : -4 * u * k);
       final at = c + Offset(math.cos(a) * rr, math.sin(a) * rr * 0.55 + lift);
-      _themed(canvas, b.tag, at, (5.5 - 2 * k) * u, a * 2 + k * 9, (1 - k) * 0.95);
+      _themed(canvas, b.tag, at, (5.5 - 2 * k) * u * _grow, a * 2 + k * 9, (1 - k) * 0.95);
     }
   }
 
-  /// A Tremor on the ground: cracks run out jagged all round it, a seam of light in each, and dust rolls out
-  /// with the wave (the rocks it heaves up: _ringPieces).
+  /// A Tremor on the ground: a crater sinks at its feet, cracks race out jagged and forking all round it, dust
+  /// rolls out with the wave (the rocks it heaves up: _ringPieces).
   void _tremorGround(Canvas canvas, Burst b, double k, double u) {
     final c = s._toScreen(b.x, b.z);
-    final grow = Curves.easeOutCubic.transform((k / 0.55).clamp(0.0, 1.0));
+    final grow = Curves.easeOutCubic.transform((k / 0.5).clamp(0.0, 1.0));
     final fade = 1 - ((k - 0.6) / 0.4).clamp(0.0, 1.0);
-    canvas.drawOval(_ellipse(b.x, b.z, b.size * 0.55 * grow), Paint()..color = Color.fromRGBO(40, 34, 50, 0.22 * fade));
-    final crack = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 5 * u
-      ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round
-      ..color = Color.fromRGBO(30, 26, 40, 0.9 * fade);
-    final seam = _add(Color.fromRGBO(200, 175, 255, 0.85 * fade), blur: 1)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2 * u;
-    for (var i = 0; i < 9; i++) {
-      final a = i * math.pi * 2 / 9 + 0.25;
-      final p = Path()..moveTo(c.dx, c.dy);
-      const steps = 5;
-      for (var j = 1; j <= steps; j++) {
-        final rr = j / steps * b.size * s._u * grow * (0.75 + 0.2 * ((i * 5) % 3));
-        final jit = ((i * 11 + j * 7) % 9 - 4) * 0.07;
-        p.lineTo(c.dx + math.cos(a + jit) * rr, c.dy + math.sin(a + jit) * rr * s._map!.sinP);
-      }
-      canvas.drawPath(p, crack);
-      canvas.drawPath(p, seam);
-    }
+    final cr = _ellipse(b.x, b.z, b.size * 0.3 * grow);
+    canvas.drawOval(cr, Paint()..shader = ui.Gradient.radial(cr.center, cr.width / 2, [Color.fromRGBO(30, 22, 36, 0.55 * fade), const Color.fromRGBO(60, 44, 40, 0.0)]));
+    _crackWeb(canvas, c, b.size * s._u, _by(5, 7, 9), grow, fade, u, (b.x * 3).round(), fork: _stage >= 2, slabs: true);
     final front = b.size * Curves.easeOutCubic.transform(k);
-    for (var i = 0; i < 16; i++) {
-      final a = i * math.pi * 2 / 16;
+    final puffs = _by(10, 14, 18);
+    for (var i = 0; i < puffs; i++) {
+      final a = i * math.pi * 2 / puffs;
       final at = s._toScreen(b.x + math.cos(a) * front, b.z + math.sin(a) * front);
-      canvas.drawCircle(at - Offset(0, 4 * u), (8 + 11 * k) * u, Paint()..color = Color.fromRGBO(170, 158, 150, 0.5 * (1 - k)));
+      canvas.drawCircle(at - Offset(0, 4 * u), (8 + 11 * k) * u * _grow, Paint()..color = Color.fromRGBO(170, 158, 150, 0.5 * (1 - k)));
     }
   }
 
-  /// A pulse's pieces standing up out of the ground, each at its own depth: an Amethyst's crystal spikes (a
-  /// ring, then another), an Obsidian's rocks heaved up as its tremor passes.
+  /// A pulse's pieces standing up out of the ground, each at its own depth: an Amethyst's crystal spikes, an
+  /// Obsidian's rocks heaved up as its tremor passes. An Eggling's: one small ring; an Elder's: two rings, tall.
   void _ringPieces(Canvas canvas, Burst b, List<(double, void Function())> items) {
     if (b.kind == 'spikes') {
-      for (var ring = 0; ring < 2; ring++) {
-        final n = ring == 0 ? 9 : 14;
-        final rad = b.size * (ring == 0 ? 0.48 : 0.86);
+      final rings = _stage >= 3 ? 2 : 1;
+      for (var ring = 0; ring < rings; ring++) {
+        final n = ring == 0 ? _by(7, 10, 9) : 14;
+        final rad = b.size * (ring == 0 ? (_stage >= 3 ? 0.48 : 0.7) : 0.86);
         final t0 = ring * 0.09;
         for (var i = 0; i < n; i++) {
           final a = (i + ring * 0.5) / n * math.pi * 2;
@@ -3592,72 +3665,97 @@ class _MapPainter extends CustomPainter {
           final down = ((b.t - (b.ttl - 0.2)) / 0.2).clamp(0.0, 1.0);
           final h = up * (1 - Curves.easeIn.transform(down));
           if (h <= 0.01) continue;
-          final tall = (ring == 0 ? 26.0 : 19.0) * (0.8 + 0.4 * ((i * 7) % 5) / 4);
-          items.add((z, () => _spike(canvas, x, z, math.cos(a), tall * h, (ring == 0 ? 5.0 : 4.0), lt)));
+          final tall = (ring == 0 ? 26.0 : 19.0) * _grow * (0.8 + 0.4 * ((i * 7) % 5) / 4);
+          final wide = (ring == 0 ? 4.6 : 3.8) * (0.7 + 0.3 * _grow);
+          items.add((z, () => _crystal(canvas, x, z, math.cos(a), math.sin(a), tall * h, wide, lt, cluster: _stage >= 2 && i.isEven)));
         }
       }
     } else if (b.kind == 'tremor') {
       final rnd = math.Random((b.x * 3 + b.z * 5).round());
-      for (var i = 0; i < 18; i++) {
-        final a = i * math.pi * 2 / 18 + rnd.nextDouble() * 0.3;
+      final n = _by(6, 11, 18);
+      for (var i = 0; i < n; i++) {
+        final a = i * math.pi * 2 / n + rnd.nextDouble() * 0.3;
         final frac = 0.35 + 0.6 * rnd.nextDouble();
         final x = b.x + math.cos(a) * b.size * frac, z = b.z + math.sin(a) * b.size * frac;
-        final at = b.ttl * 0.55 * frac; // the wave reaches it
+        final at = b.ttl * 0.5 * frac; // the wave reaches it
         final lt = b.t - at;
         const life = 0.42;
         if (lt <= 0 || lt > life) continue;
         final kk = lt / life;
-        final h = 18 * math.sin(kk * math.pi) * (0.7 + 0.5 * rnd.nextDouble());
-        final cs = 4.0 + 3.0 * rnd.nextDouble();
+        final h = 18 * _grow * math.sin(kk * math.pi) * (0.7 + 0.5 * rnd.nextDouble());
+        final cs = (4.0 + 3.0 * rnd.nextDouble()) * _grow;
         final spin = kk * (3 + i % 4) * (i.isEven ? 1 : -1);
-        items.add((z, () => _rock(canvas, x, z, h, cs, spin, 1 - ((kk - 0.75) / 0.25).clamp(0.0, 1.0))));
+        items.add((z, () => _heaved(canvas, x, z, h, cs, spin, 1 - ((kk - 0.75) / 0.25).clamp(0.0, 1.0), i)));
       }
     }
   }
 
-  /// One crystal spike of an Amethyst's ring: two facets of violet glass, leaning out, glowing at its root.
-  void _spike(Canvas canvas, double x, double z, double outX, double h, double wd, double age) {
+  /// A crystal of an Amethyst's ring: a six-sided prism of violet glass with a pointed tip, leaning out from it,
+  /// three faces lit differently, its edges catching the light, a glow inside and round its root, a twinkle at
+  /// its tip (a smaller one beside it, a Juvenile's on).
+  void _crystal(Canvas canvas, double x, double z, double outX, double outZ, double h, double wd, double age, {bool cluster = false}) {
     final g = s._toScreen(x, z);
     final H = h * _up, W = wd * s._u;
-    final tip = g + Offset(outX * H * 0.28, -H);
-    final mid = g + Offset(W * 0.12, W * 0.28);
-    _addGlow(canvas, g, W * 2.6, const Color(0xAAB98CFF));
-    final left = Path()..moveTo(g.dx - W, g.dy)..lineTo(tip.dx, tip.dy)..lineTo(mid.dx, mid.dy)..close();
-    final right = Path()..moveTo(mid.dx, mid.dy)..lineTo(tip.dx, tip.dy)..lineTo(g.dx + W, g.dy)..close();
-    canvas.drawPath(left, Paint()..color = const Color(0xE6E9D4FF));
-    canvas.drawPath(right, Paint()..color = const Color(0xE69A68DC));
-    final all = Path()..moveTo(g.dx - W, g.dy)..lineTo(tip.dx, tip.dy)..lineTo(g.dx + W, g.dy)..lineTo(mid.dx, mid.dy)..close();
-    canvas.drawPath(all, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.2
-      ..strokeJoin = StrokeJoin.round
-      ..color = const Color(0xFF4E2A7A));
-    canvas.drawPath(left, _add(Color.fromRGBO(220, 190, 255, 0.35 * (0.6 + 0.4 * math.sin(age * 20)))));
-    _star(canvas, tip + const Offset(0, 2), 3.2, Color.fromRGBO(255, 250, 255, (0.5 + 0.5 * math.sin(age * 16)).clamp(0.0, 1.0)));
+    final glowK = 0.75 + 0.25 * math.sin(age * 14 + x);
+    // the light it throws on the ground, and its bloom
+    canvas.drawOval(Rect.fromCenter(center: g, width: W * 6, height: W * 2.6), _add(Color.fromRGBO(170, 120, 255, 0.35 * glowK), blur: W));
+    void one(Offset base, double hh, double ww, double lean) {
+      final tip = base + Offset(outX * hh * lean, -hh);
+      final ax = tip - base;
+      final al = math.max(ax.distance, 1e-6);
+      final n = Offset(-ax.dy / al, ax.dx / al);
+      final down = Offset(0, ww * 0.22);
+      final sh = base + ax * 0.74;
+      Offset pt(Offset o, double side, {bool front = false}) => o + n * (ww * side) + (front ? down : Offset.zero);
+      final bl = pt(base, -1), bcl = pt(base, -0.36, front: true), bcr = pt(base, 0.36, front: true), br = pt(base, 1);
+      final sl = pt(sh, -1), scl = pt(sh, -0.36, front: true), scr = pt(sh, 0.36, front: true), sr = pt(sh, 1);
+      Path quad(Offset a, Offset b, Offset c, Offset d) => Path()..moveTo(a.dx, a.dy)..lineTo(b.dx, b.dy)..lineTo(c.dx, c.dy)..lineTo(d.dx, d.dy)..close();
+      Path tri(Offset a, Offset b, Offset c) => Path()..moveTo(a.dx, a.dy)..lineTo(b.dx, b.dy)..lineTo(c.dx, c.dy)..close();
+      // inner glow along it
+      canvas.drawPath(quad(bl, sl, sr, br)..addPath(tri(sl, tip, sr), Offset.zero), _add(Color.fromRGBO(190, 140, 255, 0.45 * glowK), blur: ww * 1.2));
+      canvas.drawPath(quad(bl, sl, scl, bcl), Paint()..shader = ui.Gradient.linear(base, sh, [const Color(0xE6C9A8FF), const Color(0xE6F1E4FF)]));
+      canvas.drawPath(quad(bcl, scl, scr, bcr), Paint()..shader = ui.Gradient.linear(base, sh, [const Color(0xE08A5ACF), const Color(0xE0BF96F5)]));
+      canvas.drawPath(quad(bcr, scr, sr, br), Paint()..shader = ui.Gradient.linear(base, sh, [const Color(0xE65A3496), const Color(0xE6875CC8)]));
+      canvas.drawPath(tri(sl, tip, scl), Paint()..color = const Color(0xF2FAF3FF));
+      canvas.drawPath(tri(scl, tip, scr), Paint()..color = const Color(0xEACCAEFA));
+      canvas.drawPath(tri(scr, tip, sr), Paint()..color = const Color(0xE69466D8));
+      // a light running up through it
+      final run = ((age * 1.6 + x * 0.01) % 1.0);
+      final band = Offset.lerp(base, sh, run)!;
+      canvas.drawLine(band + n * ww * 0.9, band - n * ww * 0.9, _add(Color.fromRGBO(255, 245, 255, 0.5 * math.sin(run * math.pi)), blur: 1.5)..strokeWidth = ww * 0.5);
+      // edges catching the light, and its outline
+      final edge = _add(const Color(0xCCFFFFFF))..strokeWidth = 1.2;
+      canvas.drawLine(scl, tip, edge);
+      canvas.drawLine(bl, sl, edge..color = const Color(0x88FFFFFF));
+      canvas.drawLine(sl, scl, edge..color = const Color(0x66FFFFFF));
+      canvas.drawPath(Path()..addPolygon([bl, sl, tip, sr, br, bcr, bcl], true), Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.5
+        ..strokeJoin = StrokeJoin.round
+        ..color = const Color(0xFF3E1F6A));
+      canvas.drawLine(scl, bcl, Paint()
+        ..color = const Color(0x553E1F6A)
+        ..strokeWidth = 1);
+      canvas.drawLine(scr, bcr, Paint()
+        ..color = const Color(0x553E1F6A)
+        ..strokeWidth = 1);
+      _star(canvas, tip + const Offset(0, 1), ww * 0.9, Color.fromRGBO(255, 250, 255, (0.5 + 0.5 * math.sin(age * 16 + x)).clamp(0.0, 1.0)));
+    }
+
+    if (cluster) one(g + Offset(-outX * W * 1.1, W * 0.2), H * 0.55, W * 0.65, 0.55);
+    one(g, H, W, 0.3);
+    if (cluster) one(g + Offset(outX * W * 1.2 + W * 0.4, W * 0.35), H * 0.42, W * 0.55, 0.75);
   }
 
-  /// One rock an Obsidian's tremor heaves up: a chunky voxel cube, tumbling, its shadow below it.
-  void _rock(Canvas canvas, double x, double z, double h, double cs, double spin, double a) {
+  /// A rock an Obsidian's tremor heaves up: a voxel chunk, tumbling, its shadow below it, grit off it.
+  void _heaved(Canvas canvas, double x, double z, double h, double cs, double spin, double a, int i) {
     final g = s._toScreen(x, z);
     final S = cs * s._u;
-    canvas.drawOval(Rect.fromCenter(center: g, width: S * 2.4 * (1 - h / 30), height: S * 0.9 * (1 - h / 30)), Paint()..color = Color.fromRGBO(20, 16, 30, 0.3 * a));
+    canvas.drawOval(Rect.fromCenter(center: g, width: S * 2.6 * (1 - h / 40), height: S * 1.0 * (1 - h / 40)), Paint()
+      ..color = Color.fromRGBO(20, 16, 30, 0.32 * a)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
     final c = g - Offset(0, h * _up + S * 0.6);
-    canvas.save();
-    canvas.translate(c.dx, c.dy);
-    canvas.rotate(spin);
-    final top = Path()..moveTo(0, -S)..lineTo(S, -S * 0.5)..lineTo(0, 0)..lineTo(-S, -S * 0.5)..close();
-    final lf = Path()..moveTo(-S, -S * 0.5)..lineTo(0, 0)..lineTo(0, S)..lineTo(-S, S * 0.5)..close();
-    final rt = Path()..moveTo(S, -S * 0.5)..lineTo(0, 0)..lineTo(0, S)..lineTo(S, S * 0.5)..close();
-    canvas.drawPath(top, Paint()..color = Color.fromRGBO(178, 172, 200, a));
-    canvas.drawPath(lf, Paint()..color = Color.fromRGBO(110, 104, 132, a));
-    canvas.drawPath(rt, Paint()..color = Color.fromRGBO(70, 66, 90, a));
-    canvas.drawLine(Offset(-S * 0.5, -S * 0.25), Offset(S * 0.2, S * 0.4), _add(Color.fromRGBO(190, 165, 255, 0.6 * a))..strokeWidth = 1.2);
-    final out = Path()..moveTo(0, -S)..lineTo(S, -S * 0.5)..lineTo(S, S * 0.5)..lineTo(0, S)..lineTo(-S, S * 0.5)..lineTo(-S, -S * 0.5)..close();
-    canvas.drawPath(out, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.6
-      ..color = Color.fromRGBO(30, 26, 40, a));
-    canvas.restore();
+    _voxelRock(canvas, c, S * 0.8, spin, a, vein: _stage >= 3 && i.isEven, seed: i);
   }
 
   void _stars(Canvas canvas, Offset c, double size, double alpha) {

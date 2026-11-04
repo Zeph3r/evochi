@@ -15,6 +15,7 @@ import 'package:evochi/features/home/garden_screen.dart';
 import 'package:evochi/features/home/nook_sheet.dart';
 import 'package:evochi/features/shared/ambience.dart';
 import 'package:evochi/game/home/home.dart' as home;
+import 'package:evochi/game/mining/mining.dart' as mine;
 import 'package:evochi/game/home/journal.dart' as journal;
 import 'package:evochi/features/nest/nest_screen.dart' show StepsCard;
 import 'package:evochi/features/shared/sprite.dart';
@@ -304,6 +305,9 @@ GameState mochi(String palette, {int stage = 3, bool sentinelJob = false}) {
   for (final (id, n) in const [('berry_snack', 6), ('lantern_tonic', 2), ('golden_bun', 2)]) {
     g.grantItem(s, id, n, 'shorts', _t0);
   }
+  // a copper pick on (only an Obsidian mines with bare paws)
+  g.addTxn(s, WalletTxn(id: 'shorts:pick', amount: 100, cause: 'shorts', at: _t0));
+  s = mine.buyGear(s, 'copper_pick', 'shorts-pick', _t0).state;
   if (sentinelJob) {
     final day = dayKey(_t0, 'America/New_York');
     for (final dep in const ['vq01', 'vq02', 'vq03', 'hq01', 'eq01', 'eq02']) {
@@ -653,8 +657,8 @@ Clip _sigClip(String palette, String colour, Color col, {bool first = false}) =>
     );
 
 /// Every colour's Blast and Pulse (a look): in close to a fight, a Blast, another, then the Pulse.
-Clip _movesClip(String palette, String colour, Color col, {bool first = false, bool far = false}) => Clip(
-      state: () => mochi(palette),
+Clip _movesClip(String palette, String colour, Color col, {bool first = false, bool far = false, int stage = 3}) => Clip(
+      state: () => mochi(palette, stage: stage),
       open: () => const WildsScreen(depth: 2, seed: 9),
       secs: 3.6,
       preroll: 1.3,
@@ -667,7 +671,7 @@ Clip _movesClip(String palette, String colour, Color col, {bool first = false, b
       },
       beats: [
         Beat(0.2, (s) {
-          s.say([('$colour\n', col), (WildsScreenNames.blast(palette).toUpperCase(), white)], secs: 1.4, size: 28, y: 165);
+          s.say([('$colour ${const {1: 'Eggling', 2: 'Juvenile', 3: 'Elder'}[stage]}\n', col), (WildsScreenNames.blast(palette).toUpperCase(), white)], secs: 1.4, size: 28, y: 165);
           if (far) s.raid!.pet.face(1, 0.2);
           _ready(s);
           s.raid!.press('bolt');
@@ -678,7 +682,7 @@ Clip _movesClip(String palette, String colour, Color col, {bool first = false, b
           s.raid!.press('bolt');
         }),
         Beat(2.1, (s) {
-          s.say([('$colour\n', col), (WildsScreenNames.pulse(palette).toUpperCase(), white)], secs: 1.3, size: 28, y: 165);
+          s.say([('$colour ${const {1: 'Eggling', 2: 'Juvenile', 3: 'Elder'}[stage]}\n', col), (WildsScreenNames.pulse(palette).toUpperCase(), white)], secs: 1.3, size: 28, y: 165);
           _ready(s);
           s.raid!.press('pulse');
         }),
@@ -699,12 +703,9 @@ final blastsShort = Short(
   music: 'enc_wild_loop',
   endTitle: const [('Every colour\n', null), ('fights its own way.', Color(0xFF6E4FA3))],
   clips: [
-    _movesClip('forest', 'Forest', mint, first: true),
-    _movesClip('obsidian', 'Obsidian', const Color(0xFFCFD8EE), far: true),
-    _movesClip('amethyst', 'Amethyst', lilac),
-    _movesClip('coral', 'Coral', pink),
-    _movesClip('ocean', 'Ocean', blue),
-    _movesClip('amber', 'Amber', gold),
+    for (final st in const [1, 2, 3]) _movesClip('obsidian', 'Obsidian', const Color(0xFFCFD8EE), far: true, stage: st),
+    for (final st in const [1, 2, 3]) _movesClip('amethyst', 'Amethyst', lilac, stage: st),
+    for (final st in const [1, 2, 3]) _movesClip('forest', 'Forest', mint, stage: st),
   ],
 );
 

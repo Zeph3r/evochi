@@ -397,7 +397,7 @@ class Raid {
     this.companion = false,
     List<OreRock> ores = const [],
     this.miningPower = 1.0,
-    this.oreTier = 3,
+    this.oreTier = 1,
     this.gearTier = 1,
   })  : ores = List.of(ores),
         rng = math.Random(seed),

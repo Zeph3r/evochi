@@ -140,16 +140,13 @@ void main() {
 
   test('the loadout sets the ore you can break and how hard you strike', () {
     var s = rich(freshPet(), 1000);
-    expect(m.oreTierOf(s), 3, reason: 'bare paws break copper, iron and lumen');
-    expect(m.gearTierOf(s), 1);
+    expect(m.oreTierOf(s), 0, reason: 'only an Obsidian breaks ore with bare paws');
+    expect(m.gearTierOf(s), 0);
     expect(m.miningPowerOf(s), 1.0);
-    // harder ore takes more strikes: iron's worth 0.75 of one, lumen 0.56
-    expect(m.strikeWorth(s, 1), 1.0);
-    expect(m.strikeWorth(s, 2), closeTo(0.75, 1e-9));
-    expect(m.strikeWorth(s, 3), closeTo(0.5625, 1e-9));
     s = m.buyGear(s, 'copper_pick', 'p1', t0).state;
     expect(m.miningPowerOf(s), closeTo(1.15, 1e-9));
-    expect(m.oreTierOf(s), 3, reason: 'a copper pick opens nothing new');
+    expect(m.oreTierOf(s), 1, reason: 'a copper pick breaks copper');
+    expect(m.strikeWorth(s, 1), closeTo(1.15, 1e-9));
     for (var i = 0; i < 2; i++) {
       s = m.breakOre(s, 'copper', 3, 'trail:0:$i', t0 + i).state;
     }
@@ -157,12 +154,24 @@ void main() {
     expect(m.ownedGear(s, 'iron_pick'), isNotNull);
     expect(s.mining.loadout['tool'], m.ownedGear(s, 'copper_pick')!.id, reason: 'the slot was taken: the new one waits');
     s = m.wearGear(s, m.ownedGear(s, 'iron_pick')!.id).state;
-    expect(m.oreTierOf(s), 4, reason: 'iron gear breaks obsidian');
-    expect(m.gearTierOf(s), 2);
+    expect(m.oreTierOf(s), 2);
     expect(m.miningPowerOf(s), closeTo(1.35, 1e-9));
-    expect(m.strikeWorth(s, 2), closeTo(1.35, 1e-9), reason: 'iron at full strength now');
     s = m.takeOffGear(s, 'tool').state;
-    expect(m.oreTierOf(s), 3);
+    expect(m.oreTierOf(s), 0);
+  });
+
+  test("an Obsidian breaks ore with its own paws, harder ore as it grows; harder ore takes it more strikes", () {
+    final s = rich(freshPet(), 0).copy();
+    s.pet = Pet.fromJson(s.pet!.toJson()..['paletteId'] = 'obsidian');
+    expect(m.oreTierOf(s), 1, reason: 'an Eggling: copper');
+    s.pet!.stage = 2;
+    expect(m.oreTierOf(s), 2, reason: 'a Juvenile: iron');
+    expect(m.strikeWorth(s, 1), closeTo(1.34, 1e-9));
+    expect(m.strikeWorth(s, 2), closeTo(1.34 * 0.75, 1e-9), reason: 'its hardest takes more strikes');
+    s.pet!.stage = 3;
+    expect(m.oreTierOf(s), 3, reason: 'an Elder: lumen');
+    s.pet!.xpAwarded['test'] = 10000000;
+    expect(m.oreTierOf(s), 4, reason: 'a seasoned Elder: obsidian');
   });
 
   test("gear is its own loadout: it never touches the wearables, and it's never for Glimmer", () {

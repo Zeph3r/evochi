@@ -8,6 +8,7 @@ import 'dart:math' as math;
 
 import '../../core/models/game_state.dart';
 import '../engine.dart' as g;
+import '../xp/xp.dart' show levelInfo;
 import 'gear.dart';
 
 export 'gear.dart';
@@ -47,24 +48,44 @@ Map<String, GearDef> wornGear(GameState s) => {
         if (s.mining.piece(e.value) != null && gearDefs[s.mining.piece(e.value)!.def] != null) e.key: gearDefs[s.mining.piece(e.value)!.def]!
     };
 
-/// The ore tier your gear strikes at full strength: copper with none, iron with a piece that opens iron.
-int gearTierOf(GameState s) => wornGear(s).values.where((d) => d.opens).fold(1, (a, d) => d.tier > a ? d.tier : a);
+/// The ore tier your gear breaks: none without it, copper with a copper pick, iron with a piece that opens iron.
+int gearTierOf(GameState s) {
+  var t = 0;
+  for (final d in wornGear(s).values) {
+    if (d.opens || d.slot == 'tool') t = math.max(t, d.tier);
+  }
+  return t;
+}
 
-/// An Evochi breaks most ore with its own paws: copper, iron and lumen. Obsidian, the hardest, needs
-/// iron-tier gear (or an Obsidian Evochi, who's made of the stuff).
-const bareTier = 3;
+/// Only an Obsidian Evochi breaks ore with its own paws (it's made of the stuff), and harder ore as it grows: an
+/// Eggling copper, a Juvenile iron, an Elder lumen, and an Elder from level [obsidianDeepLevel] obsidian.
+/// Every other Evochi needs gear for it.
+const obsidianDeepLevel = 15;
 
-/// The hardest ore you can break at all.
-int oreTierOf(GameState s) => gearTierOf(s) >= 2 || s.pet?.paletteId == 'obsidian' ? 4 : bareTier;
+int bareTierOf(GameState s) {
+  final p = s.pet;
+  if (p == null || p.paletteId != 'obsidian') return 0;
+  final lv = levelInfo(p.xpAwarded.values.fold(0, (a, b) => a + b)).level;
+  return switch (p.stage) { 1 => 1, 2 => 2, _ => lv >= obsidianDeepLevel ? 4 : 3 };
+}
 
-/// Each tier an ore sits above your gear's, a strike is worth this much less: harder ore takes more strikes,
-/// and better gear breaks it faster.
+/// The hardest ore you can break at all (0: none yet).
+int oreTierOf(GameState s) => math.max(gearTierOf(s), bareTierOf(s));
+
+/// The ore you strike at full strength: your gear's, or with bare paws all but the hardest you can break.
+int fullTierOf(GameState s) {
+  final bare = bareTierOf(s);
+  return math.max(gearTierOf(s), bare > 1 ? bare - 1 : bare);
+}
+
+/// Each tier an ore sits above what you strike at full strength, a strike is worth this much less: harder ore
+/// takes more strikes, and better gear breaks it faster.
 const hardnessStep = 0.75;
 
-double hardness(int oreTier, int gearTier) => math.pow(hardnessStep, math.max(0, oreTier - gearTier)).toDouble();
+double hardness(int oreTier, int fullTier) => math.pow(hardnessStep, math.max(0, oreTier - fullTier)).toDouble();
 
-/// A strike's worth on ore of [oreTier]: your mining power, less for ore harder than your gear.
-double strikeWorth(GameState s, int oreTier) => miningPowerOf(s) * hardness(oreTier, gearTierOf(s));
+/// A strike's worth on ore of [oreTier]: your mining power, less for ore harder than you strike at full.
+double strikeWorth(GameState s, int oreTier) => miningPowerOf(s) * hardness(oreTier, fullTierOf(s));
 
 /// How much a strike is worth: 1, plus your loadout's power, and an Obsidian Evochi's edge.
 double miningPowerOf(GameState s) {
