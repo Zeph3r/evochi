@@ -311,9 +311,27 @@ class _GardenPlate extends StatelessWidget {
                       animate: animate,
                       helper: h.helperOf(s, p.id),
                       tending: h.tended(s, p.id),
+                      leftBed: geo[p.id]!.bed.center.dx < 0.5,
                       onTap: () => onBed(p),
                     ),
                   ),
+                // each bed's helper, on the bed itself
+                for (final p in plots)
+                  if (h.helperOf(s, p.id) case final pet?)
+                    Positioned.fill(
+                      child: PlotActor(
+                        key: ValueKey('actor:${p.id}:${pet.id}'),
+                        pet: pet,
+                        p: p,
+                        tending: h.tended(s, p.id),
+                        bed: px(geo[p.id]!.bed),
+                        plate: Size(w, hPlate),
+                        planted: planted == p.id,
+                        splashed: splash == p.id,
+                        harvested: pops.containsKey(p.id),
+                        animate: animate,
+                      ),
+                    ),
                 // a discovery's clue (Lumen Trails), on the plate's top 86% that's shown
                 ClueGlint(place: 'garden', width: w, height: hPlate * 0.86),
               ]),
@@ -360,6 +378,7 @@ class _BedButton extends StatelessWidget {
     required this.animate,
     required this.helper,
     required this.tending,
+    required this.leftBed,
     required this.onTap,
   });
   final h.PlotView p;
@@ -369,6 +388,7 @@ class _BedButton extends StatelessWidget {
   final bool animate;
   final Pet? helper;
   final bool tending;
+  final bool leftBed; // (its helper sits at the outer corner; its name goes on the inner one)
   final VoidCallback onTap;
 
   String get _label {
@@ -391,16 +411,8 @@ class _BedButton extends StatelessWidget {
           onTap: onTap,
           child: ExcludeSemantics(
             child: Stack(clipBehavior: Clip.none, children: [
-              Positioned.fill(
-                child: AnimatedContainer(
-                  duration: const Duration(milliseconds: 180),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(14),
-                    border: selected ? Border.all(color: const Color(0xF2FFEEB2), width: 3) : null,
-                    boxShadow: selected ? const [BoxShadow(color: Color(0xD9FFD26E), blurRadius: 16)] : null,
-                  ),
-                ),
-              ),
+              // selected: a gold ring with a soft glow round it (the ring only: the crop stays clear)
+              if (selected) const Positioned.fill(child: CustomPaint(painter: _SelectRing())),
               Positioned.fill(
                 child: IgnorePointer(
                   child: AnimatedOpacity(
@@ -421,12 +433,33 @@ class _BedButton extends StatelessWidget {
                 top: 0,
                 child: Center(child: FractionalTranslation(translation: const Offset(0, -0.55), child: _BedChip(p))),
               ),
-              if (helper != null) Positioned(left: -4, top: -6, child: HelperBadge(pet: helper!, tending: tending || p.empty)),
+              if (helper != null && tending)
+                Positioned(left: leftBed ? null : 4, right: leftBed ? 4 : null, top: 4, child: TendedPill(name: helper!.name, small: true)),
               if (pop != null) Positioned.fill(child: HarvestBurst(key: ObjectKey(pop), items: pop!.$1, golden: pop!.$2, animate: animate)),
             ]),
           ),
         ),
       );
+}
+
+class _SelectRing extends CustomPainter {
+  const _SelectRing();
+  @override
+  void paint(Canvas canvas, Size size) {
+    final r = RRect.fromRectAndRadius(Offset.zero & size, const Radius.circular(14));
+    canvas.drawRRect(r, Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 7
+      ..color = const Color(0xB3FFD26E)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
+    canvas.drawRRect(r.deflate(1.5), Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 3
+      ..color = const Color(0xF2FFEEB2));
+  }
+
+  @override
+  bool shouldRepaint(_SelectRing old) => false;
 }
 
 class _BedChip extends StatelessWidget {
@@ -621,7 +654,7 @@ class _BedPanel extends StatelessWidget {
         Wrap(spacing: 12, runSpacing: 4, children: [
           const _KeyDot(_timeCol, 'Time'),
           _KeyDot(_walkCol, gr.steps > 0 ? 'Walking (${fmt(gr.steps)} steps)' : 'Walking'),
-          if (p.watered) const _KeyDot(_waterCol, 'Watered'),
+          if (p.watered) _KeyDot(_waterCol, h.tended(c.state, p.id) ? 'Watered by ${h.helperOf(c.state, p.id)!.name}' : 'Watered'),
           if (p.tonic) const _KeyDot(_tonicCol, 'Sprout Tonic'),
           if (plot.boost > 0) const _KeyDot(_boostCol, 'Moonwell Dew'),
         ]),
