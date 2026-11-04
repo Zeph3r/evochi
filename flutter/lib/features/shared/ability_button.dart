@@ -199,7 +199,8 @@ class _AbilityButtonState extends State<AbilityButton> with SingleTickerProvider
               ),
               if (w.showLabel && (w.rank == AbilityRank.primary || w.rank == AbilityRank.ultimate))
                 Container(
-                  margin: const EdgeInsets.only(top: 1),
+                  // (the painted art's shadow spills a little below its rim: the name sits clear of it)
+                  margin: EdgeInsets.only(top: w.sprite != null ? 6 : 1),
                   padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 1),
                   decoration: BoxDecoration(
                     color: const Color(0xE64E3324),
@@ -212,18 +213,21 @@ class _AbilityButtonState extends State<AbilityButton> with SingleTickerProvider
                       style: TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w900, fontSize: labelSize, height: 1.15, color: const Color(0xFFFFF0D2))),
                 )
               else if (w.showLabel)
-                Text(
-                  w.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.visible,
-                  softWrap: false,
-                  style: TextStyle(
-                    fontFamily: 'Nunito',
-                    fontWeight: FontWeight.w900,
-                    fontSize: labelSize,
-                    height: 1.1,
-                    color: const Color(0xFFFFF6E4).withValues(alpha: w.dim ? 0.6 : 0.95),
-                    shadows: const [Shadow(color: Color(0xCC3B2923), blurRadius: 3, offset: Offset(0, 1))],
+                Padding(
+                  padding: EdgeInsets.only(top: w.sprite != null ? 3 : 0),
+                  child: Text(
+                    w.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.visible,
+                    softWrap: false,
+                    style: TextStyle(
+                      fontFamily: 'Nunito',
+                      fontWeight: FontWeight.w900,
+                      fontSize: labelSize,
+                      height: 1.1,
+                      color: const Color(0xFFFFF6E4).withValues(alpha: w.dim ? 0.6 : 0.95),
+                      shadows: const [Shadow(color: Color(0xCC3B2923), blurRadius: 3, offset: Offset(0, 1))],
+                    ),
                   ),
                 ),
             ]),
@@ -252,8 +256,8 @@ class _AbilityPainter extends CustomPainter {
           ? 'disabled'
           : down
               ? 'pressed'
-              : ult && w.ready
-                  ? 'ready'
+              : w.ready
+                  ? 'ready' // (an ultimate charged; the pouch open)
                   : 'normal';
       final img = ButtonSprites.of(sp, state) ?? ButtonSprites.of(sp, 'normal');
       if (img != null) return _paintSprite(canvas, size, sp, img);
@@ -502,7 +506,7 @@ class ButtonSprites {
   static const states = ['normal', 'pressed', 'ready', 'disabled'];
 
   /// each art's rim radius and face radius, in its own 256 px
-  static const radii = {'pounce': (121.5, 98.0), 'dodge': (120.5, 96.0), 'bolt': (117.5, 90.0), 'pulse': (117.5, 97.0),
+  static const radii = {'pounce': (121.5, 98.0), 'dodge': (120.5, 96.0), 'bolt': (117.5, 90.0), 'pulse': (117.5, 97.0), 'pouch': (117.5, 84.0),
     // the Elders' ultimates share one crested frame
     'healing_mist': (122.5, 91.0), 'sunflare': (122.5, 91.0), 'thorn_snare': (122.5, 91.0), 'reef_bloom': (122.5, 91.0),
     'quake': (122.5, 91.0), 'crystal_shards': (122.5, 91.0),

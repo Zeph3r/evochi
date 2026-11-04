@@ -581,7 +581,7 @@ final sproutintro = Short(
 );
 
 /// Looks at one thing, recorded by name only.
-final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort];
+final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort, gardenLower];
 
 /// 3. The Deep Wilds: a clearing calmed, the way down opens, down a floor, and a Hollow Surge.
 final deep = Short(
@@ -1308,6 +1308,35 @@ final gardenShort = Short(
         Beat(0.6, (s) => s.tapWhere(_bed('Bed 1:'))),
         Beat(0.7, (s) => s.say(const [('and sometimes...\n', white), ('GOLDEN', gold)], secs: 3.4, size: 30, y: 480)),
       ],
+    ),
+  ],
+);
+
+/// The lower field's helper (a look): Farming 6, Moss tending a growing bed down there, Fern up in the garden.
+GameState gardenLowerSave() {
+  final s = gardenSave();
+  var xp = 0;
+  for (var l = 1; l < 6; l++) {
+    xp += home.skillCurveBase + home.skillCurveStep * (l - 1);
+  }
+  s.home.skills['farming'] = xp;
+  s.home.helpers['p5'] = 'moss';
+  s.home.plots['p5'] = PlotState(crop: 'meadow_carrot', plantedAt: DateTime.now().millisecondsSinceEpoch - 10 * 60000, watered: true, tender: 'moss');
+  return s;
+}
+
+final gardenLower = Short(
+  id: 'garden_lower',
+  stamp: 'THE GARDEN',
+  endTitle: const [('The lower field\n', null), ('has its own helper.', Color(0xFF5E7F4A))],
+  clips: [
+    Clip(
+      state: gardenLowerSave,
+      open: () => const Ambience('garden', child: GardenScreen()),
+      secs: 7.0,
+      preroll: 0.6,
+      pilot: const PilotStart(on: false),
+      loaded: () => true,
     ),
   ],
 );

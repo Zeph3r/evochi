@@ -283,30 +283,6 @@ class _Face extends StatelessWidget {
       );
 }
 
-/// The little helper on a tended bed (top left of the bed).
-class HelperBadge extends StatelessWidget {
-  const HelperBadge({super.key, required this.pet, required this.tending, this.size = 34});
-  final Pet pet;
-  final bool tending; // tending this crop now (dimmer when it waits for the next planting)
-  final double size;
-  @override
-  Widget build(BuildContext context) => Opacity(
-        opacity: tending ? 1 : 0.7,
-        child: Container(
-          width: size,
-          height: size,
-          padding: const EdgeInsets.all(2),
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xF2F1F6E6),
-            border: Border.all(color: tending ? _leaf : const Color(0xFFB8C9A0), width: 2),
-            boxShadow: const [BoxShadow(color: Color(0x40281910), blurRadius: 4, offset: Offset(0, 2))],
-          ),
-          child: ClipOval(child: PetSprite(stage: pet.stage, palette: pet.paletteId, expr: 'happy', height: size)),
-        ),
-      );
-}
-
 /// A harvest popping out of its bed: each item flies up in an arc and falls away, its count rising over the
 /// bed. Golden: a gold flash, a ring of glints and "Golden harvest!".
 class HarvestBurst extends StatefulWidget {
@@ -654,7 +630,9 @@ class PlotActor extends StatefulWidget {
     this.harvest,
     this.onTap,
     this.animate = true,
+    this.scale = 1.0,
   });
+  final double scale; // (the lower field's small beds: a smaller helper)
   final Pet pet;
   final h.PlotView p;
   final bool tending;
@@ -745,11 +723,11 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
     // its in-world sprite's frame: where its feet are (so it stands on them, and turns on them)
     final art = _art!;
     final gx = art.gx / art.fw, gy = art.gy / art.fh;
-    final ph = bed.height * 1.08; // the frame (the body is about half of it)
+    final ph = bed.height * 1.08 * w.scale; // the frame (the body is about half of it)
     final pw = ph * art.fw / art.fh;
     final fx = (left ? bed.left - pw * 0.26 : bed.right + pw * 0.26).clamp(pw * gx + 2, w.plate.width - pw * (1 - gx) - 2);
     final foot = Offset(fx, bed.bottom - bed.height * 0.02);
-    final ps = bed.height * 0.72; // a prop's size (the voxel props sit in their frames with a margin)
+    final ps = bed.height * 0.72 * w.scale; // a prop's size (the voxel props sit in their frames with a margin)
     final rest = Offset(foot.dx + dir * pw * 0.46, foot.dy - ps * 0.12); // the can, on the bed's front corner
     final over = Offset(bed.center.dx - dir * bed.width * 0.06, bed.top + bed.height * 0.12);
     final basketAt = Offset(left ? bed.left + bed.width * 0.24 : bed.right - bed.width * 0.24, bed.bottom - ps * 0.2);

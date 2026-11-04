@@ -210,6 +210,10 @@ class _GardenScreenState extends State<GardenScreen> {
                     pops: _pops,
                     animate: !reduce,
                     onBed: (p) => _tapBed(c, p),
+                    onHelper: (p) {
+                      c.audio.play('pet_chirp', volume: 0.45);
+                      setState(() => _sel = p.id);
+                    },
                   ),
                 ),
               Transform.translate(
@@ -809,26 +813,52 @@ class _SeedRow extends StatelessWidget {
 /// The lower field: the beds past the plate as a row of cards (soil, the crop growing in it, a lock
 /// until its Farming level). The same tap opens the same bed panel below.
 class _LowerField extends StatelessWidget {
-  const _LowerField({required this.plots, required this.selected, required this.pops, required this.animate, required this.onBed});
+  const _LowerField({required this.plots, required this.selected, required this.pops, required this.animate, required this.onBed, required this.onHelper});
   final List<h.PlotView> plots;
   final String selected;
   final Map<String, (Map<String, int>, bool, bool)> pops;
   final bool animate;
   final ValueChanged<h.PlotView> onBed;
+  final ValueChanged<h.PlotView> onHelper;
   @override
   Widget build(BuildContext context) {
     final s = context.watch<GameController>().state;
+    const gap = 8.0;
     return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        const KitSectionHead('The lower field'),
-        Row(children: [
-          for (final p in plots) ...[
-            Expanded(
-              child: _FieldBed(p: p, selected: p.id == selected, pop: pops[p.id], animate: animate, helper: h.helperOf(s, p.id), tending: h.tended(s, p.id), onTap: () => onBed(p)),
-            ),
-            if (p != plots.last) const SizedBox(width: 8),
-          ],
-        ]),
-      ]);
+      const KitSectionHead('The lower field'),
+      LayoutBuilder(builder: (ctx, b) {
+        final tw = (b.maxWidth - gap * (plots.length - 1)) / plots.length;
+        final th = tw / 1.05;
+        return Stack(clipBehavior: Clip.none, children: [
+          Row(children: [
+            for (final p in plots) ...[
+              Expanded(
+                child: _FieldBed(p: p, selected: p.id == selected, pop: pops[p.id], animate: animate, helper: h.helperOf(s, p.id), tending: h.tended(s, p.id), onTap: () => onBed(p)),
+              ),
+              if (p != plots.last) const SizedBox(width: gap),
+            ],
+          ]),
+          // its helper, on its bed, a size for the small beds
+          for (final (i, p) in plots.indexed)
+            if (h.helperOf(s, p.id) case final pet?)
+              Positioned.fill(
+                child: PlotActor(
+                  key: ValueKey('actor:${p.id}:${pet.id}'),
+                  pet: pet,
+                  p: p,
+                  tending: h.tended(s, p.id),
+                  bed: Rect.fromLTWH(i * (tw + gap), 0, tw, th),
+                  plate: Size(b.maxWidth, th),
+                  rank: 1,
+                  scale: 0.62,
+                  harvest: switch (pops[p.id]) { (final items, final golden, true) => (items, golden), _ => null },
+                  onTap: () => onHelper(p),
+                  animate: animate,
+                ),
+              ),
+        ]);
+      }),
+    ]);
   }
 }
 
@@ -883,8 +913,7 @@ class _FieldBed extends StatelessWidget {
                   Text('Farming ${p.need}', style: EvochiText.tiny.copyWith(color: const Color(0xFFFFF0D2))),
                 ]),
               if (p.ripe) const Positioned(top: 4, right: 4, child: BadgeDot()),
-              if (helper != null) Positioned(left: 2, top: 2, child: HelperBadge(pet: helper!, tending: tending || p.empty, size: 24)),
-              if (pop != null) Positioned.fill(child: HarvestBurst(key: ObjectKey(pop), items: pop!.$1, golden: pop!.$2, animate: animate, scale: 0.7)),
+              if (pop != null && !pop!.$3) Positioned.fill(child: HarvestBurst(key: ObjectKey(pop), items: pop!.$1, golden: pop!.$2, animate: animate, scale: 0.7)),
               Positioned(
                 left: 4,
                 bottom: 3,

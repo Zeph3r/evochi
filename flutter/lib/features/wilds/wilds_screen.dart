@@ -4381,6 +4381,7 @@ class _Pouch extends StatelessWidget {
     final s = state;
     return AbilityButton(
       icon: AbilityIcon.pouch,
+      sprite: 'pouch',
       rank: AbilityRank.utility,
       size: 42,
       label: 'Pouch',
