@@ -1,13 +1,14 @@
 # Cleans the combat button sprites from Evochi_Combat_Button_Assets_v1 (png/256/<ability>/<state>.png): the pack
 # baked the tail of each button's label into its drop shadow. Each bottom sector outside the rim is refilled from the
 # same radius 52 degrees round (the shadow and glow are nearly round), the Healing Mist crest kept; then webp q90.
-#   python3 tools/art/combat_buttons_clean.py <pack dir> flutter/assets/art/combat
+#   python3 tools/art/combat_buttons_clean.py <pack dir> flutter/assets/art/combat [ability ...]
 import sys, os
 import numpy as np
 from PIL import Image
 from scipy import ndimage as nd
-ab=['pounce','dodge','healing_mist']; st=['normal','ready','pressed','disabled']
-R={'pounce':121.5,'dodge':120.5,'healing_mist':122.5}
+ab=sys.argv[3:] or ['pounce','dodge','healing_mist','bolt','pulse']; st=['normal','ready','pressed','disabled']
+CLEAN={'pounce','dodge','healing_mist'}  # (the others came clean: kept as painted)
+R={'pounce':121.5,'dodge':120.5,'healing_mist':122.5,'bolt':117.5,'pulse':117.5}
 def bil(img,x,y):
   return np.stack([nd.map_coordinates(img[...,c],[y,x],order=1,mode='nearest') for c in range(4)],-1)
 for a in ab:
@@ -28,6 +29,7 @@ for a in ab:
       dots=nd.binary_dilation(dots,iterations=2)&~gold
       w=np.maximum(w,dots.astype(float))
     w=nd.gaussian_filter(w,0.7)*(~gold)
+    if a not in CLEAN: w=w*0
     sh=np.where(phi>=0,1,-1)*52
     th=np.radians(phi+sh)
     sx=cx+d*np.sin(th); sy=cy+d*np.cos(th)

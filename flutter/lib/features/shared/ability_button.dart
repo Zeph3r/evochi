@@ -12,7 +12,7 @@
 // The icons are drawn small on a pixel grid and scaled up without smoothing (pixel art, like the game's own),
 // cached once each.
 //
-// A button given a [AbilityButton.sprite] (Pounce, Dodge, Healing Mist) shows the painted art instead
+// A button given a [AbilityButton.sprite] (Pounce, Dodge, Bolt, Pulse, Healing Mist) shows the painted art instead
 // (assets/art/combat/<sprite>_<state>.webp: normal, pressed, ready, disabled); its cooldown sweep, seconds, charge
 // ring, motes, flash and count are still drawn here, live. Until the art has loaded it falls back to the drawn one.
 
@@ -502,7 +502,7 @@ class ButtonSprites {
   static const states = ['normal', 'pressed', 'ready', 'disabled'];
 
   /// each art's rim radius and face radius, in its own 256 px
-  static const radii = {'pounce': (121.5, 98.0), 'dodge': (120.5, 96.0), 'healing_mist': (122.5, 91.0)};
+  static const radii = {'pounce': (121.5, 98.0), 'dodge': (120.5, 96.0), 'healing_mist': (122.5, 91.0), 'bolt': (117.5, 90.0), 'pulse': (117.5, 97.0)};
 
   static ui.Image? of(String name, String state) => _img['${name}_$state'];
 
