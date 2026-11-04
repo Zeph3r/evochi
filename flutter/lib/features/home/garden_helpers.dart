@@ -793,6 +793,39 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
           if (v >= c0 + 0.4 && v < c0 + 0.45) sy *= 0.92;
         }
     }
+    // its face, as it feels it (drawn on its map sprite where its face shows)
+    final blink = ((t + _plan.phase) % _plan.blinkEvery) < 0.13;
+    var expr = blink ? 'blink' : 'default';
+    switch (mood) {
+      case HelperMood.sleeping:
+        expr = 'sleepy';
+      case HelperMood.glancing:
+        expr = 'curious';
+      case HelperMood.butterfly:
+        expr = u < 4.4 ? 'curious' : 'happy';
+      case HelperMood.admiring:
+        expr = blink ? 'blink' : 'affectionate';
+      case HelperMood.cheering:
+        expr = 'excited';
+      case HelperMood.watering:
+        expr = u < 0.9 ? 'determined' : (u < 2.4 ? 'happy' : expr);
+      case HelperMood.nurturing:
+        expr = u < 0.3 ? 'determined' : 'affectionate';
+      case HelperMood.harvest:
+        final v = u - (golden ? _surprise : 0.0);
+        final c0 = _celebrateAt(golden), c1 = _celebrateEnd(golden);
+        if (golden && u < _surprise + 0.1) {
+          expr = 'surprised';
+        } else if (v < 0.55) {
+          expr = 'determined';
+        } else if (golden && v < 1.85) {
+          expr = 'excited';
+        } else if (v < c1) {
+          expr = v >= c0 && golden ? 'excited' : 'happy';
+        }
+      case HelperMood.idle:
+        break;
+    }
     final petRect = Rect.fromLTWH(foot.dx - pw * gx, foot.dy - ph * gy - lift, pw, ph);
     final head = Offset(foot.dx - pw * 0.06, foot.dy - lift - ph * 0.47);
     final body = Offset(foot.dx - pw * 0.04, foot.dy - lift - ph * 0.24);
@@ -960,7 +993,7 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
                   colors: const [Colors.white, Colors.white, Color(0xFFCFC6B8)],
                   stops: [0, (gy - 0.14).clamp(0.0, 1.0), gy],
                 ).createShader(r),
-                child: CustomPaint(size: Size(pw, ph), painter: _WalkerPainter(art, _facing, col)),
+                child: CustomPaint(size: Size(pw, ph), painter: _WalkerPainter(art, _facing, col, expr)),
               ),
             ),
           ),
@@ -1070,53 +1103,6 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
           ),
         ));
       }
-    }
-
-    // ---- its face, in a bubble, as it feels it: surprised by a Golden crop, delighted after a harvest
-    String? feel;
-    var feelK = 0.0;
-    if (mood == HelperMood.harvest && harvest != null) {
-      final v = u - (golden ? _surprise : 0.0);
-      final c0 = _celebrateAt(golden), c1 = _celebrateEnd(golden);
-      if (golden && u < _surprise + 0.1) {
-        feel = 'surprised';
-        feelK = math.min(u / 0.12, (_surprise + 0.1 - u) / 0.12);
-      } else if (golden && v > 0.5 && v < 1.5) {
-        feel = 'excited';
-        feelK = math.min((v - 0.5) / 0.12, (1.5 - v) / 0.12);
-      } else if (v > c0 && v < c1) {
-        feel = golden ? 'excited' : 'happy';
-        feelK = math.min((v - c0) / 0.15, (c1 - v) / 0.2);
-      }
-    }
-    if (feel != null && feelK > 0) {
-      final k = feelK.clamp(0.0, 1.0);
-      final pop = Curves.easeOutBack.transform(k);
-      kids.add(Positioned(
-        key: const ValueKey('feel'), // (kept as the pieces in flight come and go, so its portrait never reloads)
-        left: head.dx + pw * 0.28 - 22,
-        top: petRect.top - 26 - 6 * pop,
-        width: 44,
-        height: 44,
-        child: IgnorePointer(
-          child: Opacity(
-            opacity: k,
-            child: Transform.scale(
-              scale: 0.6 + 0.4 * pop,
-              child: Container(
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: const Color(0xFFFFFBF2),
-                  border: Border.all(color: golden ? _gold : _leaf, width: 2),
-                  boxShadow: const [BoxShadow(color: Color(0x40281910), blurRadius: 5, offset: Offset(0, 2))],
-                ),
-                // its portrait, framed on its face
-                child: ClipOval(child: _faceIn(w.pet, feel, 40)),
-              ),
-            ),
-          ),
-        ),
-      ));
     }
 
     // ---- its name, a moment, when tapped
@@ -1521,10 +1507,16 @@ class _Slot extends StatelessWidget {
 /// A helper's in-world sprite: the walkable maps' sheet for its stage and palette (8 directions down, the idle
 /// stance then the walk across), and what it wears, a row per item (a direction per frame).
 class _Walker {
-  _Walker(this.sheet, this.wear, this.fw, this.fh, this.gx, this.gy);
+  _Walker(this.sheet, this.wear, this.fw, this.fh, this.gx, this.gy, {this.faces, this.faceRows = const [], this.faceExprs = const []});
   final ui.Image sheet;
   final List<ui.Image> wear;
   final double fw, fh, gx, gy;
+
+  /// its portrait's faces on its standing frames (tools/art/walker_faces.py): a row per facing in [faceRows],
+  /// a column per expression in [faceExprs]
+  final ui.Image? faces;
+  final List<int> faceRows;
+  final List<String> faceExprs;
 
   static Map<String, dynamic>? _meta;
   static final _cache = <String, _Walker>{};
@@ -1543,41 +1535,44 @@ class _Walker {
         if (wm[id] is Map) await AtlasCache.load('${artBase}wilds/${(wm[id] as Map)['file']}'),
     ];
     final g = w['ground'] as List;
-    return _cache[key] = _Walker(sheet, wear, (w['frameW'] as num).toDouble(), (w['frameH'] as num).toDouble(), (g[0] as num).toDouble(), (g[1] as num).toDouble());
+    // its faces, where they've been made (the Forest Juvenile: every garden helper)
+    ui.Image? faces;
+    var rows = const <int>[];
+    var exprs = const <String>[];
+    final base = '${artBase}home/helper_faces_s0${pet.stage}_${pet.paletteId}';
+    try {
+      final fj = (jsonDecode(await rootBundle.loadString('$base.json')) as Map).cast<String, dynamic>();
+      faces = await AtlasCache.load('$base.webp');
+      rows = (fj['rows'] as List).cast<int>();
+      exprs = (fj['exprs'] as List).cast<String>();
+    } catch (_) {} // (none: its one face)
+    return _cache[key] = _Walker(sheet, wear, (w['frameW'] as num).toDouble(), (w['frameH'] as num).toDouble(), (g[0] as num).toDouble(), (g[1] as num).toDouble(),
+        faces: faces, faceRows: rows, faceExprs: exprs);
   }
 }
 
 class _WalkerPainter extends CustomPainter {
-  _WalkerPainter(this.art, this.facing, this.col);
+  _WalkerPainter(this.art, this.facing, this.col, this.expr);
   final _Walker art;
   final int facing, col;
+  final String expr;
   @override
   void paint(Canvas canvas, Size size) {
     final dst = Offset.zero & size;
     final paint = Paint()..filterQuality = FilterQuality.medium;
-    canvas.drawImageRect(art.sheet, Rect.fromLTWH(col * art.fw, facing * art.fh, art.fw, art.fh), dst, paint);
+    final fr = art.faceRows.indexOf(facing), fe = art.faceExprs.indexOf(expr);
+    final faces = art.faces;
+    if (faces != null && col == 0 && fr >= 0 && fe >= 0) {
+      // standing, its face showing: the frame with this face on it
+      canvas.drawImageRect(faces, Rect.fromLTWH(fe * art.fw, fr * art.fh, art.fw, art.fh), dst, paint);
+    } else {
+      canvas.drawImageRect(art.sheet, Rect.fromLTWH(col * art.fw, facing * art.fh, art.fw, art.fh), dst, paint);
+    }
     for (final w in art.wear) {
       canvas.drawImageRect(w, Rect.fromLTWH(facing * art.fw, 0, art.fw, art.fh), dst, paint);
     }
   }
 
   @override
-  bool shouldRepaint(_WalkerPainter old) => old.facing != facing || old.col != col || old.art != art;
-}
-
-/// A helper's portrait, placed so its face is at the middle of a [box]-wide circle.
-Widget _faceIn(Pet pet, String expr, double box) {
-  final ce = AssetManifest.instance!.char(pet.stage);
-  const h = 84.0;
-  final w = h * ce.w / ce.h;
-  final f = ce.anchor('face');
-  // (an OverflowBox places a bigger child by its alignment: solved for the face at the circle's middle)
-  final ax = 2 * (box / 2 - f.dx / ce.w * w) / (box - w) - 1;
-  final ay = 2 * (box / 2 + 3 - f.dy / ce.h * h) / (box - h) - 1;
-  return OverflowBox(
-    maxWidth: w,
-    maxHeight: h,
-    alignment: Alignment(ax, ay),
-    child: PetSprite(stage: pet.stage, palette: pet.paletteId, expr: expr, height: h),
-  );
+  bool shouldRepaint(_WalkerPainter old) => old.facing != facing || old.col != col || old.art != art || old.expr != expr;
 }
