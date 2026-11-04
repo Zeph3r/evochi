@@ -4185,7 +4185,12 @@
   "gear_copper_paw_guards": "items/gear_copper_paw_guards.webp",
   "gear_iron_pick": "items/gear_iron_pick.webp",
   "gear_iron_harness": "items/gear_iron_harness.webp",
-  "gear_iron_paw_guards": "items/gear_iron_paw_guards.webp"
+  "gear_iron_paw_guards": "items/gear_iron_paw_guards.webp",
+  "gilded_sunberry": "items/gilded_sunberry.webp",
+  "gilded_carrot": "items/gilded_carrot.webp",
+  "gilded_wheat": "items/gilded_wheat.webp",
+  "gilded_glowleaf": "items/gilded_glowleaf.webp",
+  "gilded_moonshroom": "items/gilded_moonshroom.webp"
  },
  "icons": {
   "bag": "icons/bag.webp",
@@ -4382,7 +4387,9 @@
   "mus_village": "music/mus_village.mp3",
   "mus_market": "music/mus_market.mp3",
   "mus_kitchen": "music/mus_kitchen.mp3",
-  "mus_glasshouse": "music/mus_glasshouse.mp3"
+  "mus_glasshouse": "music/mus_glasshouse.mp3",
+  "harvest_pop": "sfx/harvest_pop.mp3",
+  "golden_harvest": "sfx/golden_harvest.mp3"
  },
  "thumbs": {
   "file": "chars/thumbs.webp",

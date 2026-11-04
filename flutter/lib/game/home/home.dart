@@ -113,6 +113,96 @@ const growWater = 0.15;
 /// The Apothecary's Sprout Tonic, once per planting.
 const growSproutTonic = 0.5;
 
+// ------------------------------------------------------------ garden helpers ----
+// A Forest Evochi at its Juvenile stage, resting at home (a companion, not the one out walking), can tend
+// a bed: it keeps the bed watered, adds one of the crop to every harvest, and gives a chance of a Golden
+// harvest. It never makes a crop grow faster than watering does, so a Sunstone stays the way to ripen a bed
+// now; and on a tended bed a Sunstone's crop always comes up Golden.
+//
+// A helper tends one bed. Moved to another, the crop it leaves is no longer tended; it can take on a bed
+// that's growing (not one already ripe). Grown into an Elder, it finishes the crop it's on and then goes
+// back to resting.
+
+const helperPalette = 'forest';
+const helperStage = 2; // Juvenile
+const helperBonus = 1; // one more of the crop, every tended harvest
+const goldenChance = 0.10;
+
+/// A Golden harvest: the yield doubled, a Gilded crop to keep, and half again the Farming XP.
+const goldenYieldMult = 2;
+const goldenXpMult = 1.5;
+
+/// Each crop's Gilded keepsake (catalog items).
+const gildedOf = {
+  'sunberry': 'gilded_sunberry',
+  'meadow_carrot': 'gilded_carrot',
+  'golden_wheat': 'gilded_wheat',
+  'glowleaf': 'gilded_glowleaf',
+  'moonshroom': 'gilded_moonshroom',
+};
+
+bool canHelp(Pet p) => p.paletteId == helperPalette && p.stage == helperStage;
+
+/// The resting Evochis that could tend a bed.
+List<Pet> helperCandidates(GameState s) => [for (final p in s.companions) if (canHelp(p)) p];
+
+/// The resting Evochi on [plotId], if it's still at home.
+Pet? helperOf(GameState s, String plotId) {
+  final id = s.home.helpers[plotId];
+  if (id == null) return null;
+  return s.companions.where((p) => p.id == id).firstOrNull;
+}
+
+/// The bed [petId] tends, if any.
+String? bedOf(GameState s, String petId) => s.home.helpers.entries.where((e) => e.value == petId).firstOrNull?.key;
+
+/// This planting is tended: its helper has been with it since, and still is.
+bool tended(GameState s, String plotId) {
+  final p = s.home.plots[plotId];
+  final hp = helperOf(s, plotId);
+  return p != null && p.tender != null && hp != null && hp.id == p.tender;
+}
+
+/// Will this tended planting come up Golden? (seeded on the player and the planting: no rerolls)
+bool goldenHarvest(GameState s, String plotId) {
+  final p = s.home.plots[plotId];
+  if (p == null || !tended(s, plotId)) return false;
+  return p.sun || g.seededRandom('${s.player?.id ?? 'guest'}:golden:$plotId:${p.plantedAt}').nextDouble() < goldenChance;
+}
+
+/// Ask [petId] to tend [plotId] (null: the bed's helper goes back to resting).
+g.ActionResult assignHelper(GameState state, String plotId, String? petId, int now) {
+  if (!plotDefs.any((p) => p.id == plotId)) return _fail(state, 'unknown_plot');
+  if (!plotUnlocked(state, plotId)) return _fail(state, 'plot_locked', {'need': plotDef(plotId).level});
+  final s = state.copy();
+  final events = <g.GameEvent>[];
+  // whoever tended this bed stops; so does this helper's old bed
+  final was = s.home.helpers.remove(plotId);
+  if (was != null) s.home.plots[plotId]?.tender = null;
+  if (petId == null) {
+    if (was != null) events.add(g.GameEvent('helper_rested', {'plot': plotId, 'pet': was}));
+    return _ok(s, events);
+  }
+  final pet = s.companions.where((p) => p.id == petId).firstOrNull;
+  if (pet == null) return _fail(state, 'not_resting');
+  if (!canHelp(pet)) return _fail(state, 'cant_help', {'palette': pet.paletteId, 'stage': pet.stage});
+  final old = bedOf(s, petId);
+  if (old != null) {
+    s.home.helpers.remove(old);
+    s.home.plots[old]?.tender = null;
+  }
+  s.home.helpers[plotId] = petId;
+  // a growing bed is tended from now (and watered); an empty one from its next planting
+  final plot = s.home.plots[plotId];
+  if (plot != null && plotGrowth(s, plot, now).progress < 1) {
+    plot
+      ..tender = petId
+      ..watered = true;
+  }
+  events.add(g.GameEvent('helper_assigned', {'plot': plotId, 'pet': petId, 'from': old}));
+  return _ok(s, events);
+}
+
 /// First visit to the Home Map: a few seeds from Mira, once per account.
 const starterSeedGift = {'seed_sunberry': 3, 'seed_meadow_carrot': 2};
 
@@ -458,9 +548,15 @@ g.ActionResult plant(GameState state, String plotId, String cropId, int now) {
   if (g.ownedQty(state, c.seed) < 1) return _fail(state, 'no_seed', {'seed': c.seed});
   final s = state.copy();
   _take(s, c.seed, 1);
+  // its helper tends it (and waters it); one grown into an Elder goes back to resting
+  var helper = helperOf(s, plotId);
+  if (helper != null && !canHelp(helper)) {
+    s.home.helpers.remove(plotId);
+    helper = null;
+  }
   // Evochi Plus: beds water themselves when planted
-  s.home.plots[plotId] = PlotState(crop: cropId, plantedAt: now, watered: econ.plusActive(state, now));
-  return _ok(s, [g.GameEvent('planted', {'plot': plotId, 'crop': cropId})]);
+  s.home.plots[plotId] = PlotState(crop: cropId, plantedAt: now, watered: econ.plusActive(state, now) || helper != null, tender: helper?.id);
+  return _ok(s, [g.GameEvent('planted', {'plot': plotId, 'crop': cropId, if (helper != null) 'tender': helper.id})]);
 }
 
 g.ActionResult water(GameState state, String plotId, int now) {
@@ -489,15 +585,29 @@ g.ActionResult harvest(GameState state, String plotId, int now) {
   if (p == null) return _fail(state, 'plot_empty');
   if (plotGrowth(state, p, now).progress < 1) return _fail(state, 'not_ripe');
   final c = cropDefs[p.crop]!;
+  final isTended = tended(state, plotId);
+  final golden = goldenHarvest(state, plotId);
+  final items = <String, int>{
+    for (final e in c.yieldItems.entries) e.key: (e.value + (isTended ? helperBonus : 0)) * (golden ? goldenYieldMult : 1),
+  };
+  final gilded = golden ? gildedOf[p.crop] : null;
+  if (gilded != null) items[gilded] = 1;
   final s = state.copy();
   final txn = 'harvest:$plotId:${p.plantedAt}';
-  c.yieldItems.forEach((id, n) => g.grantItem(s, id, n, 'harvest', now, txn));
+  items.forEach((id, n) => g.grantItem(s, id, n, 'harvest', now, txn));
   s.home.plots[plotId] = null;
   s.home.counts['harvests'] = (s.home.counts['harvests'] ?? 0) + 1;
+  if (golden) s.home.counts['golden'] = (s.home.counts['golden'] ?? 0) + 1;
   final events = <g.GameEvent>[
-    g.GameEvent('harvested', {'plot': plotId, 'crop': p.crop, 'items': Map.of(c.yieldItems)}),
+    g.GameEvent('harvested', {
+      'plot': plotId,
+      'crop': p.crop,
+      'items': items,
+      'golden': golden,
+      if (isTended) 'tender': p.tender,
+    }),
   ];
-  _addSkillXp(s, 'farming', c.xp.toDouble(), events);
+  _addSkillXp(s, 'farming', c.xp * (golden ? goldenXpMult : 1.0), events);
   return _ok(s, events);
 }
 

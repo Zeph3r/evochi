@@ -11,6 +11,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/models/catalog.dart';
+import '../../core/models/game_state.dart';
 import '../../core/services/asset_manifest.dart';
 import '../../core/services/haptics.dart';
 import '../../game/economy/economy.dart' as econ;
@@ -21,6 +22,7 @@ import '../shared/kit.dart';
 import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import '../village/village_screen.dart';
+import 'garden_helpers.dart';
 import 'home_widgets.dart';
 import '../shared/live_scene.dart';
 
@@ -61,7 +63,7 @@ class _GardenScreenState extends State<GardenScreen> {
   String? _sel;
   String? _planted; // pops in once
   String? _splash; // watered just now
-  final Map<String, Map<String, int>> _pops = {}; // just harvested: "+3" over the bed
+  final Map<String, (Map<String, int>, bool)> _pops = {}; // just harvested: the burst over the bed (Golden?)
   Timer? _tick;
   final List<Timer> _timers = [];
 
@@ -93,9 +95,19 @@ class _GardenScreenState extends State<GardenScreen> {
     final r = c.run((s, n) => h.harvest(s, pid, n));
     if (!r.ok) return;
     final ev = r.events.firstWhere((e) => e.type == 'harvested');
-    setState(() => _pops[pid] = (ev.data['items'] as Map).cast<String, int>());
-    _later(1300, () => _pops.remove(pid));
+    final golden = ev.data['golden'] == true;
+    final pop = ((ev.data['items'] as Map).cast<String, int>(), golden);
+    setState(() => _pops[pid] = pop);
+    _later(HarvestBurst.millis(golden), () {
+      if (identical(_pops[pid], pop)) _pops.remove(pid);
+    });
     c.audio.play('coin', volume: 0.6);
+    c.audio.play('harvest_pop', volume: 0.55);
+    if (golden) {
+      c.audio.play('golden_harvest', volume: 0.7);
+      c.audio.buzz(Haptic.reward);
+      c.analytics.track('golden_harvest', {'crop': ev.data['crop']});
+    }
   }
 
   void _tapBed(GameController c, h.PlotView p) {
@@ -188,6 +200,8 @@ class _GardenScreenState extends State<GardenScreen> {
                   child: _LowerField(
                     plots: plots.where((p) => !homeArt.hasGardenAnchor(p.id)).toList(),
                     selected: _sel!,
+                    pops: _pops,
+                    animate: !reduce,
                     onBed: (p) => _tapBed(c, p),
                   ),
                 ),
@@ -209,6 +223,7 @@ class _GardenScreenState extends State<GardenScreen> {
                       onHarvestAll: () => _harvestAll(c),
                       onWalk: () => goWalk(context),
                     ),
+                    if (sel.unlocked) HelperRow(plotId: sel.id),
                     const SizedBox(height: 10),
                     // a developer tool (Profile > Developer tools)
                     if (c.state.steps.connection == 'demo' && c.devTools && plots.any((x) => !x.empty && !x.ripe)) ...[
@@ -252,13 +267,14 @@ class _GardenPlate extends StatelessWidget {
   final String selected;
   final String? planted;
   final String? splash;
-  final Map<String, Map<String, int>> pops;
+  final Map<String, (Map<String, int>, bool)> pops;
   final bool animate;
   final ValueChanged<h.PlotView> onBed;
 
   @override
   Widget build(BuildContext context) {
     final ha = homeArt;
+    final s = context.watch<GameController>().state;
     final gs = ha.gardenSize;
     // the plate's top 86% is shown: the lower edge is just grass
     return AspectRatio(
@@ -292,6 +308,9 @@ class _GardenPlate extends StatelessWidget {
                       selected: p.id == selected,
                       splash: splash == p.id,
                       pop: pops[p.id],
+                      animate: animate,
+                      helper: h.helperOf(s, p.id),
+                      tending: h.tended(s, p.id),
                       onTap: () => onBed(p),
                     ),
                   ),
@@ -333,11 +352,23 @@ class _Crop extends StatelessWidget {
 }
 
 class _BedButton extends StatelessWidget {
-  const _BedButton({required this.p, required this.selected, required this.splash, required this.pop, required this.onTap});
+  const _BedButton({
+    required this.p,
+    required this.selected,
+    required this.splash,
+    required this.pop,
+    required this.animate,
+    required this.helper,
+    required this.tending,
+    required this.onTap,
+  });
   final h.PlotView p;
   final bool selected;
   final bool splash;
-  final Map<String, int>? pop;
+  final (Map<String, int>, bool)? pop;
+  final bool animate;
+  final Pet? helper;
+  final bool tending;
   final VoidCallback onTap;
 
   String get _label {
@@ -345,8 +376,9 @@ class _BedButton extends StatelessWidget {
     if (!p.unlocked) return 'Bed $n: locked until Farming level ${p.need}';
     if (p.empty) return 'Bed $n: empty';
     final name = h.cropDefs[p.crop]!.name;
-    if (p.ripe) return 'Bed $n: $name, ripe, tap to harvest';
-    return 'Bed $n: $name, ${(p.progress * 100).floor()}% grown';
+    final by = helper != null && tending ? ', tended by ${helper!.name}' : '';
+    if (p.ripe) return 'Bed $n: $name$by, ripe, tap to harvest';
+    return 'Bed $n: $name$by, ${(p.progress * 100).floor()}% grown';
   }
 
   @override
@@ -389,21 +421,8 @@ class _BedButton extends StatelessWidget {
                 top: 0,
                 child: Center(child: FractionalTranslation(translation: const Offset(0, -0.55), child: _BedChip(p))),
               ),
-              if (pop != null)
-                Positioned(
-                  left: 0,
-                  right: 0,
-                  top: -44,
-                  child: Center(
-                    child: Row(mainAxisSize: MainAxisSize.min, children: [
-                      for (final e in pop!.entries) ...[
-                        ItemImage(e.key, size: 28),
-                        Text('+${e.value}', style: EvochiText.number.copyWith(fontSize: 16, color: Colors.white, shadows: const [Shadow(color: Color(0xAA000000), blurRadius: 3)])),
-                        const SizedBox(width: 4),
-                      ],
-                    ]),
-                  ),
-                ),
+              if (helper != null) Positioned(left: -4, top: -6, child: HelperBadge(pet: helper!, tending: tending || p.empty)),
+              if (pop != null) Positioned.fill(child: HarvestBurst(key: ObjectKey(pop), items: pop!.$1, golden: pop!.$2, animate: animate)),
             ]),
           ),
         ),
@@ -741,26 +760,37 @@ class _SeedRow extends StatelessWidget {
 /// The lower field: the beds past the plate as a row of cards (soil, the crop growing in it, a lock
 /// until its Farming level). The same tap opens the same bed panel below.
 class _LowerField extends StatelessWidget {
-  const _LowerField({required this.plots, required this.selected, required this.onBed});
+  const _LowerField({required this.plots, required this.selected, required this.pops, required this.animate, required this.onBed});
   final List<h.PlotView> plots;
   final String selected;
+  final Map<String, (Map<String, int>, bool)> pops;
+  final bool animate;
   final ValueChanged<h.PlotView> onBed;
   @override
-  Widget build(BuildContext context) => Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+  Widget build(BuildContext context) {
+    final s = context.watch<GameController>().state;
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
         const KitSectionHead('The lower field'),
         Row(children: [
           for (final p in plots) ...[
-            Expanded(child: _FieldBed(p: p, selected: p.id == selected, onTap: () => onBed(p))),
+            Expanded(
+              child: _FieldBed(p: p, selected: p.id == selected, pop: pops[p.id], animate: animate, helper: h.helperOf(s, p.id), tending: h.tended(s, p.id), onTap: () => onBed(p)),
+            ),
             if (p != plots.last) const SizedBox(width: 8),
           ],
         ]),
       ]);
+  }
 }
 
 class _FieldBed extends StatelessWidget {
-  const _FieldBed({required this.p, required this.selected, required this.onTap});
+  const _FieldBed({required this.p, required this.selected, required this.pop, required this.animate, required this.helper, required this.tending, required this.onTap});
   final h.PlotView p;
   final bool selected;
+  final (Map<String, int>, bool)? pop;
+  final bool animate;
+  final Pet? helper;
+  final bool tending;
   final VoidCallback onTap;
   @override
   Widget build(BuildContext context) {
@@ -792,7 +822,7 @@ class _FieldBed extends StatelessWidget {
               inset: 2.5,
               top: const KitBand(2, Color(0x33FFFFFF)),
             ),
-            child: Stack(alignment: Alignment.center, children: [
+            child: Stack(alignment: Alignment.center, clipBehavior: Clip.none, children: [
               if (p.unlocked && p.empty)
                 for (var i = 0; i < 3; i++)
                   Positioned(left: 8, right: 8, top: 14.0 + i * 14, child: Container(height: 3, decoration: BoxDecoration(color: const Color(0x55000000), borderRadius: BorderRadius.circular(2)))),
@@ -804,6 +834,8 @@ class _FieldBed extends StatelessWidget {
                   Text('Farming ${p.need}', style: EvochiText.tiny.copyWith(color: const Color(0xFFFFF0D2))),
                 ]),
               if (p.ripe) const Positioned(top: 4, right: 4, child: BadgeDot()),
+              if (helper != null) Positioned(left: 2, top: 2, child: HelperBadge(pet: helper!, tending: tending || p.empty, size: 24)),
+              if (pop != null) Positioned.fill(child: HarvestBurst(key: ObjectKey(pop), items: pop!.$1, golden: pop!.$2, animate: animate, scale: 0.7)),
               Positioned(
                 left: 4,
                 bottom: 3,

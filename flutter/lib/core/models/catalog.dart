@@ -188,6 +188,22 @@ const catalog = <String, CatalogItem>{
   'moonshroom': CatalogItem(
       id: 'moonshroom', name: 'Moonshroom', category: ItemCategory.ingredient, rarity: 'rare', stackable: true, shop: null, acquisition: 'home',
       desc: 'A speckled violet mushroom with a soft night-time shimmer.'),
+  // Golden harvests (a tended bed, now and then; a Sunstone on one, always): a keepsake each (game/home/home.dart)
+  'gilded_sunberry': CatalogItem(
+      id: 'gilded_sunberry', name: 'Gilded Sunberry', category: ItemCategory.ingredient, rarity: 'rare', stackable: true, shop: null, acquisition: 'home',
+      desc: 'A sunberry gone gold, warm as a little sun. Only a bed a garden helper tends grows one: a keepsake from a Golden harvest.'),
+  'gilded_carrot': CatalogItem(
+      id: 'gilded_carrot', name: 'Gilded Carrot', category: ItemCategory.ingredient, rarity: 'rare', stackable: true, shop: null, acquisition: 'home',
+      desc: 'A carrot with a golden shine all the way down to the tip. Only a bed a garden helper tends grows one: a keepsake from a Golden harvest.'),
+  'gilded_wheat': CatalogItem(
+      id: 'gilded_wheat', name: 'Gilded Wheat', category: ItemCategory.ingredient, rarity: 'rare', stackable: true, shop: null, acquisition: 'home',
+      desc: 'A sheaf of wheat that glints like a coin in the light. Only a bed a garden helper tends grows one: a keepsake from a Golden harvest.'),
+  'gilded_glowleaf': CatalogItem(
+      id: 'gilded_glowleaf', name: 'Gilded Glowleaf', category: ItemCategory.ingredient, rarity: 'rare', stackable: true, shop: null, acquisition: 'home',
+      desc: 'A glowleaf whose glow has turned to gold. Only a bed a garden helper tends grows one: a keepsake from a Golden harvest.'),
+  'gilded_moonshroom': CatalogItem(
+      id: 'gilded_moonshroom', name: 'Gilded Moonshroom', category: ItemCategory.ingredient, rarity: 'rare', stackable: true, shop: null, acquisition: 'home',
+      desc: 'A moonshroom with gold freckles that shimmer at dusk. Only a bed a garden helper tends grows one: a keepsake from a Golden harvest.'),
   'sunberry_tart': CatalogItem(
       id: 'sunberry_tart', name: 'Sunberry Tart', category: ItemCategory.consumable, kind: 'meal', rarity: 'uncommon', stackable: true, shop: null,
       acquisition: 'home', vitality: 8, treat: true,

@@ -15,13 +15,15 @@ const defaultHomeCounts = {'harvests': 0, 'cooked': 0, 'brewed': 0, 'perfect': 0
 
 /// One planted bed.
 class PlotState {
-  PlotState({required this.crop, required this.plantedAt, this.watered = false, this.tonic = false, this.boost = 0, this.dew = false});
+  PlotState({required this.crop, required this.plantedAt, this.watered = false, this.tonic = false, this.boost = 0, this.dew = false, this.tender, this.sun = false});
   final String crop;
   final int plantedAt;
   bool watered; // optional watering, once per planting
   bool tonic; // a Sprout Tonic was poured on it (once per planting)
   double boost; // growing time added by rare finds: a Sunstone (1.0), Moonwell Dew (0.25)
   bool dew; // Moonwell Dew reached this bed (once per planting)
+  String? tender; // the garden helper (a resting Evochi's id) tending this planting, if one is
+  bool sun; // a Sunstone ripened it (on a tended bed: a Golden crop, always)
 
   factory PlotState.fromJson(Map<String, dynamic> j) => PlotState(
         crop: j['crop'] as String,
@@ -30,9 +32,11 @@ class PlotState {
         tonic: j['tonic'] == true,
         boost: (j['boost'] as num?)?.toDouble() ?? 0,
         dew: j['dew'] == true,
+        tender: j['tender'] as String?,
+        sun: j['sun'] == true,
       );
 
-  Map<String, dynamic> toJson() => {'crop': crop, 'plantedAt': plantedAt, 'watered': watered, 'tonic': tonic, if (boost > 0) 'boost': boost, if (dew) 'dew': dew};
+  Map<String, dynamic> toJson() => {'crop': crop, 'plantedAt': plantedAt, 'watered': watered, 'tonic': tonic, if (boost > 0) 'boost': boost, if (dew) 'dew': dew, if (tender != null) 'tender': tender, if (sun) 'sun': sun};
 }
 
 class HomeState {
@@ -43,7 +47,9 @@ class HomeState {
     this.starterSeeds = false,
     Map<String, int>? counts,
     Map<String, bool>? seen,
-  })  : plots = <String, PlotState?>{for (final id in homePlotIds) id: null, ...?plots},
+    Map<String, String>? helpers,
+  })  : helpers = helpers ?? <String, String>{},
+        plots = <String, PlotState?>{for (final id in homePlotIds) id: null, ...?plots},
         skills = <String, int>{...defaultHomeSkills, ...?skills},
         counts = <String, int>{...defaultHomeCounts, ...?counts},
         seen = seen ?? <String, bool>{};
@@ -54,6 +60,7 @@ class HomeState {
   bool starterSeeds; // the first-visit seed gift was claimed (once per account)
   final Map<String, int> counts; // harvests | cooked | brewed | perfect
   final Map<String, bool> seen;
+  final Map<String, String> helpers; // bed id -> the resting Evochi (a Forest Juvenile) that tends it
 
   /// Old saves have no home object: they start a fresh one. Missing keys are filled in place.
   factory HomeState.fromJson(dynamic raw) {
@@ -66,6 +73,7 @@ class HomeState {
       starterSeeds: j['starterSeeds'] == true,
       counts: _m(j['counts']).map<String, int>((k, v) => MapEntry(k, _i(v))),
       seen: _m(j['seen']).map<String, bool>((k, v) => MapEntry(k, v == true)),
+      helpers: _m(j['helpers']).map<String, String>((k, v) => MapEntry(k, v as String)),
     );
   }
 
@@ -76,5 +84,6 @@ class HomeState {
         'starterSeeds': starterSeeds,
         'counts': counts,
         'seen': seen,
+        if (helpers.isNotEmpty) 'helpers': helpers,
       };
 }

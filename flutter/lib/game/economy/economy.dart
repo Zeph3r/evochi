@@ -244,7 +244,9 @@ g.ActionResult useSunstone(GameState state, String plotId, int now) {
   if (!t.ok) return t;
   final s = state.copy();
   s.inventory['sunstone']!.quantity -= 1;
-  s.home.plots[plotId]!.boost += 1.0;
+  s.home.plots[plotId]!
+    ..boost += 1.0
+    ..sun = true; // (tended, it comes up Golden: game/home/home.dart)
   return _ok(s, [g.GameEvent('rare_used', {'itemId': 'sunstone', 'plot': plotId})]);
 }
 

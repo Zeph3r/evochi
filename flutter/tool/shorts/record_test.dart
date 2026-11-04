@@ -145,6 +145,12 @@ class Recorder implements Take {
     await tester.pump();
   }
 
+  @override
+  Future<void> tapWhere(bool Function(Widget w) test) async {
+    await tester.tap(find.byWidgetPredicate(test).last, warnIfMissed: false);
+    await tester.pump();
+  }
+
   Future<void> run() async {
     tester.view.physicalSize = Size(short.view.width * 3, short.view.height * 3);
     tester.view.devicePixelRatio = 3;

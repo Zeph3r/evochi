@@ -11,7 +11,10 @@ import 'package:evochi/controllers/game_controller.dart';
 import 'package:evochi/core/models/game_state.dart';
 import 'package:evochi/game/personality/personality.dart';
 import 'package:evochi/core/utils/day_keys.dart';
+import 'package:evochi/features/home/garden_screen.dart';
 import 'package:evochi/features/home/nook_sheet.dart';
+import 'package:evochi/features/shared/ambience.dart';
+import 'package:evochi/game/home/home.dart' as home;
 import 'package:evochi/features/nest/nest_screen.dart' show StepsCard;
 import 'package:evochi/features/shared/sprite.dart';
 import 'package:provider/provider.dart';
@@ -41,6 +44,7 @@ abstract class Take {
   Future<void> waitLoaded();
   Future<void> key(LogicalKeyboardKey k);
   Future<void> tapText(String text); // a button by its words
+  Future<void> tapWhere(bool Function(Widget w) test); // the last widget that passes, at its centre
 
   /// A moment a beat noted (the video's clock), for a clip to end after.
   double? mark;
@@ -577,7 +581,7 @@ final sproutintro = Short(
 );
 
 /// Looks at one thing, recorded by name only.
-final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall];
+final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort];
 
 /// 3. The Deep Wilds: a clearing calmed, the way down opens, down a floor, and a Hollow Surge.
 final deep = Short(
@@ -1240,3 +1244,57 @@ final stagesShort = Short(
     ),
   ],
 );
+
+// ------------------------------------------------------------------------------------------ the garden
+/// The garden's helpers (a look, not for posting): three Forest Juveniles tending beds; a tended harvest
+/// popping (+1), then a Golden one (a Sunstone on a tended bed), then who tends what.
+GameState gardenSave() {
+  var s = mochi('forest');
+  s = s.copy();
+  var xp = 0;
+  for (var l = 1; l < 5; l++) {
+    xp += home.skillCurveBase + home.skillCurveStep * (l - 1);
+  }
+  s.home.skills['farming'] = xp;
+  for (final (id, name) in const [('fern', 'Fern'), ('moss', 'Moss'), ('sprig', 'Sprig')]) {
+    s.companions.add(Pet(id: id, requestId: 'req-$id', name: name, paletteId: 'forest', stage: 2, habitatId: 'sunlit_meadow', createdAt: _t0, createdDay: '2026-10-21'));
+  }
+  s.home.helpers.addAll({'p1': 'fern', 'p2': 'moss', 'p3': 'sprig'});
+  final ago = _t0 - 3 * 3600000;
+  // a tended bed that isn't Golden this time (the roll is seeded on the planting)
+  for (var k = 0; k < 50; k++) {
+    s.home.plots['p1'] = PlotState(crop: 'meadow_carrot', plantedAt: ago - k * 1000, watered: true, tender: 'fern');
+    if (!home.goldenHarvest(s, 'p1')) break;
+  }
+  s.home.plots['p2'] = PlotState(crop: 'sunberry', plantedAt: ago, watered: true, tender: 'moss', sun: true, boost: 1.0);
+  s.home.plots['p3'] = PlotState(crop: 'glowleaf', plantedAt: DateTime.now().millisecondsSinceEpoch - 20 * 60000, watered: true, tender: 'sprig');
+  g.grantItem(s, 'seed_sunberry', 4, 'shorts', _t0);
+  g.grantItem(s, 'seed_meadow_carrot', 3, 'shorts', _t0);
+  return s;
+}
+
+final gardenShort = Short(
+  id: 'garden',
+  stamp: 'THE GARDEN',
+  endTitle: const [('Little helpers,\n', null), ('golden harvests.', Color(0xFFC8832C))],
+  clips: [
+    Clip(
+      state: gardenSave,
+      open: () => const Ambience('garden', child: GardenScreen()),
+      secs: 9.5,
+      preroll: 0.6,
+      pilot: const PilotStart(on: false),
+      loaded: () => true,
+      beats: [
+        Beat(0.2, (s) => s.say(const [('Forest Juveniles\n', mint), ('tend your beds', white)], secs: 2.2, size: 27, y: 480)),
+        Beat(2.4, (s) => s.tapWhere(_bed('Bed 1:'))),
+        Beat(2.6, (s) => s.say(const [('+1 every harvest', white)], secs: 1.6, size: 27, y: 480)),
+        Beat(4.4, (s) => s.tapWhere(_bed('Bed 2:'))),
+        Beat(4.6, (s) => s.say(const [('and sometimes...\n', white), ('GOLDEN', gold)], secs: 2.2, size: 30, y: 480)),
+        Beat(7.2, (s) => s.say(const [('One helper\n', white), ('to a bed', mint)], secs: 2.0, size: 27, y: 480)),
+      ],
+    ),
+  ],
+);
+
+bool Function(Widget) _bed(String prefix) => (w) => w is Semantics && (w.properties.label?.startsWith(prefix) ?? false);

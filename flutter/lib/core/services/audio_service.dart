@@ -75,6 +75,7 @@ const placeSounds = <String, PlaceSound>{
   'apothecary': PlaceSound(bed: 'amb_apothecary', music: ['mus_apothecary'], musicVolume: 0.38),
   'workshop': PlaceSound(bed: 'amb_workshop', music: ['mus_workshop'], musicVolume: 0.38),
   'lodge': PlaceSound(music: ['mus_lodge']),
+  'garden': PlaceSound(music: ['mus_glasshouse'], musicVolume: 0.4), // the plots share Mira's tune
   'glasshouse': PlaceSound(bed: 'amb_glasshouse', music: ['mus_glasshouse'], musicVolume: 0.4), // Village Square, blended (tools/music/glasshouse_square.py)
   'forest': PlaceSound(bed: 'amb_forest', music: ['mus_forest', 'mus_trail'], musicVolume: 0.34),
   'hollow': PlaceSound(bed: 'amb_forest', music: ['mus_forest'], musicVolume: 0.34),

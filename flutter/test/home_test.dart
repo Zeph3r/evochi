@@ -7,6 +7,7 @@ import 'dart:convert';
 import 'package:evochi/core/models/catalog.dart';
 import 'package:evochi/core/models/game_state.dart';
 import 'package:evochi/core/utils/day_keys.dart';
+import 'package:evochi/game/economy/economy.dart' as econ;
 import 'package:evochi/game/engine.dart' as g;
 import 'package:evochi/game/home/home.dart' as h;
 import 'package:evochi/game/story/story.dart' as q;
@@ -387,5 +388,126 @@ void main() {
     expect(g.ownedQty(s, 'reward_firefly_hearth'), 1);
     expect(q.questPhase(s, 'hq01'), 'available');
     expect(q.playtestHomeTalesReady(s, t0 + 1).events, isEmpty);
+  });
+
+  group('garden helpers', () {
+    Pet resting(String id, {String palette = 'forest', int stage = 2}) =>
+        Pet(id: id, requestId: 'req-$id', name: 'Fern $id', paletteId: palette, stage: stage, habitatId: 'sunlit_meadow', createdAt: t0, createdDay: k0);
+
+    GameState withHelpers(List<Pet> pets) {
+      final c = give(freshPet(), 'seed_sunberry', 6);
+      c.companions.addAll(pets);
+      return c;
+    }
+
+    test('only a resting Forest Juvenile can tend a bed', () {
+      final s = withHelpers([resting('a'), resting('b', palette: 'amber'), resting('c', stage: 3), resting('d', stage: 1)]);
+      expect(h.helperCandidates(s).map((p) => p.id), ['a']);
+      expect(h.assignHelper(s, 'p1', 'b', t0).error, 'cant_help');
+      expect(h.assignHelper(s, 'p1', 'c', t0).error, 'cant_help');
+      expect(h.assignHelper(s, 'p1', 'd', t0).error, 'cant_help');
+      expect(h.assignHelper(s, 'p1', 'zz', t0).error, 'not_resting');
+      expect(h.assignHelper(s, 'p8', 'a', t0).error, 'plot_locked');
+      expect(must(h.assignHelper(s, 'p1', 'a', t0)).home.helpers, {'p1': 'a'});
+    });
+
+    test('a tended bed is watered, and its harvest has one more of the crop, never a speed boost', () {
+      var s = withHelpers([resting('a')]);
+      s = must(h.assignHelper(s, 'p1', 'a', t0));
+      s = must(h.plant(s, 'p1', 'sunberry', t0));
+      s = must(h.plant(s, 'p2', 'sunberry', t0));
+      expect(s.home.plots['p1']!.watered, isTrue);
+      expect(s.home.plots['p1']!.tender, 'a');
+      expect(h.tended(s, 'p1'), isTrue);
+      expect(h.tended(s, 'p2'), isFalse);
+      // watered, it grows like any watered bed: no faster
+      final wet = must(h.water(s, 'p2', t0));
+      expect(h.plotGrowth(wet, wet.home.plots['p1']!, t0 + 10 * minMs).progress, h.plotGrowth(wet, wet.home.plots['p2']!, t0 + 10 * minMs).progress);
+      final done = t0 + 21 * minMs;
+      final r1 = h.harvest(s, 'p1', done);
+      final r2 = h.harvest(s, 'p2', done);
+      final golden = r1.events.first.data['golden'] == true;
+      expect(r1.events.first.data['items'], golden ? {'sunberry': 8, 'gilded_sunberry': 1} : {'sunberry': 4});
+      expect(r2.events.first.data['items'], {'sunberry': 3});
+    });
+
+    test('Golden harvests come about one in ten, seeded (no rerolls), and only on tended beds', () {
+      var golden = 0;
+      for (var i = 0; i < 200; i++) {
+        var s = withHelpers([resting('a')]);
+        s = must(h.assignHelper(s, 'p1', 'a', t0));
+        s = must(h.plant(s, 'p1', 'sunberry', t0 + i * 1000));
+        if (h.goldenHarvest(s, 'p1')) golden++;
+        expect(h.goldenHarvest(s, 'p1'), h.goldenHarvest(s.copy(), 'p1'));
+      }
+      expect(golden, inInclusiveRange(8, 36));
+      final plain = must(h.plant(withHelpers([]), 'p1', 'sunberry', t0));
+      expect(h.goldenHarvest(plain, 'p1'), isFalse);
+    });
+
+    test('a Sunstone on a tended bed always comes up Golden: doubled, a Gilded crop, more XP', () {
+      var s = give(give(withHelpers([resting('a')]), 'sunstone', 2), 'seed_meadow_carrot', 2);
+      s = must(h.assignHelper(s, 'p1', 'a', t0));
+      s = must(h.plant(s, 'p1', 'meadow_carrot', t0));
+      s = must(h.plant(s, 'p2', 'meadow_carrot', t0));
+      s = must(econ.useSunstone(s, 'p1', t0 + minMs));
+      s = must(econ.useSunstone(s, 'p2', t0 + minMs));
+      final r = h.harvest(s, 'p1', t0 + 2 * minMs);
+      expect(r.events.first.data['golden'], isTrue);
+      expect(r.events.first.data['items'], {'meadow_carrot': 6, 'gilded_carrot': 1});
+      expect(r.state.home.counts['golden'], 1);
+      expect(h.skillXp(r.state, 'farming'), 21);
+      // untended, a Sunstone ripens it and that's all
+      final plain = h.harvest(s, 'p2', t0 + 2 * minMs);
+      expect(plain.events.first.data['golden'], isFalse);
+      expect(plain.events.first.data['items'], {'meadow_carrot': 2});
+    });
+
+    test('a helper tends one bed: moved, the crop it left is no longer tended; it can join a growing bed, not a ripe one', () {
+      var s = withHelpers([resting('a')]);
+      s = must(h.plant(s, 'p1', 'sunberry', t0));
+      s = must(h.plant(s, 'p2', 'sunberry', t0));
+      s = must(h.assignHelper(s, 'p1', 'a', t0 + minMs));
+      expect(h.tended(s, 'p1'), isTrue);
+      expect(s.home.plots['p1']!.watered, isTrue);
+      s = must(h.assignHelper(s, 'p2', 'a', t0 + 2 * minMs));
+      expect(h.tended(s, 'p1'), isFalse);
+      expect(h.tended(s, 'p2'), isTrue);
+      expect(s.home.helpers, {'p2': 'a'});
+      // ripe: the helper stays on the bed for the next planting, but this crop isn't tended
+      final late = must(h.assignHelper(s, 'p1', 'a', t0 + 30 * minMs));
+      expect(h.tended(late, 'p1'), isFalse);
+      expect(late.home.helpers, {'p1': 'a'});
+      // and it rests again
+      expect(must(h.assignHelper(late, 'p1', null, t0)).home.helpers, isEmpty);
+    });
+
+    test('grown into an Elder, a helper finishes its crop and then rests; one out walking tends nothing', () {
+      var s = withHelpers([resting('a')]);
+      s = must(h.assignHelper(s, 'p1', 'a', t0));
+      s = must(h.plant(s, 'p1', 'sunberry', t0));
+      s.companions.first.stage = 3;
+      expect(h.tended(s, 'p1'), isTrue);
+      s = must(h.harvest(s, 'p1', t0 + 21 * minMs));
+      s = must(h.plant(s, 'p1', 'sunberry', t0 + 22 * minMs));
+      expect(s.home.plots['p1']!.tender, isNull);
+      expect(s.home.helpers, isEmpty);
+      // a helper who became the active Evochi isn't at home
+      var w = withHelpers([resting('b')]);
+      w = must(h.assignHelper(w, 'p1', 'b', t0));
+      w = must(h.plant(w, 'p1', 'sunberry', t0));
+      w.companions.clear();
+      expect(h.tended(w, 'p1'), isFalse);
+    });
+
+    test('helpers and a tended planting survive a save', () {
+      var s = withHelpers([resting('a')]);
+      s = must(h.assignHelper(s, 'p1', 'a', t0));
+      s = must(h.plant(s, 'p1', 'sunberry', t0));
+      final back = GameState.fromJson((jsonDecode(s.serialize()) as Map).cast<String, dynamic>());
+      expect(back.home.helpers, {'p1': 'a'});
+      expect(back.home.plots['p1']!.tender, 'a');
+      expect(h.tended(back, 'p1'), isTrue);
+    });
   });
 }
