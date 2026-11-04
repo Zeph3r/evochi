@@ -534,7 +534,13 @@ enum HelperMood { sleeping, idle, glancing, butterfly, admiring, cheering, water
 const _waterLen = 3.2, _nurtureLen = 2.8;
 
 /// How long a harvest plays: a helper's (anticipation, the crop into the basket, a hop) or the plain burst.
-int harvestMillis({required bool golden, required bool tended}) => tended ? (golden ? 2700 : 1900) : HarvestBurst.millis(golden);
+int harvestMillis({required bool golden, required bool tended}) => tended ? (golden ? 3800 : 2600) : HarvestBurst.millis(golden);
+
+// a helper's harvest, in seconds: a Golden one starts with its surprise; then (from 0) the gathering, the crop
+// arcing into the basket, and a celebration (a Golden one first lifts its Gilded crop high over its head)
+const _surprise = 0.6;
+double _celebrateAt(bool golden) => golden ? 1.95 : 1.3;
+double _celebrateEnd(bool golden) => golden ? 3.2 : 2.6;
 
 /// The crops leaning toward their helper as it nurtures them (radians, + toward the right), by bed.
 final gardenLean = <String, ValueNotifier<double>>{};
@@ -750,21 +756,41 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
         aura = ramp(0.25, 0.6) * (1 - ramp(2.2, 2.8));
         if (u < 0.3) sy *= 1 - 0.05 * math.sin(ramp(0, 0.3) * math.pi);
       case HelperMood.harvest:
-        // Golden: a surprise first (a step back, wide eyes, a tilt)
-        final g0 = golden ? 0.5 : 0.0;
+        final g0 = golden ? _surprise : 0.0;
         if (golden && u < g0) {
-          tilt = -0.1 * dir * math.sin(ramp(0, g0) * math.pi);
-          lift = ph * 0.05 * math.sin(ramp(0, 0.25) * math.pi);
+          // Golden: a jolt of surprise (a start, a lean back), and it turns to you
+          tilt = -0.12 * dir * math.sin(ramp(0, g0) * math.pi);
+          lift = ph * 0.09 * math.sin(ramp(0, 0.28) * math.pi);
+          sy *= 1 + 0.06 * math.sin(ramp(0, 0.28) * math.pi);
         } else {
           final v = u - g0;
-          crest = (v / 0.25).clamp(0.0, 1.0) * (1 - ((v - 1.0) / 0.3).clamp(0.0, 1.0));
-          aura = ((v - 0.25) / 0.3).clamp(0.0, 1.0) * (1 - ((v - 1.1) / 0.3).clamp(0.0, 1.0));
-          if (v < 0.25) sy *= 1 - 0.06 * math.sin(v / 0.25 * math.pi);
-          if (v > 1.25 && v < 1.8) {
-            final k = (v - 1.25) / 0.55;
-            lift = ph * 0.18 * math.sin(k * math.pi);
-            sy *= 1 + 0.06 * math.sin(k * math.pi);
+          final ch = golden ? 1.85 : 1.25; // the magic lets go
+          double rv(double a, double b) => ((v - a) / (b - a)).clamp(0.0, 1.0);
+          crest = rv(0, 0.25) * (1 - rv(ch - 0.1, ch + 0.25));
+          aura = rv(0.2, 0.5) * (1 - rv(ch - 0.1, ch + 0.25));
+          if (v < 0.25) sy *= 1 - 0.07 * math.sin(v / 0.25 * math.pi); // it gathers itself
+          // Golden: it lifts its Gilded crop high, with a big jump and a spin
+          if (golden && v > 0.55 && v < 1.25) {
+            final k = (v - 0.55) / 0.7;
+            lift = ph * 0.32 * math.sin(k * math.pi);
+            sy *= 1 + 0.07 * math.sin(k * math.pi);
+            sx *= 1 - 0.04 * math.sin(k * math.pi);
           }
+          // and it celebrates: two happy hops, the second with a spin, then a wiggle
+          final c0 = _celebrateAt(golden), big = golden ? 1.35 : 1.0;
+          if (v > c0 && v < c0 + 0.4) {
+            final k = (v - c0) / 0.4;
+            lift = ph * 0.15 * big * math.sin(k * math.pi);
+            sy *= 1 + 0.07 * math.sin(k * math.pi);
+          } else if (v >= c0 + 0.45 && v < c0 + 0.95) {
+            final k = (v - c0 - 0.45) / 0.5;
+            lift = ph * 0.22 * big * math.sin(k * math.pi);
+            sy *= 1 + 0.08 * math.sin(k * math.pi);
+          } else if (v >= c0 + 0.95 && v < _celebrateEnd(golden)) {
+            tilt = 0.07 * math.sin((v - c0) * 18) * (1 - rv(c0 + 0.95, _celebrateEnd(golden)));
+          }
+          // landing: a squash
+          if (v >= c0 + 0.4 && v < c0 + 0.45) sy *= 0.92;
         }
     }
     final petRect = Rect.fromLTWH(foot.dx - pw * gx, foot.dy - ph * gy - lift, pw, ph);
@@ -776,6 +802,22 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
       case HelperMood.sleeping:
       case HelperMood.cheering:
         face = 0;
+      case HelperMood.harvest:
+        final g0 = golden ? _surprise : 0.0;
+        final v = u - g0;
+        final c0 = _celebrateAt(golden);
+        int spin(double k) => (7 + (k * 8).floor()) % 8;
+        if (golden && u < g0) {
+          face = 0;
+        } else if (golden && v > 0.6 && v < 1.2) {
+          face = spin((v - 0.6) / 0.6);
+        } else if (v >= c0 + 0.45 && v < c0 + 0.95) {
+          face = spin((v - c0 - 0.45) / 0.5);
+        } else if (v >= c0) {
+          face = 0;
+        } else {
+          face = 7;
+        }
       case HelperMood.glancing:
         face = u < 0.7 ? 0 : 7;
       case HelperMood.watering:
@@ -796,7 +838,8 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
     }
     // a little shuffle of its feet as it turns
     final turning = t - _turnAt;
-    final col = turning >= 0 && turning < 0.36 ? 1 + (turning / 0.06).floor() % 12 : 0;
+    final spinning = mood == HelperMood.harvest && lift > ph * 0.05;
+    final col = !spinning && turning >= 0 && turning < 0.36 ? 1 + (turning / 0.06).floor() % 12 : 0;
 
     // ---- the can: resting on the path, or up over the crop
     var canAt = rest;
@@ -835,13 +878,59 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
       if (showCan) canOut && u > 0.35 && u < 2.95 ? (Offset(canAt.dx, soil), ps * 0.5, 0.12) : (Offset(canAt.dx, rest.dy + ps * 0.4), ps * 0.62, 0.24),
     ];
 
+    // ---- the harvest's moments (positions the painter and the widgets share)
+    final crop = Offset(bed.center.dx, bed.center.dy - bed.height * 0.05);
+    final held = head + Offset(0, -ph * 0.42); // a Golden crop, lifted over its head
+    Offset? gilded; // where the Gilded crop is
+    var gildedA = 0.0, gildedSize = 1.0, gildedSpin = 0.0;
+    var link = Offset.zero, linkA = 0.0;
+    var linkGold = false;
+    if (canOut) {
+      link = canAt;
+      linkA = canLit;
+    } else if (mood == HelperMood.nurturing) {
+      link = crop;
+      linkA = aura;
+    }
+    if (mood == HelperMood.harvest && harvest != null) {
+      final v = u - (golden ? _surprise : 0.0);
+      double rv(double a, double b) => ((v - a) / (b - a)).clamp(0.0, 1.0);
+      if (golden && v >= 0) {
+        final mouthAt = basketAt - Offset(0, ps * 0.22);
+        if (v < 0.5) {
+          final k = Curves.easeOut.transform(rv(0, 0.5));
+          gilded = Offset.lerp(Offset(crop.dx, crop.dy + bed.height * 0.08), held, k);
+          gildedSize = 0.6 + 0.6 * k;
+        } else if (v < 1.5) {
+          gilded = held + Offset(math.sin(t * 3) * 2, math.sin(t * 4.4) * 3) + Offset(0, -lift * 0.0);
+          gildedSize = 1.2 + 0.05 * math.sin(t * 6);
+          gildedSpin = 0.15 * math.sin(t * 2.5);
+        } else if (v < 1.85) {
+          final k = Curves.easeInOutSine.transform(rv(1.5, 1.85));
+          final ctl = Offset((held.dx + mouthAt.dx) / 2, math.min(held.dy, mouthAt.dy) - bed.height * 0.2);
+          gilded = Offset.lerp(Offset.lerp(held, ctl, k)!, Offset.lerp(ctl, mouthAt, k)!, k);
+          gildedSize = 1.2 - 0.45 * k;
+        }
+        gildedA = v < 1.85 ? 1.0 : 0.0;
+        if (gilded != null) {
+          link = gilded;
+          linkA = rv(0, 0.15) * (1 - rv(1.75, 1.9));
+          linkGold = true;
+        }
+      } else if (!golden) {
+        link = crop;
+        linkA = rv(0.2, 0.45) * (1 - rv(1.1, 1.3));
+      }
+    }
+
     final kids = <Widget>[
       Positioned.fill(
         child: IgnorePointer(
           child: CustomPaint(
             painter: _MagicPainter(
-              mood: mood, t: t, u: u, bed: bed, head: head, body: body, dir: dir, crest: crest, aura: aura, golden: golden,
-              can: canOut ? canAt : null, canLit: canLit, canTip: canTip, fly: fly, ps: ps, pw: pw, shadows: shadows,
+              mood: mood, t: t, u: u, bed: bed, head: head, body: body, foot: foot, dir: dir, crest: crest, aura: aura, golden: golden,
+              can: canOut ? canAt : null, canLit: canLit, canTip: canTip, fly: fly, ps: ps, pw: pw, ph: ph, shadows: shadows,
+              link: link, linkA: linkA, linkGold: linkGold, held: gilded, basket: basketAt,
             ),
           ),
         ),
@@ -901,22 +990,22 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
 
     // ---- its harvest: the basket by the bed, the crop lifting into it, the counts over it
     if (mood == HelperMood.harvest && harvest != null) {
-      final g0 = golden ? 0.5 : 0.0;
+      final g0 = golden ? _surprise : 0.0;
       final v = u - g0;
       final land = ((v - 0.25) / 0.3).clamp(0.0, 1.0);
       final gone = ((v - (hLen - g0 - 0.3)) / 0.3).clamp(0.0, 1.0);
       final mouth = basketAt - Offset(0, ps * 0.22);
-      // the pieces: up to five of each, the Gilded one last
+      // the pieces: up to five of each (the Gilded one is lifted on its own)
       final bits = <String>[];
       for (final e in harvest.$1.entries.where((e) => !e.key.startsWith('gilded_'))) {
         for (var i = 0; i < math.min(e.value, 5); i++) {
           bits.add(e.key);
         }
       }
-      bits.addAll(harvest.$1.keys.where((k) => k.startsWith('gilded_')));
       var bump = 0.0;
+      final first = golden ? 0.75 : 0.55;
       for (var i = 0; i < bits.length; i++) {
-        final s0 = 0.55 + i * (0.6 / math.max(1, bits.length));
+        final s0 = first + i * (0.6 / math.max(1, bits.length));
         final k = ((v - s0) / 0.42).clamp(0.0, 1.0);
         if (v - s0 > 0.42 && v - s0 < 0.6) bump = math.max(bump, math.sin((v - s0 - 0.42) / 0.18 * math.pi));
         if (k <= 0 || k >= 1) continue;
@@ -931,12 +1020,25 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
           child: IgnorePointer(child: Transform.rotate(angle: (1 - k) * (i.isEven ? 0.8 : -0.8), child: ItemImage(bits[i], size: gilded ? 36 : 24))),
         ));
       }
+      // the Gilded crop, lifted on its own: glowing, turning, over its head, then into the basket
+      final gid = harvest.$1.keys.where((k) => k.startsWith('gilded_')).firstOrNull;
+      final gAt = gilded;
+      if (gid != null && gAt != null && gildedA > 0) {
+        final sz = 34 * gildedSize;
+        kids.add(Positioned(
+          left: gAt.dx - sz / 2,
+          top: gAt.dy - sz / 2,
+          child: IgnorePointer(child: Transform.rotate(angle: gildedSpin, child: ItemImage(gid, size: sz))),
+        ));
+      }
+      if (golden && v > 1.85 && v < 1.95) bump = math.max(bump, math.sin((v - 1.85) / 0.1 * math.pi));
       shadows.add((basketAt + Offset(0, ps * 0.5), ps * 0.85, 0.24 * land * (1 - gone)));
       kids.add(img('prop_basket', basketAt + Offset(0, -10 * (1 - Curves.easeOutBack.transform(land))), ps * 1.05 * (0.6 + 0.4 * Curves.easeOutBack.transform(land)),
           opacity: land * (1 - gone), squash: 1 - 0.1 * bump));
       // the counts, rising over the basket
-      if (v > 1.2) {
-        final r = ((v - 1.2) / 0.5).clamp(0.0, 1.0);
+      final countsAt = golden ? 1.9 : 1.2;
+      if (v > countsAt) {
+        final r = ((v - countsAt) / 0.5).clamp(0.0, 1.0);
         kids.add(Positioned(
           left: basketAt.dx - 90,
           width: 180,
@@ -968,6 +1070,53 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
           ),
         ));
       }
+    }
+
+    // ---- its face, in a bubble, as it feels it: surprised by a Golden crop, delighted after a harvest
+    String? feel;
+    var feelK = 0.0;
+    if (mood == HelperMood.harvest && harvest != null) {
+      final v = u - (golden ? _surprise : 0.0);
+      final c0 = _celebrateAt(golden), c1 = _celebrateEnd(golden);
+      if (golden && u < _surprise + 0.1) {
+        feel = 'surprised';
+        feelK = math.min(u / 0.12, (_surprise + 0.1 - u) / 0.12);
+      } else if (golden && v > 0.5 && v < 1.5) {
+        feel = 'excited';
+        feelK = math.min((v - 0.5) / 0.12, (1.5 - v) / 0.12);
+      } else if (v > c0 && v < c1) {
+        feel = golden ? 'excited' : 'happy';
+        feelK = math.min((v - c0) / 0.15, (c1 - v) / 0.2);
+      }
+    }
+    if (feel != null && feelK > 0) {
+      final k = feelK.clamp(0.0, 1.0);
+      final pop = Curves.easeOutBack.transform(k);
+      kids.add(Positioned(
+        key: const ValueKey('feel'), // (kept as the pieces in flight come and go, so its portrait never reloads)
+        left: head.dx + pw * 0.28 - 22,
+        top: petRect.top - 26 - 6 * pop,
+        width: 44,
+        height: 44,
+        child: IgnorePointer(
+          child: Opacity(
+            opacity: k,
+            child: Transform.scale(
+              scale: 0.6 + 0.4 * pop,
+              child: Container(
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: const Color(0xFFFFFBF2),
+                  border: Border.all(color: golden ? _gold : _leaf, width: 2),
+                  boxShadow: const [BoxShadow(color: Color(0x40281910), blurRadius: 5, offset: Offset(0, 2))],
+                ),
+                // its portrait, framed on its face
+                child: ClipOval(child: _faceIn(w.pet, feel, 40)),
+              ),
+            ),
+          ),
+        ),
+      ));
     }
 
     // ---- its name, a moment, when tapped
@@ -1036,9 +1185,20 @@ class _MagicPainter extends CustomPainter {
     required this.fly,
     required this.ps,
     required this.pw,
+    required this.ph,
     required this.shadows,
+    required this.foot,
+    required this.link,
+    required this.linkA,
+    required this.linkGold,
+    required this.held,
+    required this.basket,
   });
   final List<(Offset, double, double)> shadows; // where, how wide, how dark
+  final Offset foot, link, basket;
+  final double linkA, ph;
+  final bool linkGold;
+  final Offset? held; // a Golden crop it's lifting
   final HelperMood mood;
   final double t, u, dir, crest, aura, canLit, canTip, ps, pw;
   final Rect bed;
@@ -1046,7 +1206,6 @@ class _MagicPainter extends CustomPainter {
   final bool golden;
   final Offset? can, fly;
 
-  static const _magic = Color(0xFF9BE36A);
 
   static void _leaf(Canvas c, Offset at, double size, double angle, double a) {
     c.save();
@@ -1064,17 +1223,65 @@ class _MagicPainter extends CustomPainter {
     c.restore();
   }
 
-  void _trail(Canvas c, Offset from, Offset to, double a) {
+  static const _glowA = Color(0xFFB8F07A), _glowB = Color(0xFFE8FFD2), _goldA = Color(0xFFFFD45A), _goldB = Color(0xFFFFF4C8);
+
+  static Paint _plus(Color c, {double blur = 0, double stroke = 0}) {
+    final p = Paint()
+      ..color = c
+      ..blendMode = BlendMode.plus;
+    if (blur > 0) p.maskFilter = MaskFilter.blur(BlurStyle.normal, blur);
+    if (stroke > 0) {
+      p
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = stroke
+        ..strokeCap = StrokeCap.round;
+    }
+    return p;
+  }
+
+  static void _star(Canvas c, Offset at, double r, Paint p) {
+    final path = Path();
+    for (var i = 0; i < 8; i++) {
+      final a = i * math.pi / 4 - math.pi / 2;
+      final rr = i.isEven ? r : r * 0.32;
+      final q = at + Offset(math.cos(a), math.sin(a)) * rr;
+      i == 0 ? path.moveTo(q.dx, q.dy) : path.lineTo(q.dx, q.dy);
+    }
+    c.drawPath(path..close(), p);
+  }
+
+  Offset _bez(Offset a, Offset m, Offset b, double k) => Offset.lerp(Offset.lerp(a, m, k)!, Offset.lerp(m, b, k)!, k)!;
+
+  /// The telekinesis: a ribbon of light from its crest to what it holds (glow, a bright core, motes and leaves
+  /// riding along it), and a halo with sparkles orbiting the thing held.
+  void _tether(Canvas c, Offset from, Offset to, double a, {bool gold = false}) {
     if (a <= 0.01) return;
-    final mid = Offset((from.dx + to.dx) / 2, math.min(from.dy, to.dy) - bed.height * 0.3);
+    final ca = gold ? _goldA : _glowA, cb = gold ? _goldB : _glowB;
+    final mid = Offset((from.dx + to.dx) / 2, math.min(from.dy, to.dy) - bed.height * 0.32 + math.sin(t * 3) * 3);
+    final path = Path()..moveTo(from.dx, from.dy);
+    for (var i = 1; i <= 24; i++) {
+      final k = i / 24;
+      final q = _bez(from, mid, to, k) + Offset(0, math.sin(k * math.pi * 3 - t * 9) * 2.2 * math.sin(k * math.pi));
+      path.lineTo(q.dx, q.dy);
+    }
+    c.drawPath(path, _plus(ca.withValues(alpha: 0.32 * a), blur: 5, stroke: 9));
+    c.drawPath(path, _plus(cb.withValues(alpha: 0.9 * a), stroke: 2));
     for (var i = 0; i < 7; i++) {
-      final k = ((i / 7) + t * 0.7) % 1.0;
-      final p = Offset.lerp(Offset.lerp(from, mid, k)!, Offset.lerp(mid, to, k)!, k)!;
-      if (i.isEven) {
-        _leaf(c, p, 3.2, k * 6 + t, a * 0.85 * math.sin(k * math.pi));
+      final k = ((i / 7) + t * 0.85) % 1.0;
+      final q = _bez(from, mid, to, k);
+      if (i % 3 == 0) {
+        _leaf(c, q, 3.6, k * 7 + t * 2, a * math.sin(k * math.pi));
       } else {
-        c.drawCircle(p, 1.8, Paint()..color = const Color(0xFFD2F7A6).withValues(alpha: a * 0.85 * math.sin(k * math.pi)));
+        c.drawCircle(q, 2.2, _plus(cb.withValues(alpha: a * math.sin(k * math.pi))));
       }
+    }
+    // the halo round what it holds
+    c.drawCircle(to, ps * 0.5, _plus(ca.withValues(alpha: 0.3 * a), blur: 10));
+    for (var i = 0; i < 5; i++) {
+      final ang = t * 3.2 + i * 2 * math.pi / 5;
+      final q = to + Offset(math.cos(ang) * ps * 0.46, math.sin(ang) * ps * 0.2);
+      final tw = 0.5 + 0.5 * math.sin(t * 9 + i * 2);
+      _star(c, q, 2.6 + 1.6 * tw, _plus(cb.withValues(alpha: a * (0.4 + 0.6 * tw))));
     }
   }
 
@@ -1086,86 +1293,152 @@ class _MagicPainter extends CustomPainter {
         ..color = const Color(0xFF3A2A14).withValues(alpha: a)
         ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2.5));
     }
-    // its crest, glowing
-    if (crest > 0.01) {
-      c.drawCircle(head, ps * 0.32, Paint()
-        ..color = _magic.withValues(alpha: 0.55 * crest)
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 7));
+    double ramp(double a, double b) => ((u - a) / (b - a)).clamp(0.0, 1.0);
+    final g0 = golden ? _surprise : 0.0;
+    final v = u - g0; // (a harvest's own clock)
+
+    // the spell taking hold: a ring of light opening at its feet as its crest lights
+    if (crest > 0.01 && crest < 0.999) {
+      final k = crest;
+      c.drawOval(Rect.fromCenter(center: foot, width: pw * (0.5 + 0.9 * k), height: pw * (0.16 + 0.28 * k)),
+          _plus((golden && mood == HelperMood.harvest ? _goldA : _glowA).withValues(alpha: 0.7 * (1 - k)), stroke: 2.5));
     }
-    // the aura round it
+    // its aura
     if (aura > 0.01) {
-      final r = Rect.fromCenter(center: body, width: pw * 1.25, height: pw * 0.95);
-      c.drawOval(r, Paint()
-        ..color = (golden && mood == HelperMood.harvest ? const Color(0xFFFFE08A) : _magic).withValues(alpha: 0.28 * aura * (0.8 + 0.2 * math.sin(t * 7)))
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 9));
+      final r = Rect.fromCenter(center: body, width: pw * 1.2, height: pw * 0.95);
+      c.drawOval(r, _plus((golden && mood == HelperMood.harvest ? _goldA : _glowA).withValues(alpha: 0.24 * aura * (0.8 + 0.2 * math.sin(t * 7))), blur: 10));
+    }
+    // a Golden crop's pillar of light out of the bed
+    if (mood == HelperMood.harvest && golden && v > -0.1 && v < 0.8) {
+      final k = ((v + 0.1) / 0.9).clamp(0.0, 1.0);
+      final a = math.sin(k * math.pi);
+      final col = Rect.fromCenter(center: Offset(bed.center.dx, bed.center.dy - bed.height * 0.9), width: bed.width * (0.25 + 0.1 * a), height: bed.height * 2.4);
+      c.drawRect(col, _plus(Colors.white, blur: 8)..shader = LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [_goldB.withValues(alpha: 0.75 * a), _goldA.withValues(alpha: 0.35 * a), const Color(0x00FFD45A)]).createShader(col));
+    }
+    // what it holds by magic
+    _tether(c, head, link, linkA, gold: linkGold);
+    // its crest, lit
+    if (crest > 0.01) {
+      final cc = golden && mood == HelperMood.harvest ? _goldA : _glowA;
+      c.drawCircle(head, ps * 0.34, _plus(cc.withValues(alpha: 0.6 * crest), blur: 8));
+      c.drawCircle(head, ps * 0.12, _plus(_glowB.withValues(alpha: 0.8 * crest), blur: 3));
+      for (var i = 0; i < 4; i++) {
+        final f = ((t * 1.4) + i / 4) % 1.0;
+        c.drawCircle(head + Offset(math.sin(i * 2.3 + t) * 6, -f * ph * 0.25), 1.6, _plus(_glowB.withValues(alpha: crest * math.sin(f * math.pi))));
+      }
     }
     final crop = Offset(bed.center.dx, bed.center.dy - bed.height * 0.05);
-    double ramp(double a, double b) => ((u - a) / (b - a)).clamp(0.0, 1.0);
     switch (mood) {
       case HelperMood.watering:
         final cn = can;
-        if (cn != null) {
-          _trail(c, head, cn, canLit);
-          c.drawCircle(cn, ps * 0.45, Paint()
-            ..color = _magic.withValues(alpha: 0.22 * canLit)
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 8));
-          // the pour: a few drops from the spout
-          if (u > 1.1 && u < 2.25) {
-            final spout = cn + Offset(dir * ps * 0.5, ps * 0.05);
-            for (var i = 0; i < 6; i++) {
-              final f = ((u * 2.2) + i / 6) % 1.0;
-              final p = spout + Offset(dir * f * ps * 0.15 + math.sin(i * 7.0) * 2.5, f * bed.height * 0.5);
-              c.drawOval(Rect.fromCenter(center: p, width: 3, height: 5), Paint()..color = const Color(0xFF7CC4F2).withValues(alpha: 0.9 * (1 - f * 0.6)));
+        if (cn != null && u > 1.1 && u < 2.3) {
+          // the pour: drops from the rose, a splash where they land
+          final spout = cn + Offset(dir * ps * 0.5, ps * 0.05);
+          for (var i = 0; i < 8; i++) {
+            final f = ((u * 2.2) + i / 8) % 1.0;
+            final p = spout + Offset(dir * f * ps * 0.15 + math.sin(i * 7.0) * 3, f * bed.height * 0.5);
+            c.drawOval(Rect.fromCenter(center: p, width: 3, height: 5.5), Paint()..color = const Color(0xFF8CCDF5).withValues(alpha: 0.95 * (1 - f * 0.5)));
+            if (f > 0.82) {
+              final k = (f - 0.82) / 0.18;
+              final land = spout + Offset(dir * ps * 0.15 + math.sin(i * 7.0) * 3, bed.height * 0.52);
+              c.drawOval(Rect.fromCenter(center: land, width: 4 + 10 * k, height: 2 + 4 * k), Paint()
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = 1.4
+                ..color = const Color(0xFFBFE4FA).withValues(alpha: 0.9 * (1 - k)));
             }
           }
         }
       case HelperMood.nurturing:
-        // three leaves circling it, then the crop's pulse
-        final a = aura;
+        // leaves circling it, then the crop's pulse and motes rising out of it
         for (var i = 0; i < 3; i++) {
           final ang = t * 2.6 + i * 2 * math.pi / 3;
-          final p = body + Offset(math.cos(ang) * pw * 0.62, math.sin(ang) * pw * 0.22 - pw * 0.1);
-          _leaf(c, p, ps * 0.13, ang + math.pi / 2, a * (0.6 + 0.4 * math.sin(ang).abs()));
+          final p = body + Offset(math.cos(ang) * pw * 0.6, math.sin(ang) * pw * 0.2 - pw * 0.08);
+          _leaf(c, p, ps * 0.1, ang + math.pi / 2, aura * (0.6 + 0.4 * math.sin(ang).abs()));
         }
-        _trail(c, head, crop, a * 0.8);
         final k = ramp(1.5, 2.3);
         if (k > 0 && k < 1) {
-          c.drawOval(Rect.fromCenter(center: crop, width: bed.width * (0.3 + 0.7 * k), height: bed.height * (0.25 + 0.6 * k)), Paint()
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = 3
-            ..color = const Color(0xFFC6F58A).withValues(alpha: 0.8 * (1 - k)));
-          c.drawRect(bed.deflate(bed.height * 0.1), Paint()
-            ..color = const Color(0xFFC6F58A).withValues(alpha: 0.18 * math.sin(k * math.pi))
-            ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 10));
+          c.drawOval(Rect.fromCenter(center: crop, width: bed.width * (0.3 + 0.75 * k), height: bed.height * (0.25 + 0.65 * k)), _plus(_glowA.withValues(alpha: 0.9 * (1 - k)), stroke: 3));
+          c.drawRect(bed.deflate(bed.height * 0.08), _plus(_glowA.withValues(alpha: 0.22 * math.sin(k * math.pi)), blur: 10));
+          for (var i = 0; i < 8; i++) {
+            final x = bed.left + bed.width * (0.12 + 0.76 * ((i * 0.39) % 1));
+            final y = bed.center.dy - k * bed.height * (0.6 + 0.3 * ((i * 0.53) % 1));
+            _star(c, Offset(x, y), 2.4, _plus(_glowB.withValues(alpha: math.sin(k * math.pi))));
+          }
         }
       case HelperMood.harvest:
-        final g0 = golden ? 0.5 : 0.0;
-        final v = u - g0;
-        if (golden && u < 0.75) {
-          // a Golden one surprises it: a "!" pops up over its head
+        if (golden && u < g0 + 0.15) {
+          // "!": a Golden one surprises it
           final k = (u / 0.12).clamp(0.0, 1.0);
-          final at = head + Offset(0, -14 - 6 * Curves.easeOutBack.transform(k));
-          final a = (1 - ((u - 0.55) / 0.2).clamp(0.0, 1.0));
-          c.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: at, width: 16, height: 18), const Radius.circular(6)), Paint()..color = Colors.white.withValues(alpha: a));
+          final at = head + Offset(-pw * 0.25, -16 - 6 * Curves.easeOutBack.transform(k));
+          final a = 1 - ((u - g0 + 0.05) / 0.2).clamp(0.0, 1.0);
+          c.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: at, width: 16, height: 19), const Radius.circular(6)), Paint()..color = Colors.white.withValues(alpha: a));
           final tp = TextPainter(
-            text: TextSpan(text: '!', style: TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w900, fontSize: 14, color: const Color(0xFFE0A21E).withValues(alpha: a))),
+            text: TextSpan(text: '!', style: TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w900, fontSize: 15, color: const Color(0xFFE0A21E).withValues(alpha: a))),
             textDirection: TextDirection.ltr,
           )..layout();
           tp.paint(c, at - Offset(tp.width / 2, tp.height / 2));
         }
-        if (v > 0.2 && v < 1.3) _trail(c, head, crop, (math.min((v - 0.2) / 0.2, (1.3 - v) / 0.2)).clamp(0.0, 1.0));
-        // a Golden harvest's burst, gold and green, at the basket
-        if (golden && v > 1.15 && v < 2.1) {
-          final k = ((v - 1.15) / 0.95).clamp(0.0, 1.0);
-          final at = Offset(bed.center.dx, bed.bottom - ps * 0.4);
-          c.drawCircle(at, ps * (0.4 + 2.2 * Curves.easeOut.transform(k)), Paint()
-            ..shader = RadialGradient(colors: [const Color(0xFFFFF3C0).withValues(alpha: 0.9 * (1 - k)), const Color(0xFFB8F07A).withValues(alpha: 0.4 * (1 - k)), const Color(0x00FFD45A)])
-                .createShader(Rect.fromCircle(center: at, radius: ps * 2.6)));
-          for (var i = 0; i < 10; i++) {
-            final a = i * math.pi / 5 + 0.3;
-            final d = ps * (0.5 + 2.0 * Curves.easeOut.transform(k));
-            final p = at + Offset(math.cos(a) * d, math.sin(a) * d * 0.6);
-            c.drawCircle(p, 2.4, Paint()..color = (i.isEven ? Colors.white : const Color(0xFFFFE08A)).withValues(alpha: 1 - k));
+        // the Gilded crop held high: a sunburst behind it
+        final h = held;
+        if (golden && h != null && v > 0.3 && v < 1.75) {
+          final a = math.min(((v - 0.3) / 0.25).clamp(0.0, 1.0), ((1.75 - v) / 0.25).clamp(0.0, 1.0));
+          for (var i = 0; i < 12; i++) {
+            final ang = t * 0.9 + i * math.pi / 6;
+            final r1 = ps * 0.35, r2 = ps * (1.15 + 0.12 * math.sin(t * 4 + i));
+            final path = Path()
+              ..moveTo(h.dx + math.cos(ang - 0.09) * r1, h.dy + math.sin(ang - 0.09) * r1)
+              ..lineTo(h.dx + math.cos(ang) * r2, h.dy + math.sin(ang) * r2)
+              ..lineTo(h.dx + math.cos(ang + 0.09) * r1, h.dy + math.sin(ang + 0.09) * r1)
+              ..close();
+            c.drawPath(path, _plus(_goldB.withValues(alpha: 0.35 * a), blur: 2));
+          }
+          c.drawCircle(h, ps * 0.55, _plus(_goldA.withValues(alpha: 0.45 * a), blur: 12));
+        }
+        // landing in the basket: a burst, and gold confetti and leaves raining down
+        if (golden && v > 1.85 && v < 3.4) {
+          final k = ((v - 1.85) / 1.55).clamp(0.0, 1.0);
+          final at = basket - Offset(0, ps * 0.2);
+          final b = ((v - 1.85) / 0.5).clamp(0.0, 1.0);
+          if (b < 1) {
+            c.drawCircle(at, ps * (0.3 + 2.0 * Curves.easeOut.transform(b)), _plus(Colors.white, blur: 6)
+              ..shader = RadialGradient(colors: [_goldB.withValues(alpha: 0.9 * (1 - b)), _glowA.withValues(alpha: 0.4 * (1 - b)), const Color(0x00FFD45A)])
+                  .createShader(Rect.fromCircle(center: at, radius: ps * 2.4)));
+          }
+          final rnd = math.Random(7);
+          for (var i = 0; i < 22; i++) {
+            final vx = (rnd.nextDouble() - 0.5) * ps * 5, vy = -ps * (2.2 + rnd.nextDouble() * 2.2);
+            final tt = k * 1.55;
+            final q = at + Offset(vx * tt, vy * tt + ps * 4.2 * tt * tt);
+            final a = (1 - k) * 1.0;
+            final spin = tt * (4 + i % 3) + i;
+            if (i % 3 == 0) {
+              _leaf(c, q, 3.5, spin, a);
+            } else {
+              c.save();
+              c.translate(q.dx, q.dy);
+              c.rotate(spin);
+              c.drawRect(Rect.fromCenter(center: Offset.zero, width: 4, height: 2.6 + 1.4 * math.sin(spin * 2).abs()), Paint()..color = (i.isEven ? _goldA : _goldB).withValues(alpha: a));
+              c.restore();
+            }
+          }
+        }
+        // the celebration: hearts and twinkles rising round it
+        final c0 = _celebrateAt(golden), c1 = _celebrateEnd(golden);
+        if (v > c0 && v < c1) {
+          final n = golden ? 6 : 4;
+          for (var i = 0; i < n; i++) {
+            final f = (((v - c0) / (c1 - c0)) * 1.6 + i / n) % 1.0;
+            final a = math.sin(f * math.pi) * (1 - ((v - c1 + 0.3) / 0.3).clamp(0.0, 1.0));
+            final p = body + Offset(math.sin(i * 2.1 + f * 3) * pw * 0.55, -f * ph * 0.6 - ph * 0.15);
+            if (i.isEven) {
+              final hp = Path()
+                ..moveTo(p.dx, p.dy + 3.5)
+                ..cubicTo(p.dx - 7, p.dy - 2, p.dx - 3.5, p.dy - 7, p.dx, p.dy - 3.5)
+                ..cubicTo(p.dx + 3.5, p.dy - 7, p.dx + 7, p.dy - 2, p.dx, p.dy + 3.5);
+              c.drawPath(hp, Paint()..color = const Color(0xFFFF8FA8).withValues(alpha: a));
+            } else {
+              _star(c, p, 3.4, _plus((golden ? _goldB : _glowB).withValues(alpha: a)));
+            }
           }
         }
       case HelperMood.butterfly:
@@ -1190,7 +1463,6 @@ class _MagicPainter extends CustomPainter {
           tp.paint(c, head + Offset(-dir * (4 + f * 12) - tp.width / 2, -f * bed.height * 0.45 - 4));
         }
       case HelperMood.admiring:
-        // a little heart, now and then
         final k = ((t * 0.5) % 1.0);
         if (k < 0.6) {
           final p = head + Offset(dir * 10, -8 - k * 18);
@@ -1293,3 +1565,19 @@ class _WalkerPainter extends CustomPainter {
   bool shouldRepaint(_WalkerPainter old) => old.facing != facing || old.col != col || old.art != art;
 }
 
+/// A helper's portrait, placed so its face is at the middle of a [box]-wide circle.
+Widget _faceIn(Pet pet, String expr, double box) {
+  final ce = AssetManifest.instance!.char(pet.stage);
+  const h = 84.0;
+  final w = h * ce.w / ce.h;
+  final f = ce.anchor('face');
+  // (an OverflowBox places a bigger child by its alignment: solved for the face at the circle's middle)
+  final ax = 2 * (box / 2 - f.dx / ce.w * w) / (box - w) - 1;
+  final ay = 2 * (box / 2 + 3 - f.dy / ce.h * h) / (box - h) - 1;
+  return OverflowBox(
+    maxWidth: w,
+    maxHeight: h,
+    alignment: Alignment(ax, ay),
+    child: PetSprite(stage: pet.stage, palette: pet.paletteId, expr: expr, height: h),
+  );
+}

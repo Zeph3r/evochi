@@ -1270,6 +1270,21 @@ GameState gardenSave() {
   return s;
 }
 
+/// The same garden, Moss's bed ripe too (a tended harvest that isn't Golden).
+GameState gardenSave2() {
+  final s = gardenSave();
+  s.home.helpers
+    ..remove('p3')
+    ..['p2'] = 'moss';
+  s.home.plots['p3'] = null;
+  final ago = _t0 - 3 * 3600000;
+  for (var k = 0; k < 50; k++) {
+    s.home.plots['p2'] = PlotState(crop: 'meadow_carrot', plantedAt: ago - k * 1000, watered: true, tender: 'moss');
+    if (!home.goldenHarvest(s, 'p2')) break;
+  }
+  return s;
+}
+
 final gardenShort = Short(
   id: 'garden',
   stamp: 'THE GARDEN',
@@ -1278,16 +1293,27 @@ final gardenShort = Short(
     Clip(
       state: gardenSave,
       open: () => const Ambience('garden', child: GardenScreen()),
-      secs: 11.5,
+      secs: 7.2,
       preroll: 0.6,
       pilot: const PilotStart(on: false),
       loaded: () => true,
       beats: [
         Beat(0.2, (s) => s.say(const [('Forest Juveniles\n', mint), ('tend your beds', white)], secs: 2.6, size: 27, y: 480)),
-        Beat(3.6, (s) => s.say(const [('watering ', white), ('by magic', mint)], secs: 2.8, size: 27, y: 480)),
-        Beat(7.0, (s) => s.tapWhere(_bed('Bed 1:'))),
-        Beat(7.1, (s) => s.say(const [('and sometimes...\n', white), ('GOLDEN', gold)], secs: 2.6, size: 30, y: 480)),
-        Beat(10.0, (s) => s.tapWhere(_bed('Fern, your helper'))),
+        Beat(3.6, (s) => s.say(const [('by ', white), ('telekinesis', mint)], secs: 3.0, size: 27, y: 480)),
+      ],
+    ),
+    Clip(
+      state: gardenSave2,
+      open: () => const Ambience('garden', child: GardenScreen()),
+      secs: 9.4,
+      preroll: 0.6,
+      pilot: const PilotStart(on: false),
+      loaded: () => true,
+      beats: [
+        Beat(0.6, (s) => s.tapWhere(_bed('Bed 2:'))),
+        Beat(0.7, (s) => s.say(const [('+1, and a ', white), ('happy dance', pink)], secs: 2.4, size: 27, y: 480)),
+        Beat(3.6, (s) => s.tapWhere(_bed('Bed 1:'))),
+        Beat(3.7, (s) => s.say(const [('and sometimes...\n', white), ('GOLDEN', gold)], secs: 3.4, size: 30, y: 480)),
       ],
     ),
   ],

@@ -104,10 +104,10 @@ class _GardenScreenState extends State<GardenScreen> {
     });
     c.audio.play('coin', volume: 0.6);
     // a helper's harvest lands in its basket a moment later (and a Golden one after its surprise)
-    final lands = tended ? (golden ? 1300 : 800) : 0;
+    final lands = tended ? (golden ? 1600 : 800) : 0;
     _timers.add(Timer(Duration(milliseconds: lands), () => c.audio.play('harvest_pop', volume: 0.55)));
     if (golden) {
-      _timers.add(Timer(Duration(milliseconds: tended ? 1750 : 0), () => c.audio.play('golden_harvest', volume: 0.7)));
+      _timers.add(Timer(Duration(milliseconds: tended ? 2450 : 0), () => c.audio.play('golden_harvest', volume: 0.7)));
       c.audio.buzz(Haptic.reward);
       c.analytics.track('golden_harvest', {'crop': ev.data['crop']});
     }
