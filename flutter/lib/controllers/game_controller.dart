@@ -272,6 +272,14 @@ class GameController extends ChangeNotifier {
         final glimmer = rewards.where((r) => r['kind'] == 'glimmer').fold<int>(0, (a, r) => a + (r['amount'] as int));
         toast('+$coins EvoCoins${glimmer > 0 ? ' + $glimmer Glimmer' : ''}${items.isEmpty ? '' : ' + ${items.join(', ')}'}', icon: 'coin');
         audio.play('coin');
+      case 'order_delivered':
+        toast('${e.data['villager']} thanks you: +${e.data['coins']} EvoCoins, +${e.data['xp']} Farming XP', icon: 'coin');
+        audio.play('coin');
+        if (e.data['special'] == true) audio.play('reward_chime', volume: 0.7);
+      case 'journal_collected':
+        final coins = e.data['coins'] as int;
+        toast('Journal: +${e.data['xp']} Farming XP${coins > 0 ? ' and a full page: +$coins EvoCoins' : ''}', icon: 'skill_farming');
+        audio.play('reward_chime', volume: 0.6);
       case 'rare_used':
         final id = e.data['itemId'] as String;
         toast(id == 'sunstone' ? 'Sunstone! The bed ripens at once' : 'Moonwell Dew! Every growing bed is watered', icon: 'item:$id');

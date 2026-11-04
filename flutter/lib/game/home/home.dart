@@ -19,6 +19,7 @@ import '../../core/models/home_state.dart';
 import '../economy/economy.dart' as econ;
 import '../engine.dart' as g;
 import '../story/story.dart' as story;
+import 'journal.dart' as journal;
 
 g.ActionResult _ok(GameState s, [List<g.GameEvent> events = const []]) => g.ActionResult(s, events: events);
 g.ActionResult _fail(GameState s, String error, [Map<String, Object?> info = const {}]) => g.ActionResult(s, error: error, info: info);
@@ -562,6 +563,9 @@ void _addSkillXp(GameState s, String skill, double amount, List<g.GameEvent> eve
 
 void _take(GameState s, String id, int n) => s.inventory[id]!.quantity -= n;
 
+/// Skill XP from elsewhere at home (the journal, the village's orders), with its level-up event.
+void addSkillXp(GameState s, String skill, double amount, List<g.GameEvent> events) => _addSkillXp(s, skill, amount, events);
+
 // ------------------------------------------------------------------ actions ----
 /// First visit to the Home Map: a few starter seeds, once per account.
 g.ActionResult claimStarterSeeds(GameState state, int now) {
@@ -632,6 +636,7 @@ g.ActionResult harvest(GameState state, String plotId, int now) {
   s.home.plots[plotId] = null;
   s.home.counts['harvests'] = (s.home.counts['harvests'] ?? 0) + 1;
   if (golden) s.home.counts['golden'] = (s.home.counts['golden'] ?? 0) + 1;
+  journal.noteHarvest(s, p.crop, golden, now);
   final events = <g.GameEvent>[
     g.GameEvent('harvested', {
       'plot': plotId,

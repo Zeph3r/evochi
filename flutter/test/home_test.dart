@@ -3,6 +3,7 @@
 // clients are held to the same home rules.
 
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:evochi/core/models/catalog.dart';
 import 'package:evochi/core/models/game_state.dart';
@@ -10,6 +11,7 @@ import 'package:evochi/core/utils/day_keys.dart';
 import 'package:evochi/game/economy/economy.dart' as econ;
 import 'package:evochi/game/engine.dart' as g;
 import 'package:evochi/game/home/home.dart' as h;
+import 'package:evochi/game/home/journal.dart' as j;
 import 'package:evochi/game/story/story.dart' as q;
 import 'package:flutter_test/flutter_test.dart';
 
@@ -529,6 +531,91 @@ void main() {
       expect(back.home.helpers, {'p1': 'a'});
       expect(back.home.plots['p1']!.tender, 'a');
       expect(h.tended(back, 'p1'), isTrue);
+    });
+  });
+
+  group('crop journal', () {
+    test('a page fills as the crop is grown, each stamp collected once for Farming XP, a full page pays once', () {
+      var s = give(freshPet(), 'seed_sunberry', 60);
+      expect(j.journalPage(s, 'sunberry').seen, isFalse);
+      var now = t0;
+      for (var i = 0; i < 10; i++) {
+        s = must(h.plant(s, 'p1', 'sunberry', now));
+        now += 21 * minMs;
+        s = must(h.harvest(s, 'p1', now));
+      }
+      final p = j.journalPage(s, 'sunberry');
+      expect(p.grown, 10);
+      expect(p.firstAt, t0 + 21 * minMs);
+      expect(p.earned, {'first', 'ten'});
+      expect(j.journalWaiting(s), isTrue);
+      final xp0 = h.skillXp(s, 'farming');
+      final r = h.skillXp(must(j.collectJournal(s, 'sunberry', now)), 'farming') - xp0;
+      expect(r, 35);
+      s = must(j.collectJournal(s, 'sunberry', now));
+      expect(j.collectJournal(s, 'sunberry', now).error, 'nothing_to_collect');
+      // the rest of the page: forty more, and a Golden one; then its bonus, once
+      s.home.counts['grown:sunberry'] = 50;
+      s.home.counts['golden:sunberry'] = 1;
+      final coins = g.balanceOf(s);
+      s = must(j.collectJournal(s, 'sunberry', now));
+      expect(j.journalPage(s, 'sunberry').pageCollected, isTrue);
+      expect(g.balanceOf(s) - coins, j.pageBonus['sunberry']);
+      expect(j.collectJournal(s, 'sunberry', now).error, 'nothing_to_collect');
+    });
+  });
+
+  group('village orders', () {
+    test('three a day, the same however often they are looked at, only for crops that can be grown', () {
+      final s = freshPet();
+      final a = j.ordersFor(s, t0), b = j.ordersFor(s.copy(), t0 + hourMs);
+      expect(a.length, j.ordersADay);
+      expect([for (final o in a) o.wants], [for (final o in b) o.wants]);
+      for (final o in a) {
+        for (final k in o.wants.keys) {
+          final crop = k.startsWith('gilded_') ? h.gildedOf.entries.firstWhere((e) => e.value == k).key : k;
+          expect(h.cropUnlocked(s, crop), isTrue, reason: k);
+        }
+        expect(o.line, isNot(contains('{')));
+      }
+      // another day, other orders (most days)
+      var differ = 0;
+      for (var d = 1; d <= 6; d++) {
+        if ('${j.ordersFor(s, t0 + d * dayMs).map((o) => o.wants)}' != '${a.map((o) => o.wants)}') differ++;
+      }
+      expect(differ, greaterThan(3));
+    });
+
+    test('special orders ask for a Gilded crop and pay far more; they come about a third of days', () {
+      final s = setSkill(freshPet(), 'farming', 5);
+      var special = 0;
+      for (var d = 0; d < 60; d++) {
+        final os = j.ordersFor(s, t0 + d * dayMs);
+        final sp = os.where((o) => o.special).toList();
+        expect(sp.length, lessThanOrEqualTo(1));
+        if (sp.isNotEmpty) {
+          special++;
+          expect(sp.first.wants.keys.single, startsWith('gilded_'));
+          expect(sp.first.coins, greaterThan(os.where((o) => !o.special).map((o) => o.coins).fold<int>(0, math.max)));
+        }
+      }
+      expect(special, inInclusiveRange(10, 32));
+    });
+
+    test('an order is delivered once: its crops go, its EvoCoins and Farming XP come', () {
+      var s = freshPet();
+      final o = j.ordersFor(s, t0).firstWhere((o) => !o.special);
+      expect(j.deliverOrder(s, o.id, t0).error, 'missing_items');
+      o.wants.forEach((k, n) => s = give(s, k, n + 1));
+      final coins = g.balanceOf(s), xp = h.skillXp(s, 'farming');
+      s = must(j.deliverOrder(s, o.id, t0));
+      expect(g.balanceOf(s) - coins, o.coins);
+      expect(h.skillXp(s, 'farming') - xp, o.xp);
+      o.wants.forEach((k, n) => expect(g.ownedQty(s, k), 1));
+      expect(j.orderDone(s, o.id), isTrue);
+      expect(j.deliverOrder(s, o.id, t0).error, 'already_delivered');
+      // tomorrow's board doesn't know yesterday's order
+      expect(j.deliverOrder(s, o.id, t0 + dayMs).error, 'no_such_order');
     });
   });
 }

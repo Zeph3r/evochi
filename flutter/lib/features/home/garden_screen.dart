@@ -23,6 +23,7 @@ import '../shared/widgets.dart';
 import '../trails/trails_widgets.dart';
 import '../village/village_screen.dart';
 import 'garden_helpers.dart';
+import 'garden_journal.dart';
 import 'home_widgets.dart';
 import '../shared/live_scene.dart';
 
@@ -235,6 +236,11 @@ class _GardenScreenState extends State<GardenScreen> {
                       onWalk: () => goWalk(context),
                     ),
                     if (sel.unlocked) HelperRow(plotId: sel.id),
+                    // the crop journal, and what the village would like
+                    const SizedBox(height: 12),
+                    const Row(children: [JournalButton(), Spacer()]),
+                    const SizedBox(height: 10),
+                    const VillageOrders(),
                     const SizedBox(height: 10),
                     // a developer tool (Profile > Developer tools)
                     if (c.state.steps.connection == 'demo' && c.devTools && plots.any((x) => !x.empty && !x.ripe)) ...[

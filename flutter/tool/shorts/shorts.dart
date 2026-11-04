@@ -15,6 +15,7 @@ import 'package:evochi/features/home/garden_screen.dart';
 import 'package:evochi/features/home/nook_sheet.dart';
 import 'package:evochi/features/shared/ambience.dart';
 import 'package:evochi/game/home/home.dart' as home;
+import 'package:evochi/game/home/journal.dart' as journal;
 import 'package:evochi/features/nest/nest_screen.dart' show StepsCard;
 import 'package:evochi/features/shared/sprite.dart';
 import 'package:provider/provider.dart';
@@ -43,8 +44,9 @@ abstract class Take {
   Future<void> step();
   Future<void> waitLoaded();
   Future<void> key(LogicalKeyboardKey k);
-  Future<void> tapText(String text); // a button by its words
+  Future<void> tapText(String text, {bool first = false}); // a button by its words (the last one, or the first)
   Future<void> tapWhere(bool Function(Widget w) test); // the last widget that passes, at its centre
+  Future<void> scroll(double dy); // the screen's list, by dy (dp; + scrolls down)
 
   /// A moment a beat noted (the video's clock), for a clip to end after.
   double? mark;
@@ -581,7 +583,7 @@ final sproutintro = Short(
 );
 
 /// Looks at one thing, recorded by name only.
-final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort, gardenLower];
+final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort, gardenLower, gardenOrders];
 
 /// 3. The Deep Wilds: a clearing calmed, the way down opens, down a floor, and a Hollow Surge.
 final deep = Short(
@@ -1337,6 +1339,45 @@ final gardenLower = Short(
       preroll: 0.6,
       pilot: const PilotStart(on: false),
       loaded: () => true,
+    ),
+  ],
+);
+
+/// The village's orders and the crop journal (a look): today's orders' crops in the Bag, a page with stamps to
+/// collect.
+GameState gardenOrdersSave() {
+  final s = gardenSave();
+  s.home.counts
+    ..['grown:sunberry'] = 12
+    ..['golden:sunberry'] = 1
+    ..['first:sunberry'] = _t0 - 9 * 86400000;
+  for (final o in journal.ordersFor(s, DateTime.now().millisecondsSinceEpoch)) {
+    o.wants.forEach((id, n) => g.grantItem(s, id, n, 'shorts', _t0));
+  }
+  return s;
+}
+
+final gardenOrders = Short(
+  id: 'garden_orders',
+  stamp: 'THE GARDEN',
+  endTitle: const [('Grow for the village,\n', null), ('fill your journal.', Color(0xFF5E7F4A))],
+  clips: [
+    Clip(
+      state: gardenOrdersSave,
+      open: () => const Ambience('garden', child: GardenScreen()),
+      secs: 10.0,
+      preroll: 0.6,
+      pilot: const PilotStart(on: false),
+      loaded: () => true,
+      beats: [
+        Beat(0.4, (s) => s.scroll(470)),
+        Beat(1.0, (s) => s.say(const [('Village ', white), ('orders', gold)], secs: 1.8, size: 27, y: 96)),
+        Beat(1.9, (s) => s.tapText('Deliver', first: true)),
+        Beat(3.2, (s) => s.tapText('Deliver', first: true)),
+        Beat(4.8, (s) => s.tapText('Crop journal')),
+        Beat(5.2, (s) => s.say(const [('a page for ', white), ('every crop', mint)], secs: 2.0, size: 27, y: 96)),
+        Beat(6.8, (s) => s.tapText('Collect')),
+      ],
     ),
   ],
 );

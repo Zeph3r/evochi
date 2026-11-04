@@ -140,8 +140,17 @@ class Recorder implements Take {
   }
 
   @override
-  Future<void> tapText(String text) async {
-    await tester.tap(find.text(text).last, warnIfMissed: false);
+  Future<void> tapText(String text, {bool first = false}) async {
+    final f = find.text(text);
+    await tester.tap(first ? f.first : f.last, warnIfMissed: false);
+    await tester.pump();
+  }
+
+  @override
+  Future<void> scroll(double dy) async {
+    final list = find.byType(Scrollable);
+    if (list.evaluate().isEmpty) return;
+    await tester.drag(list.first, Offset(0, -dy), warnIfMissed: false);
     await tester.pump();
   }
 
