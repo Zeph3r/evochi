@@ -30,7 +30,7 @@ const charmDefs = <String, CharmDef>{
   'static_acorn': CharmDef('static_acorn', 'Every few hits spark to another foe', ['Every 6th hit', 'Every 5th hit', 'Every 4th hit']),
   'sap_locket': CharmDef('sap_locket', 'Hits heal you a little', ['+1 Raid HP a hit', '+1.5 Raid HP a hit', '+2 Raid HP a hit']),
   'dazzle_pebble': CharmDef('dazzle_pebble', 'Hits build dizziness until a foe reels', ['Slowly', 'Steadily', 'Quickly']),
-  'prism_charm': CharmDef('prism_charm', 'Your Bolt splits into three', ['Side bolts at 40%', 'Side bolts at 55%', 'Side bolts at 70%'],
+  'prism_charm': CharmDef('prism_charm', 'Your Blast splits into three', ['Side blasts at 40%', 'Side blasts at 55%', 'Side blasts at 70%'],
       forge: {'prism_scale': 1, 'lumen_shard': 2}, sold: false),
   'starseed_charm': CharmDef('starseed_charm', 'Calmed creatures leave a healing bloom', ['Heals 12', 'Heals 18', 'Heals 24'],
       forge: {'starseed': 1, 'glowleaf': 1}, sold: false),

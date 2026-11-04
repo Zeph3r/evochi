@@ -28,6 +28,8 @@
 import 'dart:math' as math;
 import 'dart:ui' show Rect;
 
+import '../../game/mining/mining.dart' as mine;
+
 enum Team { party, foe }
 
 /// What the map gives the fight: where water is, the round footprints of trees, rocks and the like,
@@ -201,9 +203,20 @@ class Shot {
   double power = 1; // a share of a full bolt's damage (the Prism Charm's side bolts)
   bool prism = false; // drawn in rainbow
   bool shard = false; // an Elder's crystal shard
+  String tag = ''; // its Evochi's colour (the Blast is drawn in it)
+  double rise = 0; // a boulder: the seconds it spends rising out of the ground before it flies (an Obsidian's Blast)
+  bool get rock => rise > 0;
   final hits = <Actor>{};
   Mark? mark;
-  double get height => lob ? h * 4 * (t / life) * (1 - t / life) : 6;
+  double get height => lob ? h * 4 * (t / life) * (1 - t / life) : (rock && t < rise ? -6 + 13 * _Ease.backOut(t / rise) : 7 - (rock ? 0 : 1));
+}
+
+/// (no Flutter here: the easing a boulder rises with)
+class _Ease {
+  static double backOut(double x) {
+    final t = x.clamp(0.0, 1.0) - 1;
+    return t * t * (2.70158 * t + 1.70158) + 1;
+  }
 }
 
 /// A spore cloud (slows you while you stand in it).
@@ -322,6 +335,7 @@ const _stamMax = 100.0, _stamRegen = 34.0, _stamDelay = 0.55;
 const _swingCost = [5.0, 5.0, 8.0], _swingDmg = [9.0, 10.0, 16.0], _swingPoise = [8.0, 8.0, 24.0], _swingKnock = [40.0, 40.0, 120.0];
 const _swingLunge = [9.0, 9.0, 16.0], _swingRecover = [0.17, 0.17, 0.32];
 const _boltCost = 18.0, _boltCd = 1.0, _boltDmg = 13.0;
+const _rockRise = 0.18; // an Obsidian's boulder rising out of the ground before it flies
 const _pulseCost = 34.0, _pulseCd = 7.0, _pulseDmg = 18.0, _pulseR0 = 36.0;
 const _dodgeCost = 20.0, _dodgeTime = 0.3, _dodgeDist = 46.0;
 
@@ -383,7 +397,8 @@ class Raid {
     this.companion = false,
     List<OreRock> ores = const [],
     this.miningPower = 1.0,
-    this.oreTier = 1,
+    this.oreTier = 3,
+    this.gearTier = 1,
   })  : ores = List.of(ores),
         rng = math.Random(seed),
         lootRng = math.Random(seed * 31 + 7) {
@@ -527,7 +542,8 @@ class Raid {
   /// The mines: the ore in the floor, your gear's reach (the hardest ore it breaks) and power.
   final List<OreRock> ores;
   final double miningPower;
-  int oreTier; // (the recorder raises it mid-floor for a Short)
+  int oreTier; // the hardest ore it can break at all (the recorder raises it mid-floor for a Short)
+  final int gearTier; // the ore tier its gear strikes at full strength (harder ore takes more strikes)
   double time = 0, hitstop = 0, shake = 0;
   double flashT = 0; // a flash over the whole view (a heavy hit, a signature move), seconds left
   String flashKind = 'white'; // white, or the palette a signature move is tinted by
@@ -1172,18 +1188,36 @@ class Raid {
         mx = mz = 0;
       case PetAct.bolt:
         {
-          // lean in, then a small kick back as it fires
+          // lean in, then a small kick back as it fires (an Obsidian: it stamps, its boulder rises, then it shoves)
+          final kickAt = palette == 'obsidian' ? 0.1 + _rockRise : 0.1;
           final lean = math.sin(p.dir * math.pi / 4);
-          p.sy = actT < 0.1 ? 0.92 : 1.04;
-          p.sx = actT < 0.1 ? 1.04 : 0.96;
-          p.tilt = actT < 0.1 ? lean * 0.08 : -lean * 0.1 * (1 - ((actT - 0.1) / 0.14).clamp(0.0, 1.0));
+          p.sy = actT < kickAt ? 0.92 : 1.04;
+          p.sx = actT < kickAt ? 1.04 : 0.96;
+          p.tilt = actT < kickAt ? lean * 0.08 : -lean * 0.1 * (1 - ((actT - kickAt) / 0.14).clamp(0.0, 1.0));
         }
         p.glow = 1;
         if (actT >= 0.1 && actT - dt < 0.1) {
           final t = _softTarget(170, p.fx, p.fz);
-          final sh = Shot(ShotKind.bolt, Team.party, p.x + p.fx * 10, p.z + p.fz * 10, vx: p.fx * 165, vz: p.fz * 165, life: 1.2, owner: p, target: t)
-            ..pierce = stage >= 3 ? 2 : (stage >= 2 ? 1 : 0);
+          final rock = palette == 'obsidian';
+          // a boulder comes up beside it (the side toward you, so it's seen), then flies the way it faces
+          var sx = -p.fz, sz = p.fx;
+          if (sz < 0 || (sz.abs() < 0.2 && sx < 0)) {
+            sx = -sx;
+            sz = -sz;
+          }
+          final ox = rock ? p.fx * 6 + sx * 13 : p.fx * 10, oz = rock ? p.fz * 6 + sz * 13 : p.fz * 10;
+          final sh = Shot(ShotKind.bolt, Team.party, p.x + ox, p.z + oz, vx: p.fx * 165, vz: p.fz * 165, life: 1.2 + (rock ? _rockRise : 0), owner: p, target: t)
+            ..pierce = stage >= 3 ? 2 : (stage >= 2 ? 1 : 0)
+            ..tag = palette
+            ..rise = rock ? _rockRise : 0;
           shots.add(sh);
+          if (rock) {
+            // the ground cracks open and a boulder heaves up out of it
+            bursts.add(Burst('rockrise', sh.x, sh.z, 0.55, size: 1));
+            shake = math.max(shake, 0.18);
+          } else {
+            bursts.add(Burst('blastfire', p.x + p.fx * 9, p.z + p.fz * 9, 0.26, dx: p.fx, dz: p.fz, tag: palette));
+          }
           if (charm == 'prism_charm') {
             // the Prism Charm: two lesser bolts fan out either side
             for (final turn in const [-0.26, 0.26]) {
@@ -1191,12 +1225,13 @@ class Raid {
               final dx = p.fx * c - p.fz * sn, dz = p.fx * sn + p.fz * c;
               shots.add(Shot(ShotKind.bolt, Team.party, p.x + dx * 10, p.z + dz * 10, vx: dx * 165, vz: dz * 165, life: 1.0, owner: p)
                 ..power = const [0.4, 0.55, 0.7][_ci]
-                ..prism = true);
+                ..prism = true
+                ..tag = palette);
             }
           }
           _emit('bolt');
         }
-        if (actT > 0.24) act = PetAct.none;
+        if (actT > (palette == 'obsidian' ? 0.24 + _rockRise : 0.24)) act = PetAct.none;
         mx = mz = 0;
       case PetAct.pulse:
         p.glow = math.min(1, actT / 0.28);
@@ -1429,7 +1464,7 @@ class Raid {
       return;
     }
     final first = o.damage == 0;
-    final broke = o.strike(miningPower);
+    final broke = o.strike(miningPower * mine.hardness(o.tier, gearTier));
     hitstop = math.max(hitstop, broke ? 0.09 : 0.04);
     shake = math.max(shake, broke ? 0.5 : 0.2);
     bursts.add(Burst('impact', o.x, o.z, 0.28, dx: dx, dz: dz, size: broke ? 1.4 : 0.9));
@@ -1621,13 +1656,27 @@ class Raid {
 
   void _pulse() {
     final p = pet;
-    bursts.add(Burst('pulse', p.x, p.z, 0.45, size: pulseR));
-    bursts.add(Burst('lines', p.x, p.z, 0.4, size: pulseR * 1.2, tag: 'mint'));
+    switch (palette) {
+      case 'obsidian':
+        // a tremor: the ground cracks out round it and heaves rocks up
+        bursts.add(Burst('tremor', p.x, p.z, 0.75, size: pulseR));
+        shake = math.max(shake, 0.7);
+      case 'amethyst':
+        // glowing crystal spikes burst up round it, a ring and then another
+        bursts.add(Burst('pulse', p.x, p.z, 0.45, size: pulseR, tag: palette));
+        bursts.add(Burst('spikes', p.x, p.z, 0.7, size: pulseR));
+        shake = math.max(shake, 0.45);
+      default:
+        // a wave of its own colour out from its body, all round it
+        bursts.add(Burst('pulse', p.x, p.z, 0.5, size: pulseR, tag: palette));
+        bursts.add(Burst('pulsewave', p.x, p.z, 0.55, size: pulseR, tag: palette));
+        shake = math.max(shake, 0.4);
+    }
+    bursts.add(Burst('lines', p.x, p.z, 0.4, size: pulseR * 1.2, tag: palette));
     _emit('pulse');
-    shake = math.max(shake, 0.4);
     hitstop = math.max(hitstop, 0.05);
     flashT = math.max(flashT, 0.07);
-    flashKind = 'mint';
+    flashKind = palette;
     p.slowT = 0;
     hazards.removeWhere((h) => _len(h.x - p.x, h.z - p.z) < pulseR + h.r * 0.5);
     for (final f in hostile.toList()) {
@@ -3617,6 +3666,8 @@ class Raid {
         }
         continue;
       }
+      // a boulder rising out of the ground: it waits there
+      if (s.rock && s.t < s.rise) continue;
       // a glow bolt: homes a little
       final t = s.target;
       if (t != null && t.alive && !t.calm) {
@@ -3635,19 +3686,24 @@ class Raid {
       s.z += s.vz * dt;
       if (s.t > s.life || _blockedAt(s.x, s.z, 1, water: false)) {
         s.done = true;
-        bursts.add(Burst('spark', s.x, s.z, 0.25));
+        bursts.add(s.rock ? Burst('rockhit', s.x, s.z, 0.6, dx: s.vx / 165, dz: s.vz / 165, size: 0.8) : Burst('blasthit', s.x, s.z, 0.32, size: 0.6, tag: s.tag));
         continue;
       }
       for (final f in hostile.toList()) {
         if (s.hits.contains(f)) continue;
         if (_len(f.x - s.x, f.z - s.z) < f.radius + 4) {
           final sp = math.max(_len(s.vx, s.vz), 1e-6);
-          _hurt(f, _boltDmg * atk * s.power, from: pet, kx: s.vx / sp * 50, kz: s.vz / sp * 50, poise: 10 * s.power);
+          final heavy = s.rock ? 1.7 : 1.0; // a boulder shoves harder
+          _hurt(f, _boltDmg * atk * s.power, from: pet, kx: s.vx / sp * 50 * heavy, kz: s.vz / sp * 50 * heavy, poise: 10 * s.power * heavy);
           s.hits.add(f);
-          bursts.add(Burst('glow', s.x, s.z, 0.35));
-          bursts.add(Burst('impact', f.x, f.z, 0.26, dx: s.vx / sp, dz: s.vz / sp, size: 0.9, tag: 'mint'));
-          hitstop = math.max(hitstop, 0.03);
-          shake = math.max(shake, 0.14);
+          if (s.rock) {
+            bursts.add(Burst('rockhit', s.x, s.z, 0.6, dx: s.vx / sp, dz: s.vz / sp, size: 1));
+          } else {
+            bursts.add(Burst('blasthit', s.x, s.z, 0.36, dx: s.vx / sp, dz: s.vz / sp, size: s.shard ? 0.8 : 1, tag: s.shard ? 'amethyst' : s.tag));
+          }
+          bursts.add(Burst('impact', f.x, f.z, 0.26, dx: s.vx / sp, dz: s.vz / sp, size: 0.9, tag: s.tag.isEmpty ? 'mint' : s.tag));
+          hitstop = math.max(hitstop, s.rock ? 0.06 : 0.03);
+          shake = math.max(shake, s.rock ? 0.32 : 0.14);
           if (s.pierce > 0) {
             // it goes straight through and on to the next one
             s.pierce--;

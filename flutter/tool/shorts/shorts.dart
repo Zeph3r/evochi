@@ -583,7 +583,7 @@ final sproutintro = Short(
 );
 
 /// Looks at one thing, recorded by name only.
-final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort, gardenLower, gardenOrders];
+final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort, gardenLower, gardenOrders, blastsShort];
 
 /// 3. The Deep Wilds: a clearing calmed, the way down opens, down a floor, and a Hollow Surge.
 final deep = Short(
@@ -651,6 +651,62 @@ Clip _sigClip(String palette, String colour, Color col, {bool first = false}) =>
         }),
       ],
     );
+
+/// Every colour's Blast and Pulse (a look): in close to a fight, a Blast, another, then the Pulse.
+Clip _movesClip(String palette, String colour, Color col, {bool first = false, bool far = false}) => Clip(
+      state: () => mochi(palette),
+      open: () => const WildsScreen(depth: 2, seed: 9),
+      secs: 3.6,
+      preroll: 1.3,
+      zoom: 0.46,
+      quiet: true,
+      pilot: const PilotStart(on: false), // (standing: nothing else spends its stamina)
+      setup: (s) async {
+        await _god(s);
+        toFirstClearing(s, dist: far ? 210 : 52); // (far: nothing in reach, so a boulder is seen flying)
+      },
+      beats: [
+        Beat(0.2, (s) {
+          s.say([('$colour\n', col), (WildsScreenNames.blast(palette).toUpperCase(), white)], secs: 1.4, size: 28, y: 165);
+          if (far) s.raid!.pet.face(1, 0.2);
+          _ready(s);
+          s.raid!.press('bolt');
+        }),
+        Beat(1.1, (s) {
+          if (far) s.raid!.pet.face(-1, 0.2);
+          _ready(s);
+          s.raid!.press('bolt');
+        }),
+        Beat(2.1, (s) {
+          s.say([('$colour\n', col), (WildsScreenNames.pulse(palette).toUpperCase(), white)], secs: 1.3, size: 28, y: 165);
+          _ready(s);
+          s.raid!.press('pulse');
+        }),
+      ],
+    );
+
+/// Every move ready: full stamina, no cooldowns (a look at the moves themselves).
+void _ready(Take s) {
+  s.raid!
+    ..stamina = 100
+    ..boltCd = 0
+    ..pulseCd = 0;
+}
+
+final blastsShort = Short(
+  id: 'blasts',
+  stamp: 'THE WILDS',
+  music: 'enc_wild_loop',
+  endTitle: const [('Every colour\n', null), ('fights its own way.', Color(0xFF6E4FA3))],
+  clips: [
+    _movesClip('forest', 'Forest', mint, first: true),
+    _movesClip('obsidian', 'Obsidian', const Color(0xFFCFD8EE), far: true),
+    _movesClip('amethyst', 'Amethyst', lilac),
+    _movesClip('coral', 'Coral', pink),
+    _movesClip('ocean', 'Ocean', blue),
+    _movesClip('amber', 'Amber', gold),
+  ],
+);
 
 /// An Ocean Elder of [profile] (its cut-in's personality), hurt, so Healing Mist has something to mend.
 GameState _mistElder(String profile) {

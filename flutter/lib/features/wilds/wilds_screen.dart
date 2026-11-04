@@ -77,6 +77,12 @@ abstract class WildsDirectorHandle {
   String get debugLine;
 }
 
+/// The Blast's and the Pulse's names, by colour (their full names; the buttons' words: _CombatPad).
+class WildsScreenNames {
+  static String blast(String palette) => _CombatPad.blastName(palette).$2;
+  static String pulse(String palette) => _CombatPad.pulseName(palette).$2;
+}
+
 class WildsScreen extends StatefulWidget {
   const WildsScreen({super.key, this.mapId = 'thicket', this.depth, this.seed, this.carry, this.surge = false, this.story, this.forceStory = false, this.mine = false});
   final String mapId;
@@ -392,6 +398,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       ores: [for (final (id, kind, x, z) in m.ores) OreRock(id, kind, x, z, hits: _oreHits[kind] ?? 3, tier: oreTier[kind] ?? 1)],
       miningPower: mine.miningPowerOf(c.state),
       oreTier: mine.oreTierOf(c.state),
+      gearTier: mine.gearTierOf(c.state),
     );
     final carry = widget.carry;
     if (carry != null) {
@@ -863,8 +870,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
           if (!_combatTipShown) {
             _combatTipShown = true;
             setState(() => _hint = defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS
-                ? 'Pounce, Bolt and Pulse on the right. Roll through attacks with Dodge.'
-                : 'J Pounce (again for a combo) · K Bolt · L Pulse · Space dodge · Q heal');
+                ? 'Pounce, Blast and Pulse on the right. Roll through attacks with Dodge.'
+                : 'J Pounce (again for a combo) · K Blast · L Pulse · Space dodge · Q heal');
             _hintT2 = 6;
           }
         case 'roll':
@@ -2213,7 +2220,7 @@ class _MapPainter extends CustomPainter {
       _wave(canvas, wv);
     }
     for (final b in r.bursts) {
-      if (const {'pulse', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare', 'mistwave', 'mistlinger'}.contains(b.kind)) _burst(canvas, b);
+      if (_groundBursts.contains(b.kind)) _burst(canvas, b);
     }
     // the target ring
     final lock = r.lock;
@@ -2332,6 +2339,10 @@ class _MapPainter extends CustomPainter {
     for (final sh in r.shots) {
       items.add((sh.z + 1, () => _shot(canvas, sh)));
     }
+    // a pulse's pieces standing up out of the ground (crystal spikes, heaved rocks), each at its own depth
+    for (final b in r.bursts) {
+      if (b.kind == 'spikes' || b.kind == 'tremor') _ringPieces(canvas, b, items);
+    }
     items.sort((a, b) => a.$1.compareTo(b.$1));
     for (final it in items) {
       it.$2();
@@ -2344,7 +2355,7 @@ class _MapPainter extends CustomPainter {
     if (s._miningArt != null) _mineBitsPaint(canvas);
     // above everything: sparks, motes, stars, numbers
     for (final b in r.bursts) {
-      if (!const {'pulse', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare', 'mistwave', 'mistlinger'}.contains(b.kind)) _burst(canvas, b);
+      if (!_groundBursts.contains(b.kind)) _burst(canvas, b);
     }
     // a glint where something waits to be found
     for (final sp in m.spots) {
@@ -3152,16 +3163,11 @@ class _MapPainter extends CustomPainter {
     final g = s._toScreen(sh.x, sh.z) - Offset(0, sh.height * _up);
     switch (sh.kind) {
       case ShotKind.bolt:
-        final sp = math.max(1e-6, math.sqrt(sh.vx * sh.vx + sh.vz * sh.vz));
-        for (var i = 3; i >= 1; i--) {
-          final t = s._toScreen(sh.x - sh.vx / sp * i * 5, sh.z - sh.vz / sp * i * 5) - Offset(0, sh.height * _up);
-          canvas.drawCircle(t, (4 - i) * 1.3 * s._u / 2.7, Paint()..color = Color.fromRGBO(159, 240, 218, 0.25 * (4 - i) / 3));
+        if (sh.rock) {
+          _boulder(canvas, sh);
+        } else {
+          _blast(canvas, sh, g);
         }
-        final hue = sh.prism
-            ? HSVColor.fromAHSV(1, (s._t * 240 + sh.x * 3) % 360, 0.55, 1).toColor()
-            : (sh.shard ? const Color(0xFFC6A2FF) : const Color(0xFF9FF0DA));
-        _glow(canvas, g, 12 * s._u / 2.7, hue.withAlpha(153));
-        canvas.drawCircle(g, (sh.prism ? 3 : 4) * s._u / 2.7, Paint()..color = const Color(0xFFE8FFF8));
       case ShotKind.spore:
         _glow(canvas, g, 10 * s._u / 2.7, const Color(0x88A27BD6));
         canvas.drawCircle(g, 5 * s._u / 2.7, Paint()..color = const Color(0xFF6B4C95));
@@ -3174,6 +3180,484 @@ class _MapPainter extends CustomPainter {
             Paint()..color = const Color(0xFFF4B84E));
         canvas.restore();
     }
+  }
+
+  static const _groundBursts = {'pulse', 'tremor', 'rockrise', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare', 'mistwave', 'mistlinger'};
+
+  /// A Blast's colours, by its Evochi's: (its bright core, its body, its deep edge)
+  static (Color, Color, Color) _blastCols(String tag) => switch (tag) {
+        'forest' => (const Color(0xFFF0FFDC), const Color(0xFF8FE36A), const Color(0xFF3E9A3A)),
+        'coral' => (const Color(0xFFFFECDD), const Color(0xFFFF8A5A), const Color(0xFFE0503A)),
+        'ocean' => (const Color(0xFFE6F8FF), const Color(0xFF6EC8F5), const Color(0xFF2E7FC4)),
+        'amethyst' => (const Color(0xFFF5E8FF), const Color(0xFFC08CFF), const Color(0xFF7A48C8)),
+        'obsidian' => (const Color(0xFFEDEAF5), const Color(0xFFB9B4D6), const Color(0xFF5C5874)),
+        'amber' => (const Color(0xFFFFF8D6), const Color(0xFFFFD25A), const Color(0xFFE08A1E)),
+        _ => (const Color(0xFFE8FFF8), const Color(0xFF9FF0DA), const Color(0xFF3FB89A)),
+      };
+
+  static Paint _add(Color c, {double blur = 0}) {
+    final p = Paint()
+      ..color = c
+      ..blendMode = BlendMode.plus;
+    if (blur > 0) p.maskFilter = MaskFilter.blur(BlurStyle.normal, blur);
+    return p;
+  }
+
+  void _addGlow(Canvas canvas, Offset c, double r, Color col) =>
+      canvas.drawCircle(c, r, Paint()..blendMode = BlendMode.plus..shader = ui.Gradient.radial(c, r, [col, col.withAlpha(0)]));
+
+  void _leafAt(Canvas canvas, Offset at, double size, double angle, double a) {
+    if (a <= 0.01) return;
+    canvas.save();
+    canvas.translate(at.dx, at.dy);
+    canvas.rotate(angle);
+    final p = Path()
+      ..moveTo(-size, 0)
+      ..quadraticBezierTo(0, -size * 0.75, size, 0)
+      ..quadraticBezierTo(0, size * 0.75, -size, 0)
+      ..close();
+    canvas.drawPath(p, Paint()..color = const Color(0xFF7CC350).withValues(alpha: a));
+    canvas.drawPath(Path()..moveTo(-size, 0)..quadraticBezierTo(0, -size * 0.75, size, 0)..close(), Paint()..color = const Color(0xFFA8E07A).withValues(alpha: a * 0.8));
+    canvas.drawLine(Offset(-size * 0.8, 0), Offset(size * 0.8, 0), Paint()
+      ..color = const Color(0xFF4E8F33).withValues(alpha: a)
+      ..strokeWidth = math.max(1, size * 0.15));
+    canvas.restore();
+  }
+
+  void _diamond(Canvas canvas, Offset at, double r, double angle, Paint p) {
+    canvas.save();
+    canvas.translate(at.dx, at.dy);
+    canvas.rotate(angle);
+    canvas.drawPath(Path()..moveTo(0, -r)..lineTo(r * 0.55, 0)..lineTo(0, r)..lineTo(-r * 0.55, 0)..close(), p);
+    canvas.restore();
+  }
+
+  /// Its colour's own bits, flung from [c] along [dir] (a unit screen vector) [f] of the way out (0..1): leaves,
+  /// embers, droplets, crystal glints, sun motes.
+  void _themed(Canvas canvas, String tag, Offset at, double size, double spin, double a) {
+    final (light, mid, _) = _blastCols(tag);
+    switch (tag) {
+      case 'forest':
+        _leafAt(canvas, at, size, spin, a);
+      case 'coral':
+        _addGlow(canvas, at, size * 1.6, const Color(0xFFFF9A4A).withValues(alpha: 0.7 * a));
+        canvas.drawCircle(at, size * 0.45, _add(const Color(0xFFFFE6B0).withValues(alpha: a)));
+      case 'ocean':
+        canvas.drawOval(Rect.fromCenter(center: at, width: size * 0.9, height: size * 1.3), Paint()..color = mid.withValues(alpha: 0.85 * a));
+        canvas.drawCircle(at + Offset(-size * 0.15, -size * 0.2), size * 0.18, Paint()..color = Colors.white.withValues(alpha: a));
+      case 'amethyst':
+        _diamond(canvas, at, size * 1.1, spin * 0.3, _add(light.withValues(alpha: a)));
+        _diamond(canvas, at, size * 0.6, spin * 0.3, Paint()..color = mid.withValues(alpha: a));
+      default:
+        _star(canvas, at, size * 1.1, light.withValues(alpha: a));
+    }
+  }
+
+  /// A Blast: an orb of its colour's energy, a flame of a tail behind it, a swirl round it, and its colour's
+  /// own bits riding along (a Forest's leaves circle it as they do a helper's telekinesis).
+  void _blast(Canvas canvas, Shot sh, Offset g) {
+    final u = s._u / 2.7;
+    final t = s._t;
+    final sp = math.max(1e-6, math.sqrt(sh.vx * sh.vx + sh.vz * sh.vz));
+    final tag = sh.shard ? 'amethyst' : sh.tag;
+    var (light, mid, deep) = _blastCols(tag);
+    if (sh.prism) {
+      mid = HSVColor.fromAHSV(1, (t * 240 + sh.x * 3) % 360, 0.55, 1).toColor();
+      deep = HSVColor.fromAHSV(1, (t * 240 + sh.x * 3 + 40) % 360, 0.7, 0.85).toColor();
+    }
+    final sc = sh.prism ? 0.7 : (sh.shard ? 0.8 : 1.0);
+    final grow = Curves.easeOutBack.transform((sh.t / 0.08).clamp(0.0, 1.0));
+    final tailW = s._toScreen(sh.x - sh.vx / sp * 42 * sc, sh.z - sh.vz / sp * 42 * sc) - Offset(0, sh.height * _up);
+    final d = g - tailW;
+    final len = math.max(d.distance, 1e-6);
+    final f = d / len, n = Offset(-f.dy, f.dx);
+    final w = 9.5 * u * sc * grow;
+    // the tail: a flame of its colour, flickering, fading back to nothing
+    for (var layer = 0; layer < 2; layer++) {
+      final ww = layer == 0 ? w * 1.25 : w * 0.55;
+      final tip = tailW + n * math.sin(t * 34 + sh.x) * 2.5 * u;
+      final path = Path()
+        ..moveTo(g.dx + n.dx * ww, g.dy + n.dy * ww)
+        ..quadraticBezierTo(g.dx - f.dx * len * 0.45 + n.dx * ww * 0.9, g.dy - f.dy * len * 0.45 + n.dy * ww * 0.9, tip.dx, tip.dy)
+        ..quadraticBezierTo(g.dx - f.dx * len * 0.45 - n.dx * ww * 0.9, g.dy - f.dy * len * 0.45 - n.dy * ww * 0.9, g.dx - n.dx * ww, g.dy - n.dy * ww)
+        ..close();
+      final col = layer == 0 ? mid : light;
+      canvas.drawPath(path, Paint()
+        ..blendMode = BlendMode.plus
+        ..shader = ui.Gradient.linear(g, tailW, [col.withValues(alpha: layer == 0 ? 0.55 : 0.8), col.withValues(alpha: 0)]));
+    }
+    // its glow, its translucent body, its bright heart
+    _addGlow(canvas, g, 28 * u * sc * grow, mid.withValues(alpha: 0.6));
+    canvas.drawCircle(g, w, Paint()..shader = ui.Gradient.radial(g, w, [light, mid.withValues(alpha: 0.78), deep.withValues(alpha: 0.35)], const [0.0, 0.55, 1.0]));
+    canvas.drawCircle(g - Offset(w * 0.25, w * 0.3), w * 0.32, Paint()..color = Colors.white.withValues(alpha: 0.9));
+    // a swirl of energy round it
+    final ring = Rect.fromCenter(center: g, width: w * 3.0, height: w * 2.2);
+    for (var i = 0; i < 2; i++) {
+      canvas.drawArc(ring, t * 13 + i * math.pi, 1.7, false, _add(light.withValues(alpha: 0.75))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2.4 * u
+        ..strokeCap = StrokeCap.round);
+    }
+    // its colour's own: leaves circling it and trailing off, embers, droplets, glints, sun rays
+    if (tag == 'amber' && !sh.prism) {
+      for (var i = 0; i < 4; i++) {
+        final a = t * 5 + i * math.pi / 2;
+        canvas.drawLine(g + Offset(math.cos(a), math.sin(a)) * w * 1.1, g + Offset(math.cos(a), math.sin(a)) * w * 2.2, _add(light.withValues(alpha: 0.7))
+          ..strokeWidth = 1.8 * u
+          ..strokeCap = StrokeCap.round);
+      }
+    } else if (!sh.prism) {
+      final orbit = tag == 'forest' ? 3 : 2;
+      for (var i = 0; i < orbit; i++) {
+        final a = t * 9 + i * math.pi * 2 / orbit;
+        _themed(canvas, tag, g + Offset(math.cos(a) * w * 1.75, math.sin(a) * w * 1.15), 5 * u * sc, a * 2, 0.95);
+      }
+      for (var i = 0; i < 4; i++) {
+        final k = ((i / 4) + sh.t * 2.4) % 1.0;
+        final at = Offset.lerp(g, tailW, k)! + n * math.sin(k * 9 + i * 2) * 5 * u + (tag == 'coral' ? Offset(0, -k * 6 * u) : Offset.zero);
+        _themed(canvas, tag, at, (4.8 - 2 * k) * u * sc, k * 8 + i, (1 - k) * 0.9);
+      }
+    }
+  }
+
+  /// An Obsidian's boulder: it heaves up out of the cracked ground, then flies tumbling, dust streaming off it.
+  void _boulder(Canvas canvas, Shot sh) {
+    final u = s._u / 2.7;
+    final ground = s._toScreen(sh.x, sh.z);
+    final rising = sh.t < sh.rise;
+    final k = rising ? Curves.easeOutBack.transform((sh.t / sh.rise).clamp(0.0, 1.0)) : 1.0;
+    final c = ground - Offset(0, sh.height * _up);
+    final r = 16.5 * u * (0.55 + 0.45 * k);
+    final fly = rising ? 0.0 : sh.t - sh.rise;
+    final sp = math.max(1e-6, math.sqrt(sh.vx * sh.vx + sh.vz * sh.vz));
+    // its shadow
+    canvas.drawOval(Rect.fromCenter(center: ground + Offset(0, 2 * u), width: r * 2.4, height: r * 0.8), Paint()
+      ..color = Color.fromRGBO(20, 16, 30, rising ? 0.35 : 0.28)
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+    // dust streaming off it in flight
+    if (!rising) {
+      for (var i = 0; i < 5; i++) {
+        final kk = ((i / 5) + fly * 3) % 1.0;
+        final at = s._toScreen(sh.x - sh.vx / sp * (6 + 26 * kk), sh.z - sh.vz / sp * (6 + 26 * kk)) - Offset(0, (sh.height - 2 * kk) * _up);
+        canvas.drawCircle(at, (3 + 6 * kk) * u, Paint()..color = Color.fromRGBO(176, 168, 186, 0.45 * (1 - kk)));
+      }
+    }
+    canvas.save();
+    if (rising) canvas.clipRect(Rect.fromLTRB(c.dx - 200, c.dy - 200, c.dx + 200, ground.dy + 3 * u)); // still half in the ground
+    final spin = rising ? math.sin(sh.t * 40) * 0.06 : fly * 10 * (sh.vx >= 0 ? 1 : -1);
+    final pts = <Offset>[];
+    for (var i = 0; i < 8; i++) {
+      final a = i * math.pi / 4 + spin;
+      final j = 0.82 + 0.22 * ((i * 37 + 11) % 7) / 6;
+      pts.add(c + Offset(math.cos(a), math.sin(a) * 0.92) * r * j);
+    }
+    final body = Path()..addPolygon(pts, true);
+    canvas.drawPath(body, Paint()
+      ..shader = ui.Gradient.linear(c - Offset(r, r), c + Offset(r, r), const [Color(0xFFB4AFC6), Color(0xFF6E6A82), Color(0xFF3E3B50)], const [0.0, 0.5, 1.0]));
+    // its facets
+    final facet = Paint()
+      ..color = const Color(0x553A3648)
+      ..strokeWidth = 1.4 * u;
+    final mid = c + Offset(math.cos(spin + 0.6), math.sin(spin + 0.6)) * r * 0.18;
+    for (final i in const [1, 4, 6]) {
+      canvas.drawLine(mid, pts[i], facet);
+    }
+    // a vein of its own violet light
+    final vein = Path()..moveTo(pts[2].dx * 0.6 + c.dx * 0.4, pts[2].dy * 0.6 + c.dy * 0.4);
+    vein.lineTo(mid.dx, mid.dy);
+    vein.lineTo(pts[5].dx * 0.55 + c.dx * 0.45, pts[5].dy * 0.55 + c.dy * 0.45);
+    canvas.drawPath(vein, _add(const Color(0xCCC9B8FF), blur: 1.5)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.8 * u);
+    canvas.drawPath(body, Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2 * u
+      ..strokeJoin = StrokeJoin.round
+      ..color = const Color(0xFF26232F));
+    canvas.restore();
+    // pebbles falling off it as it comes up
+    if (rising) {
+      for (var i = 0; i < 4; i++) {
+        final kk = (sh.t / sh.rise + i * 0.21) % 1.0;
+        canvas.drawRect(Rect.fromCenter(center: c + Offset((i - 1.5) * r * 0.5, -r * 0.4 + kk * r * 1.3), width: 2.6 * u, height: 2.6 * u),
+            Paint()..color = Color.fromRGBO(92, 86, 108, 1 - kk));
+      }
+    }
+  }
+
+  /// A Blast leaves it: a flash at its front, a cone of light the way it goes, a puff of its colour's own bits.
+  void _blastFire(Canvas canvas, Burst b, double k, Offset g, double u) {
+    final (light, mid, _) = _blastCols(b.tag);
+    final c = g - Offset(0, 8 * _up);
+    final dir = Offset(b.dx, b.dz * 0.6);
+    final dl = math.max(dir.distance, 1e-6);
+    final f = dir / dl, n = Offset(-f.dy, f.dx);
+    _addGlow(canvas, c, (12 + 22 * k) * u, mid.withValues(alpha: 0.8 * (1 - k)));
+    final cone = Path()
+      ..moveTo(c.dx, c.dy)
+      ..lineTo(c.dx + f.dx * 26 * u + n.dx * 9 * u, c.dy + f.dy * 26 * u + n.dy * 9 * u)
+      ..lineTo(c.dx + f.dx * 30 * u, c.dy + f.dy * 30 * u)
+      ..lineTo(c.dx + f.dx * 26 * u - n.dx * 9 * u, c.dy + f.dy * 26 * u - n.dy * 9 * u)
+      ..close();
+    canvas.drawPath(cone, Paint()
+      ..blendMode = BlendMode.plus
+      ..shader = ui.Gradient.linear(c, c + f * 30 * u, [light.withValues(alpha: 0.8 * (1 - k)), mid.withValues(alpha: 0)]));
+    for (var i = 0; i < 5; i++) {
+      final a = math.atan2(f.dy, f.dx) + (i - 2) * 0.45;
+      final at = c + Offset(math.cos(a), math.sin(a)) * (6 + 18 * Curves.easeOut.transform(k)) * u;
+      _themed(canvas, b.tag, at, 4.5 * u, a + k * 6, 1 - k);
+    }
+  }
+
+  /// Where a Blast lands: a ring and a flash of its colour, and its bits thrown out (leaves scatter, embers
+  /// rise, droplets splash, glints shatter).
+  void _blastHit(Canvas canvas, Burst b, double k, Offset g, double u) {
+    final (light, mid, _) = _blastCols(b.tag);
+    final c = g - Offset(0, 7 * _up);
+    final sz = b.size;
+    final e = Curves.easeOutCubic.transform(k);
+    _addGlow(canvas, c, (16 + 28 * e) * u * sz, mid.withValues(alpha: 0.85 * (1 - k)));
+    canvas.drawOval(Rect.fromCenter(center: c, width: (10 + 58 * e) * u * sz, height: (6 + 34 * e) * u * sz), _add(light.withValues(alpha: 0.95 * (1 - k)))
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = (3 - 2 * k) * u);
+    final rnd = math.Random((b.x * 13 + b.z * 7).round());
+    for (var i = 0; i < 8; i++) {
+      final a = i * math.pi / 4 + rnd.nextDouble() * 0.6;
+      final v = (20 + rnd.nextDouble() * 20) * u * sz;
+      final fall = b.tag == 'coral' ? -10.0 : (b.tag == 'ocean' ? 26.0 : 12.0);
+      final at = c + Offset(math.cos(a) * v * e, math.sin(a) * v * 0.6 * e + fall * u * k * k);
+      _themed(canvas, b.tag, at, (5 - 1.8 * k) * u * sz, a + k * 7, 1 - k);
+    }
+  }
+
+  /// An Obsidian stamps: the ground cracks open where its boulder comes up, and grit flies.
+  void _rockRise(Canvas canvas, Burst b, double k, Offset g, double u) {
+    final crack = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.4 * u
+      ..strokeCap = StrokeCap.round
+      ..color = Color.fromRGBO(34, 30, 44, 0.85 * (1 - k * k));
+    final grow = Curves.easeOut.transform((k / 0.3).clamp(0.0, 1.0));
+    for (var i = 0; i < 6; i++) {
+      final a = i * math.pi / 3 + 0.4;
+      final p = Path()..moveTo(g.dx, g.dy);
+      for (var j = 1; j <= 3; j++) {
+        final rr = j / 3 * 16 * u * grow;
+        final jit = ((i * 7 + j * 3) % 5 - 2) * 0.12;
+        p.lineTo(g.dx + math.cos(a + jit) * rr, g.dy + math.sin(a + jit) * rr * 0.5);
+      }
+      canvas.drawPath(p, crack);
+      canvas.drawPath(p, _add(Color.fromRGBO(185, 160, 255, 0.5 * (1 - k)))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.9 * u);
+    }
+    for (var i = 0; i < 6; i++) {
+      final a = i * 1.05 + 0.3;
+      final rr = (4 + 14 * k) * u;
+      canvas.drawCircle(g + Offset(math.cos(a) * rr, math.sin(a) * rr * 0.5 - 6 * u * k), (3 + 5 * k) * u, Paint()..color = Color.fromRGBO(170, 160, 150, 0.4 * (1 - k)));
+    }
+  }
+
+  /// A boulder strikes: it shatters into chunks, dust bursts out and a ring runs over the ground.
+  void _rockHit(Canvas canvas, Burst b, double k, Offset g, double u) {
+    final c = g - Offset(0, 6 * _up);
+    final sz = b.size;
+    final e = Curves.easeOut.transform(k);
+    canvas.drawOval(Rect.fromCenter(center: g, width: (10 + 46 * e) * u * sz, height: (5 + 22 * e) * u * sz), Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = (4 - 3 * k) * u
+      ..color = Color.fromRGBO(220, 210, 235, 0.7 * (1 - k)));
+    for (var i = 0; i < 7; i++) {
+      final a = i * 0.9 + b.x;
+      final rr = (6 + 20 * e) * u * sz;
+      canvas.drawCircle(g + Offset(math.cos(a) * rr, math.sin(a) * rr * 0.5 - 4 * u * e), (4 + 8 * e) * u * sz, Paint()..color = Color.fromRGBO(178, 170, 186, 0.45 * (1 - k)));
+    }
+    final rnd = math.Random((b.x * 31 + b.z * 17).round());
+    for (var i = 0; i < 9; i++) {
+      final a = -math.pi + rnd.nextDouble() * math.pi * 2;
+      final v = (18 + rnd.nextDouble() * 22) * u * sz;
+      final tt = k * 0.6;
+      final at = c + Offset(math.cos(a) * v * tt * 1.6 + b.dx * 10 * u * tt, math.sin(a) * v * tt * 0.7 - 34 * u * tt + 90 * u * tt * tt);
+      canvas.save();
+      canvas.translate(at.dx, at.dy);
+      canvas.rotate(tt * (8 + i));
+      final cs = (2.4 + rnd.nextDouble() * 2.6) * u * sz;
+      canvas.drawRect(Rect.fromCenter(center: Offset.zero, width: cs * 2, height: cs * 2), Paint()..color = Color.fromRGBO(98, 92, 116, 1 - k * 0.6));
+      canvas.drawRect(Rect.fromLTWH(-cs, -cs, cs * 2, cs * 0.7), Paint()..color = Color.fromRGBO(170, 164, 190, 1 - k * 0.6));
+      canvas.restore();
+    }
+  }
+
+  /// A Pulse on the ground: a translucent band of its colour rolling out, a bright edge, and a second one behind.
+  void _pulseRing(Canvas canvas, Burst b, double k) {
+    final (light, mid, _) = _blastCols(b.tag);
+    for (var w = 0; w < 2; w++) {
+      final kk = ((k - w * 0.18) / (1 - w * 0.18)).clamp(0.0, 1.0);
+      if (kk <= 0) continue;
+      final rr = b.size * (0.12 + 0.88 * Curves.easeOutCubic.transform(kk));
+      final rect = _ellipse(b.x, b.z, rr);
+      final R = rect.width / 2;
+      final fade = (1 - kk) * (w == 0 ? 1.0 : 0.55);
+      canvas.save();
+      canvas.translate(rect.center.dx, rect.center.dy);
+      canvas.scale(1, rect.height / rect.width);
+      canvas.drawCircle(Offset.zero, R, Paint()
+        ..blendMode = BlendMode.plus
+        ..shader = ui.Gradient.radial(Offset.zero, R, [mid.withValues(alpha: 0.05 * fade), mid.withValues(alpha: 0.32 * fade), light.withValues(alpha: 0.9 * fade), mid.withValues(alpha: 0)], const [0.0, 0.62, 0.94, 1.0]));
+      canvas.drawCircle(Offset.zero, R * 0.97, _add(light.withValues(alpha: fade))
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 4 * (1 - kk) + 1.5);
+      canvas.restore();
+    }
+  }
+
+  /// A Pulse from its body: a shell of its colour's light bursting out all round it, and its bits flung with it.
+  void _pulseWave(Canvas canvas, Burst b, double k, Offset g, double u) {
+    final (light, mid, _) = _blastCols(b.tag);
+    final c = g - Offset(0, 10 * _up);
+    for (var w = 0; w < 2; w++) {
+      final kk = ((k - w * 0.12) / (1 - w * 0.12)).clamp(0.0, 1.0);
+      if (kk <= 0) continue;
+      final rr = b.size * s._u * (0.15 + 0.75 * Curves.easeOutCubic.transform(kk));
+      final rect = Rect.fromCenter(center: c, width: rr * 2, height: rr * 1.15);
+      final fade = (1 - kk) * (w == 0 ? 1.0 : 0.6);
+      canvas.save();
+      canvas.translate(rect.center.dx, rect.center.dy);
+      canvas.scale(1, rect.height / rect.width);
+      canvas.drawCircle(Offset.zero, rr, Paint()
+        ..blendMode = BlendMode.plus
+        ..shader = ui.Gradient.radial(Offset.zero, rr, [light.withValues(alpha: 0.4 * fade), mid.withValues(alpha: 0.1 * fade), mid.withValues(alpha: 0.5 * fade), light.withValues(alpha: 0.85 * fade), mid.withValues(alpha: 0)], const [0.0, 0.45, 0.85, 0.96, 1.0]));
+      canvas.restore();
+    }
+    final e = Curves.easeOutCubic.transform(k);
+    for (var i = 0; i < 18; i++) {
+      final a = i * math.pi * 2 / 18 + 0.2 * math.sin(i * 2.3);
+      final rr = b.size * s._u * (0.2 + 0.85 * e) * (0.85 + 0.15 * math.sin(i * 1.7));
+      final lift = b.tag == 'coral' ? -14 * u * k : (b.tag == 'ocean' ? 10 * u * k * k : -4 * u * k);
+      final at = c + Offset(math.cos(a) * rr, math.sin(a) * rr * 0.55 + lift);
+      _themed(canvas, b.tag, at, (5.5 - 2 * k) * u, a * 2 + k * 9, (1 - k) * 0.95);
+    }
+  }
+
+  /// A Tremor on the ground: cracks run out jagged all round it, a seam of light in each, and dust rolls out
+  /// with the wave (the rocks it heaves up: _ringPieces).
+  void _tremorGround(Canvas canvas, Burst b, double k, double u) {
+    final c = s._toScreen(b.x, b.z);
+    final grow = Curves.easeOutCubic.transform((k / 0.55).clamp(0.0, 1.0));
+    final fade = 1 - ((k - 0.6) / 0.4).clamp(0.0, 1.0);
+    canvas.drawOval(_ellipse(b.x, b.z, b.size * 0.55 * grow), Paint()..color = Color.fromRGBO(40, 34, 50, 0.22 * fade));
+    final crack = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 5 * u
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = Color.fromRGBO(30, 26, 40, 0.9 * fade);
+    final seam = _add(Color.fromRGBO(200, 175, 255, 0.85 * fade), blur: 1)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2 * u;
+    for (var i = 0; i < 9; i++) {
+      final a = i * math.pi * 2 / 9 + 0.25;
+      final p = Path()..moveTo(c.dx, c.dy);
+      const steps = 5;
+      for (var j = 1; j <= steps; j++) {
+        final rr = j / steps * b.size * s._u * grow * (0.75 + 0.2 * ((i * 5) % 3));
+        final jit = ((i * 11 + j * 7) % 9 - 4) * 0.07;
+        p.lineTo(c.dx + math.cos(a + jit) * rr, c.dy + math.sin(a + jit) * rr * s._map!.sinP);
+      }
+      canvas.drawPath(p, crack);
+      canvas.drawPath(p, seam);
+    }
+    final front = b.size * Curves.easeOutCubic.transform(k);
+    for (var i = 0; i < 16; i++) {
+      final a = i * math.pi * 2 / 16;
+      final at = s._toScreen(b.x + math.cos(a) * front, b.z + math.sin(a) * front);
+      canvas.drawCircle(at - Offset(0, 4 * u), (8 + 11 * k) * u, Paint()..color = Color.fromRGBO(170, 158, 150, 0.5 * (1 - k)));
+    }
+  }
+
+  /// A pulse's pieces standing up out of the ground, each at its own depth: an Amethyst's crystal spikes (a
+  /// ring, then another), an Obsidian's rocks heaved up as its tremor passes.
+  void _ringPieces(Canvas canvas, Burst b, List<(double, void Function())> items) {
+    if (b.kind == 'spikes') {
+      for (var ring = 0; ring < 2; ring++) {
+        final n = ring == 0 ? 9 : 14;
+        final rad = b.size * (ring == 0 ? 0.48 : 0.86);
+        final t0 = ring * 0.09;
+        for (var i = 0; i < n; i++) {
+          final a = (i + ring * 0.5) / n * math.pi * 2;
+          final x = b.x + math.cos(a) * rad, z = b.z + math.sin(a) * rad;
+          final lt = b.t - t0 - (i % 3) * 0.014;
+          if (lt <= 0) continue;
+          final up = Curves.easeOutBack.transform((lt / 0.09).clamp(0.0, 1.0));
+          final down = ((b.t - (b.ttl - 0.2)) / 0.2).clamp(0.0, 1.0);
+          final h = up * (1 - Curves.easeIn.transform(down));
+          if (h <= 0.01) continue;
+          final tall = (ring == 0 ? 26.0 : 19.0) * (0.8 + 0.4 * ((i * 7) % 5) / 4);
+          items.add((z, () => _spike(canvas, x, z, math.cos(a), tall * h, (ring == 0 ? 5.0 : 4.0), lt)));
+        }
+      }
+    } else if (b.kind == 'tremor') {
+      final rnd = math.Random((b.x * 3 + b.z * 5).round());
+      for (var i = 0; i < 18; i++) {
+        final a = i * math.pi * 2 / 18 + rnd.nextDouble() * 0.3;
+        final frac = 0.35 + 0.6 * rnd.nextDouble();
+        final x = b.x + math.cos(a) * b.size * frac, z = b.z + math.sin(a) * b.size * frac;
+        final at = b.ttl * 0.55 * frac; // the wave reaches it
+        final lt = b.t - at;
+        const life = 0.42;
+        if (lt <= 0 || lt > life) continue;
+        final kk = lt / life;
+        final h = 18 * math.sin(kk * math.pi) * (0.7 + 0.5 * rnd.nextDouble());
+        final cs = 4.0 + 3.0 * rnd.nextDouble();
+        final spin = kk * (3 + i % 4) * (i.isEven ? 1 : -1);
+        items.add((z, () => _rock(canvas, x, z, h, cs, spin, 1 - ((kk - 0.75) / 0.25).clamp(0.0, 1.0))));
+      }
+    }
+  }
+
+  /// One crystal spike of an Amethyst's ring: two facets of violet glass, leaning out, glowing at its root.
+  void _spike(Canvas canvas, double x, double z, double outX, double h, double wd, double age) {
+    final g = s._toScreen(x, z);
+    final H = h * _up, W = wd * s._u;
+    final tip = g + Offset(outX * H * 0.28, -H);
+    final mid = g + Offset(W * 0.12, W * 0.28);
+    _addGlow(canvas, g, W * 2.6, const Color(0xAAB98CFF));
+    final left = Path()..moveTo(g.dx - W, g.dy)..lineTo(tip.dx, tip.dy)..lineTo(mid.dx, mid.dy)..close();
+    final right = Path()..moveTo(mid.dx, mid.dy)..lineTo(tip.dx, tip.dy)..lineTo(g.dx + W, g.dy)..close();
+    canvas.drawPath(left, Paint()..color = const Color(0xE6E9D4FF));
+    canvas.drawPath(right, Paint()..color = const Color(0xE69A68DC));
+    final all = Path()..moveTo(g.dx - W, g.dy)..lineTo(tip.dx, tip.dy)..lineTo(g.dx + W, g.dy)..lineTo(mid.dx, mid.dy)..close();
+    canvas.drawPath(all, Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2.2
+      ..strokeJoin = StrokeJoin.round
+      ..color = const Color(0xFF4E2A7A));
+    canvas.drawPath(left, _add(Color.fromRGBO(220, 190, 255, 0.35 * (0.6 + 0.4 * math.sin(age * 20)))));
+    _star(canvas, tip + const Offset(0, 2), 3.2, Color.fromRGBO(255, 250, 255, (0.5 + 0.5 * math.sin(age * 16)).clamp(0.0, 1.0)));
+  }
+
+  /// One rock an Obsidian's tremor heaves up: a chunky voxel cube, tumbling, its shadow below it.
+  void _rock(Canvas canvas, double x, double z, double h, double cs, double spin, double a) {
+    final g = s._toScreen(x, z);
+    final S = cs * s._u;
+    canvas.drawOval(Rect.fromCenter(center: g, width: S * 2.4 * (1 - h / 30), height: S * 0.9 * (1 - h / 30)), Paint()..color = Color.fromRGBO(20, 16, 30, 0.3 * a));
+    final c = g - Offset(0, h * _up + S * 0.6);
+    canvas.save();
+    canvas.translate(c.dx, c.dy);
+    canvas.rotate(spin);
+    final top = Path()..moveTo(0, -S)..lineTo(S, -S * 0.5)..lineTo(0, 0)..lineTo(-S, -S * 0.5)..close();
+    final lf = Path()..moveTo(-S, -S * 0.5)..lineTo(0, 0)..lineTo(0, S)..lineTo(-S, S * 0.5)..close();
+    final rt = Path()..moveTo(S, -S * 0.5)..lineTo(0, 0)..lineTo(0, S)..lineTo(S, S * 0.5)..close();
+    canvas.drawPath(top, Paint()..color = Color.fromRGBO(178, 172, 200, a));
+    canvas.drawPath(lf, Paint()..color = Color.fromRGBO(110, 104, 132, a));
+    canvas.drawPath(rt, Paint()..color = Color.fromRGBO(70, 66, 90, a));
+    canvas.drawLine(Offset(-S * 0.5, -S * 0.25), Offset(S * 0.2, S * 0.4), _add(Color.fromRGBO(190, 165, 255, 0.6 * a))..strokeWidth = 1.2);
+    final out = Path()..moveTo(0, -S)..lineTo(S, -S * 0.5)..lineTo(S, S * 0.5)..lineTo(0, S)..lineTo(-S, S * 0.5)..lineTo(-S, -S * 0.5)..close();
+    canvas.drawPath(out, Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.6
+      ..color = Color.fromRGBO(30, 26, 40, a));
+    canvas.restore();
   }
 
   void _stars(Canvas canvas, Offset c, double size, double alpha) {
@@ -3619,14 +4103,21 @@ class _MapPainter extends CustomPainter {
       case 'flash':
         _glow(canvas, g - Offset(0, 4 * _up), (10 + b.size * k) * u * 1.4, Color.fromRGBO(255, 236, 170, 0.8 * (1 - k)));
       case 'pulse':
-        final rr = b.size * Curves.easeOut.transform(k);
-        canvas.drawOval(_ellipse(b.x, b.z, rr), Paint()..color = Color.fromRGBO(159, 240, 218, 0.28 * (1 - k)));
-        canvas.drawOval(
-            _ellipse(b.x, b.z, rr),
-            Paint()
-              ..style = PaintingStyle.stroke
-              ..strokeWidth = 4
-              ..color = Color.fromRGBO(220, 255, 245, 0.9 * (1 - k)));
+        _pulseRing(canvas, b, k);
+      case 'pulsewave':
+        _pulseWave(canvas, b, k, g, u);
+      case 'tremor':
+        _tremorGround(canvas, b, k, u);
+      case 'spikes':
+        break; // (drawn standing, at their depth: _ringPieces)
+      case 'blastfire':
+        _blastFire(canvas, b, k, g, u);
+      case 'blasthit':
+        _blastHit(canvas, b, k, g, u);
+      case 'rockrise':
+        _rockRise(canvas, b, k, g, u);
+      case 'rockhit':
+        _rockHit(canvas, b, k, g, u);
       case 'spores':
         for (var i = 0; i < 6; i++) {
           final a = i * 1.05 + b.x;
@@ -4296,8 +4787,8 @@ class _CombatPad extends StatelessWidget {
                 _bolt,
                 AbilityButton(
                   icon: AbilityIcon.bolt,
-                  label: 'Bolt',
-                  semantic: 'Glow Bolt',
+                  label: blastName(r.palette).$1,
+                  semantic: blastName(r.palette).$2,
                   accent: const Color(0xFFB8EE5A),
                   cooldown: r.boltCd / 1.0,
                   cooldownLeft: r.boltCd,
@@ -4311,8 +4802,8 @@ class _CombatPad extends StatelessWidget {
                 _pulse,
                 AbilityButton(
                   icon: AbilityIcon.pulse,
-                  label: 'Pulse',
-                  semantic: 'Lumen Pulse',
+                  label: pulseName(r.palette).$1,
+                  semantic: pulseName(r.palette).$2,
                   accent: const Color(0xFFF2C76A),
                   cooldown: r.pulseCd / 7.0,
                   cooldownLeft: r.pulseCd,
@@ -4349,6 +4840,25 @@ class _CombatPad extends StatelessWidget {
   }
 
   /// each Elder's ultimate, as painted (assets/art/combat)
+  /// Its Blast and its Pulse, by its colour: (the button's word, the full name)
+  static (String, String) blastName(String palette) => switch (palette) {
+        'forest' => ('Blast', 'Leaf Blast'),
+        'coral' => ('Blast', 'Ember Blast'),
+        'ocean' => ('Blast', 'Tide Blast'),
+        'amethyst' => ('Blast', 'Crystal Blast'),
+        'obsidian' => ('Boulder', 'Boulder Toss'),
+        _ => ('Blast', 'Sun Blast'),
+      };
+
+  static (String, String) pulseName(String palette) => switch (palette) {
+        'forest' => ('Pulse', 'Leaf Pulse'),
+        'coral' => ('Pulse', 'Ember Pulse'),
+        'ocean' => ('Pulse', 'Tide Pulse'),
+        'amethyst' => ('Spikes', 'Crystal Spikes'),
+        'obsidian' => ('Tremor', 'Tremor'),
+        _ => ('Pulse', 'Sun Pulse'),
+      };
+
   static String _ultSprite(String palette) => switch (palette) {
         'ocean' => 'healing_mist',
         'forest' => 'thorn_snare',

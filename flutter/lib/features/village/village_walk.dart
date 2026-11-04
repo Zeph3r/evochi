@@ -1667,7 +1667,7 @@ class VillageWalkScreenState extends State<VillageWalkScreen> with SingleTickerP
     final first = o.damage == 0;
     final c0 = context.read<GameController>();
     c0.run((st, now) => mine.markFirstTrip(st, now), quiet: true); // gear on its first trip remembers it
-    final broke = o.strike(mine.miningPowerOf(c0.state), art.hits);
+    final broke = o.strike(mine.strikeWorth(c0.state, oreTier[o.kind] ?? 1), art.hits); // (harder ore: more strikes)
     audio.play('mine_${o.kind}_${broke ? 'break' : first ? 'chip' : 'crack'}', volume: broke ? 0.8 : 0.6);
     _bits.addAll(contactBits(o, _t, toward, broke: broke, reduced: reduced));
     if (broke) {

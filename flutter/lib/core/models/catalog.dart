@@ -362,7 +362,7 @@ const catalog = <String, CatalogItem>{
   'prism_charm': CatalogItem(
       id: 'prism_charm', name: 'Prism Charm', category: ItemCategory.consumable, kind: 'charm', rarity: 'legendary', stackable: true, shop: null,
       acquisition: 'drop', tradable: false,
-      desc: 'A Prism Scale set in silver. Worn in the Wilds: your Bolt splits into three.'),
+      desc: 'A Prism Scale set in silver. Worn in the Wilds: your Blast splits into three.'),
   'starseed_charm': CatalogItem(
       id: 'starseed_charm', name: 'Starseed Charm', category: ItemCategory.consumable, kind: 'charm', rarity: 'epic', stackable: true, shop: null,
       acquisition: 'drop', tradable: false,

@@ -47,7 +47,7 @@ class GearDef {
 
   /// What it does, in a few words.
   List<String> get stats => [
-        if (opens) 'Breaks ${tierNames[tier]!.toLowerCase()} ore',
+        if (opens) 'Full strength on ${tierNames[tier]!.toLowerCase()} ore${tier >= 2 ? ', and breaks obsidian' : ''}',
         if (power > 0) 'Mining power +${(power * 100).round()}%',
         if (light > 0) 'Light +$light',
         if (carry > 0) 'Carry +$carry',
