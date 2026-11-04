@@ -678,7 +678,7 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
     final pw = ph * art.fw / art.fh;
     final fx = (bed.right + pw * 0.26).clamp(pw * gx + 2, w.plate.width - pw * (1 - gx) - 2);
     final foot = Offset(fx, bed.bottom - bed.height * 0.02);
-    final ps = bed.height * 0.5; // a prop's size
+    final ps = bed.height * 0.72; // a prop's size (the voxel props sit in their frames with a margin)
     final rest = Offset(foot.dx + dir * pw * 0.46, foot.dy - ps * 0.12); // the can, on the bed's front corner
     final over = Offset(bed.center.dx - dir * bed.width * 0.06, bed.top + bed.height * 0.12);
     final basketAt = Offset(bed.right - bed.width * 0.24, bed.bottom - ps * 0.2);
