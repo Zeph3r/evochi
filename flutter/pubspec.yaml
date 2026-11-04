@@ -49,6 +49,7 @@ flutter:
     - assets/art/workshop/walk/ # Bram's Workshop, inside
     - assets/art/mining/ # ore nodes and nuggets (tools/art/mining_art.py)
     - assets/art/fx/ # living-scene masks (tools/art/scene_fx.py)
+    - assets/art/combat/ # the Wilds combat buttons, by state (tools/art/combat_buttons_clean.py)
     - assets/art/wilds/ # the Lumen Wilds: walk sheets, the test clearing (tools/art/walk.py, wilds_art.py)
     - assets/art/economy/ # economy: chest tiers (tools/art/economy_art.py)
     - assets/art/acting/ # personality acting clips, streamed (tools/art/acting.py)

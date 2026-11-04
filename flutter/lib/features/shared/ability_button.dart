@@ -11,12 +11,17 @@
 //
 // The icons are drawn small on a pixel grid and scaled up without smoothing (pixel art, like the game's own),
 // cached once each.
+//
+// A button given a [AbilityButton.sprite] (Pounce, Dodge, Healing Mist) shows the painted art instead
+// (assets/art/combat/<sprite>_<state>.webp: normal, pressed, ready, disabled); its cooldown sweep, seconds, charge
+// ring, motes, flash and count are still drawn here, live. Until the art has loaded it falls back to the drawn one.
 
 import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
+import 'package:flutter/services.dart';
 
 import '../../app/theme.dart';
 
@@ -44,6 +49,7 @@ class AbilityButton extends StatefulWidget {
     this.semantic,
     this.showLabel = true,
     this.flash = 0,
+    this.sprite,
   });
   final AbilityIcon icon;
   final String label; // small under it; the full name on a long press
@@ -67,6 +73,9 @@ class AbilityButton extends StatefulWidget {
 
   /// 1 .. 0: just used (a ring of light breaking outward)
   final double flash;
+
+  /// the painted art's name in assets/art/combat ('pounce', 'dodge', 'healing_mist'); null draws the button
+  final String? sprite;
 
   static double sizeOf(AbilityRank r) => switch (r) {
         AbilityRank.primary => 70,
@@ -99,6 +108,8 @@ class _AbilityButtonState extends State<AbilityButton> with SingleTickerProvider
 
   // only an ultimate that is ready animates on its own (its motes); everything else repaints with the pad
   void _sync() {
+    final sp = widget.sprite;
+    if (sp != null) ButtonSprites.load(sp);
     final live = widget.rank == AbilityRank.ultimate && widget.ready;
     if (live && !_ticker.isActive) _ticker.start();
     if (!live && _ticker.isActive) _ticker.stop();
@@ -176,7 +187,7 @@ class _AbilityButtonState extends State<AbilityButton> with SingleTickerProvider
                 height: hit,
                 child: Center(
                   child: AnimatedScale(
-                    scale: _down ? 0.9 : 1,
+                    scale: _down ? (w.sprite != null ? 0.96 : 0.9) : 1, // (the pressed art already sinks)
                     duration: Duration(milliseconds: _down ? 50 : 140),
                     curve: _down ? Curves.easeOut : Curves.elasticOut,
                     child: CustomPaint(
@@ -224,7 +235,7 @@ class _AbilityButtonState extends State<AbilityButton> with SingleTickerProvider
 }
 
 class _AbilityPainter extends CustomPainter {
-  _AbilityPainter(this.w, this.down, this.t) : super(repaint: t);
+  _AbilityPainter(this.w, this.down, this.t) : super(repaint: Listenable.merge([t, ButtonSprites.loaded]));
   final AbilityButton w;
   final bool down;
   final ValueNotifier<double> t;
@@ -234,6 +245,19 @@ class _AbilityPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
+    final sp = w.sprite;
+    if (sp != null) {
+      final ult = w.rank == AbilityRank.ultimate;
+      final state = w.dim && !ult
+          ? 'disabled'
+          : down
+              ? 'pressed'
+              : ult && w.ready
+                  ? 'ready'
+                  : 'normal';
+      final img = ButtonSprites.of(sp, state) ?? ButtonSprites.of(sp, 'normal');
+      if (img != null) return _paintSprite(canvas, size, sp, img);
+    }
     final c = size.center(Offset.zero);
     final r = size.width / 2;
     final ult = w.rank == AbilityRank.ultimate;
@@ -361,6 +385,89 @@ class _AbilityPainter extends CustomPainter {
     }
   }
 
+  /// the painted button: the art fills the circle (its shadow and glow spill past it); the live parts over it
+  void _paintSprite(Canvas canvas, Size size, String sp, ui.Image img) {
+    final c = size.center(Offset.zero);
+    final r = size.width / 2;
+    final ult = w.rank == AbilityRank.ultimate;
+    final (rimPx, facePx) = ButtonSprites.radii[sp] ?? (121.5, 98.0);
+    final scale = r / rimPx; // art px -> dp
+    final face = facePx * scale;
+    // an ultimate's ready glow breathes behind its art
+    if (ult && w.ready && !w.dim) {
+      final k = 0.75 + 0.25 * math.sin(t.value * 4);
+      canvas.drawCircle(c, r * 1.15, Paint()
+        ..color = w.accent.withValues(alpha: 0.35 * k)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.3));
+    }
+    final half = img.width / 2 * scale;
+    canvas.drawImageRect(img, Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()), Rect.fromCircle(center: c, radius: half),
+        Paint()..filterQuality = FilterQuality.medium);
+    // an ultimate still charging sits darker, its ring round the rim showing how far; full, motes orbit it
+    if (ult && w.charge != null) {
+      final ch = w.charge!.clamp(0.0, 1.0);
+      if (!w.ready) {
+        canvas.drawCircle(c, face, Paint()..color = const Color(0x73101830));
+        final ring = Rect.fromCircle(center: c, radius: r * 0.9);
+        canvas.drawArc(ring, -math.pi / 2, math.pi * 2, false, Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = r * 0.09
+          ..color = const Color(0x66241208));
+        canvas.drawArc(ring, -math.pi / 2, math.pi * 2 * ch, false, Paint()
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = r * 0.09
+          ..strokeCap = StrokeCap.round
+          ..color = Color.lerp(w.accent, Colors.white, 0.2)!);
+      } else {
+        for (var i = 0; i < 6; i++) {
+          final a = t.value * 1.6 + i * math.pi / 3;
+          final p = c + Offset(math.cos(a), math.sin(a)) * (r + 1.5);
+          canvas.drawCircle(p, 1.8, Paint()..color = Colors.white.withValues(alpha: 0.85));
+        }
+      }
+    }
+    // cooling down: a dark sweep over the face, and the seconds left
+    if (w.cooldown > 0.001) {
+      canvas.save();
+      canvas.clipPath(Path()..addOval(Rect.fromCircle(center: c, radius: face)));
+      canvas.drawArc(Rect.fromCircle(center: c, radius: face * 1.5), -math.pi / 2, math.pi * 2 * w.cooldown.clamp(0.0, 1.0), true,
+          Paint()..color = const Color(0x99241208));
+      canvas.restore();
+      if (w.cooldownLeft >= 1) {
+        final tp = TextPainter(
+          text: TextSpan(
+            text: '${w.cooldownLeft.ceil()}',
+            style: TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w900, fontSize: face * 0.75, color: Colors.white, shadows: const [
+              Shadow(color: Color(0xFF241208), blurRadius: 3),
+            ]),
+          ),
+          textDirection: TextDirection.ltr,
+        )..layout();
+        tp.paint(canvas, c - Offset(tp.width / 2, tp.height / 2));
+      }
+    }
+    // just used: a ring of light breaking outward
+    if (w.flash > 0) {
+      final e = 1 - w.flash;
+      canvas.drawCircle(c, r * (1 + 0.5 * e), Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 3 * w.flash
+        ..color = Color.lerp(w.accent, Colors.white, 0.5)!.withValues(alpha: w.flash));
+    }
+    final b = w.badge;
+    if (b != null) {
+      final bc = c + Offset(r * 0.68, -r * 0.62);
+      final br = math.max(8.0, r * 0.3);
+      canvas.drawCircle(bc, br, Paint()..color = const Color(0xFF4E3324));
+      canvas.drawCircle(bc, br - 1.6, Paint()..color = const Color(0xFFFFF3DC));
+      final tp = TextPainter(
+        text: TextSpan(text: b, style: TextStyle(fontFamily: 'Nunito', fontWeight: FontWeight.w900, fontSize: br * 1.15, color: EvochiColor.ink)),
+        textDirection: TextDirection.ltr,
+      )..layout();
+      tp.paint(canvas, bc - Offset(tp.width / 2, tp.height / 2));
+    }
+  }
+
   /// the ultimate's gold four-pointed crest (top) and its small keystone (bottom)
   void _crest(Canvas canvas, Offset o, double r, bool lit) {
     final p = Path()
@@ -385,6 +492,34 @@ class _AbilityPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_AbilityPainter old) => true;
+}
+
+/// The painted combat buttons (assets/art/combat), loaded once each and kept; [loaded] ticks as each arrives.
+class ButtonSprites {
+  static final loaded = ValueNotifier(0);
+  static final _img = <String, ui.Image>{};
+  static final _asked = <String>{};
+  static const states = ['normal', 'pressed', 'ready', 'disabled'];
+
+  /// each art's rim radius and face radius, in its own 256 px
+  static const radii = {'pounce': (121.5, 98.0), 'dodge': (120.5, 96.0), 'healing_mist': (122.5, 91.0)};
+
+  static ui.Image? of(String name, String state) => _img['${name}_$state'];
+
+  static void load(String name) {
+    if (!_asked.add(name)) return;
+    for (final s in states) {
+      final k = '${name}_$s';
+      () async {
+        try {
+          final data = await rootBundle.load('assets/art/combat/$k.webp');
+          final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+          _img[k] = (await codec.getNextFrame()).image;
+          loaded.value++;
+        } catch (_) {} // (no art: the drawn button stays)
+      }();
+    }
+  }
 }
 
 /// The combat icons, drawn on a 24 px grid without smoothing, each in its own colours, and kept.

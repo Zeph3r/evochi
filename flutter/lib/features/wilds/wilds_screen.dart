@@ -4278,6 +4278,7 @@ class _CombatPad extends StatelessWidget {
                   accent: const Color(0xFFFFD25A),
                   dim: st < 5,
                   flash: fx('attack'),
+                  sprite: 'pounce',
                   onDown: () {
                     s._padHeld = true;
                     go('attack');
@@ -4290,7 +4291,7 @@ class _CombatPad extends StatelessWidget {
                 ),
                 box: 84,
               ),
-              _at(_dodge, AbilityButton(icon: AbilityIcon.dodge, label: 'Dodge', accent: const Color(0xFF8FCBEF), dim: st < 20, flash: fx('dodge'), onDown: () => go('dodge'))),
+              _at(_dodge, AbilityButton(icon: AbilityIcon.dodge, label: 'Dodge', accent: const Color(0xFF8FCBEF), dim: st < 20, flash: fx('dodge'), sprite: 'dodge', onDown: () => go('dodge'))),
               _at(
                 _bolt,
                 AbilityButton(
@@ -4333,6 +4334,7 @@ class _CombatPad extends StatelessWidget {
                     ready: r.sigReady,
                     dim: !r.sigReady,
                     flash: fx('signature'),
+                    sprite: r.palette == 'ocean' ? 'healing_mist' : null,
                     onDown: () => go('signature'),
                   ),
                   box: 104,
