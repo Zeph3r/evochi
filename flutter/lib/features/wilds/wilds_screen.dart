@@ -1681,11 +1681,18 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                   if (_hintT > 0 && card == null && _hint == null && WildsScreen.director == null)
                     _bottomHint(mq, _hintT > 1, 'Drag to walk · push far to run'),
                   if (_hint != null && card == null && WildsScreen.director == null) _bottomHint(mq, _hintT2 > 0.6, _hint!),
+                  if (card == null && !_brewPick)
+                    Positioned(
+                      // what the fight turned up: a short feed under the pouch, out of the action's way
+                      right: 8 + mq.padding.right,
+                      top: mq.padding.top + 8 + 78 + 6 + 32 + 4 + (_miningArt != null ? 46 : 0) + 64,
+                      child: IgnorePointer(child: _LootFeed(state: this)),
+                    ),
                   if (_banner != null && card == null)
                     Positioned(
-                      left: 0,
-                      right: 0,
-                      bottom: mq.padding.bottom + (narrow ? 230 : 120),
+                      left: narrow ? 64 : 0,
+                      right: narrow ? 64 : 0,
+                      top: mq.padding.top + (narrow ? 160 : 72), // (up top, under the bars: the fight below stays clear)
                       child: IgnorePointer(child: Center(child: _Banner(text: _banner!))),
                     ),
                 ],
@@ -2366,8 +2373,17 @@ class _MapPainter extends CustomPainter {
       _foeBar(canvas, f);
     }
     _trustBar(canvas, r);
+    // the words over the fight, stacked where they'd overlap; loot goes to the feed up top instead
+    final placed = <(Offset, double)>[];
     for (final f in r.floaters) {
-      _floater(canvas, f);
+      if (f.kind == 'loot') continue;
+      final at = s._toScreen(f.x, f.z);
+      var lift = 0.0;
+      for (final (o, l) in placed) {
+        if ((o - at).distance < 26 && (l - lift).abs() < 15) lift = l + 15;
+      }
+      placed.add((at, lift));
+      _floater(canvas, f, lift);
     }
     // Sher's bubble
     final b = s._bubble;
@@ -2884,7 +2900,7 @@ class _MapPainter extends CustomPainter {
       }
     }
     canvas.restore();
-    if (f.st == FoeState.stagger && (f is Boss || f.kind == 'sentinel')) _stars(canvas, g - Offset(0, a.top * k * 0.95), 2, 1);
+    if (f.st == FoeState.stagger) _stars(canvas, g - Offset(0, a.top * k * 0.95), f is Boss || f.kind == 'sentinel' ? 2 : 1.1, 1);
     if (f.kind == 'sentinel' && !f.calm) _sentinelShield(canvas, f, a, g, k);
   }
 
@@ -3021,63 +3037,151 @@ class _MapPainter extends CustomPainter {
     return Rect.fromCenter(center: c, width: r * 2 * s._u, height: r * 2 * s._u * s._map!.sinP);
   }
 
+  static const _dangerCore = Color(0xFFE02E2A);
+  static const _dangerHot = Color(0xFFFFB896);
+
+  /// Runs [paint] in a mark's own patch of ground: (0, 0) at (x, z), screen px across, the ground's tilt applied,
+  /// so a circle drawn there lies flat on the ground like a decal.
+  void _onGround(Canvas canvas, double x, double z, void Function() paint) {
+    final c = s._toScreen(x, z);
+    canvas.save();
+    canvas.translate(c.dx, c.dy);
+    canvas.scale(1, s._map!.sinP);
+    paint();
+    canvas.restore();
+  }
+
+  /// Where something is about to land, as a sigil on the ground: clear in the middle and hot at the rim, a fill
+  /// closing on the moment it comes (with a bright leading edge), a soft glow round the edge, and in the last
+  /// stretch the edge quickens toward white. Lines and cones carry marks that run the way the hit will come.
   void _mark(Canvas canvas, Mark mk) {
     final p = mk.p;
-    final fill = Paint()..color = _danger.withAlpha((40 + 50 * p).round());
-    final grow = Paint()..color = _danger.withAlpha((70 + 80 * p).round());
-    final edge = Paint()
+    final u = s._u;
+    final fadeIn = (mk.t / 0.1).clamp(0.0, 1.0);
+    final snap = Curves.easeOutBack.transform((mk.t / 0.18).clamp(0.0, 1.0)); // it snaps open
+    final late = ((p - 0.68) / 0.32).clamp(0.0, 1.0);
+    final beat = rm ? late * 0.6 : late * (0.5 + 0.5 * math.sin(s._t * (12 + 26 * late)));
+    final edgeCol = Color.lerp(_danger, const Color(0xFFFFF3EA), 0.12 + 0.68 * beat)!;
+    Paint glow(double w, double a) => Paint()
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2
-      ..color = _danger.withAlpha((150 + 100 * p).round());
+      ..strokeWidth = w
+      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4)
+      ..color = _danger.withValues(alpha: (a * fadeIn).clamp(0.0, 1.0));
+    Paint line(double w, Color c, double a) => Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w
+      ..strokeCap = StrokeCap.round
+      ..strokeJoin = StrokeJoin.round
+      ..color = c.withValues(alpha: (a * fadeIn).clamp(0.0, 1.0));
+    Paint solid(Color c, double a) => Paint()..color = c.withValues(alpha: (a * fadeIn).clamp(0.0, 1.0));
+    Shader rim(double r, double inner, double outer) => RadialGradient(
+          colors: [_dangerCore.withValues(alpha: inner * fadeIn), _dangerCore.withValues(alpha: inner * 1.6 * fadeIn), _danger.withValues(alpha: outer * fadeIn)],
+          stops: const [0, 0.62, 1],
+        ).createShader(Rect.fromCircle(center: Offset.zero, radius: math.max(r, 1)));
     switch (mk.shape) {
       case MarkShape.circle:
-        canvas.drawOval(_ellipse(mk.x, mk.z, mk.r), fill);
-        canvas.drawOval(_ellipse(mk.x, mk.z, mk.r * p), grow);
-        canvas.drawOval(_ellipse(mk.x, mk.z, mk.r), edge);
-      case MarkShape.ring:
-        // the ring about to roll out: a glowing band round the guardian
-        final outer = _ellipse(mk.x, mk.z, mk.r + 8 * p);
-        canvas.drawOval(outer, edge..strokeWidth = 3 + 4 * p);
-        canvas.drawOval(_ellipse(mk.x, mk.z, mk.r * 0.7), fill);
-      case MarkShape.line:
-        final nx = -mk.dz, nz = mk.dx;
-        List<(double, double)> rect(double len) => [
-              (mk.x + nx * mk.width / 2, mk.z + nz * mk.width / 2),
-              (mk.x + nx * mk.width / 2 + mk.dx * len, mk.z + nz * mk.width / 2 + mk.dz * len),
-              (mk.x - nx * mk.width / 2 + mk.dx * len, mk.z - nz * mk.width / 2 + mk.dz * len),
-              (mk.x - nx * mk.width / 2, mk.z - nz * mk.width / 2),
-            ];
-        canvas.drawPath(_poly(rect(mk.len)), fill);
-        canvas.drawPath(_poly(rect(mk.len * p)), grow);
-        // about to go: the edge flashes white
-        if (p > 0.72) edge.color = Color.lerp(edge.color, const Color(0xFFFFFFFF), 0.5 + 0.5 * math.sin(s._t * 30))!;
-        canvas.drawPath(_poly(rect(mk.len)), edge..strokeWidth = p > 0.72 ? 3.5 : 2);
-        // chevrons along it, pointing the way it will come
-        final ch = Paint()
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = 2.5
-          ..strokeCap = StrokeCap.round
-          ..color = const Color(0xCCFFE2D6);
-        for (var d = 16.0 + (rm ? 0 : (s._t * 70) % 22); d < mk.len - 6; d += 22) {
-          final cx = mk.x + mk.dx * d, cz = mk.z + mk.dz * d;
-          final a = s._toScreen(cx - mk.dx * 5 + nx * 5, cz - mk.dz * 5 + nz * 5);
-          final b = s._toScreen(cx, cz);
-          final c = s._toScreen(cx - mk.dx * 5 - nx * 5, cz - mk.dz * 5 - nz * 5);
-          canvas.drawPath(Path()..moveTo(a.dx, a.dy)..lineTo(b.dx, b.dy)..lineTo(c.dx, c.dy), ch);
-        }
-      case MarkShape.cone:
-        List<(double, double)> cone(double rad) {
-          final pts = <(double, double)>[(mk.x, mk.z)];
-          final a0 = math.atan2(mk.dx, mk.dz);
-          for (var i = 0; i <= 14; i++) {
-            final a = a0 - mk.half + 2 * mk.half * i / 14;
-            pts.add((mk.x + math.sin(a) * rad, mk.z + math.cos(a) * rad));
+        final rad = mk.r * u * (0.84 + 0.16 * snap);
+        _onGround(canvas, mk.x, mk.z, () {
+          canvas.drawCircle(Offset.zero, rad, Paint()..shader = rim(rad, 0.07, 0.36 + 0.12 * p));
+          // the fill, closing on the moment it lands
+          final f = rad * p;
+          canvas.drawCircle(Offset.zero, f, solid(_dangerCore, 0.14 + 0.2 * p));
+          canvas.drawCircle(Offset.zero, f, line(2, _dangerHot, 0.5 + 0.45 * p));
+          // a slow sigil turning inside
+          final spin = rm ? 0.0 : s._t * 1.3;
+          final dash = line(1.6, _dangerHot, 0.28 + 0.3 * p);
+          final inner = Rect.fromCircle(center: Offset.zero, radius: rad * 0.78);
+          for (var i = 0; i < 8; i++) {
+            canvas.drawArc(inner, spin + i * math.pi / 4, math.pi / 7, false, dash);
           }
-          return pts;
-        }
-        canvas.drawPath(_poly(cone(mk.r)), fill);
-        canvas.drawPath(_poly(cone(mk.r * p)), grow);
-        canvas.drawPath(_poly(cone(mk.r)), edge);
+          // four ticks on the rim, pointing in
+          for (var i = 0; i < 4; i++) {
+            final a = -spin * 0.5 + math.pi / 4 + i * math.pi / 2;
+            final d = Offset(math.cos(a), math.sin(a));
+            canvas.drawLine(d * (rad - 8), d * (rad + 3), line(2.6, edgeCol, 0.95));
+          }
+          canvas.drawCircle(Offset.zero, rad, glow(6 + 5 * beat, 0.5 + 0.35 * p));
+          canvas.drawCircle(Offset.zero, rad, line(2 + 1.4 * beat, edgeCol, 0.95));
+        });
+      case MarkShape.ring:
+        // the ground about to heave round the guardian: a hot band at the edge, ripples running out to it
+        final rad = mk.r * u * (0.84 + 0.16 * snap);
+        _onGround(canvas, mk.x, mk.z, () {
+          canvas.drawCircle(Offset.zero, rad, Paint()..shader = rim(rad, 0.05, 0.3 + 0.16 * p));
+          for (var i = 0; i < 3; i++) {
+            final k = rm ? (i + 1) / 4 : (s._t * 1.25 + i / 3) % 1.0;
+            canvas.drawCircle(Offset.zero, rad * (0.28 + 0.72 * k), line(2.2, _dangerHot, (1 - k) * (0.3 + 0.45 * p)));
+          }
+          final band = rad + 5 * p;
+          canvas.drawCircle(Offset.zero, band, glow(9 + 6 * p + 4 * beat, 0.5 + 0.35 * p));
+          canvas.drawCircle(Offset.zero, band, line(3 + 3 * p, edgeCol, 0.95));
+        });
+      case MarkShape.line:
+        final len = mk.len * u, hw = mk.width * u / 2;
+        _onGround(canvas, mk.x, mk.z, () {
+          canvas.rotate(math.atan2(mk.dz, mk.dx));
+          final lane = RRect.fromLTRBR(0, -hw, len, hw, Radius.circular(hw * 0.7));
+          // across the lane: hot at its sides, clearer down the middle
+          canvas.drawRRect(
+              lane,
+              Paint()
+                ..shader = LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    _danger.withValues(alpha: (0.34 + 0.1 * p) * fadeIn),
+                    _dangerCore.withValues(alpha: 0.08 * fadeIn),
+                    _danger.withValues(alpha: (0.34 + 0.1 * p) * fadeIn),
+                  ],
+                ).createShader(lane.outerRect));
+          // the fill running out along it to the moment it comes
+          final run = len * p;
+          if (run > 2) {
+            canvas.drawRRect(RRect.fromLTRBR(0, -hw, run, hw, Radius.circular(math.min(hw * 0.7, run / 2))), solid(_dangerCore, 0.14 + 0.2 * p));
+            canvas.drawLine(Offset(run, -hw * 0.8), Offset(run, hw * 0.8), line(2.6, _dangerHot, 0.55 + 0.4 * p));
+          }
+          // chevrons riding along it, the way it will come
+          final step = 22 * u, h = math.min(hw * 0.62, 7 * u), cw = 3.6 * u;
+          final ch = Paint();
+          for (var d = 14 * u + (rm ? 0 : (s._t * 70 * u) % step); d < len - 4 * u; d += step) {
+            final edgeFade = math.min(1.0, math.min(d / (18 * u), (len - d) / (14 * u)));
+            canvas.drawPath(
+                Path()
+                  ..moveTo(d - 2.2 * cw, -h)
+                  ..lineTo(d, 0)
+                  ..lineTo(d - 2.2 * cw, h)
+                  ..lineTo(d - 3.2 * cw, h)
+                  ..lineTo(d - cw, 0)
+                  ..lineTo(d - 3.2 * cw, -h)
+                  ..close(),
+                ch..color = const Color(0xFFFFD9C4).withValues(alpha: ((0.6 + 0.4 * p) * fadeIn * edgeFade).clamp(0.0, 1.0)));
+          }
+          canvas.drawRRect(lane, glow(6 + 5 * beat, 0.5 + 0.35 * p));
+          canvas.drawRRect(lane, line(2 + 1.4 * beat, edgeCol, 0.95));
+        });
+      case MarkShape.cone:
+        final rad = mk.r * u * (0.84 + 0.16 * snap);
+        _onGround(canvas, mk.x, mk.z, () {
+          final a0 = math.atan2(mk.dz, mk.dx);
+          Path sector(double r) => Path()
+            ..moveTo(0, 0)
+            ..arcTo(Rect.fromCircle(center: Offset.zero, radius: r), a0 - mk.half, 2 * mk.half, false)
+            ..close();
+          final full = sector(rad);
+          canvas.drawPath(full, Paint()..shader = rim(rad, 0.06, 0.36 + 0.12 * p));
+          if (p > 0.02) {
+            canvas.drawPath(sector(rad * p), solid(_dangerCore, 0.14 + 0.2 * p));
+            canvas.drawArc(Rect.fromCircle(center: Offset.zero, radius: rad * p), a0 - mk.half, 2 * mk.half, false, line(2.2, _dangerHot, 0.55 + 0.4 * p));
+          }
+          // arcs sweeping out of its mouth, the way it will come
+          for (var i = 0; i < 2; i++) {
+            final k = rm ? (i + 1) / 3 : (s._t * 1.5 + i / 2) % 1.0;
+            canvas.drawArc(Rect.fromCircle(center: Offset.zero, radius: rad * (0.22 + 0.72 * k)), a0 - mk.half * 0.8, 1.6 * mk.half, false,
+                line(2, _dangerHot, (1 - k) * (0.3 + 0.4 * p)));
+          }
+          canvas.drawPath(full, glow(6 + 5 * beat, 0.5 + 0.35 * p));
+          canvas.drawPath(full, line(2 + 1.4 * beat, edgeCol, 0.95));
+        });
     }
   }
 
@@ -4383,7 +4487,7 @@ class _MapPainter extends CustomPainter {
     _star(canvas, g, 7 + 4 * t, const Color(0xFFFFFDF0));
   }
 
-  void _floater(Canvas canvas, Floater f) {
+  void _floater(Canvas canvas, Floater f, [double lift = 0]) {
     final k = f.t / f.ttl;
     final big = f.kind == 'crit' || f.kind == 'alert' || f.kind == 'mist';
     final col = switch (f.kind) {
@@ -4397,7 +4501,8 @@ class _MapPainter extends CustomPainter {
       'info' => const Color(0xFFFFF3DC),
       _ => Colors.white,
     };
-    final size = (big ? 22.0 : (f.kind == 'info' || f.kind == 'loot' ? 13.0 : 17.0)) * (k < 0.15 ? 0.7 + 2 * k : 1.0);
+    // smaller than they were: numbers 15, a crit 19, words 11.5
+    final size = (big ? 19.0 : (f.kind == 'info' ? 11.5 : (f.kind == 'heal' ? 14.0 : 15.0))) * (k < 0.15 ? 0.7 + 2 * k : 1.0);
     final style = EvochiText.number.copyWith(fontSize: size, height: 1.0);
     final tp = TextPainter(
       text: TextSpan(
@@ -4411,7 +4516,7 @@ class _MapPainter extends CustomPainter {
     )..layout();
     final tf = TextPainter(text: TextSpan(text: f.text, style: style.copyWith(color: col.withAlpha(((1 - k * k) * 255).round()))), textDirection: TextDirection.ltr)
       ..layout();
-    final g = s._toScreen(f.x, f.z) - Offset(tp.width / 2 + (f.kind == 'hurt' ? -10 : 0), (f.kind == 'alert' ? 44 : 30) * s._u / 2.7 + 28 * k + tp.height);
+    final g = s._toScreen(f.x, f.z) - Offset(tp.width / 2 + (f.kind == 'hurt' ? -10 : 0), (f.kind == 'alert' ? 44 : 30) * s._u / 2.7 + 22 * k + tp.height + lift);
     tp.paint(canvas, g);
     tf.paint(canvas, g);
   }
@@ -4680,6 +4785,45 @@ class _Bar extends StatelessWidget {
 
 /// The objective as a line of text that shows when it changes (and on arrival), then fades; while
 /// the guardian fights, its health.
+/// What the fight turned up ('loot' floaters), as a few small pills, newest on top, each fading out.
+class _LootFeed extends StatelessWidget {
+  const _LootFeed({required this.state});
+  final _WildsScreenState state;
+  @override
+  Widget build(BuildContext context) => ValueListenableBuilder<int>(
+        valueListenable: state._repaint,
+        builder: (context, _, child) {
+          final r = state._raid;
+          if (r == null) return const SizedBox.shrink();
+          final loot = r.floaters.where((f) => f.kind == 'loot').toList().reversed.take(3);
+          return Column(crossAxisAlignment: CrossAxisAlignment.end, mainAxisSize: MainAxisSize.min, children: [
+            for (final f in loot)
+              Builder(builder: (context) {
+                final k = f.t / f.ttl;
+                final a = math.min(k / 0.08, (1 - k) / 0.25).clamp(0.0, 1.0);
+                final slide = (1 - (k / 0.12).clamp(0.0, 1.0)) * 16;
+                return Transform.translate(
+                  offset: Offset(slide, 0),
+                  child: Opacity(
+                    opacity: a,
+                    child: Container(
+                      margin: const EdgeInsets.only(bottom: 4),
+                      padding: const EdgeInsets.fromLTRB(9, 3, 9, 4),
+                      decoration: BoxDecoration(
+                        color: const Color(0xEBFFF6E2),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: const Color(0xFFE0B054), width: 1.5),
+                      ),
+                      child: Text(f.text, style: EvochiText.tag.copyWith(fontSize: 11.5, fontWeight: FontWeight.w900, color: EvochiColor.ink)),
+                    ),
+                  ),
+                );
+              }),
+          ]);
+        },
+      );
+}
+
 class _TopCenter extends StatelessWidget {
   const _TopCenter({required this.state});
   final _WildsScreenState state;
@@ -4812,10 +4956,13 @@ class _Banner extends StatelessWidget {
   const _Banner({required this.text});
   final String text;
   @override
-  Widget build(BuildContext context) => Container(
-        padding: const EdgeInsets.fromLTRB(16, 8, 16, 9),
-        decoration: Kit.parchment(radius: 14),
-        child: Text(text, style: EvochiText.cardTitle.copyWith(fontSize: 15)),
+  Widget build(BuildContext context) => ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 300),
+        child: Container(
+          padding: const EdgeInsets.fromLTRB(12, 5, 12, 6),
+          decoration: Kit.parchment(radius: 12),
+          child: Text(text, textAlign: TextAlign.center, style: EvochiText.cardTitle.copyWith(fontSize: 13)),
+        ),
       );
 }
 

@@ -587,7 +587,7 @@ final sproutintro = Short(
 );
 
 /// Looks at one thing, recorded by name only.
-final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort, gardenLower, gardenOrders, blastsShort];
+final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort, gardenLower, gardenOrders, blastsShort, telegraphs];
 
 /// 3. The Deep Wilds: a clearing calmed, the way down opens, down a floor, and a Hollow Surge.
 final deep = Short(
@@ -696,6 +696,48 @@ void _ready(Take s) {
     ..boltCd = 0
     ..pulseCd = 0;
 }
+
+/// A look at the danger marks and the words over a fight (not for posting): the Briarback's cone, charge and
+/// ring, then an ordinary clearing (its lines and circles, the numbers adding up, the loot feed).
+final telegraphs = Short(
+  id: 'telegraphs',
+  endTitle: const [('Telegraphs', null)],
+  endSecs: 0.4,
+  clips: [
+    Clip(
+      state: () => mochi('forest'),
+      open: () => const WildsScreen(),
+      secs: 18,
+      preroll: 1.2,
+      setup: (s) async {
+        await _god(s);
+        await s.key(LogicalKeyboardKey.digit4); // the arena's edge
+        s.autopilot.on = false;
+      },
+      beats: [
+        Beat(0.05, (s) {
+          final b = s.raid!.boss!;
+          s.autopilot.walkTo = Offset(b.x, b.z + 60);
+        }),
+        Beat(1.0, (s) {
+          s.autopilot
+            ..on = true
+            ..walkTo = null;
+        }, when: (s) => s.raid!.bossState == BossState.fight),
+      ],
+    ),
+    Clip(
+      state: () => mochi('amber'),
+      open: () => const WildsScreen(depth: 2, seed: 9),
+      secs: 10,
+      preroll: 1.0,
+      setup: (s) async {
+        await _god(s);
+        toFirstClearing(s, dist: 70);
+      },
+    ),
+  ],
+);
 
 final blastsShort = Short(
   id: 'blasts',

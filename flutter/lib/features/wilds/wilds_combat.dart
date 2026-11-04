@@ -249,9 +249,9 @@ class Pickup {
 /// A number or a word floating up from someone.
 class Floater {
   Floater(this.text, this.x, this.z, this.kind, {this.ttl = 0.9});
-  final String text;
+  String text;
   final double x, z;
-  final String kind; // dmg, crit, hurt, heal, info, loot
+  String kind; // dmg, crit, hurt, heal, info, loot
   double t = 0;
   final double ttl;
 }
@@ -731,7 +731,34 @@ class Raid {
   void _emit(String type, {String? text, double value = 0, double x = 0, double z = 0}) =>
       events.add(RaidEvent(type, text: text, value: value, x: x, z: z));
 
-  void _float(String text, double x, double z, String kind, {double ttl = 0.9}) => floaters.add(Floater(text, x, z, kind, ttl: ttl));
+  /// A word or a number over the fight, kept quiet: quick hits on the same foe add up into one number, the
+  /// same words close by aren't said twice, and there's never a crowd of them.
+  void _float(String text, double x, double z, String kind, {double ttl = 0.9}) {
+    final n = RegExp(r'^-?\d+$').hasMatch(text) ? int.parse(text) : null;
+    bool hit(String k) => k == 'dmg' || k == 'crit' || k == 'mist';
+    if (n != null && (hit(kind) || kind == 'hurt')) {
+      for (final f in floaters) {
+        if (f.t < 0.35 && (hit(kind) ? hit(f.kind) : f.kind == 'hurt') && _len(f.x - x, f.z - z) < 16) {
+          final m = RegExp(r'^-?\d+$').hasMatch(f.text) ? int.parse(f.text) : null;
+          if (m == null) continue;
+          f.text = '${m + n}';
+          if (kind == 'crit') f.kind = 'crit';
+          f.t = math.min(f.t, 0.08); // (it pops again as it grows)
+          return;
+        }
+      }
+    }
+    if (n == null && !text.startsWith('+')) {
+      for (final f in floaters) {
+        if (f.text == text && f.t < 0.5 && _len(f.x - x, f.z - z) < 24) return;
+      }
+    }
+    floaters.add(Floater(text, x, z, kind, ttl: ttl));
+    // never a crowd: the oldest words go first (numbers and loot stay)
+    while (floaters.where((f) => f.kind == 'info').length > 2) {
+      floaters.remove(floaters.firstWhere((f) => f.kind == 'info'));
+    }
+  }
 
   void say(String text, {String? once, double gap = 3.5}) {
     if (sher == null || !party) return;
@@ -1734,7 +1761,7 @@ class Raid {
           _emit('perfect_dodge');
           _sigGain(34);
         } else {
-          _float('Dodged!', a.x, a.z, 'info', ttl: 0.7);
+          // (a plain dodge: its afterimages say it)
           _emit('dodged');
         }
       }
@@ -1881,7 +1908,7 @@ class Raid {
     f.pose = f is Boss ? 'stagger' : 'hurt';
     f.spin = 0;
     f.ghost = false;
-    _float('Staggered!', f.x, f.z, 'info', ttl: 0.8);
+    // (staggered: stars circle its head, no words)
     _emit('stagger', x: f.x, z: f.z);
   }
 
