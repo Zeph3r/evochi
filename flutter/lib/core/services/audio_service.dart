@@ -75,7 +75,7 @@ const placeSounds = <String, PlaceSound>{
   'apothecary': PlaceSound(bed: 'amb_apothecary', music: ['mus_apothecary'], musicVolume: 0.38),
   'workshop': PlaceSound(bed: 'amb_workshop', music: ['mus_workshop'], musicVolume: 0.38),
   'lodge': PlaceSound(music: ['mus_lodge']),
-  'glasshouse': PlaceSound(bed: 'amb_glasshouse', music: ['onb_mira'], musicVolume: 0.42),
+  'glasshouse': PlaceSound(bed: 'amb_glasshouse', music: ['mus_glasshouse'], musicVolume: 0.4), // Village Square, blended (tools/music/glasshouse_square.py)
   'forest': PlaceSound(bed: 'amb_forest', music: ['mus_forest', 'mus_trail'], musicVolume: 0.34),
   'hollow': PlaceSound(bed: 'amb_forest', music: ['mus_forest'], musicVolume: 0.34),
   'dusk': PlaceSound(music: ['mus_dusk'], musicVolume: 0.42),

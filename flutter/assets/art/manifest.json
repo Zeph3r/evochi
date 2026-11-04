@@ -4381,7 +4381,8 @@
   "mus_home": "music/mus_home.mp3",
   "mus_village": "music/mus_village.mp3",
   "mus_market": "music/mus_market.mp3",
-  "mus_kitchen": "music/mus_kitchen.mp3"
+  "mus_kitchen": "music/mus_kitchen.mp3",
+  "mus_glasshouse": "music/mus_glasshouse.mp3"
  },
  "thumbs": {
   "file": "chars/thumbs.webp",
