@@ -45,6 +45,14 @@ INSTRUMENTS = {
     'celli': ('Strings/Cello Section/susvib/*.wav', r'susvib_([A-G]#?\d)_v(\d)', 'sus', 0.08, 0.55),
     'bass': ('Strings/Solo Contrabass/SusNV/*.wav', r'SusNV_([A-G]#?\d)_v(\d)', 'sus', 0.08, 0.5),
     'pizz': ('Strings/Violin Section/Pizz/*_rr1.wav', r'Pizz_([A-G]#?\d)_v(\d)', 'pluck', 0.0, 0.25),
+    # the toy box: mallets, short notes, low winds, a horn
+    'marimba': ('Percussion/Marimba/*.wav', r'Outrigger_([A-G]#?\d)_(\w+)_01', 'pluck', 0.0, 0.3),
+    'xylo': ('Percussion/Xylo/*.wav', r'Medium_([A-G]#?\d)_(\w+)_01', 'pluck', 0.0, 0.25),
+    'clar_stac': ('Woodwinds/Clarinet/stac/*_rr1_sum.wav', r'stac_([A-G]#?\d)_v(\d)', 'pluck', 0.0, 0.08),
+    'flute_stac': ('Woodwinds/Flute/stac/*_rr1.wav', r'stac_([A-G]#?\d)_v(\d)', 'pluck', 0.0, 0.08),
+    'bassoon': ('Woodwinds/Bassoon/sus/*.wav', r'PSBassoon_([A-G]#?\d)_v(\d)', 'sus', 0.03, 0.3),
+    'horn': ('Brass/F Horn/sus/*.wav', r'sus_([A-G]#?\d)_v(\d)', 'sus', 0.06, 0.45),
+    'cello_pizz': ('Strings/Cello Section/pizzT/*_RR1.wav', r'pizzT_([A-G]#?\d)_v(\d)', 'pluck', 0.0, 0.25),
     # tremolo sections (the Hollow's shiver)
     'vln_trem': ('Strings/Violin Section/Trem/*.wav', r'Trem_([A-G]#?\d)_v(\d)', 'sus', 0.05, 0.4),
     'vla_trem': ('Strings/Viola Section/trem/*_rr1.wav', r'trem_([A-G]#?\d)_v(\d)', 'sus', 0.05, 0.4),
@@ -64,6 +72,26 @@ SOUNDS = {
     'glock_up_fast': 'Miscellania Raw/Misc 2/glock_glisses/glock_fx_up_chromatic_fast_01.wav',
     'triangle': 'VSCO 1 Percussion/varMetal/triangle/3/triangle3_hit_pp.wav',
     'triangle_roll': 'VSCO 1 Percussion/varMetal/triangle/3/triangle3_roll.wav',
+    'anvil': 'Percussion/Anvil_Hit1_v2_Sum.wav',
+    'anvil_soft': 'Percussion/Anvil_Hit1_v1_Sum.wav',
+    'bdrum': 'VSCO 1 Percussion/drums/bass/bdrum3_mp_1.wav',
+    'bdrum_soft': 'VSCO 1 Percussion/drums/bass/bdrum3_p_1.wav',
+}
+# one-shots with several takes, one picked per hit (so a groove doesn't machine-gun)
+KITS = {
+    'tamb': 'VSCO 1 Percussion/varWood/tambourine_up*.wav',
+    'tamb_down': 'VSCO 1 Percussion/varWood/tambourine_down*.wav',
+    'shaker': "VSCO 1 Percussion/varWood/Camo's Shaker/shake*.wav",
+    'claves': 'VSCO 1 Percussion/varWood/claves_m*.wav',
+    'wood': 'VSCO 1 Percussion/varWood/wood_click_mp*.wav',
+    'click': 'VSCO 1 Percussion/drums/snare/drum1/snare1_click*.wav',
+    'snare': 'VSCO 1 Percussion/drums/snare/drum1/snare1_p*_*.wav',
+    'snare_mf': 'VSCO 1 Percussion/drums/snare/drum1/snare1_mp_[12].wav',
+    'log': 'VSCO 1 Percussion/varWood/log_drum/slitdrum0_mp_*.wav',
+    'maraca': 'VSCO 1 Percussion/varWood/maraca[1-5].wav',
+    'tri': 'VSCO 1 Percussion/varMetal/triangle/3/triangle3_hit_p*.wav',
+    'timp_d': 'Percussion/Timpani/Timpani3_Hit_v3_rr*_Sum.wav',
+    'timp_a': 'Percussion/Timpani/Timpani1_Hit_v3_rr*_Sum.wav',
 }
 
 
@@ -201,7 +229,19 @@ def inst(name):
 _SOUNDS = {}
 
 
-def sound(name):
+def sound(name, take=0):
+    """a one-shot by name (SOUNDS), or take [take] of a kit's several (KITS, wrapping round)"""
+    if name in KITS:
+        if name not in _SOUNDS:
+            files = sorted(glob.glob(os.path.join(ROOT, KITS[name])))
+            assert files, 'no takes for ' + name
+            takes = []
+            for f in files:
+                x = _read(f)
+                takes.append(x[_onset(x):])
+            _SOUNDS[name] = takes
+        takes = _SOUNDS[name]
+        return takes[take % len(takes)]
     if name not in _SOUNDS:
         p = SOUNDS.get(name, name)
         x = _read(p if os.path.isabs(p) else os.path.join(ROOT, p))
@@ -337,8 +377,8 @@ class Mix:
             t += float(self.rng.uniform(-human, human))
         self.put(t, play(name, pitch, dur, vel, **kw), bus, pan, gain)
 
-    def sfx(self, name, t, gain=1.0, pan=0.0, bus='main', rate=1.0, reverse=False, end=None, fade_out=0.0):
-        x = sound(name)
+    def sfx(self, name, t, gain=1.0, pan=0.0, bus='main', rate=1.0, reverse=False, end=None, fade_out=0.0, take=None):
+        x = sound(name, int(self.rng.integers(0, 1 << 16)) if take is None else take)
         if reverse:
             x = x[::-1].copy()
         if rate != 1.0:
@@ -384,7 +424,7 @@ def darken(x, points, cutoff=520):
     return x * (1 - k) + d * k * 1.25
 
 
-def master(x, path, lufs=-18.0, peak_db=-1.2, fade_in=0.0, fade_out=0.0, mp3=True):
+def master(x, path, lufs=-18.0, peak_db=-1.2, fade_in=0.0, fade_out=0.0, mp3=True, vbr=3):
     """level to [lufs] (integrated), a soft limit under [peak_db], and write an MP3 at [path] (or, mp3=False, a WAV)"""
     import pyloudnorm as pyln
     x = x.astype(np.float64)
@@ -419,7 +459,7 @@ def master(x, path, lufs=-18.0, peak_db=-1.2, fade_in=0.0, fade_out=0.0, mp3=Tru
     try:
         sf.write(wav, x.astype(np.float32), SR, subtype='FLOAT')
         out = os.path.splitext(path)[0] + '.mp3'
-        subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', wav, '-c:a', 'libmp3lame', '-q:a', '3', out], check=True)
+        subprocess.run(['ffmpeg', '-v', 'error', '-y', '-i', wav, '-c:a', 'libmp3lame', '-q:a', str(vbr), out], check=True)
     finally:
         os.remove(wav)
     return out
