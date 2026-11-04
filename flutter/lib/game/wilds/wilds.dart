@@ -27,6 +27,7 @@ const wildsBrews = {
   'lantern_tonic': 'lantern',
   'ember_draught': 'ember',
   'thornskin_tonic': 'thornskin',
+  'glowcap_elixir': 'glowcap',
   // coatings (one at a time)
   'frostmint_tonic': 'frost',
   'fizzleberry_soda': 'static',
@@ -34,6 +35,15 @@ const wildsBrews = {
   'dazzle_dew': 'dazzle',
   'hushwater': 'hush',
 };
+
+/// How sure a forage of the mine's glowcaps is to stay quiet (not waking the Capfolk who keep them): a Forest
+/// Juvenile or Elder always (it knows the cave's growing things), a Forest Eggling only by luck, any other
+/// Evochi never.
+double quietForageChance(GameState s) {
+  final p = s.pet;
+  if (p == null || p.paletteId != 'forest') return 0;
+  return p.stage >= 2 ? 1 : 0.05;
+}
 
 /// The brews in the Bag, in [wildsBrews] order.
 List<String> ownedBrews(GameState s) => [for (final id in wildsBrews.keys) if (ownedQty(s, id) > 0) id];

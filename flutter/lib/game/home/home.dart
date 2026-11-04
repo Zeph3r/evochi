@@ -84,8 +84,16 @@ const cropDefs = <String, CropDef>{
   'golden_wheat': CropDef('golden_wheat', 'Golden Wheat', 'seed_golden_wheat', {'golden_wheat': 3}, 90, 18, 2),
   'glowleaf': CropDef('glowleaf', 'Glowleaf', 'seed_glowleaf', {'glowleaf': 2}, 180, 24, 3),
   'moonshroom': CropDef('moonshroom', 'Moonshroom', 'seed_moonshroom', {'moonshroom': 2}, 360, 36, 5),
+  'glowcap': CropDef('glowcap', 'Glowcap', 'seed_glowcap', {'glowcap': 2}, 240, 32, 1),
 };
-const cropOrder = ['sunberry', 'meadow_carrot', 'golden_wheat', 'glowleaf', 'moonshroom'];
+const cropOrder = ['sunberry', 'meadow_carrot', 'golden_wheat', 'glowleaf', 'moonshroom', 'glowcap'];
+
+/// Crops whose seed is found, never sold: they open once you have had one (the Glowcap's spores come from
+/// foraging the mine's Hollow galleries), not at a Farming level.
+const foundCrops = {'glowcap'};
+
+/// Have you ever had [itemId] (its Bag entry is kept, with how it came, even once it's all used)?
+bool everHad(GameState s, String itemId) => s.inventory.containsKey(itemId);
 
 class PlotDef {
   const PlotDef(this.id, this.level);
@@ -140,6 +148,7 @@ const gildedOf = {
   'golden_wheat': 'gilded_wheat',
   'glowleaf': 'gilded_glowleaf',
   'moonshroom': 'gilded_moonshroom',
+  'glowcap': 'gilded_glowcap',
 };
 
 bool canHelp(Pet p) => p.paletteId == helperPalette && p.stage == helperStage;
@@ -287,8 +296,9 @@ const recipeDefs = <String, RecipeDef>{
   'frostmint_tonic': RecipeDef('frostmint_tonic', 'apothecary', 'frostmint_tonic', {'glowleaf': 2, 'moonshroom': 1}, 3, 30),
   'dazzle_dew': RecipeDef('dazzle_dew', 'apothecary', 'dazzle_dew', {'lumen_shard': 1, 'sunberry': 2, 'golden_wheat': 1}, 3, 35),
   'hushwater': RecipeDef('hushwater', 'apothecary', 'hushwater', {'moonshroom': 2, 'meadow_carrot': 1}, 4, 40),
+  'glowcap_elixir': RecipeDef('glowcap_elixir', 'apothecary', 'glowcap_elixir', {'glowcap': 2, 'glowleaf': 1}, 3, 45),
 };
-const recipeOrder = ['sunberry_tart', 'carrot_stew', 'golden_bun', 'moonshroom_pie', 'glowleaf_tonic', 'meadow_tea', 'sprout_tonic', 'moonlight_draught', 'lantern_tonic', 'ember_draught', 'thornskin_tonic', 'fizzleberry_soda', 'sapling_syrup', 'frostmint_tonic', 'dazzle_dew', 'hushwater'];
+const recipeOrder = ['sunberry_tart', 'carrot_stew', 'golden_bun', 'moonshroom_pie', 'glowleaf_tonic', 'meadow_tea', 'sprout_tonic', 'moonlight_draught', 'lantern_tonic', 'ember_draught', 'thornskin_tonic', 'fizzleberry_soda', 'sapling_syrup', 'frostmint_tonic', 'dazzle_dew', 'hushwater', 'glowcap_elixir'];
 
 /// The story quest that teaches a recipe: its room's quest, or Tangled Lumen for the Lantern Tonic.
 String recipeQuest(RecipeDef r) => r.flag == 'sprout_restored' ? 'eq02' : stationDefs[r.station]!.quest;
@@ -326,7 +336,7 @@ List<SkillMilestone> skillMilestones(String skill) {
       out.add(SkillMilestone(skill: skill, level: level, kind: kind, id: id, label: label, quest: quest, story: story));
   if (skill == 'farming') {
     for (final c in cropOrder) {
-      add(cropDefs[c]!.level, 'crop', c, cropDefs[c]!.name);
+      if (!foundCrops.contains(c)) add(cropDefs[c]!.level, 'crop', c, cropDefs[c]!.name);
     }
     for (final p in plotDefs) {
       if (p.level > 1) {
@@ -384,7 +394,9 @@ bool plotUnlocked(GameState s, String plotId) {
   return p != null && skillLevel(skillXp(s, 'farming')).level >= p.level;
 }
 
-bool cropUnlocked(GameState s, String cropId) => skillLevel(skillXp(s, 'farming')).level >= cropDefs[cropId]!.level;
+bool cropUnlocked(GameState s, String cropId) => foundCrops.contains(cropId)
+    ? everHad(s, cropDefs[cropId]!.seed) || everHad(s, cropId)
+    : skillLevel(skillXp(s, 'farming')).level >= cropDefs[cropId]!.level;
 
 /// Steps walked since [since] (same counting as story walks: fresh, de-duplicated samples).
 int stepsSince(GameState s, int since) {

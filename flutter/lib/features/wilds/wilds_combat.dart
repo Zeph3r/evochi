@@ -128,6 +128,7 @@ class Foe extends Actor {
   final extra = <Mark>[]; // more than one telegraph at once (the Hollow Sprout's thorns)
   Mark? mark;
   double leaveT = 0; // calm: trotting off
+  double rising = 0; // a Capfolk coming up out of the rock (seconds left)
 
   bool get fighting => alive && (st == FoeState.engage || st == FoeState.windup || st == FoeState.strike || st == FoeState.recover || st == FoeState.alert || st == FoeState.flee);
 }
@@ -354,6 +355,7 @@ const buffDefs = <String, BuffDef>{
   'lantern': BuffDef('Lantern-lit', 30, 'The Hollow hits 35% softer'),
   'ember': BuffDef('Ember', 30, 'Your hits set foes alight'),
   'thornskin': BuffDef('Thornskin', 25, 'Strikers take 40% of their blow back'),
+  'glowcap': BuffDef('Glowcap-bright', 30, '+6 Raid HP a second; the Hollow hits 20% softer'),
   // coatings: something on your own attacks (one at a time)
   'frost': BuffDef('Frost', 30, 'Your hits chill: foes move and wind up slower'),
   'static': BuffDef('Static', 30, 'Every fourth hit sparks to another foe'),
@@ -662,6 +664,39 @@ class Raid {
   bool get inCombat => hostile.any((f) => f.fighting && f.target != null);
   bool get wallActive => wallUp;
 
+  /// How long a Capfolk takes to come up out of the rock.
+  static const risingTime = 0.7;
+
+  /// A Hollow gallery's glowcaps picked clumsily: their keepers come up out of the rock round the patch, one
+  /// after another, and go for whoever woke them.
+  void wakeCapfolk(String patch, double x, double z, int n) {
+    final a0 = rng.nextDouble() * math.pi * 2;
+    for (var i = 0; i < n; i++) {
+      final a = a0 + i * math.pi * 2 / n + (rng.nextDouble() - 0.5) * 0.5;
+      var fx = x + math.cos(a) * 30, fz = z + math.sin(a) * 26;
+      final at = lavaAt(fx, fz, -10);
+      if (at != null) {
+        fx = x;
+        fz = z + 20;
+      }
+      final f = _spawn('${patch}_k$i', 'capfolk', '', fx, fz)
+        ..rising = risingTime + i * 0.25
+        ..alpha = 0;
+      f.face(pet.x - fx, pet.z - fz);
+      foes.add(f);
+      foeTotal++;
+      bursts.add(Burst('emerge', fx, fz, 0.8 + i * 0.25));
+      f.target = pet;
+      f.threat[pet] = 20;
+      f
+        ..st = FoeState.alert
+        ..t = 0
+        ..alertDelay = 0.2;
+    }
+    _emit('capfolk_wake', x: x, z: z);
+    shake = math.max(shake, 0.3);
+  }
+
   Foe _spawn(String id, String kind, String zone, double x, double z) {
     final elite = id.startsWith('elite');
     final f = Foe(
@@ -670,12 +705,12 @@ class Raid {
         x: x,
         z: z,
         radius: (kind == 'sporecap' ? 8 : 8) * (elite ? 1.3 : 1),
-        health: (kind == 'sporecap' ? 46 : 58) * foeHp * (elite ? 2.8 : 1),
+        health: (kind == 'sporecap' ? 46 : (kind == 'capfolk' ? 64 : 58)) * foeHp * (elite ? 2.8 : 1),
         zone: zone);
     f.elite = elite;
     if (elite) f.size = 1.4;
     f
-      ..cycle = kind == 'sporecap' ? 10 : 7.2
+      ..cycle = kind == 'sporecap' ? 10 : (kind == 'capfolk' ? 7.0 : 7.2)
       ..poise = (kind == 'sporecap' ? 20 : 30) * (elite ? 1.8 : 1)
       ..maxPoise = (kind == 'sporecap' ? 20 : 30) * (elite ? 1.8 : 1)
       ..cd = 0.6 + rng.nextDouble()
@@ -831,6 +866,7 @@ class Raid {
       buffs.updateAll((k, v) => v - dt);
       buffs.removeWhere((k, v) => v <= 0);
       if (has('regen') && pet.alive) pet.hp = math.min(pet.maxHp, pet.hp + 3 * dt);
+      if (has('glowcap') && pet.alive) pet.hp = math.min(pet.maxHp, pet.hp + 6 * dt);
     }
     _tickBurns(dt);
     _sapCd -= dt;
@@ -1795,6 +1831,7 @@ class Raid {
   /// Hurts a; returns whether it landed.
   bool _hurt(Actor a, double dmg, {Actor? from, double kx = 0, double kz = 0, double poise = 0, double stun = 0, String cause = ''}) {
     if (!a.alive || a.calm) return false;
+    if (a is Foe && a.rising > 0) return false; // (still coming up out of the rock)
     // deeper floors' creatures hit harder; an elite harder still
     if (from is Foe && a.team == Team.party) dmg *= foeHarm * (from.elite ? 1.35 : 1);
     if (a is Foe && (a.st == FoeState.roar || a.st == FoeState.dormant)) {
@@ -1844,6 +1881,7 @@ class Raid {
     }
     if (a == pet && from is Foe) {
       if (has('lantern')) dmg *= 0.65; // the Lantern Tonic steadies you against the Hollow
+      if (has('glowcap')) dmg *= 0.8;
       if (has('thornskin') && from.alive && !from.calm) {
         // Thornskin: a share of the blow goes back into whoever struck
         _hurt(from, dmg * 0.4, from: pet, poise: 4);
@@ -2376,6 +2414,12 @@ class Raid {
 
   void _tickFoe(Foe f, double dt) {
     f.t += dt;
+    if (f.rising > 0) {
+      // coming up out of the rock: nothing else until it's up
+      f.rising = math.max(0, f.rising - dt);
+      f.alpha = 1 - f.rising / risingTime;
+      if (f.rising > 0) return;
+    }
     if (f.calm) {
       _tickCalm(f, dt);
       return;
@@ -2455,7 +2499,7 @@ class Raid {
       case FoeState.windup:
       case FoeState.strike:
       case FoeState.recover:
-        if (f.kind == 'thornling') {
+        if (f.kind == 'thornling' || f.kind == 'capfolk') {
           _thornAttack(f, dt);
         } else if (f.kind == 'hollow_sprout') {
           _sproutAttack(f, dt);
@@ -2511,7 +2555,7 @@ class Raid {
       return;
     }
     final d = f.dist(t);
-    if (f.kind == 'thornling') {
+    if (f.kind == 'thornling' || f.kind == 'capfolk') {
       _thornEngage(f, t, d, dt);
     } else if (f.kind == 'hollow_sprout') {
       _sproutEngage(f, t, d, dt);
@@ -2546,10 +2590,15 @@ class Raid {
     final busy = t == pet && (act == PetAct.swing || act == PetAct.heal || act == PetAct.bolt);
     if (f.cd <= 0 && tokens < cap && _beat(t, 0.75)) {
       if (d < f.radius + t.radius + 7) {
-        _startAttack(f, 'nip', 0.34, 0.12, 0.42);
+        // (a Capfolk draws back longer, arms up, and bonks harder)
+        if (f.kind == 'capfolk') {
+          _startAttack(f, 'nip', 0.5, 0.14, 0.5);
+        } else {
+          _startAttack(f, 'nip', 0.34, 0.12, 0.42);
+        }
         return;
       }
-      if (d < 68 && d > 18) {
+      if (d < 68 && d > 18 && f.kind == 'thornling') {
         // roll only along a line that is clear (no tree in the way)
         final dx = (t.x - f.x) / d, dz = (t.z - f.z) / d;
         final (free, _) = _clear(f.x, f.z, dx, dz, f.radius * 0.9, d);
@@ -2565,7 +2614,9 @@ class Raid {
       f.strafe = -f.strafe;
       f.strafeT = 1.6 + rng.nextDouble() * 2.4;
     }
-    final want = f.cd <= 0.3 && tokens < cap ? 34.0 : 46.0;
+    // (a Capfolk has no roll: its turn come, it walks right up to bonk)
+    final close = f.kind == 'capfolk' ? f.radius + t.radius + 3 : 34.0;
+    final want = f.cd <= 0.3 && tokens < cap ? close : 46.0;
     final rx = (f.x - t.x) / math.max(d, 1e-6), rz = (f.z - t.z) / math.max(d, 1e-6);
     var vx = -rz * f.strafe * 0.8 + rx * (want - d) / 12;
     var vz = rx * f.strafe * 0.8 + rz * (want - d) / 12;
@@ -2723,7 +2774,8 @@ class Raid {
         if (f.t < 0.08) _move(f, f.ax, f.az, 70, dt, faceIt: false);
         if (t != null && !f.hit.contains(t) && f.dist(t) < f.radius + t.radius + 8) {
           f.hit.add(t);
-          _hurt(t, 5, from: f, kx: f.ax * 70, kz: f.az * 70, cause: f.summoned ? 'summon' : 'nip');
+          _hurt(t, f.kind == 'capfolk' ? 8 : 5, from: f, kx: f.ax * (f.kind == 'capfolk' ? 110 : 70), kz: f.az * (f.kind == 'capfolk' ? 110 : 70),
+              cause: f.summoned ? 'summon' : (f.kind == 'capfolk' ? 'bonk' : 'nip'));
         }
         if (f.t > f.active) {
           f.st = FoeState.recover;

@@ -99,7 +99,7 @@ void main() {
 
   test('catalog: seeds are Market items, harvests and homemade food never are', () {
     for (final c in h.cropDefs.values) {
-      expect(isShopItem(c.seed), isTrue, reason: c.seed);
+      expect(isShopItem(c.seed), !h.foundCrops.contains(c.id), reason: c.seed); // (a found crop's seed is never sold)
       for (final id in c.yieldItems.keys) {
         expect(isShopItem(id), isFalse, reason: id);
         expect(catalog[id]!.category, ItemCategory.ingredient, reason: id);

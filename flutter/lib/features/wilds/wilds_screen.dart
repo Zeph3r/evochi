@@ -75,6 +75,9 @@ abstract class WildsDirectorHandle {
 
   /// How the screen is doing (the recorder's log).
   String get debugLine;
+
+  /// Forage a patch of glowcaps by its id, as its spot's Forage does.
+  void forage(String spotId);
 }
 
 /// The Blast's and the Pulse's names, by colour (their full names; the buttons' words: _CombatPad).
@@ -136,6 +139,12 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
 
   @override
   void banner(String text, [double secs = 2.6]) => _showBanner(text, secs);
+
+  @override
+  void forage(String spotId) {
+    final sp = _map?.spots.where((x) => x.id == spotId).firstOrNull;
+    if (sp != null) _forage(sp);
+  }
 
   @override
   String get debugLine => 't=${_t.toStringAsFixed(2)} ticking=${_tk?.isActive} paused=$_paused card=$_card cine=$_cine sent=$_sentCine '
@@ -257,7 +266,9 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     _story = story;
     final seed = widget.seed ?? DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
     final friendly = story?.beat == 'trust' || sf.petaluneWithYou(c.state);
-    final extra = [if (friendly) 'petalune', if (story?.beat == 'sprout') 'hollow_sprout', if (story?.beat == 'sentinel') 'sentinel'];
+    final hollow = widget.mine && depth != null && galleryKind(depth, seed) == 'hollow';
+    final extra = [if (friendly) 'petalune', if (story?.beat == 'sprout') 'hollow_sprout', if (story?.beat == 'sentinel') 'sentinel', if (hollow) 'capfolk'];
+    if (hollow) _loadCapArt();
     Future.wait([
       depth == null
           ? WildsMap.load(widget.mapId)
@@ -1311,6 +1322,39 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   // ---- the Deep Wilds
   final _used = <String>{}; // spots spent on this floor: chests opened, shrines prayed at, camps rested at
   bool _lavaSaid = false; // the lava's first burn on this floor said so
+  ui.Image? _capImg; // a Hollow gallery's glowcaps (the item's own picture, a few of them to a patch)
+
+  Future<void> _loadCapArt() async {
+    final data = await rootBundle.load('assets/art/items/glowcap.webp');
+    final codec = await ui.instantiateImageCodec(data.buffer.asUint8List());
+    final img = (await codec.getNextFrame()).image;
+    if (mounted) setState(() => _capImg = img);
+  }
+
+  /// Forage a patch of glowcaps: they and a few spores go in the satchel; unless it was quiet, the Capfolk
+  /// who keep them come up out of the rock.
+  void _forage(MapSpot sp) {
+    final r = _raid, m = _map;
+    if (r == null || m == null || _used.contains(sp.id)) return;
+    final cp = m.caps.where((x) => x.id == sp.id).firstOrNull;
+    if (cp == null) return;
+    final c = context.read<GameController>();
+    _used.add(sp.id);
+    r.items['glowcap'] = (r.items['glowcap'] ?? 0) + cp.n;
+    r.items['seed_glowcap'] = (r.items['seed_glowcap'] ?? 0) + 1;
+    r.bursts.add(Burst('glow', cp.x, cp.z, 0.8));
+    _sfx('harvest_pop', 0.75);
+    final chance = w.quietForageChance(c.state);
+    final quiet = chance >= 1 || (chance > 0 && math.Random().nextDouble() < chance);
+    if (quiet) {
+      _showBanner('Not a sound. +${cp.n} Glowcaps, +1 Glowcap Spores', 2.6);
+    } else {
+      r.wakeCapfolk(cp.id, cp.x, cp.z, cp.keepers);
+      _showBanner('The Capfolk wake! +${cp.n} Glowcaps, +1 Glowcap Spores', 2.6);
+      _sfx('enc_awaken', 0.8);
+    }
+    c.analytics.track('glowcaps_foraged', {'quiet': quiet, 'depth': m.depth ?? 0});
+  }
 
   /// Down the steps to the next floor: a fresh floor, the run (Raid HP, satchel) carried along.
   void _descend(int depth) {
@@ -2083,6 +2127,27 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
           );
           break;
         }
+        if (s.kind == 'caps') {
+          final chance = w.quietForageChance(c.state);
+          body = _SpotCard(
+            spot: s,
+            note: used
+                ? 'Only stubs left. They grow back in time.'
+                : chance >= 1
+                    ? 'Your Evochi knows the growing things of the cave: it can pick these without a sound.'
+                    : chance > 0
+                        ? 'Their keepers sleep in the rock. A Forest Eggling might pick these quietly, if it is very lucky.'
+                        : 'Their keepers sleep in the rock nearby. Picking these will wake them. (Only a Forest Evochi forages quietly.)',
+            primary: used ? 'OK' : 'Forage',
+            secondary: used ? null : 'Leave them',
+            onPrimary: () {
+              if (!used) _forage(s);
+              close();
+            },
+            onSecondary: close,
+          );
+          break;
+        }
         if (s.kind == 'chest' || s.kind == 'shrine' || s.kind == 'camp') {
           final blessings = _blessingsFor(s);
           body = _SpotCard(
@@ -2837,6 +2902,8 @@ class _MapPainter extends CustomPainter {
   /// A patch of glowing caps in the Hollow's cracked rock (the 'shrooms' sprite, lit up), breathing light;
   /// once foraged, only stubs and a fading glow.
   void _capPatch(Canvas canvas, WildsMap m, ({String id, double x, double z, int n, int keepers}) c) {
+    final img = s._capImg;
+    if (img != null) return _capCluster(canvas, img, c);
     final a = m.propArt['shrooms'];
     if (a == null) return;
     final done = s._used.contains(c.id);
@@ -2866,6 +2933,42 @@ class _MapPainter extends CustomPainter {
         final ph = tt - tt.floorToDouble();
         final dx = (_hash(tt.floorToDouble(), i + c.x) - 0.5) * 18 * u / 2.7;
         canvas.drawCircle(g + Offset(dx, -(6 + 26 * ph) * u / 2.7), 1.3 * u / 2.7, Paint()..color = Color.fromRGBO(190, 250, 255, (1 - ph) * 0.9));
+      }
+    }
+  }
+
+  /// The patch from the Glowcap's own picture: a few of them clustered in the crack, breathing light, motes
+  /// lifting off them; foraged, only dim stubs.
+  void _capCluster(Canvas canvas, ui.Image img, ({String id, double x, double z, int n, int keepers}) c) {
+    final done = s._used.contains(c.id);
+    final u = s._u;
+    final breathe = rm ? 0.5 : 0.5 + 0.5 * math.sin(s._t * 1.6 + c.x);
+    final g = s._toScreen(c.x, c.z);
+    if (!done) _glow(canvas, g - Offset(0, 5 * u), 30 * u, Color.fromRGBO(110, 230, 255, 0.3 + 0.15 * breathe));
+    // back to front, so the nearer ones stand in front
+    final spots = [
+      for (var i = 0; i < c.n; i++)
+        (c.x + math.cos(i * 2.399 + c.x) * (i == 0 ? 0.0 : 5.0 + 3.0 * (i % 2)), c.z + math.sin(i * 2.399 + c.x) * (i == 0 ? 0.0 : 4.0 + 2.0 * (i % 2)), i)
+    ]..sort((a, b) => a.$2.compareTo(b.$2));
+    final pq = Paint()..filterQuality = FilterQuality.medium;
+    if (done) pq.colorFilter = const ColorFilter.mode(Color(0xC0141020), BlendMode.srcATop);
+    for (final (x, z, i) in spots) {
+      final at = s._toScreen(x, z);
+      final w = (i == 0 ? 15.0 : 11.0) * u * (done ? 0.45 : 1) * (rm ? 1 : 1 + 0.03 * math.sin(s._t * 2.2 + i));
+      final h = w * img.height / img.width;
+      canvas.save();
+      canvas.translate(at.dx, at.dy);
+      if (i.isOdd) canvas.scale(-1, 1);
+      canvas.drawImageRect(img, Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()), Rect.fromLTWH(-w / 2, -h * 0.86, w, h), pq);
+      canvas.restore();
+    }
+    if (!done && !rm) {
+      for (var i = 0; i < 5; i++) {
+        final tt = s._t * 0.5 + i / 5 + c.z * 0.01;
+        final ph = tt - tt.floorToDouble();
+        final dx = (_hash(tt.floorToDouble(), i + c.x) - 0.5) * 22 * u / 2.7;
+        canvas.drawRect(Rect.fromCenter(center: g + Offset(dx, -(8 + 30 * ph) * u / 2.7), width: 2.2 * u / 2.7, height: 2.2 * u / 2.7),
+            Paint()..color = Color.fromRGBO(190, 250, 255, (1 - ph) * 0.9));
       }
     }
   }
@@ -3155,6 +3258,13 @@ class _MapPainter extends CustomPainter {
     final wind = f.st == FoeState.windup && !f.calm && !_bossy(f);
     final wk = wind ? (f.t / math.max(f.windup, 0.01)).clamp(0.0, 1.0) : 0.0;
     var g = foot;
+    // a Capfolk coming up out of the rock: it rises through the ground line, the part still under it unseen
+    final sink = f.rising > 0 ? (f.rising / Raid.risingTime).clamp(0.0, 1.0) * a.top * k * 0.95 : 0.0;
+    if (sink > 0) {
+      canvas.save();
+      canvas.clipRect(Rect.fromLTRB(-1e4, -1e4, 1e4, foot.dy + 2));
+      g += Offset(0, sink);
+    }
     if (wind && !rm) {
       final back = (f.move == 'roll' ? 5.0 : 2.5) * (1 - math.pow(1 - math.min(wk / 0.45, 1.0), 3)) * f.size;
       g = s._toScreen(f.x - f.ax * back, f.z - f.az * back) + (foot - s._toScreen(f.x, f.z));
@@ -3214,6 +3324,7 @@ class _MapPainter extends CustomPainter {
       }
     }
     canvas.restore();
+    if (sink > 0) canvas.restore();
     if (f.st == FoeState.stagger) _stars(canvas, g - Offset(0, a.top * k * 0.95), f is Boss || f.kind == 'sentinel' ? 2 : 1.1, 1);
     if (f.kind == 'sentinel' && !f.calm) _sentinelShield(canvas, f, a, g, k);
   }
@@ -4618,6 +4729,15 @@ class _MapPainter extends CustomPainter {
           final a = i * math.pi / 3 + b.x;
           final d0 = 4 + 10 * k, d1 = 8 + 16 * k;
           canvas.drawLine(c + Offset(math.cos(a) * d0, math.sin(a) * d0) * u, c + Offset(math.cos(a) * d1, math.sin(a) * d1) * u, p);
+        }
+      case 'emerge':
+        // the rock cracking open as a Capfolk comes up through it: chips thrown up, a violet breath
+        _glow(canvas, g - Offset(0, 4 * _up), (12 + 16 * k) * u, Color.fromRGBO(170, 120, 255, 0.55 * (1 - k)));
+        for (var i = 0; i < 7; i++) {
+          final a = i * 0.9 + b.z * 0.2;
+          final d = (5 + 14 * k) * u;
+          final c = g + Offset(math.cos(a) * d, math.sin(a) * d * 0.5 - math.sin(k * math.pi) * (10 + 6 * (i % 3)) * u);
+          canvas.drawRect(Rect.fromCenter(center: c, width: 3.2 * u, height: 3.2 * u), Paint()..color = Color.fromRGBO(52, 40, 70, 1 - k));
         }
       case 'lavasplash':
         // a step into the lava: molten drops thrown up and out, a puff of heat

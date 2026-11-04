@@ -8,6 +8,8 @@ flat renderer, the map camera, 8 directions) so they share the floor with your E
   Sporecap    a toadstool that hops on two stubby feet. It swells its cap and puffs spores.
   Briarback   the Thicket's guardian, a hart with antlers of bramble. It walks, gallops head-down (the
               charge), lowers its antlers, sweeps them, rears and stomps, roars, staggers.
+  Capfolk     the mine's mushroom people (a Hollow gallery's): a stem body on stubby feet, stub arms, a broad
+              glowing-spotted cap. It walks, draws back with its arms up, bonks cap first, flinches.
   Sentinel    the Forgotten Sentinel at its gate (F5): asleep, waking, fists up and slammed down (both,
               or one and then the other), a beam from its eyes, runes cast wide, a shield held out, and
               restored, bowing.
@@ -373,6 +375,103 @@ def sporecap(pose=None, variant='hollow'):
     return M, {'ground': (0, 0, 0), 'top': (0, cy + cr[1] + 1.0, 0)}
 
 
+# ------------------------------------------------------------------ Capfolk
+# The cave's mushroom people (a Hollow gallery's, deep in the mine): a little stem body on two stubby feet,
+# stub arms, a face under a broad overhanging cap spotted with glowing dots. They sleep in the rock by the
+# glowcaps they keep and come up out of it when someone picks them clumsily. Hollow: a dusk-violet cap, its
+# spots burning cyan, vines round the stem, slitted glowing eyes; calm: a teal cap with soft white spots.
+CF = {
+    'hollow': dict(stem='#BCAFCB', stem_lo='#8F81A4', cap='#3E2C61', cap_lo='#2A1E45', cap_hi='#5A4589', gill='#6C5A8C',
+                   spot='#8FF2FF', foot='#4C3B60', arm='#A797BC'),
+    'calm': dict(stem='#F2E7D4', stem_lo='#D5C5AD', cap='#3BA2B2', cap_lo='#2B7F8C', cap_hi='#73D2DC', gill='#E6D6BC',
+                 spot='#EFFFFA', foot='#B19779', arm='#E9DBC3'),
+}
+
+
+def capfolk(pose=None, variant='hollow'):
+    p = pose or {}
+    C = CF[variant]
+    hollow = variant == 'hollow'
+    M = Model((-16, -4, -16), (16, 34, 16), [], res=2)
+    low = p.get('low', 0.0)              # crouched, gathering itself
+    feet = p.get('feet', {})             # -1 | 1 -> (dy, dz)
+    arms = p.get('arms', 0.0)            # the walk's swing, -1..1
+    up = p.get('up', 0.0)                # arms raised (0..1)
+    # the stem: a plump little body, the face on its front
+    sh = 9.0 - low
+    stem = E(M, (0, 2.6 + sh / 2, 0.2), (4.0, sh / 2 + 1.0, 3.8), p=2.3)
+    put(M, stem, C['stem'])
+    put(M, shell(M, stem) & (M.Y < 3.0), C['stem_lo'])
+    fy = 2.6 + sh * 0.66
+    for sd in (-1, 1):
+        if p.get('hurt'):
+            put(M, facing(M, stem, (sd * 1.6, fy), (0.9, 0.3)), INK)
+        elif hollow:
+            put(M, facing(M, stem, (sd * 1.6, fy), (1.3, 0.9)), '#3E2B55')
+            put(M, facing(M, stem, (sd * 1.6, fy), (1.0, 0.45)), GLOW_V, glow=0.95)
+        else:
+            put(M, facing(M, stem, (sd * 1.6, fy), (0.7, 0.95)), INK)
+            put(M, facing(M, stem, (sd * 1.4, fy + 0.4), (0.3, 0.3)), EYE_HI)
+            put(M, facing(M, stem, (sd * 2.7, fy - 1.1), (0.7, 0.4)), BLUSH)
+    if hollow:
+        put(M, facing(M, stem, (0, fy - 1.6), (0.9, 0.25)), '#3E2B55')
+    else:
+        put(M, facing(M, stem, (0, fy - 1.5), (0.8, 0.3)) & ~facing(M, stem, (0, fy - 1.2), (0.7, 0.3)), INK)
+    # stub arms, swinging with the walk, raised for a bonk
+    for sd in (-1, 1):
+        sw = arms * sd
+        sh0 = (sd * 3.4, fy - 1.2, 0.2)
+        hand = (sd * (5.0 + 0.8 * up), fy - 3.6 + 6.2 * up, 0.4 + 1.4 * sw + 1.0 * up)
+        put(M, cap(M, sh0, hand, 1.15, 1.0), C['arm'], empty=True)
+    # the cap: broad and overhanging, a little lopsided, with glowing spots
+    cy = 2.6 + sh + 1.4
+    cr = (8.6, 4.6, 8.2)
+    dome = E(M, (0, cy, -0.3), cr, p=2.0) & (M.Y >= cy - 1.0)
+    put(M, dome, C['cap'])
+    put(M, shell(M, dome) & (M.Y < cy - 0.2), C['cap_lo'])
+    put(M, shell(M, dome) & (M.Y > cy + cr[1] * 0.55) & (M.X < 0) & (M.Z > -2), C['cap_hi'])
+    gill = E(M, (0, cy - 0.8, -0.3), (cr[0] - 0.9, 0.7, cr[2] - 0.9)) & (M.m == 0)
+    put(M, gill, C['gill'])
+    rng = np.random.default_rng(11)
+    for k in range(13):
+        a = rng.uniform(0, 2 * math.pi)
+        el = rng.uniform(0.2, 1.2)
+        v = np.array([math.cos(a) * math.cos(el), math.sin(el), math.sin(a) * math.cos(el)])
+        c = np.array([0, cy, -0.3]) + v * np.asarray(cr) * 0.96
+        put(M, E(M, c, (1.0, 0.7, 1.0)) & shell(M, dome, 2), C['spot'], glow=(0.9 if hollow else 0.35))
+    if hollow:
+        for t in np.linspace(0, 1, 36):
+            a = t * 2 * math.pi * 1.4
+            y = 1.2 + t * (sh + 1.0)
+            if math.sin(a) > 0.35 and 2.0 < y < sh:
+                continue
+            rr = 4.0 * math.sqrt(max(0.0, 1 - ((y - 2.6 - sh / 2) / (sh / 2 + 1.0)) ** 2)) + 0.4
+            put(M, E(M, (rr * math.cos(a), y, rr * math.sin(a)), (0.55, 0.5, 0.55)), VINE_H, empty=True)
+    for sd in (-1, 1):
+        dy, dz = feet.get(sd, (0.0, 0.0))
+        put(M, E(M, (sd * 2.3, 0.9 + dy, 1.0 + dz), (1.7, 1.0, 2.3)), C['foot'], empty=True)
+    if p.get('lean'):
+        M = turn(M, (0, 0, 0), rot(rx=p['lean']))
+    if p.get('tilt'):
+        M = turn(M, (0, 0, 0), rot(rz=p['tilt']))
+    return M, {'ground': (0, 0, 0), 'top': (0, cy + cr[1] + 1.0, 0)}
+
+
+def biped_cycle(stride, lift, bob_amt):
+    """two feet stepping in turn, the arms swinging against them"""
+    def pose(i):
+        if i is None:
+            return {'feet': {}, 'arms': 0.0}, 0.0
+        t = i / FRAMES
+        bob = q(bob_amt * abs(math.sin(2 * math.pi * t)))
+        feet = {}
+        for sd, ph in ((-1, 0.0), (1, 0.5)):
+            dy, dz = swing((t + ph) % 1.0, stride, lift)
+            feet[sd] = (q(dy) - bob, q(dz))
+        return {'feet': feet, 'arms': math.sin(2 * math.pi * t)}, bob
+    return pose
+
+
 # ------------------------------------------------------------------ Briarback
 BB = {
     'hollow': dict(coat='#6E4B3A', coat_lo='#523629', coat_hi='#86604A', belly='#9C8270', antler='#4A3550',
@@ -653,6 +752,13 @@ FOES = {
         {'walk': (hop_cycle(3.2), dict(waddle=0.0, squash=0.12, cycle=10.0, hop=True))},
         [('swell1', {'swell': 0.5}, 0.0), ('swell2', {'swell': 1.0}, 0.0), ('puff', {'puff': 1.0}, 0.5),
          ('hurt', {'hurt': True, 'tilt': 0.28}, 0.0)]),
+    'capfolk': lambda: Foe(
+        'capfolk', capfolk, 5.6, 8.0,
+        {'walk': (biped_cycle(1.7, 1.5, 0.5), dict(waddle=4.0, squash=0.04, cycle=7.0))},
+        [('crouch', {'low': 1.8, 'up': 1.0, 'lean': -0.3}, 0.0),      # drawn back, arms up: about to bonk
+         ('nip', {'low': 0.4, 'up': 0.35, 'lean': 0.5}, 0.0),        # the bonk: cap first
+         ('hurt', {'hurt': True, 'tilt': 0.26}, 0.0),
+         ('sleep', {'low': 3.0, 'hurt': True}, 0.0)]),
     'briarback': lambda: Foe(
         'briarback', briarback, 3.6, 17.0,
         {'walk': (quad_cycle(4.0, 3.2, 1.0), dict(waddle=1.5, squash=0.02, cycle=16.0)),

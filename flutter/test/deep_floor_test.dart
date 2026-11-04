@@ -23,6 +23,11 @@ Set<int> reach(FloorPlan p, double x, double z) {
       // an Evochi's body (radius up to 12: an Elder) has to fit past the trunks
       if (dx * dx + dz * dz < (r + 12) * (r + 12)) return true;
     }
+    // and never through the lava (it burns from just inside its edge)
+    for (final l in p.lava) {
+      final dx = (l['x'] as num) - cx, dz = (l['z'] as num) - cz, r = (l['r'] as num) + 2;
+      if (dx * dx + dz * dz < r * r) return true;
+    }
     return false;
   }
 

@@ -46,7 +46,7 @@ final stamps = <Stamp>[
 ];
 
 /// A full page's bonus (EvoCoins), by crop: the slower the crop, the more.
-const pageBonus = {'sunberry': 60, 'meadow_carrot': 80, 'golden_wheat': 100, 'glowleaf': 150, 'moonshroom': 200};
+const pageBonus = {'sunberry': 60, 'meadow_carrot': 80, 'golden_wheat': 100, 'glowleaf': 150, 'moonshroom': 200, 'glowcap': 220};
 
 class JournalPage {
   JournalPage(this.crop, this.grown, this.golden, this.firstAt, this.earned, this.collected, this.pageCollected);
@@ -119,8 +119,8 @@ const villagers = [
 ];
 
 /// A crop's worth in an order (EvoCoins each).
-const cropWorth = {'sunberry': 4, 'meadow_carrot': 7, 'golden_wheat': 6, 'glowleaf': 14, 'moonshroom': 25};
-const _orderQty = {'sunberry': (6, 10), 'meadow_carrot': (4, 8), 'golden_wheat': (4, 8), 'glowleaf': (3, 5), 'moonshroom': (2, 4)};
+const cropWorth = {'sunberry': 4, 'meadow_carrot': 7, 'golden_wheat': 6, 'glowleaf': 14, 'moonshroom': 25, 'glowcap': 34};
+const _orderQty = {'sunberry': (6, 10), 'meadow_carrot': (4, 8), 'golden_wheat': (4, 8), 'glowleaf': (3, 5), 'moonshroom': (2, 4), 'glowcap': (2, 3)};
 
 class VillageOrder {
   VillageOrder({required this.id, required this.villager, required this.wants, required this.coins, required this.xp, required this.special});

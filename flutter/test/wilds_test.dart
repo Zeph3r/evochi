@@ -729,4 +729,48 @@ void main() {
       });
     }
   });
+
+  group('the deep galleries', () {
+    test('lava: a step in burns and throws you back out onto the rock; a roll is spared the burn; creatures keep out', () {
+      final r = Raid(ground: meadow(), pet: petAt(0, 0, hp: 200), lava: const [(0.0, 0.0, 14.0)], seed: 3);
+      run(r, 0.05);
+      expect(r.pet.hp, lessThan(200), reason: 'burnt');
+      run(r, 0.6);
+      expect(r.lavaAt(r.pet.x, r.pet.z, r.pet.radius * 0.3), isNull, reason: 'thrown back out');
+      // a roll through: no burn
+      final r2 = Raid(ground: meadow(), pet: petAt(0, 0, hp: 200), lava: const [(0.0, 0.0, 14.0)], seed: 3);
+      r2.pet.iframes = 1;
+      run(r2, 0.05);
+      expect(r2.pet.hp, 200);
+      // a creature never steps in
+      final r3 = Raid(ground: meadow(), pet: petAt(0, 30), spawns: const [FoeSpawn('a', 'thornling', 'z', 0, -40)], lava: const [(0.0, -5.0, 16.0)], seed: 4);
+      for (var i = 0; i < 240; i++) {
+        r3.tick(dt, RaidInput());
+        final f = r3.foes.first;
+        expect(r3.lavaAt(f.x, f.z, 4), isNull, reason: 'the creature walked into the lava');
+      }
+    });
+
+    test('glowcaps: their keepers come up out of the rock, unhittable until they are up, and fight', () {
+      final r = Raid(ground: meadow(), pet: petAt(0, 30, hp: 100000), seed: 6);
+      r.wakeCapfolk('caps_1', 0, 0, 3);
+      expect(r.foes.where((f) => f.kind == 'capfolk').length, 3);
+      expect(r.foes.every((f) => f.rising > 0), isTrue);
+      run(r, 2.0);
+      expect(r.foes.every((f) => f.rising == 0 && f.alpha == 1), isTrue);
+      run(r, 4.0);
+      expect(r.pet.hp, lessThan(100000), reason: 'they fight');
+    });
+
+    test('only a Forest Evochi forages quietly (an Eggling only by luck)', () {
+      final s = freshPet().copy();
+      expect(w.quietForageChance(s), 0, reason: 'an Amber');
+      s.pet = Pet.fromJson(s.pet!.toJson()..['paletteId'] = 'forest');
+      expect(w.quietForageChance(s), inExclusiveRange(0, 0.1), reason: 'a Forest Eggling: a tiny chance');
+      s.pet!.stage = 2;
+      expect(w.quietForageChance(s), 1);
+      s.pet!.stage = 3;
+      expect(w.quietForageChance(s), 1);
+    });
+  });
 }

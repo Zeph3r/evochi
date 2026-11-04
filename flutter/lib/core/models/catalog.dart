@@ -173,6 +173,10 @@ const catalog = <String, CatalogItem>{
   'seed_moonshroom': CatalogItem(
       id: 'seed_moonshroom', name: 'Moonshroom Spores', category: ItemCategory.seed, crop: 'moonshroom', price: 35, rarity: 'rare',
       stackable: true, shop: 'garden', desc: 'Speckled mushrooms that glow at dusk. Takes about 6 hours. Farming Lv 5.'),
+  'seed_glowcap': CatalogItem(
+      id: 'seed_glowcap', name: 'Glowcap Spores', category: ItemCategory.seed, crop: 'glowcap', price: 0, rarity: 'rare',
+      stackable: true, shop: null, acquisition: 'mine',
+      desc: "Spores shaken from the mine's glowcaps as you forage them. Not sold anywhere: plant them in your garden and they glow. About 4 hours."),
   'sunberry': CatalogItem(
       id: 'sunberry', name: 'Sunberry', category: ItemCategory.ingredient, rarity: 'common', stackable: true, shop: null, acquisition: 'home',
       desc: 'Sweet, sun-warm berries from your own garden.'),
@@ -188,6 +192,9 @@ const catalog = <String, CatalogItem>{
   'moonshroom': CatalogItem(
       id: 'moonshroom', name: 'Moonshroom', category: ItemCategory.ingredient, rarity: 'rare', stackable: true, shop: null, acquisition: 'home',
       desc: 'A speckled violet mushroom with a soft night-time shimmer.'),
+  'glowcap': CatalogItem(
+      id: 'glowcap', name: 'Glowcap', category: ItemCategory.ingredient, rarity: 'rare', stackable: true, shop: null, acquisition: 'mine',
+      desc: "A cave mushroom lit from inside, foraged from the Hollow's cracks deep in Flint's mine (its Capfolk keepers wake to a clumsy pick). The Apothecary brews it; the village pays well for it."),
   // Golden harvests (a tended bed, now and then; a Sunstone on one, always): a keepsake each (game/home/home.dart)
   'gilded_sunberry': CatalogItem(
       id: 'gilded_sunberry', name: 'Gilded Sunberry', category: ItemCategory.ingredient, rarity: 'rare', stackable: true, shop: null, acquisition: 'home',
@@ -204,6 +211,9 @@ const catalog = <String, CatalogItem>{
   'gilded_moonshroom': CatalogItem(
       id: 'gilded_moonshroom', name: 'Gilded Moonshroom', category: ItemCategory.ingredient, rarity: 'rare', stackable: true, shop: null, acquisition: 'home',
       desc: 'A moonshroom with gold freckles that shimmer at dusk. Only a bed a garden helper tends grows one: a keepsake from a Golden harvest.'),
+  'gilded_glowcap': CatalogItem(
+      id: 'gilded_glowcap', name: 'Gilded Glowcap', category: ItemCategory.ingredient, rarity: 'rare', stackable: true, shop: null, acquisition: 'home',
+      desc: 'A glowcap gone gold, its light turned warm. Only a bed a garden helper tends grows one: a keepsake from a Golden harvest.'),
   'sunberry_tart': CatalogItem(
       id: 'sunberry_tart', name: 'Sunberry Tart', category: ItemCategory.consumable, kind: 'meal', rarity: 'uncommon', stackable: true, shop: null,
       acquisition: 'home', vitality: 8, treat: true,
@@ -220,6 +230,10 @@ const catalog = <String, CatalogItem>{
       id: 'moonshroom_pie', name: 'Moonshroom Pie', category: ItemCategory.consumable, kind: 'meal', rarity: 'rare', stackable: true, shop: null,
       acquisition: 'home', vitality: 14, treat: true,
       desc: 'A savoury pie with a shimmering crust. Restores 14 vitality; a homemade treat adds Bond once a day.'),
+  'glowcap_elixir': CatalogItem(
+      id: 'glowcap_elixir', name: 'Glowcap Elixir', category: ItemCategory.consumable, kind: 'potion', rarity: 'rare', stackable: true, shop: null,
+      acquisition: 'home', vitality: 16,
+      desc: 'A cool, softly lit elixir of mine glowcaps. Restores 16 vitality. In the Wilds: Glowcap-bright, +6 Raid HP a second and the Hollow hits 20% softer, for 30s.'),
   'glowleaf_tonic': CatalogItem(
       id: 'glowleaf_tonic', name: 'Glowleaf Tonic', category: ItemCategory.consumable, kind: 'potion', rarity: 'uncommon', stackable: true, shop: null,
       acquisition: 'home', vitality: 10,

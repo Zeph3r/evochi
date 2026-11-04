@@ -636,8 +636,10 @@ void _deepGallery(FloorPlan plan, RoomKit kit, int Function(double, double) farA
   final (gx, gz) = plan.gate;
   double d2(double ax, double az, double bx, double bz) => (ax - bx) * (ax - bx) + (az - bz) * (az - bz);
   double nv(Map<String, Object> m, String k) => (m[k] as num).toDouble();
+  // the ways stay walkable beside it: an Evochi's body fits between it and the way's far edge (the lane is
+  // 32 wide; a body up to 24), so its edge may come within 12 of a way's centre line, no nearer
   bool roomFor(double x, double z, double r, {bool props = true}) {
-    if (!clearOfWays(x, z, r)) return false;
+    if (!clearOfWays(x, z, r - 3)) return false;
     if (d2(x, z, sx, sz) < (r + 50) * (r + 50) || d2(x, z, gx, gz + 14) < (r + 58) * (r + 58)) return false;
     for (final o in plan.ores) {
       if (d2(x, z, nv(o, 'x'), nv(o, 'z')) < (r + 34) * (r + 34)) return false;
@@ -677,7 +679,7 @@ void _deepGallery(FloorPlan plan, RoomKit kit, int Function(double, double) farA
         plan.lava.add({'x': _r1(x), 'z': _r1(z), 'r': _r1(pr)});
         final la = rng.d(0, math.pi * 2), lr = pr * rng.d(0.5, 0.75);
         final lx = x + math.cos(la) * pr * 0.75, lz = z + math.sin(la) * pr * 0.6;
-        if (onGround(lx, lz, lr) && clearOfWays(lx, lz, lr)) plan.lava.add({'x': _r1(lx), 'z': _r1(lz), 'r': _r1(lr)});
+        if (onGround(lx, lz, lr) && clearOfWays(lx, lz, lr - 3)) plan.lava.add({'x': _r1(lx), 'z': _r1(lz), 'r': _r1(lr)});
         got++;
       }
       // a fall down the rock at a clearing's back, pooling at its foot
@@ -702,8 +704,12 @@ void _deepGallery(FloorPlan plan, RoomKit kit, int Function(double, double) farA
       for (var t = 0; t < 30; t++) {
         final a = rng.d(0, math.pi * 2), d = rr * rng.d(0.2, 0.6);
         final x = cx + math.cos(a) * d, z = cz + math.sin(a) * d * 0.9;
-        if (!onGround(x, z, 14) || !roomFor(x, z, 14)) continue;
+        if (!onGround(x, z, 12) || !roomFor(x, z, 6)) continue;
         plan.caps.add({'id': 'caps_${r.i}', 'x': _r1(x), 'z': _r1(z), 'n': 3 + rng.i(3), 'keepers': 2 + (plan.depth >= 5 ? 1 : 0) + (rng.p(0.3) ? 1 : 0)});
+        plan.spots.add({
+          'id': 'caps_${r.i}', 'kind': 'caps', 'x': _r1(x), 'z': _r1(z + 8), 'r': 22, 'label': 'Forage', 'title': 'Glowcaps',
+          'text': 'Glowcaps, lit from inside, growing out of a Hollow crack. Something sleeps in the rock close by.',
+        });
         break;
       }
     }

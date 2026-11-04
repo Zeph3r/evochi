@@ -5,6 +5,8 @@
 // The Wilds series (action): sentinel, briarback, deep, signatures.
 
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:evochi/controllers/game_controller.dart';
@@ -23,7 +25,7 @@ import 'package:provider/provider.dart';
 import 'package:evochi/features/shared/kit.dart';
 import 'package:evochi/features/village/village_walk.dart';
 import 'package:evochi/game/hatch/hatch.dart' as hatch;
-import 'package:evochi/features/wilds/deep_floor.dart' show galleryKind;
+import 'package:evochi/features/wilds/deep_floor.dart' show RoomKit, galleryKind, planFloor;
 import 'package:evochi/features/wilds/wilds_combat.dart';
 import 'package:evochi/features/wilds/wilds_screen.dart';
 import 'package:evochi/game/engine.dart' as g;
@@ -589,7 +591,7 @@ final sproutintro = Short(
 );
 
 /// Looks at one thing, recorded by name only.
-final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort, gardenLower, gardenOrders, blastsShort, telegraphs, runs, windup, galleries];
+final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort, gardenLower, gardenOrders, blastsShort, telegraphs, runs, windup, galleries, capfolk];
 
 /// 3. The Deep Wilds: a clearing calmed, the way down opens, down a floor, and a Hollow Surge.
 final deep = Short(
@@ -860,6 +862,65 @@ final galleries = Short(
       },
       beats: [Beat(0.05, (s) => s.say(const [('Hollow gallery', white)], secs: 1.2, size: 27, y: 165))],
     ),
+  ],
+);
+
+/// The first seed whose mine floor [depth] is a Hollow gallery with glowcaps in it (planned here as the screen
+/// will, with a nest or without).
+int _capsSeed({int depth = 3}) {
+  final kit = RoomKit((jsonDecode(File('assets/art/wilds/wilds_kit.json').readAsStringSync()) as Map).cast<String, dynamic>());
+  final m = (jsonDecode(File('assets/art/wilds/wilds_map_thicket.json').readAsStringSync()) as Map).cast<String, dynamic>();
+  final radii = {
+    for (final e in (m['images'] as Map).entries) e.key as String: ((e.value as Map)['radius'] as num? ?? 0).toDouble(),
+    'gate': 0.0,
+    'chest': 6.0,
+    'ore': 9.0,
+  };
+  for (var sd = 1; sd < 400; sd++) {
+    if (galleryKind(depth, sd) != 'hollow') continue;
+    if (planFloor(kit, depth, sd, radii, mine: true).caps.isNotEmpty && planFloor(kit, depth, sd, radii, mine: true, nest: true).caps.isNotEmpty) return sd;
+  }
+  return _gallerySeed('hollow', depth: depth);
+}
+
+/// Foraging glowcaps (not for posting): an Amber Elder picks them and the Capfolk come up out of the rock and
+/// fight; a Forest Juvenile picks them without a sound.
+final capfolk = Short(
+  id: 'capfolk',
+  endTitle: const [('Capfolk', null)],
+  endSecs: 0.4,
+  clips: [
+    for (final (pal, st, label, secs) in const [('amber', 3, 'Amber Elder', 10.0), ('forest', 2, 'Forest Juvenile', 4.5)])
+      Clip(
+        state: () => mochi(pal, stage: st),
+        open: () => WildsScreen(depth: 3, seed: _capsSeed(), mine: true),
+        secs: secs,
+        preroll: 1.2,
+        zoom: 0.56,
+        quiet: true,
+        pilot: const PilotStart(on: false),
+        setup: (s) async {
+          await _god(s);
+          final m = s.screen!.map!;
+          if (m.caps.isNotEmpty) placeNear(s, m.caps.first.x, m.caps.first.z + 8, dist: 14);
+        },
+        beats: [
+          Beat(0.05, (s) => s.say([(label, white)], secs: 1.2, size: 27, y: 165)),
+          // up to the patch, and pick it (as the spot's Forage does)
+          Beat(0.3, (s) {
+            final m = s.screen!.map!;
+            if (m.caps.isEmpty) return;
+            s.autopilot
+              ..walkRun = false
+              ..walkTo = Offset(m.caps.first.x, m.caps.first.z + 14);
+          }),
+          Beat(1.5, (s) {
+            final m = s.screen!.map!;
+            if (m.caps.isNotEmpty) s.screen!.forage(m.caps.first.id);
+          }),
+          Beat(2.8, (s) => s.autopilot.on = true),
+        ],
+      ),
   ],
 );
 

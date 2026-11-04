@@ -779,9 +779,11 @@ class _SeedRow extends StatelessWidget {
     final seed = item(crop.seed);
     final Widget act;
     if (!open) {
-      act = Tag('Lv ${crop.level}', tone: TagTone.neutral, icon: 'lock');
+      act = Tag(h.foundCrops.contains(crop.id) ? 'The mine' : 'Lv ${crop.level}', tone: TagTone.neutral, icon: 'lock');
     } else if (have > 0) {
       act = EvochiButton(label: 'Plant', small: true, expand: false, tone: ButtonTone.green, semanticLabel: 'Plant ${crop.name}', onPressed: () => onPlant(crop.id));
+    } else if (h.foundCrops.contains(crop.id)) {
+      act = const Tag('Forage', tone: TagTone.neutral); // (its spores aren't sold: found in the mine)
     } else {
       act = EvochiButton(
         label: '${seed.price}',

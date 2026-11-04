@@ -229,7 +229,7 @@ class _Page extends StatelessWidget {
               Text(p.seen ? crop.name : (unlocked ? '${crop.name} (not grown yet)' : '???'), style: EvochiText.cardTitle.copyWith(fontSize: 17)),
               Text(
                 !unlocked
-                    ? 'Opens at Farming ${crop.level}'
+                    ? (h.foundCrops.contains(crop.id) ? "Forage its spores in the mine's Hollow galleries" : 'Opens at Farming ${crop.level}')
                     : 'Grown ${p.grown} · Golden ${p.golden}${first != null ? '\nFirst harvest ${_date(first, g.zoneOf(c.state))}' : ''}',
                 style: EvochiText.caption.copyWith(fontSize: 12.5),
               ),

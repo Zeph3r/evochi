@@ -4192,7 +4192,11 @@
   "gilded_glowleaf": "items/gilded_glowleaf.webp",
   "gilded_moonshroom": "items/gilded_moonshroom.webp",
   "gear_lumen_pick": "items/gear_lumen_pick.webp",
-  "gear_obsidian_pick": "items/gear_obsidian_pick.webp"
+  "gear_obsidian_pick": "items/gear_obsidian_pick.webp",
+  "glowcap": "items/glowcap.webp",
+  "seed_glowcap": "items/seed_glowcap.webp",
+  "gilded_glowcap": "items/gilded_glowcap.webp",
+  "glowcap_elixir": "items/glowcap_elixir.webp"
  },
  "icons": {
   "bag": "icons/bag.webp",
@@ -6702,6 +6706,11 @@
      "sprout": "home/crop_moonshroom_sprout.webp",
      "growing": "home/crop_moonshroom_growing.webp",
      "ripe": "home/crop_moonshroom_ripe.webp"
+    },
+    "glowcap": {
+     "sprout": "home/crop_glowcap_sprout.webp",
+     "growing": "home/crop_glowcap_growing.webp",
+     "ripe": "home/crop_glowcap_ripe.webp"
     }
    }
   },
