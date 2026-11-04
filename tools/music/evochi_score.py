@@ -66,10 +66,10 @@ def notes(text, k=0, octave=0, beats=4, mode=None, bar0=0):
     return out
 
 
-def lead(mx, name, t0, bpm, ns, vel=0.5, pan=0.0, bus='lead', legato=1.0, **kw):
+def lead(mx, name, t0, bpm, ns, vel=0.5, pan=0.0, bus='lead', legato=1.0, octave=0, **kw):
     sp = 60.0 / bpm
     for b, d, p in ns:
-        mx.note(name, t0 + b * sp, d * sp * legato, p, vel, pan=pan, bus=bus, **kw)
+        mx.note(name, t0 + b * sp, d * sp * legato, p + 12 * octave, vel, pan=pan, bus=bus, **kw)
 
 
 def span(chs):

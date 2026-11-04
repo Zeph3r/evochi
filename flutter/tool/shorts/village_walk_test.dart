@@ -5,7 +5,8 @@
 //
 //   flutter test tool/shorts/village_walk_test.dart
 //
-// Writes _shorts/village_walk/frames.rgba (raw RGBA, one frame after another) and meta.json. The
+// Writes _shorts/village_walk/frames.rgba (raw RGBA, one frame after another), meta.json and cues.json (the
+// sounds and the music, for tools/shorts/encode.py). The
 // helper runs it from _transfer/run_test.flag (its first line: the test file).
 
 import 'dart:convert';
@@ -20,6 +21,7 @@ import 'package:evochi/core/services/audio_service.dart';
 import 'package:evochi/core/utils/day_keys.dart';
 import 'package:evochi/data/local/local_store.dart';
 import 'package:evochi/data/repositories/game_repository.dart';
+import 'package:evochi/features/shared/ambience.dart';
 import 'package:evochi/features/shared/live_scene.dart';
 import 'package:evochi/features/village/village_walk.dart';
 import 'package:flutter/material.dart';
@@ -64,7 +66,10 @@ void main() {
     tester.view.physicalSize = Size(_size.width * _dpr, _size.height * _dpr);
     tester.view.devicePixelRatio = _dpr;
     addTearDown(tester.view.reset);
-    AudioService.record = [];
+    final cues = <Map<String, Object?>>[];
+    AudioService.record = cues;
+    var frames = 0;
+    AudioService.clock = () => frames / _fps;
     // Chapter 1's first quest done, so Pip has the next one for you (his "!")
     final st = mochi('amber');
     st.story.questStates['vq01'] = QuestState.fromJson(
@@ -78,7 +83,8 @@ void main() {
       child: MaterialApp(
         debugShowCheckedModeBanner: false,
         theme: evochiTheme(),
-        home: const VillageWalkScreen(),
+        // the Square's place (its music, written down for the mix), as the game's route wraps it
+        home: const Ambience('village', child: VillageWalkScreen()),
         builder: (context, child) => RepaintBoundary(key: shot, child: child),
       ),
     ));
@@ -98,7 +104,6 @@ void main() {
       dir.createSync(recursive: true);
       return File('${dir.path}/frames.rgba').openSync(mode: FileMode.write);
     });
-    var frames = 0;
     Future<void> settle() async {
       for (var i = 0; i < 400 && !(VillageWalkScreen.current?.ready ?? true); i++) {
         await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
@@ -151,8 +156,10 @@ void main() {
     await tester.runAsync(() async {
       raw!.closeSync();
       File('${dir.path}/meta.json').writeAsStringSync(jsonEncode({'w': (_size.width * _dpr).round(), 'h': (_size.height * _dpr).round(), 'fps': _fps, 'frames': frames}));
+      File('${dir.path}/cues.json').writeAsStringSync(jsonEncode(cues));
     });
     AudioService.record = null;
+    AudioService.clock = null;
     await tester.pumpWidget(const SizedBox());
     for (var i = 0; i < 10; i++) {
       await tester.pump(const Duration(milliseconds: 250));

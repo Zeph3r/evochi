@@ -3,8 +3,8 @@
 // Where you are decides what plays: each place screen wraps itself in an Ambience
 // (lib/features/shared/ambience.dart) and the newest one on screen wins (the Nest when there's none).
 // A place has two layers (placeSounds):
-// - Music, behind the Music switch, indoors only: a small playlist of gentle arrangements of
-//   public-domain airs (tools/art/music.py). A track plays once, then a quiet gap, then the next one.
+// - Music, behind the Music switch: the place's own piece of the soundtrack (tools/music/evochi_score.py,
+//   every one a turn of the Evochi call). A track plays once, then a quiet gap, then the next one.
 //   An encounter's track overrides the place's while it runs.
 // - An ambient bed, behind the Sound effects switch: the kitchen fire, the cauldron, the forge, the
 //   stream, a waterfall (tools/art/ambience.py). Beds crossfade into their next pass instead of
@@ -62,21 +62,24 @@ class PlaceSound {
   final double musicVolume;
 }
 
-// Music plays indoors only (the cottage's rooms, the village's houses); everywhere else keeps to its
-// own sounds: the stream on the Square, the waterfall at the ruins, or quiet.
+// Each place has its piece (tools/music/evochi_score.py): the Main Theme as a lullaby in the Nest, the call in G
+// out in the garden, in D on the Square, the Royal Road at the market, a waltz in the kitchen, Dorian in the
+// apothecary and at Bram's, Pip's hop at the Lodge, Mira's lullaby in her Glasshouse, Dorian again out in the
+// wilds, the call in G on the trail, slow in Bb at the gate in the evening. Out of doors it plays softer, under
+// the place's own sounds.
 const placeSounds = <String, PlaceSound>{
-  'nest': PlaceSound(music: []),
-  'home': PlaceSound(music: []),
-  'village': PlaceSound(bed: 'amb_village', music: []),
-  'kitchen': PlaceSound(bed: 'amb_kitchen', music: ['mus_old_mill', 'mus_fair_maid', 'mus_skylark'], musicVolume: 0.38),
-  'apothecary': PlaceSound(bed: 'amb_apothecary', music: ['mus_enchanted_valley', 'mus_dark_woman', 'mus_young_mans_dream'], musicVolume: 0.38),
-  'workshop': PlaceSound(bed: 'amb_workshop', music: ['mus_bench_of_rushes', 'mus_my_love', 'mus_good_ship'], musicVolume: 0.38),
-  'lodge': PlaceSound(music: ['mus_seaside', 'mus_black_rose', 'mus_fair_child']),
-  'glasshouse': PlaceSound(bed: 'amb_glasshouse', music: ['mus_fairy_boy', 'mus_lullaby', 'mus_summer_morning', 'mus_red_lark']),
-  'forest': PlaceSound(bed: 'amb_forest', music: []),
-  'hollow': PlaceSound(bed: 'amb_forest', music: []),
-  'dusk': PlaceSound(music: []),
-  'market': PlaceSound(music: []),
+  'nest': PlaceSound(music: ['mus_nest', 'mus_nest_road'], musicVolume: 0.42),
+  'home': PlaceSound(music: ['mus_home'], musicVolume: 0.4),
+  'village': PlaceSound(bed: 'amb_village', music: ['mus_village'], musicVolume: 0.34),
+  'kitchen': PlaceSound(bed: 'amb_kitchen', music: ['mus_kitchen'], musicVolume: 0.38),
+  'apothecary': PlaceSound(bed: 'amb_apothecary', music: ['mus_apothecary'], musicVolume: 0.38),
+  'workshop': PlaceSound(bed: 'amb_workshop', music: ['mus_workshop'], musicVolume: 0.38),
+  'lodge': PlaceSound(music: ['mus_lodge']),
+  'glasshouse': PlaceSound(bed: 'amb_glasshouse', music: ['onb_mira'], musicVolume: 0.42),
+  'forest': PlaceSound(bed: 'amb_forest', music: ['mus_forest', 'mus_trail'], musicVolume: 0.34),
+  'hollow': PlaceSound(bed: 'amb_forest', music: ['mus_forest'], musicVolume: 0.34),
+  'dusk': PlaceSound(music: ['mus_dusk'], musicVolume: 0.42),
+  'market': PlaceSound(music: ['mus_market'], musicVolume: 0.4),
   // the onboarding's Glasshouse (Mira and the eggs): its sounds under the score, no playlist
   'mira': PlaceSound(bed: 'amb_glasshouse', music: []),
 };
@@ -369,12 +372,18 @@ class AudioService {
   /// is silence until it's cleared.
   void setMusic(String? name, {double fade = 0.8}) {
     _override = name;
-    final rec = record;
-    if (rec != null) {
-      rec.add({'t': clock?.call() ?? 0, 'music': name, 'fade': fade});
-      return;
-    }
     _applyMusic();
+  }
+
+  // recording a Short: the music that would be playing, written down each time it changes (an encounter's, or the
+  // place's first piece), for encode.py to lay under the picture
+  String? _recMusic = '';
+
+  void _logMusic(String? name) {
+    final rec = record;
+    if (rec == null || name == _recMusic) return;
+    _recMusic = name;
+    rec.add({'t': clock?.call() ?? 0, 'music': name, 'fade': 1.2});
   }
 
   /// A place screen came on show (or changed its gain).
@@ -428,7 +437,13 @@ class AudioService {
   }
 
   void _applyMusic() {
-    if (_paused || record != null) return;
+    if (record != null) {
+      final o = _override;
+      final list = _sounds.music;
+      _logMusic(!music ? null : o ?? (list.isEmpty ? null : list.first));
+      return;
+    }
+    if (_paused) return;
     if (!music) {
       _bus.stop(fade: 1.0);
       return;

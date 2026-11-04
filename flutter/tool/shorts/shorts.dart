@@ -923,7 +923,7 @@ final coinsShort = Short(
 final eggShort = Short(
   id: 'egg',
   stamp: 'THE NOOK · 01',
-  music: 'mus_lullaby',
+  music: 'mus_nest',
   endTitle: const [('Real steps hatch\n', null), ('new friends.', Color(0xFF5E7F4A))],
   clips: [
     Clip(
@@ -1010,7 +1010,7 @@ Widget stepsStage() => Builder(builder: (context) {
 final groveShort = Short(
   id: 'grove',
   stamp: 'HOME · 01',
-  music: 'mus_summer_morning',
+  music: 'mus_home',
   endTitle: const [('One walks.\n', null), ('The rest wait here.', Color(0xFF5E7F4A))],
   endSecs: 2.4,
   clips: [
@@ -1198,7 +1198,7 @@ final shaftShort = Short(
 final stagesShort = Short(
   id: 'stages',
   stamp: 'THE NOOK · 02',
-  music: 'mus_lullaby',
+  music: 'mus_nest',
   endTitle: const [('Next week:\n', null), ('what it becomes.', Color(0xFF5E7F4A))],
   endSecs: 2.2,
   clips: [
