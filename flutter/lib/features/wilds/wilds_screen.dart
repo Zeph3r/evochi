@@ -4336,7 +4336,7 @@ class _CombatPad extends StatelessWidget {
                     ready: r.sigReady,
                     dim: !r.sigReady,
                     flash: fx('signature'),
-                    sprite: r.palette == 'ocean' ? 'healing_mist' : null,
+                    sprite: _ultSprite(r.palette),
                     onDown: () => go('signature'),
                   ),
                   box: 104,
@@ -4347,6 +4347,16 @@ class _CombatPad extends StatelessWidget {
       },
     );
   }
+
+  /// each Elder's ultimate, as painted (assets/art/combat)
+  static String _ultSprite(String palette) => switch (palette) {
+        'ocean' => 'healing_mist',
+        'forest' => 'thorn_snare',
+        'coral' => 'reef_bloom',
+        'obsidian' => 'quake',
+        'amethyst' => 'crystal_shards',
+        _ => 'sunflare',
+      };
 
   static Color _ultColor(String palette) => switch (palette) {
         'ocean' => const Color(0xFF4C9BCC),

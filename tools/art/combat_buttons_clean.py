@@ -6,9 +6,10 @@ import sys, os
 import numpy as np
 from PIL import Image
 from scipy import ndimage as nd
-ab=sys.argv[3:] or ['pounce','dodge','healing_mist','bolt','pulse']; st=['normal','ready','pressed','disabled']
-CLEAN={'pounce','dodge','healing_mist'}  # (the others came clean: kept as painted)
-R={'pounce':121.5,'dodge':120.5,'healing_mist':122.5,'bolt':117.5,'pulse':117.5}
+ab=sys.argv[3:] or ['pounce','dodge','healing_mist','bolt','pulse','lumen_glow','root_snare','spark_burst','stone_guard','starlight_beam']; st=['normal','ready','pressed','disabled']
+FRAMED={'healing_mist','lumen_glow','root_snare','spark_burst','stone_guard','starlight_beam'}  # (the Elders' crested frame)
+CLEAN={'pounce','dodge'}|FRAMED  # (the others came clean: kept as painted)
+R={'pounce':121.5,'dodge':120.5,'bolt':117.5,'pulse':117.5,**{k:122.5 for k in FRAMED}}
 def bil(img,x,y):
   return np.stack([nd.map_coordinates(img[...,c],[y,x],order=1,mode='nearest') for c in range(4)],-1)
 for a in ab:
@@ -19,11 +20,11 @@ for a in ab:
     d=np.hypot(xx-cx,yy-cy); phi=np.degrees(np.arctan2(xx-cx,yy-cy))  # 0 = straight down
     r=R[a]-(8 if s=='pressed' else 0)
     gold=(rgb[...,0]>140)&(rgb[...,0]-rgb[...,2]>60)&(rgb[...,1]>90)&(np.abs(phi)<14)&(d<r+14)&(s!='ready' or True)
-    gold=nd.binary_dilation(gold,iterations=2) if a=='healing_mist' else np.zeros_like(gold)
+    gold=nd.binary_dilation(gold,iterations=2) if a in FRAMED else np.zeros_like(gold)
     wa=np.clip((40-np.abs(phi))/8,0,1)            # angular ramp
     wr=np.clip((d-(r-1.5))/2.5,0,1)               # radial ramp
     w=(wa*wr)*(~gold)
-    if a=='healing_mist':
+    if a in FRAMED:
       lum=rgb.mean(-1); sat=rgb.max(-1)-rgb.min(-1)
       dots=(lum>105)&(sat<70)&(yy>236)&(np.abs(phi)<24)&(d>r-12)&~gold
       dots=nd.binary_dilation(dots,iterations=2)&~gold
