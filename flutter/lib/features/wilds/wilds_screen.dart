@@ -399,6 +399,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       miningPower: mine.miningPowerOf(c.state),
       oreTier: mine.oreTierOf(c.state),
       gearTier: mine.fullTierOf(c.state),
+      lava: m.lava,
     );
     final carry = widget.carry;
     if (carry != null) {
@@ -976,6 +977,13 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
                   ? 'It kneels behind a Hollow shield! Calm what it called, or break the shield with Lumen (a Lantern Tonic).'
                   : 'The shield again! Calm them, or light your Evochi with Lumen.',
               4.0);
+        case 'lava':
+          _sfx('enc_surge', 0.45, gap: 0.3);
+          a.buzz(Haptic.thump);
+          if (!_lavaSaid) {
+            _lavaSaid = true;
+            _showBanner('Too hot! Keep out of the lava.', 2.0);
+          }
         case 'shielded':
           _sfx('enc_glow', 0.35, gap: 0.25);
         case 'shield_hit':
@@ -1302,6 +1310,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
 
   // ---- the Deep Wilds
   final _used = <String>{}; // spots spent on this floor: chests opened, shrines prayed at, camps rested at
+  bool _lavaSaid = false; // the lava's first burn on this floor said so
 
   /// Down the steps to the next floor: a fresh floor, the run (Raid HP, satchel) carried along.
   void _descend(int depth) {
@@ -2217,6 +2226,8 @@ class _MapPainter extends CustomPainter {
           Paint()
             ..shader = ui.Gradient.linear(Offset(0, seam - 30), Offset(0, seam + 60), const [Color(0xFF1F3318), Color(0x001F3318)]));
     }
+    // a lava gallery's pools, molten in their crust
+    if (m.lava.isNotEmpty) _lavaPools(canvas, m);
     // on the ground: spore clouds, the guardian's rings, telegraphs, effects that lie flat
     for (final h in r.hazards) {
       _cloud(canvas, h);
@@ -2296,7 +2307,8 @@ class _MapPainter extends CustomPainter {
         items.add((p.z, () => _rubble(canvas, g, k * a.img.width * 0.5, p.x)));
         continue;
       }
-      items.add((p.z, () => _prop(canvas, p.flip, a, g, k, see ? _see : pq, sh, s._toGround(p.x, p.z))));
+      final tint = _deepTint(m.gallery);
+      items.add((p.z, () => _prop(canvas, p.flip, a, g, k, see ? _see : (tint ?? pq), tint == null ? sh : null, s._toGround(p.x, p.z))));
       if (dmg > 0) items.add((p.z + 0.05, () => _cracks(canvas, rect, dmg, p.x)));
       if (p.kind == 'gate') items.add((p.z + 0.5, () => _seal(canvas)));
     }
@@ -2339,6 +2351,12 @@ class _MapPainter extends CustomPainter {
         items.add((a.z, () => _walker(canvas, a, a == pet ? s._petArt! : s._sherArt!, g, a == pet)));
       }
     }
+    for (final f in m.falls) {
+      items.add((f.$2, () => _lavaFall(canvas, f)));
+    }
+    for (final c in m.caps) {
+      items.add((c.z, () => _capPatch(canvas, m, c)));
+    }
     for (final (x, z, kind) in m.fx) {
       if (kind == 'fire') items.add((z + 0.5, () => _fire(canvas, s._toScreen(x, z))));
       if (kind == 'lamp') items.add((z + 0.5, () => _lamp(canvas, s._toScreen(x, z))));
@@ -2367,6 +2385,7 @@ class _MapPainter extends CustomPainter {
     if (!rm && !m.mine) _ambient(canvas, size);
     _vignette(canvas, size);
     if (m.mine) _caveDark(canvas, size, m, r);
+    if (m.gallery == 'lava' || m.gallery == 'hollow') _deepGlow(canvas, size, m);
     if (s._miningArt != null) _mineBitsPaint(canvas);
     // above everything: sparks, motes, stars, numbers
     for (final b in r.bursts) {
@@ -2563,6 +2582,20 @@ class _MapPainter extends CustomPainter {
               const [0.0, 0.55, 1.0]));
   }
 
+  /// The rock and growth of a deep gallery: the moss burnt off (most of its colour gone) and the stone darkened
+  /// warm near the lava, or cold violet where the Hollow has split it.
+  static final _deepTints = <String, Paint>{
+    for (final (g, (cr, cg, cb), off) in const [('lava', (0.66, 0.5, 0.44), 10.0), ('hollow', (0.56, 0.5, 0.72), 6.0)])
+      g: Paint()
+        ..filterQuality = FilterQuality.medium
+        ..colorFilter = ColorFilter.matrix([
+          for (final (i, c, o) in [(0, cr, off), (1, cg, off * 0.4), (2, cb, off * 0.7)])
+            for (var j = 0; j < 5; j++) j == 3 ? 0.0 : (j == 4 ? o : c * ((i == j ? 0.25 : 0) + 0.75 * const [0.3, 0.59, 0.11][j])),
+          0, 0, 0, 1, 0,
+        ]),
+  };
+  Paint? _deepTint(String gallery) => _deepTints[gallery];
+
   static final _see = Paint()
     ..filterQuality = FilterQuality.medium
     ..color = const Color.fromRGBO(0, 0, 0, 0.42);
@@ -2660,13 +2693,234 @@ class _MapPainter extends CustomPainter {
 
   /// The cave's dark: the galleries lit only round their lamps, your Evochi's own light and the ore's
   /// glow; the rock beyond sinks into black.
+  // ---- the deep galleries: lava, and the Hollow's glowing caps
+  static const _lavaHot = Color(0xFFFFE28E), _lavaMid = Color(0xFFFF9330), _lavaDeep = Color(0xFFD9431A), _lavaEdge = Color(0xFF8E2010);
+
+  /// A stable 0..1 for a few numbers (the bubbles' and plates' places).
+  double _hash(double a, double b) {
+    final v = math.sin(a * 12.9898 + b * 78.233) * 43758.5453;
+    return v - v.floorToDouble();
+  }
+
+  /// The lava pools: every pool's crust first (a pool's lobes share one), then the molten rock in them, the
+  /// surface turning slowly, plates of cooling crust drifting on it, bubbles swelling and breaking.
+  void _lavaPools(Canvas canvas, WildsMap m) {
+    final u = s._u;
+    final t = rm ? 0.0 : s._t;
+    final vis = (Offset.zero & s._view).inflate(60);
+    final near = [for (final p in m.lava) if (vis.contains(s._toScreen(p.$1, p.$2))) p];
+    for (final (x, z, r) in near) {
+      _onGround(canvas, x, z, () {
+        canvas.drawCircle(Offset.zero, r * u * 1.18 + 2, Paint()..color = const Color(0xFF140A07));
+        canvas.drawCircle(Offset.zero, r * u * 1.08 + 1, Paint()..color = const Color(0xFF4A1709));
+      });
+    }
+    for (final (x, z, r) in near) {
+      _onGround(canvas, x, z, () {
+        final rad = r * u;
+        final disc = Rect.fromCircle(center: Offset.zero, radius: rad);
+        canvas.drawCircle(
+            Offset.zero,
+            rad,
+            Paint()
+              ..shader = const RadialGradient(colors: [_lavaHot, _lavaMid, _lavaDeep, _lavaEdge], stops: [0, 0.38, 0.8, 1]).createShader(disc));
+        canvas.save();
+        canvas.clipPath(Path()..addOval(disc));
+        // the surface turning: soft hot swells
+        for (var i = 0; i < 4; i++) {
+          final a = t * 0.22 * (i.isEven ? 1 : -1) + i * 1.57 + x * 0.1;
+          canvas.drawCircle(Offset(math.cos(a), math.sin(a)) * rad * 0.42, rad * 0.32, Paint()..color = const Color(0x30FFF4C0));
+        }
+        // plates of cooling crust, voxel-square, drifting
+        final bs = 1.9 * u;
+        for (var i = 0; i < 7; i++) {
+          final h0 = _hash(x + i, z - i);
+          final a = h0 * 6.283 + t * (0.08 + 0.05 * h0) * (i.isEven ? 1 : -1);
+          final d = rad * (0.3 + 0.6 * _hash(z + i, x));
+          final c = Offset(math.cos(a) * d, math.sin(a) * d);
+          canvas.drawRect(Rect.fromCenter(center: c, width: bs * (1 + (i % 3)), height: bs * (1 + ((i + 1) % 2))), Paint()..color = const Color(0xB0521A0B));
+          canvas.drawRect(Rect.fromCenter(center: c + Offset(0, -bs * 0.4), width: bs * (1 + (i % 3)), height: bs * 0.5), Paint()..color = const Color(0x40FFB060));
+        }
+        // bubbles: each swells and breaks in its own time
+        for (var i = 0; i < 3; i++) {
+          final tt = t * 0.8 + i / 3 + _hash(x, z) * 3;
+          final ph = tt - tt.floorToDouble(), slot = tt.floorToDouble();
+          final a = _hash(slot + i, x) * 6.283, d = rad * 0.65 * _hash(z, slot + i);
+          final c = Offset(math.cos(a) * d, math.sin(a) * d);
+          final pop = ph > 0.82;
+          canvas.drawCircle(
+              c,
+              (1.0 + (pop ? 3.4 : 2.2 * ph)) * u,
+              Paint()
+                ..style = PaintingStyle.stroke
+                ..strokeWidth = pop ? 1.0 : 1.4
+                ..color = Color.fromRGBO(255, 240, 175, pop ? (1 - ph) / 0.18 * 0.8 : 0.85));
+        }
+        canvas.restore();
+        canvas.drawCircle(
+            Offset.zero,
+            rad,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = 1.6
+              ..color = const Color(0xAAFFC35A));
+      });
+    }
+  }
+
+  /// A lava fall down the rock at a gallery's back: a molten stream with bright runs flowing down it (in
+  /// voxel steps), coming out of the dark above, foaming where it meets its pool.
+  void _lavaFall(Canvas canvas, (double, double, double, double) f) {
+    final (x, z, h, w) = f;
+    final u = s._u;
+    final t = rm ? 0.0 : s._t;
+    final foot = s._toScreen(x, z + 5);
+    final ww = w * u, hh = h * _up;
+    final top = foot.dy - hh;
+    // the cliff it pours down: a face of basalt blocks, its top ragged, lit by the stream down its middle
+    final bs = 2.8 * u;
+    final cols = (ww * 6 / bs).ceil() | 1;
+    for (var i = 0; i < cols; i++) {
+      final off = (i - cols ~/ 2).toDouble();
+      final cx = foot.dx + off * bs;
+      final ragged = (_hash(x + off, z) * 3).floorToDouble() * bs * 0.7 + off.abs() * bs * 0.55;
+      final colTop = top - bs * 1.2 + ragged;
+      for (var y = colTop; y < foot.dy - bs * 0.2; y += bs) {
+        final v = _hash(off * 3.1 + y * 0.01, x);
+        final heat = (1 - (off.abs() * bs) / (ww * 3)).clamp(0.0, 1.0) * (0.35 + 0.65 * ((y - top) / hh).clamp(0.0, 1.0));
+        final base = Color.lerp(const Color(0xFF1A0F0C), const Color(0xFF2E1B14), v)!;
+        canvas.drawRect(Rect.fromLTWH(cx - bs / 2, y, bs + 0.6, bs + 0.6), Paint()..color = Color.lerp(base, const Color(0xFF7A2E12), heat * 0.6)!);
+      }
+      // the ledge's lip, a lighter block on top of each column
+      canvas.drawRect(Rect.fromLTWH(cx - bs / 2, colTop, bs + 0.6, bs * 0.45), Paint()..color = const Color(0xFF3E2A22));
+    }
+    final stream = Rect.fromLTRB(foot.dx - ww / 2, top, foot.dx + ww / 2, foot.dy);
+    final rr = RRect.fromRectAndRadius(stream, Radius.circular(ww * 0.3));
+    canvas.drawRRect(
+        rr,
+        Paint()
+          ..shader = ui.Gradient.linear(stream.centerLeft, stream.centerRight, const [_lavaEdge, _lavaDeep, _lavaMid, _lavaHot, _lavaMid, _lavaDeep, _lavaEdge],
+              const [0, 0.12, 0.3, 0.5, 0.7, 0.88, 1]));
+    canvas.save();
+    canvas.clipRRect(rr);
+    // bright runs and dark crust flowing down, in steps
+    final step = 3.0 * u;
+    for (var i = 0; i < 9; i++) {
+      final lane = (_hash(x + i, z) - 0.5) * ww * 0.8;
+      final speed = (55 + 25 * _hash(i.toDouble(), x)) * u;
+      final y = top + ((t * speed + _hash(z, i.toDouble()) * hh) % (hh + step * 4)) - step * 2;
+      final len = step * (2 + (i % 3));
+      final yy = (y / step).floorToDouble() * step;
+      canvas.drawRect(Rect.fromLTWH(foot.dx + lane - step * 0.5, yy, step, len),
+          Paint()..color = i % 3 == 0 ? const Color(0x80521A0B) : const Color(0xB0FFF4C4));
+    }
+    canvas.restore();
+    // out of the dark at its top
+    canvas.drawRect(Rect.fromLTRB(stream.left - 2, top - 2, stream.right + 2, top + hh * 0.3),
+        Paint()..shader = ui.Gradient.linear(Offset(0, top - 2), Offset(0, top + hh * 0.3), const [Color(0xFF120806), Color(0x00120806)]));
+    // the foot: foam and spatter where it meets the pool
+    canvas.drawOval(Rect.fromCenter(center: foot, width: ww * 2.4, height: ww * 0.9),
+        Paint()
+          ..color = const Color(0xCCFFD878)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+    if (!rm) {
+      for (var i = 0; i < 5; i++) {
+        final tt = t * 1.6 + i / 5;
+        final ph = tt - tt.floorToDouble();
+        final dx = (_hash(tt.floorToDouble(), i.toDouble()) - 0.5) * ww * 3;
+        final c = foot + Offset(dx * ph, -math.sin(ph * math.pi) * 9 * u / 2.7);
+        canvas.drawRect(Rect.fromCenter(center: c, width: 1.6 * u / 2.7 * 2, height: 1.6 * u / 2.7 * 2), Paint()..color = Color.fromRGBO(255, 200, 90, 1 - ph));
+      }
+    }
+  }
+
+  /// A patch of glowing caps in the Hollow's cracked rock (the 'shrooms' sprite, lit up), breathing light;
+  /// once foraged, only stubs and a fading glow.
+  void _capPatch(Canvas canvas, WildsMap m, ({String id, double x, double z, int n, int keepers}) c) {
+    final a = m.propArt['shrooms'];
+    if (a == null) return;
+    final done = s._used.contains(c.id);
+    final u = s._u;
+    final breathe = rm ? 0.5 : 0.5 + 0.5 * math.sin(s._t * 1.6 + c.x);
+    final g = s._toScreen(c.x, c.z);
+    if (!done) _glow(canvas, g - Offset(0, 4 * u), 26 * u, Color.fromRGBO(120, 230, 255, 0.28 + 0.14 * breathe));
+    final pq = Paint()
+      ..filterQuality = FilterQuality.medium
+      ..colorFilter = ColorFilter.mode(done ? const Color(0xAA1A1426) : Color.fromRGBO(150, 236, 255, 0.42 + 0.12 * breathe), BlendMode.srcATop);
+    for (var i = 0; i < c.n; i++) {
+      final ang = i * 2.399 + c.x;
+      final d = i == 0 ? 0.0 : 5.5 + 2.5 * (i % 2);
+      final at = s._toScreen(c.x + math.cos(ang) * d, c.z + math.sin(ang) * d * 0.8);
+      final k = u / a.scale * (done ? 0.35 : (i == 0 ? 0.95 : 0.7));
+      canvas.save();
+      canvas.translate(at.dx, at.dy);
+      if (i.isOdd) canvas.scale(-1, 1);
+      canvas.scale(k);
+      canvas.drawImage(a.img, Offset(-a.ax, -a.ay), pq);
+      canvas.restore();
+    }
+    if (!done && !rm) {
+      // motes lifting off the caps
+      for (var i = 0; i < 4; i++) {
+        final tt = s._t * 0.5 + i / 4 + c.z * 0.01;
+        final ph = tt - tt.floorToDouble();
+        final dx = (_hash(tt.floorToDouble(), i + c.x) - 0.5) * 18 * u / 2.7;
+        canvas.drawCircle(g + Offset(dx, -(6 + 26 * ph) * u / 2.7), 1.3 * u / 2.7, Paint()..color = Color.fromRGBO(190, 250, 255, (1 - ph) * 0.9));
+      }
+    }
+  }
+
+  /// Over the cave's dark: the lava's glow cast on everything round it, embers rising off it; in a Hollow
+  /// gallery, violet motes drifting up out of the cracks.
+  void _deepGlow(Canvas canvas, Size size, WildsMap m) {
+    final u = s._u;
+    final vis = (Offset.zero & size).inflate(80);
+    final add = Paint()..blendMode = BlendMode.plus;
+    for (final (x, z, r) in m.lava) {
+      final c = s._toScreen(x, z);
+      if (!vis.contains(c)) continue;
+      final rad = r * u * 2.4;
+      canvas.drawOval(Rect.fromCenter(center: c, width: rad * 2, height: rad * 2 * 0.75),
+          add..shader = ui.Gradient.radial(c, rad, const [Color(0x55FF7A26), Color(0x00FF7A26)]));
+      if (rm) continue;
+      for (var i = 0; i < 3; i++) {
+        final tt = s._t * 0.45 + i / 3 + _hash(x, z) * 5;
+        final ph = tt - tt.floorToDouble();
+        final dx = (_hash(tt.floorToDouble() + x, i.toDouble()) - 0.5) * r * u * 1.6 + math.sin(ph * 6 + i) * 3;
+        canvas.drawRect(Rect.fromCenter(center: c + Offset(dx, -(4 + 46 * ph) * u / 2.7), width: 2.2 * u / 2.7, height: 2.2 * u / 2.7),
+            Paint()..color = Color.fromRGBO(255, 170 + (60 * (1 - ph)).round(), 70, (1 - ph) * 0.95));
+      }
+    }
+    for (final (x, z, h, w) in m.falls) {
+      final c = s._toScreen(x, z) - Offset(0, h * _up * 0.5);
+      if (!vis.contains(c)) continue;
+      final rect = Rect.fromCenter(center: c, width: w * u * 5, height: h * _up * 1.3);
+      canvas.drawOval(rect, add..shader = ui.Gradient.radial(c, rect.height / 2, const [Color(0x44FF8A30), Color(0x00FF8A30)]));
+    }
+    if (m.gallery == 'hollow' && !rm) {
+      // the Hollow breathing up out of the cracks, a few motes across the view
+      for (var i = 0; i < 14; i++) {
+        final tt = s._t * 0.12 + i / 14;
+        final ph = tt - tt.floorToDouble();
+        final x = _hash(i.toDouble(), tt.floorToDouble()) * size.width;
+        final y = size.height * (1 - ph) + math.sin(ph * 9 + i) * 8;
+        canvas.drawRect(Rect.fromCenter(center: Offset(x, y), width: 2.4 * u / 2.7, height: 2.4 * u / 2.7),
+            Paint()..color = Color.fromRGBO(196, 150, 255, math.sin(ph * math.pi) * 0.7));
+      }
+    }
+  }
+
   void _caveDark(Canvas canvas, Size size, WildsMap m, Raid r) {
     // its own layer: the lights cut holes in the dark, never in the picture under it (drawn straight
     // on the canvas, dstOut erased the floor itself to the black behind, a blot where your Evochi stood)
     canvas.saveLayer(Offset.zero & size, Paint());
     final c = canvas;
-    // a blue-black dusk rather than a blackout: the galleries read, the lights still mean something
-    c.drawRect(Offset.zero & size, Paint()..color = const Color(0x6E0C0A18));
+    // a blue-black dusk rather than a blackout: the galleries read, the lights still mean something (deeper
+    // down, a warmer black in the lava galleries, a violet one where the Hollow has split the rock)
+    c.drawRect(
+        Offset.zero & size,
+        Paint()
+          ..color = switch (m.gallery) { 'lava' => const Color(0x7A120806), 'hollow' => const Color(0x76100822), _ => const Color(0x6E0C0A18) });
     final clear = Paint()..blendMode = BlendMode.dstOut;
     void light(Offset at, double rad, double a, [double core = 0.25]) {
       c.drawCircle(at, rad, clear..shader = ui.Gradient.radial(at, rad, [Color.fromRGBO(0, 0, 0, a), const Color(0x00000000)], [core, 1.0]));
@@ -2681,6 +2935,16 @@ class _MapPainter extends CustomPainter {
     }
     for (final o in r.ores) {
       if (o.kind == 'lumen' && !o.broken) light(s._toScreen(o.x, o.z) - Offset(0, 10 * u), 85 * u, 0.75);
+    }
+    // the lava lights the cave round it; the caps glow
+    for (final (x, z, rr) in m.lava) {
+      light(s._toScreen(x, z), rr * s._u * 3.0, 0.85, 0.35);
+    }
+    for (final (x, z, h, _) in m.falls) {
+      light(s._toScreen(x, z) - Offset(0, h * _up * 0.5), h * s._u * 1.3, 0.8, 0.3);
+    }
+    for (final cp in m.caps) {
+      if (!s._used.contains(cp.id)) light(s._toScreen(cp.x, cp.z) - Offset(0, 4 * u), 70 * u, 0.7);
     }
     canvas.restore();
     // the lamplight's warmth on what stands near your Evochi (over the dark, so it reads as light cast)
@@ -4354,6 +4618,15 @@ class _MapPainter extends CustomPainter {
           final a = i * math.pi / 3 + b.x;
           final d0 = 4 + 10 * k, d1 = 8 + 16 * k;
           canvas.drawLine(c + Offset(math.cos(a) * d0, math.sin(a) * d0) * u, c + Offset(math.cos(a) * d1, math.sin(a) * d1) * u, p);
+        }
+      case 'lavasplash':
+        // a step into the lava: molten drops thrown up and out, a puff of heat
+        _glow(canvas, g - Offset(0, 6 * _up), (10 + 18 * k) * u, Color.fromRGBO(255, 140, 50, 0.7 * (1 - k)));
+        for (var i = 0; i < 8; i++) {
+          final a = i * math.pi / 4 + b.x * 0.3;
+          final d = (4 + 16 * k) * u;
+          final c = g + Offset(math.cos(a) * d, math.sin(a) * d * 0.6 - math.sin(k * math.pi) * 14 * u);
+          canvas.drawRect(Rect.fromCenter(center: c, width: 2.6 * u, height: 2.6 * u), Paint()..color = Color.fromRGBO(255, 190 - (90 * k).round(), 60, 1 - k));
         }
       case 'glow':
         _glow(canvas, g - Offset(0, 6 * _up), (8 + 18 * k) * u, Color.fromRGBO(159, 240, 218, 0.7 * (1 - k)));

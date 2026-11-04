@@ -71,6 +71,14 @@ const gearDefs = <String, GearDef>{
   'iron_pick': GearDef(
       id: 'iron_pick', name: 'Iron Pick', slot: 'tool', tier: 2, maker: 'flint', coins: 260, ore: {'copper_ore': 6}, power: 0.35, opens: true,
       desc: "Flint's iron-headed pick. It bites into the rust-red rock: with it, iron breaks."),
+  // the lava galleries' ore (F3 down) breaks only to these, whatever your Evochi; each is made from the tier
+  // below's ore, so the way down is always open
+  'lumen_pick': GearDef(
+      id: 'lumen_pick', name: 'Lumen Pick', slot: 'tool', tier: 3, maker: 'flint', coins: 520, ore: {'iron_ore': 10, 'copper_ore': 4}, power: 0.55, opens: true,
+      desc: 'A pick with a head of tempered glass that holds a little Lumen. Lumen crystal only gives to its own light.'),
+  'obsidian_pick': GearDef(
+      id: 'obsidian_pick', name: 'Obsidian Pick', slot: 'tool', tier: 4, maker: 'bram', ore: {'lumen_crystal': 8, 'iron_ore': 6}, power: 0.8, opens: true,
+      desc: "Bram knapped the head from lava-glass and bound it with Lumen. Obsidian breaks to nothing softer."),
   // ---- Bram's: armour, forged from your ore
   'copper_harness': GearDef(
       id: 'copper_harness', name: 'Copper Harness', slot: 'harness', tier: 1, maker: 'bram', ore: {'copper_ore': 6}, power: 0.1, carry: 2,

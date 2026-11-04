@@ -116,7 +116,24 @@ void main() {
       expect(p.ores.length, greaterThanOrEqualTo(3), reason: 'seed $seed F$depth: a mine has ore');
       final kinds = {for (final o in p.ores) o['kind'] as String};
       if (depth == 1) expect(kinds.contains('copper'), isTrue);
-      if (depth >= 3) expect(kinds.contains('lumen') || kinds.contains('obsidian'), isTrue, reason: 'seed $seed F$depth: the ladder climbs');
+      // from F3 a gallery is lava (the rare ore, and only there) or the Hollow's (iron, copper, glowing caps)
+      expect(p.gallery, galleryKind(depth, seed));
+      final rare = kinds.contains('lumen') || kinds.contains('obsidian');
+      if (depth < 3) expect(p.gallery, 'cave');
+      if (p.gallery == 'lava') expect(rare, isTrue, reason: 'seed $seed F$depth: the ladder climbs');
+      if (p.gallery != 'lava') expect(rare, isFalse, reason: 'seed $seed F$depth: lumen and obsidian only where the lava runs');
+      if (p.gallery != 'lava') expect(p.lava, isEmpty);
+      if (p.gallery != 'hollow') expect(p.caps, isEmpty);
+      // the lava never takes the ground you need: the way in, the ore, what's there to use
+      bool inLava(double x, double z, double pad) =>
+          p.lava.any((l) => math.pow(x - (l['x'] as num), 2) + math.pow(z - (l['z'] as num), 2) < math.pow((l['r'] as num) + pad, 2));
+      expect(inLava(p.start.$1, p.start.$2, 20), isFalse, reason: 'seed $seed: lava at the way in');
+      for (final o in p.ores) {
+        expect(inLava(o['x'] as double, o['z'] as double, 14), isFalse, reason: 'seed $seed: lava on ${o['id']}');
+      }
+      for (final sp in p.spots) {
+        expect(inLava(sp['x'] as double, sp['z'] as double, 10), isFalse, reason: 'seed $seed: lava on ${sp['id']}');
+      }
       final r = reach(p, p.start.$1, p.start.$2);
       for (final o in p.ores) {
         expect(inReach(p, r, o['x'] as double, o['z'] as double, 26), isTrue, reason: 'seed $seed: ${o['id']} out of reach');
@@ -125,7 +142,14 @@ void main() {
         expect(inReach(p, r, sp['x'] as double, sp['z'] as double, 24), isTrue, reason: 'seed $seed: ${sp['id']} out of reach');
       }
       expect(p.fx.any((f) => f['kind'] == 'lamp'), isTrue, reason: 'seed $seed: the galleries are lit');
+      for (final c in p.caps) {
+        expect(inReach(p, r, c['x'] as double, c['z'] as double, 24), isTrue, reason: 'seed $seed: ${c['id']} out of reach');
+      }
     }
+    // both kinds turn up from F3, the lava more often
+    final ks = [for (var seed = 1; seed <= 60; seed++) galleryKind(3 + seed % 5, seed)];
+    expect(ks.where((k) => k == 'lava').length, greaterThan(ks.where((k) => k == 'hollow').length));
+    expect(ks.contains('hollow'), isTrue);
   });
 
   test('a floor\'s twists: none before F4, then one, two from F8, three from F12; the seed decides', () {

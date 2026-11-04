@@ -83,7 +83,7 @@ TENT_LAMP = (TENT[0], TENT[3] - 1.3, TENT[2] + 0.55)
 CAMPFIRE = (95.5, -12.6)
 FLAG = (99.8, -16.4)
 WHEELBARROW = (92.6, -18.6)   # by the tool rack, out of Flint's way
-ORE_NODES = (('copper', 92.0, -9.5), ('copper', 89.4, -12.2), ('iron', 108.6, -12.4), ('lumen', 121.0, -12.6))   # the trail's ore
+ORE_NODES = (('copper', 92.0, -9.5), ('copper', 89.4, -12.2), ('iron', 108.6, -12.4), ('iron', 121.0, -12.6))   # the trail's ore (lumen and obsidian are the lava galleries' alone)
 ORES = tuple((x, z) for _, x, z in ORE_NODES)
 
 

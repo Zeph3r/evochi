@@ -23,6 +23,7 @@ import 'package:provider/provider.dart';
 import 'package:evochi/features/shared/kit.dart';
 import 'package:evochi/features/village/village_walk.dart';
 import 'package:evochi/game/hatch/hatch.dart' as hatch;
+import 'package:evochi/features/wilds/deep_floor.dart' show galleryKind;
 import 'package:evochi/features/wilds/wilds_combat.dart';
 import 'package:evochi/features/wilds/wilds_screen.dart';
 import 'package:evochi/game/engine.dart' as g;
@@ -337,6 +338,7 @@ void placeNear(Take s, double x, double z, {double dist = 40}) {
       final dx = bx - px, dz = bz - pz;
       if (dx * dx + dz * dz < (br + rad + 5) * (br + rad + 5)) return false;
     }
+    if (r.lavaAt(px, pz, -rad - 6) != null) return false;
     return true;
   }
 
@@ -587,7 +589,7 @@ final sproutintro = Short(
 );
 
 /// Looks at one thing, recorded by name only.
-final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort, gardenLower, gardenOrders, blastsShort, telegraphs, runs, windup];
+final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort, gardenLower, gardenOrders, blastsShort, telegraphs, runs, windup, galleries];
 
 /// 3. The Deep Wilds: a clearing calmed, the way down opens, down a floor, and a Hollow Surge.
 final deep = Short(
@@ -796,6 +798,72 @@ final windup = Short(
       ),
   ],
 );
+
+/// The first seed whose mine floor [depth] is a [kind] gallery (deep_floor.dart galleryKind).
+int _gallerySeed(String kind, {int depth = 3, int from = 1}) {
+  for (var sd = from;; sd++) {
+    if (galleryKind(depth, sd) == kind) return sd;
+  }
+}
+
+/// The deep galleries (not for posting): a lava gallery (a fall and its pool, a step into the lava and out),
+/// then a Hollow gallery (its cracked glowing rock, a patch of glowing caps).
+final galleries = Short(
+  id: 'galleries',
+  endTitle: const [('Deep galleries', null)],
+  endSecs: 0.4,
+  clips: [
+    Clip(
+      state: () => mochi('obsidian'),
+      open: () => WildsScreen(depth: 3, seed: _gallerySeed('lava'), mine: true),
+      secs: 7.5,
+      preroll: 1.2,
+      zoom: 0.62,
+      quiet: true,
+      pilot: const PilotStart(on: false),
+      setup: (s) async {
+        await _god(s);
+        final m = s.screen!.map!;
+        if (m.falls.isNotEmpty) {
+          final f = m.falls.first;
+          placeNear(s, f.$1, f.$2 + 24, dist: 48);
+        } else if (m.lava.isNotEmpty) {
+          placeNear(s, m.lava.first.$1, m.lava.first.$2, dist: 48);
+        }
+      },
+      beats: [
+        Beat(0.05, (s) => s.say(const [('Lava gallery', white)], secs: 1.2, size: 27, y: 165)),
+        // into the nearest pool, and thrown back out of it
+        Beat(2.4, (s) {
+          final r = s.raid!, p = r.pet;
+          final pools = [...s.screen!.map!.lava]..sort((a, b) => _d2(a.$1, a.$2, p.x, p.z).compareTo(_d2(b.$1, b.$2, p.x, p.z)));
+          if (pools.isEmpty) return;
+          s.autopilot
+            ..walkRun = false
+            ..walkTo = Offset(pools.first.$1, pools.first.$2);
+        }),
+        Beat(4.6, (s) => s.autopilot.walkTo = null),
+      ],
+    ),
+    Clip(
+      state: () => mochi('forest'),
+      open: () => WildsScreen(depth: 3, seed: _gallerySeed('hollow'), mine: true),
+      secs: 6.0,
+      preroll: 1.2,
+      zoom: 0.62,
+      quiet: true,
+      pilot: const PilotStart(on: false),
+      setup: (s) async {
+        await _god(s);
+        final m = s.screen!.map!;
+        if (m.caps.isNotEmpty) placeNear(s, m.caps.first.x, m.caps.first.z, dist: 44);
+      },
+      beats: [Beat(0.05, (s) => s.say(const [('Hollow gallery', white)], secs: 1.2, size: 27, y: 165))],
+    ),
+  ],
+);
+
+double _d2(double ax, double az, double bx, double bz) => (ax - bx) * (ax - bx) + (az - bz) * (az - bz);
 
 /// A Juvenile's run, then an Elder's (not for posting): across a clearing and back, then up it.
 final runs = Short(

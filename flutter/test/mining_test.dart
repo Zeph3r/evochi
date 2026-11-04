@@ -160,8 +160,8 @@ void main() {
     expect(m.oreTierOf(s), 0);
   });
 
-  test("an Obsidian breaks ore with its own paws, harder ore as it grows; harder ore takes it more strikes", () {
-    final s = rich(freshPet(), 0).copy();
+  test("an Obsidian breaks copper and iron with its own paws; the lava galleries' lumen and obsidian need a pick", () {
+    var s = rich(freshPet(), 5000).copy();
     s.pet = Pet.fromJson(s.pet!.toJson()..['paletteId'] = 'obsidian');
     expect(m.oreTierOf(s), 1, reason: 'an Eggling: copper');
     s.pet!.stage = 2;
@@ -169,9 +169,20 @@ void main() {
     expect(m.strikeWorth(s, 1), closeTo(1.34, 1e-9));
     expect(m.strikeWorth(s, 2), closeTo(1.34 * 0.75, 1e-9), reason: 'its hardest takes more strikes');
     s.pet!.stage = 3;
-    expect(m.oreTierOf(s), 3, reason: 'an Elder: lumen');
+    expect(m.oreTierOf(s), 2, reason: 'an Elder still needs a pick for lumen');
+    expect(m.strikeWorth(s, 2), closeTo(1.34, 1e-9), reason: 'but breaks iron at full strength');
     s.pet!.xpAwarded['test'] = 10000000;
-    expect(m.oreTierOf(s), 4, reason: 'a seasoned Elder: obsidian');
+    expect(m.oreTierOf(s), 2, reason: 'however seasoned');
+    expect(m.miningPowerOf(s), greaterThan(1.34), reason: 'a seasoned Elder strikes harder');
+    // the picks: lumen from iron, obsidian from lumen
+    g.grantItem(s, 'iron_ore', 20, 'mine', t0);
+    g.grantItem(s, 'copper_ore', 10, 'mine', t0);
+    s = m.buyGear(s, 'lumen_pick', 'lp', t0).state;
+    expect(m.oreTierOf(s), 3);
+    g.grantItem(s, 'lumen_crystal', 8, 'mine', t0);
+    s = m.forgeGear(s, 'obsidian_pick', 'op', t0).state;
+    s = m.wearGear(s, m.ownedGear(s, 'obsidian_pick')!.id).state;
+    expect(m.oreTierOf(s), 4);
   });
 
   test("gear is its own loadout: it never touches the wearables, and it's never for Glimmer", () {

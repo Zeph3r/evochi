@@ -31,6 +31,15 @@ const deepTrail = 'Fernwood Trail';
 /// The floor numbers: the Thicket is F1, the Deep Wilds start at F2.
 const firstDeepFloor = 2;
 
+/// The mine's deep galleries start here: each floor from it down is a lava gallery or (about one in three) a
+/// Hollow gallery, by its seed. Lumen and obsidian are only ever found where the lava runs.
+const deepGalleryFrom = 3;
+
+String galleryKind(int depth, int seed) {
+  if (depth < deepGalleryFrom) return 'cave';
+  return math.Random(seed * 17 + depth * 5 + 3).nextDouble() < 1 / 3 ? 'hollow' : 'lava';
+}
+
 // ------------------------------------------------------------------------------------- the twists
 /// A floor's twists: id -> (name, what it does). The fight's half is on the Wilds screen (the Raid's
 /// foeHp, foeHarm, coinMul); swarm and spores are the plan's (more creatures; mostly sporecaps).
@@ -115,6 +124,13 @@ class FloorPlan {
   final spots = <Map<String, Object>>[];
   final ores = <Map<String, Object>>[]; // the mines: ore nodes (kind, x, z)
   bool mine = false;
+
+  /// A mine gallery's kind: 'cave' (F1-F2), and from F3 'lava' (lumen and obsidian; pools and falls of it) or
+  /// 'hollow' (the Hollow's cracked rock; patches of glowing caps and the Capfolk who keep them).
+  String gallery = 'cave';
+  final lava = <Map<String, Object>>[]; // pools: x, z, r (a pool is a few of these overlapping)
+  final falls = <Map<String, Object>>[]; // lava falls down the rock: x, z (the rock face), h, w
+  final caps = <Map<String, Object>>[]; // glowing cap patches: id, x, z, n (caps), keepers
   final fx = <Map<String, Object>>[];
   late final List<String> mods = story == null && !mine ? floorMods(depth, seed) : const <String>[];
 
@@ -278,7 +294,8 @@ double _segDist(Offset a, Offset b, double x, double z) {
 FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii, {String? story, bool mine = false, bool nest = false}) {
   final plan = planLayout(kit, depth, seed)
     ..story = story
-    ..mine = mine;
+    ..mine = mine
+    ..gallery = mine ? galleryKind(depth, seed) : 'cave';
   if (mine) {
     // a working mine (MINES_PLAN.md): galleries of ore instead of fights, nothing big waiting
     for (final r in plan.rooms) {
@@ -446,9 +463,10 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
         // rubble behind), the odd glowing cap of shrooms; the deep rock beyond is dark
         if (f > 120 && rng.p(0.55)) continue;
         // near the galleries only low, narrow things (a rock's 10.5 would pinch a hall); the big rock behind
-        final kind = f < 30
+        var kind = f < 30
             ? (rng.p(0.3) ? 'shrooms' : rng.pick(const ['pillar_low', 'rock', 'pillar_low']))
             : (rng.p(0.3) ? 'pillar' : rng.pick(const ['boulder', 'pillar_low', 'rock', 'boulder']));
+        if (kind == 'shrooms' && plan.gallery == 'lava') kind = 'rock'; // nothing grows in the heat
         final sc = kind == 'shrooms' ? rng.d(0.8, 1.0) : (f < 30 ? rng.d(0.6, 0.8) : rng.d(0.95, 1.3));
         add(kind, px, pz, s: sc);
         continue;
@@ -492,7 +510,11 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
           'text': mine
               ? (depth == 1
                   ? "Flint's mine, the first gallery. Copper in the walls, and a vein of iron if you look. Walk up to a node and Pounce; the ore goes in your satchel and comes home with you."
-                  : 'Gallery $depth. The rock is harder down here, and the ore worth more.')
+                  : switch (plan.gallery) {
+                      'lava' => 'Gallery $depth. The rock runs hot here: keep out of the lava, it burns. Lumen and obsidian grow only where it flows.',
+                      'hollow' => 'Gallery $depth. The Hollow has split the rock. Glowcaps grow along its cracks, and the Capfolk who keep them sleep close by. Pick quietly.',
+                      _ => 'Gallery $depth. The rock is harder down here, and the ore worth more.',
+                    })
               : depth == firstDeepFloor
               ? 'F$depth · $deepTrail. Past the Thicket the old trail winds down through deeper wood. Each floor ends at an old doorway down, sealed until the floor is calm.'
               : 'F$depth · $deepTrail. Deeper still. The Hollow is thicker down here.',
@@ -598,7 +620,94 @@ FloorPlan planFloor(RoomKit kit, int depth, int seed, Map<String, double> radii,
       plan.zones.add({'id': 'r${r.i}', 'name': r.role == 'elite' ? 'Elite\'s Hollow' : (r.role == 'vein' ? 'Gallery' : 'Clearing'), 'x': cx, 'z': cz, 'r': rr});
     }
   }
+  // the deep galleries' own ground: lava pools and falls, or the Hollow's glowing caps (a rng of its own, so
+  // every other floor is as it was)
+  if (mine && plan.gallery != 'cave') _deepGallery(plan, kit, farAt, clearOfWays);
   return plan;
+}
+
+double _r1(double v) => (v * 10).round() / 10;
+
+/// A lava gallery's pools and falls, or a Hollow gallery's cap patches, laid off the ways (they stay
+/// walkable round them), clear of the ore and what's there to use, and never by the way in or down.
+void _deepGallery(FloorPlan plan, RoomKit kit, int Function(double, double) farAt, bool Function(double, double, double) clearOfWays) {
+  final rng = _Rng(plan.seed * 53 + plan.depth * 7 + 11);
+  final (sx, sz) = plan.start;
+  final (gx, gz) = plan.gate;
+  double d2(double ax, double az, double bx, double bz) => (ax - bx) * (ax - bx) + (az - bz) * (az - bz);
+  double nv(Map<String, Object> m, String k) => (m[k] as num).toDouble();
+  bool roomFor(double x, double z, double r, {bool props = true}) {
+    if (!clearOfWays(x, z, r)) return false;
+    if (d2(x, z, sx, sz) < (r + 50) * (r + 50) || d2(x, z, gx, gz + 14) < (r + 58) * (r + 58)) return false;
+    for (final o in plan.ores) {
+      if (d2(x, z, nv(o, 'x'), nv(o, 'z')) < (r + 34) * (r + 34)) return false;
+    }
+    for (final sp in plan.spots) {
+      if (d2(x, z, nv(sp, 'x'), nv(sp, 'z')) < (r + 30) * (r + 30)) return false;
+    }
+    if (props) {
+      for (final (bx, bz, br) in plan.blocks) {
+        if (d2(x, z, bx, bz) < (r + br * 0.6) * (r + br * 0.6)) return false;
+      }
+    }
+    for (final p in plan.lava) {
+      final pr = nv(p, 'r');
+      if (d2(x, z, nv(p, 'x'), nv(p, 'z')) < (r + pr + 14) * (r + pr + 14)) return false;
+    }
+    for (final c in plan.caps) {
+      if (d2(x, z, nv(c, 'x'), nv(c, 'z')) < (r + 40) * (r + 40)) return false;
+    }
+    return true;
+  }
+
+  bool onGround(double x, double z, double r) => farAt(x, z) == 0 && farAt(x + r, z) == 0 && farAt(x - r, z) == 0 && farAt(x, z + r * 0.8) == 0 && farAt(x, z - r * 0.8) == 0;
+  for (final r in plan.rooms) {
+    if (r.role == 'start') continue;
+    final (cx, cz) = plan.centre(r);
+    final rr = kit.chunks[_chunkId(r)]!.r;
+    if (plan.gallery == 'lava') {
+      // pools off the ways, each an uneven shape (a pool and a lobe)
+      final want = r.hall ? (rng.p(0.5) ? 1 : 0) : 2 + rng.i(2);
+      var got = 0;
+      for (var t = 0; t < 40 && got < want; t++) {
+        final a = rng.d(0, math.pi * 2), d = rr * rng.d(0.15, 0.7);
+        final x = cx + math.cos(a) * d, z = cz + math.sin(a) * d * 0.9;
+        final pr = rng.d(9, 16) * (r.hall ? 0.75 : 1);
+        if (!onGround(x, z, pr) || !roomFor(x, z, pr)) continue;
+        plan.lava.add({'x': _r1(x), 'z': _r1(z), 'r': _r1(pr)});
+        final la = rng.d(0, math.pi * 2), lr = pr * rng.d(0.5, 0.75);
+        final lx = x + math.cos(la) * pr * 0.75, lz = z + math.sin(la) * pr * 0.6;
+        if (onGround(lx, lz, lr) && clearOfWays(lx, lz, lr)) plan.lava.add({'x': _r1(lx), 'z': _r1(lz), 'r': _r1(lr)});
+        got++;
+      }
+      // a fall down the rock at a clearing's back, pooling at its foot
+      if (!r.hall && rng.p(0.8)) {
+        for (var t = 0; t < 8; t++) {
+          final fx = cx + rng.d(-rr * 0.45, rr * 0.45);
+          var fz = cz - rr * 0.2;
+          while (fz > cz - rr * 1.6 && farAt(fx, fz) == 0) {
+            fz -= 4;
+          }
+          if (farAt(fx, fz) == 0) continue;
+          final pz = fz + 8;
+          if (farAt(fx, pz + 6) != 0 || !roomFor(fx, pz, 10, props: false)) continue;
+          plan.falls.add({'x': _r1(fx), 'z': _r1(fz + 3), 'h': _r1(rng.d(40, 58)), 'w': _r1(rng.d(7, 10))});
+          plan.lava.add({'x': _r1(fx), 'z': _r1(pz), 'r': 11.0});
+          break;
+        }
+      }
+    } else {
+      // the Hollow's: a patch of glowing caps in a clearing, its keepers asleep in the rock close by
+      if (r.hall || !rng.p(0.85)) continue;
+      for (var t = 0; t < 30; t++) {
+        final a = rng.d(0, math.pi * 2), d = rr * rng.d(0.2, 0.6);
+        final x = cx + math.cos(a) * d, z = cz + math.sin(a) * d * 0.9;
+        if (!onGround(x, z, 14) || !roomFor(x, z, 14)) continue;
+        plan.caps.add({'id': 'caps_${r.i}', 'x': _r1(x), 'z': _r1(z), 'n': 3 + rng.i(3), 'keepers': 2 + (plan.depth >= 5 ? 1 : 0) + (rng.p(0.3) ? 1 : 0)});
+        break;
+      }
+    }
+  }
 }
 
 String _chunkId(FloorRoom r) => '${r.hall ? 'hall' : 'room'}_${r.mask.toString().padLeft(2, '0')}';
@@ -678,12 +787,14 @@ void _nest(FloorPlan plan, _Rng rng, double cx, double cz, double rr, bool mine)
 }
 
 /// The ore in a gallery: a vein of the floor's common ore round the rim, one richer node among them.
-/// Which ores a floor has (MINES_PLAN.md's ladder): F1 copper and a little iron, F2 iron with copper,
-/// F3 lumen among iron, F4 and down obsidian too.
+/// Which ores a floor has (MINES_PLAN.md's ladder): F1 copper and a little iron, F2 iron with copper; from
+/// F3 a lava gallery has lumen among iron, and from F4 obsidian among lumen (they're found nowhere else); a
+/// Hollow gallery has iron, and copper.
 void _ores(FloorPlan plan, _Rng rng, KitChunk k, FloorRoom r, double cx, double cz, double rr, int depth, double rad,
     bool Function(double, double, double) clearOfWays, {int? count}) {
-  final common = depth <= 1 ? 'copper' : (depth == 2 ? 'iron' : (depth == 3 ? 'iron' : 'lumen'));
-  final rich = depth <= 1 ? 'iron' : (depth == 2 ? 'iron' : (depth == 3 ? 'lumen' : 'obsidian'));
+  final hot = plan.gallery == 'lava';
+  final common = depth <= 1 ? 'copper' : (depth == 2 || !hot ? 'iron' : (depth == 3 ? 'iron' : 'lumen'));
+  final rich = depth <= 1 ? 'iron' : (!hot ? (plan.gallery == 'hollow' ? 'copper' : 'iron') : (depth == 3 ? 'lumen' : 'obsidian'));
   final n = count ?? 3 + rng.i(2);
   var placed = 0;
   final a0 = rng.d(0, math.pi * 2);
@@ -756,13 +867,13 @@ Future<WildsMap> makeFloor(int depth, int seed, {String? story, String? place, S
   final chunkImg = <String, ui.Image>{};
   for (final (id, _, _) in plan.placed) {
     // the mine's galleries: the same chunks as cave floor (tools/art/cave_kit.py)
-    chunkImg[id] ??= await _image(wildsBase + (mine ? kit.chunks[id]!.image.replaceFirst('kit_', 'kit_cave_') : kit.chunks[id]!.image));
+    chunkImg[id] ??= await _image(wildsBase + (mine ? kit.chunks[id]!.image.replaceFirst('kit_', 'kit_${plan.gallery}_') : kit.chunks[id]!.image));
   }
   final tiles = [
     for (final (id, x, z) in plan.placed)
       GroundTile(chunkImg[id]!, Rect.fromLTWH(origin.dx + x * s, origin.dy + z * s * sinP, C * s, C * s * sinP)),
   ];
-  final kinds = {for (final p in plan.props) p['kind'] as String};
+  final kinds = {for (final p in plan.props) p['kind'] as String, if (plan.caps.isNotEmpty) 'shrooms'};
   final propArt = <String, PropArt>{};
   for (final k in kinds) {
     if (k == 'chest') {
@@ -785,7 +896,9 @@ Future<WildsMap> makeFloor(int depth, int seed, {String? story, String? place, S
     'pitch': kit.pitch,
     'scale': s,
     'biome': mine ? 'mine' : 'wood',
-    'objective': mine ? 'Pounce the ore; the shaft down is open' : switch (story) { null => 'Calm the floor and find the way down', 'sentinel' => 'Find the old gate past the bridge', _ => 'Find what waits in the ruins' },
+    'objective': mine
+        ? switch (plan.gallery) { 'lava' => 'Mind the lava; the shaft down is open', 'hollow' => 'Forage quietly; the shaft down is open', _ => 'Pounce the ore; the shaft down is open' }
+        : switch (story) { null => 'Calm the floor and find the way down', 'sentinel' => 'Find the old gate past the bridge', _ => 'Find what waits in the ruins' },
     'ores': plan.ores,
     'ground': {'w': gw, 'h': gh, 'origin': [origin.dx, origin.dy], 'scale': s},
     'bounds': [plan.bounds.left, plan.bounds.top, plan.bounds.right, plan.bounds.bottom],
@@ -795,7 +908,10 @@ Future<WildsMap> makeFloor(int depth, int seed, {String? story, String? place, S
     'zones': plan.zones,
     'foes': plan.foes,
     'gate': {'x': gx, 'z': gz, 'emit': 21.0, 'beams': [14.0, 26.0, 38.0]},
-    'deep': {'depth': depth, 'seed': seed, 'mods': plan.mods, if (mine) 'mine': true},
+    'deep': {'depth': depth, 'seed': seed, 'mods': plan.mods, if (mine) 'mine': true, if (mine) 'gallery': plan.gallery},
+    if (plan.lava.isNotEmpty) 'lava': plan.lava,
+    if (plan.falls.isNotEmpty) 'falls': plan.falls,
+    if (plan.caps.isNotEmpty) 'caps': plan.caps,
     if (story != null && plan.storyAt != null) 'story': {'beat': story, 'quest': quest, 'x': plan.storyAt!.$1, 'z': plan.storyAt!.$2},
   };
   return WildsMap.made(
@@ -824,12 +940,21 @@ Future<ui.Image> _minimap(FloorPlan plan, {bool mine = false}) async {
   final rec = ui.PictureRecorder();
   final c = Canvas(rec);
   c.drawRect(Rect.fromLTWH(0, 0, w.toDouble(), h.toDouble()), Paint()..color = mine ? const Color(0xFF241E2A) : const Color(0xFF26401E));
-  final ground = Paint()..color = mine ? const Color(0xFF8E8476) : const Color(0xFF9BC46A);
+  final ground = Paint()
+    ..color = switch (plan.gallery) { 'lava' => const Color(0xFF6E5C54), 'hollow' => const Color(0xFF746C8E), _ => mine ? const Color(0xFF8E8476) : const Color(0xFF9BC46A) };
   for (var k = 0; k < plan.rows; k++) {
     for (var i = 0; i < plan.cols; i++) {
       final bit = k * plan.cols + i;
       if ((plan.grid[bit >> 3] >> (7 - (bit & 7))) & 1 == 0) c.drawRect(Rect.fromLTWH(i * px, k * px, px, px), ground);
     }
+  }
+  // the lava, so the minimap shows where not to go; the caps, where to forage
+  for (final p in plan.lava) {
+    c.drawCircle(Offset(((p['x'] as num) - plan.x0) / plan.cell * px, ((p['z'] as num) - plan.z0) / plan.cell * px), (p['r'] as num) / plan.cell * px,
+        Paint()..color = const Color(0xFFFF7A2A));
+  }
+  for (final p in plan.caps) {
+    c.drawCircle(Offset(((p['x'] as num) - plan.x0) / plan.cell * px, ((p['z'] as num) - plan.z0) / plan.cell * px), 2.2, Paint()..color = const Color(0xFF9FF0FF));
   }
   return rec.endRecording().toImage(w, h);
 }

@@ -58,16 +58,19 @@ int gearTierOf(GameState s) {
 }
 
 /// Only an Obsidian Evochi breaks ore with its own paws (it's made of the stuff), and harder ore as it grows: an
-/// Eggling copper, a Juvenile iron, an Elder lumen, and an Elder from level [obsidianDeepLevel] obsidian.
-/// Every other Evochi needs gear for it.
+/// Eggling copper, a Juvenile iron. The lava galleries' lumen and obsidian need a pick that opens them, for
+/// every Evochi; an Elder Obsidian's paws break iron at full strength (and from level [obsidianDeepLevel]
+/// strike harder still). Every other Evochi needs gear for any of it.
 const obsidianDeepLevel = 15;
 
 int bareTierOf(GameState s) {
   final p = s.pet;
   if (p == null || p.paletteId != 'obsidian') return 0;
-  final lv = levelInfo(p.xpAwarded.values.fold(0, (a, b) => a + b)).level;
-  return switch (p.stage) { 1 => 1, 2 => 2, _ => lv >= obsidianDeepLevel ? 4 : 3 };
+  return p.stage <= 1 ? 1 : 2;
 }
+
+/// An Elder Obsidian's paws: iron at full strength (not just broken, as a Juvenile's).
+bool _bareFull(GameState s) => s.pet?.paletteId == 'obsidian' && (s.pet?.stage ?? 1) >= 3;
 
 /// The hardest ore you can break at all (0: none yet).
 int oreTierOf(GameState s) => math.max(gearTierOf(s), bareTierOf(s));
@@ -75,7 +78,7 @@ int oreTierOf(GameState s) => math.max(gearTierOf(s), bareTierOf(s));
 /// The ore you strike at full strength: your gear's, or with bare paws all but the hardest you can break.
 int fullTierOf(GameState s) {
   final bare = bareTierOf(s);
-  return math.max(gearTierOf(s), bare > 1 ? bare - 1 : bare);
+  return math.max(gearTierOf(s), bare > 1 && !_bareFull(s) ? bare - 1 : bare);
 }
 
 /// Each tier an ore sits above what you strike at full strength, a strike is worth this much less: harder ore
@@ -89,7 +92,9 @@ double strikeWorth(GameState s, int oreTier) => miningPowerOf(s) * hardness(oreT
 
 /// How much a strike is worth: 1, plus your loadout's power, and an Obsidian Evochi's edge.
 double miningPowerOf(GameState s) {
-  final edge = s.pet?.paletteId == 'obsidian' ? 1.34 : 1.0;
+  final p = s.pet;
+  final seasoned = p != null && p.stage >= 3 && levelInfo(p.xpAwarded.values.fold(0, (a, b) => a + b)).level >= obsidianDeepLevel;
+  final edge = p?.paletteId == 'obsidian' ? (seasoned ? 1.5 : 1.34) : 1.0;
   return edge * (1 + wornGear(s).values.fold(0.0, (a, d) => a + d.power));
 }
 

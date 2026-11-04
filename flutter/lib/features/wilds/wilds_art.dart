@@ -246,6 +246,24 @@ class WildsMap {
   /// A Deep Wilds floor: its depth (F number), or null for a hand-made map.
   int? get depth => ((j['deep'] as Map?)?['depth'] as num?)?.toInt();
   bool get mine => (j['deep'] as Map?)?['mine'] == true; // a gallery of Flint's mine (deep_floor.dart, mine: true)
+
+  /// A mine gallery's kind (deep_floor.dart galleryKind): 'cave', 'lava' or 'hollow' ('' off the mine).
+  String get gallery => ((j['deep'] as Map?)?['gallery'] as String?) ?? '';
+
+  /// A lava gallery's pools (x, z, r) and its falls down the rock (x, z at the rock face, height, width).
+  late final List<(double, double, double)> lava = [
+    for (final p in (j['lava'] as List? ?? const [])) (((p as Map)['x'] as num).toDouble(), (p['z'] as num).toDouble(), (p['r'] as num).toDouble())
+  ];
+  late final List<(double, double, double, double)> falls = [
+    for (final p in (j['falls'] as List? ?? const []))
+      (((p as Map)['x'] as num).toDouble(), (p['z'] as num).toDouble(), (p['h'] as num).toDouble(), (p['w'] as num).toDouble())
+  ];
+
+  /// A Hollow gallery's patches of glowing caps: id, x, z, how many caps, how many Capfolk keep them.
+  late final List<({String id, double x, double z, int n, int keepers})> caps = [
+    for (final p in (j['caps'] as List? ?? const []))
+      (id: (p as Map)['id'] as String, x: (p['x'] as num).toDouble(), z: (p['z'] as num).toDouble(), n: (p['n'] as num).toInt(), keepers: (p['keepers'] as num).toInt())
+  ];
   /// The mine's ore nodes: id, kind, x, z.
   List<(String, String, double, double)> get ores =>
       [for (final o in (j['ores'] as List? ?? const [])) ((o as Map)['id'] as String, o['kind'] as String, (o['x'] as num).toDouble(), (o['z'] as num).toDouble())];

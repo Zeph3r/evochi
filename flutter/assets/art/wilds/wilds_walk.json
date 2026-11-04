@@ -210,6 +210,14 @@
     "iron_paw_guards": {
      "file": "gear_s02_iron_paw_guards.webp",
      "slot": "gear_paws"
+    },
+    "lumen_pick": {
+     "file": "gear_s02_lumen_pick.webp",
+     "slot": "gear_tool"
+    },
+    "obsidian_pick": {
+     "file": "gear_s02_obsidian_pick.webp",
+     "slot": "gear_tool"
     }
    }
   },
@@ -409,6 +417,14 @@
     "iron_paw_guards": {
      "file": "gear_s01_iron_paw_guards.webp",
      "slot": "gear_paws"
+    },
+    "lumen_pick": {
+     "file": "gear_s01_lumen_pick.webp",
+     "slot": "gear_tool"
+    },
+    "obsidian_pick": {
+     "file": "gear_s01_obsidian_pick.webp",
+     "slot": "gear_tool"
     }
    }
   },
@@ -698,6 +714,14 @@
     "iron_paw_guards": {
      "file": "gear_s03_iron_paw_guards.webp",
      "slot": "gear_paws"
+    },
+    "lumen_pick": {
+     "file": "gear_s03_lumen_pick.webp",
+     "slot": "gear_tool"
+    },
+    "obsidian_pick": {
+     "file": "gear_s03_obsidian_pick.webp",
+     "slot": "gear_tool"
     }
    }
   },

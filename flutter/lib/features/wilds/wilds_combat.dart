@@ -399,6 +399,7 @@ class Raid {
     this.miningPower = 1.0,
     this.oreTier = 1,
     this.gearTier = 1,
+    this.lava = const [],
   })  : ores = List.of(ores),
         rng = math.Random(seed),
         lootRng = math.Random(seed * 31 + 7) {
@@ -543,6 +544,18 @@ class Raid {
   final List<OreRock> ores;
   final double miningPower;
   int oreTier; // the hardest ore it can break at all (the recorder raises it mid-floor for a Short)
+
+  /// A lava gallery's pools (x, z, r): stepping in burns, and throws you back out onto the rock.
+  final List<(double, double, double)> lava;
+
+  /// The pool (x, z, r) that (x, z) stands in, [pad] in from its edge; null on the rock.
+  (double, double, double)? lavaAt(double x, double z, [double pad = 0]) {
+    for (final p in lava) {
+      final dx = x - p.$1, dz = z - p.$2, rr = p.$3 - pad;
+      if (rr > 0 && dx * dx + dz * dz < rr * rr) return p;
+    }
+    return null;
+  }
   final int gearTier; // the ore tier its gear strikes at full strength (harder ore takes more strikes)
   double time = 0, hitstop = 0, shake = 0;
   double flashT = 0; // a flash over the whole view (a heavy hit, a signature move), seconds left
@@ -842,6 +855,7 @@ class Raid {
     }
     _tickShots(dt);
     _tickHazards(dt);
+    _tickLava();
     _tickWaves(dt);
     _tickRoots(dt);
     _tickPickups(dt);
@@ -886,6 +900,18 @@ class Raid {
   bool _place(Actor w, double nx, double nz) {
     var hit = false;
     final r = w.radius;
+    // the creatures know the lava: they never step into it
+    if (w.team == Team.foe && lava.isNotEmpty) {
+      for (final (lx, lz, lr) in lava) {
+        final dx = nx - lx, dz = nz - lz, rr = lr * 0.9 + r * 0.5;
+        if (dx.abs() > rr || dz.abs() > rr) continue;
+        final d = _len(dx, dz);
+        if (d < rr && d > 1e-6) {
+          nx = lx + dx / d * rr;
+          nz = lz + dz / d * rr;
+        }
+      }
+    }
     // the others first (the lighter gives way to whoever it bumps), then the trunks and rocks last, so
     // being shoved by the guardian never pushes anyone through a wall of them
     if (!w.ghost) {
@@ -1000,6 +1026,46 @@ class Raid {
       }
     }
     return (vx + sx * 1.6, vz + sz * 1.6);
+  }
+
+  /// The lava: your Evochi (or Sher, or a friend) in a pool is thrown back out onto the rock, and burnt
+  /// unless it was rolling (a roll's grace) or still smarting from the last time.
+  void _tickLava() {
+    if (lava.isEmpty) return;
+    for (final a in [pet, if (sher != null) sher!, ...friends]) {
+      if (!a.alive || a.ghost) continue;
+      final p = lavaAt(a.x, a.z, a.radius * 0.3);
+      if (p == null) continue;
+      final (lx, lz, _) = p;
+      final d = _len(a.x - lx, a.z - lz);
+      final ux = d > 1e-3 ? (a.x - lx) / d : 0.0, uz = d > 1e-3 ? (a.z - lz) / d : 1.0;
+      a
+        ..kx = ux * 210
+        ..kz = uz * 210;
+      bursts.add(Burst('lavasplash', a.x, a.z, 0.55));
+      if (a.iframes > 0 || a.mercy > 0) continue;
+      final n = math.max(8, (a.maxHp * 0.12).round());
+      a
+        ..hp -= n
+        ..flash = 0.14
+        ..pop = 1
+        ..mercy = 0.8;
+      _float('-$n', a.x, a.z, 'hurt');
+      _emit('lava', x: a.x, z: a.z);
+      if (a == pet) {
+        shake = math.max(shake, 0.4);
+        act = PetAct.hurt;
+        actT = 0;
+        a.stun = math.max(a.stun, 0.2);
+        _emit('hurt', value: n.toDouble(), text: 'lava');
+        if (a.hp <= 0) {
+          a.hp = 0;
+          _knockout();
+        }
+      } else if (a.hp < 1) {
+        a.hp = 1; // (only your Evochi can be carried out by it)
+      }
+    }
   }
 
   void _physics(double dt) {

@@ -4190,7 +4190,9 @@
   "gilded_carrot": "items/gilded_carrot.webp",
   "gilded_wheat": "items/gilded_wheat.webp",
   "gilded_glowleaf": "items/gilded_glowleaf.webp",
-  "gilded_moonshroom": "items/gilded_moonshroom.webp"
+  "gilded_moonshroom": "items/gilded_moonshroom.webp",
+  "gear_lumen_pick": "items/gear_lumen_pick.webp",
+  "gear_obsidian_pick": "items/gear_obsidian_pick.webp"
  },
  "icons": {
   "bag": "icons/bag.webp",
