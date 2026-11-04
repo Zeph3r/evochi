@@ -47,24 +47,39 @@ class WildsGait {
 /// frames: a bounce for each step, a squash as the foot lands and a stretch at the top, a sway once a
 /// cycle; more of all of it at a run. Drawn only. [footfall] is true for the instant a foot lands.
 class GaitPose {
-  const GaitPose(this.bob, this.sx, this.sy, this.roll, this.footfall);
+  const GaitPose(this.bob, this.sx, this.sy, this.roll, this.footfall, [this.pitch = 0, this.stretch = 0]);
   final double bob; // how high the body rides, as a fraction of its sprite's height
   final double sx, sy; // squash and stretch
   final double roll; // degrees of sway (the painter turns it by how the walker faces)
   final bool footfall;
+  final double pitch; // degrees nose-up (seen side-on: the painter turns it by how the walker faces)
+  final double stretch; // along its length: long in the air, gathered as it lands (side-on, as width)
   static const still = GaitPose(0, 1, 1, 0, false);
 }
 
-/// [heft] 0 for an Eggling (it bounces), 1 for an Elder (it carries its weight: a third of the bounce,
-/// the sway mostly gone). The sheets already step, nod and swing their tails; this is the body on top.
+/// [heft] 0 for an Eggling (it bounces), 1 for an Elder (it carries its weight at a walk: a third of the
+/// bounce, the sway mostly gone). At a run an Elder bounds instead of sliding stiffly along: the bounce
+/// comes back, its body rocks nose-up off each push and nose-down into each landing, leaning into the run,
+/// and it stretches long in the air and gathers as it lands. The sheets already step, nod and swing their
+/// tails; this is the body on top.
 GaitPose gaitPose(double phase, bool moving, {double run = 0, bool reduced = false, double heft = 0}) {
   if (!moving || reduced) return GaitPose.still;
   final step = phase * 2; // two footfalls a cycle
   final b = 0.5 - 0.5 * math.cos(step * 2 * math.pi); // 0 as a foot lands, 1 mid-step
-  final amp = (1 + 0.55 * run) * (1 - 0.68 * heft);
-  final sq = 1 - 0.6 * heft;
-  return GaitPose(0.032 * b * amp, 1 + (0.045 - 0.06 * b) * sq, 1 + (-0.045 + 0.07 * b) * sq, 4.0 * amp * (1 - 0.3 * heft) * math.sin(phase * 2 * math.pi),
-      step - step.floor() < 0.09);
+  final rock = math.sin(step * 2 * math.pi); // rising off a push, falling into a landing
+  final carry = heft * (1 - 0.6 * run); // the weight it carries (a walk), shed at a run
+  final amp = (1 + 0.55 * run) * (1 - 0.68 * carry);
+  final sq = 1 - 0.6 * carry;
+  final bound = heft * run;
+  return GaitPose(
+    0.032 * b * amp * (1 + 0.3 * bound),
+    1 + (0.045 - 0.06 * b) * sq,
+    1 + (-0.045 + 0.07 * b) * sq,
+    4.0 * amp * (1 - 0.3 * heft) * math.sin(phase * 2 * math.pi),
+    step - step.floor() < 0.09,
+    bound * (-1.5 + 5.5 * rock) + heft * (1 - run) * 1.4 * rock,
+    0.07 * bound * (2 * b - 1),
+  );
 }
 
 class WalkerArt {

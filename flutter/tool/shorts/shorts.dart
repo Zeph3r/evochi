@@ -587,7 +587,7 @@ final sproutintro = Short(
 );
 
 /// Looks at one thing, recorded by name only.
-final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort, gardenLower, gardenOrders, blastsShort, telegraphs];
+final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort, gardenLower, gardenOrders, blastsShort, telegraphs, runs, windup];
 
 /// 3. The Deep Wilds: a clearing calmed, the way down opens, down a floor, and a Hollow Surge.
 final deep = Short(
@@ -729,8 +729,11 @@ final telegraphs = Short(
     Clip(
       state: () => mochi('amber'),
       open: () => const WildsScreen(depth: 2, seed: 9),
-      secs: 10,
+      secs: 12,
       preroll: 1.0,
+      zoom: 0.6,
+      // the thornlings first: their wind-up (no mark now) is what's being looked at
+      pilot: const PilotStart(prefer: {'thornling'}, signature: false),
       setup: (s) async {
         await _god(s);
         toFirstClearing(s, dist: 70);
@@ -738,6 +741,104 @@ final telegraphs = Short(
     ),
   ],
 );
+
+/// A thornling readying its roll, up close (not for posting): set down 50 from one, standing still, so it
+/// winds up and comes; twice, from two sides.
+final windup = Short(
+  id: 'windup',
+  endTitle: const [('Wind-up', null)],
+  endSecs: 0.4,
+  clips: [
+    for (final pick in const [0, 1])
+      Clip(
+        state: () => mochi('amber', stage: 2),
+        open: () => const WildsScreen(depth: 2, seed: 9),
+        secs: 4.5,
+        preroll: 0.6,
+        zoom: 0.5,
+        quiet: true,
+        pilot: const PilotStart(on: false),
+        setup: (s) async {
+          await _god(s);
+          final r = s.raid!;
+          final th = r.foes.where((f) => f.alive && !f.calm && f.kind == 'thornling').toList();
+          if (th.isEmpty) return;
+          final f = th[pick % th.length];
+          placeNear(s, f.x, f.z, dist: 50);
+          r.pet.face(f.x - r.pet.x, f.z - r.pet.z);
+        },
+        beats: [
+          // its roll, started on cue (left alone it may walk up and nip instead): wind-up, then it comes
+          for (final at in const [1.0, 3.0])
+            Beat(at, (s) {
+              final r = s.raid!, p = r.pet;
+              final th = r.foes.where((f) => f.alive && !f.calm && f.kind == 'thornling').toList()
+                ..sort((a, b) => p.dist(a).compareTo(p.dist(b)));
+              if (th.isEmpty) return;
+              final f = th.first;
+              final d = math.max(p.dist(f), 1e-6);
+              f.hit.clear();
+              f
+                ..target = p
+                ..move = 'roll'
+                ..st = FoeState.windup
+                ..t = 0
+                ..windup = 0.62
+                ..active = 0.5
+                ..recover = 0.65
+                ..travelled = 0
+                ..travelMax = 74
+                ..ax = (p.x - f.x) / d
+                ..az = (p.z - f.z) / d;
+              f.face(f.ax, f.az);
+            }),
+        ],
+      ),
+  ],
+);
+
+/// A Juvenile's run, then an Elder's (not for posting): across a clearing and back, then up it.
+final runs = Short(
+  id: 'runs',
+  endTitle: const [('Runs', null)],
+  endSecs: 0.4,
+  clips: [for (final (st, label) in const [(2, 'Juvenile'), (3, 'Elder')]) _runClip(st, label)],
+);
+
+Clip _runClip(int stage, String label) => Clip(
+      state: () => mochi('forest', stage: stage),
+      open: () => const WildsScreen(), // the Thicket's first meadow: open grass, nothing near yet
+      secs: 6.6,
+      preroll: 1.0,
+      zoom: 0.62,
+      quiet: true,
+      pilot: const PilotStart(on: false),
+      setup: (s) async {
+        await _god(s);
+      },
+      beats: [
+        // up the meadow first (the camera starts low, at the map's edge), then across it and back
+        Beat(0.05, (s) {
+          s.say([(label, white)], secs: 1.0, size: 27, y: 165);
+          final p = s.raid!.pet;
+          s.autopilot
+            ..walkRun = true
+            ..walkTo = Offset(p.x + 10, p.z - 80);
+        }),
+        Beat(2.0, (s) {
+          final p = s.raid!.pet;
+          s.autopilot
+            ..walkRun = true
+            ..walkTo = Offset(p.x + 50, p.z);
+        }),
+        Beat(3.5, (s) {
+          final p = s.raid!.pet;
+          s.autopilot
+            ..walkRun = true
+            ..walkTo = Offset(p.x - 100, p.z + 6);
+        }),
+      ],
+    );
 
 final blastsShort = Short(
   id: 'blasts',

@@ -2437,8 +2437,9 @@ class _WalkPainter extends CustomPainter {
     final dst = Rect.fromLTWH(-art.gx * kp, -art.gy * kp, art.fw * kp, art.fh * kp);
     canvas.save();
     canvas.translate(g.dx, g.dy - pose.bob * art.fh * kp);
-    canvas.rotate((gait.roll[col] + pose.roll) * math.pi / 180 * math.cos(me.dir * math.pi / 4) + lean);
-    canvas.scale(sx * pose.sx, gait.squash[col] * sy * pose.sy);
+    final side = math.sin(me.dir * math.pi / 4);
+    canvas.rotate((gait.roll[col] + pose.roll) * math.pi / 180 * math.cos(me.dir * math.pi / 4) - pose.pitch * math.pi / 180 * side + lean);
+    canvas.scale(sx * pose.sx * (1 + pose.stretch * side.abs()), gait.squash[col] * sy * pose.sy * (1 + pose.stretch * 0.5 * math.cos(me.dir * math.pi / 4).abs()));
     final p = Paint()..filterQuality = FilterQuality.medium;
     canvas.drawImageRect(gait.img, src, dst, p);
     final lift = col < gait.lift.length ? gait.lift[col] : 0.0;

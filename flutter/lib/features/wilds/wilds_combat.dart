@@ -2323,7 +2323,7 @@ class Raid {
     f.cd2 -= dt;
     f.sx = f.sy = 1;
     f.lift = 0;
-    if (f.st != FoeState.strike) f.spin = 0;
+    if (f.st != FoeState.strike && f.st != FoeState.windup) f.spin = 0; // (a thornling revs up in its wind-up)
     // threat fades
     for (final k in f.threat.keys.toList()) {
       f.threat[k] = f.threat[k]! * math.exp(-dt * 0.15);
@@ -2566,8 +2566,19 @@ class Raid {
     if (f.st == FoeState.windup) {
       final k = f.t / f.windup;
       if (f.move == 'roll') {
-        f.pose = k < 0.5 ? 'crouch' : 'tuck';
-        f.sx = 1 + 0.04 * math.sin(f.t * 40);
+        // it readies (no mark on the ground for a creature's moves: its body says it): it draws back low and
+        // digs in, then curls up and revs in place, the dust flying, and goes
+        if (k < 0.45) {
+          f.pose = 'crouch';
+          final c = 1 - math.pow(1 - k / 0.45, 3).toDouble();
+          f.sy = 1 - 0.13 * c;
+          f.sx = 1 + 0.09 * c + 0.03 * math.sin(f.t * 46);
+        } else {
+          f.pose = 'ball';
+          f.spin += dt * (10 + 36 * (k - 0.45) / 0.55);
+          f.sx = 1 + 0.05 * math.sin(f.t * 52);
+          f.sy = 1 - 0.05 * math.sin(f.t * 52);
+        }
         // track (with a little lead) until the last 40%
         if (t != null && k < 0.6) {
           final lx = t.x + t.vx * 0.22, lz = t.z + t.vz * 0.22;

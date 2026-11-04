@@ -528,7 +528,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       ..speed = speed
       ..run = run;
     // the walk cycles' strides come from the art
-    pet.cycle = _petArt!.gait(pet.running && pet.moving).cycle * _stageK;
+    // (an Elder's run a little longer in the stride: a big body lopes, it doesn't scurry)
+    pet.cycle = _petArt!.gait(pet.running && pet.moving).cycle * _stageK * (pet.running ? 1 + 0.12 * _heft : 1);
     final sher = r.sher;
     if (sher != null) sher.cycle = _sherArt!.gait(sher.running && sher.moving).cycle;
     _itemCd = math.max(0, _itemCd - dt);
@@ -2220,8 +2221,15 @@ class _MapPainter extends CustomPainter {
     for (final h in r.hazards) {
       _cloud(canvas, h);
     }
+    // the danger marks are a guardian's alone; a creature's moves are told by its body (see _foe), and a
+    // lobbed spore by its shadow where it will come down
     for (final mk in r.marks) {
-      if (!mk.done) _mark(canvas, mk);
+      if (mk.done) continue;
+      if (_bossy(mk.owner)) {
+        _mark(canvas, mk);
+      } else if (r.shots.any((sh) => sh.mark == mk)) {
+        _landingShadow(canvas, mk);
+      }
     }
     for (final wv in r.waves) {
       _wave(canvas, wv);
@@ -2818,10 +2826,12 @@ class _MapPainter extends CustomPainter {
     canvas.translate(g.dx, g.dy - w.lift * _up - pose.bob * art.fh * k);
     if (!rm) {
       final face = w.dir * math.pi / 4;
-      canvas.rotate((gait.roll[col] + pose.roll) * math.pi / 180 * math.cos(face) + w.tilt);
+      final side = math.sin(face); // 1 facing right, -1 left, 0 toward you or away
+      canvas.rotate((gait.roll[col] + pose.roll) * math.pi / 180 * math.cos(face) - pose.pitch * math.pi / 180 * side + w.tilt);
       final sit = w.pose == 'sit';
       final pop = Curves.easeOut.transform(w.pop.clamp(0.0, 1.0));
-      canvas.scale(w.sx * pose.sx * (1 + 0.1 * pop), w.sy * pose.sy * gait.squash[col] * (sit ? 0.82 : 1) * (1 - 0.12 * pop));
+      canvas.scale(w.sx * pose.sx * (1 + pose.stretch * side.abs()) * (1 + 0.1 * pop),
+          w.sy * pose.sy * (1 + pose.stretch * 0.5 * math.cos(face).abs()) * gait.squash[col] * (sit ? 0.82 : 1) * (1 - 0.12 * pop));
     }
     final dst = Rect.fromLTWH(-art.gx * k, -art.gy * k, art.fw * k, art.fh * k);
     final paint = _spritePaint(w);
@@ -2847,8 +2857,45 @@ class _MapPainter extends CustomPainter {
     if (w.pose == 'sit') _stars(canvas, g - Offset(0, art.gy * k * 0.95), 1, 0.7);
   }
 
-  void _foe(Canvas canvas, Foe f, FoeArt a, Offset g) {
+  /// A guardian (the Briarback, the Sentinel, the Hollow Sprout): the one whose moves get marks on the ground.
+  static bool _bossy(Actor? o) => o is Boss || (o is Foe && (o.kind == 'sentinel' || o.kind == 'hollow_sprout'));
+
+  /// A lobbed spore's shadow on the ground, darkening and tightening as it comes down.
+  void _landingShadow(Canvas canvas, Mark mk) {
+    final p = mk.p;
+    canvas.drawOval(
+        _ellipse(mk.x, mk.z, mk.r * (0.3 + 0.4 * p)),
+        Paint()
+          ..color = Color.fromRGBO(24, 10, 38, 0.1 + 0.32 * p)
+          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+  }
+
+  /// Dust kicked up behind a creature digging in to charge (the way it will come is away from the dust).
+  void _dig(Canvas canvas, Foe f, double wk) {
+    final u = s._u / 2.7;
+    final nx = -f.az, nz = f.ax;
+    final on = math.min(1.0, wk * 3);
+    for (var i = 0; i < 7; i++) {
+      final ph = (s._t * (2.6 + 1.6 * wk) + i / 7) % 1.0;
+      final side = (i.isEven ? 1 : -1) * (1.5 + 3.5 * ((i * 0.37) % 1.0)) * (0.6 + ph);
+      final d = f.radius * 0.6 + 18 * ph;
+      final c = s._toScreen(f.x - f.ax * d + nx * side, f.z - f.az * d + nz * side) - Offset(0, (2 + 7 * math.sin(ph * math.pi)) * _up);
+      canvas.drawCircle(c, (2.2 + 4.8 * ph) * u * f.size, Paint()..color = Color.fromRGBO(206, 186, 146, (1 - ph) * on * 0.6));
+    }
+  }
+
+  void _foe(Canvas canvas, Foe f, FoeArt a, Offset foot) {
     final k = s._u / a.scale * f.size;
+    // a creature readying a move (it has no mark on the ground): it draws back from where it's going, a violet
+    // charge gathering in it, and a thornling digs in (the dust flies) and revs before it rolls at you
+    final wind = f.st == FoeState.windup && !f.calm && !_bossy(f);
+    final wk = wind ? (f.t / math.max(f.windup, 0.01)).clamp(0.0, 1.0) : 0.0;
+    var g = foot;
+    if (wind && !rm) {
+      final back = (f.move == 'roll' ? 5.0 : 2.5) * (1 - math.pow(1 - math.min(wk / 0.45, 1.0), 3)) * f.size;
+      g = s._toScreen(f.x - f.ax * back, f.z - f.az * back) + (foot - s._toScreen(f.x, f.z));
+      if (f.move == 'roll' && wk > 0.12) _dig(canvas, f, wk);
+    }
     if (f.elite && !f.calm) {
       _glow(canvas, g - Offset(0, a.top * k * 0.35), a.top * k * 0.7, Color.fromRGBO(150, 90, 230, 0.32 + 0.1 * math.sin(s._t * 4)));
     } else if (!f.calm && (s._raid?.surge ?? false)) {
@@ -2874,7 +2921,10 @@ class _MapPainter extends CustomPainter {
     // a wind-up gathers a violet glow; the enraged guardian burns with it
     final glow = math.max(f.glow, f is Boss && f.stage >= 3 && !f.calm ? 0.5 + 0.2 * math.sin(s._t * 6) : 0.0);
     if (glow > 0 && !f.calm) _glow(canvas, g - Offset(0, a.top * k * 0.45), a.top * k * 0.6, Color.fromRGBO(170, 120, 230, 0.45 * glow));
-    if (f.st == FoeState.windup && !f.calm && f is! Boss) _glow(canvas, g - Offset(0, a.top * k * 0.4), a.top * k * 0.55, const Color(0x55FF6B5E));
+    if (wind) {
+      final beat = rm ? 0.0 : 0.12 * math.sin(s._t * (16 + 20 * wk));
+      _glow(canvas, g - Offset(0, a.top * k * 0.4), a.top * k * (0.5 + 0.2 * wk), Color.fromRGBO(176, 112, 255, (0.22 + 0.42 * wk + beat).clamp(0.0, 1.0)));
+    }
     canvas.save();
     canvas.translate(g.dx, g.dy - f.lift * _up);
     if (!rm) {
@@ -3016,8 +3066,8 @@ class _MapPainter extends CustomPainter {
           ..color = col.withAlpha(200));
   }
 
-  // ---- telegraphs: where something is about to land. Red-orange, the fill grows to the moment it hits.
-  static const _danger = Color(0xFFFF5A4E);
+  // ---- telegraphs: where something is about to land, in the Hollow's own violet (what's coming is the Hollow's).
+  static const _danger = Color(0xFFA86BFF);
 
   Path _poly(List<(double, double)> pts) {
     final p = Path();
@@ -3037,8 +3087,9 @@ class _MapPainter extends CustomPainter {
     return Rect.fromCenter(center: c, width: r * 2 * s._u, height: r * 2 * s._u * s._map!.sinP);
   }
 
-  static const _dangerCore = Color(0xFFE02E2A);
-  static const _dangerHot = Color(0xFFFFB896);
+  static const _dangerCore = Color(0xFF5E2AA6);
+  static const _dangerHot = Color(0xFFE6D2FF);
+  static const _dangerShade = Color(0xFF1C0A30);
 
   /// Runs [paint] in a mark's own patch of ground: (0, 0) at (x, z), screen px across, the ground's tilt applied,
   /// so a circle drawn there lies flat on the ground like a decal.
@@ -3061,7 +3112,7 @@ class _MapPainter extends CustomPainter {
     final snap = Curves.easeOutBack.transform((mk.t / 0.18).clamp(0.0, 1.0)); // it snaps open
     final late = ((p - 0.68) / 0.32).clamp(0.0, 1.0);
     final beat = rm ? late * 0.6 : late * (0.5 + 0.5 * math.sin(s._t * (12 + 26 * late)));
-    final edgeCol = Color.lerp(_danger, const Color(0xFFFFF3EA), 0.12 + 0.68 * beat)!;
+    final edgeCol = Color.lerp(_danger, const Color(0xFFF8F2FF), 0.18 + 0.68 * beat)!;
     Paint glow(double w, double a) => Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = w
@@ -3100,6 +3151,7 @@ class _MapPainter extends CustomPainter {
             final d = Offset(math.cos(a), math.sin(a));
             canvas.drawLine(d * (rad - 8), d * (rad + 3), line(2.6, edgeCol, 0.95));
           }
+          canvas.drawCircle(Offset.zero, rad, line(5.5, _dangerShade, 0.3)); // (a dark line under it: it reads on any ground)
           canvas.drawCircle(Offset.zero, rad, glow(6 + 5 * beat, 0.5 + 0.35 * p));
           canvas.drawCircle(Offset.zero, rad, line(2 + 1.4 * beat, edgeCol, 0.95));
         });
@@ -3113,6 +3165,7 @@ class _MapPainter extends CustomPainter {
             canvas.drawCircle(Offset.zero, rad * (0.28 + 0.72 * k), line(2.2, _dangerHot, (1 - k) * (0.3 + 0.45 * p)));
           }
           final band = rad + 5 * p;
+          canvas.drawCircle(Offset.zero, band, line(5.5, _dangerShade, 0.3)); // (a dark line under it: it reads on any ground)
           canvas.drawCircle(Offset.zero, band, glow(9 + 6 * p + 4 * beat, 0.5 + 0.35 * p));
           canvas.drawCircle(Offset.zero, band, line(3 + 3 * p, edgeCol, 0.95));
         });
@@ -3154,8 +3207,9 @@ class _MapPainter extends CustomPainter {
                   ..lineTo(d - cw, 0)
                   ..lineTo(d - 3.2 * cw, -h)
                   ..close(),
-                ch..color = const Color(0xFFFFD9C4).withValues(alpha: ((0.6 + 0.4 * p) * fadeIn * edgeFade).clamp(0.0, 1.0)));
+                ch..color = const Color(0xFFF4ECFF).withValues(alpha: ((0.6 + 0.4 * p) * fadeIn * edgeFade).clamp(0.0, 1.0)));
           }
+          canvas.drawRRect(lane, line(5.5, _dangerShade, 0.3)); // (a dark line under it: it reads on any ground)
           canvas.drawRRect(lane, glow(6 + 5 * beat, 0.5 + 0.35 * p));
           canvas.drawRRect(lane, line(2 + 1.4 * beat, edgeCol, 0.95));
         });
@@ -3179,6 +3233,7 @@ class _MapPainter extends CustomPainter {
             canvas.drawArc(Rect.fromCircle(center: Offset.zero, radius: rad * (0.22 + 0.72 * k)), a0 - mk.half * 0.8, 1.6 * mk.half, false,
                 line(2, _dangerHot, (1 - k) * (0.3 + 0.4 * p)));
           }
+          canvas.drawPath(full, line(5.5, _dangerShade, 0.3)); // (a dark line under it: it reads on any ground)
           canvas.drawPath(full, glow(6 + 5 * beat, 0.5 + 0.35 * p));
           canvas.drawPath(full, line(2 + 1.4 * beat, edgeCol, 0.95));
         });
