@@ -13,6 +13,22 @@ if not defined FLUTTER (
   exit /b 2
 )
 echo flutter=!FLUTTER!>> "%LOG%\status.txt"
+rem Generating the soundtrack instead (Claude drops _transfer\run_music.flag): ComfyUI + ACE-Step, jobs in _transfer\comfy\jobs.json
+if exist "_transfer\run_music.flag" (
+  del "_transfer\run_music.flag"
+  echo %date% %time% === music ===>> "%LOG%\status.txt"
+  python -u "_transfer\comfy\music_gen.py" > "%LOG%\music.txt" 2>&1
+  echo %date% %time% === music done ===>> "%LOG%\status.txt"
+  exit /b 0
+)
+rem The read-only hardware check instead (Claude drops _transfer\run_probe.flag)
+if exist "_transfer\run_probe.flag" (
+  del "_transfer\run_probe.flag"
+  echo %date% %time% === probe ===>> "%LOG%\status.txt"
+  call "_transfer\probe.bat" > "%LOG%\probe.txt" 2>&1
+  echo %date% %time% === probe done ===>> "%LOG%\status.txt"
+  exit /b 0
+)
 rem Running one test file instead (Claude drops _transfer\run_test.flag, its first line naming the file)
 if exist "_transfer\run_test.flag" (
   set "TFILE="

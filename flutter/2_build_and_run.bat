@@ -36,7 +36,7 @@ call :step build "build windows --debug -v"
 set "BRC=!errorlevel!"
 if "!BRC!"=="0" if exist build\windows\x64\runner\Debug\evochi.exe (
   echo %date% %time% launching>> "%LOG%\status.txt"
-  start "" "build\windows\x64\runner\Debug\evochi.exe"
+  start "" /b cmd /c ""build\windows\x64\runner\Debug\evochi.exe" > "%LOG%\run.txt" 2>&1"
 ) else (
   echo %date% %time% NO_EXE>> "%LOG%\status.txt"
 )
