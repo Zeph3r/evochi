@@ -87,11 +87,11 @@ def notes(s, bar, octave=0):
 
 # the call's voices: (instrument, notes, velocity, pan, level against the music in its bars (dB, RMS))
 PARTS = {
-    'answer_glock': ('glock', notes(HEAD, 3, 1) + notes(HEAD, 15, 1), 0.62, 0.25, -6.0),
-    'answer_pizz': ('pizz', notes(HEAD, 3) + notes(HEAD, 15), 0.6, -0.2, -12.0),
-    'clarinet': ('clarinet', notes(HEAD, 20, -1) + notes(REST, 21, -1), 0.55, -0.1, -4.0),
-    'flute': ('flute', notes(HEAD, 22) + notes(REST, 23), 0.55, 0.1, -5.0),
-    'flute_glock': ('glock', notes(HEAD, 22, 1) + notes(REST, 23, 1), 0.45, 0.3, -12.0),
+    'answer_glock': ('glock', notes(HEAD, 3, 1) + notes(HEAD, 15, 1), 0.62, 0.25, -9.0),
+    'answer_pizz': ('pizz', notes(HEAD, 3) + notes(HEAD, 15), 0.6, -0.2, -15.0),
+    'clarinet': ('clarinet', notes(HEAD, 20, -1) + notes(REST, 21, -1), 0.55, -0.1, -7.0),
+    'flute': ('flute', notes(HEAD, 22) + notes(REST, 23), 0.55, 0.1, -8.0),
+    'flute_glock': ('glock', notes(HEAD, 22, 1) + notes(REST, 23, 1), 0.45, 0.3, -15.0),
 }
 
 
