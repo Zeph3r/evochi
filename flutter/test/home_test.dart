@@ -500,23 +500,25 @@ void main() {
       expect(h.tended(w, 'p1'), isFalse);
     });
 
-    test('one helper to start, one more as each of the lower field\'s first three beds opens', () {
+    test('one helper to a field: the garden from the start, the lower field once its first bed opens', () {
       var s = withHelpers([resting('a'), resting('b'), resting('c')]);
       expect(h.helperSlots(s), 1);
       expect(h.nextHelperSlot(s), 6);
       s = must(h.assignHelper(s, 'p1', 'a', t0));
-      final full = h.assignHelper(s, 'p2', 'b', t0);
-      expect(full.error, 'no_slot');
-      expect(full.info['next'], 6);
-      // moving the one at work is fine
+      final taken = h.assignHelper(s, 'p2', 'b', t0);
+      expect(taken.error, 'field_taken');
+      expect(taken.info['pet'], 'a');
+      // moving the one at work, within its field, is fine
       expect(must(h.assignHelper(s, 'p2', 'a', t0)).home.helpers, {'p2': 'a'});
+      expect(h.assignHelper(s, 'p5', 'b', t0).error, 'plot_locked');
+      s = setSkill(s, 'farming', 6);
+      expect(h.helperSlots(s), 2);
+      expect(h.nextHelperSlot(s), isNull);
+      s = must(h.assignHelper(s, 'p5', 'b', t0));
+      expect(h.assignHelper(s, 'p3', 'c', t0).error, 'field_taken');
       s = setSkill(s, 'farming', 8);
-      expect(h.helperSlots(s), 3);
-      expect(h.nextHelperSlot(s), 10);
-      s = must(h.assignHelper(s, 'p2', 'b', t0));
-      s = must(h.assignHelper(s, 'p3', 'c', t0));
-      expect(h.helpersAtWork(s), 3);
-      expect(h.helperSlots(setSkill(s, 'farming', 10)), 4);
+      expect(h.assignHelper(s, 'p6', 'c', t0).error, 'field_taken');
+      expect(h.helpersAtWork(s), 2);
     });
 
     test('helpers and a tended planting survive a save', () {

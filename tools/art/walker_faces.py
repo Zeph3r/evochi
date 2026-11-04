@@ -13,9 +13,10 @@ import numpy as np
 from PIL import Image
 from scipy import ndimage as nd
 
-ROWS = (0, 7)
+ROWS = (0, 7, 1)
 # where each row's face is, in its frame (x0, y0, x1, y1): toward you, and turned down-left (the far eye high)
-FACE_BOX = {0: (0, 69, 234, 172), 7: (25, 108, 100, 176)}
+FACE_BOX = {0: (0, 69, 234, 172), 7: (25, 108, 100, 176), 1: (134, 108, 209, 176)}
+MIRRORED = {1}  # (turned down-right: the portrait, facing left, is mirrored for it)
 EXPRS = ['blink', 'happy', 'curious', 'surprised', 'determined', 'sleepy', 'excited', 'affectionate']
 
 
@@ -96,18 +97,23 @@ if __name__ == '__main__':
     hero = Image.open(os.path.join(art, at['file'])).convert('RGBA')
     names = ch['expressions']
 
-    def hero_frame(e):
+    def hero_frame(e, mirror=False):
         x, y, w, h = at['rects'][names.index(e)]
-        return hero.crop((x, y, x + w, y + h))
+        f = hero.crop((x, y, x + w, y + h))
+        return f.transpose(Image.FLIP_LEFT_RIGHT) if mirror else f
 
     walk = json.load(open(os.path.join(art, 'wilds', 'wilds_walk.json')))['walkers']['s02']
     fw, fh = walk['frameW'], walk['frameH']
     sheet = Image.open(os.path.join(art, 'wilds', walk['gaits']['walk']['sheets']['forest'])).convert('RGBA')
-    hd = np.array(hero_frame('default'))
     fx, fy = ch['anchors']['face']
-    hbox = (int(fx - 95), int(fy - 75), int(fx + 115), int(fy + 70))
-    hm = features(hd, hbox)
-    he = eyes(hd, hm)
+    hw = at['rects'][0][2]
+    boxes = {False: (int(fx - 95), int(fy - 75), int(fx + 115), int(fy + 70))}
+    b = boxes[False]
+    boxes[True] = (hw - b[2], b[1], hw - b[0], b[3])
+    hero_eyes = {}
+    for mir in (False, True):
+        hd = np.array(hero_frame('default', mir))
+        hero_eyes[mir] = eyes(hd, features(hd, boxes[mir]))
     out = Image.new('RGBA', (fw * len(EXPRS), fh * len(ROWS)))
     for ri, row in enumerate(ROWS):
         fr = sheet.crop((0, row * fh, fw, row * fh + fh))
@@ -115,11 +121,13 @@ if __name__ == '__main__':
         # its own face, found in the head (above the feet, below the crest)
         wm = features(a, FACE_BOX[row])
         we = eyes(a, wm)
+        mir = row in MIRRORED
+        he, hbox = hero_eyes[mir], boxes[mir]
         A = similarity(he, we)
         base = inpaint(a, nd.binary_dilation(wm, iterations=1))
         base[..., 3] = a[..., 3]
         for ei, e in enumerate(EXPRS):
-            ha = np.array(hero_frame(e))
+            ha = np.array(hero_frame(e, mir))
             m = features(ha, hbox)
             layer = ha.copy()
             layer[..., 3] = (m * 255).astype(np.uint8)

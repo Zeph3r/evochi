@@ -119,7 +119,18 @@ class HelperRow extends StatelessWidget {
         ),
       ]);
     }
-    // every helper slot in use: the one at work could move here, and the next slot's level
+    // one helper to a field: this field's could move here
+    final inField = h.fieldHelper(s, h.fieldOf(plotId));
+    if (inField != null) {
+      final (bed, pet) = inField;
+      return _Box(children: [
+        const Icon(Icons.eco_rounded, color: _leaf, size: 26),
+        const SizedBox(width: 8),
+        Expanded(child: Text('${pet.name} tends bed ${_bedNo(bed)} in this field. One helper to a field.', style: EvochiText.caption.copyWith(fontSize: 12.5))),
+        EvochiButton(label: 'Move ${pet.name} here', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => _assign(c, plotId, pet.id)),
+      ]);
+    }
+    // every helper slot in use (an old save): the one at work could move here, and the next slot's level
     if (h.helpersAtWork(s) >= h.helperSlots(s)) {
       final busy = [for (final e in s.home.helpers.entries) if (h.helperOf(s, e.key) case final p?) (e.key, p)];
       final next = h.nextHelperSlot(s);
@@ -159,6 +170,10 @@ class HelperRow extends StatelessWidget {
 
 int _bedNo(String plotId) => h.plotDefs.indexWhere((d) => d.id == plotId) + 1;
 
+/// Could [p] tend [plotId]: no other helper in that field, and a slot for it if it isn't at work already.
+bool _canTake(GameState s, Pet p, String plotId) =>
+    h.fieldHelper(s, h.fieldOf(plotId), except: p.id) == null && (h.bedOf(s, p.id) != null || h.helpersAtWork(s) < h.helperSlots(s));
+
 void _assign(GameController c, String plotId, String? petId) {
   final r = c.run((s, n) => h.assignHelper(s, plotId, petId, n));
   if (!r.ok) return;
@@ -183,14 +198,13 @@ Future<void> showHelperPicker(BuildContext context, String plotId) => showEvochi
             padding: EdgeInsets.fromLTRB(4, 0, 4, 6),
             child: Text('A helper keeps its bed watered, adds one to every harvest and sometimes brings a Golden one. One bed each.', style: EvochiText.caption),
           ),
-          // the slots: those in use, and the ones still to open
+          // one helper to a field: the garden's, and the lower field's once it opens
           Padding(
             padding: const EdgeInsets.fromLTRB(4, 0, 4, 10),
             child: Row(children: [
-              for (var i = 0; i < 1 + h.helperSlotLevels.length; i++) ...[
-                Expanded(child: _Slot(open: i < h.helperSlots(s), used: i < h.helpersAtWork(s), level: i == 0 ? null : h.helperSlotLevels[i - 1])),
-                if (i < h.helperSlotLevels.length) const SizedBox(width: 6),
-              ],
+              Expanded(child: _Slot(label: 'Garden', open: true, used: h.fieldHelper(s, 'garden') != null, level: null)),
+              const SizedBox(width: 6),
+              Expanded(child: _Slot(label: 'Lower field', open: h.fieldOpen(s, 'lower'), used: h.fieldHelper(s, 'lower') != null, level: h.nextHelperSlot(s))),
             ]),
           ),
           for (final p in h.helperCandidates(s))
@@ -198,12 +212,12 @@ Future<void> showHelperPicker(BuildContext context, String plotId) => showEvochi
               padding: const EdgeInsets.only(bottom: 8),
               child: GestureDetector(
                 onTap: () {
-                  if (h.bedOf(s, p.id) == null && h.helpersAtWork(s) >= h.helperSlots(s)) return; // no free slot
+                  if (!_canTake(s, p, plotId)) return; // its field has a helper already
                   _assign(c, plotId, p.id);
                   Navigator.of(ctx).maybePop();
                 },
                 child: Opacity(
-                  opacity: h.bedOf(s, p.id) == null && h.helpersAtWork(s) >= h.helperSlots(s) ? 0.5 : 1,
+                  opacity: _canTake(s, p, plotId) ? 1 : 0.5,
                   child: Container(
                   padding: const EdgeInsets.all(8),
                   decoration: Kit.card(highlight: p.id == current),
@@ -529,10 +543,14 @@ class _BreathingState extends State<_Breathing> with SingleTickerProviderStateMi
 // A Golden one surprises it first. No arms and no walking: everything it moves, it moves with nature magic.
 
 /// Where the Forest Juvenile's eyes are on its standing frames (tools/art/walker_faces.py found them), by facing.
-const _eyesAt = {0: [Offset(92.2, 154.7), Offset(141.5, 154.4)], 7: [Offset(36.7, 130.1), Offset(72.2, 150.1)]};
+const _eyesAt = {
+  0: [Offset(92.2, 154.7), Offset(141.5, 154.4)],
+  7: [Offset(36.7, 130.1), Offset(72.2, 150.1)],
+  1: [Offset(161.6, 149.4), Offset(197.0, 129.2)],
+};
 
 /// A held thing's telekinetic glow: a soft green copy of its outline behind it.
-Widget _aura(Offset at, double size, double angle, double a, Color color, Widget child) => Positioned(
+Widget _aura(Offset at, double size, double angle, double a, Color color, Widget child, {bool flip = false}) => Positioned(
       left: at.dx - size / 2,
       top: at.dy - size / 2,
       width: size,
@@ -544,7 +562,7 @@ Widget _aura(Offset at, double size, double angle, double a, Color color, Widget
             alignment: Alignment.bottomCenter,
             transform: Matrix4.identity()
               ..rotateZ(angle)
-              ..scale(1.14, 1.14, 1.0),
+              ..scale(flip ? -1.14 : 1.14, 1.14, 1.0),
             child: ImageFiltered(
               imageFilter: ui.ImageFilter.blur(sigmaX: 3, sigmaY: 3),
               child: ColorFiltered(colorFilter: ColorFilter.mode(color, BlendMode.srcIn), child: child),
@@ -701,9 +719,11 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
       v = 0.09 * math.sin(((u - 0.3) / 2.1).clamp(0.0, 1.0) * math.pi);
     }
     final n = leanOf(widget.p.id);
-    final toward = -v; // (its helper stands on its right: the tops lean right)
+    final toward = _leftBed ? v : -v; // (toward its helper: the left beds' stand on their left)
     if ((n.value - toward).abs() > 0.002) n.value = toward;
   }
+
+  bool get _leftBed => widget.bed.center.dx < widget.plate.width / 2;
 
   void _tap() {
     setState(() => _tapAt = _clock);
@@ -716,20 +736,23 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
   Widget _frame(double t) {
     final w = widget;
     final bed = w.bed;
-    // every helper stands on the walkway at its bed's right front corner, turned toward it (as the art faces):
-    // the left beds' helpers in the path between the beds, the right beds' in the margin, so none meet
-    const dir = -1.0; // toward the bed
+    // every helper stands on the walkway at its bed's outer front corner, turned toward it: the left beds' on
+    // their left, the right beds' on their right, so each is plainly its own bed's (and the path between is clear)
+    final left = _leftBed;
+    final dir = left ? 1.0 : -1.0; // toward the bed
+    final base = left ? 1 : 7; // its facing: down-right, or down-left, toward the bed
+    final side = left ? 2 : 6; // side on, watching its can over the bed
     // its in-world sprite's frame: where its feet are (so it stands on them, and turns on them)
     final art = _art!;
     final gx = art.gx / art.fw, gy = art.gy / art.fh;
     final ph = bed.height * 1.08; // the frame (the body is about half of it)
     final pw = ph * art.fw / art.fh;
-    final fx = (bed.right + pw * 0.26).clamp(pw * gx + 2, w.plate.width - pw * (1 - gx) - 2);
+    final fx = (left ? bed.left - pw * 0.26 : bed.right + pw * 0.26).clamp(pw * gx + 2, w.plate.width - pw * (1 - gx) - 2);
     final foot = Offset(fx, bed.bottom - bed.height * 0.02);
     final ps = bed.height * 0.72; // a prop's size (the voxel props sit in their frames with a margin)
     final rest = Offset(foot.dx + dir * pw * 0.46, foot.dy - ps * 0.12); // the can, on the bed's front corner
     final over = Offset(bed.center.dx - dir * bed.width * 0.06, bed.top + bed.height * 0.12);
-    final basketAt = Offset(bed.right - bed.width * 0.24, bed.bottom - ps * 0.2);
+    final basketAt = Offset(left ? bed.left + bed.width * 0.24 : bed.right - bed.width * 0.24, bed.bottom - ps * 0.2);
 
     // ---- what it's doing
     var mood = HelperMood.idle;
@@ -869,10 +892,10 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
         break;
     }
     final petRect = Rect.fromLTWH(foot.dx - pw * gx, foot.dy - ph * gy - lift, pw, ph);
-    final head = Offset(foot.dx - pw * 0.06, foot.dy - lift - ph * 0.47);
-    final body = Offset(foot.dx - pw * 0.04, foot.dy - lift - ph * 0.24);
+    final head = Offset(foot.dx + dir * pw * 0.06, foot.dy - lift - ph * 0.47);
+    final body = Offset(foot.dx + dir * pw * 0.04, foot.dy - lift - ph * 0.24);
     // which way it faces (the sheet's rows: 0 toward you, then round clockwise as seen from above: 6 left, 7 down-left)
-    var face = 7;
+    var face = base;
     switch (mood) {
       case HelperMood.sleeping:
       case HelperMood.cheering:
@@ -881,7 +904,7 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
         final g0 = golden ? _surprise : 0.0;
         final v = u - g0;
         final c0 = _celebrateAt(golden);
-        int spin(double k) => (7 + (k * 8).floor()) % 8;
+        int spin(double k) => (base + (k * 8).floor() * (left ? -1 : 1)) % 8;
         if (golden && u < g0) {
           face = 0;
         } else if (golden && v > 0.6 && v < 1.2) {
@@ -891,12 +914,12 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
         } else if (v >= c0) {
           face = 0;
         } else {
-          face = 7;
+          face = base;
         }
       case HelperMood.glancing:
-        face = u < 0.7 ? 0 : 7;
+        face = u < 0.7 ? 0 : base;
       case HelperMood.watering:
-        face = u > 0.6 && u < 2.6 ? 6 : 7; // watching its can up over the crop
+        face = u > 0.6 && u < 2.6 ? side : base; // watching its can up over the crop
       case HelperMood.butterfly:
         final f = fly;
         if (f != null) {
@@ -905,7 +928,7 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
           face = (((math.pi / 2 - a) / (math.pi / 4)).round() % 8 + 8) % 8;
         }
       default:
-        face = 7;
+        face = base;
     }
     if (face != _facing) {
       _facing = face;
@@ -1077,8 +1100,8 @@ class _PlotActorState extends State<PlotActor> with SingleTickerProviderStateMix
     // the can's art spouts to the left: turned round to pour into a bed on its right
     if (showCan) {
       final sz = ps * (canOut && u > 0.3 && u < 3.0 ? 1.1 : 0.9);
-      if (canOut && canLit > 0.02) kids.add(_aura(canAt, sz, canTip * dir, canLit, const Color(0xFF9CF06A), Image.asset('assets/art/home/prop_watering_can.webp', excludeFromSemantics: true)));
-      kids.add(img('prop_watering_can', canAt, sz, angle: canTip * dir));
+      if (canOut && canLit > 0.02) kids.add(_aura(canAt, sz, canTip * dir, canLit, const Color(0xFF9CF06A), Image.asset('assets/art/home/prop_watering_can.webp', excludeFromSemantics: true), flip: left));
+      kids.add(img('prop_watering_can', canAt, sz, angle: canTip * dir, flip: left));
     }
 
     // ---- its harvest: the basket by the bed, the crop lifting into it, the counts over it
@@ -1596,7 +1619,8 @@ class _MagicPainter extends CustomPainter {
 
 /// One helper slot in the picker: in use, free, or opening at a Farming level.
 class _Slot extends StatelessWidget {
-  const _Slot({required this.open, required this.used, required this.level});
+  const _Slot({required this.label, required this.open, required this.used, required this.level});
+  final String label;
   final bool open, used;
   final int? level;
   @override
@@ -1609,11 +1633,15 @@ class _Slot extends StatelessWidget {
         ),
         child: Center(
           child: open
-              ? Icon(used ? Icons.eco_rounded : Icons.add_rounded, color: _leaf, size: 20)
+              ? Row(mainAxisSize: MainAxisSize.min, children: [
+                  Icon(used ? Icons.eco_rounded : Icons.add_rounded, color: _leaf, size: 18),
+                  const SizedBox(width: 3),
+                  Text(label, style: EvochiText.tag.copyWith(fontSize: 11.5, color: const Color(0xFF2F5A22))),
+                ])
               : Row(mainAxisSize: MainAxisSize.min, children: [
                   const Icon(Icons.lock_rounded, size: 14, color: Color(0xFF9C8A70)),
                   const SizedBox(width: 2),
-                  Text('Farming $level', style: EvochiText.tag.copyWith(fontSize: 11, color: const Color(0xFF8A7860))),
+                  Text('$label · Farming $level', style: EvochiText.tag.copyWith(fontSize: 11, color: const Color(0xFF8A7860))),
                 ]),
         ),
       );

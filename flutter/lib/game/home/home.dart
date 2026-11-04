@@ -143,14 +143,30 @@ const gildedOf = {
 
 bool canHelp(Pet p) => p.paletteId == helperPalette && p.stage == helperStage;
 
-/// Helper slots: one from the start, and one more as each of the lower field's first three beds opens
-/// (Farming 6, 8 and 10), so the garden never fills with helpers before it has room for them.
-const helperSlotLevels = [6, 8, 10];
+/// One helper to a field: the garden's beds (p1-p4) have one, and the lower field (p5-p8) one more once its
+/// first bed opens (Farming 6). A helper tends one bed in its field; a field never holds two.
+const lowerField = ['p5', 'p6', 'p7', 'p8'];
 
-int helperSlots(GameState s) => 1 + helperSlotLevels.where((l) => skillLevel(skillXp(s, 'farming')).level >= l).length;
+String fieldOf(String plotId) => lowerField.contains(plotId) ? 'lower' : 'garden';
+
+bool fieldOpen(GameState s, String field) => field == 'garden' || plotUnlocked(s, lowerField.first);
+
+const helperSlotLevels = [6]; // (the lower field's first bed)
+
+int helperSlots(GameState s) => fieldOpen(s, 'lower') ? 2 : 1;
 
 /// The Farming level that opens the next helper slot (null: all open).
-int? nextHelperSlot(GameState s) => helperSlotLevels.where((l) => skillLevel(skillXp(s, 'farming')).level < l).firstOrNull;
+int? nextHelperSlot(GameState s) => fieldOpen(s, 'lower') ? null : plotDef(lowerField.first).level;
+
+/// The helper already tending a bed in [field] (its bed), other than [except].
+(String, Pet)? fieldHelper(GameState s, String field, {String? except}) {
+  for (final e in s.home.helpers.entries) {
+    if (fieldOf(e.key) != field || e.value == except) continue;
+    final p = helperOf(s, e.key);
+    if (p != null) return (e.key, p);
+  }
+  return null;
+}
 
 /// The helpers at work (each still resting at home).
 int helpersAtWork(GameState s) => s.home.helpers.values.where((id) => s.companions.any((p) => p.id == id)).length;
@@ -199,7 +215,9 @@ g.ActionResult assignHelper(GameState state, String plotId, String? petId, int n
   if (pet == null) return _fail(state, 'not_resting');
   if (!canHelp(pet)) return _fail(state, 'cant_help', {'palette': pet.paletteId, 'stage': pet.stage});
   final old = bedOf(s, petId);
-  // a new helper needs a free slot (one moving beds doesn't)
+  // one helper to a field (one moving beds within its field, or to a free field, is fine)
+  final taken = fieldHelper(s, fieldOf(plotId), except: petId);
+  if (taken != null) return _fail(state, 'field_taken', {'pet': taken.$2.id, 'plot': taken.$1});
   if (old == null && helpersAtWork(s) >= helperSlots(s)) {
     return _fail(state, 'no_slot', {'slots': helperSlots(state), 'next': nextHelperSlot(state)});
   }
