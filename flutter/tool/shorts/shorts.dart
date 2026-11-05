@@ -590,8 +590,94 @@ final sproutintro = Short(
   ],
 );
 
+/// The three guardian entrances with an Amber Elder wearing nothing, so its own reaction, back view and leap art
+/// play (to look at the Elder in them).
+final elderbriar = Short(
+  id: 'elderbriar',
+  endTitle: const [('The Briarback', null)],
+  endSecs: 0.4,
+  clips: [
+    Clip(
+      state: () => mochi('amber', stage: 3),
+      open: () => const WildsScreen(),
+      secs: 16,
+      preroll: 0.6,
+      setup: (s) async {
+        await _god(s);
+        await s.key(LogicalKeyboardKey.digit4); // the arena's edge
+        s.autopilot.on = false;
+      },
+      beats: [
+        Beat(0.05, (s) {
+          final b = s.raid!.boss!;
+          s.autopilot.walkTo = Offset(b.x, b.z + 60);
+        }),
+        Beat(0.5, (s) => s.mark = s.t, when: (s) => s.raid!.bossState == BossState.fight),
+      ],
+      until: (s) => s.mark != null && s.t - s.mark! > 0.6,
+    ),
+  ],
+);
+
+final eldersent = Short(
+  id: 'eldersent',
+  endTitle: const [('The Forgotten Sentinel', null)],
+  endSecs: 0.4,
+  clips: [
+    Clip(
+      state: () => mochi('amber', stage: 3, sentinelJob: true),
+      open: () => const WildsScreen(depth: 5, seed: 777, story: 'eq03', forceStory: true),
+      secs: 18,
+      preroll: 1.0,
+      setup: (s) async {
+        await _god(s);
+        final r = s.raid!;
+        placeNear(s, r.storyX, r.storyZ, dist: 98);
+        s.autopilot.on = false;
+      },
+      beats: [
+        Beat(0.05, (s) {
+          final r = s.raid!;
+          s.autopilot.walkTo = Offset(r.storyX, r.storyZ + 50);
+        }),
+        Beat(0.5, (s) => s.mark = s.t, when: (s) => _sentinel(s)?.st == FoeState.engage),
+      ],
+      until: (s) => s.mark != null && s.t - s.mark! > 0.6,
+    ),
+  ],
+);
+
+final eldersprout = Short(
+  id: 'eldersprout',
+  endTitle: const [('The Hollow Sprout', null)],
+  endSecs: 0.4,
+  clips: [
+    Clip(
+      state: () => mochi('amber', stage: 3),
+      open: () => const WildsScreen(depth: 3, seed: 777, story: 'eq02', forceStory: true),
+      secs: 16,
+      preroll: 1.0,
+      setup: (s) async {
+        await _god(s);
+        final r = s.raid!..holdSprout = true;
+        placeNear(s, r.storyX, r.storyZ, dist: 150);
+        s.autopilot.on = false;
+      },
+      beats: [
+        Beat(0.05, (s) {
+          final r = s.raid!;
+          s.autopilot.walkTo = Offset(r.storyX, r.storyZ + 60);
+        }),
+        Beat(0.6, (s) => s.raid!.holdSprout = false),
+        Beat(0.7, (s) => s.mark = s.t, when: (s) => s.raid!.sproutWoke),
+      ],
+      until: (s) => s.mark != null && s.t - s.mark! > 10.2,
+    ),
+  ],
+);
+
 /// Looks at one thing, recorded by name only.
-final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort, gardenLower, gardenOrders, blastsShort, telegraphs, runs, windup, galleries, capfolk, finds];
+final lookShorts = <Short>[briarintro, sentintro, sproutintro, healmist, healmistSmall, gardenShort, gardenLower, gardenOrders, blastsShort, telegraphs, runs, windup, galleries, capfolk, finds, elderbriar, eldersent, eldersprout];
 
 /// 3. The Deep Wilds: a clearing calmed, the way down opens, down a floor, and a Hollow Surge.
 final deep = Short(
