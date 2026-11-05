@@ -112,7 +112,7 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
     HCEN = (0.0, TY + DEPTH - 1.0, ZF + 7.0)
     PIVOT = np.array([0.0, TY + 4.0, ZF + 2.5])   # where the head meets the shoulders (what a head turn is about)
     Hw = lambda p: tuple(PIVOT + R @ (np.array(p, float) - PIVOT) + hd)  # noqa: E731
-    M = Model((-27, lo_y, -34), (27, 54, 30), MATS, res=res)
+    M = Model((-27, lo_y, -40), (27, 54, 30), MATS, res=res)
     if rotated:
         HL, HC = HeadView(M, PIVOT, R, hd), (lambda p: tuple(np.array(p, float)))
     else:
@@ -123,23 +123,25 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
     # shoulder and haunch masses at its corners; the curled tail from the rump
     head = egg_mask(HL, HC(HCEN), *HEAD_R, p=2.15)
     zm = (ZF + ZB) / 2
-    body_m = tube(M, [B((0, TY, ZF)), B((0, TY + 0.3, zm + 2.0)), B((0, TY, ZB + 3.0)), B((0, TY - 0.6, ZB))],
-                  [DEPTH, DEPTH + 0.3, DEPTH, DEPTH - 1.6], p=2.4, squash=(1.0, 1.0))
+    # (the chest's front is set back under the head, as the Juvenile's is: the head's round underside overhangs it,
+    # so a crease parts the two instead of the chest swelling up into a second chin)
+    body_m = tube(M, [B((0, TY - 0.2, ZF - 2.5)), B((0, TY + 0.3, zm + 2.0)), B((0, TY, ZB + 3.0)), B((0, TY - 0.6, ZB))],
+                  [DEPTH - 0.6, DEPTH + 0.3, DEPTH, DEPTH - 1.6], p=2.4, squash=(1.0, 1.0))
     for s_ in (-1, 1):
         body_m |= egg_mask(M, B((s_ * SHOULDER[0], SHOULDER[1], SHOULDER[2])), 5.4, 6.4, 6.2, 5.8, p=2.3)   # the shoulders
         body_m |= egg_mask(M, B((s_ * HIP[0], HIP[1], HIP[2])), 6.8, 7.8, 7.4, 7.6, p=2.3)                   # the haunches
-    # the chest rises to meet the chin (a smooth transition under the head, not a neck), and the lower chest and
-    # belly carry a little more (about 7%)
-    body_m |= tube(M, [Hw((0, HCEN[1] - 5.0, HCEN[2] - 1.0)), B((0, TY + 1.0, ZF - 0.5))], [8.2, 9.4], p=2.3)
-    body_m |= tube(M, [B((0, TY - 1.0, ZF - 1.0)), B((0, TY - 0.8, zm + 1.0)), B((0, TY - 1.0, ZB + 2.0))],
+    # the lower chest and belly carry a little more (about 7%)
+    body_m |= tube(M, [B((0, TY - 1.0, ZF - 4.0)), B((0, TY - 0.8, zm + 1.0)), B((0, TY - 1.0, ZB + 2.0))],
                    [DEPTH * 1.07, DEPTH * 1.08, DEPTH * 1.02], p=2.4) & (M.Y < TY + 1.0)
-    tpath = [(0, 15.7, -12.0), (0, 14.7, -17.5), (0, 16.5, -22.5), (0, 21.3, -25.5), (0, 26.5, -24.7),
-             (0, 29.7, -21.5), (0, 29.5, -18.1), (0, 27.1, -16.5)]
-    cen0 = np.array([0.0, 22.5, -21.0])
-    tpath = [tuple(cen0 + (np.array(q) - cen0) * (1.0 + 0.28 * min(1.0, max(0.0, (i - 1) / 2.0)))) for i, q in enumerate(tpath)]
-    tpath = [(tail * min(1.0, i / 3.0) ** 1.5, y + DT + bb + tail_lift * min(1.0, i / 3.0) ** 1.5, z) for i, (_, y, z) in enumerate(tpath)]
-    # a thick tail, as the Juvenile's is (its curl opened out above to carry the girth, so it keeps its eye)
-    trad = [7.8, 7.3, 6.7, 6.0, 5.3, 4.6, 4.0, 3.6]
+    # the tail: the original Elder's long sweep (low and back from the rump before it curls up), on a shorter body
+    # (0.9 of its run) and thick as the Juvenile's
+    TROOT = np.array([15.7, -12.0])
+    sweep_ = [(0.0, 0.0), (-0.9, -6.5), (-0.1, -12.5), (3.1, -17.5), (8.1, -20.0), (13.1, -19.2), (16.3, -16.2),
+              (16.9, -12.6), (15.1, -10.2)]
+    tpath = [(0.0, TROOT[0] + 0.9 * dy, TROOT[1] + 0.9 * dz) for dy, dz in sweep_]
+    tpath = [(tail * min(1.0, i / 4.0) ** 1.5, y + DT + bb + tail_lift * min(1.0, i / 4.0) ** 1.5, z) for i, (_, y, z) in enumerate(tpath)]
+    trad = [7.8, 7.3, 6.8, 6.2, 5.6, 5.0, 4.5, 4.0, 3.6]
+    TCEN = (TROOT[0] + 0.9 * 10.5, TROOT[1] - 0.9 * 15.0)     # the curl's middle (y, z, before the lift)
     tail_m = tube(M, tpath, trad, p=2.4)
     core = head | body_m | tail_m
     M.set(core, 'shell')
@@ -236,7 +238,7 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
         M.set(ridge & c, 'crest_mid.%d' % (i % 6))
     # ---- the tail's ridge: petals like the mane's (as the Juvenile's tufts run on down its tail), set closer than
     # the blocks were, standing out from the curl and leaning toward the tip, smaller as the tail thins
-    cen = np.array([tail, 22.5 + DT + bb + tail_lift, -21.0])
+    cen = np.array([tail, TCEN[0] + DT + bb + tail_lift, TCEN[1]])
     pts = np.array(tpath, float)
     seg = np.linalg.norm(np.diff(pts, axis=0), axis=1)
     cum = np.concatenate([[0.0], np.cumsum(seg)])
@@ -270,23 +272,19 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
                 M.set(ridge & c, 'crest_mid.%d' % ((k + 2 + sd) % 6))
 
     # ---- the amber markings: clusters of chunky blocks that run from the mane down the body to the tail (the
-    # shoulders, the upper back, the mid-torso and lower flank, the haunches and their tops, the tail's root and side), each a
+    # shoulders, the upper back, the mid-torso, the haunches, the tail's root), each a
     # few blocks round a centre on the body's surface; the belly stays white
     shl = shell_region(M, core, res)
     flank = DEPTH - 0.5
-    tp2 = tpath[2]
     clusters = [
         # centre (x, y, z: x per side), normal, the blocks round it: (du, dv, w, h)
         ((flank, TY + 4.0, ZF - 2.5), (1, 0.25, 0), ((0, 0, 4.4, 4.0), (3.2, -3.4, 3.0, 2.8), (-3.0, 3.0, 2.6, 2.4))),            # shoulders
         ((4.8, TY + DEPTH - 0.6, -5.0), (0.35, 1, 0), ((0, 0, 3.8, 3.4), (3.2, 3.2, 2.8, 2.6))),                                   # the upper back
         ((flank, TY + 0.5, -4.0), (1, 0.15, 0), ((0, 0, 4.6, 4.0), (-3.4, 3.2, 2.8, 2.6), (3.2, -3.0, 2.8, 2.4))),               # mid-torso
-        ((flank, TY - 3.6, ZF - 7.5), (1, -0.1, 0), ((0, 0, 3.6, 3.2), (3.0, 2.8, 2.6, 2.4))),                    # the lower flank
         ((flank, TY - 1.0, ZB + 2.0), (1, 0.2, 0), ((0, 0, 4.4, 3.8), (3.0, 3.4, 3.0, 2.8), (-3.2, -2.6, 2.6, 2.4))),            # the haunches
-        ((flank - 1.0, TY + 4.6, ZB + 3.5), (1, 0.5, 0), ((0, 0, 3.6, 3.2), (-3.0, 2.6, 2.6, 2.4))),             # the haunch's top
         ((trad[0] - 0.6, 15.7 + DT + 1.5, -13.0), (1, 0.3, 0), ((0, 0, 3.4, 3.2), (2.8, 3.0, 2.6, 2.4))),         # the tail's root
-        ((trad[2] - 0.5, tp2[1] - bb, tp2[2]), (1, 0.0, 0), ((0, 0, 3.4, 3.0), (2.6, 2.8, 2.4, 2.2), (-2.6, -2.4, 2.2, 2.0))),  # the tail's side
     ]
-    GROW = 1.2      # the blocks a fifth bigger, set a little further apart, so the flanks carry the concept's amber
+    GROW = 1.0      # (toned down: the spikes carry the amber now; these are accents)
     # each block is a raised cube, half sunk into the body (the concept's chunky amber, not paint), found by casting
     # in along the cluster's normal to the body's surface
     nb = 0
@@ -296,16 +294,14 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
             up_ax = (0, 0, 1) if ny > 0.9 else (0, 1, 0)
             u_ax, v_ax, _ = local_frame(tuple(nrm), up_ax)
             ctr = np.array(B((s * x, y, z)), float)
-            if ci == len(clusters) - 1:                     # the tail's side swings with the tail
-                ctr = np.array([tp2[0] + s * x, y + bb, z])
             for du, dv, w, h in blocks:
                 c = ctr + (u_ax * du + v_ax * dv) * GROW * 1.15
                 sp = surface_point(M, core, c - nrm * 5.0, nrm, tmax=12)
                 if sp is None:
                     continue
-                size = (w + h) / 2 * GROW * 0.9
+                size = (w + h) / 2 * GROW * 0.75
                 half = np.full(3, size / 2)
-                half[int(np.argmax(np.abs(nrm)))] = size * 0.4
+                half[int(np.argmax(np.abs(nrm)))] = size * 0.3
                 blk = M.box(sp + nrm * 0.2 - half, sp + nrm * 0.2 + half)
                 M.set(blk & ((M.m == 0) | core), 'crest.%d' % (nb % 6))
                 nb += 1
@@ -325,7 +321,7 @@ def _finish(M, R, Hw, B, HCEN, TY, DEPTH, ZF, ZB, DT, PIVOT, hd, head, body_m, t
                    mouth_v=-3.7, face_extent=(-13, 13, -8, 8), scale_ref=46.0, pattern_decals=pattern_decals)
     ch.anchors = {
         'head_top': Hw((cx, cy + 10.0, cz - 3.5)), 'neck': B((0, TY + 2.0, ZF + 1.5)), 'back': B((0, TY + DEPTH, -3.0)),
-        'ground': (0, 0, -1.5), 'face': Hw((cx, cy - 0.8, cz + 11.6)), 'tail': (tail, 30.5 + DT + bb + tail_lift, -20.5),
+        'ground': (0, 0, -1.5), 'face': Hw((cx, cy - 0.8, cz + 11.6)), 'tail': (tail, 31.0 + DT + bb + tail_lift, -26.0),
     }
     ch.rig = dict(head=head, fused=body_m | tail_m, pivot=PIVOT, R=R, t=hd, torso=(ZF, ZB, bf, bb))
     if jaw:
