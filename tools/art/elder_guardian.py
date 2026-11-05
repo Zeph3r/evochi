@@ -102,7 +102,9 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
     TY = 20.5 - LEG_DROP                    # the torso's centreline height
     ZF, ZB = 6.5 + 0.5 * stretch, -12.0 - 0.5 * stretch   # the shoulders' z and the hips' z: its length is ZF - ZB
     # (stretch: the body lengthened (or, below 0, gathered) by that much, the front half forward, the back half back,
-    # for a run's stretch and gather)
+    # for a run's stretch and gather; SZ carries a z on the body at rest to where it is stretched)
+    ZF0, ZB0 = 6.5, -12.0
+    SZ = lambda z: float(z + (ZF - ZF0) if z >= ZF0 else z + (ZB - ZB0) if z <= ZB0 else ZB + (z - ZB0) * (ZF - ZB) / (ZF0 - ZB0))  # noqa: E731
     DEPTH = 9.6                             # the chest's half-depth (its top at TY + DEPTH, its belly at TY - DEPTH)
     SHOULDER = (7.0, TY - 2.0, ZF - 1.0)    # a shoulder's mass, per side (x mirrored): the forelegs grow out of it
     HIP = (7.4, TY - 2.5, ZB + 1.5)         # a haunch's, the hindlegs out of it
@@ -141,6 +143,7 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
     sweep_ = [(0.0, 0.0), (-0.9, -6.5), (-0.1, -12.5), (3.1, -17.5), (8.1, -20.0), (13.1, -19.2), (16.3, -16.2),
               (16.9, -12.6), (15.1, -10.2)]
     tpath = [(0.0, TROOT[0] + 0.9 * dy, TROOT[1] + 0.9 * dz) for dy, dz in sweep_]
+    trest = np.array([(0.0, y + DT, z) for _, y, z in tpath])   # at rest (no swing, lift or bend): the ridge is laid out on it
     tpath = [(tail * min(1.0, i / 4.0) ** 1.5, y + DT + bb + tail_lift * min(1.0, i / 4.0) ** 1.5, z) for i, (_, y, z) in enumerate(tpath)]
     trad = [7.8, 7.3, 6.8, 6.2, 5.6, 5.0, 4.5, 4.0, 3.6]
     TCEN = (TROOT[0] + 0.9 * 10.5, TROOT[1] - 0.9 * 15.0)     # the curl's middle (y, z, before the lift)
@@ -224,7 +227,7 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
     # ---- down the spine: a ridge of small petals from behind the mane to the tail's root, so the mane, the back and
     # the tail read as one line (as the concept's do); each sits on the back's top line, leaning back
     torso_top = body_m & (np.abs(M.X) < 0.6)
-    zs = np.arange(1.0, ZB - 0.6, -2.4)
+    zs = [SZ(z) for z in np.arange(1.0, ZB0 - 0.6, -2.4)]     # the same six in every frame, spread as the back stretches
     for i, z in enumerate(zs):
         col = torso_top & (np.abs(M.Z - z) < 0.6)
         if not col.any():
@@ -240,20 +243,24 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
         M.set(ridge & c, 'crest_mid.%d' % (i % 6))
     # ---- the tail's ridge: petals like the mane's (as the Juvenile's tufts run on down its tail), set closer than
     # the blocks were, standing out from the curl and leaning toward the tip, smaller as the tail thins
-    cen = np.array([tail, TCEN[0] + DT + bb + tail_lift, TCEN[1]])
+    # Laid out once on the tail at rest (where along it, and which way is out), then carried by the tail as it swings
+    # and lifts, so the same petals sit in the same places in every frame
+    cen = np.array([0.0, TCEN[0] + DT, TCEN[1]])
+    seg0 = np.linalg.norm(np.diff(trest, axis=0), axis=1)
+    cum0 = np.concatenate([[0.0], np.cumsum(seg0)])
     pts = np.array(tpath, float)
-    seg = np.linalg.norm(np.diff(pts, axis=0), axis=1)
-    cum = np.concatenate([[0.0], np.cumsum(seg)])
-    ts = list(np.arange(cum[1] - 1.0, cum[-1] - 0.8, 3.0))
+    ts = list(np.arange(cum0[1] - 1.0, cum0[-1] - 0.8, 3.0))
     for k, t in enumerate(ts):
-        i = min(int(np.searchsorted(cum, t, side='right')) - 1, len(seg) - 1)
-        f = (t - cum[i]) / max(seg[i], 1e-9)
+        i = min(int(np.searchsorted(cum0, t, side='right')) - 1, len(seg0) - 1)
+        f = (t - cum0[i]) / max(seg0[i], 1e-9)
+        p0 = trest[i] * (1 - f) + trest[i + 1] * f
         p = pts[i] * (1 - f) + pts[i + 1] * f
         r = trad[i] * (1 - f) + trad[i + 1] * f
-        tang = _unit(pts[i + 1] - pts[i])
-        out = p - cen
+        tang0 = _unit(trest[i + 1] - trest[i])
+        out = p0 - cen
         out[0] = 0
-        out = _unit(out) if t >= cum[3] else _unit(np.array([0.0, 1.0, 0.0]) - 0.3 * tang)
+        out = _unit(out) if t >= cum0[3] else _unit(np.array([0.0, 1.0, 0.0]) - 0.3 * tang0)
+        tang = _unit(pts[i + 1] - pts[i])
         out = _unit(out - (out @ tang) * tang)
         d = _unit(out * 0.8 + tang * 0.6)
         L, hw = r * 1.75 + 1.5, r * 0.6 + 0.6
@@ -295,7 +302,7 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
             nrm = _unit((s * nx, ny, nz))
             up_ax = (0, 0, 1) if ny > 0.9 else (0, 1, 0)
             u_ax, v_ax, _ = local_frame(tuple(nrm), up_ax)
-            ctr = np.array(B((s * x, y, z)), float)
+            ctr = np.array(B((s * x, y, SZ(z))), float)
             for du, dv, w, h in blocks:
                 c = ctr + (u_ax * du + v_ax * dv) * GROW * 1.15
                 sp = surface_point(M, core, c - nrm * 5.0, nrm, tmax=12)
