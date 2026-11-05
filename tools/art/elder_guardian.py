@@ -114,7 +114,7 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
     HCEN = (0.0, TY + DEPTH - 1.0, ZF + 7.0)
     PIVOT = np.array([0.0, TY + 4.0, ZF + 2.5])   # where the head meets the shoulders (what a head turn is about)
     Hw = lambda p: tuple(PIVOT + R @ (np.array(p, float) - PIVOT) + hd)  # noqa: E731
-    M = Model((-27, lo_y, -40), (27, 54, 30), MATS, res=res)
+    M = Model((-27, lo_y, -47), (27, 54, 30), MATS, res=res)
     if rotated:
         HL, HC = HeadView(M, PIVOT, R, hd), (lambda p: tuple(np.array(p, float)))
     else:
