@@ -75,20 +75,51 @@ def petal(M, base, direction, length, hw, ht, breadth, roll=0.0, bend=0.0, back=
         bk = np.asarray(back, float)
         bk = _unit(bk - (bk @ d) * d)
         P = P - (bend * length * f ** 2)[..., None] * bk
-    u = np.abs(P @ u_ax)
-    v = np.abs(P @ v_ax)
+    us = P @ u_ax
+    vs = P @ v_ax
+    u = np.abs(us)
+    v = np.abs(vs)
     s = np.maximum(np.sin(np.pi * f ** 0.85) ** 0.6, 0.45 * (f < 0.5))     # an almond: full sides, a point
     q = u / (hw * s) + v / (ht * np.maximum(s, 0.35))
     inside = (q <= 1.0) & (t >= -1.5) & (t <= length)
     ridge = inside & (u <= hw * s * 0.26) & (f > 0.12)
+    if FACETS[0] is None:
+        return inside, ridge
+    # the crystal's facets: its diamond section has four faces (+-u, +-v); each takes a tone by how squarely it
+    # faces the key light (brightest: hi, then mid, base, lo), the edge between the lit faces is the brightest, the
+    # tip clears a step (light through it), the root deepens into the fur
+    light = _unit(np.array([-0.45, 0.80, 0.40]))
+    tones = {}
+    for su in (-1, 1):
+        for sv in (-1, 1):
+            n = _unit(su * u_ax / hw + sv * v_ax / ht)
+            tones[(su, sv)] = float(n @ light)
+    order = sorted(tones, key=lambda k_: -tones[k_])
+    rank = {k_: i for i, k_ in enumerate(order)}
+    tone = np.full(M.X.shape, 2, np.int8)
+    face_tone = {0: 1, 1: 2, 2: 2, 3: 3}      # the lit face mid, the two side faces base, the shaded face lo
+    for (su, sv), rk in rank.items():
+        tone[((us >= 0) == (su > 0)) & ((vs >= 0) == (sv > 0))] = face_tone[rk]
+    lit_v = order[0][1]
+    edge = (u <= hw * s * 0.14) & ((vs >= 0) == (lit_v > 0)) & (f > 0.08)
+    tone[edge] = 0                             # the bright edge: a narrow line of light down the lit ridge
+    tip = f > 0.86
+    tone[tip] = np.minimum(tone[tip], 1)       # light through the tip
+    tone[f < 0.10] = 3
+    FACETS[0].append((inside, tone))
     return inside, ridge
 
+
+FACETS = [None]          # while a list: each petal() adds (its voxels, their facet tones) for the facet pass
+TONES = ('crest_hi', 'crest_mid', 'crest', 'crest_lo')
+
 def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_rot=None, body=None, tail_lift=0.0,
-                         jaw=0.0, plain=False, stretch=0.0) -> Character:
+                         jaw=0.0, plain=False, stretch=0.0, facets=True) -> Character:
     """The same arguments as characters.build_elder: feet {(side, front): (dy, dz) or (dy, dz, dx)}, head (dx, dy,
     dz) a nod, head_rot (pitch, yaw, roll) degrees about the neck, body (dy_front, dy_back) a crouch, tail the
     curl's sideways swing, tail_lift its rise, jaw (degrees) the mouth open. plain: the large forms only (no
     mane, plates, patches or marks), to judge the silhouette."""
+    FACETS[0] = [] if facets else None
     feet = feet or {}
     bf, bb = body or (0.0, 0.0)
     hd = np.array(head or (0.0, 0.0, 0.0), float) + np.array([0.0, bf, 0.0])
@@ -177,6 +208,7 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
 
     cx, cy, cz = HCEN
     if plain:
+        FACETS[0] = None
         return _finish(M, R, Hw, B, HCEN, TY, DEPTH, ZF, ZB, DT, PIVOT, hd, head, body_m, tail_m, tail, bb, tail_lift, bf, jaw, [])
 
     # ---- the crystal mane, grown the Evochi way: the Eggling wears scale squares, the Juvenile a ridge of soft
@@ -316,6 +348,24 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
                 nb += 1
 
     two_tone(M, seed=43, thresh=0.6)
+    if FACETS[0]:
+        # each crystal in faceted tones rather than the mottled highlights (its own material index kept, so its
+        # outline still parts it from its neighbours); its brightest faces faintly lit from within
+        for inside, tone in FACETS[0]:
+            cur = M.m
+            names = M.mats
+            sel = inside & (cur > 0)
+            idx = np.unique(cur[sel])
+            for mid in idx:
+                nm = names[mid]
+                if not (nm.startswith('crest.') or nm.startswith('crest_mid.')):
+                    continue
+                k = nm.split('.')[1]
+                here = sel & (cur == mid)
+                for ti, tn in enumerate(TONES):
+                    M.set(here & (tone == ti), '%s.%s' % (tn, k))
+                M.glow[here & (tone == 0)] = 0.12
+    FACETS[0] = None
     # (no forehead mark: the Juvenile has none, and the mane carries the Elder's identity)
     return _finish(M, R, Hw, B, HCEN, TY, DEPTH, ZF, ZB, DT, PIVOT, hd, head, body_m, tail_m, tail, bb, tail_lift, bf, jaw, [])
 

@@ -94,7 +94,7 @@ def render_char(ch: Character, variant='amber', expr='default', cam=None, w=512,
         outline_px = max(1.5, fit.scale * 0.21)
     lut = np.zeros(256, np.int32)
     for i, n in enumerate(model.mats):
-        if n.startswith('crest.') or n.startswith('crest_mid.'):
+        if n.startswith(('crest.', 'crest_mid.', 'crest_hi.', 'crest_lo.')):   # (one crystal's facets one piece)
             lut[i] = 1000 + zlib.crc32(n.split('.')[1].encode()) % 997
         elif n.startswith('acc_'):
             lut[i] = 5
