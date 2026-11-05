@@ -84,7 +84,7 @@ def petal(M, base, direction, length, hw, ht, breadth, roll=0.0, bend=0.0, back=
     return inside, ridge
 
 def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_rot=None, body=None, tail_lift=0.0,
-                         jaw=0.0, plain=False) -> Character:
+                         jaw=0.0, plain=False, stretch=0.0) -> Character:
     """The same arguments as characters.build_elder: feet {(side, front): (dy, dz) or (dy, dz, dx)}, head (dx, dy,
     dz) a nod, head_rot (pitch, yaw, roll) degrees about the neck, body (dy_front, dy_back) a crouch, tail the
     curl's sideways swing, tail_lift its rise, jaw (degrees) the mouth open. plain: the large forms only (no
@@ -100,7 +100,9 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
     # it carried are re-hung from the new frame (DT) without changing their shapes.
     LEG_DROP = 2.5                          # how much shorter than the Guardian Build's legs (the body sits lower)
     TY = 20.5 - LEG_DROP                    # the torso's centreline height
-    ZF, ZB = 6.5, -12.0                     # the shoulders' z and the hips' z: its length is ZF - ZB
+    ZF, ZB = 6.5 + 0.5 * stretch, -12.0 - 0.5 * stretch   # the shoulders' z and the hips' z: its length is ZF - ZB
+    # (stretch: the body lengthened (or, below 0, gathered) by that much, the front half forward, the back half back,
+    # for a run's stretch and gather)
     DEPTH = 9.6                             # the chest's half-depth (its top at TY + DEPTH, its belly at TY - DEPTH)
     SHOULDER = (7.0, TY - 2.0, ZF - 1.0)    # a shoulder's mass, per side (x mirrored): the forelegs grow out of it
     HIP = (7.4, TY - 2.5, ZB + 1.5)         # a haunch's, the hindlegs out of it
@@ -135,7 +137,7 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
                    [DEPTH * 1.07, DEPTH * 1.08, DEPTH * 1.02], p=2.4) & (M.Y < TY + 1.0)
     # the tail: the original Elder's long sweep (low and back from the rump before it curls up), on a shorter body
     # (0.9 of its run) and thick as the Juvenile's
-    TROOT = np.array([15.7, -12.0])
+    TROOT = np.array([15.7, ZB])
     sweep_ = [(0.0, 0.0), (-0.9, -6.5), (-0.1, -12.5), (3.1, -17.5), (8.1, -20.0), (13.1, -19.2), (16.3, -16.2),
               (16.9, -12.6), (15.1, -10.2)]
     tpath = [(0.0, TROOT[0] + 0.9 * dy, TROOT[1] + 0.9 * dz) for dy, dz in sweep_]
