@@ -334,6 +334,10 @@ def _finish(M, R, Hw, B, HCEN, TY, DEPTH, ZF, ZB, DT, PIVOT, hd, head, body_m, t
     }
     ch.rig = dict(head=head, fused=body_m | tail_m, pivot=PIVOT, R=R, t=hd, torso=(ZF, ZB, bf, bb))
     if jaw:
+        # the jaw's hinge and lip placed from this head (jaw.JAW[3] is the original Elder's, whose head sits lower):
+        # the lip just under the mouth at the face's front, the hinge back under the cheeks
         from jaw import open_jaw
-        ch = open_jaw(ch, jaw)
+        spec = dict(hinge=(cy - 4.2, cz + 2.5), lip=(cy - 4.8, cz + 12.1), width=3.2, xfull=4.4, xzero=8.4, depth=0.4,
+                    skin=0.3)
+        ch = open_jaw(ch, jaw, spec)
     return ch
