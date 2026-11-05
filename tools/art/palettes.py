@@ -37,7 +37,7 @@ _VARIANTS = {
     'coral': ('#FFF0E8', '#F3A78D', '#DB745B', '#F39C8B', '#946147', '#6D4539', '#282725', '#FFF3E7'),
     'ocean': ('#F0F7FB', '#97CDEB', '#4C9BCC', '#ECA09C', '#766473', '#524957', '#282725', '#F5F3EF'),
     'amethyst': ('#F6EEFB', '#C8B1E4', '#9975C9', '#E5A1B8', '#806077', '#5D455A', '#282725', '#FFF2F6'),
-    'obsidian': ('#3E414B', '#6B6473', '#DD6A5B', '#E9827C', '#59464A', '#352C32', '#FFF0E3', '#E9DCD2'),
+    'obsidian': ('#3E414B', '#6B6473', '#DD6A5B', '#C9605C', '#59464A', '#352C32', '#FFF0E3', '#E9DCD2'),
 }
 
 VARIANT_ORDER = ['amber', 'forest', 'coral', 'ocean', 'amethyst', 'obsidian']
@@ -49,6 +49,7 @@ def palette(variant: str) -> dict:
     shell, pattern, crest, cheek, feet, feet_sh, eye, claw = _VARIANTS[variant]
     dark = variant == 'obsidian'
     p = {
+        'variant': variant,
         'shell': shell,
         'belly': mixh(shell, '#FFFFFF', 0.25) if not dark else mixh(shell, '#8A8695', 0.35),
         'pattern': pattern,

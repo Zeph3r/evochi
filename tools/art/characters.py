@@ -309,6 +309,15 @@ EXPRESSIONS = ['default', 'blink', 'happy', 'curious', 'surprised', 'determined'
                'afraid', 'frustrated', 'affectionate']
 
 
+# the Obsidian's eyes (only its: every other colour keeps the classic dark eye and light): ('blank', colour, a warmer
+# lower part or None) plain light eyes with no pupil; or (dark, iris, iris light[, rim]) an iris eye after the
+# reference sheet's (dark above, the iris in the lower part, a big light at the top)
+EYE_STYLE = 'iris'
+IRIS = {
+    'obsidian': ('blank', '#FFF6EE', None),        # plain white eyes, no pupil, no light (its look)
+}
+
+
 def paint_face(ch: Character, cv: Canvas, pal: dict, expr: str):
     eu, ev, ew, eh = ch.eye_u, ch.eye_v, ch.eye_w, ch.eye_h
     E, H = pal['eye'], pal['eye_hi']
@@ -323,12 +332,37 @@ def paint_face(ch: Character, cv: Canvas, pal: dict, expr: str):
                      pal['cheek'], alpha, lit=0.5)
 
     def eyes(h=eh, dv=0.0, hl=(-0.25, 0.32), w=ew, du=0.0):
+        style = IRIS.get(pal.get('variant', '')) if EYE_STYLE == 'iris' else None
         for s in (-1, 1):
             cu = s * eu + du
-            cv.paint(cv.m_rect(cu, ev + dv, w, h, r), E, lit=0.0)
-            hw = w * 0.38
-            cv.paint(cv.m_rect(cu + hl[0] * w, ev + dv + h / 2 - h * hl[1] + 0.05, hw, hw * 1.1, hw * 0.2),
-                     H, lit=0.0)
+            eye = cv.m_rect(cu, ev + dv, w, h, r)
+            if style is None:
+                cv.paint(eye, E, lit=0.0)
+                hw = w * 0.38
+                cv.paint(cv.m_rect(cu + hl[0] * w, ev + dv + h / 2 - h * hl[1] + 0.05, hw, hw * 1.1, hw * 0.2),
+                         H, lit=0.0)
+                continue
+            if style[0] == 'blank':
+                # plain light eyes, no pupil and no light: the eye one shape, its lower part a touch warmer
+                _, col, lower = style[:3]
+                cv.paint(eye, col, lit=0.0)
+                if lower:
+                    cv.paint(eye & cv.m_ellipse(cu, ev + dv - h * 0.55, w * 0.9, h * 0.42), lower, lit=0.0)
+                continue
+            # the iris look: a dark eye, its lower part the colour's own iris (a curved edge, lighter at the
+            # bottom), a big soft light at the top and a small one in the iris
+            dark, iris, iris_hi = style[:3]
+            w, h = w * 1.12, h * 1.06                      # (a touch bigger: the colour needs the room)
+            eye = cv.m_rect(cu, ev + dv, w, h, r * 1.12)
+            if len(style) > 3:                             # a rim, so the dark eye parts from a dark face
+                cv.paint(cv.m_rect(cu, ev + dv, w + 0.55, h + 0.55, r * 1.12 + 0.27), style[3], lit=0.0)
+            cv.paint(eye, dark, lit=0.0)
+            cy = ev + dv
+            cv.paint(eye & cv.m_ellipse(cu, cy - h * 0.42, w * 0.78, h * 0.50), iris, lit=0.0)
+            cv.paint(eye & cv.m_ellipse(cu, cy - h * 0.58, w * 0.52, h * 0.24), iris_hi, lit=0.0)
+            hw = w * 0.46
+            cv.paint(cv.m_ellipse(cu + hl[0] * w * 0.4, cy + h * 0.24, hw * 0.52, hw * 0.72), '#FFFFFF', lit=0.0)
+            cv.paint(cv.m_ellipse(cu + w * 0.18, cy - h * 0.24, w * 0.10, w * 0.12), '#FFFFFF', alpha=0.9, lit=0.0)
 
     def smile(width=1.3, depth=0.55):
         cv.paint(cv.m_arc(0, mv + depth, width / 2, depth, 200, 340, lw * 0.85), mouth, lit=0.0)
