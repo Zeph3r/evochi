@@ -94,53 +94,5 @@
     "excited"
    ]
   }
- },
- "s03": {
-  "battle": {
-   "w": 958,
-   "h": 588,
-   "scale": 14.0,
-   "yaw": -125,
-   "pitch": 10,
-   "anchors": {
-    "head_top": [
-     749.7,
-     153.7
-    ],
-    "neck": [
-     686.6,
-     361.3
-    ],
-    "back": [
-     508.9,
-     265.7
-    ],
-    "ground": [
-     508.9,
-     527.6
-    ],
-    "face": [
-     896.5,
-     273.7
-    ],
-    "tail": [
-     176.3,
-     195.8
-    ],
-    "body_top": [
-     469.9,
-     10.0
-    ]
-   },
-   "expressions": [
-    "default",
-    "blink",
-    "happy",
-    "determined",
-    "surprised",
-    "sleepy",
-    "excited"
-   ]
-  }
  }
 }

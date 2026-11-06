@@ -373,6 +373,7 @@ def windtrail_mantle(ch: Character, M: Model):
 
 # the redesigned Elder (elder_guardian.py: characters.ELDER_MODEL): a bigger head set higher and further back, a
 # deeper, taller torso; the Elder's pieces placed on it (the original Elder's values above)
+ORIGINAL_ELDER = dict(NECK=dict(NECK[3]), HEAD=dict(HEAD[3]), BACK=dict(BACK[3]), CLIP=dict(CLIP[3]), CAPE=dict(CAPE[3]))
 if ELDER_MODEL == 'redesign':
     NECK[3] = dict(y=(17.5, 25.0), z=(-1.0, 10.5), th=3, flower=(22, 21.0), lobes_y=16.5, cz=4.8)
     HEAD[3] = dict(c=(0, 33.6, 16.0), r=6.5, h=4.0, s=1.25)

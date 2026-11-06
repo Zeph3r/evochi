@@ -1,0 +1,50 @@
+{
+ "s03": {
+  "battle": {
+   "w": 878,
+   "h": 782,
+   "scale": 14.0,
+   "yaw": -125,
+   "pitch": 10,
+   "anchors": {
+    "head_top": [
+     633.3,
+     204.7
+    ],
+    "neck": [
+     610.4,
+     436.4
+    ],
+    "back": [
+     484.2,
+     346.9
+    ],
+    "ground": [
+     501.4,
+     725.4
+    ],
+    "face": [
+     806.5,
+     332.6
+    ],
+    "tail": [
+     220.4,
+     304.6
+    ],
+    "body_top": [
+     433.5,
+     23.8
+    ]
+   },
+   "expressions": [
+    "default",
+    "blink",
+    "happy",
+    "determined",
+    "surprised",
+    "sleepy",
+    "excited"
+   ]
+  }
+ }
+}

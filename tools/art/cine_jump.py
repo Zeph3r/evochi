@@ -290,6 +290,9 @@ STAGE_PROFILE = {
     3: dict(pivot=(0.0, 11.5, -6.0), pad=(-32, -14, -62, 32, 60, 46), feet=1.2, hip=8.0, body=1.15, squash=0.8,
             apex=28.0, travel=1.18),
 }
+from characters import ELDER_MODEL                      # noqa: E402
+if ELDER_MODEL == 'redesign':        # the redesigned Elder: its middle higher (the torso's centreline at y 18), a taller grid
+    STAGE_PROFILE[3].update(pivot=(0.0, 18.5, -3.0), pad=(-36, -16, -74, 36, 74, 52))
 STAGE = int(os.environ.get('JUMP_STAGE', '2'))
 
 

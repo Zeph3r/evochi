@@ -14,10 +14,10 @@ from PIL import Image, ImageDraw, ImageFont
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from voxel import Camera, save_rgba
-from characters import build, shell_region, tube, spike, local_frame
+from characters import build as _build, build_elder, shell_region, tube, spike, local_frame
 from charrender import render_char
 from palettes import palette, ACCESSORY
-from accessories import HEAD, core_mask, ACC_MATS_PREFIX as A
+from accessories import ORIGINAL_ELDER, core_mask, ACC_MATS_PREFIX as A
 
 FLINT_SCALE = 1.4
 GEAR = {
@@ -38,7 +38,7 @@ def _s(M, mask, name, empty=True, glow=None):
 
 def gear_up(ch):
     M = ch.model
-    p = HEAD[3]
+    p = ORIGINAL_ELDER['HEAD']          # Flint is built on the original Elder (characters.build_elder)
     c = np.array(p['c'], float)                  # the crest's base, on top of the head
     # the crest goes (the hat sits there)
     crest = np.isin(M.m, [i for i, n in enumerate(M.mats) if n.startswith('crest')])
@@ -135,6 +135,11 @@ def gear_up(ch):
                 cv.paint(cv.m_stroke([(ox, ev + dv), (ox + s_ * 0.9, ev + dv * 1.6 + 0.1 * k - 0.1)], lw * 0.6), line, lit=0.2)
     ch.face_extra = extras
     return ch
+
+
+def build(stage, res=2, **kw):
+    """Flint is built on the original Elder (the game's Elder is now the redesign, elder_guardian.py)"""
+    return build_elder(res, **kw) if stage == 3 else _build(stage, res, **kw)
 
 
 def flint():

@@ -15,7 +15,7 @@ from PIL import Image
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from build_characters import fit_for  # noqa: E402
-from characters import build  # noqa: E402
+from flint import build  # noqa: E402  (the original Elder: Flint is sized against it)
 from charrender import render_char  # noqa: E402
 from flint import FLINT_SCALE, flint, flint_palette  # noqa: E402
 from voxel import Camera, project_px  # noqa: E402
