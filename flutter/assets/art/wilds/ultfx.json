@@ -1,0 +1,102 @@
+{
+ "quake_cracks": {
+  "file": "ultfx_quake_cracks.webp",
+  "fw": 384,
+  "fh": 384,
+  "n": 10,
+  "variants": 1,
+  "kind": "ground",
+  "ax": 0.5,
+  "ay": 0.5
+ },
+ "snare_web": {
+  "file": "ultfx_snare_web.webp",
+  "fw": 384,
+  "fh": 384,
+  "n": 10,
+  "variants": 1,
+  "kind": "ground",
+  "ax": 0.5,
+  "ay": 0.5
+ },
+ "reef_web": {
+  "file": "ultfx_reef_web.webp",
+  "fw": 384,
+  "fh": 384,
+  "n": 10,
+  "variants": 1,
+  "kind": "ground",
+  "ax": 0.5,
+  "ay": 0.5
+ },
+ "snare_root": {
+  "file": "ultfx_snare_root.webp",
+  "fw": 128,
+  "fh": 192,
+  "n": 12,
+  "variants": 3,
+  "kind": "stand",
+  "ax": 0.5,
+  "ay": 0.94
+ },
+ "reef_coral": {
+  "file": "ultfx_reef_coral.webp",
+  "fw": 160,
+  "fh": 176,
+  "n": 12,
+  "variants": 3,
+  "kind": "stand",
+  "ax": 0.5,
+  "ay": 0.95
+ },
+ "sun_flare": {
+  "file": "ultfx_sun_flare.webp",
+  "fw": 384,
+  "fh": 384,
+  "n": 16,
+  "variants": 1,
+  "kind": "add",
+  "ax": 0.5,
+  "ay": 0.5
+ },
+ "dazzle": {
+  "file": "ultfx_dazzle.webp",
+  "fw": 96,
+  "fh": 96,
+  "n": 8,
+  "variants": 1,
+  "kind": "add",
+  "ax": 0.5,
+  "ay": 0.5
+ },
+ "crystal_burst": {
+  "file": "ultfx_crystal_burst.webp",
+  "fw": 256,
+  "fh": 256,
+  "n": 12,
+  "variants": 1,
+  "kind": "add",
+  "ax": 0.5,
+  "ay": 0.5
+ },
+ "dust": {
+  "file": "ultfx_dust.webp",
+  "fw": 128,
+  "fh": 128,
+  "n": 4,
+  "variants": 1,
+  "kind": "normal",
+  "ax": 0.5,
+  "ay": 0.6
+ },
+ "rocks": {
+  "file": "ultfx_rocks.webp",
+  "fw": 64,
+  "fh": 64,
+  "n": 12,
+  "variants": 6,
+  "kind": "normal",
+  "ax": 0.5,
+  "ay": 0.5
+ }
+}

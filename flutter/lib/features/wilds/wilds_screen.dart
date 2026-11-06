@@ -49,6 +49,7 @@ import '../village/story_widgets.dart';
 import 'boss_intro.dart';
 import 'deep_floor.dart';
 import 'ult_cutin.dart';
+import 'ult_fx.dart';
 import 'wilds_art.dart';
 import 'wilds_combat.dart';
 
@@ -349,6 +350,11 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final c = context.read<GameController>();
     final pet = c.state.pet;
     final st = c.state.player?.settings;
+    if (pet != null && pet.stage >= 3) {
+      UltFx.load().then((fx) {
+        if (mounted) _ultFx = fx;
+      });
+    }
     if (pet == null || pet.stage < 3 || (st?.shortUltimates ?? false) || (st?.reducedMotion ?? false)) return;
     final art = await UltArt.load(pet.paletteId, pet.personality);
     if (!mounted || art == null) return;
@@ -1332,6 +1338,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   final _used = <String>{}; // spots spent on this floor: chests opened, shrines prayed at, camps rested at
   bool _lavaSaid = false; // the lava's first burn on this floor said so
   ui.Image? _capImg; // a Hollow gallery's glowcaps (the item's own picture, a few of them to a patch)
+  UltFx? _ultFx; // an Elder's ultimate's effect sprites, back in the fight (ult_fx.dart)
 
   Future<void> _loadCapArt() async {
     final data = await rootBundle.load('assets/art/items/glowcap.webp');
@@ -2463,6 +2470,7 @@ class _MapPainter extends CustomPainter {
     // a pulse's pieces standing up out of the ground (crystal spikes, heaved rocks), each at its own depth
     for (final b in r.bursts) {
       if (b.kind == 'spikes' || b.kind == 'tremor') _ringPieces(canvas, b, items);
+      if (_ultPieceKinds.contains(b.kind)) _ultPieces(canvas, b, items);
     }
     items.sort((a, b) => a.$1.compareTo(b.$1));
     for (final it in items) {
@@ -3739,7 +3747,9 @@ class _MapPainter extends CustomPainter {
     }
   }
 
-  static const _groundBursts = {'pulse', 'tremor', 'rockrise', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare', 'mistwave', 'mistlinger'};
+  static const _groundBursts = {'pulse', 'tremor', 'rockrise', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare', 'mistwave', 'mistlinger',
+    'uquake', 'usnare', 'ureef', 'usunpool'};
+  static const _ultPieceKinds = {'uquake', 'usnare', 'usnarehold', 'ureef', 'ucrystal'};
 
   /// Your Evochi's stage, for its moves' size and flourish: an Eggling's are small and simple, a Juvenile's
   /// fuller, an Elder's the whole show.
@@ -4387,6 +4397,263 @@ class _MapPainter extends CustomPainter {
     }
   }
 
+  // ---- the Elders' ultimates back in the fight (their cut-in's element carried on: ult_fx.dart's sprites,
+  // tools/art/ult_fx_bake.py)
+
+  /// a baked ground decal, split open over [open] s, held, and faded from [fadeFrom] of its life on
+  void _uDecal(Canvas canvas, String name, Burst b, double r, {double open = 0.3, double fadeFrom = 0.6, double opacity = 1}) {
+    final fx = s._ultFx?[name];
+    if (fx == null) return;
+    final fade = 1 - ((b.t / b.ttl - fadeFrom) / (1 - fadeFrom)).clamp(0.0, 1.0);
+    fx.draw(canvas, fx.at(b.t / open), _ellipse(b.x, b.z, r), opacity: fade * opacity);
+  }
+
+  /// Quake on the ground: a ring of force out across it, and the cinematic's lava cracks splitting open under
+  /// it, glowing, slowly going dark; a scorched heart where it landed
+  void _uQuakeGround(Canvas canvas, Burst b, double k, double u) {
+    final R = b.size;
+    final fade = 1 - ((k - 0.55) / 0.45).clamp(0.0, 1.0);
+    final cr = _ellipse(b.x, b.z, R * 0.42);
+    canvas.drawOval(cr, Paint()..shader = ui.Gradient.radial(cr.center, cr.width / 2, [Color.fromRGBO(24, 14, 12, 0.55 * fade), const Color.fromRGBO(40, 26, 20, 0)]));
+    _uDecal(canvas, 'quake_cracks', b, R * 1.3, open: 0.28, fadeFrom: 0.55);
+    final heat = fade * (0.75 + 0.25 * math.sin(b.t * 9));
+    final e = _ellipse(b.x, b.z, R * 0.7);
+    canvas.drawOval(e, Paint()
+      ..blendMode = BlendMode.plus
+      ..shader = ui.Gradient.radial(e.center, e.width / 2, [Color.fromRGBO(255, 120, 40, 0.30 * heat), const Color.fromRGBO(255, 80, 20, 0)]));
+    final w = (b.t / 0.5).clamp(0.0, 1.0);
+    if (w < 1) {
+      final ring = Curves.easeOutCubic.transform(w);
+      for (final (rr, sw, a) in [(1.0, 9.0, 0.9), (0.82, 4.0, 0.55)]) {
+        canvas.drawOval(
+            _ellipse(b.x, b.z, R * ring * rr),
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = (sw * (1 - w) + 1) * u
+              ..color = Color.fromRGBO(255, 214, 160, a * (1 - w)));
+      }
+    }
+  }
+
+  /// Quake in the air: the flash where it lands, embers rising off the cracks
+  void _uQuakeAir(Canvas canvas, Burst b, double k, Offset g, double u) {
+    if (b.t < 0.22) _addGlow(canvas, g - Offset(0, 8 * _up), (30 + 120 * (b.t / 0.22)) * u, Color.fromRGBO(255, 200, 130, 0.75 * (1 - b.t / 0.22)));
+    final rnd = math.Random((b.x * 7 + b.z * 3).round());
+    for (var i = 0; i < 30; i++) {
+      final a = rnd.nextDouble() * math.pi * 2, rr = b.size * math.sqrt(rnd.nextDouble()) * 0.9;
+      final t0 = rnd.nextDouble() * 0.5, life = 0.7 + rnd.nextDouble() * 0.6, hr = rnd.nextDouble(), sr = rnd.nextDouble();
+      final lt = (b.t - t0) / life;
+      if (lt <= 0 || lt >= 1) continue;
+      final at = s._toScreen(b.x + math.cos(a) * rr, b.z + math.sin(a) * rr) - Offset(math.sin(lt * 5 + i) * 4 * u, (40 + 30 * hr) * lt * _up);
+      final r0 = (1.4 + sr * 1.4) * u * (1 - lt * 0.5);
+      _addGlow(canvas, at, r0 * 4, Color.fromRGBO(255, 130, 40, 0.45 * (1 - lt)));
+      canvas.drawCircle(at, r0, _add(Color.fromRGBO(255, 226, 150, 0.95 * (1 - lt))));
+    }
+  }
+
+  /// Thorn Snare underfoot: a web of glowing roots spreading out through the ground, a green light over it
+  void _uSnareGround(Canvas canvas, Burst b, double k, double u) {
+    final rise = math.min(1.0, b.t / 0.2) * (1 - ((k - 0.85) / 0.15).clamp(0.0, 1.0));
+    final e = _ellipse(b.x, b.z, b.size * 1.05);
+    canvas.drawOval(e, Paint()
+      ..shader = ui.Gradient.radial(e.center, e.width / 2, [Color.fromRGBO(40, 70, 26, 0.38 * rise), const Color.fromRGBO(40, 70, 26, 0)]));
+    _uDecal(canvas, 'snare_web', b, b.size * 1.35, open: 0.35, fadeFrom: 0.82);
+    canvas.drawOval(e, Paint()
+      ..blendMode = BlendMode.plus
+      ..shader = ui.Gradient.radial(e.center, e.width / 2, [Color.fromRGBO(150, 230, 90, 0.16 * rise * (0.8 + 0.2 * math.sin(b.t * 6))), const Color.fromRGBO(150, 230, 90, 0)]));
+  }
+
+  /// Reef Bloom underfoot: a glowing reef of polyps spreading out, its pink light breathing
+  void _uReefGround(Canvas canvas, Burst b, double k, double u) {
+    final rise = math.min(1.0, b.t / 0.35) * (1 - ((k - 0.9) / 0.1).clamp(0.0, 1.0));
+    final e = _ellipse(b.x, b.z, b.size * 1.05);
+    canvas.drawOval(e, Paint()..color = Color.fromRGBO(255, 150, 140, 0.14 * rise));
+    _uDecal(canvas, 'reef_web', b, b.size * 1.4, open: 0.45, fadeFrom: 0.9, opacity: 0.9);
+    canvas.drawOval(e, Paint()
+      ..blendMode = BlendMode.plus
+      ..shader = ui.Gradient.radial(e.center, e.width / 2, [Color.fromRGBO(255, 170, 160, 0.20 * rise * (0.75 + 0.25 * math.sin(b.t * 2.4))), const Color.fromRGBO(255, 170, 160, 0)]));
+    canvas.drawOval(e, Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 2 * u
+      ..color = Color.fromRGBO(255, 200, 186, 0.55 * rise));
+  }
+
+  /// Reef Bloom's bubbles drifting up off it, and motes of its healing
+  void _uBubbles(Canvas canvas, Burst b, double k, double u) {
+    final rise = math.min(1.0, b.t / 0.4) * (1 - ((k - 0.9) / 0.1).clamp(0.0, 1.0));
+    for (var i = 0; i < 16; i++) {
+      final ph = (b.t * 0.45 + i / 16) % 1.0;
+      final a = i * 2.39996, rr = b.size * (0.2 + 0.7 * ((i * 0.37) % 1.0));
+      final at = s._toScreen(b.x + math.cos(a) * rr, b.z + math.sin(a) * rr) - Offset(math.sin(ph * 6 + i) * 3 * u, ph * 46 * _up);
+      final r0 = (1.6 + (i % 3) * 0.9) * u;
+      final al = rise * math.sin(ph * math.pi);
+      canvas.drawCircle(at, r0, Paint()..color = Color.fromRGBO(220, 250, 255, 0.25 * al));
+      canvas.drawCircle(at, r0, Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.9 * u
+        ..color = Color.fromRGBO(255, 255, 255, 0.8 * al));
+      canvas.drawCircle(at - Offset(r0 * 0.35, r0 * 0.35), r0 * 0.28, Paint()..color = Color.fromRGBO(255, 255, 255, 0.9 * al));
+    }
+    _uMotes(canvas, b, k, u, const Color(0xFFFFE2D8), const Color(0xFFFF9C8C));
+  }
+
+  /// soft motes (or little leaves) lifting off an ultimate's ground
+  void _uMotes(Canvas canvas, Burst b, double k, double u, Color hi, Color lo, {bool leaves = false}) {
+    final rise = math.min(1.0, b.t / 0.25) * (1 - ((k - 0.8) / 0.2).clamp(0.0, 1.0));
+    final rnd = math.Random((b.x * 5 + b.z * 11).round());
+    for (var i = 0; i < 20; i++) {
+      final a = rnd.nextDouble() * math.pi * 2, rr = b.size * math.sqrt(rnd.nextDouble());
+      final sp = 0.35 + rnd.nextDouble() * 0.4;
+      final ph = (b.t * sp + rnd.nextDouble()) % 1.0;
+      final at = s._toScreen(b.x + math.cos(a) * rr, b.z + math.sin(a) * rr) - Offset(math.sin(ph * 7 + i) * 5 * u, ph * 38 * _up);
+      final al = rise * math.sin(ph * math.pi);
+      if (leaves && i.isEven) {
+        _leafAt(canvas, at, 3.2 * u, ph * 8 + i, al);
+      } else {
+        _addGlow(canvas, at, 6 * u, lo.withValues(alpha: 0.5 * al));
+        canvas.drawCircle(at, 1.3 * u, _add(hi.withValues(alpha: 0.9 * al)));
+      }
+    }
+  }
+
+  /// Sunflare: the cut-in's sun breaking open over your Evochi, its rays sweeping out across the fight, and a
+  /// spray of golden motes
+  void _uSun(Canvas canvas, Burst b, double k, Offset g, double u) {
+    final c = g - Offset(0, 16 * _up);
+    final fx = s._ultFx?['sun_flare'];
+    if (fx != null) {
+      final d = b.size * 1.1 * s._u;
+      fx.draw(canvas, fx.at(k), Rect.fromCenter(center: c, width: d, height: d), opacity: 0.85);
+    } else {
+      _addGlow(canvas, c, (30 + 90 * k) * u, Color.fromRGBO(255, 236, 160, 0.7 * (1 - k)));
+    }
+    final rnd = math.Random(17);
+    for (var i = 0; i < 28; i++) {
+      final a = rnd.nextDouble() * math.pi * 2, v = 60 + rnd.nextDouble() * 90;
+      final e = Curves.easeOutCubic.transform(k);
+      final at = c + Offset(math.cos(a), math.sin(a) * 0.6) * v * e * u + Offset(0, 30 * k * k * _up);
+      final al = (1 - k) * (0.6 + 0.4 * math.sin(b.t * 20 + i));
+      _addGlow(canvas, at, 5 * u, Color.fromRGBO(255, 200, 90, 0.5 * al));
+      canvas.drawCircle(at, 1.4 * u, _add(Color.fromRGBO(255, 244, 200, al)));
+    }
+  }
+
+  /// the ultimates' standing pieces, each at its own depth: the Quake's rock heaved up and tumbling and its dust
+  /// rolling out; the Snare's roots bursting up (and coiling round what they hold); the Reef's coral; the
+  /// Shards' ring of crystal
+  void _ultPieces(Canvas canvas, Burst b, List<(double, void Function())> items) {
+    final fx = s._ultFx;
+    final rnd = math.Random((b.x * 13 + b.z * 7).round() ^ b.kind.hashCode);
+    switch (b.kind) {
+      case 'uquake':
+        final rocks = fx?['rocks'], dust = fx?['dust'];
+        for (var i = 0; i < 16; i++) {
+          final a = i * math.pi * 2 / 16 + rnd.nextDouble() * 0.35;
+          final frac = 0.25 + 0.7 * rnd.nextDouble();
+          final x = b.x + math.cos(a) * b.size * frac, z = b.z + math.sin(a) * b.size * frac;
+          final lt = b.t - 0.3 * frac;
+          final life = 0.75 + 0.3 * rnd.nextDouble();
+          final cs = 5.5 + 4.0 * rnd.nextDouble(), spin = 0.6 + rnd.nextDouble(), hr = rnd.nextDouble();
+          if (lt <= 0 || lt > life) continue;
+          final kk = lt / life;
+          final h = 30 * math.sin(kk * math.pi) * (0.7 + 0.5 * hr);
+          final al = 1 - ((kk - 0.8) / 0.2).clamp(0.0, 1.0);
+          items.add((z, () {
+            if (rocks == null) {
+              _heaved(canvas, x, z, h, cs, kk * 6 * spin, al, i);
+              return;
+            }
+            final gp = s._toScreen(x, z);
+            final S = cs * s._u * 2.2;
+            canvas.drawOval(Rect.fromCenter(center: gp, width: S * 1.1 * (1 - h / 50), height: S * 0.4 * (1 - h / 50)), Paint()
+              ..color = Color.fromRGBO(20, 14, 12, 0.35 * al)
+              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
+            rocks.draw(canvas, (kk * 12 * spin * 2).floor() % 12, Rect.fromCenter(center: gp - Offset(0, h * _up + S * 0.35), width: S, height: S),
+                variant: i % 6, opacity: al);
+          }));
+        }
+        if (dust != null) {
+          final front = b.size * Curves.easeOutCubic.transform((b.t / 0.6).clamp(0.0, 1.0));
+          for (var i = 0; i < 18; i++) {
+            final a = i * math.pi * 2 / 18 + rnd.nextDouble() * 0.2;
+            final rr = front * (0.9 + 0.15 * rnd.nextDouble()), sr = rnd.nextDouble();
+            final x = b.x + math.cos(a) * rr, z = b.z + math.sin(a) * rr;
+            final kk = (b.t / 1.5).clamp(0.0, 1.0);
+            if (kk >= 1) continue;
+            final sz = (12 + 18 * Curves.easeOut.transform(kk)) * s._u * (0.8 + 0.4 * sr);
+            final al = 0.85 * (1 - kk) * math.min(1.0, b.t / 0.08);
+            items.add((z + 2, () {
+              final gp = s._toScreen(x, z) - Offset(0, (sz * 0.25 + 10 * kk * _up));
+              dust.draw(canvas, i % 4, Rect.fromCenter(center: gp, width: sz * 1.4, height: sz), opacity: al);
+            }));
+          }
+        }
+      case 'usnare':
+      case 'usnarehold':
+        final roots = fx?['snare_root'];
+        final hold = b.kind == 'usnarehold';
+        final n = hold ? 3 : 16;
+        for (var i = 0; i < n; i++) {
+          final double a, rr;
+          if (hold) {
+            a = i * math.pi * 2 / 3 + 0.5;
+            rr = b.size * 0.9 + 2;
+          } else {
+            a = i * 2.39996 + rnd.nextDouble() * 0.3;
+            rr = b.size * (0.3 + 0.65 * ((i * 0.37 + rnd.nextDouble() * 0.2) % 1.0));
+          }
+          final x = b.x + math.cos(a) * rr, z = b.z + math.sin(a) * rr;
+          final t0 = hold ? 0.05 + i * 0.04 : (i % 5) * 0.035;
+          final lt = b.t - t0;
+          if (lt <= 0) continue;
+          final sink = ((b.t - (b.ttl - 0.35)) / 0.35).clamp(0.0, 1.0);
+          final hu = (hold ? 40.0 : 32.0 + 16 * ((i * 0.53) % 1.0)) * (1 - sink * 0.8);
+          final frame = roots == null ? 0 : roots.at(math.min(lt / 0.3, 1.0 - sink));
+          final flip = hold ? math.cos(a) > 0 : i.isOdd;
+          items.add((z, () {
+            final gp = s._toScreen(x, z);
+            if (roots == null) {
+              final h = hu * _up * math.min(1.0, lt / 0.2);
+              canvas.drawPath(Path()..moveTo(gp.dx - 3 * s._u / 2.7, gp.dy)..lineTo(gp.dx + 3 * s._u / 2.7, gp.dy)..lineTo(gp.dx, gp.dy - h)..close(),
+                  Paint()..color = const Color(0xFF46702E));
+              return;
+            }
+            roots.stand(canvas, frame, gp, hu * _up * 1.15, variant: i % 3, flip: flip, skew: hold ? (flip ? -0.25 : 0.25) : 0,
+                opacity: 1 - sink * 0.6);
+          }));
+        }
+      case 'ureef':
+        final coral = fx?['reef_coral'];
+        if (coral == null) return;
+        for (var i = 0; i < 9; i++) {
+          final a = i * 2.39996 + 0.5;
+          final rr = b.size * (0.25 + 0.65 * ((i * 0.53) % 1.0));
+          final x = b.x + math.cos(a) * rr, z = b.z + math.sin(a) * rr;
+          final lt = b.t - (i % 4) * 0.06;
+          if (lt <= 0) continue;
+          final sink = ((b.t - (b.ttl - 0.5)) / 0.5).clamp(0.0, 1.0);
+          final frame = coral.at(math.min(lt / 0.45, 1.0 - sink));
+          final hu = (34 + 12 * ((i * 0.37) % 1.0)) * (1 - sink * 0.7);
+          items.add((z, () => coral.stand(canvas, frame, s._toScreen(x, z), hu * _up * 1.2, variant: i % 3, flip: i.isOdd,
+              skew: 0.06 * math.sin(s._t * 1.8 + i), opacity: 1 - sink * 0.5)));
+        }
+      case 'ucrystal':
+        for (var i = 0; i < 12; i++) {
+          final a = i * math.pi * 2 / 12;
+          final rad = b.size * 0.62;
+          final x = b.x + math.cos(a) * rad, z = b.z + math.sin(a) * rad;
+          final lt = b.t - (i % 3) * 0.02;
+          if (lt <= 0) continue;
+          final up = Curves.easeOutBack.transform((lt / 0.1).clamp(0.0, 1.0));
+          final down = ((b.t - (b.ttl - 0.25)) / 0.25).clamp(0.0, 1.0);
+          final h = up * (1 - Curves.easeIn.transform(down));
+          if (h <= 0.01) continue;
+          final tall = 30.0 * (0.8 + 0.4 * ((i * 7) % 5) / 4);
+          items.add((z, () => _crystal(canvas, x, z, math.cos(a), math.sin(a), tall * h, 5.2, lt, cluster: i.isEven)));
+        }
+    }
+  }
+
   void _burst(Canvas canvas, Burst b) {
     final k = (b.t / b.ttl).clamp(0.0, 1.0);
     final g = s._toScreen(b.x, b.z);
@@ -4781,6 +5048,42 @@ class _MapPainter extends CustomPainter {
         _pulseWave(canvas, b, k, g, u);
       case 'tremor':
         _tremorGround(canvas, b, k, u);
+      case 'uquake':
+        _uQuakeGround(canvas, b, k, u);
+      case 'uquakefx':
+        _uQuakeAir(canvas, b, k, g, u);
+      case 'usnare':
+        _uSnareGround(canvas, b, k, u);
+      case 'usnarefx':
+        _uMotes(canvas, b, k, u, const Color(0xFFC8F28A), const Color(0xFF7FC24E), leaves: true);
+      case 'usun':
+        _uSun(canvas, b, k, g, u);
+      case 'usunpool':
+        final e = _ellipse(b.x, b.z, b.size * 0.55 * (0.6 + 0.4 * Curves.easeOut.transform(k)));
+        canvas.drawOval(e, Paint()
+          ..blendMode = BlendMode.plus
+          ..shader = ui.Gradient.radial(e.center, e.width / 2, [Color.fromRGBO(255, 214, 120, 0.42 * (1 - k)), const Color.fromRGBO(255, 214, 120, 0)]));
+      case 'udazzle':
+        final fx = s._ultFx?['dazzle'];
+        final at = g - Offset(0, (14 + 8 * b.size / 10) * _up);
+        if (fx != null) {
+          final d = 46 * u;
+          fx.draw(canvas, fx.at(k), Rect.fromCenter(center: at, width: d, height: d));
+        }
+        _stars(canvas, at, 0.8 * u, 1 - k);
+      case 'ureef':
+        _uReefGround(canvas, b, k, u);
+      case 'ureeffx':
+        _uBubbles(canvas, b, k, u);
+      case 'ucrystal':
+        final fx = s._ultFx?['crystal_burst'];
+        final c = g - Offset(0, 12 * _up);
+        if (fx != null) {
+          final d = b.size * 3.0 * s._u;
+          fx.draw(canvas, fx.at(k), Rect.fromCenter(center: c, width: d, height: d));
+        } else {
+          _addGlow(canvas, c, 30 * u, Color.fromRGBO(190, 150, 255, 0.6 * (1 - k)));
+        }
       case 'spikes':
         break; // (drawn standing, at their depth: _ringPieces)
       case 'blastfire':

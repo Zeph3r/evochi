@@ -1699,8 +1699,8 @@ class Raid {
         _reefX = p.x;
         _reefZ = p.z;
       case 'amethyst':
-        // a ring of crystal shards that go through whatever they meet
-        bursts.add(Burst('crystal', p.x, p.z, 0.5, size: 40));
+        // a ring of crystal shards that go through whatever they meet (a ring of crystal bursting up as they leave)
+        bursts.add(Burst('ucrystal', p.x, p.z, 0.8, size: 40));
         for (var i = 0; i < 12; i++) {
           final a = i * math.pi * 2 / 12;
           shots.add(Shot(ShotKind.bolt, Team.party, p.x + math.cos(a) * 8, p.z + math.sin(a) * 8, vx: math.cos(a) * 190, vz: math.sin(a) * 190, life: 0.9, owner: p)
@@ -1709,10 +1709,12 @@ class Raid {
             ..shard = true);
         }
       case 'forest':
-        // thorns burst up all round and hold everything near fast
-        bursts.add(Burst('snare', p.x, p.z, 2.6, size: 72));
+        // thorns burst up all round and hold everything near fast (roots up out of a glowing web, coiling round each)
+        bursts.add(Burst('usnare', p.x, p.z, 2.6, size: 72));
+        bursts.add(Burst('usnarefx', p.x, p.z, 2.6, size: 72));
         for (final f in hostile.toList()) {
           if (p.dist(f) > 72 + f.radius) continue;
+          bursts.add(Burst('usnarehold', f.x, f.z, f is Boss ? 3.0 : 2.4, size: f.radius));
           _hurt(f, 14 * atk, from: p, poise: 40);
           if (f is Boss) {
             _chill(f, 3.0);
@@ -1726,13 +1728,15 @@ class Raid {
         _reefT = 6;
         _reefX = p.x;
         _reefZ = p.z;
-        bursts.add(Burst('reef', p.x, p.z, 6, size: 56));
+        bursts.add(Burst('ureef', p.x, p.z, 6, size: 56));
+        bursts.add(Burst('ureeffx', p.x, p.z, 6, size: 56));
         p.hp = math.min(p.maxHp, p.hp + 20);
         _float('+20', p.x, p.z, 'heal');
       case 'obsidian':
-        // the ground itself heaves: the widest stun there is
-        bursts.add(Burst('quake', p.x, p.z, 0.7, size: 95));
-        bursts.add(Burst('rubble', p.x, p.z, 1.0, size: 1.6));
+        // the ground itself heaves: the widest stun there is (its cut-in's lava cracks split open under it, rock
+        // heaves up and tumbles, dust rolls out, embers rise)
+        bursts.add(Burst('uquake', p.x, p.z, 2.4, size: 95));
+        bursts.add(Burst('uquakefx', p.x, p.z, 1.6, size: 95));
         shake = math.max(shake, 1.2);
         for (final f in hostile.toList()) {
           final d = p.dist(f);
@@ -1741,10 +1745,12 @@ class Raid {
           _hurt(f, 26 * atk, from: p, kx: (f.x - p.x) * k * 160, kz: (f.z - p.z) * k * 160, poise: 90, stun: f is Boss ? 0 : 1.3);
         }
       default:
-        // amber: a flash of sunlight that dazzles everything that can see it
-        bursts.add(Burst('sunflare', p.x, p.z, 0.8, size: 170));
+        // amber: a flash of sunlight that dazzles everything that can see it (its cut-in's sun breaking open)
+        bursts.add(Burst('usun', p.x, p.z, 1.0, size: 170));
+        bursts.add(Burst('usunpool', p.x, p.z, 1.2, size: 170));
         for (final f in hostile.toList()) {
           if (p.dist(f) > 170) continue;
+          bursts.add(Burst('udazzle', f.x, f.z, 1.2, size: f.radius));
           _hurt(f, 12 * atk, from: p, poise: 30);
           if (f is Boss) {
             _dazzle(f, 60);
