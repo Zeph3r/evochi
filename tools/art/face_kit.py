@@ -157,6 +157,9 @@ def extent(ch):
 def _colours(pal):
     dark = pal['mouth_in'].upper() in ('#2A2228',)
     sub = {INK: pal['eye'], WHITE: pal['eye_hi'], BLUSH: pal['cheek']}
+    from characters import IRIS
+    if (IRIS.get(pal.get('variant', '')) or ('',))[0] == 'blank':
+        sub[WHITE] = pal['eye']                  # plain eyes (the Obsidian's): the kit's eye lights merge into them
     if dark:
         sub.update({c: pal[k] for c, k in MOUTH_KEYS.items()})
     return sub
@@ -164,12 +167,17 @@ def _colours(pal):
 
 @functools.lru_cache(64)
 def _raster(name, subs, scale):
-    import cairosvg
     from PIL import Image
     svg = scale_eyes(open(svg_path(name)).read(), STAGES[name.split('_')[1]])
     for a, b in subs:
         svg = re.sub(re.escape(a), b, svg, flags=re.I)
-    png = cairosvg.svg2png(bytestring=svg.encode(), output_width=int(round(256 * scale)), output_height=int(round(160 * scale)))
+    w, h = int(round(256 * scale)), int(round(160 * scale))
+    try:
+        import cairosvg
+        png = cairosvg.svg2png(bytestring=svg.encode(), output_width=w, output_height=h)
+    except (ImportError, OSError):                   # no Cairo here (a Windows Python): resvg instead
+        import resvg_py
+        png = bytes(resvg_py.svg_to_bytes(svg_string=svg, width=w, height=h))
     return np.asarray(Image.open(io.BytesIO(png)).convert('RGBA')).astype(np.float32) / 255.0
 
 
