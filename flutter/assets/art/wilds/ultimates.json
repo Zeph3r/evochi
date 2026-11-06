@@ -6,13 +6,45 @@
   "healing_mist": {
    "palette": "ocean",
    "name": "Healing Mist",
-   "t0": 0.15,
-   "t1": 1.4,
-   "release": 1.38,
-   "n": 39,
+   "t0": 0.0,
+   "t1": 4.333,
+   "release": 4.3,
+   "n": 130,
    "variants": {
-    "brave": "ult_healing_mist_brave.webp",
-    "calm": "ult_healing_mist_calm.webp"
+    "brave": "ult_healing_mist_brave.webp"
+   }
+  },
+  "quake": {
+   "palette": "obsidian",
+   "name": "Quake",
+   "t0": 0.0,
+   "t1": 2.033,
+   "release": 2.0,
+   "n": 61,
+   "variants": {
+    "brave": "ult_quake_brave.webp"
+   }
+  },
+  "thorn_snare": {
+   "palette": "forest",
+   "name": "Thorn Snare",
+   "t0": 0.0,
+   "t1": 2.433,
+   "release": 2.4,
+   "n": 73,
+   "variants": {
+    "brave": "ult_thorn_snare_brave.webp"
+   }
+  },
+  "sunflare": {
+   "palette": "amber",
+   "name": "Sunflare",
+   "t0": 0.0,
+   "t1": 2.6,
+   "release": 2.567,
+   "n": 78,
+   "variants": {
+    "brave": "ult_sunflare_brave.webp"
    }
   }
  }

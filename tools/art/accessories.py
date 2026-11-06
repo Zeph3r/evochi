@@ -7,7 +7,7 @@ import numpy as np
 from scipy import ndimage
 
 from voxel import Model
-from characters import Character, shell_region, tube, spike, local_frame
+from characters import Character, shell_region, tube, spike, local_frame, ELDER_MODEL
 
 ACC_MATS_PREFIX = 'acc_'
 
@@ -83,7 +83,7 @@ def leaf_scarf(ch: Character, M: Model):
     band = neck_band(ch, M)
     core = core_mask(M)
     # pointed leaf lobes hanging below the band, every ~30 degrees
-    cx, cz = 0.0, (0.0 if ch.stage == 1 else (7.0 if ch.stage == 2 else 8.0))
+    cx, cz = 0.0, (0.0 if ch.stage == 1 else (7.0 if ch.stage == 2 else p.get('cz', 8.0)))
     ang = np.degrees(np.arctan2(M.X - cx, M.Z - cz))
     lobe_region = shell_region(M, core, 3) & (M.Y < p['y'][0]) & (M.Y > p['y'][0] - 2.6)
     phase = (ang + 360) % 30
@@ -118,7 +118,7 @@ def blue_scarf(ch: Character, M: Model):
     # hanging end at the front-left
     az = -28
     d = np.array([math.sin(math.radians(az)), 0.0, math.cos(math.radians(az))])
-    cz = 0.0 if ch.stage == 1 else (7.0 if ch.stage == 2 else 8.0)
+    cz = 0.0 if ch.stage == 1 else (7.0 if ch.stage == 2 else p.get('cz', 8.0))
     c = np.array([0, p['y'][0] + 0.5, cz])
     pt = None
     for t in np.arange(0, 30, 0.1):
@@ -194,7 +194,7 @@ def tiny_crown(ch: Character, M: Model):
 def explorer_hat(ch: Character, M: Model):
     p = HEAD[ch.stage]
     c = np.array(p['c'], float)
-    s = {1: 1.0, 2: 1.05, 3: 0.95}[ch.stage]
+    s = {1: 1.0, 2: 1.05, 3: p.get('s', 0.95)}[ch.stage]
     base_y = c[1] + 1.4
     # brim
     brim = ((M.X - c[0]) ** 2 / (9.5 * s) ** 2 + (M.Z - c[2]) ** 2 / (9.0 * s) ** 2 <= 1) & \
@@ -370,6 +370,15 @@ def windtrail_mantle(ch: Character, M: Model):
             cl = collar & (np.abs(M.Z - zf) < 1.4) & (np.abs(M.X - sx * 2.2) < 1.0)
             M.set(cl, ACC_MATS_PREFIX + 'copper')
 
+
+# the redesigned Elder (elder_guardian.py: characters.ELDER_MODEL): a bigger head set higher and further back, a
+# deeper, taller torso; the Elder's pieces placed on it (the original Elder's values above)
+if ELDER_MODEL == 'redesign':
+    NECK[3] = dict(y=(17.5, 25.0), z=(-1.0, 10.5), th=3, flower=(22, 21.0), lobes_y=16.5, cz=4.8)
+    HEAD[3] = dict(c=(0, 33.6, 16.0), r=6.5, h=4.0, s=1.25)
+    BACK[3] = dict(p=(1.5, 27.2, -6.5), n=(0.2, 1, -0.25), s=1.5)
+    CLIP[3] = dict(at=(-9.2, 35.0, 14.0), out=(-0.80, 0.48, 0.36))
+    CAPE[3] = dict(c=(0, 19.5, -3.0), r=16.3, ymin=15.0, ymax=37.0, zmin=-13.0, zmax=7.0, th=7)
 
 WEARABLES = {
     'leaf_scarf': ('neck', leaf_scarf),

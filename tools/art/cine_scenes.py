@@ -1508,7 +1508,12 @@ def scene_elder_orbit(variant, frames=ELDER_ORBIT_FRAMES, res=4, expr='default')
     # the Elder at twice the game's voxel grain (the same model, finer steps: it fills the screen here), its
     # default face; the camera aims at the body's middle at one distance for the whole orbit, the one its widest
     # angle needs, so it never pumps in and out as it turns and the whole Elder and its ring stay in frame
-    ch = build(3, res=res)
+    import characters as _C
+    if _C.ELDER_MODEL == 'redesign':                 # its colour's mane (Obsidian: the petals), built in
+        from elder_guardian import mane_for
+        ch = build(3, res=res, mane=mane_for(variant))
+    else:
+        ch = build(3, res=res)
     idx = np.argwhere(ch.model.m > 0)
     lo = (idx.min(0) + ch.model.lo) / ch.model.res
     hi = (idx.max(0) + 1 + ch.model.lo) / ch.model.res
@@ -1521,7 +1526,8 @@ def scene_elder_orbit(variant, frames=ELDER_ORBIT_FRAMES, res=4, expr='default')
     yaws = [36.0 + 360.0 * f / frames for f in range(frames)]
     dist = max(max(1.1 * (hx * abs(math.cos(math.radians(y))) + hz * abs(math.sin(math.radians(y)))) / tan_h for y in yaws),
                1.25 * float(hi[1]) / 2 / math.tan(math.radians(fov / 2)))
-    cams = [orbit_cam(yaw, 11.0, dist, target=(cx, 13.5, cz), fov=fov, fstop=5.6) for yaw in yaws]   # a little low: the ring's near side stays in
+    ty = 0.38 * float(hi[1])                         # a little low (13.5 on the original Elder): the ring's near side stays in
+    cams = [orbit_cam(yaw, 11.0, dist, target=(cx, ty, cz), fov=fov, fstop=5.6) for yaw in yaws]
     S = VScene('elder_%s' % variant, W, H, cams[0], world=((0.08, 0.07, 0.12), 0.35), samples=96, transparent=True)
     S.cameras = cams
     S.keep_alpha = True

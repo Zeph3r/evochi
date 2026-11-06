@@ -86,8 +86,12 @@ def render_char(ch: Character, variant='amber', expr='default', cam=None, w=512,
     for k, v in ACCESSORY.items():
         pal['acc_' + k] = v
     pal_key = pal_key or variant
-    model = ch.model if extra_model is None else extra_model
     fit = fit or char_fit(ch, cam, w, h)
+    alt = getattr(ch, 'alt', None)              # its version in this colour (the Obsidian Elder's mane), same frame
+    vname = pal.get('variant', variant if isinstance(variant, str) else None)
+    if alt and vname in alt:
+        ch = alt[vname]()
+    model = ch.model if extra_model is None else extra_model
     quads = pattern_quads(ch, pal, pal_key) + face_quads(ch, pal, pal_key, expr)
     decals = quads_to_polys(quads, cam, light, bias=0.3)
     if outline_px is None:

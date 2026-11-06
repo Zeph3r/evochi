@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import math
+import os
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -970,5 +971,40 @@ def two_tone(M: Model, seed=5, scale=1.6, thresh=0.25, light_mat='pattern', spik
     return sel
 
 
+class Lazy:
+    """a value made the first time it is asked for (a Character's version in another colour: Character.alt)"""
+    def __init__(self, make):
+        self.make, self.v = make, None
+
+    def __call__(self):
+        if self.v is None:
+            self.v = self.make()
+        return self.v
+
+
+def carry_alt(src, out, fn):
+    """out (made from src by fn) carries src's other-colour versions, each made the same way when asked for"""
+    alt = getattr(src, 'alt', None)
+    if alt:
+        out.alt = {k: Lazy(lambda a=a: fn(a())) for k, a in alt.items()}
+    return out
+
+
 def build(stage: int, res=2, **kw) -> Character:
+    if stage == 3 and ELDER_MODEL == 'redesign':
+        # the redesigned Elder. Its mane depends on its colour (elder_guardian.mane_for: Obsidian's petals, the
+        # others' spikes), but a model is built once and drawn in every colour: so unless a mane is asked for
+        # (EVOCHI_ELDER_MANE, mane=), it is built with the spikes and carries the petal version, built when first
+        # drawn in a petal colour (charrender.render_char swaps it in; the frame stays the one fitted to this)
+        from elder_guardian import build_elder_guardian, PETAL_VARIANTS
+        if 'mane' in kw or os.environ.get('EVOCHI_ELDER_MANE'):
+            return build_elder_guardian(res, **kw)
+        ch = build_elder_guardian(res, mane='classic', **kw)
+        ch.alt = {v: Lazy(lambda: build_elder_guardian(res, mane='petal', **kw)) for v in PETAL_VARIANTS}
+        return ch
     return {1: build_eggling, 2: build_juvenile, 3: build_elder}[stage](res, **kw)
+
+
+# Which Elder the art is made from: 'redesign' (elder_guardian.py, in the game from Nov 2026) or 'original'
+# (build_elder above, kept as it was).
+ELDER_MODEL = os.environ.get('EVOCHI_ELDER_MODEL', 'redesign')

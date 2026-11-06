@@ -21,7 +21,17 @@ import numpy as np
 
 from voxel import Model
 from characters import (Character, Frame, HeadView, MATS, _lerp_z, egg_mask, surface_point, head_rotation, local_frame, shell_region, square_shape, stamp, tube,
-                        two_tone)
+                        two_tone, spike, fluff)
+import os
+
+# The mane: 'petal' (the Obsidian Elder's crystal petals) or 'classic' (every other colour: the original Elder's
+# crystalline spikes, carried over onto this head). The geometry does not know its colour, so the exports pick it:
+# EVOCHI_ELDER_MANE in the environment, or mane= directly; manes_for(variant) says which a colour wears.
+PETAL_VARIANTS = ('obsidian',)
+
+
+def mane_for(variant):
+    return 'petal' if variant in PETAL_VARIANTS else 'classic'
 
 
 def _unit(v):
@@ -110,11 +120,65 @@ def petal(M, base, direction, length, hw, ht, breadth, roll=0.0, bend=0.0, back=
     return inside, ridge
 
 
+
+class _Win:
+    """a window of a voxel grid (or of a HeadView of it): the coordinates there, for a shape that only reaches
+    so far (petal(), spike() then work on thousands of voxels rather than millions)"""
+
+    def __init__(self, M, sl):
+        self.X, self.Y, self.Z = M.X[sl], M.Y[sl], M.Z[sl]
+
+
+def _window(M, base, reach):
+    b = np.asarray(base, float)
+    near = (np.abs(M.X - b[0]) <= reach) & (np.abs(M.Y - b[1]) <= reach) & (np.abs(M.Z - b[2]) <= reach)
+    if not near.any():
+        return None
+    sl = []
+    for ax in range(3):
+        a = np.nonzero(near.any(axis=tuple(i for i in range(3) if i != ax)))[0]
+        sl.append(slice(a[0], a[-1] + 1))
+    return tuple(sl)
+
+
+def _full(shape, sl, a, fill=False):
+    out = np.full(shape, fill, a.dtype)
+    out[sl] = a
+    return out
+
+
+def petal_w(M, base, direction, length, hw, ht, breadth, roll=0.0, bend=0.0, back=(0.0, 0.0, -1.0)):
+    """petal(), worked out only near it"""
+    sl = _window(M, base, length * (1.0 + bend) + max(hw, ht) + 2.5)
+    shape = M.X.shape
+    if sl is None:
+        z = np.zeros(shape, bool)
+        if FACETS[0] is not None:
+            FACETS[0].append((z, np.full(shape, 2, np.int8)))
+        return z, z
+    n0 = len(FACETS[0]) if FACETS[0] is not None else 0
+    inside, ridge = petal(_Win(M, sl), base, direction, length, hw, ht, breadth, roll, bend, back)
+    inside = _full(shape, sl, inside)
+    if FACETS[0] is not None and len(FACETS[0]) > n0:
+        # the same array as the one returned: the caller trims it in place (to the free voxels), and the facet
+        # pass must see it trimmed
+        FACETS[0][-1] = (inside, _full(shape, sl, FACETS[0][-1][1], 2))
+    return inside, _full(shape, sl, ridge)
+
+
+def spike_w(M, base, direction, length, r0, r1=0.25, square=True, twist=0.0):
+    """characters.spike(), worked out only near it"""
+    sl = _window(M, base, length + max(r0, r1) * 1.5 + 2.5)
+    if sl is None:
+        return np.zeros(M.X.shape, bool)
+    return _full(M.X.shape, sl, spike(_Win(M, sl), base, direction, length, r0, r1, square, twist))
+
+
 FACETS = [None]          # while a list: each petal() adds (its voxels, their facet tones) for the facet pass
 TONES = ('crest_hi', 'crest_mid', 'crest', 'crest_lo')
 
 def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_rot=None, body=None, tail_lift=0.0,
-                         jaw=0.0, plain=False, stretch=0.0, facets=True) -> Character:
+                         jaw=0.0, plain=False, stretch=0.0, facets=True, mane=None) -> Character:
     """The same arguments as characters.build_elder: feet {(side, front): (dy, dz) or (dy, dz, dx)}, head (dx, dy,
     dz) a nod, head_rot (pitch, yaw, roll) degrees about the neck, body (dy_front, dy_back) a crouch, tail the
     curl's sideways swing, tail_lift its rise, jaw (degrees) the mouth open. plain: the large forms only (no
@@ -222,39 +286,79 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
     #   form      faceted (diamond section, each rolled a little differently, so facets catch the light apart),
     #             thick at the root and blunt at the tip: chunky and friendly rather than sharp
     #   face      every root sits behind the head's centre, so nothing crosses the face; the cheek ones frame it
-    rx, ryt, ryb, rz = HEAD_R
-    #        angle (0 = out to the side, 90 = the top), row (0 front, 1 back), length, half-width
-    mane = [(90, 0, 19.5, 5.6), (62, 0, 13.8, 4.6), (34, 0, 14.0, 4.5), (6, 0, 12.0, 4.2), (-22, 0, 10.0, 3.7),
-            (-48, 0, 7.5, 3.0),
-            (76, 1, 14.2, 4.2), (48, 1, 14.5, 4.0), (20, 1, 13.0, 3.7), (-8, 1, 11.0, 3.4),
-            # behind them, two rows of shorter petals lying back over the head like shingles, down to the nape, so
-            # the back of the head is clad too and the mane runs on into the spine's crystals
-            (90, 2, 15.0, 4.8), (62, 2, 14.5, 4.6), (34, 2, 13.5, 4.4), (6, 2, 12.0, 4.0), (-22, 2, 10.0, 3.5)]
-    crest_ids = [k for k, nm in enumerate(M.mats) if nm.startswith('crest')]
-    n = 0
-    for ang, row, L, hw in mane:
-        a = np.radians(ang)
-        z0, zk, sweep = ((1.5, 5.5, 16.0), (-2.5, 5.5, 26.0), (-5.0, 1.0, 54.0), (-7.5, 0.5, 64.0))[row]
-        zr = z0 + zk * max(np.sin(a), 0.0)      # the front rows rooted forward, toward the forehead
-        sweep += 8.0 * abs(np.sin(a))      # the crown and the cheeks lie back more; the temples reach out
-        if ang == 90:
-            sweep = 24.0 if row == 0 else sweep   # but the crown's centre stands tallest: the eye goes to it first
-        s_ = (1 - abs(zr / rz) ** 2.15) ** (1 / 2.15) * 0.78      # under the surface at that depth
-        for side in ((0,) if ang == 90 else (-1, 1)):
-            sd = side or 1
-            radial = np.array([sd * np.cos(a), np.sin(a), 0.0]) if side else np.array([0.0, 1.0, 0.0])
-            loc = np.array([side * rx * np.cos(a) * s_, (ryt if a >= 0 else ryb) * np.sin(a) * s_, zr])
-            sw = np.radians(sweep)
-            d = radial * np.cos(sw) + np.array([0.0, 0.0, -1.0]) * np.sin(sw)
-            ring = np.array([-np.sin(a) * sd, np.cos(a), 0.0])     # along the halo: the petal's breadth faces front
-            roll = (0.0, 0.25, -0.25)[n % 3]
-            base = HC(tuple(np.array(HCEN) + loc))
-            c, ridge = petal(HL, base, d, L, hw, hw * 0.5, ring, roll, bend=0.12)
-            c &= ((M.m == 0) | (np.isin(M.m, crest_ids) if row < 2 else False)) & ~core   # the rear rows tuck behind
-            k = n % 6
-            M.set(c, 'crest.%d' % k)
-            M.set(ridge & c, 'crest_mid.%d' % k)
-            n += 1
+    mane = mane or os.environ.get('EVOCHI_ELDER_MANE', 'classic')
+    if mane == 'classic':
+        # the original Elder's mane (characters.build_elder): big angular spikes radiating up and back from the
+        # head, their roots hidden in tufts; placed from that head's centre and size onto this one's
+        O_C, O_R = np.array([0.0, 17.0, 16.0]), np.array([9.8, 8.4, 7.6, 10.2])
+        rx, ryt, ryb, rz = HEAD_R
+        k_len = 1.22
+
+        def onto(p):
+            o = np.array(p, float) - O_C
+            sc = np.array([rx / O_R[0], (ryt / O_R[1]) if o[1] >= 0 else (ryb / O_R[2]), rz / O_R[3]])
+            return tuple(np.array(HCEN) + o * sc)
+        spikes = [
+            ((0, 22.5, 17.5), (0, 0.92, -0.25), 13.5, 4.0),
+            ((-4.0, 22.0, 14.0), (-0.3, 0.85, -0.45), 14.5, 4.0),
+            ((4.0, 22.0, 14.0), (0.3, 0.85, -0.45), 14.5, 4.0),
+            ((0, 21.5, 10.5), (0, 0.75, -0.65), 12.5, 3.8),
+            ((-7.5, 19.5, 11.5), (-0.7, 0.6, -0.4), 11.0, 3.5),
+            ((7.5, 19.5, 11.5), (0.7, 0.6, -0.4), 11.0, 3.5),
+            ((-5.5, 20.0, 7.0), (-0.45, 0.65, -0.6), 10.0, 3.4),
+            ((5.5, 20.0, 7.0), (0.45, 0.65, -0.6), 10.0, 3.4),
+            ((-9.0, 15.0, 12.5), (-0.95, 0.25, -0.2), 7.5, 3.0),
+            ((9.0, 15.0, 12.5), (0.95, 0.25, -0.2), 7.5, 3.0),
+            ((-8.5, 11.5, 13.0), (-0.9, -0.25, -0.2), 5.6, 2.6),
+            ((8.5, 11.5, 13.0), (0.9, -0.25, -0.2), 5.6, 2.6),
+            ((-8.5, 16.5, 6.0), (-0.85, 0.4, -0.35), 7.0, 3.0),
+            ((8.5, 16.5, 6.0), (0.85, 0.4, -0.35), 7.0, 3.0),
+        ]
+        for i, (bpt, d, L, r) in enumerate(spikes):
+            bpt = HC(onto(bpt))
+            sp = spike_w(HL, bpt, d, L * k_len, r * k_len, 0.45, twist=0.35 * (i % 3)) & (M.m == 0)
+            M.set(sp, 'crest.%d' % (i % 6))
+            tip = spike_w(HL, np.array(bpt) + np.array(d) / np.linalg.norm(d) * L * k_len * 0.55, d, L * k_len * 0.45,
+                        r * k_len * 0.48, 0.45, twist=0.35 * (i % 3)) & sp
+            M.set(tip, 'crest_mid.%d' % (i % 6))
+        frng = np.random.default_rng(7)
+        for s_ in (-1, 0, 1):                       # tufts round the spikes' roots
+            f = fluff(HL, HC(onto((s_ * 6.0, 20.0, 11.0))), 5.0 * k_len, frng, n=8, spread=(1.6, 1.2, 2.0)) & (M.m == 0)
+            M.set(f, 'crest.%d' % (s_ + 2))
+    else:
+        rx, ryt, ryb, rz = HEAD_R
+        #        angle (0 = out to the side, 90 = the top), row (0 front, 1 back), length, half-width
+        mane = [(90, 0, 19.5, 5.6), (62, 0, 13.8, 4.6), (34, 0, 14.0, 4.5), (6, 0, 12.0, 4.2), (-22, 0, 10.0, 3.7),
+                (-48, 0, 7.5, 3.0),
+                (76, 1, 14.2, 4.2), (48, 1, 14.5, 4.0), (20, 1, 13.0, 3.7), (-8, 1, 11.0, 3.4),
+                # behind them, two rows of shorter petals lying back over the head like shingles, down to the nape, so
+                # the back of the head is clad too and the mane runs on into the spine's crystals
+                (90, 2, 15.0, 4.8), (62, 2, 14.5, 4.6), (34, 2, 13.5, 4.4), (6, 2, 12.0, 4.0), (-22, 2, 10.0, 3.5)]
+        crest_ids = [k for k, nm in enumerate(M.mats) if nm.startswith('crest')]
+        n = 0
+        for ang, row, L, hw in mane:
+            a = np.radians(ang)
+            z0, zk, sweep = ((1.5, 5.5, 16.0), (-2.5, 5.5, 26.0), (-5.0, 1.0, 54.0), (-7.5, 0.5, 64.0))[row]
+            zr = z0 + zk * max(np.sin(a), 0.0)      # the front rows rooted forward, toward the forehead
+            sweep += 8.0 * abs(np.sin(a))      # the crown and the cheeks lie back more; the temples reach out
+            if ang == 90:
+                sweep = 24.0 if row == 0 else sweep   # but the crown's centre stands tallest: the eye goes to it first
+            s_ = (1 - abs(zr / rz) ** 2.15) ** (1 / 2.15) * 0.78      # under the surface at that depth
+            for side in ((0,) if ang == 90 else (-1, 1)):
+                sd = side or 1
+                radial = np.array([sd * np.cos(a), np.sin(a), 0.0]) if side else np.array([0.0, 1.0, 0.0])
+                loc = np.array([side * rx * np.cos(a) * s_, (ryt if a >= 0 else ryb) * np.sin(a) * s_, zr])
+                sw = np.radians(sweep)
+                d = radial * np.cos(sw) + np.array([0.0, 0.0, -1.0]) * np.sin(sw)
+                ring = np.array([-np.sin(a) * sd, np.cos(a), 0.0])     # along the halo: the petal's breadth faces front
+                roll = (0.0, 0.25, -0.25)[n % 3]
+                base = HC(tuple(np.array(HCEN) + loc))
+                c, ridge = petal_w(HL, base, d, L, hw, hw * 0.5, ring, roll, bend=0.12)
+                c &= ((M.m == 0) | (np.isin(M.m, crest_ids) if row < 2 else False)) & ~core   # the rear rows tuck behind
+                k = n % 6
+                M.set(c, 'crest.%d' % k)
+                M.set(ridge & c, 'crest_mid.%d' % k)
+                n += 1
 
     # ---- down the spine: a ridge of small petals from behind the mane to the tail's root, so the mane, the back and
     # the tail read as one line (as the concept's do); each sits on the back's top line, leaning back
@@ -268,7 +372,7 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
         f = i / max(len(zs) - 1, 1)
         L, hw = 10.5 - 3.0 * f, 3.5 - 0.7 * f
         sx = 2.0 * (1 if i % 2 else -1)         # two rows, staggered either side of the spine
-        c, ridge = petal(M, (sx, y - 1.2, z), (sx * 0.12, 1.0, -0.5), L, hw, hw * 0.55, (0.0, 0.0, -1.0), 0.0,
+        c, ridge = petal_w(M, (sx, y - 1.2, z), (sx * 0.12, 1.0, -0.5), L, hw, hw * 0.55, (0.0, 0.0, -1.0), 0.0,
                          bend=0.1)
         c &= (M.m == 0)
         M.set(c, 'crest.%d' % (i % 6))
@@ -296,7 +400,7 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
         out = _unit(out - (out @ tang) * tang)
         d = _unit(out * 0.8 + tang * 0.6)
         L, hw = r * 1.75 + 1.5, r * 0.6 + 0.6
-        c, ridge = petal(M, p + out * r * 0.7, d, L, hw, hw * 0.55, tang, 0.0, bend=0.1, back=tuple(tang))
+        c, ridge = petal_w(M, p + out * r * 0.7, d, L, hw, hw * 0.55, tang, 0.0, bend=0.1, back=tuple(tang))
         c &= (M.m == 0)
         M.set(c, 'crest.%d' % (k % 6))
         M.set(ridge & c, 'crest_mid.%d' % (k % 6))
@@ -306,7 +410,7 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
             side_ax = np.cross(tang, out)
             for sd in (-1, 1):
                 o2 = _unit(out * 0.8 + side_ax * sd * 0.6)
-                c, ridge = petal(M, p - tang * 1.5 + o2 * r * 0.7, _unit(o2 * 0.75 + tang * 0.66), L * 0.62, hw * 0.7,
+                c, ridge = petal_w(M, p - tang * 1.5 + o2 * r * 0.7, _unit(o2 * 0.75 + tang * 0.66), L * 0.62, hw * 0.7,
                                  hw * 0.42, tang, 0.0, bend=0.1, back=tuple(tang))
                 c &= (M.m == 0)
                 M.set(c, 'crest.%d' % ((k + 2 + sd) % 6))

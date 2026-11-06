@@ -274,7 +274,8 @@ def turn_body(ch, R, squash=1.0, pivot=PIVOT, pad=(-26, -14, -44, 26, 48, 40)):
     rig.pop('fused', None)
     rig['turn'] = (A, np.asarray(pivot, float))      # worn pieces ride the turn too (wear_pose.py)
     out.rig = rig
-    return out
+    from characters import carry_alt
+    return carry_alt(ch, out, lambda c: turn_body(c, R, squash, pivot, pad))
 
 
 # ---- the stages. The keys are the Juvenile's; each stage takes them through its own build and proportions:

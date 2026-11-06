@@ -14,6 +14,8 @@ from __future__ import annotations
 
 import numpy as np
 
+from characters import ELDER_MODEL
+
 _rest = {}
 _items = {}
 
@@ -53,7 +55,8 @@ def part_map(stage, kind, rig, Q):
     if stage == 2:
         w = np.full((len(Q), 1), 0.35)
     else:
-        w = np.clip((Q[:, 2] - 5.0) / 5.0, 0, 1)[:, None]
+        z0, z1 = (2.0, 9.0) if ELDER_MODEL == 'redesign' else (5.0, 10.0)   # the Elder's neck, shoulders to head
+        w = np.clip((Q[:, 2] - z0) / (z1 - z0), 0, 1)[:, None]
     return torso + (head - torso) * w
 
 

@@ -86,6 +86,9 @@ def muted(p: dict, amount=0.45, tint='#B8B0A0') -> dict:
     """Desaturated / dimmed palette for the sick and memorial states."""
     out = {}
     for k, v in p.items():
+        if not (isinstance(v, str) and v.startswith('#')):
+            out[k] = v                        # not a colour (the palette's 'variant')
+            continue
         c = _hx(v)
         g = c @ np.array([0.299, 0.587, 0.114])
         c2 = c * (1 - amount) + g * amount
