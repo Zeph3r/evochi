@@ -3,31 +3,12 @@
   "file": "ultfx_quake_cracks.webp",
   "fw": 384,
   "fh": 384,
-  "n": 10,
+  "n": 16,
   "variants": 1,
   "kind": "ground",
   "ax": 0.5,
-  "ay": 0.5
- },
- "snare_web": {
-  "file": "ultfx_snare_web.webp",
-  "fw": 384,
-  "fh": 384,
-  "n": 10,
-  "variants": 1,
-  "kind": "ground",
-  "ax": 0.5,
-  "ay": 0.5
- },
- "reef_web": {
-  "file": "ultfx_reef_web.webp",
-  "fw": 384,
-  "fh": 384,
-  "n": 10,
-  "variants": 1,
-  "kind": "ground",
-  "ax": 0.5,
-  "ay": 0.5
+  "ay": 0.5,
+  "open": 8
  },
  "snare_root": {
   "file": "ultfx_snare_root.webp",
@@ -37,7 +18,7 @@
   "variants": 3,
   "kind": "stand",
   "ax": 0.5,
-  "ay": 0.94
+  "ay": 0.93
  },
  "reef_coral": {
   "file": "ultfx_reef_coral.webp",
@@ -47,7 +28,7 @@
   "variants": 3,
   "kind": "stand",
   "ax": 0.5,
-  "ay": 0.95
+  "ay": 0.92
  },
  "sun_flare": {
   "file": "ultfx_sun_flare.webp",
@@ -96,6 +77,16 @@
   "n": 12,
   "variants": 6,
   "kind": "normal",
+  "ax": 0.5,
+  "ay": 0.5
+ },
+ "reef_caustics": {
+  "file": "ultfx_reef_caustics.webp",
+  "fw": 256,
+  "fh": 256,
+  "n": 8,
+  "variants": 1,
+  "kind": "ground",
   "ax": 0.5,
   "ay": 0.5
  }

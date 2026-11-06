@@ -4400,22 +4400,23 @@ class _MapPainter extends CustomPainter {
   // ---- the Elders' ultimates back in the fight (their cut-in's element carried on: ult_fx.dart's sprites,
   // tools/art/ult_fx_bake.py)
 
-  /// a baked ground decal, split open over [open] s, held, and faded from [fadeFrom] of its life on
-  void _uDecal(Canvas canvas, String name, Burst b, double r, {double open = 0.3, double fadeFrom = 0.6, double opacity = 1}) {
-    final fx = s._ultFx?[name];
-    if (fx == null) return;
-    final fade = 1 - ((b.t / b.ttl - fadeFrom) / (1 - fadeFrom)).clamp(0.0, 1.0);
-    fx.draw(canvas, fx.at(b.t / open), _ellipse(b.x, b.z, r), opacity: fade * opacity);
-  }
-
-  /// Quake on the ground: a ring of force out across it, and the cinematic's lava cracks splitting open under
-  /// it, glowing, slowly going dark; a scorched heart where it landed
+  /// Quake on the ground: a ring of force out across it, and the ground ruptured under it: jagged cracks split
+  /// out from where it landed, lava in them cooling from yellow to red to charred cracks; a scorched heart
   void _uQuakeGround(Canvas canvas, Burst b, double k, double u) {
     final R = b.size;
     final fade = 1 - ((k - 0.55) / 0.45).clamp(0.0, 1.0);
     final cr = _ellipse(b.x, b.z, R * 0.42);
     canvas.drawOval(cr, Paint()..shader = ui.Gradient.radial(cr.center, cr.width / 2, [Color.fromRGBO(24, 14, 12, 0.55 * fade), const Color.fromRGBO(40, 26, 20, 0)]));
-    _uDecal(canvas, 'quake_cracks', b, R * 1.3, open: 0.28, fadeFrom: 0.55);
+    final cracks = s._ultFx?['quake_cracks'];
+    if (cracks != null) {
+      // split open (its first eight frames, the lava at its hottest), then cooling through the rest to charred
+      // cracks, which fade at the end
+      const open = 8, openT = 0.28;
+      final coolT = b.ttl * 0.8 - openT;
+      final f = b.t < openT ? (b.t / openT * open).floor() : open + ((b.t - openT) / coolT * (cracks.n - open)).floor();
+      final gone = 1 - ((k - 0.8) / 0.2).clamp(0.0, 1.0);
+      cracks.draw(canvas, f, _ellipse(b.x, b.z, R * 1.15), opacity: gone);
+    }
     final heat = fade * (0.75 + 0.25 * math.sin(b.t * 9));
     final e = _ellipse(b.x, b.z, R * 0.7);
     canvas.drawOval(e, Paint()
@@ -4439,7 +4440,7 @@ class _MapPainter extends CustomPainter {
   void _uQuakeAir(Canvas canvas, Burst b, double k, Offset g, double u) {
     if (b.t < 0.22) _addGlow(canvas, g - Offset(0, 8 * _up), (30 + 120 * (b.t / 0.22)) * u, Color.fromRGBO(255, 200, 130, 0.75 * (1 - b.t / 0.22)));
     final rnd = math.Random((b.x * 7 + b.z * 3).round());
-    for (var i = 0; i < 30; i++) {
+    for (var i = 0; i < 14; i++) {
       final a = rnd.nextDouble() * math.pi * 2, rr = b.size * math.sqrt(rnd.nextDouble()) * 0.9;
       final t0 = rnd.nextDouble() * 0.5, life = 0.7 + rnd.nextDouble() * 0.6, hr = rnd.nextDouble(), sr = rnd.nextDouble();
       final lt = (b.t - t0) / life;
@@ -4451,38 +4452,47 @@ class _MapPainter extends CustomPainter {
     }
   }
 
-  /// Thorn Snare underfoot: a web of glowing roots spreading out through the ground, a green light over it
+  /// Thorn Snare underfoot: the ground darkening, a ring of green light snapping out to its edge, a faint glow
   void _uSnareGround(Canvas canvas, Burst b, double k, double u) {
     final rise = math.min(1.0, b.t / 0.2) * (1 - ((k - 0.85) / 0.15).clamp(0.0, 1.0));
     final e = _ellipse(b.x, b.z, b.size * 1.05);
     canvas.drawOval(e, Paint()
       ..shader = ui.Gradient.radial(e.center, e.width / 2, [Color.fromRGBO(40, 70, 26, 0.38 * rise), const Color.fromRGBO(40, 70, 26, 0)]));
-    _uDecal(canvas, 'snare_web', b, b.size * 1.35, open: 0.35, fadeFrom: 0.82);
+    final w = (b.t / 0.35).clamp(0.0, 1.0);
+    if (w < 1) {
+      canvas.drawOval(
+          _ellipse(b.x, b.z, b.size * Curves.easeOutCubic.transform(w)),
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = (5 * (1 - w) + 1) * u
+            ..color = Color.fromRGBO(206, 246, 150, 0.85 * (1 - w)));
+    }
     canvas.drawOval(e, Paint()
       ..blendMode = BlendMode.plus
       ..shader = ui.Gradient.radial(e.center, e.width / 2, [Color.fromRGBO(150, 230, 90, 0.16 * rise * (0.8 + 0.2 * math.sin(b.t * 6))), const Color.fromRGBO(150, 230, 90, 0)]));
   }
 
-  /// Reef Bloom underfoot: a glowing reef of polyps spreading out, its pink light breathing
+  /// Reef Bloom underfoot: a pool of water-light, soft rings rippling out of it at a healing's pace
   void _uReefGround(Canvas canvas, Burst b, double k, double u) {
     final rise = math.min(1.0, b.t / 0.35) * (1 - ((k - 0.9) / 0.1).clamp(0.0, 1.0));
     final e = _ellipse(b.x, b.z, b.size * 1.05);
-    canvas.drawOval(e, Paint()..color = Color.fromRGBO(255, 150, 140, 0.14 * rise));
-    _uDecal(canvas, 'reef_web', b, b.size * 1.4, open: 0.45, fadeFrom: 0.9, opacity: 0.9);
+    final pool = s._ultFx?['reef_caustics'];
+    if (pool != null) {
+      // its water-light, the rings rippling out slowly (a healing's pace: under one a second)
+      pool.draw(canvas, (b.t * 0.8 * pool.n).floor() % pool.n, _ellipse(b.x, b.z, b.size * 1.15), opacity: rise);
+    } else {
+      canvas.drawOval(e, Paint()..color = Color.fromRGBO(255, 150, 140, 0.14 * rise));
+    }
     canvas.drawOval(e, Paint()
       ..blendMode = BlendMode.plus
       ..shader = ui.Gradient.radial(e.center, e.width / 2, [Color.fromRGBO(255, 170, 160, 0.20 * rise * (0.75 + 0.25 * math.sin(b.t * 2.4))), const Color.fromRGBO(255, 170, 160, 0)]));
-    canvas.drawOval(e, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 2 * u
-      ..color = Color.fromRGBO(255, 200, 186, 0.55 * rise));
   }
 
   /// Reef Bloom's bubbles drifting up off it, and motes of its healing
   void _uBubbles(Canvas canvas, Burst b, double k, double u) {
     final rise = math.min(1.0, b.t / 0.4) * (1 - ((k - 0.9) / 0.1).clamp(0.0, 1.0));
-    for (var i = 0; i < 16; i++) {
-      final ph = (b.t * 0.45 + i / 16) % 1.0;
+    for (var i = 0; i < 10; i++) {
+      final ph = (b.t * 0.45 + i / 10) % 1.0;
       final a = i * 2.39996, rr = b.size * (0.2 + 0.7 * ((i * 0.37) % 1.0));
       final at = s._toScreen(b.x + math.cos(a) * rr, b.z + math.sin(a) * rr) - Offset(math.sin(ph * 6 + i) * 3 * u, ph * 46 * _up);
       final r0 = (1.6 + (i % 3) * 0.9) * u;
@@ -4501,7 +4511,7 @@ class _MapPainter extends CustomPainter {
   void _uMotes(Canvas canvas, Burst b, double k, double u, Color hi, Color lo, {bool leaves = false}) {
     final rise = math.min(1.0, b.t / 0.25) * (1 - ((k - 0.8) / 0.2).clamp(0.0, 1.0));
     final rnd = math.Random((b.x * 5 + b.z * 11).round());
-    for (var i = 0; i < 20; i++) {
+    for (var i = 0; i < 10; i++) {
       final a = rnd.nextDouble() * math.pi * 2, rr = b.size * math.sqrt(rnd.nextDouble());
       final sp = 0.35 + rnd.nextDouble() * 0.4;
       final ph = (b.t * sp + rnd.nextDouble()) % 1.0;
@@ -4523,12 +4533,12 @@ class _MapPainter extends CustomPainter {
     final fx = s._ultFx?['sun_flare'];
     if (fx != null) {
       final d = b.size * 1.1 * s._u;
-      fx.draw(canvas, fx.at(k), Rect.fromCenter(center: c, width: d, height: d), opacity: 0.85);
+      fx.draw(canvas, fx.at(k), Rect.fromCenter(center: c, width: d, height: d), opacity: 0.95);
     } else {
       _addGlow(canvas, c, (30 + 90 * k) * u, Color.fromRGBO(255, 236, 160, 0.7 * (1 - k)));
     }
     final rnd = math.Random(17);
-    for (var i = 0; i < 28; i++) {
+    for (var i = 0; i < 12; i++) {
       final a = rnd.nextDouble() * math.pi * 2, v = 60 + rnd.nextDouble() * 90;
       final e = Curves.easeOutCubic.transform(k);
       final at = c + Offset(math.cos(a), math.sin(a) * 0.6) * v * e * u + Offset(0, 30 * k * k * _up);
@@ -4547,9 +4557,9 @@ class _MapPainter extends CustomPainter {
     switch (b.kind) {
       case 'uquake':
         final rocks = fx?['rocks'], dust = fx?['dust'];
-        for (var i = 0; i < 16; i++) {
-          final a = i * math.pi * 2 / 16 + rnd.nextDouble() * 0.35;
-          final frac = 0.25 + 0.7 * rnd.nextDouble();
+        for (var i = 0; i < 9; i++) {
+          final a = i * math.pi * 2 / 9 + rnd.nextDouble() * 0.4;
+          final frac = 0.45 + 0.5 * rnd.nextDouble();
           final x = b.x + math.cos(a) * b.size * frac, z = b.z + math.sin(a) * b.size * frac;
           final lt = b.t - 0.3 * frac;
           final life = 0.75 + 0.3 * rnd.nextDouble();
@@ -4574,8 +4584,8 @@ class _MapPainter extends CustomPainter {
         }
         if (dust != null) {
           final front = b.size * Curves.easeOutCubic.transform((b.t / 0.6).clamp(0.0, 1.0));
-          for (var i = 0; i < 18; i++) {
-            final a = i * math.pi * 2 / 18 + rnd.nextDouble() * 0.2;
+          for (var i = 0; i < 10; i++) {
+            final a = i * math.pi * 2 / 10 + rnd.nextDouble() * 0.3;
             final rr = front * (0.9 + 0.15 * rnd.nextDouble()), sr = rnd.nextDouble();
             final x = b.x + math.cos(a) * rr, z = b.z + math.sin(a) * rr;
             final kk = (b.t / 1.5).clamp(0.0, 1.0);
@@ -4592,15 +4602,15 @@ class _MapPainter extends CustomPainter {
       case 'usnarehold':
         final roots = fx?['snare_root'];
         final hold = b.kind == 'usnarehold';
-        final n = hold ? 3 : 16;
+        final n = hold ? 2 : 8;
         for (var i = 0; i < n; i++) {
           final double a, rr;
           if (hold) {
-            a = i * math.pi * 2 / 3 + 0.5;
+            a = i * math.pi + 0.6;
             rr = b.size * 0.9 + 2;
           } else {
-            a = i * 2.39996 + rnd.nextDouble() * 0.3;
-            rr = b.size * (0.3 + 0.65 * ((i * 0.37 + rnd.nextDouble() * 0.2) % 1.0));
+            a = i * math.pi * 2 / 8 + rnd.nextDouble() * 0.25;
+            rr = b.size * (i.isEven ? 0.86 : 0.64) * (0.95 + 0.1 * rnd.nextDouble());
           }
           final x = b.x + math.cos(a) * rr, z = b.z + math.sin(a) * rr;
           final t0 = hold ? 0.05 + i * 0.04 : (i % 5) * 0.035;
@@ -4609,7 +4619,7 @@ class _MapPainter extends CustomPainter {
           final sink = ((b.t - (b.ttl - 0.35)) / 0.35).clamp(0.0, 1.0);
           final hu = (hold ? 40.0 : 32.0 + 16 * ((i * 0.53) % 1.0)) * (1 - sink * 0.8);
           final frame = roots == null ? 0 : roots.at(math.min(lt / 0.3, 1.0 - sink));
-          final flip = hold ? math.cos(a) > 0 : i.isOdd;
+          final flip = math.cos(a) < 0; // each hooks out, away from the middle (in, round what it holds)
           items.add((z, () {
             final gp = s._toScreen(x, z);
             if (roots == null) {
@@ -4618,16 +4628,16 @@ class _MapPainter extends CustomPainter {
                   Paint()..color = const Color(0xFF46702E));
               return;
             }
-            roots.stand(canvas, frame, gp, hu * _up * 1.15, variant: i % 3, flip: flip, skew: hold ? (flip ? -0.25 : 0.25) : 0,
+            roots.stand(canvas, frame, gp, hu * _up * 1.15, variant: i % 3, flip: hold ? !flip : flip, skew: hold ? (flip ? -0.2 : 0.2) : 0,
                 opacity: 1 - sink * 0.6);
           }));
         }
       case 'ureef':
         final coral = fx?['reef_coral'];
         if (coral == null) return;
-        for (var i = 0; i < 9; i++) {
-          final a = i * 2.39996 + 0.5;
-          final rr = b.size * (0.25 + 0.65 * ((i * 0.53) % 1.0));
+        for (var i = 0; i < 6; i++) {
+          final a = i * math.pi * 2 / 6 + 0.4;
+          final rr = b.size * (i.isEven ? 0.78 : 0.55);
           final x = b.x + math.cos(a) * rr, z = b.z + math.sin(a) * rr;
           final lt = b.t - (i % 4) * 0.06;
           if (lt <= 0) continue;
@@ -4638,8 +4648,8 @@ class _MapPainter extends CustomPainter {
               skew: 0.06 * math.sin(s._t * 1.8 + i), opacity: 1 - sink * 0.5)));
         }
       case 'ucrystal':
-        for (var i = 0; i < 12; i++) {
-          final a = i * math.pi * 2 / 12;
+        for (var i = 0; i < 8; i++) {
+          final a = i * math.pi * 2 / 8 + math.pi / 8;
           final rad = b.size * 0.62;
           final x = b.x + math.cos(a) * rad, z = b.z + math.sin(a) * rad;
           final lt = b.t - (i % 3) * 0.02;

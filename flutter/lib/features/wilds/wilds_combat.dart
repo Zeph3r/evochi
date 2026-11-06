@@ -1709,7 +1709,8 @@ class Raid {
             ..shard = true);
         }
       case 'forest':
-        // thorns burst up all round and hold everything near fast (roots up out of a glowing web, coiling round each)
+        // thorns burst up all round and hold everything near fast (thorned roots burst up round its edge and
+        // hook round each)
         bursts.add(Burst('usnare', p.x, p.z, 2.6, size: 72));
         bursts.add(Burst('usnarefx', p.x, p.z, 2.6, size: 72));
         for (final f in hostile.toList()) {
@@ -1733,8 +1734,8 @@ class Raid {
         p.hp = math.min(p.maxHp, p.hp + 20);
         _float('+20', p.x, p.z, 'heal');
       case 'obsidian':
-        // the ground itself heaves: the widest stun there is (its cut-in's lava cracks split open under it, rock
-        // heaves up and tumbles, dust rolls out, embers rise)
+        // the ground itself heaves: the widest stun there is (the ground ruptures, lava in its cracks cooling;
+        // rock heaves up and tumbles, dust rolls out, embers rise)
         bursts.add(Burst('uquake', p.x, p.z, 2.4, size: 95));
         bursts.add(Burst('uquakefx', p.x, p.z, 1.6, size: 95));
         shake = math.max(shake, 1.2);
