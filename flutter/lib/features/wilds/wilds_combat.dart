@@ -1673,6 +1673,8 @@ class Raid {
     // its name over it, unless its cut-in has just shown it (one less line of text over the fight)
     if (!cinematic) _float(sigName, p.x, p.z - 10, 'crit', ttl: 1.3);
     _emit('signature', text: palette, x: p.x, z: p.z);
+    // the instant flash it lands with (two or three frames; Healing Mist breaks open its own way)
+    if (palette != 'ocean') bursts.add(Burst('uflash', p.x, p.z, 0.1, tag: palette));
     switch (palette) {
       case 'ocean':
         // Healing Mist: a wave of mist rolls out ahead and washes the Hollow out of whatever it reaches (the

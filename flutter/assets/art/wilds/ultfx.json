@@ -3,12 +3,13 @@
   "file": "ultfx_quake_cracks.webp",
   "fw": 384,
   "fh": 384,
-  "n": 16,
+  "n": 20,
   "variants": 1,
   "kind": "ground",
   "ax": 0.5,
   "ay": 0.5,
-  "open": 8
+  "open": 8,
+  "cool": 8
  },
  "snare_root": {
   "file": "ultfx_snare_root.webp",
@@ -36,7 +37,7 @@
   "fh": 384,
   "n": 16,
   "variants": 1,
-  "kind": "add",
+  "kind": "normal",
   "ax": 0.5,
   "ay": 0.5
  },
@@ -56,7 +57,7 @@
   "fh": 256,
   "n": 12,
   "variants": 1,
-  "kind": "add",
+  "kind": "normal",
   "ax": 0.5,
   "ay": 0.5
  },
@@ -64,8 +65,8 @@
   "file": "ultfx_dust.webp",
   "fw": 128,
   "fh": 128,
-  "n": 4,
-  "variants": 1,
+  "n": 6,
+  "variants": 4,
   "kind": "normal",
   "ax": 0.5,
   "ay": 0.6
@@ -87,6 +88,16 @@
   "n": 8,
   "variants": 1,
   "kind": "ground",
+  "ax": 0.5,
+  "ay": 0.5
+ },
+ "flash": {
+  "file": "ultfx_flash.webp",
+  "fw": 192,
+  "fh": 192,
+  "n": 3,
+  "variants": 1,
+  "kind": "normal",
   "ax": 0.5,
   "ay": 0.5
  }

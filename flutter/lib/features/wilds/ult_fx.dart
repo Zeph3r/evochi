@@ -1,6 +1,6 @@
 // The baked effect sprites an Elder's ultimate plays in the Wilds once its cut-in hands back to the fight: the
-// Quake's lava cracks and tumbling rock, the Thorn Snare's roots, the Sunflare's burst and dazzle, the Reef
-// Bloom's coral, the Crystal Shards' star, a billow of dust (tools/art/ult_fx_bake.py -> assets/art/wilds/
+// instant flash it lands with, the Quake's rupture and tumbling rock, the Thorn Snare's roots, the Sunflare's
+// burst and dazzle, the Reef Bloom's pool and coral, the Crystal Shards' star, a billow of dust (tools/art/ult_fx_bake.py -> assets/art/wilds/
 // ultfx.json and ultfx_<name>.webp). Each is a flipbook: frames along a row, a row per shape.
 
 import 'dart:convert';
@@ -22,11 +22,13 @@ class FxSheet {
   Rect src(int frame, [int variant = 0]) =>
       Rect.fromLTWH(frame.clamp(0, n - 1) * fw.toDouble(), (variant % variants) * fh.toDouble(), fw.toDouble(), fh.toDouble());
 
-  void draw(Canvas canvas, int frame, Rect dst, {int variant = 0, double opacity = 1, bool? add}) {
+  /// [tint] multiplies it (a white sprite takes the tint's colour)
+  void draw(Canvas canvas, int frame, Rect dst, {int variant = 0, double opacity = 1, bool? add, Color? tint}) {
     if (opacity <= 0.004) return;
     final p = Paint()
       ..filterQuality = FilterQuality.medium
       ..color = Color.fromRGBO(255, 255, 255, opacity.clamp(0.0, 1.0));
+    if (tint != null) p.colorFilter = ColorFilter.mode(tint, BlendMode.modulate);
     if (add ?? kind == 'add') p.blendMode = BlendMode.plus;
     canvas.drawImageRect(img, src(frame, variant), dst, p);
   }

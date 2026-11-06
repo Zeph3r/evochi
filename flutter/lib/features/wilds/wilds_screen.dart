@@ -3749,7 +3749,7 @@ class _MapPainter extends CustomPainter {
 
   static const _groundBursts = {'pulse', 'tremor', 'rockrise', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare', 'mistwave', 'mistlinger',
     'uquake', 'usnare', 'ureef', 'usunpool'};
-  static const _ultPieceKinds = {'uquake', 'usnare', 'usnarehold', 'ureef', 'ucrystal'};
+  static const _ultPieceKinds = {'uquake', 'usnare', 'usnarehold', 'ureef', 'ucrystal', 'usun'};
 
   /// Your Evochi's stage, for its moves' size and flourish: an Eggling's are small and simple, a Juvenile's
   /// fuller, an Elder's the whole show.
@@ -4409,22 +4409,31 @@ class _MapPainter extends CustomPainter {
     canvas.drawOval(cr, Paint()..shader = ui.Gradient.radial(cr.center, cr.width / 2, [Color.fromRGBO(24, 14, 12, 0.55 * fade), const Color.fromRGBO(40, 26, 20, 0)]));
     final cracks = s._ultFx?['quake_cracks'];
     if (cracks != null) {
-      // split open (its first eight frames, the lava at its hottest), then cooling through the rest to charred
-      // cracks, which fade at the end
-      const open = 8, openT = 0.28;
-      final coolT = b.ttl * 0.8 - openT;
-      final f = b.t < openT ? (b.t / openT * open).floor() : open + ((b.t - openT) / coolT * (cracks.n - open)).floor();
-      final gone = 1 - ((k - 0.8) / 0.2).clamp(0.0, 1.0);
-      cracks.draw(canvas, f, _ellipse(b.x, b.z, R * 1.15), opacity: gone);
+      // a beat after the flash it splits open (eight frames, the lava at its hottest), cools (eight: yellow,
+      // orange, red, charred) and crumbles away (four): ult_fx_bake.py's rupture
+      const open = 8, cool = 8, t0 = 0.05, openT = 0.28;
+      final tt = b.t - t0;
+      final coolEnd = b.ttl * 0.72, crumbleEnd = b.ttl * 0.96;
+      final int f;
+      if (tt < 0) {
+        f = -1;
+      } else if (tt < openT) {
+        f = (tt / openT * open).floor();
+      } else if (b.t < coolEnd) {
+        f = open + ((b.t - t0 - openT) / (coolEnd - t0 - openT) * cool).floor();
+      } else {
+        f = open + cool + ((b.t - coolEnd) / (crumbleEnd - coolEnd) * (cracks.n - open - cool)).floor();
+      }
+      if (f >= 0 && b.t < crumbleEnd) cracks.draw(canvas, f, _ellipse(b.x, b.z, R * 1.15));
     }
     final heat = fade * (0.75 + 0.25 * math.sin(b.t * 9));
     final e = _ellipse(b.x, b.z, R * 0.7);
     canvas.drawOval(e, Paint()
       ..blendMode = BlendMode.plus
       ..shader = ui.Gradient.radial(e.center, e.width / 2, [Color.fromRGBO(255, 120, 40, 0.30 * heat), const Color.fromRGBO(255, 80, 20, 0)]));
-    final w = (b.t / 0.5).clamp(0.0, 1.0);
-    if (w < 1) {
-      final ring = Curves.easeOutCubic.transform(w);
+    final w = ((b.t - 0.03) / 0.5).clamp(0.0, 1.0);
+    if (w > 0 && w < 1) {
+      final ring = Curves.easeOutQuart.transform(w); // out fast, slowing (drag)
       for (final (rr, sw, a) in [(1.0, 9.0, 0.9), (0.82, 4.0, 0.55)]) {
         canvas.drawOval(
             _ellipse(b.x, b.z, R * ring * rr),
@@ -4442,13 +4451,13 @@ class _MapPainter extends CustomPainter {
     final rnd = math.Random((b.x * 7 + b.z * 3).round());
     for (var i = 0; i < 14; i++) {
       final a = rnd.nextDouble() * math.pi * 2, rr = b.size * math.sqrt(rnd.nextDouble()) * 0.9;
-      final t0 = rnd.nextDouble() * 0.5, life = 0.7 + rnd.nextDouble() * 0.6, hr = rnd.nextDouble(), sr = rnd.nextDouble();
+      final t0 = 0.15 + rnd.nextDouble() * 0.5, life = 0.7 + rnd.nextDouble() * 0.6, hr = rnd.nextDouble(), sr = rnd.nextDouble();
       final lt = (b.t - t0) / life;
       if (lt <= 0 || lt >= 1) continue;
       final at = s._toScreen(b.x + math.cos(a) * rr, b.z + math.sin(a) * rr) - Offset(math.sin(lt * 5 + i) * 4 * u, (40 + 30 * hr) * lt * _up);
       final r0 = (1.4 + sr * 1.4) * u * (1 - lt * 0.5);
-      _addGlow(canvas, at, r0 * 4, Color.fromRGBO(255, 130, 40, 0.45 * (1 - lt)));
-      canvas.drawCircle(at, r0, _add(Color.fromRGBO(255, 226, 150, 0.95 * (1 - lt))));
+      _addGlow(canvas, at, r0 * 4, Color.fromRGBO(255, 130, 40, 0.3 * (1 - lt)));
+      canvas.drawCircle(at, r0, _add(Color.fromRGBO(255, 226, 150, 0.7 * (1 - lt))));
     }
   }
 
@@ -4520,8 +4529,8 @@ class _MapPainter extends CustomPainter {
       if (leaves && i.isEven) {
         _leafAt(canvas, at, 3.2 * u, ph * 8 + i, al);
       } else {
-        _addGlow(canvas, at, 6 * u, lo.withValues(alpha: 0.5 * al));
-        canvas.drawCircle(at, 1.3 * u, _add(hi.withValues(alpha: 0.9 * al)));
+        _addGlow(canvas, at, 6 * u, lo.withValues(alpha: 0.35 * al));
+        canvas.drawCircle(at, 1.3 * u, _add(hi.withValues(alpha: 0.65 * al)));
       }
     }
   }
@@ -4530,21 +4539,15 @@ class _MapPainter extends CustomPainter {
   /// spray of golden motes
   void _uSun(Canvas canvas, Burst b, double k, Offset g, double u) {
     final c = g - Offset(0, 16 * _up);
-    final fx = s._ultFx?['sun_flare'];
-    if (fx != null) {
-      final d = b.size * 1.1 * s._u;
-      fx.draw(canvas, fx.at(k), Rect.fromCenter(center: c, width: d, height: d), opacity: 0.95);
-    } else {
-      _addGlow(canvas, c, (30 + 90 * k) * u, Color.fromRGBO(255, 236, 160, 0.7 * (1 - k)));
-    }
+    if (s._ultFx?['sun_flare'] == null) _addGlow(canvas, c, (30 + 90 * k) * u, Color.fromRGBO(255, 236, 160, 0.7 * (1 - k)));
     final rnd = math.Random(17);
     for (var i = 0; i < 12; i++) {
       final a = rnd.nextDouble() * math.pi * 2, v = 60 + rnd.nextDouble() * 90;
       final e = Curves.easeOutCubic.transform(k);
       final at = c + Offset(math.cos(a), math.sin(a) * 0.6) * v * e * u + Offset(0, 30 * k * k * _up);
       final al = (1 - k) * (0.6 + 0.4 * math.sin(b.t * 20 + i));
-      _addGlow(canvas, at, 5 * u, Color.fromRGBO(255, 200, 90, 0.5 * al));
-      canvas.drawCircle(at, 1.4 * u, _add(Color.fromRGBO(255, 244, 200, al)));
+      _addGlow(canvas, at, 5 * u, Color.fromRGBO(255, 200, 90, 0.35 * al));
+      canvas.drawCircle(at, 1.4 * u, _add(Color.fromRGBO(255, 244, 200, 0.75 * al)));
     }
   }
 
@@ -4561,7 +4564,7 @@ class _MapPainter extends CustomPainter {
           final a = i * math.pi * 2 / 9 + rnd.nextDouble() * 0.4;
           final frac = 0.45 + 0.5 * rnd.nextDouble();
           final x = b.x + math.cos(a) * b.size * frac, z = b.z + math.sin(a) * b.size * frac;
-          final lt = b.t - 0.3 * frac;
+          final lt = b.t - 0.08 - 0.3 * frac; // heaved as the ring reaches it
           final life = 0.75 + 0.3 * rnd.nextDouble();
           final cs = 5.5 + 4.0 * rnd.nextDouble(), spin = 0.6 + rnd.nextDouble(), hr = rnd.nextDouble();
           if (lt <= 0 || lt > life) continue;
@@ -4583,18 +4586,19 @@ class _MapPainter extends CustomPainter {
           }));
         }
         if (dust != null) {
-          final front = b.size * Curves.easeOutCubic.transform((b.t / 0.6).clamp(0.0, 1.0));
+          final front = b.size * Curves.easeOutQuart.transform(((b.t - 0.1) / 0.6).clamp(0.0, 1.0));
           for (var i = 0; i < 10; i++) {
             final a = i * math.pi * 2 / 10 + rnd.nextDouble() * 0.3;
             final rr = front * (0.9 + 0.15 * rnd.nextDouble()), sr = rnd.nextDouble();
             final x = b.x + math.cos(a) * rr, z = b.z + math.sin(a) * rr;
-            final kk = (b.t / 1.5).clamp(0.0, 1.0);
-            if (kk >= 1) continue;
+            final kk = ((b.t - 0.1) / 1.5).clamp(0.0, 1.0);
+            if (kk >= 1 || b.t < 0.1) continue;
             final sz = (12 + 18 * Curves.easeOut.transform(kk)) * s._u * (0.8 + 0.4 * sr);
-            final al = 0.85 * (1 - kk) * math.min(1.0, b.t / 0.08);
+            // it breaks up as it goes (its frames erode it), only its last moment fading
+            final al = 0.85 * math.min(1.0, (b.t - 0.1) / 0.06) * (1 - ((kk - 0.85) / 0.15).clamp(0.0, 1.0));
             items.add((z + 2, () {
               final gp = s._toScreen(x, z) - Offset(0, (sz * 0.25 + 10 * kk * _up));
-              dust.draw(canvas, i % 4, Rect.fromCenter(center: gp, width: sz * 1.4, height: sz), opacity: al);
+              dust.draw(canvas, dust.at(kk), Rect.fromCenter(center: gp, width: sz * 1.4, height: sz), variant: i % 4, opacity: al);
             }));
           }
         }
@@ -4613,7 +4617,7 @@ class _MapPainter extends CustomPainter {
             rr = b.size * (i.isEven ? 0.86 : 0.64) * (0.95 + 0.1 * rnd.nextDouble());
           }
           final x = b.x + math.cos(a) * rr, z = b.z + math.sin(a) * rr;
-          final t0 = hold ? 0.05 + i * 0.04 : (i % 5) * 0.035;
+          final t0 = hold ? 0.1 + i * 0.05 : 0.05 + (i % 4) * 0.035; // a beat after the flash, by turns
           final lt = b.t - t0;
           if (lt <= 0) continue;
           final sink = ((b.t - (b.ttl - 0.35)) / 0.35).clamp(0.0, 1.0);
@@ -4647,7 +4651,24 @@ class _MapPainter extends CustomPainter {
           items.add((z, () => coral.stand(canvas, frame, s._toScreen(x, z), hu * _up * 1.2, variant: i % 3, flip: i.isOdd,
               skew: 0.06 * math.sin(s._t * 1.8 + i), opacity: 1 - sink * 0.5)));
         }
+      case 'usun':
+        final flare = fx?['sun_flare'];
+        if (flare == null) return;
+        // behind the Elder: its silhouette stays clear against the burst
+        items.add((b.z - 0.5, () {
+          final c = s._toScreen(b.x, b.z) - Offset(0, 16 * _up);
+          final d = b.size * 1.1 * s._u;
+          flare.draw(canvas, flare.at(b.t / b.ttl), Rect.fromCenter(center: c, width: d, height: d));
+        }));
       case 'ucrystal':
+        final star = fx?['crystal_burst'];
+        if (star != null) {
+          items.add((b.z - 0.5, () {
+            final c = s._toScreen(b.x, b.z) - Offset(0, 14 * _up);
+            final d = b.size * 3.0 * s._u;
+            star.draw(canvas, star.at(b.t / b.ttl), Rect.fromCenter(center: c, width: d, height: d));
+          }));
+        }
         for (var i = 0; i < 8; i++) {
           final a = i * math.pi * 2 / 8 + math.pi / 8;
           final rad = b.size * 0.62;
@@ -5086,13 +5107,23 @@ class _MapPainter extends CustomPainter {
       case 'ureeffx':
         _uBubbles(canvas, b, k, u);
       case 'ucrystal':
-        final fx = s._ultFx?['crystal_burst'];
-        final c = g - Offset(0, 12 * _up);
+        if (s._ultFx?['crystal_burst'] == null) _addGlow(canvas, g - Offset(0, 12 * _up), 30 * u, Color.fromRGBO(190, 150, 255, 0.6 * (1 - k)));
+      case 'uflash':
+        // the instant flash an ultimate lands with: two or three frames, in its colour
+        final fx = s._ultFx?['flash'];
+        final tint = switch (b.tag) {
+          'obsidian' => const Color(0xFFFFD9A0),
+          'forest' => const Color(0xFFE2FFB4),
+          'coral' => const Color(0xFFFFDCD2),
+          'amethyst' => const Color(0xFFE6D6FF),
+          _ => const Color(0xFFFFF0B8),
+        };
+        final c = g - Offset(0, 16 * _up);
         if (fx != null) {
-          final d = b.size * 3.0 * s._u;
-          fx.draw(canvas, fx.at(k), Rect.fromCenter(center: c, width: d, height: d));
+          final d = 90 * s._u;
+          fx.draw(canvas, fx.at(k), Rect.fromCenter(center: c, width: d, height: d), tint: tint);
         } else {
-          _addGlow(canvas, c, 30 * u, Color.fromRGBO(190, 150, 255, 0.6 * (1 - k)));
+          _addGlow(canvas, c, 60 * u, tint.withValues(alpha: 0.8 * (1 - k)));
         }
       case 'spikes':
         break; // (drawn standing, at their depth: _ringPieces)
