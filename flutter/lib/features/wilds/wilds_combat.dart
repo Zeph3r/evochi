@@ -1709,6 +1709,7 @@ class Raid {
       case 'amethyst':
         // a ring of crystal shards that go through whatever they meet (a ring of crystal bursting up as they leave)
         bursts.add(Burst('ucrystal', p.x, p.z, 0.8, size: 40));
+        bursts.add(Burst('upulse', p.x, p.z, 0.45, size: 100, tag: 'amethyst')); // its cut-in's release ring
         for (var i = 0; i < 12; i++) {
           final a = i * math.pi * 2 / 12;
           shots.add(Shot(ShotKind.bolt, Team.party, p.x + math.cos(a) * 8, p.z + math.sin(a) * 8, vx: math.cos(a) * 190, vz: math.sin(a) * 190, life: 0.9, owner: p)
@@ -1740,6 +1741,8 @@ class Raid {
         _reefZ = p.z;
         bursts.add(Burst('ureef', p.x, p.z, 6, size: 56));
         bursts.add(Burst('ureeffx', p.x, p.z, 6, size: 56));
+        bursts.add(Burst('upulse', p.x, p.z, 0.6, size: 90, tag: 'coral')); // its cut-in's pulse and light, carried on
+        bursts.add(Burst('ucolumn', p.x, p.z, 0.7, size: 1, tag: 'coral'));
         p.hp = math.min(p.maxHp, p.hp + 20);
         _float('+20', p.x, p.z, 'heal');
       case 'obsidian':

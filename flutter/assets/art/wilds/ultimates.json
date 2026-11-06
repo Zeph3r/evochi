@@ -46,6 +46,28 @@
    "variants": {
     "brave": "ult_sunflare_brave.webp"
    }
+  },
+  "reef_bloom": {
+   "palette": "coral",
+   "name": "Reef Bloom",
+   "t0": 0.0,
+   "t1": 1.967,
+   "release": 1.934,
+   "n": 59,
+   "variants": {
+    "brave": "ult_reef_bloom_brave.webp"
+   }
+  },
+  "crystal_shards": {
+   "palette": "amethyst",
+   "name": "Crystal Shards",
+   "t0": 0.0,
+   "t1": 1.7,
+   "release": 1.667,
+   "n": 51,
+   "variants": {
+    "brave": "ult_crystal_shards_brave.webp"
+   }
   }
  }
 }

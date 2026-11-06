@@ -30,7 +30,14 @@ class UltArt {
   /// the element's colour (the mist clearing off the screen)
   final Color color;
 
-  static const _palette = {'ocean': 'healing_mist', 'amber': 'sunflare', 'forest': 'thorn_snare', 'obsidian': 'quake'};
+  static const _palette = {
+    'ocean': 'healing_mist',
+    'amber': 'sunflare',
+    'forest': 'thorn_snare',
+    'obsidian': 'quake',
+    'coral': 'reef_bloom',
+    'amethyst': 'crystal_shards',
+  };
 
   /// the element on the cut-in's last frame, clearing off the screen: the mist filling the view, the sun's burst,
   /// the bloom of the snare, the flash of the charge
@@ -39,6 +46,8 @@ class UltArt {
     'sunflare': Color(0xFFFFE6A8),
     'thorn_snare': Color(0xFFC9F2A2),
     'quake': Color(0xFFFFF3E2),
+    'reef_bloom': Color(0xFFFFE6E0),
+    'crystal_shards': Color(0xFFF0E6FF),
   };
 
   /// The personality the cut-in is performed in (the face kit's six; the three profiles map onto them until

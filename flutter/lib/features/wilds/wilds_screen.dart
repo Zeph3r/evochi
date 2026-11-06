@@ -3751,7 +3751,7 @@ class _MapPainter extends CustomPainter {
   }
 
   static const _groundBursts = {'pulse', 'tremor', 'rockrise', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare', 'mistwave', 'mistlinger',
-    'uquake', 'usnare', 'ureef', 'usunpool', 'usunrune'};
+    'uquake', 'usnare', 'ureef', 'usunpool', 'usunrune', 'upulse'};
   static const _ultPieceKinds = {'uquake', 'usnare', 'usnarehold', 'ureef', 'ucrystal', 'usun', 'usunring'};
 
   /// Your Evochi's stage, for its moves' size and flourish: an Eggling's are small and simple, a Juvenile's
@@ -4498,7 +4498,8 @@ class _MapPainter extends CustomPainter {
 
   /// Reef Bloom underfoot: a pool of water-light, soft rings rippling out of it at a healing's pace
   void _uReefGround(Canvas canvas, Burst b, double k, double u) {
-    final rise = math.min(1.0, b.t / 0.35) * (1 - ((k - 0.9) / 0.1).clamp(0.0, 1.0));
+    // (it starts most of the way spread: its cut-in ended on the pool already out)
+    final rise = math.min(1.0, 0.55 + b.t / 0.3) * (1 - ((k - 0.9) / 0.1).clamp(0.0, 1.0));
     final e = _ellipse(b.x, b.z, b.size * 1.05);
     final pool = s._ultFx?['reef_caustics'];
     if (pool != null) {
@@ -4510,6 +4511,21 @@ class _MapPainter extends CustomPainter {
     canvas.drawOval(e, Paint()
       ..blendMode = BlendMode.plus
       ..shader = ui.Gradient.radial(e.center, e.width / 2, [Color.fromRGBO(255, 170, 160, 0.20 * rise * (0.75 + 0.25 * math.sin(b.t * 2.4))), const Color.fromRGBO(255, 170, 160, 0)]));
+  }
+
+  /// an ultimate's cut-in's last pulse carried on: two crisp rings racing out over the ground, thinning as they go
+  void _uPulse(Canvas canvas, Burst b, double k, double u) {
+    final (hi, lo) = b.tag == 'coral' ? (const Color(0xFFFFF0E8), const Color(0xFF78E2D6)) : (const Color(0xFFF8F0FF), const Color(0xFFB088F6));
+    for (var j = 0; j < 2; j++) {
+      final q = ((k - j * 0.12) / 0.88).clamp(0.0, 1.0);
+      if (q <= 0 || q >= 1) continue;
+      final r = b.size * (0.15 + 0.85 * Curves.easeOutCubic.transform(q));
+      canvas.drawOval(_ellipse(b.x, b.z, r), Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = (2.6 * (1 - q) + 0.4) * u
+        ..blendMode = BlendMode.plus
+        ..color = (j == 0 ? hi : lo).withValues(alpha: 1 - q));
+    }
   }
 
   /// Reef Bloom's bubbles drifting up off it, and motes of its healing
@@ -4716,10 +4732,11 @@ class _MapPainter extends CustomPainter {
           final a = i * math.pi * 2 / 6 + 0.4;
           final rr = b.size * (i.isEven ? 0.78 : 0.55);
           final x = b.x + math.cos(a) * rr, z = b.z + math.sin(a) * rr;
-          final lt = b.t - (i % 4) * 0.06;
+          final lt = b.t - (i % 4) * 0.03;
           if (lt <= 0) continue;
           final sink = ((b.t - (b.ttl - 0.5)) / 0.5).clamp(0.0, 1.0);
-          final frame = coral.at(math.min(lt / 0.45, 1.0 - sink));
+          // its cut-in ended on the reef grown: it pops up most of the way grown and finishes
+          final frame = coral.at(math.min(0.55 + lt / 0.25 * 0.45, 1.0 - sink));
           final hu = (34 + 12 * ((i * 0.37) % 1.0)) * (1 - sink * 0.7);
           items.add((z, () => coral.stand(canvas, frame, s._toScreen(x, z), hu * _up * 1.2, variant: i % 3, flip: i.isOdd,
               skew: 0.06 * math.sin(s._t * 1.8 + i), opacity: 1 - sink * 0.5)));
@@ -5201,6 +5218,17 @@ class _MapPainter extends CustomPainter {
         _uReefGround(canvas, b, k, u);
       case 'ureeffx':
         _uBubbles(canvas, b, k, u);
+      case 'upulse':
+        _uPulse(canvas, b, k, u);
+      case 'ucolumn':
+        // Reef Bloom's cut-in ends in a column of healing light rising through it: it carries on, thinning and fading
+        final w = 16 * u * (1 - 0.6 * k), h = 150 * _up;
+        final r = Rect.fromLTWH(g.dx - w, g.dy - h, w * 2, h + 2 * _up);
+        canvas.drawRect(r, Paint()
+          ..blendMode = BlendMode.plus
+          ..shader = ui.Gradient.linear(r.centerLeft, r.centerRight,
+              [const Color(0x00FFE0D8), Color.fromRGBO(255, 238, 230, 0.75 * (1 - k) * (1 - k)), const Color(0x00FFE0D8)]));
+        _addGlow(canvas, g - Offset(0, 14 * _up), 34 * u, Color.fromRGBO(255, 200, 190, 0.5 * (1 - k)));
       case 'ucrystal':
         if (s._ultFx?['crystal_burst'] == null) _addGlow(canvas, g - Offset(0, 12 * _up), 30 * u, Color.fromRGBO(190, 150, 255, 0.6 * (1 - k)));
       case 'uflash':
