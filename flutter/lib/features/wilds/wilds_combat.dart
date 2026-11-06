@@ -580,6 +580,7 @@ class Raid {
   static const mistSpeed = 420.0;
   /// A perfect dodge slows the world for a moment (real seconds left) and opens a counter window.
   double slowmo = 0, counterT = 0;
+  double ultSlow = 0; // the slow-motion after an ultimate lands (tinted its colour, not the dodge's cool blue)
   /// Potion buffs (an Apothecary brew drunk in the Wilds): id -> seconds left. See [buffDefs].
   final buffs = <String, double>{};
   bool has(String b) => (buffs[b] ?? 0) > 0;
@@ -859,6 +860,7 @@ class Raid {
     _tickMist(dt);
     if (slowmo > 0) {
       slowmo -= dt;
+      ultSlow = math.max(0, ultSlow - dt);
       dt *= 0.35;
     }
     counterT = math.max(0, counterT - dt);
@@ -1663,9 +1665,13 @@ class Raid {
 
   void _signatureFire() {
     final p = pet;
-    hitstop = math.max(hitstop, 0.14);
-    shake = math.max(shake, 1.0);
-    flashT = math.max(flashT, 0.22);
+    // the heaviest blow there is: a long freeze on the impact, the hardest shake, then the world in slow motion a
+    // moment while it lands (a Pounce's best is a 0.09 s freeze and a 0.6 shake)
+    hitstop = math.max(hitstop, 0.22);
+    shake = math.max(shake, 1.6);
+    slowmo = math.max(slowmo, 0.4);
+    ultSlow = 0.4;
+    flashT = math.max(flashT, 0.3);
     flashKind = palette;
     p.glow = 1;
     bursts.add(Burst('lines', p.x, p.z, 0.55, size: 190, tag: palette));
@@ -1715,6 +1721,7 @@ class Raid {
         // hook round each)
         bursts.add(Burst('usnare', p.x, p.z, 2.6, size: 72));
         bursts.add(Burst('usnarefx', p.x, p.z, 2.6, size: 72));
+        bursts.add(Burst('usnarespiral', p.x, p.z, 0.7, size: 72)); // its cut-in's green ribbons, flung out
         for (final f in hostile.toList()) {
           if (p.dist(f) > 72 + f.radius) continue;
           bursts.add(Burst('usnarehold', f.x, f.z, f is Boss ? 3.0 : 2.4, size: f.radius));
@@ -1748,9 +1755,12 @@ class Raid {
           _hurt(f, 26 * atk, from: p, kx: (f.x - p.x) * k * 160, kz: (f.z - p.z) * k * 160, poise: 90, stun: f is Boss ? 0 : 1.3);
         }
       default:
-        // amber: a flash of sunlight that dazzles everything that can see it (its cut-in's sun breaking open)
+        // amber: a flash of sunlight that dazzles everything that can see it (its cut-in's sun breaking open
+        // behind it, and its cut-in's last beat carried on: two rings of golden crystal round it on a rune of light)
         bursts.add(Burst('usun', p.x, p.z, 1.0, size: 170));
         bursts.add(Burst('usunpool', p.x, p.z, 1.2, size: 170));
+        bursts.add(Burst('usunring', p.x, p.z, 1.5, size: 30));
+        bursts.add(Burst('usunrune', p.x, p.z, 1.5, size: 46));
         for (final f in hostile.toList()) {
           if (p.dist(f) > 170) continue;
           bursts.add(Burst('udazzle', f.x, f.z, 1.2, size: f.radius));

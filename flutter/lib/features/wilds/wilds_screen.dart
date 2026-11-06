@@ -2666,10 +2666,13 @@ class _MapPainter extends CustomPainter {
     // a perfect dodge: the world slows and cools for a moment
     final sm = s._raid?.slowmo ?? 0;
     if (sm > 0 && !rm) {
+      // (an ultimate landing: its own colour, deeper)
+      final ult = (s._raid?.ultSlow ?? 0) > 0;
+      final col = ult ? _tint(s._raid!.palette) : const Color.fromRGBO(120, 200, 255, 1);
       canvas.drawRect(
           Offset.zero & size,
           Paint()
-            ..shader = ui.Gradient.radial(c, size.longestSide * 0.7, [const Color(0x00000000), Color.fromRGBO(120, 200, 255, 0.22 * math.min(1.0, sm / 0.2))], const [0.45, 1.0]));
+            ..shader = ui.Gradient.radial(c, size.longestSide * 0.7, [const Color(0x00000000), col.withValues(alpha: (ult ? 0.3 : 0.22) * math.min(1.0, sm / 0.2))], const [0.45, 1.0]));
     }
     canvas.drawRect(
         Offset.zero & size,
@@ -3748,8 +3751,8 @@ class _MapPainter extends CustomPainter {
   }
 
   static const _groundBursts = {'pulse', 'tremor', 'rockrise', 'spores', 'sweep', 'dust', 'scar', 'reef', 'snare', 'mistwave', 'mistlinger',
-    'uquake', 'usnare', 'ureef', 'usunpool'};
-  static const _ultPieceKinds = {'uquake', 'usnare', 'usnarehold', 'ureef', 'ucrystal', 'usun'};
+    'uquake', 'usnare', 'ureef', 'usunpool', 'usunrune'};
+  static const _ultPieceKinds = {'uquake', 'usnare', 'usnarehold', 'ureef', 'ucrystal', 'usun', 'usunring'};
 
   /// Your Evochi's stage, for its moves' size and flourish: an Eggling's are small and simple, a Juvenile's
   /// fuller, an Elder's the whole show.
@@ -4260,12 +4263,24 @@ class _MapPainter extends CustomPainter {
   /// A crystal of an Amethyst's ring: a six-sided prism of violet glass with a pointed tip, leaning out from it,
   /// three faces lit differently, its edges catching the light, a glow inside and round its root, a twinkle at
   /// its tip (a smaller one beside it, a Juvenile's on).
-  void _crystal(Canvas canvas, double x, double z, double outX, double outZ, double h, double wd, double age, {bool cluster = false}) {
+  // a crystal's glass: ground light, inner glow, its three faces (root to shoulder), its tip's three faces, its outline
+  static const _violetGlass = [
+    Color(0xFFAA78FF), Color(0xFFBE8CFF), Color(0xE6C9A8FF), Color(0xE6F1E4FF), Color(0xE08A5ACF), Color(0xE0BF96F5),
+    Color(0xE65A3496), Color(0xE6875CC8), Color(0xF2FAF3FF), Color(0xEACCAEFA), Color(0xE69466D8), Color(0xFF3E1F6A),
+  ];
+  static const _goldGlass = [
+    Color(0xFFFFC85A), Color(0xFFFFD27A), Color(0xE6FFE2A0), Color(0xE6FFF6D8), Color(0xE0E8A040), Color(0xE0FFD07A),
+    Color(0xE6A8641C), Color(0xE6D49030), Color(0xF2FFFBEA), Color(0xEAFFE0A0), Color(0xE6E0A040), Color(0xFF6A3E10),
+  ];
+
+  void _crystal(Canvas canvas, double x, double z, double outX, double outZ, double h, double wd, double age, {bool cluster = false, bool gold = false}) {
     final g = s._toScreen(x, z);
     final H = h * _up, W = wd * s._u;
     final glowK = 0.75 + 0.25 * math.sin(age * 14 + x);
+    // its glass: an Amethyst's violet, or (the Sunflare's) gold
+    final gl = gold ? _goldGlass : _violetGlass;
     // the light it throws on the ground, and its bloom
-    canvas.drawOval(Rect.fromCenter(center: g, width: W * 6, height: W * 2.6), _add(Color.fromRGBO(170, 120, 255, 0.35 * glowK), blur: W));
+    canvas.drawOval(Rect.fromCenter(center: g, width: W * 6, height: W * 2.6), _add(gl[0].withValues(alpha: 0.35 * glowK), blur: W));
     void one(Offset base, double hh, double ww, double lean) {
       final tip = base + Offset(outX * hh * lean, -hh);
       final ax = tip - base;
@@ -4279,13 +4294,13 @@ class _MapPainter extends CustomPainter {
       Path quad(Offset a, Offset b, Offset c, Offset d) => Path()..moveTo(a.dx, a.dy)..lineTo(b.dx, b.dy)..lineTo(c.dx, c.dy)..lineTo(d.dx, d.dy)..close();
       Path tri(Offset a, Offset b, Offset c) => Path()..moveTo(a.dx, a.dy)..lineTo(b.dx, b.dy)..lineTo(c.dx, c.dy)..close();
       // inner glow along it
-      canvas.drawPath(quad(bl, sl, sr, br)..addPath(tri(sl, tip, sr), Offset.zero), _add(Color.fromRGBO(190, 140, 255, 0.45 * glowK), blur: ww * 1.2));
-      canvas.drawPath(quad(bl, sl, scl, bcl), Paint()..shader = ui.Gradient.linear(base, sh, [const Color(0xE6C9A8FF), const Color(0xE6F1E4FF)]));
-      canvas.drawPath(quad(bcl, scl, scr, bcr), Paint()..shader = ui.Gradient.linear(base, sh, [const Color(0xE08A5ACF), const Color(0xE0BF96F5)]));
-      canvas.drawPath(quad(bcr, scr, sr, br), Paint()..shader = ui.Gradient.linear(base, sh, [const Color(0xE65A3496), const Color(0xE6875CC8)]));
-      canvas.drawPath(tri(sl, tip, scl), Paint()..color = const Color(0xF2FAF3FF));
-      canvas.drawPath(tri(scl, tip, scr), Paint()..color = const Color(0xEACCAEFA));
-      canvas.drawPath(tri(scr, tip, sr), Paint()..color = const Color(0xE69466D8));
+      canvas.drawPath(quad(bl, sl, sr, br)..addPath(tri(sl, tip, sr), Offset.zero), _add(gl[1].withValues(alpha: 0.45 * glowK), blur: ww * 1.2));
+      canvas.drawPath(quad(bl, sl, scl, bcl), Paint()..shader = ui.Gradient.linear(base, sh, [gl[2], gl[3]]));
+      canvas.drawPath(quad(bcl, scl, scr, bcr), Paint()..shader = ui.Gradient.linear(base, sh, [gl[4], gl[5]]));
+      canvas.drawPath(quad(bcr, scr, sr, br), Paint()..shader = ui.Gradient.linear(base, sh, [gl[6], gl[7]]));
+      canvas.drawPath(tri(sl, tip, scl), Paint()..color = gl[8]);
+      canvas.drawPath(tri(scl, tip, scr), Paint()..color = gl[9]);
+      canvas.drawPath(tri(scr, tip, sr), Paint()..color = gl[10]);
       // a light running up through it
       final run = ((age * 1.6 + x * 0.01) % 1.0);
       final band = Offset.lerp(base, sh, run)!;
@@ -4299,12 +4314,12 @@ class _MapPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 1.5
         ..strokeJoin = StrokeJoin.round
-        ..color = const Color(0xFF3E1F6A));
+        ..color = gl[11]);
       canvas.drawLine(scl, bcl, Paint()
-        ..color = const Color(0x553E1F6A)
+        ..color = gl[11].withValues(alpha: 0.33)
         ..strokeWidth = 1);
       canvas.drawLine(scr, bcr, Paint()
-        ..color = const Color(0x553E1F6A)
+        ..color = gl[11].withValues(alpha: 0.33)
         ..strokeWidth = 1);
       _star(canvas, tip + const Offset(0, 1), ww * 0.9, Color.fromRGBO(255, 250, 255, (0.5 + 0.5 * math.sin(age * 16 + x)).clamp(0.0, 1.0)));
     }
@@ -4551,6 +4566,64 @@ class _MapPainter extends CustomPainter {
     }
   }
 
+  /// the Sunflare's rune of light on the ground (its cut-in's last beat): a ring and an inner ring, ticks between,
+  /// snapping out a little past its size and settling, then thinning away
+  void _uSunRune(Canvas canvas, Burst b, double k, double u) {
+    final grow = Curves.easeOutBack.transform((b.t / 0.25).clamp(0.0, 1.0));
+    final a = (1 - ((k - 0.7) / 0.3).clamp(0.0, 1.0)) * math.min(1.0, b.t / 0.05);
+    if (a <= 0) return;
+    final r = b.size * grow;
+    final e = _ellipse(b.x, b.z, r);
+    canvas.drawOval(e, Paint()
+      ..blendMode = BlendMode.plus
+      ..shader = ui.Gradient.radial(e.center, e.width / 2, [Color.fromRGBO(255, 210, 110, 0.22 * a), const Color.fromRGBO(255, 210, 110, 0)]));
+    final ring = Paint()
+      ..style = PaintingStyle.stroke
+      ..color = Color.fromRGBO(255, 222, 140, 0.9 * a);
+    canvas.drawOval(e, ring..strokeWidth = 2.2 * u);
+    canvas.drawOval(_ellipse(b.x, b.z, r * 0.72), ring..strokeWidth = 1.4 * u);
+    for (var i = 0; i < 16; i++) {
+      final an = i * math.pi * 2 / 16 + b.t * 0.6;
+      final p0 = s._toScreen(b.x + math.cos(an) * r * 0.74, b.z + math.sin(an) * r * 0.74);
+      final p1 = s._toScreen(b.x + math.cos(an) * r * (i.isEven ? 0.96 : 0.88), b.z + math.sin(an) * r * (i.isEven ? 0.96 : 0.88));
+      canvas.drawLine(p0, p1, ring..strokeWidth = (i.isEven ? 1.6 : 1.0) * u);
+    }
+  }
+
+  /// the Thorn Snare's release (its cut-in's last beat): green ribbons flung out from your Evochi, spiralling
+  /// down into the ground where the roots will come up
+  void _uSpiral(Canvas canvas, Burst b, double k, Offset g, double u) {
+    final e = Curves.easeOutQuart.transform(k);
+    final c = g - Offset(0, 16 * _up * (1 - e));
+    for (var i = 0; i < 4; i++) {
+      final a0 = i * math.pi / 2 + k * 2.2;
+      final path = Path();
+      for (var j = 0; j <= 18; j++) {
+        final t = j / 18;
+        final an = a0 + t * 2.4;
+        final rr = (8 + b.size * 0.9 * e * t) * s._u;
+        final p = c + Offset(math.cos(an) * rr, math.sin(an) * rr * s._map!.sinP);
+        if (j == 0) {
+          path.moveTo(p.dx, p.dy);
+        } else {
+          path.lineTo(p.dx, p.dy);
+        }
+      }
+      final al = (1 - k) * 0.9;
+      canvas.drawPath(path, Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = (5 - 3 * k) * u
+        ..color = Color.fromRGBO(70, 140, 40, 0.55 * al));
+      canvas.drawPath(path, Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = (2.2 - 1.2 * k) * u
+        ..blendMode = BlendMode.plus
+        ..color = Color.fromRGBO(200, 255, 140, al));
+    }
+  }
+
   /// the ultimates' standing pieces, each at its own depth: the Quake's rock heaved up and tumbling and its dust
   /// rolling out; the Snare's roots bursting up (and coiling round what they hold); the Reef's coral; the
   /// Shards' ring of crystal
@@ -4660,6 +4733,24 @@ class _MapPainter extends CustomPainter {
           final d = b.size * 1.1 * s._u;
           flare.draw(canvas, flare.at(b.t / b.ttl), Rect.fromCenter(center: c, width: d, height: d));
         }));
+      case 'usunring':
+        // its cut-in's last beat: two rings of golden crystal burst up round it, then sink
+        for (var ring = 0; ring < 2; ring++) {
+          final n = ring == 0 ? 9 : 13;
+          final rad = b.size * (ring == 0 ? 0.62 : 1.0);
+          for (var i = 0; i < n; i++) {
+            final a = (i + ring * 0.5) / n * math.pi * 2;
+            final x = b.x + math.cos(a) * rad, z = b.z + math.sin(a) * rad;
+            final lt = b.t - 0.03 - ring * 0.07 - (i % 3) * 0.012;
+            if (lt <= 0) continue;
+            final up = Curves.easeOutBack.transform((lt / 0.09).clamp(0.0, 1.0));
+            final down = ((b.t - (b.ttl - 0.3)) / 0.3).clamp(0.0, 1.0);
+            final h = up * (1 - Curves.easeIn.transform(down));
+            if (h <= 0.01) continue;
+            final tall = (ring == 0 ? 30.0 : 22.0) * (0.8 + 0.4 * ((i * 7) % 5) / 4);
+            items.add((z, () => _crystal(canvas, x, z, math.cos(a), math.sin(a), tall * h, ring == 0 ? 5.0 : 4.2, lt, cluster: i.isEven, gold: true)));
+          }
+        }
       case 'ucrystal':
         final star = fx?['crystal_burst'];
         if (star != null) {
@@ -5089,6 +5180,10 @@ class _MapPainter extends CustomPainter {
         _uMotes(canvas, b, k, u, const Color(0xFFC8F28A), const Color(0xFF7FC24E), leaves: true);
       case 'usun':
         _uSun(canvas, b, k, g, u);
+      case 'usunrune':
+        _uSunRune(canvas, b, k, u);
+      case 'usnarespiral':
+        _uSpiral(canvas, b, k, g, u);
       case 'usunpool':
         final e = _ellipse(b.x, b.z, b.size * 0.55 * (0.6 + 0.4 * Curves.easeOut.transform(k)));
         canvas.drawOval(e, Paint()

@@ -74,6 +74,7 @@ def rupture_geometry(seed, K=7):
     crater = [(math.cos(a) * r, math.sin(a) * r) for a, r in
               ((i * 2 * math.pi / 11, 0.10 * rng.uniform(0.75, 1.25)) for i in range(11))]
     cracks = []
+    forks = []                                           # where a crack forks: a hot node, as in the cinematic
 
     def crack(p0, ang, L, w0, d0, depth):
         m = int(rng.integers(4, 7)) if depth == 0 else int(rng.integers(2, 4))
@@ -91,13 +92,14 @@ def rupture_geometry(seed, K=7):
                 j = int(rng.integers(2, m - 1))
                 side = rng.choice((-1, 1))
                 dj = pts[j + 1] - pts[j]
+                forks.append((pts[j], d0 + seg[j]))
                 crack(pts[j], math.atan2(dj[1], dj[0]) + side * rng.uniform(0.6, 1.0),
                       L * rng.uniform(0.22, 0.38), w[j] * 0.55, d0 + seg[j], 1)
     a0 = rng.uniform(0, 2 * math.pi)
     for k in range(K):
         a = a0 + k * 2 * math.pi / K + rng.uniform(-0.25, 0.25)
         crack((math.cos(a) * 0.09, math.sin(a) * 0.09), a, rng.uniform(0.70, 0.96), 0.030 * rng.uniform(0.8, 1.2), 0.0, 0)
-    return cracks, crater
+    return cracks, crater, forks
 
 
 def _crack_polys(cracks, reach, scale, c, wk):
@@ -126,7 +128,7 @@ def _crack_polys(cracks, reach, scale, c, wk):
 
 
 def rupture_frames(seed=777, size=384, n_open=8, n_cool=8, n_erode=4):
-    cracks, crater = rupture_geometry(seed)
+    cracks, crater, forks = rupture_geometry(seed)
     erode_n = ndimage.gaussian_filter(np.random.default_rng(seed + 1).random((size * 2, size * 2)), 6)
     erode_n = (erode_n - erode_n.min()) / (erode_n.max() - erode_n.min())
     Z = size * 2
@@ -154,12 +156,25 @@ def rupture_frames(seed=777, size=384, n_open=8, n_cool=8, n_erode=4):
         out = over(out, np.array([0.10, 0.07, 0.06]), ndimage.gaussian_filter(edge, 10) * (0.25 + 0.15 * h))
         out = over(out, np.array([0.08, 0.05, 0.045]), edge * (0.6 + 0.3 * h))
         glow = ndimage.gaussian_filter(body, 8) * 0.7 * h
+        out = over(out, lerp([0.45, 0.06, 0.02], [0.92, 0.22, 0.05], h), ndimage.gaussian_filter(body, 16) * 0.45 * h)  # red
         out = over(out, lerp([0.55, 0.10, 0.03], [1.0, 0.42, 0.12], h), glow * (1 - edge * 0.5))
         out = over(out, lerp([0.22, 0.06, 0.04], lerp([0.85, 0.20, 0.05], [1.0, 0.45, 0.12], h), min(1.0, h * 1.6)),
                    body * min(1.0, 0.35 + h * 1.4))
         if h > 0.05:
             hot = lerp([1.0, 0.35, 0.08], [1.0, 0.78, 0.32], h)
             out = over(out, hot, core * min(1.0, h * 1.5))
+        if h > 0.25:                                      # the forks and the crater: hot nodes (the cinematic's)
+            nodes = Image.new('L', (Z, Z), 0)
+            dn = ImageDraw.Draw(nodes)
+            for q, dd in forks + [(np.zeros(2), 0.0)]:
+                if dd > reach:
+                    continue
+                rr = Z * (0.012 if dd > 0 else 0.03)
+                qq = c + q * scale
+                dn.ellipse([qq[0] - rr, qq[1] - rr, qq[0] + rr, qq[1] + rr], fill=255)
+            nm = np.asarray(nodes, np.float32) / 255
+            out = over(out, np.array([1.0, 0.62, 0.2]), ndimage.gaussian_filter(nm, 7) * 0.8 * h)
+            out = over(out, np.array([1.0, 0.92, 0.6]), nm * min(1.0, (h - 0.25) * 2))
         if f < n_open:                                    # the fresh front of the split: hottest
             out = over(out, np.array([1.0, 0.93, 0.70]), core * 0.45 * (1 - f / n_open))
         if f >= n_open + n_cool:                          # the charred cracks crumble away (eroded, not faded)
