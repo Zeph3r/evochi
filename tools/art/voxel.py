@@ -26,6 +26,28 @@ def hexrgb(h: str) -> np.ndarray:
 # ----------------------------------------------------------------------------
 # Model
 # ----------------------------------------------------------------------------
+_GRIDS = {}
+
+
+def _grid(lo, hi, res):
+    """the voxel centres' coordinates (X, Y, Z) for a grid, shared (read-only) by every model on that grid: an
+    Elder's build makes many models on one grid, and the three arrays are most of a model's memory"""
+    key = (tuple(int(v) for v in lo), tuple(int(v) for v in hi), int(res))
+    g = _GRIDS.pop(key, None)
+    if g is None:
+        r = float(res)
+        xs = (np.arange(lo[0], hi[0]) + 0.5) / r
+        ys = (np.arange(lo[1], hi[1]) + 0.5) / r
+        zs = (np.arange(lo[2], hi[2]) + 0.5) / r
+        g = np.meshgrid(xs, ys, zs, indexing='ij')
+        for a in g:
+            a.flags.writeable = False
+    _GRIDS[key] = g                      # the most recently used last
+    while len(_GRIDS) > 8:
+        _GRIDS.pop(next(iter(_GRIDS)))
+    return g
+
+
 class Model:
     """Dense voxel grid. Voxel (i,j,k) has its centre at origin + (i,j,k) + .5"""
 
@@ -40,11 +62,7 @@ class Model:
         # per-voxel extra attributes
         self.glow = np.zeros(shape, np.float32)      # emissive amount 0..1
         self.layer = np.zeros(shape, np.uint8)       # used for parallax layers
-        r = float(self.res)
-        xs = (np.arange(self.lo[0], self.hi[0]) + 0.5) / r
-        ys = (np.arange(self.lo[1], self.hi[1]) + 0.5) / r
-        zs = (np.arange(self.lo[2], self.hi[2]) + 0.5) / r
-        self.X, self.Y, self.Z = np.meshgrid(xs, ys, zs, indexing='ij')
+        self.X, self.Y, self.Z = _grid(self.lo, self.hi, self.res)
 
     def mid(self, name):
         if name not in self.ids:
