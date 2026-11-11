@@ -12,6 +12,7 @@ dependencies:
     sdk: flutter
   provider: ^6.1.2
   shared_preferences: ^2.2.3
+  url_launcher: ^6.3.0 # Settings > Report a problem hands the report to the mail app
   timezone: ^0.9.4
   flutter_timezone: ^3.0.1
   # Apple Health (iOS) + Health Connect (Android). Verify the latest major before release;

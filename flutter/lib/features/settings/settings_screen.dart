@@ -19,6 +19,7 @@ import '../onboarding/cinematic_screen.dart';
 import '../shared/widgets.dart';
 import 'cast_lab.dart';
 import 'personality_lab.dart';
+import 'report_problem.dart';
 
 const _zones = [
   'UTC', 'America/Los_Angeles', 'America/Denver', 'America/Chicago', 'America/New_York', 'America/Sao_Paulo', 'Europe/London',
@@ -224,6 +225,12 @@ class SettingsScreen extends StatelessWidget {
                 const Text('Evochi stores daily step totals and game progress - never raw health telemetry.', style: EvochiText.caption),
                 toggle('Share anonymous usage events', 'Product events only, no health data.', st.analytics, (x, v) => x.analytics = v),
                 Wrap(spacing: 8, runSpacing: 8, children: [
+                  EvochiButton(
+                    label: 'Report a problem',
+                    small: true,
+                    expand: false,
+                    onPressed: () => showReportProblem(context),
+                  ),
                   EvochiButton(
                     label: 'Export my data',
                     small: true,

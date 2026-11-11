@@ -6,6 +6,8 @@
 #   ANDROID_KEYSTORE_PASSWORD, ANDROID_KEY_PASSWORD, ANDROID_KEY_ALIAS
 #   PLAY_SERVICE_ACCOUNT_JSON a Play Console API service account key (optional: without it the bundle is
 #                             only attached to the run, and you upload it by hand)
+#   FIREBASE_APP_ID_ANDROID, FIREBASE_SERVICE_ACCOUNT_JSON  (optional) Crashlytics: the Dart symbols go up with
+#                             each build, so crash traces read as code
 name: Android release
 
 on:
@@ -25,6 +27,10 @@ jobs:
     environment: play   # add required reviewers to this environment to gate the production track
     env:
       PLAY_KEY: ${{ secrets.PLAY_SERVICE_ACCOUNT_JSON }}
+      # Crashlytics (NEXT_STEPS.md "Beta launch"): the Firebase Android app id and a service account with the
+      # Crashlytics role; without them the symbols are only attached to the run
+      FIREBASE_APP_ID: ${{ secrets.FIREBASE_APP_ID_ANDROID }}
+      FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_JSON }}
     defaults:
       run:
         working-directory: flutter
@@ -63,8 +69,14 @@ jobs:
           path: flutter/build/app/outputs/bundle/release/app-release.aab
       - uses: actions/upload-artifact@v4
         with:
-          name: debug-symbols   # to read obfuscated crash traces
+          name: debug-symbols   # to read obfuscated crash traces (flutter symbolize -d build/symbols -i trace.txt)
           path: flutter/build/symbols
+      - name: Upload symbols to Crashlytics
+        if: ${{ env.FIREBASE_APP_ID != '' && env.FIREBASE_SA != '' }}
+        run: |
+          echo "$FIREBASE_SA" > "$RUNNER_TEMP/firebase-sa.json"
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-sa.json"
+          npx --yes firebase-tools@13 crashlytics:symbols:upload --app="$FIREBASE_APP_ID" build/symbols
       - name: Upload to Google Play
         if: ${{ env.PLAY_KEY != '' }}
         uses: r0adkll/upload-google-play@v1

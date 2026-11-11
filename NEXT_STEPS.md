@@ -1,5 +1,74 @@
 # Next steps (handoff)
 
+## Beta launch: logs, crashes, backend (the plan, 11 Nov)
+
+There was never a written plan for this, only seams left in the code. This is the plan, what is built,
+and what only the owner can do. The site's promises set the rules (site/README.md): usage events are
+opt-in, step data is never sold or used for ads, sign-in with Apple, Google or email, accounts sync to the
+cloud. And the standing rule: health data never reaches a backend as raw samples, only derived progress.
+
+**Built (11 Nov):**
+
+- `core/services/diagnostics.dart`: a ring-buffer log (`Log.i/w/e`, the last 600 lines; every product event
+  goes in too, whatever the sharing toggle says, since the log only leaves the phone when the player sends it);
+  `FlutterError.onError`, `PlatformDispatcher.onError` and a guarded zone round `main` writing every error down
+  (`LocalCrashReporter`: the last five, with the screen and the log's tail, kept on disk); a frame watch
+  (`JankWatch`: frames over 32 ms counted per screen, a log line every 10 s while it goes on); the last
+  session's log tail saved with a clean/live mark, so a start after a crash knows it. `Diagnostics.cloud` is the
+  seam for Crashlytics. The Wilds names its screen (`wilds` / `mine`); other screens can (`Diagnostics.screen`).
+- Settings > Privacy & data > **Report a problem** (`features/settings/report_problem.dart`): what happened in
+  the player's words plus the build, phone OS, screen, the last crash, the jank summary and the log, copied to
+  the clipboard or handed to the mail app (`SUPPORT_EMAIL` dart-define, default support@evochigame.com).
+- `android-release.yml`: uploads the Dart symbols to Crashlytics when `FIREBASE_APP_ID_ANDROID` and
+  `FIREBASE_SERVICE_ACCOUNT_JSON` are set (no-op until then; the symbols are always attached to the run).
+
+**Step 1, to finish once the Firebase project exists (one session):**
+
+- `flutterfire configure` in `flutter/` (writes `lib/firebase_options.dart`; the Android `google-services.json`
+  goes in `android/app/`, the iOS plist in `ios/Runner/` when iOS exists), add `firebase_core` and
+  `firebase_crashlytics`, `Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform)` in
+  `main._main` right after `Diagnostics.install`, and a `FirebaseCrashReporter implements CrashReporter`
+  (record -> `FirebaseCrashlytics.instance.recordError`, keys -> `setCustomKey`, and `Log.listen` ->
+  `log()` for breadcrumbs) set as `Diagnostics.cloud`. Crashlytics collection follows the usage-events
+  consent toggle (`setCrashlyticsCollectionEnabled`), and the privacy page's "crash reporter" blank gets
+  filled in.
+- Optional: ship `Analytics.buffer` to a Cloud Function endpoint (consented events only) rather than GA4, so
+  the data stays ours and the privacy wording stays simple.
+
+**Step 2, the backend (the biggest chunk; needs the project):**
+
+- Firebase Auth: Apple, Google and email-link providers. Wire `_provider` / `_email` in
+  `onboarding_screens.dart` (they show a "once Firebase is configured" sheet today) and a "Link account" in
+  Settings; `startGuest(accountType:, email:)` already takes the account; `GameRepository` already pushes to
+  `remote` for non-guest accounts once `remote.enabled` is true.
+- `data/remote/remote_sync.dart`: a `FirestoreSync implements RemoteSync`. The design is in its header: a
+  save snapshot per uid (`saves/{uid}`), a ledger (`ledger/{uid}/txns/{id}`) keyed by the client's own
+  transaction ids (`quest:<questId>@<period>`, `purchase:<requestId>`), a Cloud Function `confirmTransaction`
+  that appends once per id, and conflicts resolved from the ledger, never last-write-wins. The snapshot must be
+  a whitelist of fields: derived progress and daily totals, never step samples.
+- Account deletion: a Function behind `site/delete-account.html` and `deleteAccountData`; the app's
+  "Delete all data" already calls the hook.
+- Founders: the app can't tell a founder (the waitlist knows). At sign-in, a Function asks the site's API
+  (Cloudflare D1, `site/functions/api/`, a shared secret) whether the email is a founder and sets a flag on
+  the account; the app then shows `pip_gold` in the cinematic and whatever else founders get.
+- Nice to have: a `config` document for a kill switch / minimum build, read at start.
+
+**Step 3, the beta itself (mostly console work):**
+
+- Android: Play Console app, the upload keystore and the service account as the four `ANDROID_*` and the
+  `PLAY_SERVICE_ACCOUNT_JSON` secrets (never in chat), internal testing first, then closed testing with the
+  waitlist's emails (a new Play account needs 12 testers for 14 days before production anyway). The Data
+  safety form and the Health Connect declaration (`READ_STEPS`, gameplay) in the console; the privacy policy
+  URL live (site deployed per `site/DEPLOY.md`, `config.json` filled, `legalDraft` off after review).
+- iOS: an Apple Developer account, the `ios/` folder (never generated yet), Sign in with Apple (required once
+  Google sign-in is offered), the HealthKit entitlement, TestFlight; builds need a Mac or a macOS runner.
+- Invites: `site/emails/` has the beta invite; a small admin script exports the waitlist to the tester list.
+- Feedback: Report a problem (above) plus wherever testers talk (a form, a channel).
+
+**Owner's checklist (nothing here can be done from the repo):** create the Firebase project and commit (or
+add as secrets) its config files; enable the auth providers; the Play Console app and its secrets; the Apple
+account; deploy the site and fill `site/config.json`; a legal review of the privacy and terms pages.
+
 The latest work is the fight rework: every move in four beats (wind-up, action, impact with a
 hit-stop, recovery) and a canvas particle engine (`web/src/ui/fx.js`, ported to Flutter as
 `stage_fx.dart`); the four encounter Shorts were re-recorded with it. Before that, the encounter rework: the battle shot (your Evochi from behind, the wild one
@@ -41,8 +110,9 @@ Still to do:
 
 ## Not verified yet
 
-- **Flutter now compiles and runs on Windows** (Flutter 3.27.1, VS 2022, 19 Oct 2026): `flutter analyze`
-  has 0 errors, `flutter test` passes 67, and the Windows debug build runs onboarding, Home, Journey,
+- **Flutter compiles and runs on Windows** (Flutter 3.27.1, VS 2022, 19 Oct 2026), and `.github/workflows/
+  flutter-ci.yml` runs `flutter analyze` and `flutter test` on every push (11 Nov: 255 tests). The Windows
+  debug build at the time: `flutter analyze` had 0 errors, `flutter test` passed 67, and the Windows debug build runs onboarding, Home, Journey,
   Bag, EvoDex, the Village and the whole Market (browse, details, Dressing Room, buy → Equip Now,
   nest preview, seeds). On Windows, run `1_check.bat` (doctor, platform folders, pub get, analyze,
   test) and then `2_build_and_run.bat` (it waits for Developer Mode, which plugins need for symlinks,

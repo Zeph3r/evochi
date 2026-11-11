@@ -28,6 +28,7 @@ import 'package:provider/provider.dart';
 import '../../app/theme.dart';
 import '../../controllers/game_controller.dart';
 import '../../core/models/catalog.dart';
+import '../../core/services/diagnostics.dart';
 import '../../core/models/game_state.dart';
 import '../../core/services/haptics.dart';
 import '../../game/economy/economy.dart' as econ;
@@ -264,6 +265,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   void initState() {
     super.initState();
     WildsScreen.current = this;
+    Diagnostics.screen = widget.mine ? 'mine' : 'wilds';
+    Log.i('wilds', 'enter ${widget.mine ? 'mine' : widget.mapId} depth ${widget.depth ?? 1}${widget.resume != null ? ' (resumed)' : ''}');
     WidgetsBinding.instance.addObserver(this);
     _c = context.read<GameController>();
     SceneFx.program().then((p) {
@@ -453,6 +456,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   @override
   void dispose() {
     if (identical(WildsScreen.current, this)) WildsScreen.current = null;
+    if (Diagnostics.screen == 'wilds' || Diagnostics.screen == 'mine') Diagnostics.screen = 'app';
+    Log.i('wilds', 'leave${_descending ? ' (descending)' : ''}');
     // popped off the floor (a route change, never the app closing: that keeps the run), not on to the next one
     if (!_descending && _raid != null) WildsResume.clear();
     WidgetsBinding.instance.removeObserver(this);

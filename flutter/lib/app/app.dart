@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../controllers/game_controller.dart';
+import '../core/services/diagnostics.dart';
 import '../core/services/nav_sound.dart';
 import '../features/home/home_widgets.dart';
 import '../features/shared/kit.dart';
@@ -63,10 +64,17 @@ class _EvochiAppState extends State<EvochiApp> with WidgetsBindingObserver {
       c.flush();
       c.audio.stopAmbient();
       _live?.cancel();
+      Log.i('app', state == AppLifecycleState.paused ? 'paused' : 'inactive');
+      unawaited(Diagnostics.flush(clean: state == AppLifecycleState.paused));
+    } else if (state == AppLifecycleState.detached) {
+      Log.i('app', 'detached');
+      unawaited(Diagnostics.flush(clean: true));
     } else if (state == AppLifecycleState.resumed) {
       c.sync();
       c.audio.startAmbient();
       _liveSync();
+      Log.i('app', 'resumed');
+      unawaited(Diagnostics.flush(clean: false));
     }
   }
 
