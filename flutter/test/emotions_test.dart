@@ -4,6 +4,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:evochi/core/services/asset_manifest.dart';
 import 'package:evochi/game/emotion/emotion.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -24,6 +25,18 @@ void main() {
     for (final n in Emotions.names) {
       expect(Emotions.of(n), isNotNull, reason: n);
     }
+  });
+
+  test("the ':3' faces are in every sheet, and never reach an Eggling", () {
+    expect(_evochiFaces(), containsAll(['content', 'cosy']));
+    final j = {
+      'expressions': ['default', 'blink', 'content', 'cosy'],
+      'atlas': {'amber': {'file': 'x', 'rects': [[0, 0, 1, 1], [1, 0, 1, 1], [2, 0, 1, 1], [3, 0, 1, 1]]}},
+    };
+    expect(CharEntry(j, stage: 1).frame('amber', 'content'), CharEntry(j, stage: 1).frame('amber', 'default'));
+    expect(CharEntry(j, stage: 1).frame('amber', 'cosy'), CharEntry(j, stage: 1).frame('amber', 'blink'));
+    expect(CharEntry(j, stage: 2).frame('amber', 'content').left, 2);
+    expect(CharEntry(j, stage: 3).frame('amber', 'cosy').left, 3);
   });
 
   test('faces and motions are ones the game has', () {

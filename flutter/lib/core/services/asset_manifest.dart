@@ -10,8 +10,9 @@ const artBase = 'assets/art/';
 const audioBase = 'assets/audio/';
 
 class CharEntry {
-  CharEntry(this.j);
+  CharEntry(this.j, {this.stage = 0});
   final Map<String, dynamic> j;
+  final int stage;
   double get scale => (j['scale'] as num).toDouble();
   double get w => (j['w'] as num).toDouble();
   double get h => (j['h'] as num).toDouble();
@@ -23,10 +24,17 @@ class CharEntry {
 
   String atlasFile(String palette) => (j['atlas'] as Map)[palette]['file'] as String;
   Rect frame(String palette, String expr) {
-    var i = expressions.indexOf(expr);
+    var i = expressions.indexOf(egglingFace(expr));
     if (i < 0) i = 0;
     final r = ((j['atlas'] as Map)[palette]['rects'] as List)[i] as List;
     return _rect(r);
+  }
+
+  /// The ":3" faces ('content', 'cosy') belong to the Juvenile and the Elder: an Eggling asked for one gets
+  /// its plain face instead (the same mouth it always has).
+  String egglingFace(String expr) {
+    if (stage != 1) return expr;
+    return switch (expr) { 'content' => 'default', 'cosy' => 'blink', _ => expr };
   }
 
   String get overlaysFile => (j['overlays'] as Map)['file'] as String;
@@ -98,7 +106,7 @@ class AssetManifest {
     return instance!;
   }
 
-  CharEntry char(int stage) => CharEntry(((j['chars'] as Map)['s0$stage'] as Map).cast<String, dynamic>());
+  CharEntry char(int stage) => CharEntry(((j['chars'] as Map)['s0$stage'] as Map).cast<String, dynamic>(), stage: stage);
   HabitatEntry habitat(String name) => HabitatEntry(((j['habitats'] as Map)[name] as Map).cast<String, dynamic>());
   String thumb(String name) => artBase + ((j['habitats'] as Map)['thumbs'] as Map)[name];
   String icon(String k) => artBase + (j['icons'] as Map)[k];

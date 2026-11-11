@@ -117,6 +117,9 @@ const profiles = <String, ProfileDef>{
   ),
 };
 
+// The ":3" faces ('content' eyes open, 'cosy' eyes closed): the calm one's sway and slow blink, the lively one's
+// wiggle and the proud chin lift end on them; the cautious one never wears them, nor does an Eggling (the
+// manifest gives it its plain face instead).
 const behaviors = <String, BehaviorDef>{
   // ---- signatures
   'double_hop': BehaviorDef(
@@ -135,7 +138,7 @@ const behaviors = <String, BehaviorDef>{
   'proud_chin_lift': BehaviorDef(
       id: 'proud_chin_lift', kind: 'habit', contexts: {'pet', 'reward', 'play'},
       affinity: {'boldness': 1.0, 'expressiveness': 0.8}, base: 1.0, priority: 2, cooldown: 30,
-      clip: 'chin_lift', motion: 'bounce', expr: 'happy', duration: 1.1, particles: 'stars'),
+      clip: 'chin_lift', motion: 'bounce', expr: 'happy', exprEnd: 'content', duration: 1.1, particles: 'stars'),
   'careful_peek': BehaviorDef(
       id: 'careful_peek', kind: 'habit', contexts: {'idle', 'feed', 'return'},
       affinity: {'curiosity': 1.0, 'boldness': -1.0}, base: 1.0, priority: 2, cooldown: 25,
@@ -151,7 +154,7 @@ const behaviors = <String, BehaviorDef>{
   'happy_wiggle': BehaviorDef(
       id: 'happy_wiggle', kind: 'habit', contexts: {'idle', 'pet', 'play', 'reward'},
       affinity: {'energy': 1.0, 'expressiveness': 1.0}, base: 1.0, priority: 2, cooldown: 22,
-      clip: 'happy_wiggle', motion: 'wiggle', expr: 'excited', duration: 0.9, particles: 'hearts'),
+      clip: 'happy_wiggle', motion: 'wiggle', expr: 'excited', exprEnd: 'content', duration: 0.9, particles: 'hearts'),
   'quick_look': BehaviorDef(
       id: 'quick_look', kind: 'idle', contexts: {'idle', 'return'},
       affinity: {'energy': 0.8, 'curiosity': 0.6}, base: 0.9, priority: 1, cooldown: 18,
@@ -163,11 +166,11 @@ const behaviors = <String, BehaviorDef>{
   'gentle_sway': BehaviorDef(
       id: 'gentle_sway', kind: 'idle', contexts: {'idle', 'return'},
       affinity: {'energy': -1.0}, base: 1.0, priority: 1, cooldown: 16,
-      clip: 'gentle_sway', motion: 'none', expr: 'happy', duration: 1.8),
+      clip: 'gentle_sway', motion: 'none', expr: 'content', duration: 1.8),
   'slow_blink': BehaviorDef(
       id: 'slow_blink', kind: 'idle', contexts: {'idle'},
       affinity: {'energy': -1.2, 'expressiveness': -0.4}, base: 0.9, priority: 1, cooldown: 14,
-      motion: 'none', expr: 'sleepy', exprEnd: 'happy', duration: 1.2),
+      motion: 'none', expr: 'cosy', exprEnd: 'content', duration: 1.2),
   'inspect_leaf': BehaviorDef(
       id: 'inspect_leaf', kind: 'idle', contexts: {'idle'},
       affinity: {'curiosity': 1.2}, interest: 'plants', base: 0.9, priority: 1, cooldown: 24,

@@ -307,7 +307,10 @@ EXPRESSIONS = ['default', 'blink', 'happy', 'curious', 'surprised', 'determined'
                'sleepy', 'excited', 'neutral', 'sick', 'memorial',
                # the emotion layer's last three (assets/config/emotions.json): appended, so every older frame keeps
                # its place in the sheets
-               'afraid', 'frustrated', 'affectionate']
+               'afraid', 'frustrated', 'affectionate',
+               # the ":3" look (a cat's content little mouth), eyes open and eyes closed: the calm and lively
+               # personalities wear it now and then (game/personality/catalog.dart); appended, as above
+               'content', 'cosy']
 
 
 # the Obsidian's eyes (only its: every other colour keeps the classic dark eye and light): ('blank', colour, a warmer
@@ -367,6 +370,12 @@ def paint_face(ch: Character, cv: Canvas, pal: dict, expr: str):
 
     def smile(width=1.3, depth=0.55):
         cv.paint(cv.m_arc(0, mv + depth, width / 2, depth, 200, 340, lw * 0.85), mouth, lit=0.0)
+
+    def cat_mouth(width=2.0, depth=0.42):
+        # the ":3": two little bumps side by side, meeting under the nose (an omega lying on the face)
+        hw = width / 4
+        for s in (-1, 1):
+            cv.paint(cv.m_arc(s * hw, mv + depth * 0.45, hw, depth, 200, 340, lw * 0.95), mouth, lit=0.0)
 
     def open_mouth(w=2.4, h=1.9, tongue=True, dv=0.0):
         c0 = mv - 0.2 + dv
@@ -521,6 +530,17 @@ def paint_face(ch: Character, cv: Canvas, pal: dict, expr: str):
                 cv.paint(cv.m_stroke([(x - 0.18, ch.cheek_v - ch.cheek_h * 0.3), (x + 0.18, ch.cheek_v + ch.cheek_h * 0.3)], lw * 0.55),
                          mouth, 0.55, lit=0.0)
         smile(1.1, 0.42)
+    elif expr == 'content':
+        # the ":3": eyes open and bright, cheeks warm, the cat's little mouth
+        cheeks(1.0, w=1.15)
+        eyes(hl=(-0.22, 0.34))
+        cat_mouth()
+    elif expr == 'cosy':
+        # the ":3" with the eyes closed in soft arcs: settled, purring (sleep, a slow blink's end)
+        cheeks(1.0, w=1.15)
+        for s in (-1, 1):
+            cv.paint(cv.m_arc(s * eu, ev - eh * 0.05, ew * 0.75, 0.7, 195, 345, lw), E, lit=0.0)
+        cat_mouth()
     # ---- talking (the cinematics' animated lines, cine_anim.py): eyes open on you, the mouth through its shapes
     # as the words come; 'talk_happy' the closed-eye smile still talking
     elif expr.startswith('look_'):
