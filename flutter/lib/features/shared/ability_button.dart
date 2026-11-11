@@ -238,6 +238,14 @@ class _AbilityButtonState extends State<AbilityButton> with SingleTickerProvider
   }
 }
 
+/// A soft glow with no mask blur (a ready ultimate's breathes every frame, and on the GPU each blurred
+/// draw is a render pass of its own): a radial gradient from its colour to clear over its outer [soft] px.
+void _softGlow(Canvas canvas, Offset c, double r, Color col, double soft) {
+  final R = r + soft;
+  final edge = (1 - soft * 1.7 / R).clamp(0.0, 0.97);
+  canvas.drawCircle(c, R, Paint()..shader = ui.Gradient.radial(c, R, [col, col, col.withValues(alpha: 0)], [0.0, edge, 1.0]));
+}
+
 class _AbilityPainter extends CustomPainter {
   _AbilityPainter(this.w, this.down, this.t) : super(repaint: Listenable.merge([t, ButtonSprites.loaded]));
   final AbilityButton w;
@@ -278,9 +286,7 @@ class _AbilityPainter extends CustomPainter {
     // the ready glow: faint for an ordinary ability, strong for an ultimate
     if (w.ready && !w.dim) {
       final k = ult ? 0.75 + 0.25 * math.sin(t.value * 4) : 0.45;
-      canvas.drawCircle(c, r * (ult ? 1.22 : 1.08), Paint()
-        ..color = w.accent.withValues(alpha: (ult ? 0.55 : 0.22) * k)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * (ult ? 0.35 : 0.18)));
+      _softGlow(canvas, c, r * (ult ? 1.22 : 1.08), w.accent.withValues(alpha: (ult ? 0.55 : 0.22) * k), r * (ult ? 0.35 : 0.18));
     }
     // a drop shadow, then the carved wood rim with its gold edge
     canvas.drawCircle(c + Offset(0, r * 0.08), r, Paint()..color = const Color(0x55241208));
@@ -400,9 +406,7 @@ class _AbilityPainter extends CustomPainter {
     // an ultimate's ready glow breathes behind its art
     if (ult && w.ready && !w.dim) {
       final k = 0.75 + 0.25 * math.sin(t.value * 4);
-      canvas.drawCircle(c, r * 1.15, Paint()
-        ..color = w.accent.withValues(alpha: 0.35 * k)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.3));
+      _softGlow(canvas, c, r * 1.15, w.accent.withValues(alpha: 0.35 * k), r * 0.3);
     }
     final half = img.width / 2 * scale;
     canvas.drawImageRect(img, Rect.fromLTWH(0, 0, img.width.toDouble(), img.height.toDouble()), Rect.fromCircle(center: c, radius: half),
@@ -482,9 +486,7 @@ class _AbilityPainter extends CustomPainter {
       ..quadraticBezierTo(o.dx - r * 0.12, o.dy - r * 0.12, o.dx, o.dy - r)
       ..close();
     if (lit) {
-      canvas.drawCircle(o, r * 0.9, Paint()
-        ..color = const Color(0x88FFE9A6)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, r * 0.5));
+      _softGlow(canvas, o, r * 0.9, const Color(0x88FFE9A6), r * 0.5);
     }
     canvas.drawPath(p, Paint()
       ..style = PaintingStyle.stroke

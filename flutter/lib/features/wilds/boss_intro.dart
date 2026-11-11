@@ -16,8 +16,8 @@
 // your Evochi is its reaction's frames and a view from behind (tools/art/cine_react_export.py). An Evochi
 // wearing something keeps the older art for now (tools/art/cine_evochi.py: its faces, worn pieces on). Light,
 // fog, waves, the wood and the title are drawn here (briar_scene.dart). Tap to skip. The full version plays the
-// first time; after that a short one (the landing and the title); with reduced motion, a still title card. The
-// Forgotten Sentinel's entrance is in sentinel_intro.dart.
+// first time it wakes on a visit; a rematch on the same visit gets a short one (the landing and the title); with
+// reduced motion, a still title card. The Forgotten Sentinel's entrance is in sentinel_intro.dart.
 
 import 'dart:convert';
 import 'dart:math' as math;

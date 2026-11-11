@@ -17,6 +17,8 @@ import '../features/onboarding/onboarding_screens.dart';
 import '../features/shared/ambience.dart';
 import '../features/shared/widgets.dart';
 import '../features/shop/shop_screen.dart';
+import '../features/wilds/descent_sheet.dart' show resumeRoute;
+import '../features/wilds/wilds_resume.dart';
 import 'motion.dart';
 
 /// The app's root navigator, so app-wide listeners (the Skill-up card) can open dialogs.
@@ -88,6 +90,14 @@ class _MainShellState extends State<MainShell> {
   void initState() {
     super.initState();
     _c.tabRequest.addListener(_onTabRequest);
+    // a run in the Wilds the app was closed on (killed in the background, a crash): back up over the shell,
+    // paused where it was, rather than the home screen with the run gone
+    WildsResume.load().then((r) {
+      if (r == null || !mounted) return;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) Navigator.of(context).push(resumeRoute(r));
+      });
+    });
   }
 
   @override

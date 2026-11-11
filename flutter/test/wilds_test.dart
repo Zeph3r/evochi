@@ -1,10 +1,12 @@
 // The Lumen Wilds: the fight (features/wilds/wilds_combat.dart) and what it saves (game/wilds/wilds.dart).
 
+import 'dart:convert';
 import 'dart:math' as math;
 import 'dart:ui' show Rect;
 
 import 'package:evochi/core/models/game_state.dart';
 import 'package:evochi/features/wilds/wilds_combat.dart';
+import 'package:evochi/features/wilds/wilds_resume.dart';
 import 'package:evochi/game/engine.dart' as g;
 import 'package:evochi/game/wilds/wilds.dart' as w;
 import 'package:flutter_test/flutter_test.dart';
@@ -344,6 +346,156 @@ void main() {
       final d0 = s.distTo(b.x, b.z);
       run(r, 0.3);
       expect(s.distTo(b.x, b.z), greaterThan(d0 + 6));
+    });
+  });
+
+  group('a run across the app closing', () {
+    test('what was done on the floor comes back; what was mid-air does not', () {
+      final r = Raid(
+        ground: meadow(),
+        pet: petAt(0, 40, hp: 120),
+        spawns: const [
+          FoeSpawn('a', 'thornling', 'fern', 0, 0),
+          FoeSpawn('b', 'thornling', 'fern', 60, -20),
+          FoeSpawn('c', 'sporecap', 'moss', 200, 200),
+        ],
+        zones: const [ZoneDef('fern', 'Fern Clearing', 0, 0, 80), ZoneDef('moss', 'Moss Hollow', 200, 200, 60)],
+        ores: [OreRock('o1', 'copper', 100, 100, hits: 3, tier: 1)],
+        stage: 3,
+      );
+      // two calmed (one still trotting off), the ore chipped, a charge built, the satchel half full
+      r.calmAllForTesting(where: (f) => f.zone == 'fern');
+      run(r, 1.0);
+      r.ores.first.strike(1);
+      r.coins = 17;
+      r.items['lumen_shard'] = 2;
+      r.sig = 40;
+      r.pet.hp = 55;
+      final pr = r.progress;
+      expect(pr.calmFoes, {'a', 'b'});
+      expect(pr.oreDamage, {'o1': 1.0});
+      expect(pr.bossHp, isNull);
+      expect(pr.bossCalm, isFalse);
+      // the floor made again from its seed, caught up
+      final r2 = Raid(
+        ground: meadow(),
+        pet: petAt(0, 40, hp: 120),
+        spawns: const [
+          FoeSpawn('a', 'thornling', 'fern', 0, 0),
+          FoeSpawn('b', 'thornling', 'fern', 60, -20),
+          FoeSpawn('c', 'sporecap', 'moss', 200, 200),
+        ],
+        zones: const [ZoneDef('fern', 'Fern Clearing', 0, 0, 80), ZoneDef('moss', 'Moss Hollow', 200, 200, 60)],
+        ores: [OreRock('o1', 'copper', 100, 100, hits: 3, tier: 1)],
+        stage: 3,
+      );
+      r2.foes.first.target = r2.pet; // (a creature mid-chase on a fresh floor: it goes home)
+      r2.restore(
+        hp: r.pet.hp,
+        x: 30,
+        z: 50,
+        calmFoes: pr.calmFoes,
+        calmedCount: r.calmed,
+        coins: r.coins,
+        items: r.items,
+        sig: r.sig,
+        oreDamage: pr.oreDamage,
+      );
+      expect(r2.foes.map((f) => f.id), ['c']);
+      expect(r2.calmed, 2);
+      expect(r2.cleared, {'fern'}); // (no second "the clearing is calm")
+      expect(r2.coins, 17);
+      expect(r2.items, {'lumen_shard': 2});
+      expect(r2.sig, 40);
+      expect(r2.pet.hp, 55);
+      expect(r2.pet.x, closeTo(30, 1));
+      expect(r2.pet.z, closeTo(50, 1));
+      expect(r2.ores.first.state, 1);
+      expect(r2.ores.first.damage, 1);
+      expect(r2.foes.first.target, isNull);
+      expect(r2.events, isEmpty);
+      // and the floor plays on from there: the seal's count sees two of three calmed
+      run(r2, 0.5);
+      expect(r2.calmed, 2);
+      expect(r2.foeTotal, 3);
+    });
+
+    test('the guardian keeps the Raid HP it had, or its peace', () {
+      Raid arena() => Raid(
+            ground: meadow(),
+            pet: petAt(-14, -330, hp: 100000),
+            bossDef: const BossDef(x: -10, z: -432, ax: -14, az: -398, ar: 74, wall: [(-24.0, -320.0), (-6.0, -330.0)], summon: [(-74.0, -408.0), (46.0, -408.0)]),
+          );
+      final r = arena();
+      r.pet.z = -380;
+      run(r, 3);
+      expect(r.bossState, BossState.fight);
+      r.boss!.hp = r.boss!.maxHp * 0.5;
+      final pr = r.progress;
+      expect(pr.bossHp, closeTo(r.boss!.maxHp * 0.5, 0.01));
+      expect(pr.bossCalm, isFalse);
+      // back on the floor: it stands dormant in its arena again, half its Raid HP gone
+      final r2 = arena();
+      r2.restore(hp: 100, x: -14, z: -330, calmFoes: const [], calmedCount: 0, bossHp: pr.bossHp);
+      expect(r2.bossState, BossState.dormant);
+      expect(r2.boss!.hp, closeTo(r.boss!.maxHp * 0.5, 0.01));
+      run(r2, 0.5);
+      expect(r2.bossState, BossState.dormant);
+      // calmed before the app closed: calm again, quietly
+      final r3 = arena();
+      r3.restore(hp: 100, x: -14, z: -330, calmFoes: const [], calmedCount: 0, bossCalm: true);
+      expect(r3.bossState, BossState.calm);
+      expect(r3.boss!.calm, isTrue);
+      expect(r3.events, isEmpty);
+      expect(r3.shake, 0);
+    });
+
+    test('the record survives its JSON', () {
+      final rs = WildsResume(
+        mapId: 'thicket',
+        depth: 3,
+        seed: 12345,
+        surge: true,
+        story: null,
+        mine: false,
+        runId: 'r1',
+        banks: 2,
+        hp: 55.5,
+        x: 12,
+        z: -34,
+        coins: 17,
+        items: const {'lumen_shard': 2},
+        calmed: 4,
+        unbankedCalms: 6,
+        calmFoes: const ['a', 'b'],
+        bossHp: 600,
+        bossCalm: false,
+        storyDone: false,
+        trust: 0,
+        sig: 40,
+        ward: 1,
+        oreDamage: const {'o1': 1.0},
+        used: const ['chest_1'],
+        satchel: const {'copper': 3},
+        sealOpen: true,
+        savedAt: 1000,
+      );
+      final back = WildsResume.fromJson((jsonDecode(jsonEncode(rs.toJson())) as Map).cast<String, dynamic>())!;
+      expect(back.depth, 3);
+      expect(back.seed, 12345);
+      expect(back.surge, isTrue);
+      expect(back.runId, 'r1');
+      expect(back.banks, 2);
+      expect(back.hp, 55.5);
+      expect(back.items, {'lumen_shard': 2});
+      expect(back.unbankedCalms, 6);
+      expect(back.calmFoes, ['a', 'b']);
+      expect(back.bossHp, 600);
+      expect(back.oreDamage, {'o1': 1.0});
+      expect(back.used, ['chest_1']);
+      expect(back.satchel, {'copper': 3});
+      expect(back.sealOpen, isTrue);
+      expect(WildsResume.fromJson({'v': 2}), isNull);
     });
   });
 

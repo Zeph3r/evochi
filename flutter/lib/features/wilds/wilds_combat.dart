@@ -423,6 +423,7 @@ class Raid {
     if (storyBeat == 'sprout') foes.add(_sprout(storyX, storyZ));
     if (storyBeat == 'sentinel') foes.add(_sentinel(storyX, storyZ));
     foeTotal = foes.length;
+    _spawnIds.addAll(foes.map((f) => f.id));
     final b = bossDef;
     if (b != null) {
       boss = Boss(id: 'briarback', x: b.x, z: b.z, ax0: b.ax, az0: b.az, ar: b.ar)..face(0, 1);
@@ -527,6 +528,7 @@ class Raid {
   late double startX, startZ;
 
   final foes = <Foe>[];
+  final _spawnIds = <String>[]; // the creatures the floor began with (for [progress]: gone means calmed)
   Boss? boss;
   BossState bossState = BossState.absent;
   bool wallUp = false;
@@ -4615,6 +4617,127 @@ class Raid {
     if (b == null || b.calm || bossState != BossState.fight) return;
     b.hp = math.max(1, b.hp - b.maxHp * frac);
     _bossHealthCheck(b);
+  }
+
+  /// The floor as it was when the app was closed on it (the screen's snapshot: wilds_resume.dart). What
+  /// had been done stays done: the creatures already calmed are gone (their clearings counted calm), the
+  /// guardian keeps the Raid HP it had (it wakes again when you step into the arena) or its peace, a story
+  /// beat done is done, the ore struck is struck; your Evochi stands where it stood with the Raid HP it had,
+  /// its satchel, its charge and its Ward. Nothing mid-air is kept (shots, telegraphs, buffs, whoever was
+  /// chasing you goes home): the floor starts quiet, the pause card up.
+  void restore({
+    required double hp,
+    required double x,
+    required double z,
+    required Iterable<String> calmFoes,
+    required int calmedCount,
+    double? bossHp,
+    bool bossCalm = false,
+    int coins = 0,
+    Map<String, int> items = const {},
+    bool storyDone = false,
+    double trust = 0,
+    double sig = 0,
+    int ward = 0,
+    Map<String, double> oreDamage = const {},
+  }) {
+    final gone = calmFoes.toSet();
+    for (final f in foes.toList()) {
+      if (!gone.contains(f.id)) continue;
+      if ((f.kind == 'sentinel' && storyBeat == 'sentinel') || (f.kind == 'hollow_sprout' && storyBeat == 'sprout')) {
+        // restored, it stays (the Sentinel at its gate, the Sprout among the ruins)
+        _endMark(f);
+        f
+          ..calm = true
+          ..st = FoeState.calm
+          ..t = 10
+          ..pose = null
+          ..ghost = true
+          ..glow = 0
+          ..target = null
+          ..moving = false;
+        continue;
+      }
+      foes.remove(f);
+    }
+    for (final f in foes) {
+      if (!f.calm) _goHome(f, heal: true);
+    }
+    for (final zn in zones) {
+      if (foes.where((o) => o.zone == zn.id && !o.summoned).every((o) => o.calm)) cleared.add(zn.id);
+    }
+    calmed = calmedCount;
+    this.coins = coins;
+    this.items
+      ..clear()
+      ..addAll(items);
+    this.sig = stage >= 3 ? sig.clamp(0.0, 100.0) : 0;
+    this.ward = ward;
+    this.trust = trust;
+    this.storyDone = storyDone;
+    if (storyDone) {
+      sentinelShield = 0;
+      beam = null;
+      final pl = petalune;
+      if (pl != null && storyBeat == 'trust') {
+        pl
+          ..calm = true
+          ..alpha = 1;
+      }
+    }
+    final b = boss;
+    if (b != null && !b.calm) {
+      if (bossCalm) {
+        _victory(b);
+        // (quietly: it was calmed before)
+        cheerT = 0;
+        shake = 0;
+        hitstop = 0;
+      } else if (bossHp != null) {
+        b.hp = bossHp.clamp(1.0, b.maxHp);
+      }
+    }
+    for (final o in ores) {
+      final d = oreDamage[o.id];
+      if (d == null || d <= 0) continue;
+      o.damage = d;
+      o.state = d >= o.hits - 1e-6 ? 3 : (d / o.hits < 0.5 ? 1 : 2);
+    }
+    pet
+      ..hp = hp.clamp(1.0, pet.maxHp)
+      ..kx = 0
+      ..kz = 0;
+    _place(pet, x, z);
+    stamina = _stamMax;
+    marks.clear();
+    shots.clear();
+    hazards.clear();
+    waves.clear();
+    pickups.clear();
+    floaters.clear();
+    bursts.clear();
+    events.clear();
+    lock = null;
+  }
+
+  /// The floor's progress, for the screen's snapshot: the creatures calmed (gone, or a story's restored), the
+  /// ore struck, and the guardian's Raid HP while it is still to be calmed.
+  ({Set<String> calmFoes, Map<String, double> oreDamage, double? bossHp, bool bossCalm}) get progress {
+    final calmIds = <String>{};
+    for (final s in _spawnIds) {
+      final f = foes.where((o) => o.id == s).firstOrNull;
+      if (f == null || f.calm) calmIds.add(s);
+    }
+    for (final f in foes) {
+      if (f.calm && !f.summoned && f.kind != 'petalune') calmIds.add(f.id);
+    }
+    final b = boss;
+    return (
+      calmFoes: calmIds,
+      oreDamage: {for (final o in ores) if (o.damage > 0) o.id: o.damage},
+      bossHp: b == null || b.calm ? null : b.hp,
+      bossCalm: b != null && b.calm,
+    );
   }
 
   /// The guardian again, after it has been calmed: it stands ready to spar.

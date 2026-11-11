@@ -16,6 +16,7 @@ import '../../game/wilds/story_floors.dart' as sf;
 import '../../game/wilds/wilds.dart' as w;
 import '../shared/kit.dart';
 import '../shared/widgets.dart';
+import 'wilds_resume.dart';
 import 'wilds_screen.dart';
 
 /// Ask which way in. Returns the floor chosen (1, or the deepest reached), or null for "not now".
@@ -41,6 +42,13 @@ Route<void> descentRoute(BuildContext context, int depth, {required bool mine}) 
     transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: a, child: child),
   );
 }
+
+/// The run the app was closed on, back up where it was (wilds_resume.dart): its floor, paused.
+Route<void> resumeRoute(WildsResume r) => PageRouteBuilder<void>(
+      transitionDuration: const Duration(milliseconds: 600),
+      pageBuilder: (_, __, ___) => WildsScreen.resume(r),
+      transitionsBuilder: (_, a, __, child) => FadeTransition(opacity: a, child: child),
+    );
 
 /// Ask, then go: the sheet, and the floor it picks.
 Future<void> enterDescent(BuildContext context, {required bool mine}) async {

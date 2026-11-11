@@ -13,7 +13,7 @@
 //
 // The Sprout is a pre-rendered sequence (tools/art/sprout_intro.py); your Evochi is its reaction art
 // (tools/art/cine_react_export.py). The ruins, light, spores and vines are drawn here. Tap to skip. The
-// full version plays the first time; after that a short one (the swaying shot and the title); with
+// full version plays the first time on a visit; a rematch on it, a short one (the swaying shot and the title); with
 // reduced motion, a still title card.
 
 part of 'boss_intro.dart';

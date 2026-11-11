@@ -14,7 +14,7 @@
 //
 // The Sentinel is a pre-rendered sequence (tools/art/sentinel_intro.py); your Evochi is the same heroic
 // cut-out as the Briarback's entrance (tools/art/cine_evochi.py). The beam, light, runes and wind are
-// drawn here. Tap to skip. The full version plays the first time; after that a short one (the looming
+// drawn here. Tap to skip. The full version plays the first time on a visit; a rematch on it, a short one (the looming
 // shot and the title); with reduced motion, a still title card.
 
 part of 'boss_intro.dart';

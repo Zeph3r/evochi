@@ -52,6 +52,7 @@ import 'ult_cutin.dart';
 import 'ult_fx.dart';
 import 'wilds_art.dart';
 import 'wilds_combat.dart';
+import 'wilds_resume.dart';
 
 /// What you carry from one Deep Wilds floor down to the next: Raid HP, the satchel, and the creatures
 /// calmed on the way (not yet counted toward the worn charm).
@@ -91,8 +92,12 @@ class WildsScreenNames {
 }
 
 class WildsScreen extends StatefulWidget {
-  const WildsScreen({super.key, this.mapId = 'thicket', this.depth, this.seed, this.carry, this.surge = false, this.story, this.forceStory = false, this.mine = false});
+  const WildsScreen({super.key, this.mapId = 'thicket', this.depth, this.seed, this.carry, this.surge = false, this.story, this.forceStory = false, this.mine = false, this.resume});
+
+  /// The run the app was closed on, back where it was (wilds_resume.dart): the floor it names, caught up.
+  factory WildsScreen.resume(WildsResume r) => WildsScreen(mapId: r.mapId, depth: r.depth, seed: r.seed, surge: r.surge, story: r.story, mine: r.mine, resume: r);
   final String mapId;
+  final WildsResume? resume;
 
   /// A gallery of Flint's mine (deep_floor.dart, mine: true): ore to Pounce, no fights set up.
   final bool mine;
@@ -173,6 +178,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   UltArt? _ultArt; // an Elder's ultimate, its cut-in (null: the short wind-up)
   bool _ultOn = false;
   IntroCut? _cine; // playing now
+  final _introPlayed = <String>{}; // the entrances played in full on this visit (a rematch gets the short cut)
   BossIntroArt? _sentArt; // the Forgotten Sentinel's entrance (its story floor only)
   BossIntroArt? _sproutArt; // the Hollow Sprout's entrance (its story floor only)
   IntroCut? _sproutCine;
@@ -231,8 +237,10 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   String? _banner;
   double _bannerT = 0;
   bool _clearFirst = true;
-  final String _runId = 'r${DateTime.now().millisecondsSinceEpoch}';
+  String _runId = 'r${DateTime.now().millisecondsSinceEpoch}';
   int _banks = 0;
+  double _resumeAt = 0; // when the run was last written down for a resume (wilds_resume.dart)
+  bool _descending = false; // leaving this floor for the next: the run goes on
   int _calmBanked = 0; // calms already counted toward the worn charm
   double _shakeX = 0, _shakeY = 0;
   double _flashT = 0; // a Sunflare's flash over everything
@@ -243,6 +251,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   final _fx = <Object, ui.FragmentShader>{}; // one per tile / prop drawn (each draw keeps its uniforms)
 
   static const _floor = 'thicket';
+  int _seed = 0; // the floor's (a deep floor is made from it; a hand-made map ignores it)
 
 
   ui.FragmentShader? _fxFor(Object key) {
@@ -274,7 +283,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     // a story floor only while its job is open (a stale link to it is an ordinary floor)
     final story = widget.story != null && (sf.storyFloorOpen(c.state, widget.story!) || (kDebugMode && widget.forceStory)) ? sf.storyFloors[widget.story!] : null;
     _story = story;
-    final seed = widget.seed ?? DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
+    final seed = _seed = widget.seed ?? DateTime.now().millisecondsSinceEpoch & 0x7fffffff;
     final friendly = story?.beat == 'trust' || sf.petaluneWithYou(c.state);
     final hollow = widget.mine && depth != null && galleryKind(depth, seed) == 'hollow';
     final extra = [if (friendly) 'petalune', if (story?.beat == 'sprout') 'hollow_sprout', if (story?.beat == 'sentinel') 'sentinel', if (hollow) 'capfolk'];
@@ -307,9 +316,12 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
       setState(() {
         _map = m;
         _raid = _newRaid(m);
+        final rs = widget.resume;
+        if (rs != null) _applyResume(rs);
       });
       // Sher keeps the camp by the fire: he gives berries and a tip, and the trail is yours to walk
       _ticker.start();
+      _saveResume();
       _loadIntro(m, pet?.stage ?? 1, palette, wearing);
       _loadUlt();
     });
@@ -441,6 +453,8 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
   @override
   void dispose() {
     if (identical(WildsScreen.current, this)) WildsScreen.current = null;
+    // popped off the floor (a route change, never the app closing: that keeps the run), not on to the next one
+    if (!_descending && _raid != null) WildsResume.clear();
     WidgetsBinding.instance.removeObserver(this);
     if (_music != null) _c.audio.setMusic(null);
     _tk?.dispose();
@@ -457,10 +471,86 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // away from the app: the fight waits (a focused pause card)
-    if ((state == AppLifecycleState.paused || state == AppLifecycleState.hidden) && _card == null && _raid != null) {
-      setState(() => _card = 'pause');
+    // away from the app: the fight waits (a focused pause card), and the run is written down in case the
+    // app is closed before you are back (the next launch puts it back up, paused)
+    if (state == AppLifecycleState.paused || state == AppLifecycleState.hidden || state == AppLifecycleState.inactive) {
+      if (_card == null && _raid != null) setState(() => _card = 'pause');
+      _saveResume();
     }
+  }
+
+  // ---- the run across the app closing (wilds_resume.dart)
+
+  /// The floor, caught up to the snapshot, and the pause card up.
+  void _applyResume(WildsResume rs) {
+    final r = _raid;
+    if (r == null) return;
+    r.restore(
+      hp: rs.hp,
+      x: rs.x,
+      z: rs.z,
+      calmFoes: rs.calmFoes,
+      calmedCount: rs.calmed,
+      bossHp: rs.bossHp,
+      bossCalm: rs.bossCalm,
+      coins: rs.coins,
+      items: rs.items,
+      storyDone: rs.storyDone,
+      trust: rs.trust,
+      sig: rs.sig,
+      ward: rs.ward,
+      oreDamage: rs.oreDamage,
+    );
+    _runId = rs.runId;
+    _banks = rs.banks;
+    _calmBanked = r.calmed - rs.unbankedCalms;
+    _used.addAll(rs.used);
+    _satchel.addAll(rs.satchel);
+    _storyHandedIn = rs.storyDone;
+    if (rs.sealOpen) {
+      _sealOpen = true;
+      _sealT = 1;
+    }
+    if (rs.bossCalm) _clearFirst = false;
+    _card = 'pause';
+    _snap = true;
+  }
+
+  /// Write the run down (skipped while recording a Short, and while knocked out: the moment before stands).
+  void _saveResume() {
+    final r = _raid, m = _map;
+    if (r == null || m == null || WildsScreen.director != null || r.phase == RaidPhase.knocked) return;
+    _resumeAt = _t;
+    final pr = r.progress;
+    WildsResume.save(WildsResume(
+      mapId: widget.mapId,
+      depth: widget.depth,
+      seed: _seed,
+      surge: widget.surge,
+      story: widget.story,
+      mine: widget.mine,
+      runId: _runId,
+      banks: _banks,
+      hp: r.pet.hp,
+      x: r.pet.x,
+      z: r.pet.z,
+      coins: r.coins,
+      items: Map.of(r.items),
+      calmed: r.calmed,
+      unbankedCalms: r.calmed - _calmBanked,
+      calmFoes: pr.calmFoes.toList(),
+      bossHp: pr.bossHp,
+      bossCalm: pr.bossCalm,
+      storyDone: r.storyDone,
+      trust: r.trust,
+      sig: r.sig,
+      ward: r.ward,
+      oreDamage: pr.oreDamage,
+      used: _used.toList(),
+      satchel: Map.of(_satchel),
+      sealOpen: _sealOpen,
+      savedAt: DateTime.now().millisecondsSinceEpoch,
+    ));
   }
 
   // ---- mapping: world (x, z) -> ground image px -> screen
@@ -566,6 +656,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     if (dir != null && !_paused) dir(r, _input, _t);
     if (!_paused) r.tick(dt, _input);
     _events(r);
+    if (!_paused && _t - _resumeAt > 5) _saveResume();
     // the music: the guardian's theme while it fights, the wild theme in a skirmish
     final boss = r.bossState == BossState.intro || r.bossState == BossState.fight;
     _combatT = r.inCombat ? 4 : math.max(0, _combatT - dt);
@@ -924,14 +1015,16 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
         case 'sher_heal':
           _sfx('enc_soothe', 0.45);
         case 'boss_intro':
-          // the entrance: in full the first time, a short slam and title after (a still card with
-          // reduced motion); the old banner if its art has not loaded
-          final seen = c.state.trails.seen['briarback_intro'] == true;
+          // the entrance: in full the first time the guardian wakes on a visit (tap to skip), a short slam
+          // and title on a rematch in the same visit, after a knockout (a still card with reduced motion);
+          // the old banner if its art has not loaded. (It used to play in full only once ever, and every
+          // fight after was the short cut: the whole entrance was never seen again.)
           final reduce = MediaQuery.of(context).disableAnimations;
           if (_introArt != null) {
             r.shake = 0;
-            setState(() => _cine = reduce ? IntroCut.still : (seen ? IntroCut.short : IntroCut.full));
-            if (!seen) c.run((s, n) => trails.markTrailSeen(s, 'briarback_intro'), quiet: true);
+            final again = !_introPlayed.add('briarback');
+            setState(() => _cine = reduce ? IntroCut.still : (again ? IntroCut.short : IntroCut.full));
+            if (c.state.trails.seen['briarback_intro'] != true) c.run((s, n) => trails.markTrailSeen(s, 'briarback_intro'), quiet: true);
           } else {
             _sfx('enc_awaken', 0.8);
             a.buzz(Haptic.rumble);
@@ -960,11 +1053,11 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
           // its entrance: in full the first time, the looming shot and the title after (a still card with
           // reduced motion); without its art, it simply wakes in the fight
           if (_sentArt != null) {
-            final seen = c.state.trails.seen['sentinel_intro'] == true;
             final reduce = MediaQuery.of(context).disableAnimations;
             r.shake = 0;
-            setState(() => _sentCine = reduce ? IntroCut.still : (seen ? IntroCut.short : IntroCut.full));
-            if (!seen) c.run((s, n) => trails.markTrailSeen(s, 'sentinel_intro'), quiet: true);
+            final again = !_introPlayed.add('sentinel');
+            setState(() => _sentCine = reduce ? IntroCut.still : (again ? IntroCut.short : IntroCut.full));
+            if (c.state.trails.seen['sentinel_intro'] != true) c.run((s, n) => trails.markTrailSeen(s, 'sentinel_intro'), quiet: true);
           } else {
             _sfx('enc_awaken', 0.8);
             a.buzz(Haptic.rumble);
@@ -974,11 +1067,11 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
           // its entrance: in full the first time, the swaying shot and the title after (a still card with
           // reduced motion); without its art, it simply turns on you
           if (_sproutArt != null) {
-            final seen = c.state.trails.seen['sprout_intro'] == true;
             final reduce = MediaQuery.of(context).disableAnimations;
             r.shake = 0;
-            setState(() => _sproutCine = reduce ? IntroCut.still : (seen ? IntroCut.short : IntroCut.full));
-            if (!seen) c.run((s, n) => trails.markTrailSeen(s, 'sprout_intro'), quiet: true);
+            final again = !_introPlayed.add('sprout');
+            setState(() => _sproutCine = reduce ? IntroCut.still : (again ? IntroCut.short : IntroCut.full));
+            if (c.state.trails.seen['sprout_intro'] != true) c.run((s, n) => trails.markTrailSeen(s, 'sprout_intro'), quiet: true);
           } else {
             _sfx('enc_awaken', 0.8);
             a.buzz(Haptic.rumble);
@@ -1330,6 +1423,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
 
   void _leave() {
     _bank();
+    WildsResume.clear(); // the run is over: nothing to come back to
     // a direct pop: the PopScope above only catches the back gesture (and asks first)
     Navigator.of(context).pop();
   }
@@ -1386,6 +1480,7 @@ class _WildsScreenState extends State<WildsScreen> with SingleTickerProviderStat
     final carry = DeepCarry(r.pet.hp, r.coins, Map.of(r.items), calmed: r.calmed - _calmBanked);
     // a Trail Guild job's place waiting at this depth: the floor is the story's (and no Surge on it)
     final story = sf.storyFloorAt(c.state, depth);
+    _descending = true;
     Navigator.of(context).pushReplacement(PageRouteBuilder<void>(
       transitionDuration: const Duration(milliseconds: 700),
       pageBuilder: (_, __, ___) => WildsScreen(depth: depth, seed: seed, carry: carry, surge: surge && story == null && !widget.mine, story: widget.mine ? null : story?.quest, mine: widget.mine),
@@ -2347,21 +2442,17 @@ class _MapPainter extends CustomPainter {
     final lock = r.lock;
     if (lock != null && lock.alive && !lock.calm) _ring(canvas, lock, const Color(0xFFFFD25A));
     // soft shadows under everyone (the props' shadows are in the ground)
-    final shadow = Paint()
-      ..color = const Color(0x40000000)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
     final actors = <Actor>[pet, if (sher != null) sher, ...r.friends, ...r.allFoes];
     for (final a in actors) {
       if (a.alpha <= 0.02) continue;
       final g = s._toScreen(a.x, a.z);
       if (!view.inflate(80).contains(g)) continue;
-      shadow.color = Color.fromRGBO(0, 0, 0, 0.25 * a.alpha);
-      canvas.drawOval(Rect.fromCenter(center: g, width: a.radius * 2.4 * s._u, height: a.radius * 1.1 * s._u), shadow);
+      _softOval(canvas, Rect.fromCenter(center: g, width: a.radius * 2.4 * s._u, height: a.radius * 1.1 * s._u), Color.fromRGBO(0, 0, 0, 0.25 * a.alpha), 4);
     }
     for (final sh in r.shots) {
       if (sh.lob) {
         final g = s._toScreen(sh.x, sh.z);
-        canvas.drawOval(Rect.fromCenter(center: g, width: 7 * s._u, height: 3 * s._u), shadow..color = const Color(0x33000000));
+        _softOval(canvas, Rect.fromCenter(center: g, width: 7 * s._u, height: 3 * s._u), const Color(0x33000000), 4);
       }
     }
     // a counter is ready (after a perfect dodge): a gold ring under your Evochi
@@ -2626,12 +2717,6 @@ class _MapPainter extends CustomPainter {
       final mid = Offset.lerp(l, r, 0.5)!;
       final halves = k >= 1 ? [(l, r)] : [(l, Offset.lerp(l, mid, k)!), (r, Offset.lerp(r, mid, k)!)];
       final flick = rm ? 1.0 : 0.82 + 0.18 * math.sin(t * 31 + i * 2.1) * math.sin(t * 7.3 + i);
-      final glowP = Paint()
-        ..color = Color.fromRGBO(120, 235, 255, 0.5 * flick)
-        ..strokeWidth = 11 * s._u / 2.7
-        ..strokeCap = StrokeCap.round
-        ..style = PaintingStyle.stroke
-        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4);
       final core = Paint()
         ..color = Color.fromRGBO(235, 255, 255, 0.95 * flick)
         ..strokeWidth = 2.6 * s._u / 2.7
@@ -2646,7 +2731,7 @@ class _MapPainter extends CustomPainter {
           final w = (j == segs || rm) ? 0.0 : math.sin(t * 23 + j * 1.7 + i * 3) * 1.2 * s._u / 2.7;
           path.lineTo(pt.dx, pt.dy + w);
         }
-        canvas.drawPath(path, glowP);
+        _haloStroke(canvas, path, Color.fromRGBO(120, 235, 255, 0.45 * flick), 11 * s._u / 2.7, 4, core: false);
         canvas.drawPath(path, core);
       }
       final a = l, b = r;
@@ -2728,9 +2813,7 @@ class _MapPainter extends CustomPainter {
         switch (b.kind) {
           case 'dust':
             final a = (1 - age / b.life).clamp(0.0, 1.0);
-            canvas.drawCircle(p, upk * b.size * (0.5 + age / b.life), Paint()
-              ..color = b.color.withAlpha(((0.45 * a) * 255).round())
-              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 6));
+            _softCircle(canvas, p, upk * b.size * (0.5 + age / b.life), b.color.withAlpha(((0.45 * a) * 255).round()), 6);
           case 'spark':
             final a = (1 - age / b.life).clamp(0.0, 1.0);
             canvas.drawCircle(p, upk * b.size * (1 + a), Paint()..color = b.color.withAlpha((a * 255).round()));
@@ -2782,9 +2865,7 @@ class _MapPainter extends CustomPainter {
     canvas.drawRect(Rect.fromCenter(center: g - Offset(0, 14 * k), width: 2.6 * k, height: 28 * k), Paint()..color = const Color(0xFF4A2E1A));
     canvas.drawRect(Rect.fromLTWH(g.dx - 1.3 * k, g.dy - 28 * k, 9 * k, 2.2 * k), Paint()..color = const Color(0xFF4A2E1A));
     final lc = g + Offset(7 * k, -22 * k);
-    canvas.drawCircle(lc, (14 + 4 * flick) * k, Paint()
-      ..color = Color.fromRGBO(255, 179, 71, 0.22 + 0.08 * flick)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 12 * k));
+    _softCircle(canvas, lc, (14 + 4 * flick) * k, Color.fromRGBO(255, 179, 71, 0.22 + 0.08 * flick), 12 * k);
     canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: lc, width: 5 * k, height: 6.5 * k), Radius.circular(1.2 * k)), Paint()..color = const Color(0xFF2E2A2A));
     canvas.drawRRect(RRect.fromRectAndRadius(Rect.fromCenter(center: lc, width: 3.4 * k, height: 4.6 * k), Radius.circular(0.8 * k)),
         Paint()..color = Color.lerp(const Color(0xFFFFC561), const Color(0xFFFFE6A8), flick)!);
@@ -2918,10 +2999,7 @@ class _MapPainter extends CustomPainter {
     canvas.drawRect(Rect.fromLTRB(stream.left - 2, top - 2, stream.right + 2, top + hh * 0.3),
         Paint()..shader = ui.Gradient.linear(Offset(0, top - 2), Offset(0, top + hh * 0.3), const [Color(0xFF120806), Color(0x00120806)]));
     // the foot: foam and spatter where it meets the pool
-    canvas.drawOval(Rect.fromCenter(center: foot, width: ww * 2.4, height: ww * 0.9),
-        Paint()
-          ..color = const Color(0xCCFFD878)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+    _softOval(canvas, Rect.fromCenter(center: foot, width: ww * 2.4, height: ww * 0.9), const Color(0xCCFFD878), 3);
     if (!rm) {
       for (var i = 0; i < 5; i++) {
         final tt = t * 1.6 + i / 5;
@@ -3264,11 +3342,7 @@ class _MapPainter extends CustomPainter {
   /// A lobbed spore's shadow on the ground, darkening and tightening as it comes down.
   void _landingShadow(Canvas canvas, Mark mk) {
     final p = mk.p;
-    canvas.drawOval(
-        _ellipse(mk.x, mk.z, mk.r * (0.3 + 0.4 * p)),
-        Paint()
-          ..color = Color.fromRGBO(24, 10, 38, 0.1 + 0.32 * p)
-          ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+    _softOval(canvas, _ellipse(mk.x, mk.z, mk.r * (0.3 + 0.4 * p)), Color.fromRGBO(24, 10, 38, 0.1 + 0.32 * p), 3);
   }
 
   /// Dust kicked up behind a creature digging in to charge (the way it will come is away from the dust).
@@ -3522,11 +3596,8 @@ class _MapPainter extends CustomPainter {
     final late = ((p - 0.68) / 0.32).clamp(0.0, 1.0);
     final beat = rm ? late * 0.6 : late * (0.5 + 0.5 * math.sin(s._t * (12 + 26 * late)));
     final edgeCol = Color.lerp(_danger, const Color(0xFFF8F2FF), 0.18 + 0.68 * beat)!;
-    Paint glow(double w, double a) => Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = w
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 4)
-      ..color = _danger.withValues(alpha: (a * fadeIn).clamp(0.0, 1.0));
+    // the soft glow round the edge: a halo of strokes (no blur: it would cost a GPU pass per mark per frame)
+    void glow(Path path, double w, double a) => _haloStroke(canvas, path, _danger.withValues(alpha: (a * fadeIn).clamp(0.0, 1.0)), w, 4, cap: StrokeCap.butt, core: false);
     Paint line(double w, Color c, double a) => Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = w
@@ -3561,7 +3632,7 @@ class _MapPainter extends CustomPainter {
             canvas.drawLine(d * (rad - 8), d * (rad + 3), line(2.6, edgeCol, 0.95));
           }
           canvas.drawCircle(Offset.zero, rad, line(5.5, _dangerShade, 0.3)); // (a dark line under it: it reads on any ground)
-          canvas.drawCircle(Offset.zero, rad, glow(6 + 5 * beat, 0.5 + 0.35 * p));
+          glow(Path()..addOval(Rect.fromCircle(center: Offset.zero, radius: rad)), 6 + 5 * beat, 0.5 + 0.35 * p);
           canvas.drawCircle(Offset.zero, rad, line(2 + 1.4 * beat, edgeCol, 0.95));
         });
       case MarkShape.ring:
@@ -3575,7 +3646,7 @@ class _MapPainter extends CustomPainter {
           }
           final band = rad + 5 * p;
           canvas.drawCircle(Offset.zero, band, line(5.5, _dangerShade, 0.3)); // (a dark line under it: it reads on any ground)
-          canvas.drawCircle(Offset.zero, band, glow(9 + 6 * p + 4 * beat, 0.5 + 0.35 * p));
+          glow(Path()..addOval(Rect.fromCircle(center: Offset.zero, radius: band)), 9 + 6 * p + 4 * beat, 0.5 + 0.35 * p);
           canvas.drawCircle(Offset.zero, band, line(3 + 3 * p, edgeCol, 0.95));
         });
       case MarkShape.line:
@@ -3619,7 +3690,7 @@ class _MapPainter extends CustomPainter {
                 ch..color = const Color(0xFFF4ECFF).withValues(alpha: ((0.6 + 0.4 * p) * fadeIn * edgeFade).clamp(0.0, 1.0)));
           }
           canvas.drawRRect(lane, line(5.5, _dangerShade, 0.3)); // (a dark line under it: it reads on any ground)
-          canvas.drawRRect(lane, glow(6 + 5 * beat, 0.5 + 0.35 * p));
+          glow(Path()..addRRect(lane), 6 + 5 * beat, 0.5 + 0.35 * p);
           canvas.drawRRect(lane, line(2 + 1.4 * beat, edgeCol, 0.95));
         });
       case MarkShape.cone:
@@ -3643,7 +3714,7 @@ class _MapPainter extends CustomPainter {
                 line(2, _dangerHot, (1 - k) * (0.3 + 0.4 * p)));
           }
           canvas.drawPath(full, line(5.5, _dangerShade, 0.3)); // (a dark line under it: it reads on any ground)
-          canvas.drawPath(full, glow(6 + 5 * beat, 0.5 + 0.35 * p));
+          glow(full, 6 + 5 * beat, 0.5 + 0.35 * p);
           canvas.drawPath(full, line(2 + 1.4 * beat, edgeCol, 0.95));
         });
     }
@@ -3771,12 +3842,59 @@ class _MapPainter extends CustomPainter {
         _ => (const Color(0xFFE8FFF8), const Color(0xFF9FF0DA), const Color(0xFF3FB89A)),
       };
 
-  static Paint _add(Color c, {double blur = 0}) {
+  static Paint _add(Color c) => Paint()
+    ..color = c
+    ..blendMode = BlendMode.plus;
+
+  // No mask blurs in the fight: on the GPU each blurred draw is a render pass of its own (an offscreen
+  // texture, two Gaussian passes, a composite), and the painter made dozens a frame just for shadows and
+  // hundreds in an Obsidian's Tremor (a blurred seam in every crack segment, a blurred shadow under every
+  // rock). Phones stalled on them, and some ran out of texture memory and were killed. Soft edges are
+  // gradients instead, and glows a wider, fainter stroke under the bright one.
+
+  /// A soft-edged oval (a shadow, a pool of light, a drift of mist): its colour across the middle, fading
+  /// out over its outer [soft] px (what a blur of that sigma spread it by).
+  static void _softOval(Canvas canvas, Rect r, Color c, double soft, {BlendMode? blend}) {
+    if (c.a <= 0.002 || r.width <= 0 || r.height <= 0) return;
+    final rr = r.inflate(soft);
+    final R = rr.width / 2;
+    if (R <= 0.5) return;
+    final edge = (1 - soft * 1.7 / R).clamp(0.0, 0.97);
+    final p = Paint()..shader = ui.Gradient.radial(Offset.zero, R, [c, c, c.withValues(alpha: 0)], [0.0, edge, 1.0]);
+    if (blend != null) p.blendMode = blend;
+    canvas.save();
+    canvas.translate(rr.center.dx, rr.center.dy);
+    canvas.scale(1, rr.height / rr.width);
+    canvas.drawCircle(Offset.zero, R, p);
+    canvas.restore();
+  }
+
+  static void _softCircle(Canvas canvas, Offset c, double r, Color col, double soft, {BlendMode? blend}) =>
+      _softOval(canvas, Rect.fromCircle(center: c, radius: r), col, soft, blend: blend);
+
+  /// A glowing stroke: the stroke itself with a halo under it, two wider and fainter strokes (what a blur
+  /// of [halo] px round a stroke of [w] looks like, drawn flat).
+  static void _haloStroke(Canvas canvas, Path path, Color c, double w, double halo, {BlendMode? blend, StrokeCap cap = StrokeCap.round, bool core = true}) {
+    if (c.a <= 0.002) return;
+    for (final (k, a) in const [(2.0, 0.22), (1.0, 0.42)]) {
+      final p = Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = w + halo * k
+        ..strokeCap = cap
+        ..strokeJoin = StrokeJoin.round
+        ..color = c.withValues(alpha: c.a * a);
+      if (blend != null) p.blendMode = blend;
+      canvas.drawPath(path, p);
+    }
+    if (!core) return;
     final p = Paint()
-      ..color = c
-      ..blendMode = BlendMode.plus;
-    if (blur > 0) p.maskFilter = MaskFilter.blur(BlurStyle.normal, blur);
-    return p;
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w
+      ..strokeCap = cap
+      ..strokeJoin = StrokeJoin.round
+      ..color = c;
+    if (blend != null) p.blendMode = blend;
+    canvas.drawPath(path, p);
   }
 
   void _addGlow(Canvas canvas, Offset c, double r, Color col) =>
@@ -3911,9 +4029,9 @@ class _MapPainter extends CustomPainter {
       canvas.drawPath(top, Paint()..shader = ui.Gradient.linear(o - Offset(S, S), o + Offset(S * 0.4, 0), [Color.fromRGBO(196, 190, 216, a), Color.fromRGBO(160, 154, 182, a)]));
       canvas.drawPath(lf, Paint()..shader = ui.Gradient.linear(o + Offset(-S, 0), o + Offset(0, S), [Color.fromRGBO(122, 116, 144, a), Color.fromRGBO(96, 90, 118, a)]));
       canvas.drawPath(rt, Paint()..shader = ui.Gradient.linear(o, o + Offset(S, S), [Color.fromRGBO(74, 70, 94, a), Color.fromRGBO(52, 48, 70, a)]));
-      // flecks, so it reads as stone
+      // flecks, so it reads as stone (not on a chip too small to show them)
       final fleck = Paint()..color = Color.fromRGBO(40, 36, 54, 0.45 * a);
-      for (var i = 0; i < 5; i++) {
+      for (var i = 0; i < (S < 3 ? 0 : 5); i++) {
         final h1 = ((i * 37 + k * 13 + seed * 7) % 11) / 11, h2 = ((i * 53 + k * 29 + seed * 3) % 13) / 13;
         final face = i % 3;
         final p = switch (face) {
@@ -3946,9 +4064,7 @@ class _MapPainter extends CustomPainter {
         ..lineTo(0, s0 * 0.45)
         ..lineTo(s0 * 0.35, s0 * 0.2)
         ..lineTo(s0 * 0.7, s0 * 0.45);
-      canvas.drawPath(v, _add(Color.fromRGBO(190, 160, 255, 0.55 * a), blur: s0 * 0.12)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = s0 * 0.22);
+      _haloStroke(canvas, v, Color.fromRGBO(190, 160, 255, 0.5 * a), s0 * 0.2, s0 * 0.14, blend: BlendMode.plus, core: false);
       canvas.drawPath(v, _add(Color.fromRGBO(235, 220, 255, 0.9 * a))
         ..style = PaintingStyle.stroke
         ..strokeWidth = math.max(1, s0 * 0.07));
@@ -3967,9 +4083,7 @@ class _MapPainter extends CustomPainter {
     final r = 15 * u * _grow * (0.55 + 0.45 * k);
     final fly = rising ? 0.0 : sh.t - sh.rise;
     final sp = math.max(1e-6, math.sqrt(sh.vx * sh.vx + sh.vz * sh.vz));
-    canvas.drawOval(Rect.fromCenter(center: ground + Offset(0, 2 * u), width: r * 2.6, height: r * 0.85), Paint()
-      ..color = Color.fromRGBO(20, 16, 30, rising ? 0.38 : 0.28)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3));
+    _softOval(canvas, Rect.fromCenter(center: ground + Offset(0, 2 * u), width: r * 2.6, height: r * 0.85), Color.fromRGBO(20, 16, 30, rising ? 0.38 : 0.28), 3);
     if (!rising) {
       for (var i = 0; i < _by(3, 4, 6); i++) {
         final kk = ((i / 6) + fly * 3) % 1.0;
@@ -4043,6 +4157,10 @@ class _MapPainter extends CustomPainter {
   void _crackWeb(Canvas canvas, Offset c, double reach, int n, double grow, double fade, double u, int seed, {bool fork = true, bool slabs = true}) {
     if (fade <= 0.01 || grow <= 0.01) return;
     final sinP = s._map!.sinP;
+    // every segment of every crack goes into one path per stroke width (a few widths: the cracks thin from
+    // root to tip), and each is drawn once per layer: a handful of strokes for the whole web, where it was
+    // four draws (one of them blurred) for each of a couple of hundred segments
+    final edge = <int, Path>{}, dark = <int, Path>{}, seam = <int, Path>{};
     void crack(Offset from, double a, double len, double w0, int depth, int salt) {
       final pts = <Offset>[from];
       var at = from, ang = a;
@@ -4059,21 +4177,17 @@ class _MapPainter extends CustomPainter {
         final part = math.min(1.0, shown - j);
         final p0 = pts[j], p1 = Offset.lerp(pts[j], pts[j + 1], part)!;
         final w = w0 * (1 - j / steps * 0.8);
+        final key = (w * 2).round();
         // the lifted edge, a hair above the split
-        canvas.drawLine(p0 - Offset(0, w * 0.55), p1 - Offset(0, w * 0.55), Paint()
-          ..color = Color.fromRGBO(214, 198, 168, 0.55 * fade)
-          ..strokeWidth = math.max(1, w * 0.35)
-          ..strokeCap = StrokeCap.round);
-        canvas.drawLine(p0, p1, Paint()
-          ..color = Color.fromRGBO(22, 18, 30, 0.92 * fade)
-          ..strokeWidth = w
-          ..strokeCap = StrokeCap.round);
-        canvas.drawLine(p0, p1, _add(Color.fromRGBO(170, 130, 255, 0.55 * fade), blur: w * 0.6)
-          ..strokeWidth = w * 0.9
-          ..strokeCap = StrokeCap.round);
-        canvas.drawLine(p0, p1, _add(Color.fromRGBO(225, 205, 255, 0.85 * fade))
-          ..strokeWidth = math.max(0.8, w * 0.28)
-          ..strokeCap = StrokeCap.round);
+        (edge[key] ??= Path())
+          ..moveTo(p0.dx, p0.dy - w * 0.55)
+          ..lineTo(p1.dx, p1.dy - w * 0.55);
+        (dark[key] ??= Path())
+          ..moveTo(p0.dx, p0.dy)
+          ..lineTo(p1.dx, p1.dy);
+        (seam[key] ??= Path())
+          ..moveTo(p0.dx, p0.dy)
+          ..lineTo(p1.dx, p1.dy);
       }
       if (fork && depth == 0) {
         for (final (j, side) in const [(2, 1.0), (4, -1.0)]) {
@@ -4084,6 +4198,29 @@ class _MapPainter extends CustomPainter {
 
     for (var i = 0; i < n; i++) {
       crack(c, i * math.pi * 2 / n + ((seed + i * 5) % 7) * 0.05, reach * (0.75 + 0.35 * ((i * 5 + seed) % 4) / 3), 5.5 * u, 0, i + 1);
+    }
+    final cap = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeCap = StrokeCap.round;
+    for (final e in edge.entries) {
+      final w = e.key / 2;
+      canvas.drawPath(e.value, cap
+        ..color = Color.fromRGBO(214, 198, 168, 0.55 * fade)
+        ..strokeWidth = math.max(1, w * 0.35));
+    }
+    for (final e in dark.entries) {
+      canvas.drawPath(e.value, cap
+        ..color = Color.fromRGBO(22, 18, 30, 0.92 * fade)
+        ..strokeWidth = e.key / 2);
+    }
+    for (final e in seam.entries) {
+      final w = e.key / 2;
+      // the seam of violet light in it: its glow, then its bright thread
+      _haloStroke(canvas, e.value, Color.fromRGBO(170, 130, 255, 0.5 * fade), w * 0.5, w * 0.6, blend: BlendMode.plus, core: false);
+      canvas.drawPath(e.value, _add(Color.fromRGBO(225, 205, 255, 0.85 * fade))
+        ..style = PaintingStyle.stroke
+        ..strokeCap = StrokeCap.round
+        ..strokeWidth = math.max(0.8, w * 0.28));
     }
     // broken slabs tipped up round the root
     if (slabs) {
@@ -4280,7 +4417,7 @@ class _MapPainter extends CustomPainter {
     // its glass: an Amethyst's violet, or (the Sunflare's) gold
     final gl = gold ? _goldGlass : _violetGlass;
     // the light it throws on the ground, and its bloom
-    canvas.drawOval(Rect.fromCenter(center: g, width: W * 6, height: W * 2.6), _add(gl[0].withValues(alpha: 0.35 * glowK), blur: W));
+    _softOval(canvas, Rect.fromCenter(center: g, width: W * 6, height: W * 2.6), gl[0].withValues(alpha: 0.35 * glowK), W, blend: BlendMode.plus);
     void one(Offset base, double hh, double ww, double lean) {
       final tip = base + Offset(outX * hh * lean, -hh);
       final ax = tip - base;
@@ -4294,7 +4431,9 @@ class _MapPainter extends CustomPainter {
       Path quad(Offset a, Offset b, Offset c, Offset d) => Path()..moveTo(a.dx, a.dy)..lineTo(b.dx, b.dy)..lineTo(c.dx, c.dy)..lineTo(d.dx, d.dy)..close();
       Path tri(Offset a, Offset b, Offset c) => Path()..moveTo(a.dx, a.dy)..lineTo(b.dx, b.dy)..lineTo(c.dx, c.dy)..close();
       // inner glow along it
-      canvas.drawPath(quad(bl, sl, sr, br)..addPath(tri(sl, tip, sr), Offset.zero), _add(gl[1].withValues(alpha: 0.45 * glowK), blur: ww * 1.2));
+      final body = quad(bl, sl, sr, br)..addPath(tri(sl, tip, sr), Offset.zero);
+      canvas.drawPath(body, _add(gl[1].withValues(alpha: 0.3 * glowK)));
+      _haloStroke(canvas, body, gl[1].withValues(alpha: 0.3 * glowK), 0, ww * 1.8, blend: BlendMode.plus, cap: StrokeCap.butt, core: false);
       canvas.drawPath(quad(bl, sl, scl, bcl), Paint()..shader = ui.Gradient.linear(base, sh, [gl[2], gl[3]]));
       canvas.drawPath(quad(bcl, scl, scr, bcr), Paint()..shader = ui.Gradient.linear(base, sh, [gl[4], gl[5]]));
       canvas.drawPath(quad(bcr, scr, sr, br), Paint()..shader = ui.Gradient.linear(base, sh, [gl[6], gl[7]]));
@@ -4304,7 +4443,9 @@ class _MapPainter extends CustomPainter {
       // a light running up through it
       final run = ((age * 1.6 + x * 0.01) % 1.0);
       final band = Offset.lerp(base, sh, run)!;
-      canvas.drawLine(band + n * ww * 0.9, band - n * ww * 0.9, _add(Color.fromRGBO(255, 245, 255, 0.5 * math.sin(run * math.pi)), blur: 1.5)..strokeWidth = ww * 0.5);
+      canvas.drawLine(band + n * ww * 0.9, band - n * ww * 0.9, _add(Color.fromRGBO(255, 245, 255, 0.4 * math.sin(run * math.pi)))
+        ..strokeWidth = ww * 0.5 + 2
+        ..strokeCap = StrokeCap.round);
       // edges catching the light, and its outline
       final edge = _add(const Color(0xCCFFFFFF))..strokeWidth = 1.2;
       canvas.drawLine(scl, tip, edge);
@@ -4333,9 +4474,7 @@ class _MapPainter extends CustomPainter {
   void _heaved(Canvas canvas, double x, double z, double h, double cs, double spin, double a, int i) {
     final g = s._toScreen(x, z);
     final S = cs * s._u;
-    canvas.drawOval(Rect.fromCenter(center: g, width: S * 2.6 * (1 - h / 40), height: S * 1.0 * (1 - h / 40)), Paint()
-      ..color = Color.fromRGBO(20, 16, 30, 0.32 * a)
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
+    _softOval(canvas, Rect.fromCenter(center: g, width: S * 2.6 * (1 - h / 40), height: S * 1.0 * (1 - h / 40)), Color.fromRGBO(20, 16, 30, 0.32 * a), 2);
     final c = g - Offset(0, h * _up + S * 0.6);
     _voxelRock(canvas, c, S * 0.8, spin, a, vein: _stage >= 3 && i.isEven, seed: i);
   }
@@ -4375,11 +4514,7 @@ class _MapPainter extends CustomPainter {
       final f = d / math.max(reach, 1);
       final half = 26 + 10 * f;
       final x = b.x + b.dx * d, z = b.z + b.dz * d;
-      canvas.drawOval(
-          _ellipse(x, z, half),
-          Paint()
-            ..color = Color.fromRGBO(178, 228, 255, (0.05 + 0.13 * f) * fade)
-            ..maskFilter = MaskFilter.blur(BlurStyle.normal, 9 * u));
+      _softOval(canvas, _ellipse(x, z, half), Color.fromRGBO(178, 228, 255, (0.05 + 0.13 * f) * fade), 9 * u);
     }
     if (done >= 1) return;
     // the leading edge: a bowed crest of bright water, and its spray
@@ -4390,12 +4525,7 @@ class _MapPainter extends CustomPainter {
       pts.add(s._toScreen(b.x + b.dx * (reach + bow) + nx * a * 38, b.z + b.dz * (reach + bow) + nz * a * 38) - Offset(0, (3 + 4 * (1 - a * a)) * _up));
     }
     final path = Path()..addPolygon(pts, false);
-    canvas.drawPath(path, Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 11 * u
-      ..strokeCap = StrokeCap.round
-      ..color = Color.fromRGBO(120, 205, 250, 0.55 * fade)
-      ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6 * u));
+    _haloStroke(canvas, path, Color.fromRGBO(120, 205, 250, 0.5 * fade), 11 * u, 6 * u);
     canvas.drawPath(path, Paint()
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.2 * u
@@ -4667,9 +4797,7 @@ class _MapPainter extends CustomPainter {
             }
             final gp = s._toScreen(x, z);
             final S = cs * s._u * 2.2;
-            canvas.drawOval(Rect.fromCenter(center: gp, width: S * 1.1 * (1 - h / 50), height: S * 0.4 * (1 - h / 50)), Paint()
-              ..color = Color.fromRGBO(20, 14, 12, 0.35 * al)
-              ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2));
+            _softOval(canvas, Rect.fromCenter(center: gp, width: S * 1.1 * (1 - h / 50), height: S * 0.4 * (1 - h / 50)), Color.fromRGBO(20, 14, 12, 0.35 * al), 2);
             rocks.draw(canvas, (kk * 12 * spin * 2).floor() % 12, Rect.fromCenter(center: gp - Offset(0, h * _up + S * 0.35), width: S, height: S),
                 variant: i % 6, opacity: al);
           }));
@@ -5007,9 +5135,7 @@ class _MapPainter extends CustomPainter {
         // Healing Mist's release, back in the Wilds: the cut-in's blue-white light breaking open round your Evochi
         final e = 1 - (1 - k) * (1 - k);
         final r = (14 + 70 * e) * u * 2.7;
-        canvas.drawCircle(g - Offset(0, 6 * _up), r, Paint()
-          ..color = Color.fromRGBO(236, 250, 255, 0.85 * (1 - k))
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 10 * u));
+        _softCircle(canvas, g - Offset(0, 6 * _up), r, Color.fromRGBO(236, 250, 255, 0.85 * (1 - k)), 10 * u);
         canvas.drawOval(_ellipse(b.x, b.z, 18 + 80 * e), Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 4 * u * (1 - k) + 1
@@ -5023,11 +5149,7 @@ class _MapPainter extends CustomPainter {
           final along = b.size * (0.1 + 0.13 * i);
           final side = math.sin(i * 2.3 + s._t * 0.4) * 16;
           final x = b.x + b.dx * along - b.dz * side, z = b.z + b.dz * along + b.dx * side;
-          canvas.drawOval(
-              _ellipse(x, z, 20 + 6 * math.sin(i + s._t * 0.7)),
-              Paint()
-                ..color = Color.fromRGBO(200, 236, 255, 0.10 * fade)
-                ..maskFilter = MaskFilter.blur(BlurStyle.normal, 12 * u));
+          _softOval(canvas, _ellipse(x, z, 20 + 6 * math.sin(i + s._t * 0.7)), Color.fromRGBO(200, 236, 255, 0.10 * fade), 12 * u);
         }
       case 'strip':
         // the mist striking a creature: a splash, and the Hollow's violet torn off it, flung on with the wave
@@ -5058,11 +5180,12 @@ class _MapPainter extends CustomPainter {
         final e = 1 - (1 - k) * (1 - k);
         final up = 70 * _up * b.size;
         final w = 16 * u * b.size * (1 - 0.4 * k);
-        canvas.drawRect(
-            Rect.fromLTWH(g.dx - w, g.dy - up, w * 2, up),
-            Paint()
-              ..shader = ui.Gradient.linear(g, g - Offset(0, up), [Color.fromRGBO(220, 246, 255, 0.75 * (1 - k)), const Color.fromRGBO(220, 246, 255, 0)])
-              ..maskFilter = MaskFilter.blur(BlurStyle.normal, 6 * u));
+        // (its light fades up its height; soft-sided: a fainter column either side of it)
+        for (final (x0, x1, a) in [(g.dx - w, g.dx + w, 0.75), (g.dx - w - 6 * u, g.dx - w, 0.3), (g.dx + w, g.dx + w + 6 * u, 0.3)]) {
+          canvas.drawRect(
+              Rect.fromLTRB(x0, g.dy - up, x1, g.dy),
+              Paint()..shader = ui.Gradient.linear(g, g - Offset(0, up), [Color.fromRGBO(220, 246, 255, a * (1 - k)), const Color.fromRGBO(220, 246, 255, 0)]));
+        }
         canvas.drawOval(_ellipse(b.x, b.z, (10 + 34 * e) * b.size), Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = 2.5 * u * (1 - k) + 0.5
@@ -5418,10 +5541,7 @@ class _MapPainter extends CustomPainter {
 
   void _glint(Canvas canvas, Offset g) {
     final t = rm ? 0.5 : (math.sin(s._t * 3) + 1) / 2;
-    final p = Paint()
-      ..color = Color.lerp(const Color(0x66FFF3B0), const Color(0xEEFFF3B0), t)!
-      ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3);
-    canvas.drawCircle(g, 5 + 3 * t, p);
+    _softCircle(canvas, g, 5 + 3 * t, Color.lerp(const Color(0x66FFF3B0), const Color(0xEEFFF3B0), t)!, 3);
     _star(canvas, g, 7 + 4 * t, const Color(0xFFFFFDF0));
   }
 
@@ -5486,12 +5606,7 @@ class _MapPainter extends CustomPainter {
     final t = s._t;
     final k = s._u / 2.7;
     final flick = rm ? 0.5 : (math.sin(t * 13) + math.sin(t * 7.3 + 1) + 2) / 4;
-    canvas.drawCircle(
-        g - Offset(0, 4 * k),
-        (16 + 4 * flick) * k,
-        Paint()
-          ..color = const Color(0x55FFB347)
-          ..maskFilter = MaskFilter.blur(BlurStyle.normal, 10 * k));
+    _softCircle(canvas, g - Offset(0, 4 * k), (16 + 4 * flick) * k, const Color(0x55FFB347), 10 * k);
     for (var i = 0; i < 3; i++) {
       final h = (12 + 6 * flick - i * 3.5) * k;
       final w = (7 - i * 1.8) * k;
