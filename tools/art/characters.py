@@ -164,6 +164,100 @@ def squash_body(ch, lean=0.0, squash=1.0, puff=1.0, pad=4):
     return out
 
 
+def curl_body(ch, curl=0.0, radius=14.0, z_from=None, side=1, pad=4):
+    """the body curled round on itself (a cat settling to sleep): everything behind z_from (the shoulders; by
+    default a third of the way back from the front) bends round a vertical axis [radius] to the [side] (+1 the
+    model's +x) through [curl] degrees, the rest (the tail's end, say) carried on straight from the bend's end.
+    The head and what is in front stay put. Markings and anchors follow; the model is resampled, as squash_body."""
+    import dataclasses
+    if abs(curl) < 1e-6:
+        return ch
+    M = ch.model
+    idx = np.argwhere(M.m > 0)
+    z0, z1 = (idx[:, 2].min() + M.lo[2]) / M.res, (idx[:, 2].max() + M.lo[2]) / M.res
+    zs = z_from if z_from is not None else z1 - (z1 - z0) * 0.36
+    R = float(radius)
+    s = 1.0 if side >= 0 else -1.0
+    phi_max = math.radians(abs(curl))
+    L = R * phi_max
+    cx = s * R                                             # the bend's axis, beside the body at z = zs
+
+    def rot(dx, dz, a):
+        return dx * math.cos(a) - s * dz * math.sin(a), s * dx * math.sin(a) + dz * math.cos(a)
+
+    def fwd(p):
+        """a rest point to its curled place"""
+        x, y, z = (float(v) for v in p)
+        if z >= zs:
+            return (x, y, z)
+        d = zs - z
+        if d <= L:
+            nx, nz = rot(x - cx, 0.0, d / R)
+            return (cx + nx, y, zs + nz)
+        nx, nz = rot(x - cx, -(d - L), phi_max)
+        return (cx + nx, y, zs + nz)
+
+    grow = int(math.ceil(R + L)) + pad
+    lo_u = np.floor(M.lo / M.res).astype(int) - np.array([grow, 0, grow])
+    hi_u = np.ceil(M.hi / M.res).astype(int) + np.array([grow, 0, grow])
+    N = Model(tuple(lo_u), tuple(hi_u), M.mats[1:], res=M.res)
+    Q = np.stack([N.X, N.Y, N.Z], -1).reshape(-1, 3).astype(np.float64)
+    X, Y, Z = Q[:, 0], Q[:, 1], Q[:, 2]
+    dx, dz = X - cx, Z - zs
+    r = np.sqrt(dx * dx + dz * dz)
+    # the arc: the angle round the axis from the straight body's direction
+    phi = np.arctan2(-dz, -s * dx)
+    in_arc = (phi >= -1e-6) & (phi <= phi_max + 1e-6)
+    src_arc = np.stack([cx - s * r, Y, zs - np.clip(phi, 0, phi_max) * R], 1)
+    # the straight part beyond it: undo the bend's end rotation
+    bx = dx * math.cos(phi_max) + s * dz * math.sin(phi_max)
+    bz = -s * dx * math.sin(phi_max) + dz * math.cos(phi_max)
+    in_str = bz < 1e-6
+    src_str = np.stack([cx + bx, Y, zs - L + bz], 1)
+    src_id = Q
+    in_front = Z >= zs
+
+    def sample(src, ok):
+        si = np.floor(src * M.res).astype(int) - M.lo
+        good = ok & np.all((si >= 0) & (si < np.array(M.m.shape)), axis=1)
+        flat = np.zeros(len(src), np.int64)
+        flat[good] = np.ravel_multi_index(si[good].T, M.m.shape)
+        out = {}
+        for k in ('m', 'glow', 'layer'):
+            a_ = getattr(M, k).ravel()[flat]
+            a_[~good] = 0
+            out[k] = a_
+        # the front stays the front: a sample from behind the shoulders must come from behind them
+        return out, good
+
+    front, okf = sample(src_id, in_front)
+    arc, oka = sample(src_arc, in_arc & (src_arc[:, 2] < zs))
+    stra, oks = sample(src_str, in_str & ~in_arc)
+    for k in ('m', 'glow', 'layer'):
+        a_ = front[k].copy()
+        use = (a_ == 0) & (arc['m'] > 0)
+        a_[use] = arc[k][use]
+        use = (a_ == 0) & (stra['m'] > 0)
+        a_[use] = stra[k][use]
+        setattr(N, k, a_.reshape(N.m.shape).astype(getattr(M, k).dtype))
+
+    def Fr(fr):
+        c = np.asarray(fr.center, np.float64)
+        if c[2] >= zs:
+            return fr
+        d = min(zs - c[2], L)
+        a = d / R
+        nx, nz = rot(fr.n[0], fr.n[2], a)
+        ux, uz = rot(fr.up[0], fr.up[2], a)
+        return Frame(center=fwd(c), n=(nx, fr.n[1], nz), up=(ux, fr.up[1], uz), reach=fr.reach)
+    out = dataclasses.replace(ch, model=N, face=Fr(ch.face),
+                              pattern_decals=[(Fr(f), ext, fn) for f, ext, fn in ch.pattern_decals],
+                              anchors={k: fwd(v) for k, v in ch.anchors.items()})
+    if hasattr(ch, 'face_squash'):
+        out.face_squash = ch.face_squash
+    return out
+
+
 # ----------------------------------------------------------------------------
 # Stage 1: Eggling
 # ----------------------------------------------------------------------------

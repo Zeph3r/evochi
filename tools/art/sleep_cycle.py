@@ -1,6 +1,7 @@
 """The sleep & wake cycle (the storyboards of Nov 2026, Juvenile and Elder): idle, a small circle with a sniff
 at the chosen spot, the head and shoulders lowered, the front half down, the hind legs folding in and the body
-settling, the sleep hold (breathing, z's), waking, the push-up and back to standing. Built on the rig's own
+curling round on itself after its tail (a cat settling), the sleep hold (breathing, z's), waking, the push-up
+and back to standing. Built on the rig's own
 knobs (characters.build: feet, body, head, head_rot, tail, tail_lift) and rendered with the game's renderer,
 so it is on-model and what a sprite sheet of it would be.
 
@@ -18,7 +19,7 @@ import sys
 import numpy as np
 from PIL import Image, ImageDraw, ImageFont
 
-from characters import build
+from characters import build, curl_body
 from charrender import render_char
 from voxel import Camera, Fit, save_rgba
 from walk import EVO_FRAMES, EVO_GAITS, light_for, quad_pose
@@ -31,7 +32,12 @@ W, H = 560, 520
 
 # ---- the poses (the storyboard's moments), per stage. body: (front drop, back drop); head: (dx, dy, dz);
 # head_rot: (pitch, yaw, roll); feet: (dy, dz[, dx]); tail, tail_lift.
-STAND = dict(body=(0.0, 0.0), head=(0.0, 0.0, 0.0), head_rot=(0.0, 0.0, 0.0), feet={}, tail=0.0, tail_lift=0.0)
+STAND = dict(body=(0.0, 0.0), head=(0.0, 0.0, 0.0), head_rot=(0.0, 0.0, 0.0), feet={}, tail=0.0, tail_lift=0.0, curl=0.0)
+
+# the curl: the body bent round on itself behind the shoulders (characters.curl_body), toward the side the tail
+# comes round (CURL_SIDE: -1, the model's -x, which is toward the camera at the base yaw), its radius per stage
+CURL_SIDE = -1
+CURL_R = {2: 12.0, 3: 16.0}
 
 
 def poses(stage):
@@ -39,40 +45,39 @@ def poses(stage):
         drop = 10.0
         return {
             'stand': STAND,
-            'sniff': dict(body=(-1.5, 0.0), head=(0.0, -2.5, 1.5), head_rot=(-22.0, 0.0, 0.0), feet={}, tail=4.0, tail_lift=1.0),
-            'lower': dict(body=(-6.0, -1.0), head=(0.0, -3.0, 1.0), head_rot=(-14.0, -6.0, -2.0),
-                          feet={FN: (0.0, 3.0, 0.5), FF: (0.0, 3.5, 0.5)}, tail=6.0, tail_lift=-1.0),
-            'front_down': dict(body=(-drop, -4.0), head=(0.8, -3.5, 1.0), head_rot=(-12.0, -12.0, -4.0),
+            'sniff': dict(body=(-1.5, 0.0), head=(0.0, -2.5, 1.5), head_rot=(-22.0, -6.0, 0.0), feet={}, tail=-3.0, tail_lift=1.0, curl=25.0),
+            'lower': dict(body=(-6.0, -1.0), head=(0.0, -3.0, 1.0), head_rot=(-14.0, -10.0, 2.0),
+                          feet={FN: (0.0, 3.0, 0.5), FF: (0.0, 3.5, 0.5)}, tail=-4.0, tail_lift=-1.0, curl=45.0),
+            'front_down': dict(body=(-drop, -4.0), head=(0.8, -3.5, 1.0), head_rot=(-12.0, -16.0, 4.0),
                                feet={FN: (0.0, 5.5, 1.5), FF: (0.0, 7.0, 1.0), BN: (0.0, 1.5, 2.0), BF: (0.0, 1.0, 2.5)},
-                               tail=9.0, tail_lift=-2.0),
-            'settle': dict(body=(-drop, -9.5), head=(1.0, -4.0, 1.0), head_rot=(-11.0, -18.0, -6.0),
+                               tail=-5.0, tail_lift=-2.0, curl=62.0),
+            'settle': dict(body=(-drop, -9.5), head=(1.0, -4.0, 1.0), head_rot=(-11.0, -22.0, 6.0),
                            feet={FN: (0.0, 6.0, 1.5), FF: (0.0, 7.5, 1.0), BN: (0.0, 4.5, 4.0), BF: (0.0, 3.5, 4.5)},
-                           tail=14.0, tail_lift=-3.0),
-            'wake': dict(body=(-6.0, -9.0), head=(0.6, -1.0, 1.5), head_rot=(2.0, -10.0, -3.0),
+                           tail=-6.0, tail_lift=-3.0, curl=82.0),
+            'wake': dict(body=(-6.0, -9.0), head=(0.6, -1.0, 1.5), head_rot=(2.0, -12.0, 3.0),
                          feet={FN: (0.0, 5.0, 1.5), FF: (0.0, 6.0, 1.0), BN: (0.0, 4.0, 3.5), BF: (0.0, 3.0, 4.0)},
-                         tail=10.0, tail_lift=-2.0),
+                         tail=-5.0, tail_lift=-2.0, curl=60.0),
             'push': dict(body=(-1.0, -6.0), head=(0.0, 0.5, 1.0), head_rot=(6.0, -4.0, 0.0),
                          feet={FN: (0.0, 2.0, 0.8), FF: (0.0, 2.5, 0.5), BN: (0.0, 2.0, 2.0), BF: (0.0, 1.5, 2.0)},
-                         tail=5.0, tail_lift=0.0),
+                         tail=-2.0, tail_lift=0.0, curl=20.0),
         }
-    drop = 7.5
     return {
         'stand': STAND,
-        'sniff': dict(body=(-1.0, 0.0), head=(0.0, -2.0, 1.2), head_rot=(-20.0, 0.0, 0.0), feet={}, tail=3.0, tail_lift=1.0),
-        'lower': dict(body=(-4.5, -0.5), head=(0.0, -2.5, 0.8), head_rot=(-14.0, -6.0, -2.0),
-                      feet={FN: (0.0, 2.2, 0.5), FF: (0.0, 2.6, 0.5)}, tail=4.0, tail_lift=-0.5),
-        'front_down': dict(body=(-drop, -3.0), head=(0.6, -3.0, 0.8), head_rot=(-12.0, -12.0, -4.0),
-                           feet={FN: (0.0, 4.0, 1.2), FF: (0.0, 5.0, 0.8), BN: (0.0, 1.0, 1.5), BF: (0.0, 0.8, 2.0)},
-                           tail=6.0, tail_lift=-1.5),
-        'settle': dict(body=(-drop, -7.0), head=(0.8, -3.5, 0.8), head_rot=(-11.0, -18.0, -6.0),
-                       feet={FN: (0.0, 4.5, 1.2), FF: (0.0, 5.5, 0.8), BN: (0.0, 3.5, 3.0), BF: (0.0, 2.5, 3.5)},
-                       tail=10.0, tail_lift=-2.0),
-        'wake': dict(body=(-4.5, -6.5), head=(0.5, -0.8, 1.2), head_rot=(2.0, -10.0, -3.0),
-                     feet={FN: (0.0, 3.5, 1.2), FF: (0.0, 4.5, 0.8), BN: (0.0, 3.0, 2.5), BF: (0.0, 2.0, 3.0)},
-                     tail=7.0, tail_lift=-1.5),
-        'push': dict(body=(-0.8, -4.5), head=(0.0, 0.4, 0.8), head_rot=(6.0, -4.0, 0.0),
-                     feet={FN: (0.0, 1.5, 0.6), FF: (0.0, 2.0, 0.4), BN: (0.0, 1.5, 1.5), BF: (0.0, 1.0, 1.5)},
-                     tail=3.5, tail_lift=0.0),
+        'sniff': dict(body=(-1.0, 0.0), head=(0.0, -2.0, 1.2), head_rot=(-20.0, -6.0, 0.0), feet={}, tail=-2.0, tail_lift=1.0, curl=25.0),
+        'lower': dict(body=(-2.5, -0.5), head=(0.0, -2.2, 0.8), head_rot=(-14.0, -10.0, 2.0),
+                      feet={FN: (0.0, 2.2, 0.5), FF: (0.0, 2.0, 0.4)}, tail=-3.0, tail_lift=-0.5, curl=45.0),
+        'front_down': dict(body=(-3.0, -1.5), head=(0.6, -2.4, 0.6), head_rot=(-12.0, -16.0, 4.0),
+                           feet={FN: (0.0, 3.0, 1.0), FF: (0.0, 2.4, 0.4), BN: (0.0, 1.2, 1.5), BF: (0.0, 0.8, 2.0)},
+                           tail=-3.5, tail_lift=-1.5, curl=70.0),
+        'settle': dict(body=(-3.0, -2.5), head=(0.8, -2.4, 0.4), head_rot=(-10.0, -22.0, 6.0),
+                       feet={FN: (0.0, 3.2, 1.0), FF: (0.0, 2.4, 0.4), BN: (0.0, 2.0, 2.0), BF: (0.0, 1.4, 2.5)},
+                       tail=-4.0, tail_lift=-2.0, curl=105.0),
+        'wake': dict(body=(-2.0, -2.0), head=(0.5, -0.8, 1.0), head_rot=(2.0, -12.0, 3.0),
+                     feet={FN: (0.0, 2.6, 1.0), FF: (0.0, 2.0, 0.4), BN: (0.0, 1.8, 1.8), BF: (0.0, 1.2, 2.2)},
+                     tail=-3.0, tail_lift=-1.5, curl=70.0),
+        'push': dict(body=(-0.8, -1.5), head=(0.0, 0.4, 0.8), head_rot=(6.0, -4.0, 0.0),
+                     feet={FN: (0.0, 1.5, 0.6), FF: (0.0, 1.5, 0.4), BN: (0.0, 1.2, 1.2), BF: (0.0, 1.0, 1.5)},
+                     tail=-1.5, tail_lift=0.0, curl=20.0),
     }
 
 
@@ -121,7 +126,7 @@ def lerp_pose(a, b, u):
         body=tuple(l(x, y) for x, y in zip(a['body'], b['body'])),
         head=tuple(l(x, y) for x, y in zip(a['head'], b['head'])),
         head_rot=tuple(l(x, y) for x, y in zip(a['head_rot'], b['head_rot'])),
-        feet=feet, tail=l(a['tail'], b['tail']), tail_lift=l(a['tail_lift'], b['tail_lift']))
+        feet=feet, tail=l(a['tail'], b['tail']), tail_lift=l(a['tail_lift'], b['tail_lift']), curl=l(a['curl'], b['curl']))
 
 
 def frame_at(stage, t, P):
@@ -134,6 +139,7 @@ def frame_at(stage, t, P):
             if what == 'circle':
                 turn = 360.0 * smooth(u)
                 circ = smooth(u)
+                pose['curl'] = 25.0 * smooth(max(0.0, (u - 0.7) / 0.3))   # following its tail round into the spot
                 # the walk cycle's feet and nod over the turn (three strides), fading out at the end
                 g = EVO_GAITS[stage]['walk']
                 wp = quad_pose('walk', stage, EVO_FRAMES, g)
@@ -171,7 +177,8 @@ def build_pose(stage, pose, walk, mane):
     kw = dict(feet=feet, head=tuple(head), head_rot=pose['head_rot'], body=tuple(body), tail=tail, tail_lift=pose['tail_lift'], lo_y=-12)
     if stage == 3 and mane:
         kw['mane'] = mane
-    return build(stage, 2, **kw)
+    ch = build(stage, 2, **kw)
+    return curl_body(ch, curl=pose.get('curl', 0.0), radius=CURL_R[stage], side=CURL_SIDE)
 
 
 def ground_px(cam, ch, scale):
