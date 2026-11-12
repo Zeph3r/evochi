@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:evochi/features/shared/acting.dart';
 import 'package:evochi/game/personality/catalog.dart';
 import 'package:evochi/game/personality/director.dart';
 import 'package:evochi/game/personality/personality.dart';
@@ -9,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 // The acting clips as shipped (tools/art/acting.py): every clip the catalog's habits name for the Eggling is
 // drawn, in every colour and with every worn piece, and the director only reaches for what is there.
 void main() {
+  TestWidgetsFlutterBinding.ensureInitialized();
   final j = jsonDecode(File('assets/art/acting/acting.json').readAsStringSync()) as Map<String, dynamic>;
   final s01 = (j['s01'] as Map).cast<String, dynamic>();
   final clips = (s01['clips'] as Map).cast<String, dynamic>();
@@ -50,6 +52,40 @@ void main() {
       }
       expect((c['sleep_hold'] as Map)['loop'], isTrue);
       expect((c['sleep_settle'] as Map)['loop'], isNot(isTrue));
+    }
+  });
+
+  test('a clip plays by its file\'s own timing: still frames folded together hold, it never starts over early', () async {
+    // the encoder folds a run of identical frames into one longer frame (the end of the wake, the stillest
+    // moment of a breath), so the file holds fewer frames than were drawn; counting frames ran off its end
+    final st = (await ActingStage.load(3))!;
+    for (final name in ['sleep_wake', 'sleep_hold']) {
+      final pl = await ActingPlayer.open(st, name, 'amber', const []);
+      expect(pl, isNotNull, reason: name);
+      expect(pl!.fileFrames, lessThan(st.clips[name]!.n), reason: '$name: folded frames');
+      final seen = <int>[];
+      for (var k = 0; k * 0.1 < pl.duration + 0.2; k++) {
+        final t = k * 0.1 + 0.05;   // mid-frame, clear of the boundaries
+        for (var i = 0; i < 12; i++) {   // decoding is asynchronous: let it catch up
+          pl.advance(t, () {});
+          await Future<void>.delayed(const Duration(milliseconds: 8));
+        }
+        seen.add(pl.fileFrame);
+      }
+      expect(pl.ready, isTrue);
+      expect(seen.first, 0, reason: name);
+      if (pl.loops) {
+        // its last frame at the end of the round, then round again from its first, at its own pace
+        expect(seen[seen.length - 3], pl.fileFrames - 1, reason: '$name: $seen');
+        expect(seen.last, lessThan(3), reason: '$name: $seen');
+      } else {
+        // only ever forward, and its last frame holds to the end
+        for (var i = 1; i < seen.length; i++) {
+          expect(seen[i], greaterThanOrEqualTo(seen[i - 1]), reason: '$name: $seen');
+        }
+        expect(seen.last, pl.fileFrames - 1, reason: '$name: $seen');
+      }
+      pl.dispose();
     }
   });
 

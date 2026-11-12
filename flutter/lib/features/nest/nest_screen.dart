@@ -41,6 +41,7 @@ class _NestScreenState extends State<NestScreen> {
   final scene = SceneController();
   DateTime _lastInput = DateTime.now();
   DateTime? _napUntil;
+  DateTime? _wokenAt;   // the touch that woke it (a tap on it then is the wake, not a pet)
   Timer? _idle;
   StreamSubscription<g.GameEvent>? _feelings;
 
@@ -84,6 +85,10 @@ class _NestScreenState extends State<NestScreen> {
   }
 
   void _pet(GameController c) {
+    if (_justWoken) {
+      _wokenAt = null;   // the tap that woke it: it gets up (the scene's wake clip), and that is its answer
+      return;
+    }
     _touch();
     c.run((s, n) => g.interact(s, 'pet', n));
     scene.react('pet');
@@ -101,11 +106,14 @@ class _NestScreenState extends State<NestScreen> {
     setState(() {});
   }
 
+  /// the touch that just woke it (its tap is the wake, not a pet or a tuck-in)
+  bool get _justWoken => _wokenAt != null && DateTime.now().difference(_wokenAt!) < const Duration(seconds: 1);
+
+  /// the bed, or the Wake button
   void _bed(GameController c) {
     setState(() {
-      if (_sleeping(c)) {
-        _touch();
-        scene.feel('surprised', intensity: 0.7); // woken: a start, then a curious look round
+      if (_justWoken) {
+        _wokenAt = null;   // woken: the scene plays its wake clip, or a start and a curious look round
       } else {
         _napUntil = DateTime.now().add(const Duration(minutes: 1));
       }
@@ -126,7 +134,10 @@ class _NestScreenState extends State<NestScreen> {
     final sleeping = _sleeping(c);
     return Listener(
       onPointerDown: (_) {
-        if (sleeping) setState(_touch);
+        if (sleeping) {
+          _wokenAt = DateTime.now();
+          setState(_touch);
+        }
         _lastInput = DateTime.now();
       },
       child: Scaffold(

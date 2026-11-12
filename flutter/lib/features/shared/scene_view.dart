@@ -158,6 +158,8 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
   // wake), 'settle' -> 'hold' (looping) while it sleeps, 'wake' when it is woken
   bool _wasSleeping = false, _sleepSeen = false;
   String? _sleepPhase;
+  // a reaction asked for while it sleeps or wakes (the tap that woke it, Play): kept until it is up
+  String? _deferred;
   ui.Image? _atlas, _overlays, _heart, _star;
 
   @override
@@ -217,14 +219,27 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
   void _onReact() {
     final q = widget.controller._queue;
     while (q.isNotEmpty) {
-      final kind = q.removeAt(0);
-      if (kind.startsWith('feel:')) {
-        final parts = kind.split(':');
-        _feel(parts[1], double.tryParse(parts[2]) ?? 1);
-        continue;
-      }
+      _react(q.removeAt(0));
+    }
+  }
+
+  /// asleep, lying down or getting up: nothing cuts in. A feeling passes; a reaction waits until it is up.
+  bool get _dozing => _sleepPhase != null || (widget.config.pet?.sleeping ?? false);
+
+  void _react(String kind) {
+    if (kind.startsWith('feel:')) {
+      if (_dozing) return;
+      final parts = kind.split(':');
+      _feel(parts[1], double.tryParse(parts[2]) ?? 1);
+      return;
+    }
+    if (_dozing) {
+      _deferred = kind;
+      return;
+    }
+    {
       final ctx = reactionContexts[kind];
-      if (ctx != null && _perform(ctx)) continue;
+      if (ctx != null && _perform(ctx)) return;
       const spec = {
         'pet': ['happy', 'bounce', '1000', 'hearts'],
         'play': ['excited', 'hop', '1300', 'stars'],
@@ -239,12 +254,21 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
         'look': ['curious', 'tilt', '700', ''], // a first look round
       };
       final s = spec[kind];
-      if (s == null) continue;
+      if (s == null) return;
       final motion = widget.config.reducedMotion ? 'none' : s[1];
       _stop();
       _reaction = _Reaction(s[0], motion, _t, Duration(milliseconds: int.parse(s[2])));
       if (s[3].isNotEmpty) _burst(s[3]);
     }
+  }
+
+  /// up again: plays the reaction that waited, if one did
+  bool _awake() {
+    final k = _deferred;
+    _deferred = null;
+    if (k == null) return false;
+    _react(k);
+    return true;
   }
 
   /// how big its motions are: its personality's amplitude and expressiveness (1 without a personality)
@@ -349,6 +373,7 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
     _stop();
     if (p == null || st == null || widget.config.reducedMotion || !st.clips.containsKey(clip)) return;
     _sleepPhase = phase;
+    _reaction = null;
     final req = ++_playReq;
     // only the worn pieces the clip has frames for: the sleep clips carry none yet, so it sleeps bare rather
     // than not lying down at all (the pieces come back as it wakes)
@@ -380,17 +405,21 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
     if (sleeping == _wasSleeping) return;
     _wasSleeping = sleeping;
     if (sleeping) {
+      _deferred = null;
       _sleepPlay('sleep_settle', 'settle');
-    } else if (_sleepPhase != null) {
-      final pl = _player;
-      final u = pl == null ? 0.0 : (_t - _playStart).inMicroseconds / 1e6;
-      // woken before it had lain down: it just stands up; otherwise the stir and the push up
-      if (_sleepPhase == 'settle' && u < 6.0) {
-        _stop();
-      } else {
-        _sleepPlay('sleep_wake', 'wake');
-      }
+      return;
     }
+    // woken (any touch: the tap on it, its bed, a button)
+    final pl = _player;
+    final u = pl == null ? 0.0 : (_t - _playStart).inMicroseconds / 1e6;
+    if (_sleepPhase != null && !(_sleepPhase == 'settle' && u < 6.0)) {
+      _sleepPlay('sleep_wake', 'wake');   // lying down: the stir and the push up, then what waited
+      if (_sleepPhase == 'wake') return;
+    }
+    // before it had lain down it just stands up; without a wake clip (an Eggling, reduced motion) it does what
+    // waited, or else gives a start, then a curious look round
+    _stop();
+    if (!_awake()) _feel('surprised', 0.7);
   }
 
   void _advance() {
@@ -408,6 +437,7 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
       _stop();
       _reaction = null;
       if (phase == 'settle') _sleepPlay('sleep_hold', 'hold');   // lain down: asleep, breathing, until woken
+      if (phase == 'wake') _awake();                              // up: the reaction that waited
       return;
     }
     _reaction = null; // the clip's own face now
@@ -417,7 +447,7 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
   /// every 8-18 s, something to do with itself: a habit from its idle repertoire, or a look round
   void _idleTick() {
     final p = widget.config.pet;
-    if (p == null || !_canAct || widget.config.reducedMotion || _t < _nextIdle) return;
+    if (p == null || !_canAct || _sleepPhase != null || widget.config.reducedMotion || _t < _nextIdle) return;
     final busy = _player != null || (_reaction != null && _t < _reaction!.start + _reaction!.dur);
     _nextIdle = _t + Duration(milliseconds: 8000 + _rng.nextInt(10000));
     if (busy) return;

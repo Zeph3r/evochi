@@ -87,17 +87,23 @@ class ActingStage {
   }
 }
 
+/// One file of a clip, streamed by the file's own timing: the encoder folds a run of identical frames (lying
+/// still, the stillest moment of a breath) into one longer frame, so the file holds fewer frames than were
+/// drawn, each with its duration. Counting frames instead ran off the end, where the codec goes round to the
+/// first frame: the clip seemed to start again before it ended.
 class _Layer {
   _Layer(this.codec);
   final ui.Codec codec;
   ui.Image? image;
-  int at = -1;
+  int at = -1;                       // the frame on show, as the file counts them
+  double _until = 0;                 // when it gives way (s into the clip; keeps counting round a loop)
   bool _busy = false, _gone = false;
 
-  void want(int i, int n, VoidCallback onFrame, {bool loop = false}) {
-    if (_busy || _gone) return;
-    if (loop && at >= n - 1 && i < at) at = -1;   // round again: the codec's next frame is its first
-    if (at >= i || at >= n - 1) return;
+  /// asks for the frame for [t] s into the clip, decoding forward until it is in; [step] stands in for a
+  /// frame the file gives no duration
+  void want(double t, double step, VoidCallback onFrame, {bool loop = false}) {
+    if (_busy || _gone || (at >= 0 && t < _until)) return;
+    if (!loop && at >= codec.frameCount - 1) return;   // the last frame holds
     _busy = true;
     codec.getNextFrame().then((f) {
       _busy = false;
@@ -107,9 +113,11 @@ class _Layer {
       }
       image?.dispose();
       image = f.image;
-      at++;
+      at = (at + 1) % codec.frameCount;   // past its last frame the codec gives its first again: round a loop
+      final d = f.duration.inMicroseconds / 1e6;
+      _until += d > 0 ? d : step;
       onFrame();
-      if (at < i) want(i, n, onFrame, loop: loop);
+      if (t >= _until) want(t, step, onFrame, loop: loop);   // behind: catch up
     }, onError: (Object _) {
       _busy = false;
     });
@@ -158,19 +166,25 @@ class ActingPlayer {
   double get duration => def.n / fps;
   bool get loops => def.loop;
 
-  /// the frame for [t] s into the clip (frames only go forward; a looping clip goes round)
+  /// the frame for [t] s into the clip as drawn (its lift); a looping clip goes round
   int frameAt(double t) => def.loop ? (t * fps).floor() % def.n : (t * fps).floor().clamp(0, def.n - 1);
 
-  /// asks for the frame for [t]; [onFrame] when a new one is decoded
+  /// asks for the frame for [t] s (only ever forward); [onFrame] when a new one is decoded
   void advance(double t, VoidCallback onFrame) {
     _frame = frameAt(t);
     for (final l in _layers) {
-      l.want(_frame, def.n, onFrame, loop: def.loop);
+      l.want(t, 1 / fps, onFrame, loop: def.loop);
     }
   }
 
   /// the first frame is in: it can take over from the still sprite
   bool get ready => _layers.every((l) => l.image != null);
+
+  /// tests: the body's frame on show and how many its file holds (fewer than drawn where still frames were folded)
+  @visibleForTesting
+  int get fileFrame => _layers.first.at;
+  @visibleForTesting
+  int get fileFrames => _layers.first.codec.frameCount;
 
   /// how high the body is now (voxels)
   double get lift => def.lift[_frame.clamp(0, def.lift.length - 1)];
