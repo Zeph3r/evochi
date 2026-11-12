@@ -506,6 +506,28 @@ def village(out):
     return {'file': 'village.webp', 'w': im.width, 'h': im.height, 'lights': lights, 'ground': float(g[1] - y0)}
 
 
+# ---- the Blender backdrop: the title scene's sky, moon, clouds, lake and reflections, rendered on the PC without
+# the island (scene/title_bg.py, --preview --step=2: 1x, 15 fps), packed as one looping animated WebP -------------
+def bg(out, frames_dir, fps=15):
+    import glob
+    files = sorted(glob.glob(os.path.join(frames_dir, 'bg_*.webp')))
+    if not files:
+        raise SystemExit('no bg_*.webp frames in ' + frames_dir)
+    frames = [Image.open(f).convert('RGB') for f in files]
+    w, h = frames[0].size
+    path = os.path.join(out, 'bg.webp')
+    frames[0].save(path, 'WEBP', save_all=True, append_images=frames[1:], duration=int(round(1000 / fps)), loop=0,
+                   quality=82, method=6, minimize_size=True)
+    print('bg.webp', (w, h), len(frames), 'frames', os.path.getsize(path) // 1024, 'KB', flush=True)
+    meta_path = os.path.join(frames_dir, '..', 'scene_meta.json')
+    meta = json.load(open(meta_path)) if os.path.exists(meta_path) else {'w': 576, 'h': 1248, 'lake_y': 985, 'centre': [288, 718]}
+    # the island's place in the layout: the old island's rim was 480 of 576 wide with its middle at y 718; the
+    # flat island's picture is wider than its rim (the lantern, the hanging stones), so a little more
+    return {'file': 'bg.webp', 'w': w, 'h': h, 'fps': fps, 'frames': len(frames),
+            'lake_y': meta['lake_y'] / meta['h'],
+            'island': {'cx': meta['centre'][0] / meta['w'], 'cy': 0.555, 'w': 0.92}}
+
+
 def logo(out):
     """the logo, rastered at 2x for the app (assets/brand/evochi_logo.svg is the master)"""
     src = os.path.join(ROOT, 'assets', 'brand', 'evochi_logo.svg')
@@ -553,6 +575,8 @@ def preview(out, w=390, h=844):
     man = json.load(open(os.path.join(out, 'title.json')))
     S = 2
     W, H = w * S, h * S
+    if 'bg' in man:
+        return preview_bg(out, man, W, H)
     img = Image.new('RGBA', (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     horizon = int(LAYOUT['horizon'] * H)
@@ -659,4 +683,65 @@ def preview(out, w=390, h=844):
 if __name__ == '__main__':
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     opts = dict(a[2:].split('=', 1) for a in sys.argv[1:] if a.startswith('--') and '=' in a)
-    main(args[0] if args else OUT, opts['only'].split(',') if 'only' in opts else None)
+    if 'bg' in opts:   # --bg=FRAMES_DIR: pack the Blender backdrop loop and redraw the preview
+        out = args[0] if args else OUT
+        mpath = os.path.join(out, 'title.json')
+        man = json.load(open(mpath))
+        man['bg'] = bg(out, opts['bg'])
+        with open(mpath, 'w') as f:
+            json.dump(man, f, indent=1)
+        preview(out)
+    else:
+        main(args[0] if args else OUT, opts['only'].split(',') if 'only' in opts else None)
+
+
+def preview_bg(out, man, W, H):
+    """the screen over the Blender backdrop's first frame: the island with its reflection, the logo, the plank"""
+    from PIL import ImageDraw, ImageFont, ImageOps
+    b = man['bg']
+    bgim = Image.open(os.path.join(out, 'bg.webp')).convert('RGBA')
+    sc = max(W / b['w'], H / b['h'])
+    bw, bh = int(b['w'] * sc), int(b['h'] * sc)
+    frame = bgim.resize((bw, bh), Image.NEAREST)
+    img = Image.new('RGBA', (W, H), (0, 0, 0, 255))
+    ox, oy = (W - bw) // 2, (H - bh) // 2
+    img.alpha_composite(frame, (ox, oy))
+    isl = Image.open(os.path.join(out, 'island.webp')).convert('RGBA')
+    comp = isl.copy()
+    e = man['island']['elder']
+    strip = Image.open(os.path.join(out, 'elder_sleep.webp')).convert('RGBA')
+    comp.alpha_composite(strip.crop((0, 0, e['frameW'], e['frameH'])), (e['x'], e['y']))
+    comp.alpha_composite(Image.open(os.path.join(out, 'island_front.webp')).convert('RGBA'))
+    iw = int(bw * b['island']['w'])
+    ih = int(comp.height * iw / comp.width)
+    comp = comp.resize((iw, ih), Image.LANCZOS)
+    cx, cy = ox + bw * b['island']['cx'], oy + bh * b['island']['cy']
+    x0, y0 = int(cx - iw / 2), int(cy - ih / 2)
+    lake_y = oy + bh * b['lake_y']
+    # the reflection: flipped, squashed, faint, sunk into the water
+    rh = int(ih * 0.38)
+    refl = ImageOps.flip(comp).resize((iw, rh), Image.BILINEAR)
+    a = refl.split()[3]
+    fade = Image.linear_gradient('L').resize((iw, rh)).point(lambda v: int((255 - v) / 255 * 0.34 * (255 - v) / 255 * 255))
+    refl.putalpha(Image.fromarray(np.minimum(np.array(a), np.array(fade))))
+    top = int(lake_y + 4 + (lake_y - (y0 + ih)) * 0.25)
+    img.alpha_composite(refl, (x0, top))
+    img.alpha_composite(comp, (x0, y0))
+    d = ImageDraw.Draw(img)
+    logo_im = Image.open(os.path.join(out, 'logo.webp')).convert('RGBA')
+    lw = int(LAYOUT['logo_w'] * W)
+    logo_im = logo_im.resize((lw, int(logo_im.height * lw / logo_im.width)), Image.LANCZOS)
+    img.alpha_composite(logo_im, ((W - lw) // 2, int(LAYOUT['logo_y'] * H)))
+    S = 2
+    pw, ph = min(W * 0.62, 300 * S), 54 * S
+    cx, cy = W / 2, LAYOUT['plank_y'] * H
+    d.rounded_rectangle((cx - pw / 2, cy - ph / 2 + 4 * S, cx + pw / 2, cy + ph / 2 + 4 * S), radius=8 * S, fill=hexrgb('#4A2E1E'))
+    d.rounded_rectangle((cx - pw / 2, cy - ph / 2, cx + pw / 2, cy + ph / 2), radius=8 * S, fill=hexrgb('#6E4529'))
+    d.rounded_rectangle((cx - pw / 2 + 3 * S, cy - ph / 2 + 3 * S, cx + pw / 2 - 3 * S, cy + ph / 2 - 3 * S), radius=6 * S, fill=hexrgb('#B98149'))
+    try:
+        f = ImageFont.truetype(os.path.join(os.path.dirname(__file__), '..', '..', 'flutter', 'assets', 'fonts', 'Nunito-Black.ttf'), 20 * S)
+    except OSError:
+        f = ImageFont.load_default()
+    d.text((cx, cy), 'Tap to begin', fill=hexrgb('#FFF4E2'), font=f, anchor='mm')
+    img.save(os.path.join(out, '_screen_preview.png'))
+    print('_screen_preview.png', img.size, flush=True)

@@ -21,9 +21,16 @@ import '../../app/theme.dart';
 /// The start screen's art: the manifest and the decoded layers. A missing image is skipped when painting, so
 /// the scene still draws (and tests run) without the asset bundle.
 class TitleArt {
-  TitleArt(this.j, this.images);
+  TitleArt(this.j, this.images, {this.bgCodec});
   final Map<String, dynamic> j;
   final Map<String, ui.Image?> images;
+
+  /// The Blender-rendered backdrop and water (sky, moon, clouds, the lake and its reflections), a looping
+  /// animated WebP decoded one frame at a time by the screen's clock; [bgFrame] is the frame to draw.
+  final ui.Codec? bgCodec;
+  ui.Image? bgFrame;
+  double bgNextAt = 0;
+  bool bgDecoding = false;
 
   static const base = 'assets/art/title/';
 
@@ -45,7 +52,35 @@ class TitleArt {
         images[e.key] = null;
       }
     }
-    return TitleArt(j, images);
+    ui.Codec? bg;
+    final bgFile = (j['bg'] as Map?)?['file'] as String?;
+    if (bgFile != null) {
+      try {
+        final bytes = await rootBundle.load(base + bgFile);
+        bg = await ui.instantiateImageCodec(bytes.buffer.asUint8List());
+      } catch (_) {
+        bg = null;
+      }
+    }
+    return TitleArt(j, images, bgCodec: bg);
+  }
+
+  Map<String, dynamic> get bg => sub('bg');
+
+  /// Advances the backdrop to the frame due at [t] seconds (one decode in flight at a time; the loop's own
+  /// frame durations set the pace, so a slow device skips nothing it has not yet drawn).
+  void advanceBg(double t) {
+    final codec = bgCodec;
+    if (codec == null || bgDecoding || t < bgNextAt) return;
+    bgDecoding = true;
+    codec.getNextFrame().then((f) {
+      bgFrame?.dispose();
+      bgFrame = f.image;
+      final ms = f.duration.inMilliseconds;
+      bgNextAt = (bgNextAt == 0 ? t : bgNextAt) + (ms > 0 ? ms : 66) / 1000.0;
+      if (bgNextAt < t - 0.5) bgNextAt = t;   // fell far behind (the app was in the background): catch up from now
+      bgDecoding = false;
+    }, onError: (_) => bgDecoding = false);
   }
 
   Map<String, dynamic> sub(String k) => (j[k] as Map?)?.cast<String, dynamic>() ?? const {};
@@ -79,13 +114,19 @@ class _TitleScreenState extends State<TitleScreen> with SingleTickerProviderStat
     super.initState();
     _art = widget.art;
     if (_art == null) TitleArt.load().then((a) => mounted ? setState(() => _art = a) : null);
-    _ticker = createTicker((d) => _clock.value = d.inMicroseconds / 1e6)..start();
+    _ticker = createTicker((d) {
+      final t = d.inMicroseconds / 1e6;
+      _art?.advanceBg(t);
+      _clock.value = t;
+    })..start();
   }
 
   @override
   void dispose() {
     _ticker.dispose();
     _clock.dispose();
+    _art?.bgFrame?.dispose();
+    _art?.bgCodec?.dispose();
     super.dispose();
   }
 
@@ -144,6 +185,32 @@ class TitlePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
+    final bgm = art.bg;
+    if (bgm.isNotEmpty) {
+      // the Blender backdrop: sky, moon, clouds, the lake and its reflections, covering the screen; the island
+      // and its reflection, the glows, the fireflies, the logo and the plank over it
+      final bw = (bgm['w'] as num).toDouble(), bh = (bgm['h'] as num).toDouble();
+      final sc = math.max(w / bw, h / bh);
+      final rect = Rect.fromCenter(center: Offset(w / 2, h / 2), width: bw * sc, height: bh * sc);
+      final fr = art.bgFrame;
+      if (fr != null) {
+        canvas.drawImageRect(fr, Rect.fromLTWH(0, 0, fr.width.toDouble(), fr.height.toDouble()), rect, Paint()..filterQuality = FilterQuality.none);
+      } else {
+        _sky(canvas, w, h * 0.79);
+        _lake(canvas, w, h, h * 0.79);
+      }
+      final lakeY = rect.top + rect.height * ((bgm['lake_y'] as num?)?.toDouble() ?? 0.79);
+      final im = (bgm['island'] as Map?)?.cast<String, dynamic>() ?? const {};
+      final cx = rect.left + rect.width * ((im['cx'] as num?)?.toDouble() ?? 0.5);
+      final cy = rect.top + rect.height * ((im['cy'] as num?)?.toDouble() ?? 0.56);
+      final iw = rect.width * ((im['w'] as num?)?.toDouble() ?? 0.9);
+      _islandAt(canvas, cx, cy, iw, lakeY);
+      _fireflies(canvas, w, h);
+      _shootingStar(canvas, w, h);
+      _logo(canvas, w, h);
+      _plank(canvas, w, h);
+      return;
+    }
     final horizon = h * art.lay('horizon', 0.60);
     _sky(canvas, w, horizon);
     _stars_(canvas, w, horizon);
@@ -320,17 +387,29 @@ class TitlePainter extends CustomPainter {
 
   // ---- the island, the Elder and the props in front ----
   void _island(Canvas c, double w, double h, double horizon) {
-    final isl = art.images['island'];
     final m = art.island;
     final iw = ((m['island'] as Map?)?['w'] as num? ?? 960).toDouble(), ih = ((m['island'] as Map?)?['h'] as num? ?? 800).toDouble();
-    final scale = w * art.lay('island_w', 0.70) / iw;
-    final dw = iw * scale, dh = ih * scale;
+    final dw = w * art.lay('island_w', 0.70);
+    final dh = ih * dw / iw;
     final bob = 5 * math.sin(t * 2 * math.pi / 5.2);
-    final x0 = (w - dw) / 2, y0 = h * art.lay('island_bottom', 0.56) - dh + bob;
-    final p = Paint()..filterQuality = FilterQuality.medium;
     // its shadow on the water, breathing with the bob
     final sh = Rect.fromCenter(center: Offset(w / 2, horizon + 24 + bob * 0.3), width: dw * 0.5 - bob * 2, height: 14);
     c.drawOval(sh, Paint()..shader = ui.Gradient.radial(sh.center, sh.width / 2, [Colors.black.withValues(alpha: 0.22), Colors.black.withValues(alpha: 0)]));
+    _islandAt(c, w / 2, h * art.lay('island_bottom', 0.56) - dh / 2, dw, null);
+  }
+
+  /// The island [dw] wide with its middle at ([cx], [cy]), bobbing, with its reflection on the water below
+  /// [lakeY] (none when null).
+  void _islandAt(Canvas c, double cx, double cy, double dw, double? lakeY) {
+    final isl = art.images['island'];
+    final m = art.island;
+    final iw = ((m['island'] as Map?)?['w'] as num? ?? 960).toDouble(), ih = ((m['island'] as Map?)?['h'] as num? ?? 800).toDouble();
+    final scale = dw / iw;
+    final dh = ih * scale;
+    final bob = 5 * math.sin(t * 2 * math.pi / 5.2);
+    final x0 = cx - dw / 2, y0 = cy - dh / 2 + bob;
+    final p = Paint()..filterQuality = FilterQuality.medium;
+    if (lakeY != null) _reflectionOf(c, x0, y0, dw, dh, lakeY, bob);
     Rect dst(num x, num y, num ww, num hh) => Rect.fromLTWH(x0 + x * scale, y0 + y * scale, (ww * scale).toDouble(), (hh * scale).toDouble());
     if (isl != null) {
       c.drawImageRect(isl, Rect.fromLTWH(0, 0, isl.width.toDouble(), isl.height.toDouble()), dst(0, 0, iw, ih), p);
@@ -363,6 +442,56 @@ class TitlePainter extends CustomPainter {
     }
     final zs = (m['zs'] as List?)?.cast<num>();
     if (zs != null) _zs(c, Offset(x0 + zs[0] * scale, y0 + zs[1] * scale));
+  }
+
+  /// The island mirrored in the lake: the island, the Elder's frame and the props flipped and squashed under
+  /// the water line, faint and fading with depth, each strip swaying a little on its own so the water reads
+  /// as moving.
+  void _reflectionOf(Canvas c, double x0, double y0, double dw, double dh, double lakeY, double bob) {
+    final isl = art.images['island'];
+    if (isl == null) return;
+    final m = art.island;
+    final iw = ((m['island'] as Map?)?['w'] as num? ?? 960).toDouble();
+    final el = art.images['elder'];
+    final e = art.elder;
+    final front = art.images['front'];
+    const squash = 0.38;
+    final top = lakeY + 4 + (lakeY - (y0 + dh)) * 0.25 - bob * squash;   // the higher it floats, the further down its image lies
+    final rh = dh * squash;
+    const strips = 18;
+    final sh = rh / strips;
+    for (var k = 0; k < strips; k++) {
+      final u = k / strips;
+      final dx = 2.5 * math.sin(t * 1.7 + k * 0.9) + 1.5 * math.sin(t * 3.1 - k * 1.7);
+      final a = 0.34 * (1 - u) * (1 - u);
+      final paint = Paint()
+        ..filterQuality = FilterQuality.low
+        ..color = Colors.white.withValues(alpha: a);
+      // this strip of the mirrored image: the whole image drawn flipped about its middle, clipped to the strip
+      final dst = Rect.fromLTWH(x0 + dx, top + k * sh, dw, sh + 0.5);
+      c.save();
+      c.clipRect(dst);
+      final full = Rect.fromLTWH(x0 + dx, top, dw, rh);
+      c.translate(0, full.top + full.height / 2);
+      c.scale(1, -1);
+      c.translate(0, -(full.top + full.height / 2));
+      c.drawImageRect(isl, Rect.fromLTWH(0, 0, isl.width.toDouble(), isl.height.toDouble()), full, paint);
+      if (el != null && e.isNotEmpty) {
+        final fw = (e['frameW'] as num).toDouble(), fh = (e['frameH'] as num).toDouble();
+        final n = (e['frames'] as num).toInt(), fps = (e['fps'] as num).toDouble();
+        final i = ((t * fps).floor() % n).toDouble();
+        final s = dw / iw;
+        c.drawImageRect(el, Rect.fromLTWH(i * fw, 0, fw, fh),
+            Rect.fromLTWH(full.left + (e['x'] as num) * s, full.top + (e['y'] as num) * s * squash, fw * s, fh * s * squash), paint);
+      }
+      if (front != null) {
+        c.drawImageRect(front, Rect.fromLTWH(0, 0, front.width.toDouble(), front.height.toDouble()), full, paint);
+      }
+      c.restore();
+    }
+    // the water's own colour laid back over it, so the reflection sinks into the lake rather than sitting on it
+    c.drawRect(Rect.fromLTWH(x0 - 10, top, dw + 20, rh),
+        Paint()..shader = ui.Gradient.linear(Offset(0, top), Offset(0, top + rh), [lakeTop.withValues(alpha: 0.15), lakeBottom.withValues(alpha: 0.6)]));
   }
 
   void _zs(Canvas c, Offset at) {
@@ -442,7 +571,7 @@ class TitlePainter extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(covariant TitlePainter old) => old.t != t || old.art != art;
+  bool shouldRepaint(covariant TitlePainter old) => true;   // the clock moves every frame, and the backdrop's frame with it
 }
 
 /// Settings > Developer tools: the start screen over everything, a tap closing it.

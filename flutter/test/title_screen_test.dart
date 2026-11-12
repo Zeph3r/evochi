@@ -24,14 +24,28 @@ TitleArt fakeArt() => TitleArt({
       },
     }, const {});
 
+TitleArt fakeArtWithBackdrop() {
+  final a = fakeArt();
+  return TitleArt({...a.j, 'bg': {'file': 'bg.webp', 'w': 288, 'h': 624, 'fps': 15, 'frames': 180, 'lake_y': 0.789, 'island': {'cx': 0.5, 'cy': 0.56, 'w': 0.9}}}, const {});
+}
+
 void main() {
-  test('the painter draws every layer at any time without images', () {
-    for (final t in [0.0, 1.7, 13.3, 22.6, 100.0]) {
-      final rec = ui.PictureRecorder();
-      final canvas = Canvas(rec);
-      TitlePainter(fakeArt(), t).paint(canvas, const Size(390, 844));
-      rec.endRecording().dispose();
+  test('the painter draws every layer at any time without images, with and without the backdrop loop', () {
+    for (final art in [fakeArt(), fakeArtWithBackdrop()]) {
+      for (final t in [0.0, 1.7, 13.3, 22.6, 100.0]) {
+        final rec = ui.PictureRecorder();
+        final canvas = Canvas(rec);
+        TitlePainter(art, t).paint(canvas, const Size(390, 844));
+        rec.endRecording().dispose();
+      }
     }
+  });
+
+  test('the backdrop advances only when a codec is there', () {
+    final a = fakeArtWithBackdrop();
+    a.advanceBg(1.0);
+    expect(a.bgFrame, isNull);
+    expect(a.bgDecoding, isFalse);
   });
 
   testWidgets('a tap begins once', (tester) async {
