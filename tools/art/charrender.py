@@ -23,13 +23,23 @@ def _hit(cache, k, model):
     return v[1] if v is not None and v[0] is model else None
 
 
+CACHE_KEEP = 24     # entries kept: holding the models, an unbounded cache grew by a frame's model and surface
+                    # every frame of an animation (the sleep cycle's Elder ran a box out of memory at 60 frames)
+
+
+def _put(cache, k, model, v):
+    cache[k] = (model, v)
+    while len(cache) > CACHE_KEEP:
+        del cache[next(iter(cache))]
+
+
 def surface_for(ch: Character, iso=0.5):
     key = (id(ch.model), iso)
     s = _hit(_surf_cache, key, ch.model)
     if s is None:
         # the face is painted on the model without what stands in front of it (Alder's spectacles)
         s = Surface(getattr(ch, 'decal_model', None) or ch.model, sigma=0.75, iso=iso)
-        _surf_cache[key] = (ch.model, s)
+        _put(_surf_cache, key, ch.model, s)
     return s
 
 
@@ -50,7 +60,7 @@ def pattern_quads(ch: Character, pal: dict, pal_key: str):
         cv = Canvas(*ext, cell=0.08)
         fn(cv, pal)
         out += project_canvas(surf, frame, cv, PATTERN_MID, lift=0.06)
-    _quad_cache[k] = (ch.model, out)
+    _put(_quad_cache, k, ch.model, out)
     return out
 
 
@@ -70,7 +80,7 @@ def face_quads(ch: Character, pal: dict, pal_key: str, expr: str):
     cv = Canvas(*ext, cell=0.07)
     paint_face(ch, cv, pal, expr)
     q = project_canvas(surf, ch.face, cv, FACE_MID, lift=KIT_LIFT if kit else FACE_LIFT)
-    _quad_cache[k] = (ch.model, q)
+    _put(_quad_cache, k, ch.model, q)
     return q
 
 
