@@ -355,7 +355,7 @@ def scene_wood(state='golden'):
                 kw = dict(form=VS.TREE_FORMS[int(tr.choice(6, p=[0.24, 0.08, 0.14, 0.12, 0.16, 0.26]))],
                           leaves=(VS.PUFF_GREEN, VS.PUFF_DEEP, VS.PUFF_SPRING)[li],
                           accent=['#FFF4D8', '#FFD0DC'] if tr.random() < 0.15 else None)
-            S.models.append((VS.puff_tree_model(x, z, h, r, light=light, rng=tr, **kw), ()))
+            S.models.append((VS.puff_tree_model(x, z, h, r, light=light, rng=tr, **kw), (), {'smooth': 2}))
             continue
         if kind == 'pine':
             pine(PT, T, x, z, h=h, r=r, y=0.0, rng=rng)

@@ -66,8 +66,23 @@ def shift(a, axis, sign):
     return b
 
 
-def model_mesh(M, name, glass=(), cutaway=None, water=()):
-    """Exposed faces of a voxel Model as a Blender mesh object with per-face colour and glow."""
+def _blur(a, passes=3, r=1):
+    """a soft blur of a 3D field: box filters along each axis, a few times over (near enough a Gaussian)"""
+    a = a.astype(np.float32)
+    for _ in range(passes):
+        for ax in range(3):
+            p = np.pad(a, [(r, r) if k == ax else (0, 0) for k in range(3)], mode='edge')
+            c = np.cumsum(p, axis=ax, dtype=np.float32)
+            c = np.concatenate([np.zeros_like(np.take(c, [0], axis=ax)), c], axis=ax)
+            n = a.shape[ax]
+            a = (np.take(c, range(2 * r + 1, 2 * r + 1 + n), axis=ax) - np.take(c, range(0, n), axis=ax)) / (2 * r + 1)
+    return a
+
+
+def model_mesh(M, name, glass=(), cutaway=None, water=(), smooth=0):
+    """Exposed faces of a voxel Model as a Blender mesh object with per-face colour and glow. [smooth]: light it
+    as the rounded shape it stands for, not as cubes (each face takes the normal of the voxels' blurred
+    outline, [smooth] passes): the outline stays voxel, the stair-steps on a slope stop showing in the light."""
     filled = M.m > 0
     gid = [M.ids[c] for c in glass if c in M.ids]
     isglass = np.isin(M.m, gid) if gid else np.zeros_like(filled)
@@ -76,7 +91,10 @@ def model_mesh(M, name, glass=(), cutaway=None, water=()):
     opaque = filled & ~isglass
     cols = np.array([[0, 0, 0]] + [hexrgb(c) if c.startswith('#') else [255, 0, 255] for c in M.mats[1:]], np.float32)
     lin = srgb_to_linear(cols)
-    verts, quads, fcol, fglow, fmat = [], [], [], [], []
+    verts, quads, fcol, fglow, fmat, fnor = [], [], [], [], [], []
+    if smooth:
+        f = _blur(opaque, passes=int(smooth), r=2)
+        g = np.stack(np.gradient(f), -1)
     base = 0
     lo = M.lo.astype(np.float64)
     r = float(M.res)
@@ -97,6 +115,13 @@ def model_mesh(M, name, glass=(), cutaway=None, water=()):
         fcol.append(lin[mids])
         fglow.append(M.glow[idx[:, 0], idx[:, 1], idx[:, 2]])
         fmat.append(isglass[idx[:, 0], idx[:, 1], idx[:, 2]].astype(np.int32) + 2 * iswater[idx[:, 0], idx[:, 1], idx[:, 2]].astype(np.int32))
+        if smooth:
+            nv = -g[idx[:, 0], idx[:, 1], idx[:, 2]].astype(np.float64)
+            face = np.zeros(3)
+            face[axis] = sign
+            nv = nv / (np.linalg.norm(nv, axis=1, keepdims=True) + 1e-9)
+            nv = np.where((nv @ face)[:, None] > 0.05, nv, face)            # never facing away from its face
+            fnor.append(np.repeat(nv, 4, 0))
     V = np.concatenate(verts)
     Q = np.concatenate(quads)
     C = np.concatenate(fcol)
@@ -119,10 +144,17 @@ def model_mesh(M, name, glass=(), cutaway=None, water=()):
     g = me.attributes.new('glow', 'FLOAT', 'FACE')
     g.data.foreach_set('value', G)
     me.polygons.foreach_set('material_index', MI)
+    if smooth:
+        N = np.concatenate(fnor)
+        Nb = np.stack([N[:, 0], -N[:, 2], N[:, 1]], 1)
+        me.polygons.foreach_set('use_smooth', np.ones(nf, bool))
+        me.normals_split_custom_set_from_vertices(Nb.astype(np.float32))
     me.materials.append(solid_material())
     me.materials.append(glass_material())
     me.materials.append(water_material())
     ob = bpy.data.objects.new(name, me)
+    if smooth:
+        ob.cycles.shadow_terminator_geometry_offset = 0.6      # no shadow acne where the light grazes the steps
     bpy.context.scene.collection.objects.link(ob)
     return ob, nf
 
@@ -335,7 +367,7 @@ def render(vs, out_path, preview=False):
     for i, item in enumerate(vs.models):
         M, glass = item[0], item[1]
         opts = item[2] if len(item) > 2 else {}
-        ob, n = model_mesh(M, f'{vs.name}_{i}', glass, water=tuple(opts.get('water', ())))
+        ob, n = model_mesh(M, f'{vs.name}_{i}', glass, water=tuple(opts.get('water', ())), smooth=opts.get('smooth', 0))
         if opts.get('shadow') is False:
             ob.visible_shadow = False
         nf += n

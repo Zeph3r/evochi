@@ -621,7 +621,7 @@ def render_ortho(vs, view, out_path, quick=False, depth=False):
     for i, item in enumerate(vs.models):
         M, glass = item[0], item[1]
         opts = item[2] if len(item) > 2 else {}
-        ob, n = VB.model_mesh(M, f'{vs.name}_{i}', glass, water=tuple(opts.get('water', ())))
+        ob, n = VB.model_mesh(M, f'{vs.name}_{i}', glass, water=tuple(opts.get('water', ())), smooth=opts.get('smooth', 0))
         nf += n
     if depth:
         m = bpy.data.materials.new('world_z')

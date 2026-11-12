@@ -1101,7 +1101,7 @@ def puff_tree(M, x, z, h=6.0, r=4.0, y=0.0, leaves=PUFF_GREEN, bark=BARK, light=
     lam = np.clip(nx * L[0] + ny * L[1] + nz * L[2], -1, 1)
     lc = np.where(cdep >= 0, np.clip(cnx * L[0] + cny * L[1] + cnz * L[2], -1, 1), lam)
     low = np.clip((Ys - y_lo) / max(0.5, y_hi - y_lo), 0, 1)
-    v = 0.5 + 0.26 * lam + 0.24 * lc
+    v = 0.45 + 0.25 * lam + 0.23 * lc
     v = v * (0.6 + 0.4 * low)
     v -= 0.2 * np.clip(1 - (depth - second) / 0.22, 0, 1) * (second > -0.2) * (cdep < 0.2)     # between puffs
     v -= 0.12 * np.clip(1 - (cdep - csec) / 0.35, 0, 1) * (csec > -0.25)                    # between clusters
