@@ -38,22 +38,24 @@ STAND = dict(body=(0.0, 0.0), head=(0.0, 0.0, 0.0), head_rot=(0.0, 0.0, 0.0), fe
 # comes round (CURL_SIDE: -1, the model's -x, which is toward the camera at the base yaw), its radius per stage
 CURL_SIDE = -1
 CURL_R = {2: 12.0, 3: 16.0}
-CURL_WALK = {2: 55.0, 3: 45.0}   # how far it is bent by the end of the circle (a cat walking its turn)
+CURL_WALK = {2: 80.0, 3: 65.0}   # how far it is bent walking the circle (a cat following its tail round)
+WALK_YAW = -30.0                 # the head turned round into the circle with it
+WALK_TAIL = {2: -2.5, 3: -3.5}   # the tail swung to the inside of the circle
 
 
 def poses(stage):
-    circled = dict(STAND, curl=CURL_WALK[stage], head_rot=(0.0, -16.0, 3.0))   # as the circle leaves it
+    circled = dict(STAND, curl=CURL_WALK[stage], head_rot=(0.0, WALK_YAW, 3.0), tail=WALK_TAIL[stage])   # as the circle leaves it
     if stage == 3:
         drop = 10.0
         return {
             'stand': STAND,
             'circled': circled,
-            'sniff': dict(body=(-1.5, 0.0), head=(0.0, -2.5, 1.5), head_rot=(-22.0, -16.0, 3.0), feet={}, tail=-3.0, tail_lift=1.0, curl=45.0),
+            'sniff': dict(body=(-1.5, 0.0), head=(0.0, -2.5, 1.5), head_rot=(-22.0, -24.0, 3.0), feet={}, tail=-3.5, tail_lift=1.0, curl=66.0),
             'lower': dict(body=(-6.0, -1.0), head=(0.0, -3.0, 1.0), head_rot=(-14.0, -16.0, 3.0),
-                          feet={FN: (0.0, 3.0, 0.5), FF: (0.0, 3.5, 0.5)}, tail=-4.0, tail_lift=-1.0, curl=55.0),
+                          feet={FN: (0.0, 3.0, 0.5), FF: (0.0, 3.5, 0.5)}, tail=-4.0, tail_lift=-1.0, curl=70.0),
             'front_down': dict(body=(-drop, -4.0), head=(0.8, -3.5, 1.0), head_rot=(-12.0, -18.0, 4.0),
                                feet={FN: (0.0, 5.5, 1.5), FF: (0.0, 7.0, 1.0), BN: (0.0, 1.5, 2.0), BF: (0.0, 1.0, 2.5)},
-                               tail=-5.0, tail_lift=-2.0, curl=68.0),
+                               tail=-5.0, tail_lift=-2.0, curl=75.0),
             'settle': dict(body=(-drop, -9.5), head=(1.0, -4.0, 1.0), head_rot=(-11.0, -22.0, 6.0),
                            feet={FN: (0.0, 6.0, 1.5), FF: (0.0, 7.5, 1.0), BN: (0.0, 4.5, 4.0), BF: (0.0, 3.5, 4.5)},
                            tail=-6.0, tail_lift=-3.0, curl=82.0),
@@ -67,12 +69,12 @@ def poses(stage):
     return {
         'stand': STAND,
         'circled': circled,
-        'sniff': dict(body=(-1.0, 0.0), head=(0.0, -2.0, 1.2), head_rot=(-20.0, -16.0, 3.0), feet={}, tail=-2.0, tail_lift=1.0, curl=55.0),
+        'sniff': dict(body=(-1.0, 0.0), head=(0.0, -2.0, 1.2), head_rot=(-20.0, -24.0, 3.0), feet={}, tail=-2.5, tail_lift=1.0, curl=81.0),
         'lower': dict(body=(-2.5, -0.5), head=(0.0, -2.2, 0.8), head_rot=(-14.0, -16.0, 3.0),
-                      feet={FN: (0.0, 2.2, 0.5), FF: (0.0, 2.0, 0.4)}, tail=-3.0, tail_lift=-0.5, curl=65.0),
+                      feet={FN: (0.0, 2.2, 0.5), FF: (0.0, 2.0, 0.4)}, tail=-3.0, tail_lift=-0.5, curl=86.0),
         'front_down': dict(body=(-3.0, -1.5), head=(0.6, -2.4, 0.6), head_rot=(-12.0, -18.0, 4.0),
                            feet={FN: (0.0, 3.0, 1.0), FF: (0.0, 2.4, 0.4), BN: (0.0, 1.2, 1.5), BF: (0.0, 0.8, 2.0)},
-                           tail=-3.5, tail_lift=-1.5, curl=80.0),
+                           tail=-3.5, tail_lift=-1.5, curl=94.0),
         'settle': dict(body=(-3.0, -2.5), head=(0.8, -2.4, 0.4), head_rot=(-10.0, -22.0, 6.0),
                        feet={FN: (0.0, 3.2, 1.0), FF: (0.0, 2.4, 0.4), BN: (0.0, 2.0, 2.0), BF: (0.0, 1.4, 2.5)},
                        tail=-4.0, tail_lift=-2.0, curl=105.0),
@@ -145,10 +147,11 @@ def frame_at(stage, t, P):
                 circ = smooth(u)
                 # the body bends into the turn as it walks it, the head leading round, so it arrives at the spot
                 # already half curled (a cat's circle)
-                k = smooth(min(1.0, u * 1.25))
+                k = smooth(min(1.0, u * 1.8))
                 pose['curl'] = CURL_WALK[stage] * k
                 hr = pose['head_rot']
-                pose['head_rot'] = (hr[0], hr[1] - 16.0 * k, hr[2] + 3.0 * k)
+                pose['head_rot'] = (hr[0] - 4.0 * k, hr[1] + WALK_YAW * k, hr[2] + 3.0 * k)
+                pose['tail'] += WALK_TAIL[stage] * k
                 # the walk cycle's feet and nod over the turn (three strides), fading out at the end
                 g = EVO_GAITS[stage]['walk']
                 wp = quad_pose('walk', stage, EVO_FRAMES, g)
