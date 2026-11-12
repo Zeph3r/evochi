@@ -19,12 +19,14 @@ import sys
 import numpy as np
 
 import village_walk as VW
+import village_scenes as VS
 from village_scenes import (HONEY, IRON, OAK, STATE_LIGHT, WALNUT, CPainter, VScene, ball, box, cyl_y, flower_patch, lantern,
                             tree2)
 from village_trail import boulder, pine, polyline
 from voxel import Model
 
 RES = 2
+PUFF = os.environ.get('FW_TREES', 'puff') == 'puff'     # the storybook puff trees (village_scenes.puff_tree), or the old ones
 X0, X1, Z0, Z1 = -4.0, 92.0, -64.0, 28.0
 
 GRASS = ['#6FAF52', '#79B85A', '#66A64B', '#82C062']
@@ -340,7 +342,21 @@ def scene_wood(state='golden'):
     # ---- what grows and stands: trees, ferns, flowers, mushrooms, logs, stones
     T = Model((X0, -2, Z0), (X1, 30, Z1), [], res=RES)
     PT = CPainter(T, 53)
+    light = tuple(-c for c in st['sun']['dir'])
     for (kind, x, z, h, r, li) in TREES:
+        if PUFF and kind != 'pine':
+            # the storybook trees: each in its own finer grid, its form and colour by chance (seeded by where it stands)
+            tr = np.random.default_rng(int(abs(x * 131 + z * 71)))
+            if kind == 'birch':
+                kw = dict(form='slender', leaves=VS.PUFF_BIRCH, bark=VS.BARK_BIRCH, stripes=True)
+            elif kind == 'hollow':
+                kw = dict(form=('gnarled', 'oak', 'open')[int(tr.integers(3))], leaves=VS.PUFF_HOLLOW)
+            else:
+                kw = dict(form=VS.TREE_FORMS[int(tr.choice(6, p=[0.24, 0.08, 0.14, 0.12, 0.16, 0.26]))],
+                          leaves=(VS.PUFF_GREEN, VS.PUFF_DEEP, VS.PUFF_SPRING)[li],
+                          accent=['#FFF4D8', '#FFD0DC'] if tr.random() < 0.15 else None)
+            S.models.append((VS.puff_tree_model(x, z, h, r, light=light, rng=tr, **kw), ()))
+            continue
         if kind == 'pine':
             pine(PT, T, x, z, h=h, r=r, y=0.0, rng=rng)
         elif kind == 'birch':

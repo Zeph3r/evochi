@@ -840,6 +840,324 @@ def tree2(P, M, x, z, h=6.0, r=4.0, y=0.0, leaves=TREE_LEAVES, fruit=None, rng=N
         P.fill(f, fruit, cell=0.5)
 
 
+# ------------------------------------------------------------------ the puff tree ----
+# A storybook tree: round leaf puffs in tiers, each shaded like a painted ball (cool blue-green in its shade,
+# warm yellow-green where the light falls, a dark crease where two puffs meet), a scalloped hem, a curving trunk
+# with roots and branches. Best on a fine grid (res 4): at that size it reads round, not blocky. Colours are
+# ramps (dark to light) painted by where the light falls, not random per block.
+PUFF_GREEN = ['#2B5A3C', '#356D42', '#447F45', '#57944A', '#71AB4F', '#90C25A', '#B4D86E']
+PUFF_DEEP = ['#22483A', '#2A5940', '#346A43', '#417E47', '#56954D', '#73AD55', '#94C463']
+PUFF_SPRING = ['#3C7445', '#4A894A', '#5C9E4E', '#76B454', '#93C85D', '#B2DA6D', '#CFE987']
+PUFF_BIRCH = ['#557F3E', '#668F43', '#7BA64B', '#92BA55', '#AACD62', '#C2DD75', '#DAEC93']
+PUFF_HOLLOW = ['#1A1F2E', '#222B37', '#2A3A3A', '#33463F', '#3E5246', '#4F5B66', '#6A5C93']
+PUFF_BLOSSOM = ['#5E1A3E', '#7E2552', '#A33869', '#C85284', '#E37BA2', '#F3A6C0', '#FFD3E1']
+PUFF_GOLD = ['#6E4114', '#8E5717', '#B0731C', '#D19226', '#EAB236', '#F7D05A', '#FFE992']
+PUFF_AUTUMN = ['#7A3A2A', '#93492D', '#AD5C31', '#C67436', '#DB903E', '#EBAF4E', '#F5CC6A']
+BARK = ['#432B1D', '#523522', '#624028', '#744C2F', '#875A36', '#9A6A40']
+BARK_BIRCH = ['#9A968C', '#B8B4A8', '#CFCBC0', '#E1DED4', '#EEEBE2', '#F7F5EE']
+
+
+def _local(M, lo, hi):
+    """index slices of the box lo..hi (world units) in M"""
+    i0 = np.clip(np.floor(np.array(lo, float) * M.res).astype(int) - M.lo, 0, M.m.shape)
+    i1 = np.clip(np.ceil(np.array(hi, float) * M.res).astype(int) - M.lo, 0, M.m.shape)
+    return tuple(slice(int(a), int(b)) for a, b in zip(i0, i1))
+
+
+def _ramp(M, sl, mask, v, tones, rng, jitter=0.05):
+    """paints [mask] (in the slice) from [tones] by [v] 0-1, with a little dither so the steps soften"""
+    v = np.clip(v[mask] + rng.uniform(-jitter, jitter, int(mask.sum())), 0, 0.999)
+    ids = np.array([M.mid(c) for c in tones], np.uint8)
+    sub = M.m[sl]
+    sub[mask] = ids[(v * len(tones)).astype(int)]
+    M.m[sl] = sub
+
+
+def _limb(M, sl, Xs, Ys, Zs, acc, pts, r0, r1):
+    """a bent limb, balls swept along a polyline narrowing from r0 to r1, into [acc] (mask, depth, nx, ny, nz):
+    each voxel keeps the normal of the ball it is deepest in, for its light"""
+    mask, dep, nx, ny, nz = acc
+    pts = [np.array(p, float) for p in pts]
+    seg = [np.linalg.norm(b - a) for a, b in zip(pts, pts[1:])]
+    total, d = max(1e-6, sum(seg)), 0.0
+    for (a, b), L in zip(zip(pts, pts[1:]), seg):
+        for t in np.linspace(0, 1, max(2, int(L / 0.15))):
+            c = a + (b - a) * t
+            r = r0 + (r1 - r0) * (d + L * t) / total
+            bx = _box_in(M, sl, c - r - 0.3, c + r + 0.3)
+            dx, dy, dz = Xs[bx] - c[0], Ys[bx] - c[1], Zs[bx] - c[2]
+            dist = np.sqrt(dx * dx + dy * dy + dz * dz) + 1e-6
+            q = r - dist
+            better = q > dep[bx]
+            mask[bx] |= q >= 0
+            dep[bx] = np.where(better, q, dep[bx])
+            nx[bx] = np.where(better, dx / dist, nx[bx])
+            ny[bx] = np.where(better, dy / dist, ny[bx])
+            nz[bx] = np.where(better, dz / dist, nz[bx])
+        d += L
+
+
+def _box_in(M, sl, lo, hi):
+    """the box lo..hi (world units) as slices within the slice [sl] of M"""
+    out = []
+    for k in range(3):
+        n = sl[k].stop - sl[k].start
+        i0 = int(np.floor(lo[k] * M.res)) - int(M.lo[k]) - sl[k].start
+        i1 = int(np.ceil(hi[k] * M.res)) - int(M.lo[k]) - sl[k].start
+        out.append(slice(min(n, max(0, i0)), min(n, max(0, i1))))
+    return tuple(out)
+
+
+TREE_FORMS = ('oak', 'slender', 'twin', 'sweep', 'gnarled', 'open')
+
+
+def _skeleton(form, x, y, z, h, r, rng):
+    """the trunk and its limbs for a tree of [form]: (trunk points, girth, limbs [(points, r0 scale, r1 scale)],
+    crowns [(centre, size, squash)]), girth as a share of the trunk's usual thickness"""
+    ang = rng.uniform(0, math.tau)
+    ux, uz = math.cos(ang), math.sin(ang)
+
+    def at(f, side, up, wig=0.0):
+        return np.array([x + ux * side + rng.uniform(-wig, wig), y + up, z + uz * side * 0.8 + rng.uniform(-wig, wig)])
+
+    limbs, crowns = [], []
+    if form == 'slender':
+        g = rng.uniform(0.55, 0.75)
+        lean = r * rng.uniform(0.0, 0.08)
+        trunk = [at(0, 0, -0.3), at(0, lean * 0.3, h * 0.5, 0.15), at(0, lean, h + r * 0.1)]
+        crowns.append((trunk[-1] + [0, r * 0.15, 0], r * 0.78, 0.86))
+        for k in range(int(rng.integers(1, 3))):          # a twig or two with a tuft below the crown
+            b = rng.uniform(0, math.tau)
+            o = trunk[1] + [0, h * rng.uniform(0.0, 0.3), 0]
+            tip = o + [math.cos(b) * r * 0.5, r * 0.25, math.sin(b) * r * 0.4]
+            limbs.append(([o, (o + tip) / 2 + [0, 0.1, 0], tip], 0.35, 0.18))
+            crowns.append((tip + [0, r * 0.08, 0], r * 0.32, 0.86))
+    elif form == 'twin':
+        g = rng.uniform(0.85, 1.1)
+        fork = at(0, 0, h * rng.uniform(0.35, 0.5), 0.1)
+        trunk = [at(0, 0, -0.3), fork]
+        for sgn in (-1, 1):
+            tip = fork + [ux * sgn * r * rng.uniform(0.75, 0.95), h * rng.uniform(0.55, 0.75), uz * sgn * r * 0.5 + rng.uniform(-0.4, 0.4)]
+            limbs.append(([fork, fork + (tip - fork) * 0.5 + [ux * sgn * 0.35, -0.2, 0], tip], 0.78, 0.48))
+            crowns.append((tip + [0, r * 0.2, 0], r * rng.uniform(0.5, 0.58), 0.82))
+    elif form == 'sweep':
+        g = rng.uniform(0.9, 1.2)
+        lean = r * rng.uniform(0.3, 0.45)
+        trunk = [at(0, 0, -0.3), at(0, lean * 0.15, h * 0.35, 0.1), at(0, lean * 0.55, h * 0.7, 0.1), at(0, lean, h + r * 0.05)]
+        crowns.append((trunk[-1] + [0, r * 0.2, 0], r * 0.6, 0.8))
+        o = trunk[1] + (trunk[2] - trunk[1]) * 0.6
+        reach = r * rng.uniform(1.5, 1.85)
+        tip = o + [-ux * reach, h * 0.05, -uz * reach * 0.6]
+        limbs.append(([o, o + (tip - o) * 0.45 + [0, r * 0.05, 0], o + (tip - o) * 0.8 + [0, -r * 0.08, 0], tip + [0, r * 0.1, 0]], 0.62, 0.3))
+        crowns.append((tip + [0, r * 0.3, 0], r * rng.uniform(0.42, 0.5), 0.7))
+    elif form == 'gnarled':
+        g = rng.uniform(1.4, 1.75)
+        lean = r * rng.uniform(0.12, 0.25)
+        trunk = [at(0, 0, -0.3), at(0, lean * 0.5, h * 0.25, 0.4), at(0, -lean * 0.2, h * 0.55, 0.4), at(0, lean, h * 0.85, 0.3)]
+        crowns.append((trunk[-1] + [0, r * 0.35, 0], r * 0.7, 0.86))
+        for k in range(int(rng.integers(2, 4))):
+            b = ang + math.pi * (0.6 + k * 0.7) + rng.uniform(-0.3, 0.3)
+            o = trunk[2 + k % 2]
+            L = r * rng.uniform(0.7, 1.05)
+            tip = o + [math.cos(b) * L, r * rng.uniform(-0.05, 0.35), math.sin(b) * L * 0.75]
+            kink = o + (tip - o) * 0.5 + [rng.uniform(-0.6, 0.6), r * rng.uniform(-0.15, 0.1), rng.uniform(-0.6, 0.6)]
+            limbs.append(([o, kink, tip], 0.6, 0.28))
+            crowns.append((tip + [0, r * 0.25, 0], r * rng.uniform(0.45, 0.56), 0.86))
+            if rng.random() < 0.7:
+                crowns.append((kink + [0, r * 0.15, 0], r * rng.uniform(0.2, 0.28), 0.62))
+    elif form == 'open':
+        # a trunk parting into limbs, each parting again, a flat pad of leaves on every tip: gaps between the
+        # pads where its branches show
+        g = rng.uniform(1.0, 1.3)
+        split = at(0, r * rng.uniform(0.0, 0.1), h * rng.uniform(0.45, 0.55), 0.15)
+        top = split + [rng.uniform(-0.3, 0.3), h * 0.6 + r * 0.45, rng.uniform(-0.3, 0.3)]
+        trunk = [at(0, 0, -0.3), split, split + (top - split) * 0.5 + [rng.uniform(-0.25, 0.25), 0, 0], top]
+        crowns.append((top + [0, r * 0.12, 0], r * rng.uniform(0.36, 0.44), 0.58))
+        n = int(rng.integers(3, 5))
+        for k in range(n):
+            b = ang + k * math.tau / n + rng.uniform(-0.35, 0.35)
+            o = split + [0, h * rng.uniform(0.0, 0.25), 0] if k else split
+            tip = o + [math.cos(b) * r * rng.uniform(0.75, 1.05), h * rng.uniform(0.25, 0.45), math.sin(b) * r * 0.75]
+            mid = o + (tip - o) * 0.5 + [0, rng.uniform(-0.45, 0.05), 0]
+            limbs.append(([o, mid, tip], 0.66, 0.38))
+            for j in range(int(rng.integers(2, 4))):
+                c2 = b + rng.uniform(-1.0, 1.0)
+                st = tip + [math.cos(c2) * r * rng.uniform(0.45, 0.7), r * rng.uniform(0.15, 0.5), math.sin(c2) * r * 0.55]
+                limbs.append(([tip, tip + (st - tip) * 0.5 + [rng.uniform(-0.25, 0.25), -0.2, rng.uniform(-0.25, 0.25)], st], 0.38, 0.17))
+                crowns.append((st + [0, r * 0.1, 0], r * rng.uniform(0.27, 0.36), rng.uniform(0.52, 0.64)))
+            if rng.random() < 0.6:                       # a little tuft off the limb itself
+                crowns.append((mid + [0, r * 0.15, 0], r * rng.uniform(0.2, 0.26), 0.6))
+    else:   # oak: a stout trunk parting into heavy limbs, a broad crown
+        g = rng.uniform(1.05, 1.35)
+        lean = r * rng.uniform(0.0, 0.12)
+        split = at(0, lean * 0.4, h * rng.uniform(0.5, 0.65), 0.15)
+        trunk = [at(0, 0, -0.3), split, at(0, lean, h + r * 0.05)]
+        crowns.append((trunk[-1] + [0, r * 0.25, 0], r * 0.72, 0.86))
+        n = int(rng.integers(2, 4))
+        for k in range(n):
+            b = ang + k * math.tau / n + rng.uniform(-0.4, 0.4)
+            tip = split + [math.cos(b) * r * rng.uniform(0.6, 0.8), h * rng.uniform(0.3, 0.5), math.sin(b) * r * 0.6]
+            limbs.append(([split, split + (tip - split) * 0.55 + [0, -0.2, 0], tip], 0.7, 0.35))
+            crowns.append((tip + [0, r * 0.15, 0], r * rng.uniform(0.48, 0.58), 0.86))
+    return trunk, g, limbs, crowns
+
+
+def puff_tree(M, x, z, h=6.0, r=4.0, y=0.0, leaves=PUFF_GREEN, bark=BARK, light=(-0.55, 0.72, 0.42), rng=None,
+              accent=None, stripes=False, droop=0.0, knot=None, form=None):
+    """[h]: where the crown sits above [y]; [r]: the crown's radius; [form]: one of TREE_FORMS (by chance when
+    not given), which shapes its trunk and limbs and so where its leaf puffs grow. Each crown's big puffs give its
+    shape; its surface is many small leaf clusters, each with its own light, so it reads as foliage, not a ball.
+    [accent]: a few blossoms or fruit (colours) on the sunny side; [stripes]: a birch's dark marks; [droop] 0-1:
+    clusters hanging from the rim in strands (a blossom or willow tree); [knot]: a hollow in the trunk."""
+    rng = rng or np.random.default_rng(int(abs(x * 31 + z * 7)) + 5)
+    form = form or TREE_FORMS[int(rng.integers(len(TREE_FORMS)))]
+    L = np.array(light, float)
+    L /= np.linalg.norm(L)
+    reach = r * (2.9 if form in ('sweep', 'gnarled') else 2.4)
+    sl = _local(M, (x - reach, y - 0.5, z - reach), (x + reach, y + h + r * 2.3, z + reach))
+    Xs, Ys, Zs = M.X[sl], M.Y[sl], M.Z[sl]
+    free = M.m[sl] == 0
+    trunk, girth, limbs, crowns = _skeleton(form, x, y, z, h, r, rng)
+    # ---- each crown: a big puff, a ring round it a little lower, one on top, squashed a touch
+    puffs = []                             # (centre, radius, squash)
+    for (c, s, sq) in crowns:
+        puffs.append((c + [0, s * 0.2 * sq, 0], s, sq))
+        n = int(rng.integers(4, 7)) if s > r * 0.5 else int(rng.integers(2, 4))
+        a0 = rng.uniform(0, math.tau)
+        for k in range(n):
+            a = a0 + k * math.tau / n + rng.uniform(-0.3, 0.3)
+            d = s * rng.uniform(0.7, 0.95)
+            puffs.append((c + [math.cos(a) * d, s * sq * rng.uniform(-0.25, 0.2), math.sin(a) * d * 0.85], s * rng.uniform(0.55, 0.75), sq))
+        if s > r * 0.5:
+            a = rng.uniform(0, math.tau)
+            puffs.append((c + [math.cos(a) * s * 0.35, s * sq * rng.uniform(0.85, 1.05), math.sin(a) * s * 0.3], s * rng.uniform(0.5, 0.65), sq))
+    y_lo = min(c[1] - pr * sq for c, pr, sq in puffs)
+    y_hi = max(c[1] + pr * sq for c, pr, sq in puffs)
+
+    def inside(p, skip=-1):
+        return max((1 - math.sqrt((p[0] - c[0]) ** 2 + ((p[1] - c[1]) / sq) ** 2 + (p[2] - c[2]) ** 2) / pr)
+                   for i, (c, pr, sq) in enumerate(puffs) if i != skip)
+
+    depth = np.full(Xs.shape, -9.0)        # how far inside its puff each voxel is (of its radius): best, second
+    second = np.full(Xs.shape, -9.0)
+    nx, ny, nz = np.zeros(Xs.shape), np.zeros(Xs.shape), np.zeros(Xs.shape)
+    for (c, pr, sq) in puffs:
+        b = _box_in(M, sl, c - [pr, pr * sq, pr] - 0.3, c + [pr, pr * sq, pr] + 0.3)
+        dx, dy, dz = Xs[b] - c[0], (Ys[b] - c[1]) / sq, Zs[b] - c[2]
+        dist = np.sqrt(dx * dx + dy * dy + dz * dz) + 1e-6
+        dep = 1 - dist / pr
+        cur = depth[b]
+        better = dep > cur
+        second[b] = np.where(better, cur, np.maximum(second[b], dep))
+        depth[b] = np.where(better, dep, cur)
+        nx[b], ny[b], nz[b] = np.where(better, dx / dist, nx[b]), np.where(better, dy / dist, ny[b]), np.where(better, dz / dist, nz[b])
+    # ---- the surface: small leaf clusters over each puff (fewer underneath), and strands hanging from the rim
+    clusters = []
+    for i, (c, pr, sq) in enumerate(puffs):
+        for _ in range(int(10 + 34 * (pr / r) ** 2)):
+            u = rng.normal(size=3)
+            u /= np.linalg.norm(u)
+            if u[1] < -0.35 and rng.random() < 0.75:
+                continue
+            p = c + np.array([u[0], u[1] * sq, u[2]]) * pr * rng.uniform(0.82, 0.95)
+            if inside(p, i) > 0.12:
+                continue                                    # buried in a neighbour
+            clusters.append((p, r * rng.uniform(0.15, 0.23), False))
+        if droop > 0 and c[1] < y_lo + (y_hi - y_lo) * 0.5:
+            # curtains from the outer rim, long and tapering, swaying a little outward
+            out = np.array([c[0] - x, 0.0, c[2] - z])
+            far = np.linalg.norm(out) > 0.5
+            out = out / (np.linalg.norm(out) + 1e-6)
+            for _ in range(int(droop * 14 * pr / r + 0.5)):
+                b = math.atan2(out[2], out[0]) + rng.uniform(-1.4, 1.4) if far else rng.uniform(0, math.tau)
+                q = c + np.array([math.cos(b) * pr * 0.9, -pr * sq * 0.25, math.sin(b) * pr * 0.9])
+                if inside(q, i) > 0.2:
+                    continue
+                rc = r * rng.uniform(0.14, 0.18)
+                for k in range(int(rng.integers(2, 3 + int(droop * 3)))):
+                    clusters.append((q.copy(), rc, True))
+                    q = q + [math.cos(b) * rc * 0.12, -rc * 1.15, math.sin(b) * rc * 0.12]
+                    rc *= 0.88
+    cdep = np.full(Xs.shape, -9.0)
+    csec = np.full(Xs.shape, -9.0)
+    cnx, cny, cnz = np.zeros(Xs.shape), np.zeros(Xs.shape), np.zeros(Xs.shape)
+    hang = np.zeros(Xs.shape, bool)
+    for (p, rc, drip) in clusters:
+        b = _box_in(M, sl, p - rc - 0.3, p + rc + 0.3)
+        dx, dy, dz = Xs[b] - p[0], (Ys[b] - p[1]) / 0.9, Zs[b] - p[2]
+        dist = np.sqrt(dx * dx + dy * dy + dz * dz) + 1e-6
+        dep = 1 - dist / rc
+        cd = cdep[b]
+        better = dep > cd
+        csec[b] = np.where(better, cd, np.maximum(csec[b], dep))
+        cdep[b] = np.where(better, dep, cd)
+        cnx[b] = np.where(better, dx / dist, cnx[b])
+        cny[b] = np.where(better, dy / dist, cny[b])
+        cnz[b] = np.where(better, dz / dist, cnz[b])
+        if drip:
+            hang[b] |= dep >= 0
+    crown = ((depth >= 0.1) | (cdep >= 0)) & free
+    # its light: the crown's roundness, each cluster's own, darker low down and in the creases
+    lam = np.clip(nx * L[0] + ny * L[1] + nz * L[2], -1, 1)
+    lc = np.where(cdep >= 0, np.clip(cnx * L[0] + cny * L[1] + cnz * L[2], -1, 1), lam)
+    low = np.clip((Ys - y_lo) / max(0.5, y_hi - y_lo), 0, 1)
+    v = 0.5 + 0.26 * lam + 0.24 * lc
+    v = v * (0.6 + 0.4 * low)
+    v -= 0.2 * np.clip(1 - (depth - second) / 0.22, 0, 1) * (second > -0.2) * (cdep < 0.2)     # between puffs
+    v -= 0.12 * np.clip(1 - (cdep - csec) / 0.35, 0, 1) * (csec > -0.25)                    # between clusters
+    v = np.where((lc > 0.72) & (cdep >= 0) & (cdep < 0.3), v + 0.1, v)                     # a bright lip where light hits
+    v = np.where(hang & (depth < 0.1), 0.32 + 0.3 * lc + 0.2 * low, v)                     # strands, lit at their tips
+    _ramp(M, sl, crown, np.clip(v, 0, 1), leaves, rng, 0.04)
+    if accent:
+        sunny = crown & (lc > 0.4) & (cdep >= 0) & (cdep < 0.25) & (rng.random(Xs.shape) < 0.05)
+        ids = np.array([M.mid(c) for c in accent], np.uint8)
+        sub = M.m[sl]
+        sub[sunny] = ids[rng.integers(0, len(accent), int(sunny.sum()))]
+        M.m[sl] = sub
+    free &= ~crown
+    # ---- the wood: the trunk flaring at its foot, roots, the limbs out to the crowns
+    t0 = (0.3 + 0.075 * r) * girth
+    acc = (np.zeros(Xs.shape, bool), np.full(Xs.shape, -9.0), np.zeros(Xs.shape), np.zeros(Xs.shape), np.zeros(Xs.shape))
+    _limb(M, sl, Xs, Ys, Zs, acc, trunk, t0, t0 * (0.62 if len(limbs) else 0.5))
+    _limb(M, sl, Xs, Ys, Zs, acc, [trunk[0], trunk[0] + [0, 0.5 + 0.4 * girth, 0]], t0 * (1.45 + 0.15 * girth), t0)      # the flare
+    for k in range(int(rng.integers(3, 5)) + (2 if form == 'gnarled' else 0)):
+        a = rng.uniform(0, math.tau)
+        Lr = t0 * rng.uniform(2.2, 3.4)
+        o = np.array([x, y + 0.45, z])
+        _limb(M, sl, Xs, Ys, Zs, acc, [o, o + [math.cos(a) * Lr * 0.6, -0.3, math.sin(a) * Lr * 0.6],
+                                       o + [math.cos(a) * Lr, -0.65, math.sin(a) * Lr]], t0 * 0.5, t0 * 0.16)
+    for (pts, a, b) in limbs:
+        _limb(M, sl, Xs, Ys, Zs, acc, pts, t0 * a, t0 * b)
+    wood = acc[0] & free
+    # bark: lit on the light's side, darker low down and in its grooves
+    lw = np.clip(acc[2] * L[0] + acc[3] * L[1] + acc[4] * L[2], -1, 1)
+    v = 0.45 + 0.32 * lw + 0.12 * np.clip((Ys - y) / max(h, 1), 0, 1)
+    v -= 0.16 * (np.sin(np.arctan2(acc[4], acc[2]) * 7 + Ys * 0.9) > 0.65)
+    v -= 0.25 * np.clip(1 - (Ys - y) / 0.6, 0, 1)                               # its foot in the grass
+    if stripes:
+        v = np.where(np.sin(Ys * 3.1 + x) > 0.86, 0.02, v)
+    if knot if knot is not None else form == 'gnarled':      # a hollow facing you, low on the trunk
+        ky = y + h * 0.28
+        e = ((Xs - x) / (t0 * 0.5)) ** 2 + ((Ys - ky) / (t0 * 0.8)) ** 2
+        front = Zs > z + t0 * 0.2
+        v = np.where(front & (e < 1.0), -0.2, np.where(front & (e < 1.8), v + 0.18, v))
+    _ramp(M, sl, wood, np.clip(v, 0, 1), bark, rng, 0.04)
+    return crown | wood
+
+
+def puff_tree_model(x, z, h=6.0, r=4.0, y=0.0, res=6, **kw):
+    """a puff tree in its own fine grid (finer than the scene's): its own Model, with the coordinate grids let go
+    once it is built (the mesh needs only the voxels)"""
+    import voxel
+    reach = r * 3.0
+    M = Model((math.floor(x - reach), math.floor(y - 1.5), math.floor(z - reach)),
+              (math.ceil(x + reach), math.ceil(y + h + r * 2.4), math.ceil(z + reach)), [], res=res)
+    puff_tree(M, x, z, h, r, y, **kw)
+    M.X = M.Y = M.Z = None
+    voxel._GRIDS.clear()
+    return M
+
+
 def shift_mask(a, axis, sign=1):
     b = np.zeros_like(a)
     if sign > 0:
