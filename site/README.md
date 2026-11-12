@@ -7,7 +7,7 @@ art rendered from the same voxel pipeline as the game.
 
 | Page | Why it's there |
 |---|---|
-| `index.html` | Landing page: hero with the evolution line and colourway switcher, how it works with a live XP calculator, the three forms, quests and the Market, screenshots, the gentle-play rules, the privacy promise, FAQ and store buttons. |
+| `index.html` | Landing page: the hero over the 3D world, the lore (six chapters the world follows as you scroll), how it works with a live XP calculator, the personality sampler, the three forms and colourway switcher, screenshots, the gentle-play rules, the privacy promise, FAQ and store buttons. |
 | `privacy.html` | Required by the App Store and Google Play, and by HealthKit and Health Connect for any app that reads health data. Includes the Health Connect Limited Use statement. |
 | `terms.html` | Terms of use, including the clauses Apple requires in a custom EULA. |
 | `support.html` | Apple requires a support URL. Covers step syncing, sickness, evolving, new phones, time zones and contact. |
@@ -78,20 +78,24 @@ third-party requests and sets no cookies.
 | Google Play Console | Data safety, delete account URL | `https://<your-domain>/delete-account.html` |
 | Google Play Console | Health apps declaration | Health Connect `READ_STEPS`, used for gameplay |
 
-## Art and screenshots
+## The 3D world, art and screenshots
 
-- `../tools/art/site_art.py` renders the wide hero vista and writes each pet's position to
-  `hero.json`.
-- `../tools/site/make_site_assets.py` exports the WebP sprites, outfits, icons, social card and
-  favicons into `assets/img`.
-- `../tools/site/capture_screens.mjs` stages a nicely progressed pet in the web build and
-  captures the phone screenshots. It needs `puppeteer-core` and `@sparticuz/chromium`, with
-  `web/dist` served on port 8765.
+The night world behind the hero and the lore is `src/scene3d.js` (three.js r160, self-hosted in
+`assets/vendor`; the preview loads it from jsDelivr). It draws the game's own voxel models, exported by
+`../tools/art/site_voxels.py` into `assets/3d`, and follows the reader: s is 1.5 + i when chapter i's card
+is centred. Without WebGL, with reduced motion or Save-Data, the page keeps the posters and the lore's
+Briarback stills (`assets/img/world`). `?world=4.5` holds the story at a point; `?world=snap` follows the
+scroll without easing.
 
 ```bash
-python3 ../tools/art/site_art.py /tmp/site_art
-python3 ../tools/site/make_site_assets.py /tmp/site_art assets/img
+python3 ../tools/art/site_voxels.py                    # assets/3d: the island, the Elder, the Briarback
+python3 ../tools/site/world_assets.py                  # logo, moon, the Elder, icons, the Eggling's habit clips
+node build.mjs host
+node ../tools/site/shoot_world.cjs stills /tmp/stills  # posters, Briarback stills, social card backdrop
+python3 ../tools/site/world_assets.py --stills=/tmp/stills
+node ../tools/site/shoot_world.cjs check /tmp/check    # the page at each chapter, desktop and phone
 ```
 
-Hero pet positions live in `src/site.css` (`.pet.s01` to `.pet.s03`). They come from
-`hero.json`, so update them if you re-render the vista with a different camera.
+`../tools/site/make_site_assets.py` exports the colourway sprites, outfits and icons;
+`../tools/site/capture_screens.mjs` captures the phone screenshots from the web build (it needs
+`puppeteer-core` and `@sparticuz/chromium`, with `web/dist` served on port 8765).

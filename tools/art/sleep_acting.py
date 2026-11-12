@@ -72,8 +72,10 @@ def _frame(args):
     fit = fit_for(stage)
     cam = BC.HERO_CAM[stage]
     out, ov = {}, {}
-    for v in pals:
-        out[v] = charrender.render_char(ch, v, face, cam, fit.w, fit.h, fit=fit).rgba
+    W, H = int(round(fit.w * SHIP)), int(round(fit.h * SHIP))
+    small = lambda a: np.asarray(Image.fromarray(a).resize((W, H), Image.LANCZOS))   # shipped size here: the
+    for v in pals:                                                                      # Elder's full frames ran out of memory
+        out[v] = small(charrender.render_char(ch, v, face, cam, fit.w, fit.h, fit=fit).rgba)
         charrender._quad_cache.clear()
     if wear:
         body = charrender.render_char(ch, 'amber', face, cam, fit.w, fit.h, fit=fit)
@@ -85,7 +87,7 @@ def _frame(args):
             a = np.clip(np.maximum(comb.cov, extra) * 1.05, 0, 1)
             o = comb.rgba.copy()
             o[..., 3] = (a * 255).astype(np.uint8)
-            ov[k] = o
+            ov[k] = small(o)
             charrender._quad_cache.clear()
     charrender._surf_cache.clear()
     return clip, i, out, ov
@@ -97,7 +99,7 @@ def box_of(layers, w, h, pad=2):
     for c in layers:
         m |= c[..., 3] > 3
     ys, xs = np.nonzero(m)
-    k = SHIP
+    k = 1.0           # (the frames come at the shipped size)
     x0, y0 = max(0, int(xs.min() * k) - pad), max(0, int(ys.min() * k) - pad)
     x1, y1 = min(w, int(math.ceil((xs.max() + 1) * k)) + pad), min(h, int(math.ceil((ys.max() + 1) * k)) + pad)
     x1 += (x1 - x0) % 2
@@ -107,7 +109,7 @@ def box_of(layers, w, h, pad=2):
 
 def anim(cells, w, h, box, path):
     x, y, bw, bh = box
-    ims = [Image.fromarray(c).resize((w, h), Image.LANCZOS).crop((x, y, x + bw, y + bh)) for c in cells]
+    ims = [Image.fromarray(c).crop((x, y, x + bw, y + bh)) for c in cells]
     ims[0].save(path, save_all=True, append_images=ims[1:], duration=int(round(1000 / FPS)), loop=0,
                 quality=75, method=6, minimize_size=False, allow_mixed=False)
 

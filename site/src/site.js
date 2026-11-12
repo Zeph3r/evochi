@@ -1,13 +1,99 @@
-// Evochi website: colourway switcher, pet hops, XP calculator, screenshot scroller, copy buttons.
+// Evochi website: lore reveals, the personality sampler, colourway switcher, XP calculator, screenshot scroller, waitlist.
+// (The 3D world behind the hero and the lore is scene3d.js, a module.)
 (function () {
   'use strict';
   var doc = document;
   var $$ = function (sel, root) { return Array.prototype.slice.call((root || doc).querySelectorAll(sel)); };
   var reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  doc.documentElement.classList.add('js');
 
   // Put the store the visitor can actually use first.
   var ua = navigator.userAgent || '';
   if (/android/i.test(ua)) doc.documentElement.classList.add('is-android');
+
+  // ------------------------------------------------------------ the lore: cards rise in as their chapter arrives
+  var cards = $$('.lore-card');
+  if ('IntersectionObserver' in window && !reduced) {
+    var io = new IntersectionObserver(function (es) {
+      es.forEach(function (e) { if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); } });
+    }, { rootMargin: '0px 0px -18% 0px', threshold: 0.15 });
+    cards.forEach(function (c) { io.observe(c); });
+  } else cards.forEach(function (c) { c.classList.add('in'); });
+
+  // the header goes dark while it floats over the night world
+  var head = doc.querySelector('.site-head');
+  var day = doc.querySelector('.daylight');
+  if (head && day) {
+    var night = function () { head.classList.toggle('night', day.getBoundingClientRect().top > head.offsetHeight); };
+    window.addEventListener('scroll', night, { passive: true });
+    window.addEventListener('resize', night);
+    night();
+  }
+
+  // ------------------------------------------------------------ personality (the game's profiles: game/personality/catalog.dart)
+  var TRAITS = [['energy', 'Energy'], ['curiosity', 'Curiosity'], ['boldness', 'Boldness'], ['sociability', 'Sociability'], ['expressiveness', 'Expressiveness']];
+  var CLIP_ALT = {
+    double_hop: 'a happy double hop', happy_wiggle: 'a happy wiggle', bounce_in_place: 'bouncing on the spot', small_hop: 'a small hop',
+    quick_look: 'a quick look round', step_back_then_commit: 'a step back, then a brave step in', careful_peek: 'a careful peek',
+    look_around: 'a slow look around', chin_lift: 'lifting its chin', tilt_then_lean: 'a head tilt, then a lean in', gentle_sway: 'a gentle sway'
+  };
+  var PROFILES = {
+    cautious: { name: 'Cautious', sig: 'step_back_then_commit', sigText: 'the step back, then in',
+      line: 'It checks before it trusts: a step back, a careful peek, then in it goes.',
+      clips: ['careful_peek', 'look_around', 'quick_look', 'chin_lift'],
+      r: { energy: [0.25, 0.5], curiosity: [0.5, 0.9], boldness: [0.05, 0.35], sociability: [0.3, 0.7], expressiveness: [0.4, 0.75] } },
+    lively: { name: 'Lively', sig: 'double_hop', sigText: 'the double hop',
+      line: "It can't keep still: a double hop when something good happens, a wiggle, a quick look round.",
+      clips: ['happy_wiggle', 'bounce_in_place', 'small_hop', 'quick_look'],
+      r: { energy: [0.7, 1], curiosity: [0.4, 0.8], boldness: [0.55, 0.9], sociability: [0.6, 1], expressiveness: [0.65, 1] } },
+    calm: { name: 'Calm', sig: 'tilt_then_lean', sigText: 'the head tilt and lean',
+      line: 'Slow to startle and quick to settle: a tilt of the head, then a lean in to see.',
+      clips: ['gentle_sway', 'look_around', 'chin_lift', 'careful_peek'],
+      r: { energy: [0.1, 0.4], curiosity: [0.55, 0.95], boldness: [0.35, 0.65], sociability: [0.35, 0.75], expressiveness: [0.25, 0.55] } }
+  };
+  var persona = doc.querySelector('[data-persona]');
+  if (persona) {
+    var clipImg = persona.querySelector('[data-persona-clip]');
+    var traitsEl = persona.querySelector('[data-traits]');
+    var cur = 'lively', step = 0;
+    traitsEl.innerHTML = TRAITS.map(function (t) {
+      return '<div><dt>' + t[1] + '</dt><dd role="meter" aria-label="' + t[1] + '" aria-valuemin="0" aria-valuemax="100" data-trait="' + t[0] + '"><i></i></dd></div>';
+    }).join('');
+    var play = function (clip) {
+      clipImg.src = 'assets/img/acting/' + clip + '.webp';   // a fresh src restarts the animation
+      clipImg.alt = 'An Eggling doing ' + CLIP_ALT[clip];
+    };
+    var roll = function (id) {
+      var P = PROFILES[id];
+      cur = id; step = 0;
+      $$('[data-profile]', persona).forEach(function (b) { b.setAttribute('aria-selected', String(b.getAttribute('data-profile') === id)); });
+      persona.querySelector('[data-persona-name]').textContent = P.name;
+      persona.querySelector('[data-persona-line]').textContent = P.line;
+      persona.querySelector('[data-persona-sig]').textContent = P.sigText;
+      TRAITS.forEach(function (t) {
+        var r = P.r[t[0]], v = Math.round(100 * (r[0] + Math.random() * (r[1] - r[0])));
+        var dd = traitsEl.querySelector('[data-trait="' + t[0] + '"]');
+        dd.setAttribute('aria-valuenow', String(v));
+        dd.firstChild.style.width = v + '%';
+      });
+      play(P.sig);
+    };
+    $$('[data-profile]', persona).forEach(function (b) { b.addEventListener('click', function () { roll(b.getAttribute('data-profile')); }); });
+    persona.querySelector('[data-roll]').addEventListener('click', function () {
+      var ids = Object.keys(PROFILES);
+      roll(ids[Math.floor(Math.random() * ids.length)]);
+    });
+    persona.querySelector('.persona-pet').addEventListener('click', function () {
+      var P = PROFILES[cur];
+      play(step % (P.clips.length + 1) === P.clips.length ? P.sig : P.clips[step % (P.clips.length + 1)]);
+      step++;
+    });
+    // warm the cache so a switch is instant
+    persona.addEventListener('pointerenter', function () {
+      Object.keys(CLIP_ALT).forEach(function (c) { var i = new Image(); i.src = 'assets/img/acting/' + c + '.webp'; });
+    }, { once: true });
+    roll('lively');
+  }
 
   // ------------------------------------------------------------ colourways
   var LABELS = { amber: 'Amber', forest: 'Forest', coral: 'Coral', ocean: 'Ocean', amethyst: 'Amethyst', obsidian: 'Obsidian' };
@@ -33,25 +119,6 @@
     }, { once: true });
   });
   try { var saved = localStorage.getItem('evochi.palette'); if (saved && saved !== 'amber') setPalette(saved, false); } catch (e) { /* ignore */ }
-
-  // ------------------------------------------------------------ say hi
-  var chirp = null;
-  $$('.pet').forEach(function (btn) {
-    btn.addEventListener('click', function () {
-      if (!reduced) {
-        btn.classList.remove('hop');
-        void btn.offsetWidth;
-        btn.classList.add('hop');
-      }
-      try {
-        if (!chirp) { chirp = new Audio('assets/chirp.mp3'); chirp.volume = 0.5; }
-        chirp.currentTime = 0;
-        var p = chirp.play();
-        if (p && p.catch) p.catch(function () {});
-      } catch (e) { /* audio unavailable */ }
-    });
-    btn.addEventListener('animationend', function () { btn.classList.remove('hop'); });
-  });
 
   // ------------------------------------------------------------ XP calculator (same rules as the game, config v1)
   var XP = { base: 100, milestones: [{ id: 'm25', r: 0.25, xp: 10 }, { id: 'm50', r: 0.5, xp: 15 }, { id: 'm100', r: 1, xp: 25 }], stretchMax: 20, stretchSpan: 0.5 };

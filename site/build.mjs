@@ -123,14 +123,15 @@ function head(page) {
       '<meta name="twitter:card" content="summary_large_image">');
     if (url) h.push(`<meta property="og:url" content="${url}">`);
     if (siteUrl) h.push(`<meta property="og:image" content="${siteUrl}/assets/img/og-image.jpg">`, '<meta property="og:image:width" content="1200">',
-      '<meta property="og:image:height" content="630">', '<meta property="og:image:alt" content="Evochi: an Eggling, a Juvenile and an Elder on grassy steps in a voxel meadow.">');
+      '<meta property="og:image:height" content="630">', '<meta property="og:image:alt" content="The Evochi logo over a floating island at night, an Elder asleep beside a glowing lantern.">');
     if (cfg.appStoreId) h.push(`<meta name="apple-itunes-app" content="app-id=${esc(cfg.appStoreId)}">`);
     h.push('<link rel="icon" href="assets/img/favicon.ico" sizes="any">', '<link rel="icon" type="image/png" sizes="32x32" href="assets/img/favicon-32.png">',
       '<link rel="apple-touch-icon" href="assets/img/apple-touch-icon.png">', '<link rel="manifest" href="site.webmanifest">');
     h.push('<link rel="preload" href="assets/fonts/nunito-latin-900-normal.woff2" as="font" type="font/woff2" crossorigin>',
       '<link rel="preload" href="assets/fonts/lato-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>');
     if (isIndex) {
-      h.push('<link rel="preload" as="image" href="assets/img/hero/hero-1920.webp" imagesrcset="assets/img/hero/hero-1200.webp 1200w, assets/img/hero/hero-1920.webp 1920w, assets/img/hero/hero-2880.webp 2880w" imagesizes="(max-width: 899px) 190vw, 100vw">');
+      h.push('<link rel="preload" as="image" href="assets/img/world/poster-wide.webp" media="(min-aspect-ratio: 1/1)">',
+        '<link rel="preload" as="image" href="assets/img/world/poster-tall.webp" media="(max-aspect-ratio: 1/1)">');
       const ld = { '@context': 'https://schema.org', '@type': 'MobileApplication', name: 'Evochi', operatingSystem: 'iOS, Android',
         applicationCategory: 'GameApplication', description: page.desc, offers: { '@type': 'Offer', price: '0', priceCurrency: 'USD' } };
       if (siteUrl) ld.image = `${siteUrl}/assets/img/og-image.jpg`;
@@ -142,6 +143,11 @@ function head(page) {
   }
   if (TARGET === 'host' && BETA && cfg.turnstileSiteKey && isIndex) h.push('<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>');
   h.push('<link rel="stylesheet" href="assets/site.css">');
+  if (isIndex) {
+    // the 3D world (scene3d.js) imports 'three': self-hosted on the site, from the CDN in the preview
+    const three = TARGET === 'host' ? './assets/vendor/three.module.min.js' : 'https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.min.js';
+    h.push(`<script type="importmap">{"imports":{"three":"${three}"}}</script>`, '<script type="module" src="assets/scene3d.js"></script>');
+  }
   return h.join('\n');
 }
 
@@ -167,6 +173,21 @@ if (TARGET === 'host') {
 }
 fs.writeFileSync(path.join(OUT, 'assets', 'site.css'), css);
 fs.writeFileSync(path.join(OUT, 'assets', 'site.js'), read('site.js'));
+fs.writeFileSync(path.join(OUT, 'assets', 'scene3d.js'), read('scene3d.js'));
+if (TARGET === 'host') copyDir(path.join(ROOT, 'assets', '3d'), path.join(OUT, 'assets', '3d'));
+else {
+  // the preview host serves no binary files, so the 3D scenes go as base64 text (scene3d.js reads either)
+  const d3 = path.join(OUT, 'assets', '3d');
+  fs.mkdirSync(d3, { recursive: true });
+  const meta = JSON.parse(fs.readFileSync(path.join(ROOT, 'assets', '3d', 'scenes.json'), 'utf8'));
+  for (const sc of Object.values(meta)) {
+    const txt = sc.file.replace(/\.gz$/, '.txt');
+    fs.writeFileSync(path.join(d3, txt), fs.readFileSync(path.join(ROOT, 'assets', '3d', sc.file)).toString('base64'));
+    sc.file = txt;
+  }
+  fs.writeFileSync(path.join(d3, 'scenes.json'), JSON.stringify(meta));
+}
+if (TARGET === 'host') copyDir(path.join(ROOT, 'assets', 'vendor'), path.join(OUT, 'assets', 'vendor'));
 
 const header = read('partials/header.html');
 const footer = read('partials/footer.html');
