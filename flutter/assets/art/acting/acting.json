@@ -867,5 +867,137 @@
     }
    }
   }
+ },
+ "s03": {
+  "fps": 10,
+  "scale": 7.0,
+  "ground": [
+   258.1,
+   359.7
+  ],
+  "clips": {
+   "sleep_hold": {
+    "n": 30,
+    "end": 3.0,
+    "box": [
+     67,
+     106,
+     332,
+     308
+    ],
+    "lift": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "fps": 10,
+    "loop": true,
+    "body": {
+     "amber": "acting_sleep_hold_s03_amber.webp",
+     "forest": "acting_sleep_hold_s03_forest.webp",
+     "coral": "acting_sleep_hold_s03_coral.webp",
+     "ocean": "acting_sleep_hold_s03_ocean.webp",
+     "amethyst": "acting_sleep_hold_s03_amethyst.webp",
+     "obsidian": "acting_sleep_hold_s03_obsidian.webp"
+    },
+    "wear": {
+     "leaf_scarf": "acting_sleep_hold_s03_wear_leaf_scarf.webp",
+     "blue_scarf": "acting_sleep_hold_s03_wear_blue_scarf.webp",
+     "tiny_crown": "acting_sleep_hold_s03_wear_tiny_crown.webp",
+     "golden_crest_crown": "acting_sleep_hold_s03_wear_golden_crest_crown.webp",
+     "explorer_hat": "acting_sleep_hold_s03_wear_explorer_hat.webp",
+     "butterfly_clip": "acting_sleep_hold_s03_wear_butterfly_clip.webp",
+     "red_backpack": "acting_sleep_hold_s03_wear_red_backpack.webp",
+     "explorer_pack": "acting_sleep_hold_s03_wear_explorer_pack.webp",
+     "reward_windtrail_mantle": "acting_sleep_hold_s03_wear_reward_windtrail_mantle.webp"
+    }
+   },
+   "sleep_wake": {
+    "n": 26,
+    "end": 2.5,
+    "box": [
+     68,
+     22,
+     372,
+     388
+    ],
+    "lift": [
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0,
+     0.0
+    ],
+    "fps": 10,
+    "loop": false,
+    "body": {
+     "amber": "acting_sleep_wake_s03_amber.webp",
+     "forest": "acting_sleep_wake_s03_forest.webp",
+     "coral": "acting_sleep_wake_s03_coral.webp",
+     "ocean": "acting_sleep_wake_s03_ocean.webp",
+     "amethyst": "acting_sleep_wake_s03_amethyst.webp",
+     "obsidian": "acting_sleep_wake_s03_obsidian.webp"
+    },
+    "wear": {
+     "leaf_scarf": "acting_sleep_wake_s03_wear_leaf_scarf.webp",
+     "blue_scarf": "acting_sleep_wake_s03_wear_blue_scarf.webp",
+     "tiny_crown": "acting_sleep_wake_s03_wear_tiny_crown.webp",
+     "golden_crest_crown": "acting_sleep_wake_s03_wear_golden_crest_crown.webp",
+     "explorer_hat": "acting_sleep_wake_s03_wear_explorer_hat.webp",
+     "butterfly_clip": "acting_sleep_wake_s03_wear_butterfly_clip.webp",
+     "red_backpack": "acting_sleep_wake_s03_wear_red_backpack.webp",
+     "explorer_pack": "acting_sleep_wake_s03_wear_explorer_pack.webp",
+     "reward_windtrail_mantle": "acting_sleep_wake_s03_wear_reward_windtrail_mantle.webp"
+    }
+   }
+  }
  }
 }

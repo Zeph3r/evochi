@@ -34,7 +34,7 @@ SHIP = 0.5                                   # px per voxel shipped, relative to
 # clip: (from, to, loops) in the sleep cycle's seconds; the hold is one breath (3 s), ending short of its first frame
 CLIPS = {'sleep_settle': (1.0, 7.8, False), 'sleep_hold': (7.8, 10.8, True), 'sleep_wake': (11.3, 13.8, False)}
 # the hero's frame grown so the lying body, turned any way round, never leaves it: (left, top, right, bottom) px
-GROW = {2: (110, 40, 110, 40), 3: (150, 40, 150, 50)}
+GROW = {2: (170, 100, 170, 40), 3: (240, 110, 240, 50)}
 # turn_body's grid for each stage (design units: lo xyz, hi xyz)
 PAD = {2: (-46, -14, -46, 46, 40, 46), 3: (-66, -14, -66, 66, 52, 66)}
 
@@ -126,6 +126,11 @@ def main(out, stages=(2, 3), only=None, jobs=2, preview=False):
         w, h = int(round(fit.w * SHIP)), int(round(fit.h * SHIP))
         ground = (project_px(cam, fit, [list(build(stage).anchors['ground'])])[0] * SHIP).round(1).tolist()
         st = meta.setdefault(sid, {})
+        if st.get('ground') and only:      # a grown frame moves the ground: keep the clips not re-rendered in place
+            dx, dy = ground[0] - st['ground'][0], ground[1] - st['ground'][1]
+            for name, c in st.get('clips', {}).items():
+                if name.startswith('sleep_') and name not in only:
+                    c['box'] = [int(round(c['box'][0] + dx)), int(round(c['box'][1] + dy))] + c['box'][2:]
         st.update({'fps': FPS, 'scale': fit.scale * SHIP, 'ground': ground})
         st.setdefault('clips', {})
         for clip, (t0, t1, loops) in CLIPS.items():
