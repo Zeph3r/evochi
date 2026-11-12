@@ -205,6 +205,10 @@ def render(out, stage, palette='amber', fps=10, mane='petal'):
     for i in range(n):
         t = i / fps
         pose, face, turn, circ, walk, what = frame_at(stage, t, P)
+        fpath = os.path.join(fdir, f'frame_{i:04d}.png')
+        if os.path.exists(fpath) and i < n - 1 and os.path.exists(os.path.join(fdir, f'frame_{i + 1:04d}.png')):
+            frames.append(Image.open(fpath).convert('RGBA'))   # (a run picked up where it stopped)
+            continue
         ch = build_pose(stage, pose, walk, mane)
         yaw = base_yaw + turn
         cam = Camera(yaw=yaw, pitch=PITCH)
@@ -215,7 +219,7 @@ def render(out, stage, palette='amber', fps=10, mane='petal'):
         fit = Fit(scale, cx + off[0] - gx, cy + off[1] - gy, W, H)
         o = render_char(ch, palette, face, cam, W, H, fit=fit, light=light_for(yaw))
         img = compose(o.rgba, (cx + off[0], cy + off[1]), what, t, stage)
-        img.save(os.path.join(fdir, f'frame_{i:04d}.png'))
+        img.save(fpath)
         frames.append(img)
         if i % 10 == 0:
             print(key, i, '/', n, what, flush=True)

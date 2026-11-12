@@ -1106,15 +1106,18 @@ def carry_alt(src, out, fn):
 
 def build(stage: int, res=2, **kw) -> Character:
     if stage == 3 and ELDER_MODEL == 'redesign':
-        # the redesigned Elder. Its mane depends on its colour (elder_guardian.mane_for: Obsidian's petals, the
-        # others' spikes), but a model is built once and drawn in every colour: so unless a mane is asked for
-        # (EVOCHI_ELDER_MANE, mane=), it is built with the spikes and carries the petal version, built when first
-        # drawn in a petal colour (charrender.render_char swaps it in; the frame stays the one fitted to this)
-        from elder_guardian import build_elder_guardian, PETAL_VARIANTS
+        # the redesigned Elder. Its mane depends on its colour (elder_guardian.mane_for; since 11 Nov every colour
+        # wears the petals), but a model is built once and drawn in every colour: so unless a mane is asked for
+        # (EVOCHI_ELDER_MANE, mane=), it is built with the mane most colours wear and carries the other, built when
+        # first drawn in a colour that wears it (charrender.render_char swaps it in; the frame stays the one fitted
+        # to this)
+        from elder_guardian import build_elder_guardian, PETAL_VARIANTS, VARIANTS_ALL
         if 'mane' in kw or os.environ.get('EVOCHI_ELDER_MANE'):
             return build_elder_guardian(res, **kw)
-        ch = build_elder_guardian(res, mane='classic', **kw)
-        ch.alt = {v: Lazy(lambda: build_elder_guardian(res, mane='petal', **kw)) for v in PETAL_VARIANTS}
+        others = [v for v in VARIANTS_ALL if v not in PETAL_VARIANTS]
+        ch = build_elder_guardian(res, mane='petal', **kw)
+        if others:
+            ch.alt = {v: Lazy(lambda: build_elder_guardian(res, mane='classic', **kw)) for v in others}
         return ch
     return {1: build_eggling, 2: build_juvenile, 3: build_elder}[stage](res, **kw)
 

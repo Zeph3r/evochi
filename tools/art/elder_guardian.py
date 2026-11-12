@@ -24,14 +24,16 @@ from characters import (Character, Frame, HeadView, MATS, _lerp_z, egg_mask, sur
                         two_tone, spike, fluff)
 import os
 
-# The mane: 'petal' (the Obsidian Elder's crystal petals) or 'classic' (every other colour: the original Elder's
-# crystalline spikes, carried over onto this head). The geometry does not know its colour, so the exports pick it:
-# EVOCHI_ELDER_MANE in the environment, or mane= directly; manes_for(variant) says which a colour wears.
-PETAL_VARIANTS = ('obsidian',)
+# The mane: 'petal' (crystal petals, every colour since 11 Nov 2026: the Obsidian's look, asked for on all of
+# them) or 'classic' (the original Elder's crystalline spikes, carried over onto this head; kept for a render
+# with EVOCHI_ELDER_MANE=classic or mane='classic'). The geometry does not know its colour, so the exports pick
+# it: mane_for(variant) says which a colour wears.
+VARIANTS_ALL = ('amber', 'forest', 'coral', 'ocean', 'amethyst', 'obsidian')
+PETAL_VARIANTS = VARIANTS_ALL
 
 
 def mane_for(variant):
-    return 'petal' if variant in PETAL_VARIANTS else 'classic'
+    return os.environ.get('EVOCHI_ELDER_MANE') or ('petal' if variant in PETAL_VARIANTS else 'classic')
 
 
 def _unit(v):
@@ -286,7 +288,7 @@ def build_elder_guardian(res=2, feet=None, lo_y=-1, head=None, tail=0.0, head_ro
     #   form      faceted (diamond section, each rolled a little differently, so facets catch the light apart),
     #             thick at the root and blunt at the tip: chunky and friendly rather than sharp
     #   face      every root sits behind the head's centre, so nothing crosses the face; the cheek ones frame it
-    mane = mane or os.environ.get('EVOCHI_ELDER_MANE', 'classic')
+    mane = mane or os.environ.get('EVOCHI_ELDER_MANE', 'petal')
     if mane == 'classic':
         # the original Elder's mane (characters.build_elder): big angular spikes radiating up and back from the
         # head, their roots hidden in tufts; placed from that head's centre and size onto this one's
