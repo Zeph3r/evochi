@@ -197,11 +197,21 @@ def curl_body(ch, curl=0.0, radius=14.0, z_from=None, side=1, pad=4):
         nx, nz = rot(x - cx, -(d - L), phi_max)
         return (cx + nx, y, zs + nz)
 
-    grow = int(math.ceil(R + L)) + pad
-    lo_u = np.floor(M.lo / M.res).astype(int) - np.array([grow, 0, grow])
-    hi_u = np.ceil(M.hi / M.res).astype(int) + np.array([grow, 0, grow])
+    # the new grid: just big enough for where the filled voxels land (the bend carries the back round and out)
+    P = (idx + M.lo) / M.res
+    Pz = P[:, 2]
+    d = np.clip(zs - Pz, 0, None)
+    arc = d <= L
+    ang = np.where(arc, d / R, phi_max)
+    ex = np.where(arc, 0.0, -(d - L))
+    dx0 = P[:, 0] - cx
+    nx = dx0 * np.cos(ang) - s * ex * np.sin(ang)
+    nz = s * dx0 * np.sin(ang) + ex * np.cos(ang)
+    bent = np.stack([np.where(Pz >= zs, P[:, 0], cx + nx), P[:, 1], np.where(Pz >= zs, Pz, zs + nz)], 1)
+    lo_u = np.floor(bent.min(0)).astype(int) - pad
+    hi_u = np.ceil(bent.max(0)).astype(int) + pad
     N = Model(tuple(lo_u), tuple(hi_u), M.mats[1:], res=M.res)
-    Q = np.stack([N.X, N.Y, N.Z], -1).reshape(-1, 3).astype(np.float64)
+    Q = np.stack([N.X, N.Y, N.Z], -1).reshape(-1, 3).astype(np.float32)
     X, Y, Z = Q[:, 0], Q[:, 1], Q[:, 2]
     dx, dz = X - cx, Z - zs
     r = np.sqrt(dx * dx + dz * dz)

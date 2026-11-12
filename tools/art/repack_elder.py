@@ -26,7 +26,7 @@ def main(stage, src, art):
     entry = man['chars'][sid]
     C = os.path.join(src, 'characters')
     w, h = entry['w'], entry['h']
-    frames = [Image.open(os.path.join(C, f'item_{k}_{slot}_{sid}_left3q.png')).resize((w, h), Image.LANCZOS) for k, slot in WEARABLES.items()]
+    frames = [Image.open(os.path.join(C, f'item_{k}_{WEARABLES[k][0]}_{sid}_left3q.png')).resize((w, h), Image.LANCZOS) for k in WEARABLES]
     A, rects = atlas(frames, 4)
     name = f'chars/{sid}_overlays.webp'
     webp(A, os.path.join(art, name), 90)
