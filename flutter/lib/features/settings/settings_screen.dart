@@ -17,6 +17,7 @@ import '../../game/engine.dart' as g;
 import '../caravan/caravan_screen.dart';
 import '../onboarding/cinematic_screen.dart';
 import '../shared/widgets.dart';
+import '../title/title_screen.dart';
 import 'cast_lab.dart';
 import 'personality_lab.dart';
 import 'report_problem.dart';
@@ -317,6 +318,8 @@ class SettingsScreen extends StatelessWidget {
                   EvochiButton(label: 'Open the personality lab', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => openPersonalityLab(context)),
                   const SizedBox(height: 6),
                   EvochiButton(label: 'Open the cast showcase', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => openCastLab(context)),
+                  const SizedBox(height: 6),
+                  EvochiButton(label: 'Preview the start screen', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => previewTitleScreen(context)),
                   const SizedBox(height: 12),
                   const Text('Home Tales', style: EvochiText.cardTitle),
                   const Text('Garden, Cottage, Kitchen, Apothecary and Skills.', style: EvochiText.caption),

@@ -77,6 +77,23 @@ music, and the encounter UI after the Encounter UI Redesign board. Before that: 
 discoveries, the Trail Guild, encounters and companions). README.md covers the project, the art
 pipeline and how to build.
 
+## The start screen (built 11 Nov, not yet the app's first screen)
+
+`features/title/title_screen.dart` is the environment production sheet's start screen: sky, stars and moon,
+drifting clouds, far hills with flickering village lights, the lake with the moon's shimmer, the Village itself
+across the water (its own voxels, rendered from afar), the floating island with the sleeping Elder (a 20-frame
+breathing loop, petal mane) and the props in front of her, fireflies, a shooting star, the logo and "Tap to
+begin". Everything animated is one CustomPainter on one clock, gradients for every glow (no blur). The art is
+`assets/art/title/` from `tools/art/title_layers.py` (its `--only=preview` draws the composed screen as a PNG,
+and `LAYOUT` there is the layout the app reads from `title.json`, so composition is tuned asset-side). The logo
+is `assets/brand/evochi_logo.svg` (Pixelify Sans Bold lettering, `tools/art/logo_font.py`).
+
+- Settings > Developer tools > "Preview the start screen" shows it. It is not in the onboarding flow: the
+  onboarding chat owns `RootGate` / `IntroGate` / Welcome; mounting it is `TitleScreen(onBegin: ...)` ahead of
+  Welcome (and the old voxel `wordmark_evochi.webp` can give way to `titles/logo.webp` there).
+- The island and the Elder are flat renders. The Blender title loop (PC, `scene/title_scene.py`) can replace
+  them with the same contract: `island.webp`, `island_front.webp`, `elder_sleep.webp` strip + `title.json`.
+
 ## The onboarding cinematic (in progress)
 
 The Fading Paths cold open and the beats after it (README: "The onboarding cinematic"). What's there:

@@ -38,6 +38,7 @@ flutter:
     - assets/art/trails/
     - assets/art/icons/
     - assets/art/titles/
+    - assets/art/title/ # the start screen's layers (tools/art/title_layers.py)
     - assets/art/village/
     - assets/art/village/walk/
     - assets/art/trail/ # the Old Trail: Flint's sprite and faces (tools/art/flint_walk.py)
