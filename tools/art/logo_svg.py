@@ -38,6 +38,14 @@ FONT = {
 GAP = 2        # units between letter faces: each letter's own outline, the outlines just meeting
 DEPTH = 2      # the extrusion, in units
 LETTER_H = 9
+ACCENT = 1.0   # the crystal, sprouts and sparkles, relative to 9-unit letters
+
+
+def set_font(font, letter_h, gap, depth):
+    """letterforms from elsewhere (logo_font.py: a pixel font's outlines snapped to a grid)"""
+    global FONT, LETTER_H, GAP, DEPTH, ACCENT
+    FONT, LETTER_H, GAP, DEPTH = font, letter_h, gap, depth
+    ACCENT = letter_h / 9.0
 
 
 # ---- pixel geometry: sets of unit cells (x, y; y down) traced into SVG paths -------------------------------
@@ -125,8 +133,8 @@ def letters(word):
 def bevel(F):
     """the lit edges (no cell above, or none to the left) and the shaded ones (the bottom row of the letter's
     lowest strokes), on the face"""
-    hi = {(x, y) for x, y in F if (x, y - 1) not in F or (x - 1, y) not in F}
-    lo = {(x, y) for x, y in F if (x, y + 1) not in F and y >= LETTER_H - 2} - hi
+    hi = {(x, y) for x, y in F if (x, y - 1) not in F}
+    lo = {(x, y) for x, y in F if (x, y + 1) not in F and y >= LETTER_H - max(2, round(2 * ACCENT))} - hi
     return hi, lo
 
 
@@ -145,6 +153,32 @@ def filled(cells):
     return {(x, y) for x in range(x0, x1 + 1) for y in range(y0, y1 + 1)} - outside
 
 
+def span_fill(cells):
+    """each row filled from its leftmost cell to its rightmost: the letter as a block"""
+    rows = {}
+    for x, y in cells:
+        lo, hi = rows.get(y, (x, x))
+        rows[y] = (min(lo, x), max(hi, x))
+    return {(x, y) for y, (lo, hi) in rows.items() for x in range(lo, hi + 1)}
+
+
+def corner_cuts(cells):
+    """one unit off each end of the runs along the bottom row of [cells]"""
+    ymax = max(y for _, y in cells)
+    cut = set()
+    xs = sorted(x for x, y in cells if y == ymax)
+    runs, start = [], None
+    for a, b in zip(xs, xs[1:] + [None]):
+        start = a if start is None else start
+        if b != a + 1:
+            runs.append((start, a))
+            start = None
+    for a, b in runs:
+        if b - a + 1 >= 4:
+            cut |= {(a, ymax), (b, ymax)}
+    return cut
+
+
 def word_layers(word, depth=DEPTH):
     """the cell sets of each group for the word: faces, highlights, shadows, outlines, extrusion, extrusion shade"""
     L, width = letters(word)
@@ -154,11 +188,14 @@ def word_layers(word, depth=DEPTH):
         h, l = bevel(F)
         hi |= h
         lo |= l
-        R = dilate(F)
-        rings |= R
-        # the extrusion: the letter's silhouette (holes filled) carried down, plus one row under every
-        # overhang inside it (a bar's underside, seen from a little above)
-        ext |= sweep(filled(R), depth) | (shift(R, 0, 1) - R)
+        R = dilate(F) - F
+        # no outline in a one-unit slot between two strokes (the slab shows through it instead)
+        R = {(x, y) for x, y in R if not ((x, y - 1) in F and (x, y + 1) in F) and not ((x - 1, y) in F and (x + 1, y) in F)}
+        rings |= R | F
+        # the extrusion: the letter as a block (its outlined rows spanned, so its counters and mouths show it)
+        # carried down by [depth]
+        E = sweep(span_fill(R | F), depth)
+        ext |= E - corner_cuts(E)          # a unit off its bottom corners: a notch where neighbours meet
     # the espresso: each letter's ring, and a line round the outside of the extrusion only
     extrusion = ext - rings
     outline = (rings - faces) | (dilate(extrusion) - extrusion - rings)
@@ -189,19 +226,19 @@ def facets(rows):
     return out
 
 
-CRYSTAL_C = ['....##....', '....##....', '...####...', '...####...', '..######..', '..######..', '.########.',
-             '.########.', '.########.', '.########.', '.########.', '..######..', '..######..', '...####...']
+CRYSTAL_C = ['.....##.....', '....####....', '...######...', '...######...', '..########..', '..########..', '.##########.',
+             '.##########.', '.##########.', '.##########.', '..########..', '..########..', '...######...']
 CRYSTAL_L = ['##......', '###.....', '####....', '.####...', '.#####..', '..#####.', '..######', '...#####', '....####', '.....###']
 CRYSTAL_R = [row[::-1] for row in CRYSTAL_L]
-SPROUT = ['lll.......lll', 'llgg.....ggll', '.lggg...gggl.', '..gggg.gggg..', '...gggkggg...', '....gkkkg....',
-          '.....kkk.....', '......k......', '......k......', '......k......', '......k......']
+SPROUT = ['llll.....llll', 'llggg...gggll', '.lgggg.gggg..', '..ggggggggg..', '...gggkggg...', '....gkkkg....',
+          '.....kkk.....', '.....kkk.....', '......k......', '......k......']
 SPARK = sprite(['..#..', '..#..', '#####', '..#..', '..#..'])
 SPARK_S = sprite(['.#.', '###', '.#.'])
 
 
 def crystal_paths(path, P, ox, oy, scale=1.0):
     """the cluster: side crystals first, then the centre over them; each outlined, then faceted"""
-    parts = [(CRYSTAL_L, -5.0, 4.0), (CRYSTAL_R, 7.0, 4.0), (CRYSTAL_C, 0.0, 0.0)]
+    parts = [(CRYSTAL_L, -5.0, 3.0), (CRYSTAL_R, 9.0, 3.0), (CRYSTAL_C, 0.0, 0.0)]
     s = []
     for rows, dx, dy in parts:   # each crystal's outline, with a base below it (its own small extrusion)
         cells = sprite(rows)
@@ -239,8 +276,9 @@ def logo_svg(word='EVOCHI', unit=16, groups=GROUPS, depth=DEPTH, sprouts_on=(0, 
     P = dict(PAL)
     if mono:
         P = {k: mono for k in P}
-    top = 8.0 if 'amber-crystal' in groups else (5.0 if 'green-sprouts' in groups else 0.0)
-    side = 3.0 if 'decorative-sparkles' in groups else 0.0
+    A = ACCENT
+    top = (8.5 if 'amber-crystal' in groups else (5.0 if 'green-sprouts' in groups else 0.0)) * A
+    side = 3.0 * A if 'decorative-sparkles' in groups else 0.0
     ox, oy = 2 + pad + side, 1 + top + pad
     W = (width + 4 + 2 * pad + 2 * side) * unit
     H = (LETTER_H + 2 + depth + top + 2 * pad) * unit
@@ -265,19 +303,20 @@ def logo_svg(word='EVOCHI', unit=16, groups=GROUPS, depth=DEPTH, sprouts_on=(0, 
         for li in sprouts_on:
             ch, F, x0, w = L[li]
             col = x0 + w / 2 if (x0 + int(w / 2), 0) in F else x0 + w - 1      # the stem on a stroke: the middle column, else the right stem
-            cx = col - 6.5 * 0.5
-            s += sprout_paths(path, P, cx, -1.0 - 11 * 0.5 + 1.0)   # the stem's foot one unit into the face
+            cx = col - 6.5 * 0.5 * A
+            s += sprout_paths(path, P, cx, -1.0 - 10 * 0.5 * A + 1.0 * A, A)   # the stem's foot into the face
         g['green-sprouts'] = ''.join(s)
     if 'amber-crystal' in groups:
         xa, wa = L[crystal_over[0]][2], L[crystal_over[0]][3]
         xb, wb = L[crystal_over[1]][2], L[crystal_over[1]][3]
-        cx = (xa + xb + wb) / 2 - 10 * 0.25      # the centre crystal (10 half units wide) over the join
-        g['amber-crystal'] = ''.join(crystal_paths(path, P, cx, -1.0 - 14 * 0.5))
+        cs = A * 1.0                                   # the cluster on the letters' grid
+        cx = (xa + xb + wb) / 2 - 12 * 0.25 * cs       # the centre crystal (12 half units wide) over the join
+        g['amber-crystal'] = ''.join(crystal_paths(path, P, cx, -1.0 - 13 * 0.5 * cs, cs))
     if 'decorative-sparkles' in groups:
         s = []
-        for sp, x, y in ((SPARK, -4.5, -4.0), (SPARK_S, -3.5, 4.0), (SPARK, width + 2.0, -3.5), (SPARK_S, width + 2.5, 5.0),
-                         (SPARK_S, width / 2 - 9.0, -8.0), (SPARK_S, width / 2 + 7.5, -7.5)):
-            s.append(path(sp, P['glow'], 0.5, x, y))
+        for sp, x, y in ((SPARK, -4.5, -4.0), (SPARK_S, -3.5, 4.0), (SPARK, width / A + 2.0, -3.5), (SPARK_S, width / A + 2.5, 5.0),
+                         (SPARK_S, width / A / 2 - 9.0, -8.0), (SPARK_S, width / A / 2 + 7.5, -7.5)):
+            s.append(path(sp, P['glow'], 0.5 * A, x * A, y * A))
         g['decorative-sparkles'] = ''.join(s)
     body = '\n  '.join(f'<g id="{k}">{g[k]}</g>' for k in GROUPS if k in g and g[k])
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W:g} {H:g}" width="{W:g}" height="{H:g}" '
@@ -293,9 +332,9 @@ def icon_svg(unit=16, mono=None):
     def path(cells, fill, unit_scale=1.0, dx=0.0, dy=0.0):
         return f'<path d="{path_d(cells, unit, ox + dx, oy + dy, unit_scale)}" fill="{fill}" fill-rule="evenodd"/>'
 
-    cx, cy = S / 2 - 3.5, 2.5
+    cx, cy = S / 2 - 4.2, 2.5
     parts = [f'<g id="amber-crystal">{"".join(crystal_paths(path, P, cx, cy, 1.4))}</g>',
-             f'<g id="green-sprouts">{"".join(sprout_paths(path, P, cx - 6.5, cy + 8.0, 1.2))}{"".join(sprout_paths(path, P, cx + 7.5, cy + 8.0, 1.2))}</g>']
+             f'<g id="green-sprouts">{"".join(sprout_paths(path, P, cx - 6.0, cy + 9.0, 1.1))}{"".join(sprout_paths(path, P, cx + 8.5, cy + 9.0, 1.1))}</g>']
     W = S * unit
     return (f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W:g} {W:g}" width="{W:g}" height="{W:g}" shape-rendering="crispEdges">\n'
             f'  <title>EVOCHI icon</title>\n  ' + '\n  '.join(parts) + '\n</svg>\n'), W
