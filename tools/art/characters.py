@@ -265,6 +265,12 @@ def curl_body(ch, curl=0.0, radius=14.0, z_from=None, side=1, pad=4):
                               anchors={k: fwd(v) for k, v in ch.anchors.items()})
     if hasattr(ch, 'face_squash'):
         out.face_squash = ch.face_squash
+    # the rig rides along, with the bend on it: worn pieces bend round with the body (wear_pose.curl_map)
+    rig = dict(getattr(ch, 'rig', {}) or {})
+    rig.pop('head', None)                 # (the old grid's masks)
+    rig.pop('fused', None)
+    rig['curl'] = dict(cx=cx, zs=zs, R=R, L=L, phi=phi_max, s=s)
+    out.rig = rig
     return out
 
 

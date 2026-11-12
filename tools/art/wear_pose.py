@@ -60,6 +60,33 @@ def part_map(stage, kind, rig, Q):
     return torso + (head - torso) * w
 
 
+def curl_map(c, P, inverse=False):
+    """characters.curl_body's bend for points P (N, 3): rest to curled, or back (the arc round the axis at
+    (cx, zs), the straight run beyond it, the front untouched)"""
+    cx, zs, R, L, phi_max, s = (float(c[k]) for k in ('cx', 'zs', 'R', 'L', 'phi', 's'))
+    P = np.asarray(P, float)
+    X, Y, Z = P[:, 0], P[:, 1], P[:, 2]
+    if not inverse:
+        d = np.clip(zs - Z, 0, None)
+        arc = d <= L
+        ang = np.where(arc, d / R, phi_max)
+        ex = np.where(arc, 0.0, -(d - L))
+        dx0 = X - cx
+        nx = dx0 * np.cos(ang) - s * ex * np.sin(ang)
+        nz = s * dx0 * np.sin(ang) + ex * np.cos(ang)
+        return np.stack([np.where(Z >= zs, X, cx + nx), Y, np.where(Z >= zs, Z, zs + nz)], 1)
+    dx, dz = X - cx, Z - zs
+    r = np.sqrt(dx * dx + dz * dz)
+    phi = np.arctan2(-dz, -s * dx)
+    in_arc = (phi >= -1e-6) & (phi <= phi_max + 1e-6) & (Z < zs)
+    src_arc = np.stack([cx - s * r, Y, zs - np.clip(phi, 0, phi_max) * R], 1)
+    bx = dx * np.cos(phi_max) + s * dz * np.sin(phi_max)
+    bz = -s * dx * np.sin(phi_max) + dz * np.cos(phi_max)
+    src_str = np.stack([cx + bx, Y, zs - L + bz], 1)
+    out = np.where(in_arc[:, None], src_arc, np.where(((bz < 1e-6) & (Z < zs))[:, None], src_str, P))
+    return out
+
+
 def posed_wear(ch, k):
     """the posed model wearing k"""
     from accessories import WEARABLES
@@ -71,6 +98,9 @@ def posed_wear(ch, k):
     ii = np.argwhere(diff)
     Qr = (ii + Mi.lo + 0.5) / Mi.res
     Pf = part_map(ch.stage, kind, rig, Qr)
+    curl = rig.get('curl')
+    if curl is not None:
+        Pf = curl_map(curl, Pf)
     turn = rig.get('turn')
     if turn is not None:
         A, pt = np.asarray(turn[0], float), np.asarray(turn[1], float)
@@ -83,6 +113,8 @@ def posed_wear(ch, k):
     P = np.stack([M.X[sl], M.Y[sl], M.Z[sl]], -1).reshape(-1, 3)
     if turn is not None:
         P = pt + (P - pt) @ np.linalg.inv(A).T
+    if curl is not None:
+        P = curl_map(curl, P, inverse=True)
     # undo the part's map: a few fixed-point steps (it is near a rigid move)
     Q = P.copy()
     for _ in range(7):
