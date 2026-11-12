@@ -12,7 +12,9 @@ import sys
 from PIL import Image
 
 from accessories import WEARABLES
-from build_web_assets import atlas, webp, VARIANTS, VIEWS, build_thumbs, build_battle
+import glob
+
+from build_web_assets import atlas, webp, VARIANTS, VIEWS, BATTLE_EXPR, build_thumbs
 import repack_hero
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -45,7 +47,36 @@ def main(stage, src, art):
         json.dump(man, f, indent=1)
     print(sid, 'overlays, turnarounds and anchors repacked', flush=True)
     build_thumbs(src, art)
-    build_battle(src, art)
+    battle(stage, src, art)
+
+
+def battle(stage, src, art):
+    """the stage's encounter view (build_web_assets.build_battle packs every stage's, plus the backdrops,
+    creatures, icons and audio, which have not changed)"""
+    sid = 's%02d' % stage
+    mpath = os.path.join(art, 'manifest.json')
+    man = json.load(open(mpath))
+    C = os.path.join(src, 'characters')
+    cmeta = {}
+    for f in sorted(glob.glob(os.path.join(C, 'manifest_battle_*.json'))):
+        cmeta.update(json.load(open(f)))
+    bm = cmeta[sid]['battle']
+    entry = {'w': bm['w'], 'h': bm['h'], 'anchors': bm['anchors'], 'expressions': BATTLE_EXPR, 'atlas': {}}
+    for v in VARIANTS:
+        frames = [Image.open(os.path.join(C, f'evochi_lizard_{sid}_{v}_{e}_battle_f000.png')) for e in BATTLE_EXPR]
+        A, rects = atlas(frames, 4)
+        name = f'chars/{sid}_{v}_battle.webp'
+        webp(A, os.path.join(art, name), 88)
+        entry['atlas'][v] = {'file': name, 'rects': rects}
+    frames = [Image.open(os.path.join(C, f'item_{k}_{WEARABLES[k][0]}_{sid}_battle.png')) for k in WEARABLES]
+    A, rects = atlas(frames, 4)
+    name = f'chars/{sid}_battle_overlays.webp'
+    webp(A, os.path.join(art, name), 90)
+    entry['overlays'] = {'file': name, 'rects': dict(zip(WEARABLES.keys(), rects))}
+    man['chars'][sid]['battle'] = entry
+    with open(mpath, 'w') as f:
+        json.dump(man, f, indent=1)
+    print(sid, 'battle view packed', flush=True)
 
 
 if __name__ == '__main__':
