@@ -22,13 +22,17 @@ const actingBase = '${artBase}acting/';
 /// One clip as exported: its frames, its box in the stage's full cell (each clip is cropped to what it covers),
 /// how high the body is each frame (voxels: the shadow), the body per palette and each worn piece.
 class ActingClipDef {
-  ActingClipDef(this.id, this.n, this.end, this.box, this.lift, this.body, this.wear);
+  ActingClipDef(this.id, this.n, this.end, this.box, this.lift, this.body, this.wear, {this.fps, this.loop = false});
   final String id;
   final int n;
   final double end;
   final Rect box;
   final List<double> lift;
   final Map<String, String> body, wear;
+
+  /// its own rate, when not the stage's (the sleep clips: 10 fps), and whether it loops (asleep, breathing)
+  final double? fps;
+  final bool loop;
 }
 
 /// A stage's clips: their rate, px per voxel (the hero sprite's), where the body stands in the full cell.
@@ -68,6 +72,8 @@ class ActingStage {
         [for (final x in c['lift'] as List) d(x)],
         ((c['body'] as Map?) ?? const {}).cast<String, String>(),
         ((c['wear'] as Map?) ?? const {}).cast<String, String>(),
+        fps: (c['fps'] as num?)?.toDouble(),
+        loop: c['loop'] == true,
       );
     });
     return _stages[stage] = ActingStage(d(st['fps']), d(st['scale']), Offset(d(g[0]), d(g[1])), clips);
@@ -88,8 +94,10 @@ class _Layer {
   int at = -1;
   bool _busy = false, _gone = false;
 
-  void want(int i, int n, VoidCallback onFrame) {
-    if (_busy || _gone || at >= i || at >= n - 1) return;
+  void want(int i, int n, VoidCallback onFrame, {bool loop = false}) {
+    if (_busy || _gone) return;
+    if (loop && at >= n - 1 && i < at) at = -1;   // round again: the codec's next frame is its first
+    if (at >= i || at >= n - 1) return;
     _busy = true;
     codec.getNextFrame().then((f) {
       _busy = false;
@@ -101,7 +109,7 @@ class _Layer {
       image = f.image;
       at++;
       onFrame();
-      if (at < i) want(i, n, onFrame);
+      if (at < i) want(i, n, onFrame, loop: loop);
     }, onError: (Object _) {
       _busy = false;
     });
@@ -146,16 +154,18 @@ class ActingPlayer {
     }
   }
 
-  double get duration => def.n / stage.fps;
+  double get fps => def.fps ?? stage.fps;
+  double get duration => def.n / fps;
+  bool get loops => def.loop;
 
-  /// the frame for [t] s into the clip (frames only go forward)
-  int frameAt(double t) => (t * stage.fps).floor().clamp(0, def.n - 1);
+  /// the frame for [t] s into the clip (frames only go forward; a looping clip goes round)
+  int frameAt(double t) => def.loop ? (t * fps).floor() % def.n : (t * fps).floor().clamp(0, def.n - 1);
 
   /// asks for the frame for [t]; [onFrame] when a new one is decoded
   void advance(double t, VoidCallback onFrame) {
     _frame = frameAt(t);
     for (final l in _layers) {
-      l.want(_frame, def.n, onFrame);
+      l.want(_frame, def.n, onFrame, loop: def.loop);
     }
   }
 

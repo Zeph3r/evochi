@@ -33,6 +33,26 @@ void main() {
     }
   });
 
+  test('the Juvenile and the Elder sleep: the circle and the curl, one breath looping at its own rate, the wake', () {
+    for (final sid in ['s02', 's03']) {
+      final st = (j[sid] as Map?)?.cast<String, dynamic>();
+      expect(st, isNotNull, reason: '$sid has acting clips');
+      final c = (st!['clips'] as Map).cast<String, dynamic>();
+      for (final name in ['sleep_settle', 'sleep_hold', 'sleep_wake']) {
+        final k = (c[name] as Map?)?.cast<String, dynamic>();
+        expect(k, isNotNull, reason: '$sid $name');
+        expect((k!['body'] as Map).length, 6, reason: '$sid $name: every colour');
+        expect((k['wear'] as Map).keys, isNotEmpty, reason: '$sid $name: the worn pieces');
+        expect(k['fps'], 10);
+        for (final f in [...(k['body'] as Map).values, ...(k['wear'] as Map).values]) {
+          expect(File('assets/art/acting/$f').existsSync(), isTrue, reason: f as String);
+        }
+      }
+      expect((c['sleep_hold'] as Map)['loop'], isTrue);
+      expect((c['sleep_settle'] as Map)['loop'], isNot(isTrue));
+    }
+  });
+
   test('the signatures play at hatching from what is drawn', () {
     for (final prof in profiles.keys) {
       final p = generatePersonality(3, profile: prof);

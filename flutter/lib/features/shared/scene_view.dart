@@ -154,6 +154,10 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
   ActingPlayer? _player;
   Duration _playStart = Duration.zero;
   int _playReq = 0;
+  // asleep: its sleep clips where its stage has them (the Juvenile's and the Elder's circle, curl, breathing and
+  // wake), 'settle' -> 'hold' (looping) while it sleeps, 'wake' when it is woken
+  bool _wasSleeping = false, _sleepSeen = false;
+  String? _sleepPhase;
   ui.Image? _atlas, _overlays, _heart, _star;
 
   @override
@@ -194,8 +198,13 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
     final e = AssetManifest.instance!.char(p.stage);
     _acting = null;
     _stop();
+    _sleepSeen = false;
     ActingStage.load(p.stage).then((s) {
-      if (mounted && widget.config.pet?.stage == p.stage) _acting = s;
+      if (!mounted || widget.config.pet?.stage != p.stage) return;
+      _acting = s;
+      // already asleep when its clips arrive (back to the Nest, a new stage): asleep in its curl at once
+      final q = widget.config.pet;
+      if (q != null && q.sleeping && q.status != PetStatus.dead && _sleepPhase == null) _sleepPlay('sleep_hold', 'hold');
     });
     AtlasCache.load(artBase + e.atlasFile(p.palette)).then((i) {
       if (mounted) setState(() => _atlas = i);
@@ -329,20 +338,76 @@ class _HabitatSceneState extends State<HabitatScene> with SingleTickerProviderSt
     _playReq++;
     _player?.dispose();
     _player = null;
+    _sleepPhase = null;
+  }
+
+  /// Plays one of its sleep clips as [phase]; without the clip (an Eggling, reduced motion) it sleeps as the
+  /// still sprite with its sleepy face, as before.
+  void _sleepPlay(String clip, String phase) {
+    final p = widget.config.pet;
+    final st = _acting;
+    _stop();
+    if (p == null || st == null || widget.config.reducedMotion || !st.clips.containsKey(clip)) return;
+    _sleepPhase = phase;
+    final req = ++_playReq;
+    // only the worn pieces the clip has frames for: the sleep clips carry none yet, so it sleeps bare rather
+    // than not lying down at all (the pieces come back as it wakes)
+    final def = st.clips[clip]!;
+    final worn = p.equipped.where((k) => def.wear.containsKey(k)).toList();
+    ActingPlayer.open(st, clip, p.palette, worn).then((pl) {
+      if (pl == null || !mounted || req != _playReq) {
+        pl?.dispose();
+        if (req == _playReq) _sleepPhase = null;
+        return;
+      }
+      _player = pl;
+      _playStart = _t;
+      _reaction = null;
+      pl.advance(0, () => _repaint.value++);
+    });
+  }
+
+  /// falling asleep and waking: the sleep clips on the transitions
+  void _sleepTick() {
+    final p = widget.config.pet;
+    final sleeping = p != null && p.sleeping && p.status != PetStatus.dead;
+    if (!_sleepSeen) {   // the first look: already asleep means asleep in its curl, not lying down again
+      _sleepSeen = true;
+      _wasSleeping = sleeping;
+      if (sleeping && _sleepPhase == null) _sleepPlay('sleep_hold', 'hold');
+      return;
+    }
+    if (sleeping == _wasSleeping) return;
+    _wasSleeping = sleeping;
+    if (sleeping) {
+      _sleepPlay('sleep_settle', 'settle');
+    } else if (_sleepPhase != null) {
+      final pl = _player;
+      final u = pl == null ? 0.0 : (_t - _playStart).inMicroseconds / 1e6;
+      // woken before it had lain down: it just stands up; otherwise the stir and the push up
+      if (_sleepPhase == 'settle' && u < 6.0) {
+        _stop();
+      } else {
+        _sleepPlay('sleep_wake', 'wake');
+      }
+    }
   }
 
   void _advance() {
+    _sleepTick();
     final pl = _player;
     if (pl == null) return;
-    if (!_canAct) return _stop();
+    if (!_canAct && _sleepPhase == null) return _stop();
     if (!pl.ready) {
       _playStart = _t; // it starts from its first frame
       return;
     }
     final u = (_t - _playStart).inMicroseconds / 1e6;
-    if (u > pl.duration + 0.05) {
+    if (!pl.loops && u > pl.duration + 0.05) {
+      final phase = _sleepPhase;
       _stop();
       _reaction = null;
+      if (phase == 'settle') _sleepPlay('sleep_hold', 'hold');   // lain down: asleep, breathing, until woken
       return;
     }
     _reaction = null; // the clip's own face now
@@ -659,6 +724,11 @@ class _PetPainter extends CustomPainter {
     final a = e.anchor('ground');
     final head = Offset(ground.dx + (e.anchor('head_top').dx - a.dx) * scale, ground.dy - up + (e.anchor('head_top').dy - a.dy) * scale);
     _paintParticles(canvas, head, e.h * scale);
+    // asleep in its curl: its zs rise from where its head lies, lower than when it stands
+    final p = state.widget.config.pet!;
+    if (p.sleeping && state._sleepPhase == 'hold' && !state.widget.config.reducedMotion) {
+      _drawZ(canvas, state._t.inMicroseconds / 1e6, head.translate(0, e.h * scale * 0.3));
+    }
   }
 
   void _paintParticles(Canvas canvas, Offset head, double hpx) {
