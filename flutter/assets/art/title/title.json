@@ -88,7 +88,7 @@
  "logo": {
   "file": "logo.webp",
   "w": 760,
-  "h": 265
+  "h": 356
  },
  "px": 6,
  "scale": 2,
@@ -200,5 +200,53 @@
   "logo_w": 0.72,
   "logo_y": 0.055,
   "plank_y": 0.865
- }
+ },
+ "ornaments": {
+  "sparkle_large_left": {
+   "file": "orn_sparkle_large_left.webp",
+   "w": 71,
+   "h": 72
+  },
+  "sparkle_medium": {
+   "file": "orn_sparkle_medium.webp",
+   "w": 55,
+   "h": 52
+  },
+  "sparkle_small": {
+   "file": "orn_sparkle_small.webp",
+   "w": 35,
+   "h": 36
+  },
+  "sparkle_large_right": {
+   "file": "orn_sparkle_large_right.webp",
+   "w": 70,
+   "h": 72
+  }
+ },
+ "sparkles": [
+  [
+   "sparkle_large_left",
+   -0.075,
+   0.42,
+   0.0
+  ],
+  [
+   "sparkle_large_right",
+   1.01,
+   0.42,
+   2.1
+  ],
+  [
+   "sparkle_medium",
+   0.265,
+   -0.02,
+   1.0
+  ],
+  [
+   "sparkle_small",
+   0.72,
+   0.02,
+   3.4
+  ]
+ ]
 }

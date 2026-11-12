@@ -42,6 +42,8 @@ class TitleArt {
       final e = n == 'island' || n == 'front' || n == 'elder' ? (j['island'] as Map)[n] : j[n];
       files[n] = (e as Map)['file'] as String? ?? '$n.webp';
     }
+    // the logo's sparkles (the asset pack's ornaments), each its own layer
+    ((j['ornaments'] as Map?) ?? const {}).forEach((k, v) => files[k as String] = (v as Map)['file'] as String);
     final images = <String, ui.Image?>{};
     for (final e in files.entries) {
       try {
@@ -152,7 +154,7 @@ class _TitleScreenState extends State<TitleScreen> with SingleTickerProviderStat
               )
             : ValueListenableBuilder<double>(
                 valueListenable: _clock,
-                builder: (_, t, __) => CustomPaint(painter: TitlePainter(art, t), size: Size.infinite),
+                builder: (ctx, t, __) => CustomPaint(painter: TitlePainter(art, t, reducedMotion: MediaQuery.of(ctx).disableAnimations), size: Size.infinite),
               ),
       ),
     );
@@ -161,9 +163,12 @@ class _TitleScreenState extends State<TitleScreen> with SingleTickerProviderStat
 
 /// The whole scene at time [t] seconds. Pure: the same art and time paint the same picture.
 class TitlePainter extends CustomPainter {
-  TitlePainter(this.art, this.t);
+  TitlePainter(this.art, this.t, {this.reducedMotion = false});
   final TitleArt art;
   final double t;
+
+  /// the system's reduced-motion setting: the sparkles hold still
+  final bool reducedMotion;
 
   static const skyTop = Color(0xFF1B1540), skyMid = Color(0xFF2B2360), skyLow = Color(0xFF4A3F82), horizonCol = Color(0xFF6E5A9A);
   static const lakeTop = Color(0xFF34306F), lakeBottom = Color(0xFF1A1842);
@@ -538,11 +543,28 @@ class TitlePainter extends CustomPainter {
   // ---- the logo and the plank ----
   void _logo(Canvas c, double w, double h) {
     final im = art.images['logo'];
-    final lw = w * art.lay('logo_w', 0.72);
-    final bob = 3 * math.sin(t * 2 * math.pi / 4.4);
+    final lw = math.min(w * art.lay('logo_w', 0.72), 420.0);   // its own proportions, never wider than a phone's safe width
     if (im == null) return;
     final lh = lw * im.height / im.width;
-    c.drawImageRect(im, Rect.fromLTWH(0, 0, im.width.toDouble(), im.height.toDouble()), Rect.fromLTWH(((w - lw) / 2).roundToDouble(), (h * art.lay('logo_y', 0.055) + bob).roundToDouble(), lw, lh), Paint()..filterQuality = FilterQuality.medium);
+    final r = Rect.fromLTWH(((w - lw) / 2).roundToDouble(), (h * art.lay('logo_y', 0.055)).roundToDouble(), lw, lh);
+    c.drawImageRect(im, Rect.fromLTWH(0, 0, im.width.toDouble(), im.height.toDouble()), r, Paint()..filterQuality = FilterQuality.medium);
+    // the sparkles round it, each twinkling on its own (held still under reduced motion)
+    final orn = art.sub('ornaments');
+    final spots = (art.j['sparkles'] as List?) ?? const [];
+    for (final sp in spots) {
+      final l = sp as List;
+      final name = l[0] as String;
+      final im2 = art.images[name];
+      final o = (orn[name] as Map?)?.cast<String, dynamic>();
+      if (im2 == null || o == null) continue;
+      final ow = (o['w'] as num).toDouble() * 0.5, oh = (o['h'] as num).toDouble() * 0.5;
+      final phase = (l[3] as num).toDouble();
+      final tw = reducedMotion ? 1.0 : 0.55 + 0.45 * (0.5 + 0.5 * math.sin(t * 1.9 + phase));
+      final sc = reducedMotion ? 1.0 : 0.92 + 0.08 * math.sin(t * 1.3 + phase * 1.7);
+      final cx = r.left + r.width * (l[1] as num).toDouble(), cy = r.top + r.height * (l[2] as num).toDouble();
+      c.drawImageRect(im2, Rect.fromLTWH(0, 0, im2.width.toDouble(), im2.height.toDouble()),
+          Rect.fromCenter(center: Offset(cx, cy), width: ow * sc, height: oh * sc), Paint()..filterQuality = FilterQuality.medium..color = Colors.white.withValues(alpha: tw));
+    }
   }
 
   void _plank(Canvas c, double w, double h) {

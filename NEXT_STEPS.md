@@ -86,7 +86,11 @@ breathing loop, petal mane) and the props in front of her, fireflies, a shooting
 begin". Everything animated is one CustomPainter on one clock, gradients for every glow (no blur). The art is
 `assets/art/title/` from `tools/art/title_layers.py` (its `--only=preview` draws the composed screen as a PNG,
 and `LAYOUT` there is the layout the app reads from `title.json`, so composition is tuned asset-side). The logo
-is `assets/brand/evochi_logo.svg` (Pixelify Sans Bold lettering, `tools/art/logo_font.py`).
+is the approved logo asset pack's PNG (`assets/brand/logo_pack/`, 12 Nov): `art/title/logo.webp` (the clean
+variant, its four sparkles separate layers twinkling round it), `art/titles/wordmark_evochi.webp` (its letters
+alone, the drop-in for every header: Nest, Shop, onboarding), `art/titles/logo_evochi_primary.webp` (sparkles
+baked) and `art/titles/mark_evochi.webp` (the crystal mark). `assets/brand/evochi_logo.svg` is the vector rebuild
+of the same design (Pixelify Sans Bold lettering, `tools/art/logo_font.py`) for anything that needs paths.
 
 - Settings > Developer tools > "Preview the start screen" shows it. It is not in the onboarding flow: the
   onboarding chat owns `RootGate` / `IntroGate` / Welcome; mounting it is `TitleScreen(onBegin: ...)` ahead of

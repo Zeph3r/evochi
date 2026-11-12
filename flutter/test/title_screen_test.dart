@@ -13,7 +13,9 @@ TitleArt fakeArt() => TitleArt({
       'lily': {'w': 42, 'h': 30},
       'village': {'file': 'village.webp', 'w': 708, 'h': 276, 'lights': [[100, 200], [300, 210]], 'ground': 240.0},
       'layout': {'horizon': 0.6, 'moon': [0.22, 0.3, 0.055], 'island_w': 0.7, 'island_bottom': 0.56, 'village_x': 0.74, 'logo_w': 0.72, 'logo_y': 0.055, 'plank_y': 0.865},
-      'logo': {'file': 'logo.webp', 'w': 760, 'h': 308},
+      'logo': {'file': 'logo.webp', 'w': 760, 'h': 356},
+      'ornaments': {'sparkle_small': {'file': 'orn_sparkle_small.webp', 'w': 35, 'h': 36}},
+      'sparkles': [['sparkle_small', 0.72, 0.02, 3.4], ['sparkle_medium', 0.26, -0.02, 1.0]],
       'island': {
         'island': {'file': 'island.webp', 'w': 900, 'h': 700},
         'front': {'file': 'island_front.webp'},

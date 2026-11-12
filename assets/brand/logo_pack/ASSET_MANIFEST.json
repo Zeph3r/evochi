@@ -1,0 +1,214 @@
+{
+  "pack": "Evochi Logo Asset Pack",
+  "format_note": "PNG raster assets, not editable SVG",
+  "assets": [
+    {
+      "path": "assets/game-ready/icon_128w.png",
+      "width": 128,
+      "height": 113,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "e1e09a93d48b16ccd45061e36f4a0fc641aec8a853c0e7ef2c9dcae9aa54b6ac"
+    },
+    {
+      "path": "assets/game-ready/icon_256w.png",
+      "width": 256,
+      "height": 226,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "e2a1f0fc599d32d262d48e77f9d2df2a4b59ffcc3499f66f5d7040acab34ea1e"
+    },
+    {
+      "path": "assets/game-ready/icon_512w.png",
+      "width": 512,
+      "height": 453,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "7369a03dff7b79fd7f30a52dfb372986591cac832efb8ee36472641706fad2a4"
+    },
+    {
+      "path": "assets/game-ready/icon_trimmed.png",
+      "width": 947,
+      "height": 837,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "64935aae23fd9d29468429309ae7d634114fee474ed39d13589c0dd92c0d916a"
+    },
+    {
+      "path": "assets/game-ready/logo_compact_256w.png",
+      "width": 256,
+      "height": 120,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "db84555a1f05e36daad50025ec467f56ec675343f9996bc924ba1f21ee8160b2"
+    },
+    {
+      "path": "assets/game-ready/logo_compact_384w.png",
+      "width": 384,
+      "height": 180,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "ee87412216f4d3cdec1e9e146931ad8c086c1eac797b3416ceb91224c91dc955"
+    },
+    {
+      "path": "assets/game-ready/logo_compact_512w.png",
+      "width": 512,
+      "height": 240,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "6dd98ecebfef1aa4d4e8585f8b8c18e61abc09ed6767dbfacfc7d33b56eab7e7"
+    },
+    {
+      "path": "assets/game-ready/logo_compact_trimmed.png",
+      "width": 1206,
+      "height": 565,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "82b384134b33e9bce931f4c442d4d7ab06ac9423383f9be3e3818c7edd1f9ddf"
+    },
+    {
+      "path": "assets/game-ready/logo_one_ink_dark.png",
+      "width": 1112,
+      "height": 413,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "efb024e4daf688b53b82e29e11689c8a7c82d74ec0bca4de936d91ca7fed2d5a"
+    },
+    {
+      "path": "assets/game-ready/logo_one_ink_light.png",
+      "width": 1112,
+      "height": 413,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "9eae499d3d20dd5abbeed1e085aadb2d7dd98960b98727d23d832e25632ef972"
+    },
+    {
+      "path": "assets/game-ready/logo_primary_1024w.png",
+      "width": 1024,
+      "height": 394,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "6f321d8420b5ba32c6813d9e338cd1c369ec1ee556055882ed78465fa9299112"
+    },
+    {
+      "path": "assets/game-ready/logo_primary_512w.png",
+      "width": 512,
+      "height": 197,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "e3f467e6c9e32acf346e5ea36a3de75470c03083d9935e41c839feff5586a323"
+    },
+    {
+      "path": "assets/game-ready/logo_primary_768w.png",
+      "width": 768,
+      "height": 295,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "03dadd1c8ff171e1eb28dc79be15d4965e3ec1f51fa3a1cdb97d6fcc961230f2"
+    },
+    {
+      "path": "assets/game-ready/logo_primary_trimmed.png",
+      "width": 1738,
+      "height": 668,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "6cd386f7a1403294d86c0ebf863f4a32568959e26623e863185d42f74753376d"
+    },
+    {
+      "path": "assets/originals/brand_crystal_icon.png",
+      "width": 1254,
+      "height": 1254,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "6f740d9d2da12dc0fe68af71a6a14b9cb55537af905d1e251bb3419d92f59b19"
+    },
+    {
+      "path": "assets/originals/logo_clean_header_variant.png",
+      "width": 2172,
+      "height": 724,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "506e7879af78743f26996ab7ed71695b5c638778ff612046a746d2fbd148f046"
+    },
+    {
+      "path": "assets/originals/logo_primary_with_sparkles.png",
+      "width": 2172,
+      "height": 724,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "dc82697375fd35bd990880d1efb8f86fe9caa8e03bf9c86c5615d4728cec79b7"
+    },
+    {
+      "path": "assets/originals/ornaments_source_strip.png",
+      "width": 2172,
+      "height": 724,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "22af0997eea238d17a3073d4e985484c3cf5ee296fcda637ecbc34c00f28fa70"
+    },
+    {
+      "path": "assets/ornaments/amber_crystal_cluster.png",
+      "width": 344,
+      "height": 267,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "d65038980c7a9a59bd1f6fc214036fc9eddfadf43916bdab662ed29398c0717c"
+    },
+    {
+      "path": "assets/ornaments/sparkle_large_left.png",
+      "width": 87,
+      "height": 136,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "2664735f3730088127e319a85ab40c1d390a4748dde9df84d19187ae1361dcfd"
+    },
+    {
+      "path": "assets/ornaments/sparkle_large_right.png",
+      "width": 215,
+      "height": 136,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "a95737f5051efa82bf60195c5445307afbe41d0f7b35b623e4854cccacc8e975"
+    },
+    {
+      "path": "assets/ornaments/sparkle_medium.png",
+      "width": 160,
+      "height": 70,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "54c842efe1337fc71584411bd2aeee0d439b3014dd7790c47bd11b89c1af8e0d"
+    },
+    {
+      "path": "assets/ornaments/sparkle_small.png",
+      "width": 150,
+      "height": 93,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "ac6056d181bee88f3ee96ca440cacea9deb54d8bb2c955d7de11f4ea8cc14ed1"
+    },
+    {
+      "path": "assets/ornaments/sprout_left.png",
+      "width": 221,
+      "height": 197,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "9628047e07d7d9f1e59f436c26253156229570c3d92816dabb0595c422af8f50"
+    },
+    {
+      "path": "assets/ornaments/sprout_right.png",
+      "width": 195,
+      "height": 197,
+      "format": "PNG",
+      "has_alpha": true,
+      "sha256": "40c8197429439a8652f678a3066359068c9aae9b6ad1a042ded84729b6c68998"
+    },
+    {
+      "path": "reference/evochi_approved_style_reference.png",
+      "width": 1448,
+      "height": 1086,
+      "format": "PNG",
+      "has_alpha": false,
+      "sha256": "0897c1b8107e920d1f79b813064086a3806e125cc34fc38bf616323da91e959b"
+    }
+  ]
+}
