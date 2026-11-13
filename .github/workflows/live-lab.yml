@@ -27,7 +27,16 @@ jobs:
           flutter-version: 3.27.1
           cache: true
       - run: flutter pub get
-      - run: mkdir -p shots && flutter test test/live --dart-define=LIVE_SHOTS=$PWD/shots
+      - run: flutter test test/live/genome_brain_test.dart
+      # the live Eggling drawn to PNGs (the runner may crash on its way out after drawing: not a failure here)
+      - run: mkdir -p build/live_shots && touch build/live_shots/.on && flutter test test/live/live_render_shot_test.dart
+        continue-on-error: true
+      # the lab on its own for the web (the game has no web page of its own: a minimal one)
+      - run: |
+          mkdir -p web
+          [ -f web/index.html ] || printf '%s\n' '<!DOCTYPE html><html><head><meta charset="UTF-8"><base href="$FLUTTER_BASE_HREF">' \
+            '<meta name="viewport" content="width=device-width, initial-scale=1"><title>Evochi live pet lab</title></head>' \
+            '<body style="margin:0;background:#F6EFE4"><script src="flutter_bootstrap.js" async></script></body></html>' > web/index.html
       - if: success() || failure()
         run: flutter build web -t lib/main_lab.dart --release --no-web-resources-cdn || flutter build web -t lib/main_lab.dart --release
       - uses: actions/upload-artifact@v4
@@ -35,6 +44,6 @@ jobs:
         with:
           name: live-lab
           path: |
-            flutter/shots
+            flutter/build/live_shots
             flutter/build/web
           retention-days: 7

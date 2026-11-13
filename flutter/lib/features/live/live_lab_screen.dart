@@ -21,8 +21,14 @@ Future<void> openLiveLab(BuildContext context) =>
     Navigator.of(context).push(MaterialPageRoute<void>(builder: (_) => const LiveLabScreen()));
 
 class LiveLabScreen extends StatefulWidget {
-  const LiveLabScreen({super.key, this.seed});
+  const LiveLabScreen({super.key, this.seed, this.genes, this.demo = const []});
   final int? seed;
+
+  /// genes set by hand over the seed's (0..1)
+  final Map<String, double>? genes;
+
+  /// a scripted showing: (seconds in, what happens: food | object | visitor | pet | breed | egg)
+  final List<(double, String)> demo;
   @override
   State<LiveLabScreen> createState() => _LiveLabScreenState();
 }
@@ -46,7 +52,8 @@ class _LiveLabScreenState extends State<LiveLabScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _seat(Genome.fromSeed(widget.seed ?? 20261112));
+    final g0 = Genome.fromSeed(widget.seed ?? 20261112);
+    _seat(widget.genes == null ? g0 : Genome(g0.seed, {...g0.genes, ...widget.genes!}));
     LiveModel.load('assets/live/eggling').then((m) {
       if (!mounted) return;
       setState(() {
@@ -85,11 +92,30 @@ class _LiveLabScreenState extends State<LiveLabScreen> with SingleTickerProvider
   }
 
   Brain? _maybeBrain;
+  double _clock = 0;
+  int _demoAt = 0;
+
+  void _event(String e) {
+    switch (e) {
+      case 'pet':
+        brain.pet();
+      case 'breed':
+        setState(_breed);
+      case 'egg':
+        setState(() => _seat(Genome.fromSeed(_rng.nextInt(1 << 31))));
+      default:
+        _drop(e);
+    }
+  }
 
   void _tick(Duration now) {
     final dt = ((now - _lastTick).inMicroseconds / 1e6).clamp(0.0, 0.05);
     _lastTick = now;
     if (dt <= 0) return;
+    _clock += dt;
+    while (_demoAt < widget.demo.length && widget.demo[_demoAt].$1 <= _clock) {
+      _event(widget.demo[_demoAt++].$2);
+    }
     brain.update(dt * speed);
     anim.update(dt * speed);
     frame.value++;

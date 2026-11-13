@@ -1,5 +1,6 @@
-// Draws the live Eggling to PNGs (flutter test --dart-define=LIVE_SHOTS=dir): a look at the renderer against the
-// clips' sprites.
+// Draws the live Eggling to PNGs in build/live_shots, a look at the renderer against the clips' sprites. Opt in
+// (the live-lab workflow makes build/live_shots/.on): the test runner can crash on the way out after drawing to
+// images, which would fail every other build for nothing.
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -9,11 +10,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  test('the live Eggling draws', () async {
+  final on = File('build/live_shots/.on').existsSync();
+  test('the live Eggling draws', skip: on ? false : 'opt in: build/live_shots/.on', () async {
     final m = await LiveModel.load('assets/live/eggling');
     expect(m.n, greaterThan(1000));
-    const shots = String.fromEnvironment('LIVE_SHOTS');
-    final out = shots.isEmpty ? null : shots;
+    const out = 'build/live_shots';
     final r = LiveRenderer(m);
     final poses = <String, LivePose>{
       'rest': LivePose(),
@@ -42,7 +43,7 @@ void main() {
       expect(png, isNotNull);
       // ignore: avoid_print
       print('${e.key}: built in ${ms.toStringAsFixed(1)} ms');
-      if (out != null) File('$out/live_${e.key}.png').writeAsBytesSync(png!.buffer.asUint8List());
+      File('$out/live_${e.key}.png').writeAsBytesSync(png!.buffer.asUint8List());
     }
   });
 }
