@@ -1,4 +1,5 @@
-// Draws the live Eggling to PNGs (LIVE_SHOTS=dir): a look at the renderer against the clips' sprites.
+// Draws the live Eggling to PNGs (flutter test --dart-define=LIVE_SHOTS=dir): a look at the renderer against the
+// clips' sprites.
 import 'dart:io';
 import 'dart:ui' as ui;
 
@@ -11,7 +12,8 @@ void main() {
   test('the live Eggling draws', () async {
     final m = await LiveModel.load('assets/live/eggling');
     expect(m.n, greaterThan(1000));
-    final out = Platform.environment['LIVE_SHOTS'];
+    const shots = String.fromEnvironment('LIVE_SHOTS');
+    final out = shots.isEmpty ? null : shots;
     final r = LiveRenderer(m);
     final poses = <String, LivePose>{
       'rest': LivePose(),
@@ -32,8 +34,11 @@ void main() {
       final sw = Stopwatch()..start();
       r.paint(c, const Offset(210, 400), 9.0, e.value, expression: e.key == 'hop' ? 'excited' : 'default');
       final ms = sw.elapsedMicroseconds / 1000;
-      final img = await rec.endRecording().toImage(420, 460);
+      final pic = rec.endRecording();
+      final img = await pic.toImage(420, 460);
       final png = await img.toByteData(format: ui.ImageByteFormat.png);
+      img.dispose();
+      pic.dispose();
       expect(png, isNotNull);
       // ignore: avoid_print
       print('${e.key}: built in ${ms.toStringAsFixed(1)} ms');

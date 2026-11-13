@@ -399,6 +399,5 @@ class LiveRenderer {
       canvas.restore();
     }
     canvas.drawVertices(verts, BlendMode.dst, Paint());
-    verts.dispose();
   }
 }

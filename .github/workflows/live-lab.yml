@@ -27,8 +27,9 @@ jobs:
           flutter-version: 3.27.1
           cache: true
       - run: flutter pub get
-      - run: mkdir -p shots && LIVE_SHOTS=$PWD/shots flutter test test/live
-      - run: flutter build web -t lib/main_lab.dart --release --no-web-resources-cdn || flutter build web -t lib/main_lab.dart --release
+      - run: mkdir -p shots && flutter test test/live --dart-define=LIVE_SHOTS=$PWD/shots
+      - if: success() || failure()
+        run: flutter build web -t lib/main_lab.dart --release --no-web-resources-cdn || flutter build web -t lib/main_lab.dart --release
       - uses: actions/upload-artifact@v4
         if: always()
         with:
