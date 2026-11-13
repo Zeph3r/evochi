@@ -112,6 +112,7 @@ void main() {
       final seen = <String>[];
       for (var k = 0; k < 3; k++) {
         b.drop('object', k.isEven ? 26 : -26, 3);
+        seen.add(b.act.name); // what it chose the moment the thing landed
         seen.addAll(_run(b, 25));
       }
       final i = seen.indexOf('sneak');

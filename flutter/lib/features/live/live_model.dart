@@ -191,9 +191,9 @@ class LiveRenderer {
   /// the rotation (R = Ry(yaw) Rx(pitch) Rz(roll), as characters.head_rotation)
   static List<double> rotation(double pitchDeg, double yawDeg, double rollDeg) {
     final p = pitchDeg * math.pi / 180, y = yawDeg * math.pi / 180, r = rollDeg * math.pi / 180;
-    final rx = [1.0, 0, 0, 0, math.cos(p), math.sin(p), 0, -math.sin(p), math.cos(p)];
-    final ry = [math.cos(y), 0, math.sin(y), 0, 1.0, 0, -math.sin(y), 0, math.cos(y)];
-    final rz = [math.cos(r), math.sin(r), 0, -math.sin(r), math.cos(r), 0, 0, 0, 1.0];
+    final rx = <double>[1, 0, 0, 0, math.cos(p), math.sin(p), 0, -math.sin(p), math.cos(p)];
+    final ry = <double>[math.cos(y), 0, math.sin(y), 0, 1, 0, -math.sin(y), 0, math.cos(y)];
+    final rz = <double>[math.cos(r), math.sin(r), 0, -math.sin(r), math.cos(r), 0, 0, 0, 1];
     return _mul(_mul(ry, rx), rz);
   }
 
@@ -203,14 +203,14 @@ class LiveRenderer {
     final pt = [for (final x in model.meta['turnPivot'] as List) (x as num).toDouble()];
     final sq = pose.squash.clamp(0.4, 2.0), pf = pose.puff;
     final tl = math.tan(pose.lean * math.pi / 180);
-    final s = [pf / math.sqrt(sq), 0.0, 0.0, 0.0, pf * sq, 0.0, 0.0, 0.0, pf / math.sqrt(sq)];
-    final sh = [1.0, 0, 0, 0, 1.0, 0, 0, tl, 1.0];
+    final s = <double>[pf / math.sqrt(sq), 0, 0, 0, pf * sq, 0, 0, 0, pf / math.sqrt(sq)];
+    final sh = <double>[1, 0, 0, 0, 1, 0, 0, tl, 1];
     final a = _mul(sh, s);
     final r = rotation(pose.pitch, pose.yaw, pose.roll);
     final ra = _mul(r, a);
     final out = <_Affine>[];
     for (var k = 0; k < 5; k++) {
-      var off = [0.0, 0.0, 0.0];
+      var off = <double>[0, 0, 0];
       if (_partFoot[k] >= 0) {
         final (dy, dz, dx) = pose.foot(_partFoot[k]);
         off = [_partSide[k] * dx, dy, dz];

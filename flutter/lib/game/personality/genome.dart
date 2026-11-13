@@ -53,13 +53,13 @@ class Genome {
   int score(String g) => (this[g] * 100).round();
 
   /// rolled from an egg's seed: each gene the mean of three rolls (most near the middle), spread back out a
-  /// little so the ends are reachable but rare
+  /// little so the ends are reachable but rare (about one gene in ten past 15 or 85)
   factory Genome.fromSeed(int seed) {
     final r = SeededRandom(seed ^ 0x9E3779B9);
     final g = <String, double>{};
     for (final name in geneNames) {
       final m = (r.next() + r.next() + r.next()) / 3;
-      g[name] = _round((0.5 + (m - 0.5) * 1.8).clamp(0.02, 0.98));
+      g[name] = _round((0.5 + (m - 0.5) * 1.3).clamp(0.02, 0.98));
     }
     return Genome(seed, g);
   }
