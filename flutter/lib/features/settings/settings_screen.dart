@@ -19,6 +19,7 @@ import '../onboarding/cinematic_screen.dart';
 import '../shared/widgets.dart';
 import '../title/title_screen.dart';
 import 'cast_lab.dart';
+import '../live/live_lab_screen.dart';
 import 'personality_lab.dart';
 import 'report_problem.dart';
 
@@ -316,6 +317,8 @@ class SettingsScreen extends StatelessWidget {
                   const Text('Who your Evochi is, what it would do and why, every behaviour and the three profiles side by side.', style: EvochiText.caption),
                   const SizedBox(height: 8),
                   EvochiButton(label: 'Open the personality lab', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => openPersonalityLab(context)),
+                  const SizedBox(height: 6),
+                  EvochiButton(label: 'Open the live pet lab', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => openLiveLab(context)),
                   const SizedBox(height: 6),
                   EvochiButton(label: 'Open the cast showcase', small: true, expand: false, tone: ButtonTone.cream, onPressed: () => openCastLab(context)),
                   const SizedBox(height: 6),

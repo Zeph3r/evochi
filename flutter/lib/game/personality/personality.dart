@@ -107,7 +107,15 @@ class SeededRandom {
   int below(int n) => (next() * n).floor().clamp(0, n - 1);
   T pick<T>(List<T> l) => l[below(l.length)];
 
-  static int _imul(int a, int b) => ((a & 0xFFFFFFFF) * (b & 0xFFFFFFFF)) & 0xFFFFFFFF;
+  /// the low 32 bits of a x b, in pieces small enough to stay exact on the web too (where numbers are doubles)
+  static int _imul(int a, int b) => imul32(a, b);
+}
+
+/// the low 32 bits of a x b (Math.imul, unsigned), the same on every platform
+int imul32(int a, int b) {
+  final ah = (a >> 16) & 0xFFFF, al = a & 0xFFFF;
+  final bh = (b >> 16) & 0xFFFF, bl = b & 0xFFFF;
+  return (al * bl + (((ah * bl + al * bh) & 0xFFFF) << 16)) & 0xFFFFFFFF;
 }
 
 /// A stable 32-bit seed from a string (FNV-1a): an Evochi's own id.
@@ -115,7 +123,7 @@ int seedFrom(String s) {
   var h = 0x811C9DC5;
   for (final c in s.codeUnits) {
     h ^= c;
-    h = (h * 0x01000193) & 0xFFFFFFFF;
+    h = imul32(h, 0x01000193);
   }
   return h;
 }

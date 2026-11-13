@@ -1,0 +1,39 @@
+# The live pet lab (flutter/lib/features/live, lib/main_lab.dart): its tests, the live Eggling drawn to PNGs
+# (test/live/live_render_shot_test.dart), and the lab built for the web on its own, kept as an artifact to try.
+name: Live pet lab
+
+on:
+  push:
+    branches: [main]
+    paths: ['flutter/lib/features/live/**', 'flutter/lib/game/personality/**', 'flutter/assets/live/**',
+            'flutter/test/live/**', 'flutter/lib/main_lab.dart', '.github/workflows/live-lab.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: live-lab-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lab:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: flutter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          flutter-version: 3.27.1
+          cache: true
+      - run: flutter pub get
+      - run: mkdir -p shots && LIVE_SHOTS=$PWD/shots flutter test test/live
+      - run: flutter build web -t lib/main_lab.dart --release --no-web-resources-cdn || flutter build web -t lib/main_lab.dart --release
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: live-lab
+          path: |
+            flutter/shots
+            flutter/build/web
+          retention-days: 7
