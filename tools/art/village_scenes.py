@@ -1002,35 +1002,14 @@ def _skeleton(form, x, y, z, h, r, rng):
     return trunk, g, limbs, crowns
 
 
-def puff_tree(M, x, z, h=6.0, r=4.0, y=0.0, leaves=PUFF_GREEN, bark=BARK, light=(-0.55, 0.72, 0.42), rng=None,
-              accent=None, stripes=False, droop=0.0, knot=None, form=None):
-    """[h]: where the crown sits above [y]; [r]: the crown's radius; [form]: one of TREE_FORMS (by chance when
-    not given), which shapes its trunk and limbs and so where its leaf puffs grow. Each crown's big puffs give its
-    shape; its surface is many small leaf clusters, each with its own light, so it reads as foliage, not a ball.
-    [accent]: a few blossoms or fruit (colours) on the sunny side; [stripes]: a birch's dark marks; [droop] 0-1:
-    clusters hanging from the rim in strands (a blossom or willow tree); [knot]: a hollow in the trunk."""
-    rng = rng or np.random.default_rng(int(abs(x * 31 + z * 7)) + 5)
-    form = form or TREE_FORMS[int(rng.integers(len(TREE_FORMS)))]
-    L = np.array(light, float)
-    L /= np.linalg.norm(L)
-    reach = r * (2.9 if form in ('sweep', 'gnarled') else 2.4)
-    sl = _local(M, (x - reach, y - 0.5, z - reach), (x + reach, y + h + r * 2.3, z + reach))
-    Xs, Ys, Zs = M.X[sl], M.Y[sl], M.Z[sl]
-    free = M.m[sl] == 0
-    trunk, girth, limbs, crowns = _skeleton(form, x, y, z, h, r, rng)
-    # ---- each crown: a big puff, a ring round it a little lower, one on top, squashed a touch
-    puffs = []                             # (centre, radius, squash)
-    for (c, s, sq) in crowns:
-        puffs.append((c + [0, s * 0.2 * sq, 0], s, sq))
-        n = int(rng.integers(4, 7)) if s > r * 0.5 else int(rng.integers(2, 4))
-        a0 = rng.uniform(0, math.tau)
-        for k in range(n):
-            a = a0 + k * math.tau / n + rng.uniform(-0.3, 0.3)
-            d = s * rng.uniform(0.7, 0.95)
-            puffs.append((c + [math.cos(a) * d, s * sq * rng.uniform(-0.25, 0.2), math.sin(a) * d * 0.85], s * rng.uniform(0.55, 0.75), sq))
-        if s > r * 0.5:
-            a = rng.uniform(0, math.tau)
-            puffs.append((c + [math.cos(a) * s * 0.35, s * sq * rng.uniform(0.85, 1.05), math.sin(a) * s * 0.3], s * rng.uniform(0.5, 0.65), sq))
+def _crown(M, sl, Xs, Ys, Zs, free, puffs, r, leaves, L, rng, accent=None, droop=0.0, centre=(0.0, 0.0),
+           cluster=(0.15, 0.23), density=1.0, under=0.75):
+    """paints a crown (or a bush, a pine's tiers) from its big [puffs] [(centre, radius, squash)]: their union
+    gives its shape, small leaf clusters over them its surface ([cluster]: their size, of [r]; [density]: how
+    many; [under]: how many fewer underneath), each cluster lit on its own along the [leaves] ramp, darker low
+    down and in the creases; [droop] hangs strands of clusters from the rim (away from [centre], x and z).
+    Returns the crown's mask (in the slice)."""
+    x, z = centre
     y_lo = min(c[1] - pr * sq for c, pr, sq in puffs)
     y_hi = max(c[1] + pr * sq for c, pr, sq in puffs)
 
@@ -1054,15 +1033,15 @@ def puff_tree(M, x, z, h=6.0, r=4.0, y=0.0, leaves=PUFF_GREEN, bark=BARK, light=
     # ---- the surface: small leaf clusters over each puff (fewer underneath), and strands hanging from the rim
     clusters = []
     for i, (c, pr, sq) in enumerate(puffs):
-        for _ in range(int(10 + 34 * (pr / r) ** 2)):
+        for _ in range(int((10 + 34 * (pr / r) ** 2) * density)):
             u = rng.normal(size=3)
             u /= np.linalg.norm(u)
-            if u[1] < -0.35 and rng.random() < 0.75:
+            if u[1] < -0.35 and rng.random() < under:
                 continue
             p = c + np.array([u[0], u[1] * sq, u[2]]) * pr * rng.uniform(0.82, 0.95)
             if inside(p, i) > 0.12:
                 continue                                    # buried in a neighbour
-            clusters.append((p, r * rng.uniform(0.15, 0.23), False))
+            clusters.append((p, r * rng.uniform(*cluster), False))
         if droop > 0 and c[1] < y_lo + (y_hi - y_lo) * 0.5:
             # curtains from the outer rim, long and tapering, swaying a little outward
             out = np.array([c[0] - x, 0.0, c[2] - z])
@@ -1114,6 +1093,39 @@ def puff_tree(M, x, z, h=6.0, r=4.0, y=0.0, leaves=PUFF_GREEN, bark=BARK, light=
         sub = M.m[sl]
         sub[sunny] = ids[rng.integers(0, len(accent), int(sunny.sum()))]
         M.m[sl] = sub
+    return crown
+
+
+def puff_tree(M, x, z, h=6.0, r=4.0, y=0.0, leaves=PUFF_GREEN, bark=BARK, light=(-0.55, 0.72, 0.42), rng=None,
+              accent=None, stripes=False, droop=0.0, knot=None, form=None):
+    """[h]: where the crown sits above [y]; [r]: the crown's radius; [form]: one of TREE_FORMS (by chance when
+    not given), which shapes its trunk and limbs and so where its leaf puffs grow. Each crown's big puffs give its
+    shape; its surface is many small leaf clusters, each with its own light, so it reads as foliage, not a ball.
+    [accent]: a few blossoms or fruit (colours) on the sunny side; [stripes]: a birch's dark marks; [droop] 0-1:
+    clusters hanging from the rim in strands (a blossom or willow tree); [knot]: a hollow in the trunk."""
+    rng = rng or np.random.default_rng(int(abs(x * 31 + z * 7)) + 5)
+    form = form or TREE_FORMS[int(rng.integers(len(TREE_FORMS)))]
+    L = np.array(light, float)
+    L /= np.linalg.norm(L)
+    reach = r * (2.9 if form in ('sweep', 'gnarled') else 2.4)
+    sl = _local(M, (x - reach, y - 0.5, z - reach), (x + reach, y + h + r * 2.3, z + reach))
+    Xs, Ys, Zs = M.X[sl], M.Y[sl], M.Z[sl]
+    free = M.m[sl] == 0
+    trunk, girth, limbs, crowns = _skeleton(form, x, y, z, h, r, rng)
+    # ---- each crown: a big puff, a ring round it a little lower, one on top, squashed a touch
+    puffs = []                             # (centre, radius, squash)
+    for (c, s, sq) in crowns:
+        puffs.append((c + [0, s * 0.2 * sq, 0], s, sq))
+        n = int(rng.integers(4, 7)) if s > r * 0.5 else int(rng.integers(2, 4))
+        a0 = rng.uniform(0, math.tau)
+        for k in range(n):
+            a = a0 + k * math.tau / n + rng.uniform(-0.3, 0.3)
+            d = s * rng.uniform(0.7, 0.95)
+            puffs.append((c + [math.cos(a) * d, s * sq * rng.uniform(-0.25, 0.2), math.sin(a) * d * 0.85], s * rng.uniform(0.55, 0.75), sq))
+        if s > r * 0.5:
+            a = rng.uniform(0, math.tau)
+            puffs.append((c + [math.cos(a) * s * 0.35, s * sq * rng.uniform(0.85, 1.05), math.sin(a) * s * 0.3], s * rng.uniform(0.5, 0.65), sq))
+    crown = _crown(M, sl, Xs, Ys, Zs, free, puffs, r, leaves, L, rng, accent, droop, (x, z))
     free &= ~crown
     # ---- the wood: the trunk flaring at its foot, roots, the limbs out to the crowns
     t0 = (0.3 + 0.075 * r) * girth

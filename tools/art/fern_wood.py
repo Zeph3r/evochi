@@ -22,11 +22,12 @@ import village_walk as VW
 import village_scenes as VS
 from village_scenes import (HONEY, IRON, OAK, STATE_LIGHT, WALNUT, CPainter, VScene, ball, box, cyl_y, flower_patch, lantern,
                             tree2)
+from village_scenes import _ramp
 from village_trail import boulder, pine, polyline
 from voxel import Model
 
 RES = 2
-PUFF = os.environ.get('FW_TREES', 'puff') == 'puff'     # the storybook puff trees (village_scenes.puff_tree), or the old ones
+STORYBOOK = os.environ.get('FW_STYLE', 'storybook') != 'old'     # the storybook look (storybook.py, puff trees), or the old blocks
 X0, X1, Z0, Z1 = -4.0, 92.0, -64.0, 28.0
 
 GRASS = ['#6FAF52', '#79B85A', '#66A64B', '#82C062']
@@ -256,7 +257,57 @@ def tube(M, pts, r0, r1):
     return m
 
 
+def _arch(S):
+    """the Thicket's way in: two ancient trees leaning together into an arch over the path, roots heaving out
+    of the ground, vines and moss on them; past it the path runs on into the Hollow's dark"""
+    A = Model((ARCH_X - 18, -2, ARCH_Z - 14), (ARCH_X + 18, 22, ARCH_Z + 8), [], res=RES)
+    PA = CPainter(A, 67)
+    trunks = np.zeros(A.m.shape, bool)
+    for s in (-1, 1):
+        bx = ARCH_X + s * ARCH_HALF
+        trunks |= tube(A, [(bx + s * 1.0, -1.0, ARCH_Z), (bx, 4.0, ARCH_Z), (bx - s * 0.8, 7.5, ARCH_Z - 0.3), (ARCH_X + s * 0.8, ARCH_TOP, ARCH_Z - 0.4)], 2.0, 1.2)
+        for k in range(5):                                            # roots
+            a = (k - 2) * 0.55 + (0 if s < 0 else math.pi)
+            tip = (bx + math.cos(a) * 4.0, -0.6, ARCH_Z + math.sin(a) * 3.0 + 1.0)
+            trunks |= tube(A, [(bx, 1.4, ARCH_Z), tip], 0.9, 0.35)
+    PA.fill(trunks, ['#6E4529', '#7A4E2E', '#5E3A24', '#8A5A34'], cell=(0.5, 1.0, 0.5))
+    PA.fill(trunks & (np.sin(A.X * 2.1 + A.Y * 1.3) > 0.7), ['#4A3020', '#3E2718'], cell=0.5)        # deep bark
+    PA.fill(trunks & (A.Y > 1.5) & (np.sin(A.Y * 0.9 + A.X * 0.7 + A.Z) > 0.55), MOSS, cell=0.5)   # moss
+    # the canopy over it: green on the near side, the Hollow's dark creeping into the far side
+    can = np.zeros(A.m.shape, bool)
+    rng2 = np.random.default_rng(5)
+    for _ in range(9):
+        c = np.array([ARCH_X, ARCH_TOP + 1.8, ARCH_Z - 1.0]) + rng2.uniform(-1, 1, 3) * np.array([6.0, 1.8, 2.6])
+        can |= ball(A, c, rng2.uniform(2.6, 3.6), 0.8)
+    can &= A.m == 0
+    PA.fill(can & (A.Z >= ARCH_Z - 1.5), LEAVES[1], cell=1.0)
+    PA.fill(can & (A.Z < ARCH_Z - 1.5), HOLLOW_LEAF, cell=1.0)
+    # vines hanging from the arch, with little glowing flowers (the last of the wood's light)
+    for k in range(14):
+        vx = ARCH_X + rng2.uniform(-ARCH_HALF + 0.8, ARCH_HALF - 0.8)
+        top = ARCH_TOP - 1.2 - abs(vx - ARCH_X) * 0.9
+        L = rng2.uniform(1.5, 4.0)
+        vine = (np.abs(A.X - vx) < 0.3) & (np.abs(A.Z - (ARCH_Z + 0.6)) < 0.3) & (A.Y < top) & (A.Y >= top - L) & (A.m == 0)
+        PA.fill(vine, ['#4F8A3C', '#5E9646', '#3F7A32'], cell=0.5)
+        if k % 4 == 0:
+            PA.fill(box(A, (vx - 0.3, top - L - 0.5, ARCH_Z + 0.3), (vx + 0.3, top - L, ARCH_Z + 0.9)), ['#FFF2B0', '#FFE58A'], cell=9, glow=0.3)
+    # past it: the path into the dark, the Hollow's light low under the tangle, a few violet crystals
+    PA.fill(box(A, (ARCH_X - 3.0, -1.0, ARCH_Z - 13.0), (ARCH_X + 3.0, -0.5, ARCH_Z - 1.0)), ['#2E2836', '#28222F', '#352E3E'], cell=(1.0, 9, 1.0))
+    for (cx_, cz_) in ((ARCH_X - 3.6, ARCH_Z - 4.0), (ARCH_X + 3.4, ARCH_Z - 6.5), (ARCH_X - 2.0, ARCH_Z - 10.0)):
+        for _ in range(4):
+            px_, pz_ = cx_ + rng2.uniform(-0.7, 0.7), cz_ + rng2.uniform(-0.6, 0.6)
+            hgt = rng2.uniform(0.8, 2.0)
+            shard = (np.abs(A.X - px_) < 0.3 * (1 - A.Y / hgt)) & (np.abs(A.Z - pz_) < 0.3) & (A.Y >= -0.5) & (A.Y < hgt)
+            PA.fill(shard & (A.m == 0), HOLLOW, cell=9, glow=0.45)
+    for (lx, lz) in ((ARCH_X - 1.5, ARCH_Z - 7.0), (ARCH_X + 1.5, ARCH_Z - 10.5)):
+        S.lights.append({'type': 'point', 'pos': (lx, 1.4, lz), 'power': 3.0, 'color': (0.62, 0.34, 1.0), 'radius': 0.5})
+    S.lights.append({'type': 'point', 'pos': (ARCH_X, 3.0, ARCH_Z + 4.0), 'power': 1.6, 'color': 3600, 'radius': 1.5})   # a little warm light on its face
+    return A
+
+
 def scene_wood(state='golden'):
+    if STORYBOOK:
+        return scene_wood_storybook(state)
     st = STATE_LIGHT[state]
     S = VScene('village_walk_wood', 1800, 1400, {}, world=st['world'], samples=96, transparent=True, sky=st['sky'])
     S.lights.append({'type': 'sun', **st['sun']})
@@ -342,21 +393,7 @@ def scene_wood(state='golden'):
     # ---- what grows and stands: trees, ferns, flowers, mushrooms, logs, stones
     T = Model((X0, -2, Z0), (X1, 30, Z1), [], res=RES)
     PT = CPainter(T, 53)
-    light = tuple(-c for c in st['sun']['dir'])
     for (kind, x, z, h, r, li) in TREES:
-        if PUFF and kind != 'pine':
-            # the storybook trees: each in its own finer grid, its form and colour by chance (seeded by where it stands)
-            tr = np.random.default_rng(int(abs(x * 131 + z * 71)))
-            if kind == 'birch':
-                kw = dict(form='slender', leaves=VS.PUFF_BIRCH, bark=VS.BARK_BIRCH, stripes=True)
-            elif kind == 'hollow':
-                kw = dict(form=('gnarled', 'oak', 'open')[int(tr.integers(3))], leaves=VS.PUFF_HOLLOW)
-            else:
-                kw = dict(form=VS.TREE_FORMS[int(tr.choice(6, p=[0.24, 0.08, 0.14, 0.12, 0.16, 0.26]))],
-                          leaves=(VS.PUFF_GREEN, VS.PUFF_DEEP, VS.PUFF_SPRING)[li],
-                          accent=['#FFF4D8', '#FFD0DC'] if tr.random() < 0.15 else None)
-            S.models.append((VS.puff_tree_model(x, z, h, r, light=light, rng=tr, **kw), (), {'smooth': 2}))
-            continue
         if kind == 'pine':
             pine(PT, T, x, z, h=h, r=r, y=0.0, rng=rng)
         elif kind == 'birch':
@@ -413,52 +450,221 @@ def scene_wood(state='golden'):
         lantern(S, PT, T, (lx + 1.0, 2.2, lz), s=0.55, lit=True, power=10.0, kelvin=2600, hang_to=3.0)
     S.models.append((T, ()))
 
-    # ---- the Thicket's way in: two ancient trees leaning together into an arch over the path, roots heaving
-    # out of the ground, vines and moss on them; past it the path runs on into the Hollow's dark
-    A = Model((ARCH_X - 18, -2, ARCH_Z - 14), (ARCH_X + 18, 22, ARCH_Z + 8), [], res=RES)
-    PA = CPainter(A, 67)
-    trunks = np.zeros(A.m.shape, bool)
-    for s in (-1, 1):
-        bx = ARCH_X + s * ARCH_HALF
-        trunks |= tube(A, [(bx + s * 1.0, -1.0, ARCH_Z), (bx, 4.0, ARCH_Z), (bx - s * 0.8, 7.5, ARCH_Z - 0.3), (ARCH_X + s * 0.8, ARCH_TOP, ARCH_Z - 0.4)], 2.0, 1.2)
-        for k in range(5):                                            # roots
-            a = (k - 2) * 0.55 + (0 if s < 0 else math.pi)
-            tip = (bx + math.cos(a) * 4.0, -0.6, ARCH_Z + math.sin(a) * 3.0 + 1.0)
-            trunks |= tube(A, [(bx, 1.4, ARCH_Z), tip], 0.9, 0.35)
-    PA.fill(trunks, ['#6E4529', '#7A4E2E', '#5E3A24', '#8A5A34'], cell=(0.5, 1.0, 0.5))
-    PA.fill(trunks & (np.sin(A.X * 2.1 + A.Y * 1.3) > 0.7), ['#4A3020', '#3E2718'], cell=0.5)        # deep bark
-    PA.fill(trunks & (A.Y > 1.5) & (np.sin(A.Y * 0.9 + A.X * 0.7 + A.Z) > 0.55), MOSS, cell=0.5)   # moss
-    # the canopy over it: green on the near side, the Hollow's dark creeping into the far side
-    can = np.zeros(A.m.shape, bool)
-    rng2 = np.random.default_rng(5)
-    for _ in range(9):
-        c = np.array([ARCH_X, ARCH_TOP + 1.8, ARCH_Z - 1.0]) + rng2.uniform(-1, 1, 3) * np.array([6.0, 1.8, 2.6])
-        can |= ball(A, c, rng2.uniform(2.6, 3.6), 0.8)
-    can &= A.m == 0
-    PA.fill(can & (A.Z >= ARCH_Z - 1.5), LEAVES[1], cell=1.0)
-    PA.fill(can & (A.Z < ARCH_Z - 1.5), HOLLOW_LEAF, cell=1.0)
-    # vines hanging from the arch, with little glowing flowers (the last of the wood's light)
-    for k in range(14):
-        vx = ARCH_X + rng2.uniform(-ARCH_HALF + 0.8, ARCH_HALF - 0.8)
-        top = ARCH_TOP - 1.2 - abs(vx - ARCH_X) * 0.9
-        L = rng2.uniform(1.5, 4.0)
-        vine = (np.abs(A.X - vx) < 0.3) & (np.abs(A.Z - (ARCH_Z + 0.6)) < 0.3) & (A.Y < top) & (A.Y >= top - L) & (A.m == 0)
-        PA.fill(vine, ['#4F8A3C', '#5E9646', '#3F7A32'], cell=0.5)
-        if k % 4 == 0:
-            PA.fill(box(A, (vx - 0.3, top - L - 0.5, ARCH_Z + 0.3), (vx + 0.3, top - L, ARCH_Z + 0.9)), ['#FFF2B0', '#FFE58A'], cell=9, glow=0.3)
-    # past it: the path into the dark, the Hollow's light low under the tangle, a few violet crystals
-    PA.fill(box(A, (ARCH_X - 3.0, -1.0, ARCH_Z - 13.0), (ARCH_X + 3.0, -0.5, ARCH_Z - 1.0)), ['#2E2836', '#28222F', '#352E3E'], cell=(1.0, 9, 1.0))
-    for (cx_, cz_) in ((ARCH_X - 3.6, ARCH_Z - 4.0), (ARCH_X + 3.4, ARCH_Z - 6.5), (ARCH_X - 2.0, ARCH_Z - 10.0)):
-        for _ in range(4):
-            px_, pz_ = cx_ + rng2.uniform(-0.7, 0.7), cz_ + rng2.uniform(-0.6, 0.6)
-            hgt = rng2.uniform(0.8, 2.0)
-            shard = (np.abs(A.X - px_) < 0.3 * (1 - A.Y / hgt)) & (np.abs(A.Z - pz_) < 0.3) & (A.Y >= -0.5) & (A.Y < hgt)
-            PA.fill(shard & (A.m == 0), HOLLOW, cell=9, glow=0.45)
-    for (lx, lz) in ((ARCH_X - 1.5, ARCH_Z - 7.0), (ARCH_X + 1.5, ARCH_Z - 10.5)):
-        S.lights.append({'type': 'point', 'pos': (lx, 1.4, lz), 'power': 3.0, 'color': (0.62, 0.34, 1.0), 'radius': 0.5})
-    S.lights.append({'type': 'point', 'pos': (ARCH_X, 3.0, ARCH_Z + 4.0), 'power': 1.6, 'color': 3600, 'radius': 1.5})   # a little warm light on its face
+    A = _arch(S)
     S.models.append((A, ()))
     VW.give_way([G, T, A])
+    S.grade = {'bloom': 0.14, 'vignette': 0.05}
+    return S
+
+
+def scene_wood_storybook(state='golden'):
+    """Fernlight Wood in the storybook look: soft painted ground at a finer grain, a worn path with a wandering
+    edge, shores that slope down to the water, and every growing thing from the storybook kit (storybook.py)
+    and the puff trees, in fine voxels lit as rounded shapes. The same layout as the old build."""
+    import storybook as SB
+    st = STATE_LIGHT[state]
+    S = VScene('village_walk_wood', 1800, 1400, {}, world=st['world'], samples=96, transparent=True, sky=st['sky'])
+    S.lights.append({'type': 'sun', **st['sun']})
+    L = -np.array(st['sun']['dir'], float)
+    L /= np.linalg.norm(L)
+    rng = np.random.default_rng(29)
+    full = (slice(None),) * 3
+
+    # ---- the ground: one height for every spot (sloping down into the pond and the brook), colours painted
+    # in broad soft patches: deeper green under the trees, sunnier on the meadow, the path worn pale down its middle
+    G = Model((X0, -4, Z0), (X1, 1, Z1), [], res=4)
+    X2, Z2 = G.X[:, 0, :], G.Z[:, 0, :]
+    Y3 = G.Y
+    px, pz, rx, rz = POND
+    e = np.sqrt(((X2 - px) / rx) ** 2 + ((Z2 - pz) / rz) ** 2)
+    bq = np.abs(Z2 - brook_z(X2)) / BROOK_W
+    n1, n2, n3 = SB.noise2(X2, Z2, 7.0, 1), SB.noise2(X2, Z2, 2.2, 2), SB.noise2(X2, Z2, 0.8, 3)
+    H = np.minimum(np.where(e < 1.25, -1.0 + np.clip((e - 0.97) / 0.26, 0, 1), 0.0),
+                   np.where(bq < 1.45, -1.0 + np.clip((bq - 0.92) / 0.5, 0, 1), 0.0))
+    wet_p, wet_b = e < 1.0, (bq < 1.0) & ~(e < 1.3)
+    floor = np.where(wet_p | wet_b, -1.5, H)
+    solid = Y3 < floor[:, None, :]
+    surf = solid & (Y3 >= floor[:, None, :] - 0.5)
+
+    def paint(mask2, v2, tones, layer=surf, jit=0.035):
+        _ramp(G, full, layer & mask2[:, None, :], np.broadcast_to(np.clip(v2, 0, 1)[:, None, :], G.m.shape), tones, rng, jit)
+
+    _ramp(G, full, solid & ~surf, np.broadcast_to(np.clip(0.5 + 0.2 * n2, 0, 1)[:, None, :], G.m.shape), SB.EARTH_R[:3], rng, 0.05)
+    shade = np.zeros(X2.shape)
+    for (kind, x, z, h, r, _) in TREES:
+        shade += np.exp(-((X2 - x) ** 2 + (Z2 - z) ** 2) / (r * 1.25) ** 2)
+    shade = np.clip(shade, 0, 1)
+    mx, mz, mrx, mrz = MEADOW
+    meadow = np.clip(1.4 - np.sqrt(((X2 - mx) / mrx) ** 2 + ((Z2 - mz) / mrz) ** 2), 0, 1)
+    dp = SB.seg_dist(X2, Z2, PATH)
+    edge = PATH_W + 0.3 * n3 + 0.18 * n2
+    vg = 0.56 + 0.2 * n1 + 0.09 * n2 - 0.24 * shade + 0.13 * meadow
+    vg = np.where(dp < edge + 0.7, vg - 0.12 * np.clip(1 - (dp - edge) / 0.7, 0, 1), vg)      # trodden in along the path
+    paint(np.ones(X2.shape, bool), vg, SB.GRASS_R)
+    paint(dp < edge, 0.7 - 0.34 * (dp / edge) ** 2 + 0.08 * n2, SB.PATH_R)
+    # the shores: sand down to the pond, earth down to the brook, a darker band of wet grass above
+    paint((e >= 0.97) & (e < 1.13 + 0.06 * n3), 0.45 + 0.3 * n2 + 0.6 * (e - 1.0), SB.SAND_R)
+    paint((e >= 1.13 + 0.06 * n3) & (e < 1.3), vg - 0.15, SB.GRASS_R)
+    paint((bq >= 0.92) & (bq < 1.25 + 0.1 * n3) & ~(e < 1.3), 0.25 + 0.5 * (H + 1.0) + 0.15 * n2, SB.EARTH_R)
+    paint(wet_p | wet_b, 0.3 + 0.2 * n2, SB.EARTH_R[:3])
+    # the water: deep in the middle, lighter toward its edges
+    lay = (Y3 >= -1.5) & (Y3 < -1.0)
+    _ramp(G, full, lay & wet_p[:, None, :], np.broadcast_to(np.clip(0.12 + 0.85 * e ** 2 + 0.06 * n2, 0, 1)[:, None, :], G.m.shape), SB.POND_R, rng, 0.03)
+    _ramp(G, full, lay & wet_b[:, None, :], np.broadcast_to(np.clip(0.2 + 0.75 * bq ** 2 + 0.06 * n2, 0, 1)[:, None, :], G.m.shape), SB.BROOK_R, rng, 0.03)
+    S.models.append((G, (), {'water': SB.POND_R + SB.BROOK_R}))
+
+    # ---- the falls: rounded rocks stepping up behind the pond, mossy on top, water spilling down them in streaks
+    fx_, fz_ = FALLS
+    R = Model((fx_ - 7, -2, fz_ - 6), (fx_ + 7, 8, fz_ + 3), [], res=4)
+    rr = np.random.default_rng(41)
+    for (ox, oz, r, hgt) in ((-3.0, -0.5, 2.6, 3.2), (0.0, -1.2, 3.0, 4.6), (3.2, -0.4, 2.4, 2.8), (1.4, -3.0, 2.8, 6.0), (-2.0, -2.8, 2.4, 5.0)):
+        SB.stone(R, fx_ + ox, fz_ + oz, r, L, rr, y=hgt * 0.45 - r * 0.15, moss=0.66, flat=hgt * 0.575 / r)
+    sheet = (np.abs(R.X - fx_) < 1.2) & (R.Z >= fz_ - 1.0) & (R.Z < fz_ + 0.6) & (R.Y >= -1.0) & (R.Y < 5.6) & (R.m > 0)
+    vs = 0.45 + 0.3 * np.sin(R.X * 6.5 + 1.3 * np.sin(R.Y * 0.7)) + 0.35 * np.clip((R.Y - 4.6) / 1.0, 0, 1) + 0.25 * np.clip(-R.Y / 1.0, 0, 1)
+    _ramp(R, full, sheet, np.clip(vs, 0, 1), SB.FALLS_R, rr, 0.06)
+    S.models.append((R, (), {'smooth': 2, 'water': SB.FALLS_R}))
+
+    # ---- what grows and lies on the ground, at a fine grain
+    D = Model((X0, -2.5, Z0), (X1, 4.0, Z1), [], res=6)
+    for i, (x, z, s, a0) in enumerate(FERNS):
+        ir = np.random.default_rng(1000 + i)
+        if ir.random() < 0.38:
+            acc = [['#C2304A', '#8E2238'], ['#3E5DB8', '#6A86D8'], ['#FFF6F0', '#F7C6D4']][int(ir.integers(3))] if ir.random() < 0.3 else None
+            SB.bush(D, x, z, 0.5 + 0.35 * s, L, ir, accent=acc)
+        else:
+            SB.fern(D, x, z, s * 0.85, a0, L, ir)
+    for i, (kind, x, z, s) in enumerate(BITS):
+        ir = np.random.default_rng(2000 + i)
+        if kind == 'shroom':
+            red = ir.random() < 0.6
+            for k in range(int(ir.integers(1, 4))):
+                SB.shroom(D, x + ir.uniform(-0.7, 0.7), z + ir.uniform(-0.7, 0.7), s * ir.uniform(0.75, 1.15), L, ir, red)
+        elif kind == 'stone':
+            SB.stone(D, x, z, 0.7 + 0.5 * s, L, ir, y=-0.3)
+        elif kind == 'stump':
+            SB.stump(D, x, z, s, L, ir)
+        else:
+            SB.log(D, x, z, s, L, ir)
+        for k in range(int(ir.integers(1, 4))):
+            a = ir.uniform(0, math.tau)
+            SB.tuft(D, x + math.cos(a) * (1.1 + s), z + math.sin(a) * (1.1 + s), ir.uniform(0.6, 0.9), L, ir)
+    fr = np.random.default_rng(31)
+    for k in range(9):
+        cx, cz = mx + fr.uniform(-mrx, mrx) * 0.7, mz + fr.uniform(-mrz, mrz) * 0.7
+        for _ in range(14):
+            a, d = fr.uniform(0, math.tau), math.sqrt(fr.random())
+            SB.flower(D, cx + 2.6 * d * math.cos(a), cz + 2.0 * d * math.sin(a), FLOWERS[int(fr.integers(len(FLOWERS)))], L, fr)
+    for (cx, cz) in ((10.0, 8.0), (26.0, 12.0), (50.0, 6.0), (54.0, -18.0), (28.0, -12.0), (60.0, -34.0), (24.0, -40.0), (80.0, 8.0), (82.0, -24.0), (6.0, -14.0)):
+        for _ in range(7):
+            a, d = fr.uniform(0, math.tau), math.sqrt(fr.random())
+            SB.flower(D, cx + 2.0 * d * math.cos(a), cz + 1.6 * d * math.sin(a), FLOWERS[int(fr.integers(len(FLOWERS)))], L, fr)
+    # grass: tufts spilling over the path's edges, round the trees' feet, through the meadow and the wood
+    tr_ = np.random.default_rng(57)
+    for (ax, az), (bx, bz) in zip(PATH, PATH[1:]):
+        Ls = math.hypot(bx - ax, bz - az)
+        nx_, nz_ = -(bz - az) / Ls, (bx - ax) / Ls
+        for t in np.arange(0, Ls, 0.55):
+            for side in (-1, 1):
+                if tr_.random() < 0.55:
+                    o = PATH_W + tr_.uniform(-0.15, 0.45)
+                    SB.tuft(D, ax + (bx - ax) * t / Ls + nx_ * side * o, az + (bz - az) * t / Ls + nz_ * side * o, tr_.uniform(0.55, 0.95), L, tr_)
+            if tr_.random() < 0.18:
+                o = tr_.uniform(-0.8, 0.8) * PATH_W
+                SB.pebbles(D, ax + (bx - ax) * t / Ls + nx_ * o, az + (bz - az) * t / Ls + nz_ * o, 0.35, int(tr_.integers(1, 4)), L, tr_)
+    for (kind, x, z, h, r, _) in TREES:
+        for k in range(int(tr_.integers(2, 5))):
+            a = tr_.uniform(0, math.tau)
+            d = tr_.uniform(1.1, 2.0) + 0.1 * r
+            SB.tuft(D, x + math.cos(a) * d, z + math.sin(a) * d, tr_.uniform(0.6, 1.0), L, tr_)
+    n = 0
+    while n < 420:
+        x, z = tr_.uniform(X0 + 1, X1 - 1), tr_.uniform(Z0 + 4, Z1 - 1)
+        ee = math.sqrt(((x - px) / rx) ** 2 + ((z - pz) / rz) ** 2)
+        if _near_path(x, z, PATH_W + 0.3) or ee < 1.05 or abs(z - float(brook_z(x))) < BROOK_W * 1.1:
+            continue
+        mm = ((x - mx) / mrx) ** 2 + ((z - mz) / mrz) ** 2 < 1
+        SB.tuft(D, x, z, tr_.uniform(0.5, 0.95) * (1.15 if mm else 1.0), L, tr_)
+        n += 1
+    # the brook: stones in it, tufts on its banks
+    for sx in (3.0, 27.0, 41.0, 58.0, 76.0, 88.0):
+        SB.stone(D, sx, float(brook_z(sx)) + rng.uniform(-1, 1), 0.75, L, rng, y=-1.55, moss=0.55)
+    for _ in range(60):
+        x = tr_.uniform(X0 + 1, X1 - 1)
+        if abs(x - BRIDGE_X) < 3.5:
+            continue
+        side = 1 if tr_.random() < 0.5 else -1
+        SB.tuft(D, x, float(brook_z(x)) + side * BROOK_W * tr_.uniform(1.15, 1.4), tr_.uniform(0.6, 1.0), L, tr_)
+    # the pond: lily pads (some in flower), reeds and cattails round its far edge, pebbles on the sand, foam under the falls
+    lr = np.random.default_rng(73)
+    for _ in range(26):
+        a, d = lr.uniform(0, math.tau), math.sqrt(lr.uniform(0.05, 0.75))
+        SB.lily(D, px + rx * d * math.cos(a), pz + rz * d * math.sin(a), lr.uniform(0.45, 0.8), -1.02, L, lr,
+                bloom=('#F7A8C4', '#FFF2F6', '#F4C7E0')[int(lr.integers(3))] if lr.random() < 0.35 else None)
+    for k in range(22):
+        a = lr.uniform(0, math.tau)
+        if abs(a - math.pi / 2) < 0.75:
+            continue                          # the near shore stays open to look over
+        SB.reeds(D, px + (rx + 0.15) * math.cos(a), pz + (rz + 0.15) * math.sin(a), L, lr)
+    for k in range(30):
+        a = lr.uniform(0, math.tau)
+        f = lr.uniform(1.03, 1.12)
+        if lr.random() < 0.4:
+            SB.pebbles(D, px + rx * f * math.cos(a), pz + rz * f * math.sin(a), 0.4, int(lr.integers(1, 4)), L, lr)
+        else:
+            SB.tuft(D, px + rx * (f + 0.12) * math.cos(a), pz + rz * (f + 0.12) * math.sin(a), lr.uniform(0.6, 1.0), L, lr)
+    SB.foam(D, fx_, fz_ + 1.2, 1.7, 0.7, -1.05, L, lr)
+    S.models.append((D, (), {'smooth': 2}))
+
+    # ---- the made things, as they were: the bridge, the bench by the pond, the sign, the lanterns
+    T = Model((X0, -3, Z0), (X1, 8, Z1), [], res=RES)
+    PT = CPainter(T, 53)
+    X, Y, Z = T.X, T.Y, T.Z
+    bx_, bzc = BRIDGE
+    span = (np.abs(X - bx_) < 2.6) & (np.abs(Z - bzc) < BROOK_W + 1.6)
+    arc = 0.5 + 0.5 * np.cos((Z - bzc) / (BROOK_W + 1.6) * 1.3)
+    deck = span & (Y >= -0.5) & (Y < arc)
+    PT.fill(deck, HONEY, cell=(9, 1, 1.0))
+    PT.fill(deck & ((np.floor((Z - bzc + 20) / 1.0) % 2) == 0), OAK, cell=(9, 1, 1.0))
+    for rx_ in (bx_ - 2.6, bx_ + 2.2):
+        PT.fill((np.abs(Z - bzc) < BROOK_W + 1.6) & (np.abs(X - rx_ - 0.2) < 0.25) & (np.abs(Y - 1.7 - arc) < 0.28), WALNUT, cell=9)
+        for pz_ in (bzc - BROOK_W - 1.4, bzc, bzc + BROOK_W + 1.2):
+            PT.fill(box(T, (rx_, -2.5, pz_ - 0.25), (rx_ + 0.5, 2.3 + 0.5, pz_ + 0.25)), WALNUT, cell=9)
+    bnx, bnz = BENCH
+    PT.fill(((Y - 0.9) ** 2 + (Z - bnz) ** 2 < 0.55 ** 2) & (np.abs(X - bnx) < 2.4), ['#8A5A34', '#7A4E2E'], cell=(1.0, 9, 9))
+    for lx in (bnx - 1.8, bnx + 1.8):
+        PT.fill(box(T, (lx - 0.3, 0, bnz - 0.5), (lx + 0.3, 0.6, bnz + 0.5)), WALNUT, cell=9)
+    sx_, sz_ = SIGN
+    PT.fill(box(T, (sx_ - 0.25, 0, sz_ - 0.25), (sx_ + 0.25, 3.4, sz_ + 0.25)), WALNUT, cell=9)
+    PT.fill(box(T, (sx_ - 2.0, 2.2, sz_ - 0.15), (sx_ + 1.4, 3.4, sz_ + 0.25)), HONEY, cell=(1.0, 9, 9))
+    PT.fill(box(T, (sx_ - 1.6, 2.6, sz_ + 0.2), (sx_ + 1.0, 3.0, sz_ + 0.3)), ['#5E3A24'], cell=9)
+    PT.fill(box(T, (sx_ - 1.4, 3.4, sz_ - 0.1), (sx_ - 0.6, 3.8, sz_ + 0.2)), MOSS, cell=0.5)
+    for (lx, lz) in LANTERNS:
+        PT.fill(box(T, (lx - 0.3, 0, lz - 0.3), (lx + 0.3, 3.0, lz + 0.3)), WALNUT, cell=9)
+        PT.fill(box(T, (lx - 0.3, 3.0, lz - 0.3), (lx + 1.2, 3.3, lz + 0.3)), WALNUT, cell=9)
+        lantern(S, PT, T, (lx + 1.0, 2.2, lz), s=0.55, lit=True, power=10.0, kelvin=2600, hang_to=3.0)
+    S.models.append((T, ()))
+    A = _arch(S)
+    S.models.append((A, ()))
+
+    # ---- the trees: puff trees and tiered pines, each in its own fine grid, their form and colour by chance
+    trees = []
+    for (kind, x, z, h, r, li) in TREES:
+        tr = np.random.default_rng(int(abs(x * 131 + z * 71)))
+        if kind == 'pine':
+            M = SB.own_model(SB.pine, x, z, 2.3 * r, h + 2.0, h, r, L, tr)
+        else:
+            if kind == 'birch':
+                kw = dict(form='slender', leaves=VS.PUFF_BIRCH, bark=VS.BARK_BIRCH, stripes=True)
+            elif kind == 'hollow':
+                kw = dict(form=('gnarled', 'oak', 'open')[int(tr.integers(3))], leaves=VS.PUFF_HOLLOW)
+            else:
+                kw = dict(form=VS.TREE_FORMS[int(tr.choice(6, p=[0.24, 0.08, 0.14, 0.12, 0.16, 0.26]))],
+                          leaves=(VS.PUFF_GREEN, VS.PUFF_DEEP, VS.PUFF_SPRING)[li],
+                          accent=['#FFF4D8', '#FFD0DC'] if tr.random() < 0.15 else None)
+            M = VS.puff_tree_model(x, z, h, r, light=tuple(L), rng=tr, **kw)
+        trees.append(M)
+        S.models.append((M, (), {'smooth': 2}))
+    VW.give_way([G, D, R, T, A] + trees)
     S.grade = {'bloom': 0.14, 'vignette': 0.05}
     return S
 
