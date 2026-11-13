@@ -6,8 +6,11 @@ on:
   push:
     branches: [main]
     paths: ['flutter/lib/features/live/**', 'flutter/lib/game/personality/**', 'flutter/assets/live/**',
-            'flutter/test/live/**', 'flutter/lib/main_lab.dart', '.github/workflows/live-lab.yml']
+            'flutter/test/live/**', 'flutter/lib/main_lab.dart', '.github/workflows/live-lab.yml', 'tools/live/**']
   workflow_dispatch:
+
+permissions:
+  contents: write   # the recordings go to the live-lab-media branch (never main)
 
 concurrency:
   group: live-lab-${{ github.ref }}
@@ -39,6 +42,21 @@ jobs:
             '<body style="margin:0;background:#F6EFE4"><script src="flutter_bootstrap.js" async></script></body></html>' > web/index.html
       - if: success() || failure()
         run: flutter build web -t lib/main_lab.dart --release --no-web-resources-cdn || flutter build web -t lib/main_lab.dart --release
+      # the lab recorded showing a few personalities, pushed to the live-lab-media branch (videos and stills)
+      - name: Record the lab
+        if: success() || failure()
+        run: |
+          sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg > /dev/null
+          mkdir -p /tmp/rec && cd /tmp/rec && npm init -y > /dev/null && npm i -s playwright@1.49.1 && npx playwright install --with-deps chromium > /dev/null
+          (cd $GITHUB_WORKSPACE/flutter/build/web && python3 -m http.server 8765 > /dev/null 2>&1 &)
+          sleep 2
+          node $GITHUB_WORKSPACE/tools/live/record_lab.cjs http://127.0.0.1:8765 /tmp/rec/out
+          cd /tmp/rec/out
+          for f in *.webm; do ffmpeg -y -loglevel error -i "$f" -vf "fps=30,scale=430:-2" -c:v libx264 -pix_fmt yuv420p -crf 23 -preset veryfast "${f%.webm}.mp4" && rm "$f"; done
+          cp $GITHUB_WORKSPACE/flutter/build/live_shots/*.png . 2>/dev/null || true
+          git init -q -b live-lab-media && git add -A
+          git -c user.name='github-actions' -c user.email='actions@github.com' commit -q -m "Live pet lab recordings for ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${GITHUB_REPOSITORY}.git" HEAD:live-lab-media
       - uses: actions/upload-artifact@v4
         if: always()
         with:
